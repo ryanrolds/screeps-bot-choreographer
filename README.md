@@ -7,6 +7,7 @@
 - [x] Sustainably upgrade RCL in tutorial room
 - [x] Scale creep parts based on room capacity
 - [ ] Organize logic and fix how builders and repairers source their energy
+- [ ] Auto-contruct roads when harvester is hauling energy 
 - [ ] Reliably kill hostile in tutorial room
 - [ ] Implement behavior tree 
 - [ ] Migrate creep roles to behavior tree
