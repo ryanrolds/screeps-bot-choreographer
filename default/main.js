@@ -1,4 +1,4 @@
-var creeps = require('process.creeps')
+var creeps = require('manager.creeps')
 
 module.exports.loop = function () {
     // Manage creep composition

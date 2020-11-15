@@ -1,9 +1,9 @@
-const { getEnergy } = require('helpers.energy')
+const { getStoredEnergy } = require('helpers.energy')
 
 var roleDefender = {
     run: function(creep) {
         if (creep.store.getFreeCapacity() > 0) {
-            getEnergy(creep)
+            getStoredEnergy(creep)
             return
         }
 

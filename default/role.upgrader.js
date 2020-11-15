@@ -1,7 +1,15 @@
-const { getEnergy } = require('helpers.energy')
+const { getStoredEnergy } = require('helpers.energy')
+const { numEnemeiesNearby } = require('helpers.proximity')
 
 var roleUpgrader = {
     run: function(creep) {
+        // Not getting near enemies imparative
+        if (numEnemeiesNearby(creep.pos)) {
+            console.log("enemy spotted returning home", creep.name)
+            creep.moveTo(waitingRoom(creep), {visualizePathStyle: {stroke: '#ffffff'}});
+            return
+        }
+
         if(creep.memory.working && creep.store[RESOURCE_ENERGY] == 0) {
             creep.memory.working = false;
             creep.say('🔄 withdraw');
@@ -18,7 +26,7 @@ var roleUpgrader = {
             }
         }
         else {
-			getEnergy(creep)
+			getStoredEnergy(creep)
         }
 	}
 };

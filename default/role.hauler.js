@@ -1,10 +1,9 @@
-const roleBuilder = require('role.builder')
+const { getEnergyFromContainer } = require('helpers.energy')
+const roleUpgrader = require('role.upgrader')
 const { numEnemeiesNearby } = require('helpers.proximity')
-const { getStoredEnergy } = require('helpers.energy')
+const { getFullestContainer } = require('helpers.targets')
 
-const WALL_LEVEL = 1000
-
-var roleRepairer = {
+var roleHauler = {
     run: function(creep) {
         // Not getting near enemies imparative
         if (numEnemeiesNearby(creep.pos)) {
@@ -22,31 +21,25 @@ var roleRepairer = {
 	    }
 
 	    if(creep.memory.working) {
-			var target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
-                filter: (structure) => {
-                    return (
-						(structure.hits < structure.hitsMax && structure.structureType != STRUCTURE_WALL) ||
-						(structure.hits < WALL_LEVEL && structure.structureType === STRUCTURE_WALL)
-					)
-                }
-            });
-			
-            if(target) {
-				let result = creep.repair(target)
+            let target = getFullestContainer(creep)
+
+            if (target) {
+				let result = creep.build(target)
 				if (result != OK) {
-					// console.log(creep.name, "failed repair", result)
+					// console.log(creep.name, "failed build", result)
 				}
 
-                if(result == ERR_NOT_IN_RANGE) {
+                if (result == ERR_NOT_IN_RANGE) {
                     creep.moveTo(target, {visualizePathStyle: {stroke: '#ffffff'}});
                 }
 			} else {
-				roleBuilder.run(creep)
+				roleUpgrader.run(creep)
 			}
 	    } else {
-			getStoredEnergy(creep)
+            //getStoredEnergy(creep)
+            getEnergyFromContainer(creep)
 	    }
 	}
 };
 
-module.exports = roleRepairer;
+module.exports = roleHauler;

@@ -1,11 +1,11 @@
 const { waitingRoom } = require('helpers.move')
 const { numMyCreepsNearby, numEnemeiesNearby } = require('helpers.proximity')
-const { getEnergyTargets } = require('helpers.targets')
+const { getEnergyStorageTargets, getEnergySource } = require('helpers.targets')
 
 const DEFAULT_TTL = 75
 
-module.exports.getEnergy = (creep) => {
-    const sources = getEnergyTargets(creep)
+module.exports.getStoredEnergy = (creep) => {
+    const sources = getEnergyStorageTargets(creep)
     if (sources.length > 0) {
         let result = creep.withdraw(sources[0], RESOURCE_ENERGY)
         if (result != OK) {
@@ -22,7 +22,25 @@ module.exports.getEnergy = (creep) => {
     creep.moveTo(waitingRoom(creep), {visualizePathStyle: {stroke: '#ffffff'}});		
 }
 
-const saturationBox = 5
+module.exports.getEnergyFromSource = (creep) => {
+    const source = getEnergySource(creep)
+    if (!source) {
+        creep.moveTo(waitingRoom(creep), {visualizePathStyle: {stroke: '#ffffff'}});
+        return	
+    }
+
+    let result = creep.harvest(source)
+    if (result != OK) {
+        //console.log(creep.name, "failed withdrawl", result)
+    }
+
+    if (result === ERR_NOT_IN_RANGE) {
+        creep.moveTo(source, {visualizePathStyle: {stroke: '#ffaa00'}});
+    }
+
+    return
+    	
+}
 
 module.exports.resetHarvestTTL = (creep) => {
     creep.memory.ttl = DEFAULT_TTL
