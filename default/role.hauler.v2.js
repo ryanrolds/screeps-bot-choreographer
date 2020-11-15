@@ -86,15 +86,7 @@ const behavior = behaviorTree.SelectorNode(
 
                         let result = creep.transfer(destination, RESOURCE_ENERGY)
                         if (result == ERR_FULL) {
-                            let sink = getEnergyReserveTarget(creep)
-                            if (!sink) {
-                                console.log("failed to pick destiantion", creep.name)
-                                return behaviorTree.FAILURE
-                            }
-
-                            behaviorMovement.setDestination(creep, sink.id)
-
-                            return behaviorTree.RUNNING
+                            return behaviorTree.SUCCESS
                         }
 
                         if (result != OK) {
