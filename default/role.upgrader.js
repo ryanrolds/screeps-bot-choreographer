@@ -14,7 +14,7 @@ var roleUpgrader = {
             creep.memory.working = false;
         }
         
-	    if(!creep.memory.working && creep.store.getFreeCapacity() < 50) {
+	    if(!creep.memory.working && creep.store.getFreeCapacity() == 0) {
 	        creep.memory.working = true;
 	    }
 

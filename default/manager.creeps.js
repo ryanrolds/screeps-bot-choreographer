@@ -4,25 +4,26 @@ const roleBuilder = require('role.builder');
 const roleDefender = require('role.defender');
 const roleRepairer = require('role.repairer');
 const roleHauler = require('role.hauler');
+const roleHaulerV2 = require('role.hauler.v2');
 
 var WORKER_BUILDER = module.exports.WORKER_BUILDER = "builder"
 var WORKER_HARVESTER = module.exports.WORKER_HARVESTER = "harvester"
 var WORKER_UPGRADER = module.exports.WORKER_UPGRADER = "upgrader"
 var WORKER_DEFENDER = module.exports.WORKER_DEFENDER = "defender"
 var WORKER_REPAIRER = module.exports.WORKER_REPAIRER = "repairer"
-var WORKER_HAULER = module.exports.WORKER_HAULER = "repairer"
+var WORKER_HAULER = module.exports.WORKER_HAULER = "hauler"
 
 const workerRoles = {
     [WORKER_HARVESTER]: [CARRY, MOVE, WORK, WORK],
     [WORKER_BUILDER]: [CARRY, MOVE, WORK, WORK],
     [WORKER_UPGRADER]: [CARRY, CARRY, MOVE, WORK],
     [WORKER_DEFENDER]: [TOUGH, TOUGH, TOUGH, MOVE, RANGED_ATTACK],
-    [WORKER_REPAIRER]: [CARRY, MOVE, MOVE, WORK],
+    [WORKER_REPAIRER]: [CARRY, CARRY, MOVE, WORK],
     [WORKER_HAULER]: [CARRY, CARRY, CARRY, MOVE]
 }
 
-const buildOrder = [WORKER_HARVESTER, WORKER_UPGRADER, WORKER_BUILDER,
-    WORKER_REPAIRER, WORKER_HAULER, WORKER_DEFENDER]
+const buildOrder = [WORKER_HAULER, WORKER_HARVESTER, WORKER_UPGRADER, WORKER_BUILDER,
+    WORKER_REPAIRER, WORKER_DEFENDER]
 
 const AUTO_BUILD_UPGRADER_FULL_TICKS = 10
 
@@ -35,9 +36,9 @@ module.exports.spawnSuicide = (limits) => {
 
     if (!Game.spawns['Spawn1'].spawning) {
         let currentWorkers = _.countBy(Game.creeps, (creep) => {
-            return creep.memory.role  
+            return creep.memory.role
         })
-    
+
         console.log(JSON.stringify(currentWorkers))
 
         for (let i = 0; i < buildOrder.length; i++) {
@@ -51,19 +52,19 @@ module.exports.spawnSuicide = (limits) => {
                 }
 
                 return
-            } if (count > max * 5) {
+            } if (count > max * 2) {
                 suicideWorker(role)
                 return
             }
         }
-        
+
         // ====================================
-        // Track ticks that the spawner is full and creates an upgraded if full for too long 
+        // Track ticks that the spawner is full and creates an upgraded if full for too long
         if (!Game.spawns['Spawn1'].memory.fullTicks) {
             Game.spawns['Spawn1'].memory.fullTicks = 0
         }
 
-        if (currentEnergy >= maxEnergy) {  
+        if (currentEnergy >= maxEnergy) {
             Game.spawns['Spawn1'].memory.fullTicks++
         } else {
             Game.spawns['Spawn1'].memory.fullTicks = 0
@@ -72,7 +73,7 @@ module.exports.spawnSuicide = (limits) => {
         console.log("upgrader", currentWorkers[WORKER_UPGRADER], limits[WORKER_UPGRADER])
 
         if (Game.spawns['Spawn1'].memory.fullTicks >= AUTO_BUILD_UPGRADER_FULL_TICKS &&
-            (currentWorkers[WORKER_UPGRADER] < limits[WORKER_UPGRADER] * 5)) {
+            (currentWorkers[WORKER_UPGRADER] < limits[WORKER_UPGRADER] * 2)) {
             console.log("Auto building upgrader")
             let result = createCreep(WORKER_UPGRADER, currentEnergy)
             if (result == ERR_NOT_ENOUGH_ENERGY) {
@@ -83,17 +84,17 @@ module.exports.spawnSuicide = (limits) => {
         }
         // ====================================
 
-        // If there is no need to spawn a creep at this time let workers 
+        // If there is no need to spawn a creep at this time let workers
         // user the spawner/extractor energy
         Game.spawns['Spawn1'].memory.energyAvailable = true
     }
 
-    if (Game.spawns['Spawn1'].spawning) { 
+    if (Game.spawns['Spawn1'].spawning) {
         var spawningCreep = Game.creeps[Game.spawns['Spawn1'].spawning.name];
         Game.spawns['Spawn1'].room.visual.text(
             '🛠️' + spawningCreep.memory.role,
-            Game.spawns['Spawn1'].pos.x + 1, 
-            Game.spawns['Spawn1'].pos.y, 
+            Game.spawns['Spawn1'].pos.x + 1,
+            Game.spawns['Spawn1'].pos.y,
             {align: 'left', opacity: 0.8});
     }
 }
@@ -102,7 +103,7 @@ module.exports.tick = () => {
     for(var name in Game.creeps) {
         var creep = Game.creeps[name];
         //console.log(creep.name, creep.memory.role)
-        
+
         if(creep.memory.role == WORKER_HARVESTER || creep.memory.role == "harvater") {
             roleHarvester.run(creep);
         }
@@ -117,15 +118,16 @@ module.exports.tick = () => {
 
         if(creep.memory.role == WORKER_DEFENDER) {
             roleDefender.run(creep);
-        }    
-        
+        }
+
         if(creep.memory.role == WORKER_REPAIRER) {
             roleRepairer.run(creep);
         }
-        
+
         if(creep.memory.role == WORKER_HAULER) {
-            roleRepairer.run(creep);
-        }  
+            //roleHauler.run(creep)
+            roleHaulerV2.run(creep)
+        }
     }
 
     // Cleanup old creep memory
@@ -146,7 +148,7 @@ function createCreep(role, maxEnergy) {
 function getBodyParts(role, maxEnergy) {
     let roleDef = workerRoles[role]
     let parts = roleDef
-    
+
     let i = 0
     let total = 0
 

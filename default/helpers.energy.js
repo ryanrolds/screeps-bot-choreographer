@@ -1,6 +1,6 @@
 const { waitingRoom } = require('helpers.move')
 const { numMyCreepsNearby, numEnemeiesNearby } = require('helpers.proximity')
-const { getEnergyStorageTargets, getEnergySource } = require('helpers.targets')
+const { getEnergyStorageTargets, getEnergySource, getEnergyContainerTargets } = require('helpers.targets')
 
 const DEFAULT_TTL = 75
 
@@ -18,15 +18,15 @@ module.exports.getStoredEnergy = (creep) => {
 
         return
     }
-    
-    creep.moveTo(waitingRoom(creep), {visualizePathStyle: {stroke: '#ffffff'}});		
+
+    creep.moveTo(waitingRoom(creep), {visualizePathStyle: {stroke: '#ffffff'}});
 }
 
 module.exports.getEnergyFromSource = (creep) => {
     const source = getEnergySource(creep)
     if (!source) {
         creep.moveTo(waitingRoom(creep), {visualizePathStyle: {stroke: '#ffffff'}});
-        return	
+        return
     }
 
     let result = creep.harvest(source)
@@ -39,18 +39,41 @@ module.exports.getEnergyFromSource = (creep) => {
     }
 
     return
-    	
+
+}
+
+module.exports.getEnergyFromContainer = (creep) => {
+    const source = getEnergyContainerTargets(creep)
+    if (!sources) {
+        creep.moveTo(waitingRoom(creep), {visualizePathStyle: {stroke: '#ffffff'}});
+        return
+    }
+
+    let result = creep.withdraw(source, RESOURCE_ENERGY)
+
+    console.log(result)
+
+    if (result != OK) {
+        //console.log(creep.name, "failed withdrawl", result)
+    }
+
+    if (result === ERR_NOT_IN_RANGE) {
+        creep.moveTo(source, {visualizePathStyle: {stroke: '#ffaa00'}});
+    }
+
+    return
+
 }
 
 module.exports.getHarvestLocation = (creep) => {
     if (creep.memory.source) {
-        // console.log("ttl update", creep.name,  creep.memory.ttl, Game.time)   
+        // console.log("ttl update", creep.name,  creep.memory.ttl, Game.time)
 
         // Don't count ticks where the creep didn't move
         if (creep.fatigue === 0) {
             creep.memory.ttl = creep.memory.ttl - 1
-        }        
-                
+        }
+
         // If TTL is still good then return source
         if (creep.memory.ttl > 0) {
             return Game.getObjectById(creep.memory.source)
@@ -72,7 +95,7 @@ module.exports.getHarvestLocation = (creep) => {
         return numMyCreepsNearby(source.pos, 8)
     })
 
-    // TODO factor in distance 
+    // TODO factor in distance
 
     // Get first item on the array
     let source = sources[0]

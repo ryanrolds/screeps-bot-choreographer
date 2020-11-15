@@ -30,9 +30,10 @@ var roleRepairer = {
 					)
                 }
             });
-			
-            if(target) {
-				let result = creep.repair(target)
+            
+            if (target) {
+                let result = creep.repair(target)
+                console.log(result)
 				if (result != OK) {
 					// console.log(creep.name, "failed repair", result)
 				}
