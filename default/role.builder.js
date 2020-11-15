@@ -46,8 +46,11 @@ var roleBuilder = {
 				roleUpgrader.run(creep)
 			}
 	    } else {
-            //getStoredEnergy(creep)
-            getEnergyFromSource(creep)
+            if (Game.spawns['Spawn1'].memory.energyAvailable) {
+                getStoredEnergy(creep)
+            } else {
+                getEnergyFromSource(creep)
+            }
 	    }
 	}
 };

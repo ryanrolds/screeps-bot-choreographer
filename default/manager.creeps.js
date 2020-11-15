@@ -5,24 +5,12 @@ const roleDefender = require('role.defender');
 const roleRepairer = require('role.repairer');
 const roleHauler = require('role.hauler');
 
-const WORKER_BUILDER = "builder"
-const WORKER_HARVESTER = "harvester"
-const WORKER_UPGRADER = "upgrader"
-const WORKER_DEFENDER = "defender"
-const WORKER_REPAIRER = "repairer"
-const WORKER_HAULER = "repairer"
-
-const workersMax = {
-    [WORKER_HARVESTER]: 10,
-    [WORKER_UPGRADER]: 7,
-    [WORKER_BUILDER]: 2,
-    [WORKER_REPAIRER]: 2,
-    [WORKER_HAULER]: 0,
-    [WORKER_DEFENDER]: 0,
-}
-
-const buildOrder = [WORKER_HARVESTER, WORKER_UPGRADER, WORKER_BUILDER,
-    WORKER_REPAIRER, WORKER_HAULER, WORKER_DEFENDER]
+var WORKER_BUILDER = module.exports.WORKER_BUILDER = "builder"
+var WORKER_HARVESTER = module.exports.WORKER_HARVESTER = "harvester"
+var WORKER_UPGRADER = module.exports.WORKER_UPGRADER = "upgrader"
+var WORKER_DEFENDER = module.exports.WORKER_DEFENDER = "defender"
+var WORKER_REPAIRER = module.exports.WORKER_REPAIRER = "repairer"
+var WORKER_HAULER = module.exports.WORKER_HAULER = "repairer"
 
 const workerRoles = {
     [WORKER_HARVESTER]: [CARRY, MOVE, WORK, WORK],
@@ -30,53 +18,72 @@ const workerRoles = {
     [WORKER_UPGRADER]: [CARRY, CARRY, MOVE, WORK],
     [WORKER_DEFENDER]: [TOUGH, TOUGH, TOUGH, MOVE, RANGED_ATTACK],
     [WORKER_REPAIRER]: [CARRY, MOVE, MOVE, WORK],
-    [WORKER_HAULER]: [CARRY, CARRY, CARRY, MOVE],
+    [WORKER_HAULER]: [CARRY, CARRY, CARRY, MOVE]
 }
+
+const buildOrder = [WORKER_HARVESTER, WORKER_UPGRADER, WORKER_BUILDER,
+    WORKER_REPAIRER, WORKER_HAULER, WORKER_DEFENDER]
 
 const AUTO_BUILD_UPGRADER_FULL_TICKS = 10
 
-module.exports.spawnSuicide = () => {
-    let currentWorkers = _.countBy(Game.creeps, (creep) => {
-        return creep.memory.role  
-    })
-
-    console.log(JSON.stringify(currentWorkers))
-
+module.exports.spawnSuicide = (limits) => {
+    // Manage the bar at which we build creeps
     let maxEnergy = Game.spawns['Spawn1'].room.energyCapacityAvailable
     let currentEnergy = Game.spawns['Spawn1'].room.energyAvailable
-    let minEnergy = _.max([400, maxEnergy * 0.8])
-
-    // ====================================
-    // Track ticks that the spawner is full and 
-    if (!Game.spawns['Spawn1'].memory.fullTicks) {
-        Game.spawns['Spawn1'].memory.fullTicks = 0
-    }
-
-    if (currentEnergy >= maxEnergy) {  
-        Game.spawns['Spawn1'].memory.fullTicks++
-    } else {
-        Game.spawns['Spawn1'].memory.fullTicks = 0
-    }
-
-    if (Game.spawns['Spawn1'].memory.fullTicks >= AUTO_BUILD_UPGRADER_FULL_TICKS) {
-        console.log("Auto building upgrader")
-        createCreep(WORKER_UPGRADER, currentEnergy)
-    }
-    // ====================================
+    let minEnergy = _.max([300, maxEnergy * 0.8])
+    //console.log("energy", currentEnergy, maxEnergy, minEnergy)
 
     if (!Game.spawns['Spawn1'].spawning && currentEnergy >= minEnergy) {
+        let currentWorkers = _.countBy(Game.creeps, (creep) => {
+            return creep.memory.role  
+        })
+    
+        console.log(JSON.stringify(currentWorkers))
+
         for (let i = 0; i < buildOrder.length; i++) {
             let role = buildOrder[i]
-            let max = workersMax[role]
+            let max = limits[role]
             let count = currentWorkers[role] || 0
             if (count < max) {
-                createCreep(role, currentEnergy)
-                break
-            } if (count > max * 1.5) {
+                let result = createCreep(role, currentEnergy)
+                if (result == ERR_NOT_ENOUGH_ENERGY) {
+                    Game.spawns['Spawn1'].memory.energyAvailable = false
+                }
+
+                return
+            } if (count > max * 5) {
                 suicideWorker(role)
-                break
+                return
             }
-        }        
+        }
+        
+        // ====================================
+        // Track ticks that the spawner is full and creates an upgraded if full for too long 
+        if (!Game.spawns['Spawn1'].memory.fullTicks) {
+            Game.spawns['Spawn1'].memory.fullTicks = 0
+        }
+
+        if (currentEnergy >= maxEnergy) {  
+            Game.spawns['Spawn1'].memory.fullTicks++
+        } else {
+            Game.spawns['Spawn1'].memory.fullTicks = 0
+        }
+
+        console.log("upgrader", currentWorkers[WORKER_UPGRADER], limits[WORKER_UPGRADER])
+
+        if (Game.spawns['Spawn1'].memory.fullTicks >= AUTO_BUILD_UPGRADER_FULL_TICKS &&
+            (currentWorkers[WORKER_UPGRADER] < limits[WORKER_UPGRADER] * 5)) {
+            console.log("Auto building upgrader")
+            let result = createCreep(WORKER_UPGRADER, currentEnergy)
+            if (result == ERR_NOT_ENOUGH_ENERGY) {
+                Game.spawns['Spawn1'].memory.energyAvailable = false
+            }
+
+            return
+        }
+        // ====================================
+
+        Game.spawns['Spawn1'].memory.energyAvailable = true
     }
 
     if (Game.spawns['Spawn1'].spawning) { 

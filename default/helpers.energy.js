@@ -42,15 +42,6 @@ module.exports.getEnergyFromSource = (creep) => {
     	
 }
 
-module.exports.resetHarvestTTL = (creep) => {
-    creep.memory.ttl = DEFAULT_TTL
-    //console.log("reset ttl", creep.name)
-}
-
-module.exports.clearAssignment = (creep) => {
-    creep.memory.source = null
-}
-
 module.exports.getHarvestLocation = (creep) => {
     if (creep.memory.source) {
         // console.log("ttl update", creep.name,  creep.memory.ttl, Game.time)   
@@ -69,31 +60,39 @@ module.exports.getHarvestLocation = (creep) => {
         console.log("ttl hit for", creep.name)
     }
 
-    // Candidate tracking vars
-    var assigned = null
-    var assignedCount = 99999
-
     var sources = creep.room.find(FIND_SOURCES)
-    sources.forEach((source) => {
-        // Do not send creeps to sources with hostiles near by
-        if (numEnemeiesNearby(source.pos, 5)) {
-            return
-        }
 
-        // Get num of my creeps near the source and use as candidate if fewer
-        // then the current candidate
-        let numCreepsNearSource = numMyCreepsNearby(source.pos, 8)
-        if (numCreepsNearSource < assignedCount) {
-            assignedCount = numCreepsNearSource
-            assigned = source
-        }
+    sources = _.filter(sources, (source) => {
+        // Do not send creeps to sources with hostiles near by
+        return numEnemeiesNearby(source.pos, 5) < 1
     })
 
+    // Sort by the number of creeps by the source
+    sources = _.sortBy(sources, (source) => {
+        return numMyCreepsNearby(source.pos, 8)
+    })
+
+    // TODO factor in distance 
+
+    // Get first item on the array
+    let source = sources[0]
+
     // Assign candidate to creep
-    creep.memory.source = assigned.id
+    creep.memory.source = source.id
+    // Use TTL to tell if creep cant harvest in reasonable time
+    // If the TTL hits 0 then we get a new assignment
     creep.memory.ttl = DEFAULT_TTL
 
-    console.log("assigning", creep.name, assigned, assignedCount)
+    console.log("assigning", creep.name, source)
 
-    return assigned
+    return source
+}
+
+module.exports.resetHarvestTTL = (creep) => {
+    creep.memory.ttl = DEFAULT_TTL
+    //console.log("reset ttl", creep.name)
+}
+
+module.exports.clearAssignment = (creep) => {
+    creep.memory.source = null
 }

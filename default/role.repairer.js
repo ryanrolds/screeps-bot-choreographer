@@ -1,6 +1,6 @@
 const roleBuilder = require('role.builder')
 const { numEnemeiesNearby } = require('helpers.proximity')
-const { getStoredEnergy } = require('helpers.energy')
+const { getStoredEnergy, getEnergyFromSource } = require('helpers.energy')
 
 const WALL_LEVEL = 1000
 
@@ -44,7 +44,11 @@ var roleRepairer = {
 				roleBuilder.run(creep)
 			}
 	    } else {
-			getStoredEnergy(creep)
+            if (Game.spawns['Spawn1'].memory.energyAvailable) {
+                getStoredEnergy(creep)
+            } else {
+                getEnergyFromSource(creep)
+            }
 	    }
 	}
 };

@@ -1,4 +1,4 @@
-const { getStoredEnergy } = require('helpers.energy')
+const { getEnergyFromSource, getStoredEnergy } = require('helpers.energy')
 const { numEnemeiesNearby } = require('helpers.proximity')
 
 var roleUpgrader = {
@@ -26,7 +26,11 @@ var roleUpgrader = {
             }
         }
         else {
-			getStoredEnergy(creep)
+            if (Game.spawns['Spawn1'].memory.energyAvailable) {
+                getStoredEnergy(creep)
+            } else {
+                getEnergyFromSource(creep)
+            }
         }
 	}
 };

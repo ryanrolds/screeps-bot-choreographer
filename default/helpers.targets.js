@@ -4,8 +4,8 @@ module.exports.getEnergyStorageTargets = (creep) => {
     return creep.room.find(FIND_STRUCTURES, {
         filter: (structure) => {
             return (
-                (structure.structureType == STRUCTURE_EXTENSION && structure.store.getUsedCapacity(RESOURCE_ENERGY) >= 50) ||
-                (structure.structureType == STRUCTURE_SPAWN && structure.store.getUsedCapacity(RESOURCE_ENERGY) >= 300)
+                (structure.structureType == STRUCTURE_EXTENSION) ||
+                (structure.structureType == STRUCTURE_SPAWN)
             )
         }
     })
@@ -14,7 +14,13 @@ module.exports.getEnergyStorageTargets = (creep) => {
 module.exports.getEnergySource = (creep) => {
     var sources = creep.room.find(FIND_SOURCES, {
         filter: (source) => {
+            // Don't send creeps to enemy covered soruces
             if (numEnemeiesNearby(source.pos, 5)) {
+                return false
+            }
+
+            // Don't send creeps to low energy sources
+            if (source.energy < 100) {
                 return false
             }
 
@@ -22,11 +28,20 @@ module.exports.getEnergySource = (creep) => {
         }
     })
 
+    sources = _.sortBy(sources, (source) => {
+        let result = PathFinder.search(creep.pos, {pos: source.pos})
+        if (result.incomplete) {
+            return 99999
+        }      
+
+        return result.cost
+    })
+
     if (!sources || !sources.length) {
         return null
     }
 
-    return sources[0]
+    return sources.pop()
 }
 
 module.exports.getFullestContainer = (creep) => {
