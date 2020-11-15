@@ -44,7 +44,8 @@ var roleRepairer = {
 				roleBuilder.run(creep)
 			}
 	    } else {
-            if (Game.spawns['Spawn1'].memory.energyAvailable) {
+            if (Game.spawns['Spawn1'].memory.energyAvailable &&
+                Game.spawns['Spawn1'].room.energyAvailable > 100) {
                 getStoredEnergy(creep)
             } else {
                 getEnergyFromSource(creep)

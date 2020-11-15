@@ -33,7 +33,7 @@ module.exports.spawnSuicide = (limits) => {
     let minEnergy = _.max([300, maxEnergy * 0.8])
     //console.log("energy", currentEnergy, maxEnergy, minEnergy)
 
-    if (!Game.spawns['Spawn1'].spawning && currentEnergy >= minEnergy) {
+    if (!Game.spawns['Spawn1'].spawning) {
         let currentWorkers = _.countBy(Game.creeps, (creep) => {
             return creep.memory.role  
         })
@@ -83,6 +83,8 @@ module.exports.spawnSuicide = (limits) => {
         }
         // ====================================
 
+        // If there is no need to spawn a creep at this time let workers 
+        // user the spawner/extractor energy
         Game.spawns['Spawn1'].memory.energyAvailable = true
     }
 
@@ -138,7 +140,7 @@ function createCreep(role, maxEnergy) {
     var name = role + '_' + Game.time;
     var parts = getBodyParts(role, maxEnergy)
     //console.log('Spawning new creep:', name);
-    Game.spawns['Spawn1'].spawnCreep(parts, name, {memory: {role: role}});
+    return Game.spawns['Spawn1'].spawnCreep(parts, name, {memory: {role: role}});
 }
 
 function getBodyParts(role, maxEnergy) {

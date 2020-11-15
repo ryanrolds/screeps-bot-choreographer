@@ -12,12 +12,10 @@ var roleUpgrader = {
 
         if(creep.memory.working && creep.store[RESOURCE_ENERGY] == 0) {
             creep.memory.working = false;
-            creep.say('🔄 withdraw');
         }
         
 	    if(!creep.memory.working && creep.store.getFreeCapacity() < 50) {
 	        creep.memory.working = true;
-	        creep.say('⚡ upgrade');
 	    }
 
 	    if(creep.memory.working) {
@@ -26,7 +24,8 @@ var roleUpgrader = {
             }
         }
         else {
-            if (Game.spawns['Spawn1'].memory.energyAvailable) {
+            if (Game.spawns['Spawn1'].memory.energyAvailable &&
+                Game.spawns['Spawn1'].room.energyAvailable > 100) {
                 getStoredEnergy(creep)
             } else {
                 getEnergyFromSource(creep)
