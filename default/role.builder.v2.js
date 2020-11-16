@@ -50,18 +50,22 @@ const behavior = behaviorTree.SelectorNode(
                             target = creep.pos.findClosestByPath(FIND_CONSTRUCTION_SITES)
                         }
 
+                        if (!target) {
+                            return behaviorTree.FAILURE
+                        }
+
                         behaviorMovement.setDestination(creep, target.id)
                         return behaviorTree.SUCCESS
                     }
                 ),
                 behaviorTree.LeafNode(
-                    'move_to_damaged',
+                    'move_to_construction_site',
                     (creep) => {
                        return behaviorMovement.moveToDestination(creep)
                     }
                 ),
                 behaviorTree.LeafNode(
-                    'empty_creep',
+                    'build',
                     (creep) => {
                         let destination = Game.getObjectById(creep.memory.destination)
                         if (!destination) {
@@ -90,7 +94,7 @@ module.exports = {
     run: (creep) => {
         let result = behavior.tick(creep)
         if (result == behaviorTree.FAILURE) {
-            console.log("builder failure", creep.name)
+            console.log("INVESTIGATE: builder failure", creep.name)
         }
     }
 }

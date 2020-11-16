@@ -127,12 +127,16 @@ const behavior = behaviorTree.SelectorNode(
                                     let result = creep.transfer(destination, RESOURCE_ENERGY)
                                     console.log("transfer energy", creep.name, result)
 
-                                    if (result != OK && result != ERR_NOT_ENOUGH_RESOURCES) {
-                                        return behaviorTree.FAILURE
+                                    if (result === result != ERR_NOT_ENOUGH_RESOURCES) {
+                                        return behaviorTree.SUCCESS
                                     }
 
                                     if (creep.store.getUsedCapacity() === 0) {
                                         return behaviorTree.SUCCESS
+                                    }
+
+                                    if (result != OK) {
+                                        return behaviorTree.FAILURE
                                     }
 
                                     return behaviorTree.RUNNING
@@ -150,7 +154,7 @@ module.exports = {
     run: (creep) => {
         let result = behavior.tick(creep)
         if (result == behaviorTree.FAILURE) {
-            console.log("harvester failure", creep.name)
+            console.log("INVESTIGATE: harvester failure", creep.name)
         }
     }
 }

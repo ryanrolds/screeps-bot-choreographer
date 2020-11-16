@@ -19,6 +19,11 @@ const moveTo = module.exports.moveTo = (creep, destination, range) => {
     }
 
     let result = creep.moveTo(destination)
+    if (result === ERR_NO_PATH) {
+        // TODO add counter and reset if we get too many no paths
+        return RUNNING
+    }
+
     if (result !== OK && result !== ERR_TIRED) {
         //console.log("failed to move", creep.name, result)
         return FAILURE
@@ -47,11 +52,9 @@ module.exports.moveToDestination = (creep, range = 1) => {
     return moveToMemory(creep, MEMORY_DESTINATION, range)
 }
 
-
 module.exports.clearDestination = (creep) => {
     delete creep.memory[MEMORY_DESTINATION]
 }
-
 
 module.exports.fillCreepFromDestination = (creep) => {
     let destination = Game.getObjectById(creep.memory.destination)

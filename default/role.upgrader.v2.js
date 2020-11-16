@@ -44,7 +44,7 @@ const behavior = behaviorTree.SelectorNode(
                 behaviorTree.LeafNode(
                     'move_to_room_controller',
                     (creep) => {
-                       return behaviorMovement.moveToDestination(creep)
+                       return behaviorMovement.moveToDestination(creep, 3)
                     }
                 ),
                 behaviorTree.LeafNode(
@@ -78,7 +78,7 @@ module.exports = {
     run: (creep) => {
         let result = behavior.tick(creep)
         if (result == behaviorTree.FAILURE) {
-            console.log("upgrader failure", creep.name)
+            console.log("INVESTIGATE: upgrader failure", creep.name)
         }
     }
 }

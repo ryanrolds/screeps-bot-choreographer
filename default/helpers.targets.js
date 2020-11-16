@@ -125,5 +125,5 @@ const getClosestTarget = module.exports.getClosestTarget = (creep, targets) => {
         return null
     }
 
-    return targets.pop()
+    return targets.shift()
 }

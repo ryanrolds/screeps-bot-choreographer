@@ -84,7 +84,7 @@ module.exports = {
     run: (creep) => {
         let result = behavior.tick(creep)
         if (result == behaviorTree.FAILURE) {
-            console.log("repairer failure", creep.name)
+            console.log("INVESTIGATE: repairer failure", creep.name)
         }
     }
 }

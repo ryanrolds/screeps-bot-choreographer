@@ -79,12 +79,18 @@ const behavior = behaviorTree.SelectorNode(
                     (creep) => {
                         let destination = Game.getObjectById(creep.memory.destination)
                         if (!destination) {
-                            console.log("failed to get destination for withdraw", creep.name)
+                            console.log("failed to get destination for dump", creep.name)
                             return behaviorTree.FAILURE
                         }
 
                         let result = creep.transfer(destination, RESOURCE_ENERGY)
-                        if (result == ERR_FULL) {
+                        console.log("transfer energy", creep.name, result)
+
+                        if (result === result != ERR_NOT_ENOUGH_RESOURCES) {
+                            return behaviorTree.SUCCESS
+                        }
+
+                        if (creep.store.getUsedCapacity() === 0) {
                             return behaviorTree.SUCCESS
                         }
 
@@ -92,13 +98,9 @@ const behavior = behaviorTree.SelectorNode(
                             return behaviorTree.FAILURE
                         }
 
-                        if (creep.store.getUsedCapacity() === 0) {
-                            return behaviorTree.SUCCESS
-                        }
-
-                       return behaviorTree.RUNNING
+                        return behaviorTree.RUNNING
                     }
-                ),
+                )
             ]
         )
     ]
@@ -108,7 +110,7 @@ module.exports = {
     run: (creep) => {
         let result = behavior.tick(creep)
         if (result == behaviorTree.FAILURE) {
-            console.log("hauler failure", creep.name)
+            console.log("INVESTIGATE: hauler failure", creep.name)
         }
     }
 }
