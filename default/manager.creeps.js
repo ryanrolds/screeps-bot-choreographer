@@ -1,9 +1,9 @@
 const roleHarvester = require('role.harvester');
-const roleUpgrader = require('role.upgrader');
-const roleBuilder = require('role.builder');
+const roleHarvesterV2 = require('role.harvester.v2');
+const roleUpgraderV2 = require('role.upgrader.v2');
+const roleBuilderV2 = require('role.builder.v2');
 const roleDefender = require('role.defender');
-const roleRepairer = require('role.repairer');
-const roleHauler = require('role.hauler');
+const roleRepairerV2 = require('role.repairer.v2');
 const roleHaulerV2 = require('role.hauler.v2');
 
 var WORKER_BUILDER = module.exports.WORKER_BUILDER = "builder"
@@ -22,7 +22,7 @@ const workerRoles = {
     [WORKER_HAULER]: [CARRY, CARRY, CARRY, MOVE]
 }
 
-const buildOrder = [WORKER_HAULER, WORKER_HARVESTER, WORKER_UPGRADER, WORKER_BUILDER,
+const buildOrder = [WORKER_HARVESTER, WORKER_BUILDER, WORKER_UPGRADER, WORKER_HAULER,
     WORKER_REPAIRER, WORKER_DEFENDER]
 
 const AUTO_BUILD_UPGRADER_FULL_TICKS = 10
@@ -105,15 +105,16 @@ module.exports.tick = () => {
         //console.log(creep.name, creep.memory.role)
 
         if(creep.memory.role == WORKER_HARVESTER || creep.memory.role == "harvater") {
-            roleHarvester.run(creep);
+            //roleHarvester.run(creep);
+            roleHarvesterV2.run(creep)
         }
 
         if(creep.memory.role == WORKER_UPGRADER) {
-            roleUpgrader.run(creep);
+            roleUpgraderV2.run(creep)
         }
 
         if(creep.memory.role == WORKER_BUILDER) {
-            roleBuilder.run(creep);
+            roleBuilderV2.run(creep);
         }
 
         if(creep.memory.role == WORKER_DEFENDER) {
@@ -121,11 +122,10 @@ module.exports.tick = () => {
         }
 
         if(creep.memory.role == WORKER_REPAIRER) {
-            roleRepairer.run(creep);
+            roleRepairerV2.run(creep)
         }
 
         if(creep.memory.role == WORKER_HAULER) {
-            //roleHauler.run(creep)
             roleHaulerV2.run(creep)
         }
     }

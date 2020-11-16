@@ -51,6 +51,21 @@ module.exports.SequenceNode = (id, children) => {
     }
 }
 
+module.exports.RepeatUntilFailure = (id, node) => {
+    return {
+        id,
+        node,
+        tick: function(actor) {
+            let result = this.node.tick(actor)
+            if (result === FAILURE) {
+                return FAILURE
+            }
+
+            return RUNNING
+        }
+    }
+}
+
 module.exports.LeafNode = (id, behavior) => {
     return {
         id,
@@ -60,7 +75,6 @@ module.exports.LeafNode = (id, behavior) => {
         }
     }
 }
-
 
 function getState(actor, id) {
     let i = 0;

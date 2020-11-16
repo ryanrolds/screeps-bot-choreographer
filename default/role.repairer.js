@@ -16,7 +16,7 @@ var roleRepairer = {
 	    if(creep.memory.working && creep.store[RESOURCE_ENERGY] == 0) {
 			creep.memory.working = false;
         }
-		
+
 	    if(!creep.memory.working && creep.store.getFreeCapacity() === 0) {
 	        creep.memory.working = true;
 	    }
@@ -30,7 +30,7 @@ var roleRepairer = {
 					)
                 }
             });
-            
+
             if (target) {
                 let result = creep.repair(target)
                 console.log(result)

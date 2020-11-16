@@ -46,8 +46,6 @@ module.exports.getEnergyReserveTarget = (creep) => {
         }
     });
 
-    console.log(target)
-
     if (!target) {
         return null
     }
@@ -92,6 +90,25 @@ module.exports.getFullestContainer = (creep) => {
     })
 
     return container[0]
+}
+
+const WALL_LEVEL = 1000
+
+module.exports.getDamagedStructure = (creep) => {
+    var target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+        filter: (structure) => {
+            return (
+                (structure.hits < structure.hitsMax && structure.structureType != STRUCTURE_WALL) ||
+                (structure.hits < WALL_LEVEL && structure.structureType === STRUCTURE_WALL)
+            )
+        }
+    });
+
+    if (!target) {
+        return null
+    }
+
+    return target
 }
 
 const getClosestTarget = module.exports.getClosestTarget = (creep, targets) => {

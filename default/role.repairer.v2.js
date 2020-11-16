@@ -1,6 +1,5 @@
-
 const behaviorTree = require('lib.behaviortree')
-const { getEnergyContainerTargets, getEnergyReserveTarget } = require('helpers.targets')
+const { getEnergyContainerTargets, getDamagedStructure } = require('helpers.targets')
 const behaviorMovement = require('behavior.movement')
 
 const behavior = behaviorTree.SelectorNode(
@@ -32,44 +31,24 @@ const behavior = behaviorTree.SelectorNode(
                 behaviorTree.LeafNode(
                     'fill_creep',
                     (creep) => {
-                        let destination = Game.getObjectById(creep.memory.destination)
-                        if (!destination) {
-                            console.log("failed to get destination for withdraw", creep.name)
-                            return behaviorTree.FAILURE
-                        }
-
-                        let result = creep.withdraw(destination, RESOURCE_ENERGY)
-                        if (result === OK) {
-                            return behaviorTree.RUNNING
-                        }
-
-                        if (result === ERR_FULL) {
-                            return behaviorTree.SUCCESS
-                        }
-
-                        if (result === ERR_NOT_ENOUGH_RESOURCES) {
-                            return behaviorTree.SUCCESS
-                        }
-
-                        console.log("failed to withdraw from supply", creep.name, result)
-                        return behaviorTree.FAILURE
+                        return behaviorMovement.fillCreepFromDestination(creep)
                     }
                 ),
                 behaviorTree.LeafNode(
-                    'pick_sink',
+                    'pick_damaged',
                     (creep) => {
-                        let sink = getEnergyReserveTarget(creep)
-                        if (!sink) {
-                            console.log("failed to pick destiantion", creep.name)
+                        let target = getDamagedStructure(creep)
+                        if (!target) {
+                            console.log("failed to pick damaged structure", creep.name)
                             return behaviorTree.FAILURE
                         }
 
-                        behaviorMovement.setDestination(creep, sink.id)
+                        behaviorMovement.setDestination(creep, target.id)
                         return behaviorTree.SUCCESS
                     }
                 ),
                 behaviorTree.LeafNode(
-                    'move_to_sink',
+                    'move_to_damaged',
                     (creep) => {
                        return behaviorMovement.moveToDestination(creep)
                     }
@@ -83,11 +62,7 @@ const behavior = behaviorTree.SelectorNode(
                             return behaviorTree.FAILURE
                         }
 
-                        let result = creep.transfer(destination, RESOURCE_ENERGY)
-                        if (result == ERR_FULL) {
-                            return behaviorTree.SUCCESS
-                        }
-
+                        let result = creep.repair(destination)
                         if (result != OK) {
                             return behaviorTree.FAILURE
                         }
@@ -104,11 +79,12 @@ const behavior = behaviorTree.SelectorNode(
     ]
 )
 
+
 module.exports = {
     run: (creep) => {
         let result = behavior.tick(creep)
         if (result == behaviorTree.FAILURE) {
-            console.log("hauler failure", creep.name)
+            console.log("repairer failure", creep.name)
         }
     }
 }
