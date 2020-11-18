@@ -4,16 +4,14 @@ const towers = require('manager.towers')
 var colony = require('colony')
 
 var charter = {
-    rooms: ["E18S47", "E17S47"]
+    rooms: ["E18S47", "E17S47", "E18S46", "E17S48"]
 }
 
 module.exports.loop = function () {
-    console.log("================================")
-    console.log("TICK", Game.time)
-    console.log("================================")
+    console.log("======== TICK", Game.time, "========")
 
     const state = colony.tick(charter)
-    console.log(JSON.stringify(state))
+    //console.log(JSON.stringify(state))
 
     towers.tick(charter)
 

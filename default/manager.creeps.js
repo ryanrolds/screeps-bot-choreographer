@@ -4,7 +4,8 @@ const roleBuilderV2 = require('role.builder.v2');
 const roleRepairerV2 = require('role.repairer.v2');
 const roleHaulerV2 = require('role.hauler.v2');
 const roleDefender = require('role.defender');
-const { MEMORY_HARVEST, MEMORY_WITHDRAW } = require('helpers.memory')
+const roleClaimerV2 = require('role.claimer.v2');
+const { MEMORY_HARVEST, MEMORY_WITHDRAW, MEMORY_CLAIM, MEMORY_ROLE, MEMORY_ORIGIN } = require('helpers.memory')
 
 var WORKER_BUILDER = module.exports.WORKER_BUILDER = "builder"
 var WORKER_HARVESTER = module.exports.WORKER_HARVESTER = "harvester"
@@ -13,6 +14,7 @@ var WORKER_DEFENDER = module.exports.WORKER_DEFENDER = "defender"
 var WORKER_REPAIRER = module.exports.WORKER_REPAIRER = "repairer"
 var WORKER_HAULER = module.exports.WORKER_HAULER = "hauler"
 var WORKER_CLAIMER = module.exports.WORKER_CLAIMER = "claimer"
+var WORKER_EXPLORER = module.exports.WORKER_EXPLORER = "claimer"
 
 const workerRoles = {
     [WORKER_HARVESTER]: [CARRY, MOVE, WORK, WORK],
@@ -21,7 +23,8 @@ const workerRoles = {
     [WORKER_DEFENDER]: [TOUGH, TOUGH, TOUGH, MOVE, RANGED_ATTACK],
     [WORKER_REPAIRER]: [CARRY, CARRY, MOVE, WORK],
     [WORKER_HAULER]: [CARRY, CARRY, MOVE, MOVE],
-    [WORKER_CLAIMER]: [CARRY, MOVE, MOVE, MOVE, MOVE]
+    [WORKER_CLAIMER]: [MOVE, CLAIM, MOVE, MOVE],
+    [WORKER_EXPLORER]: [MOVE, MOVE, MOVE, MOVE]
 }
 
 const buildOrder = [WORKER_BUILDER, WORKER_HAULER, WORKER_UPGRADER, WORKER_REPAIRER, WORKER_DEFENDER]
@@ -34,7 +37,7 @@ module.exports.spawnSuicide = (state, limits) => {
     let maxEnergy = Game.spawns['Spawn1'].room.energyCapacityAvailable
     let currentEnergy = Game.spawns['Spawn1'].room.energyAvailable
     let minEnergy = _.max([300])
-    console.log("energy", currentEnergy, maxEnergy, minEnergy)
+    //console.log("energy", currentEnergy, maxEnergy, minEnergy)
 
     let currentWorkers = _.countBy(Game.creeps, (creep) => {
         return creep.memory.role
@@ -60,8 +63,17 @@ module.exports.spawnSuicide = (state, limits) => {
                 }
             }
 
+             // We need at least twice as many workers if the source
+            // is in another room
+            if (Game.spawns['Spawn1'].room.name !== source.roomID) {
+                desiredMiners = desiredMiners * 2
+                desiredHaulers = desiredHaulers * 2
+            }
+
             if (source.numMiners < desiredMiners) {
-                let result = createCreep(WORKER_HARVESTER, currentEnergy, {[MEMORY_HARVEST]: source.id})
+                let result = createCreep(WORKER_HARVESTER, currentEnergy, {
+                    [MEMORY_HARVEST]: source.id,
+                })
                 if (result != OK) {
                     console.log("problem creating harvester", result)
                 }
@@ -90,6 +102,19 @@ module.exports.spawnSuicide = (state, limits) => {
             } if (count > max * 2) {
                 suicideWorker(role)
                 return
+            }
+        }
+
+        const roomsToExplore = state.explore
+        const roomIDs = Object.keys(roomsToExplore)
+        for (let i = 0; i < roomIDs.length; i++) {
+            let explore = roomsToExplore[roomIDs[i]]
+            console.log(JSON.stringify(explore))
+            if (!explore.hasExplorer) {
+                let result = createCreep(WORKER_CLAIMER, currentEnergy, {[MEMORY_CLAIM]: explore.id})
+                if (result != OK) {
+                    console.log("problem creating claimer", result)
+                }
             }
         }
 
@@ -180,6 +205,10 @@ module.exports.tick = () => {
         if(creep.memory.role == WORKER_HAULER) {
             roleHaulerV2.run(creep)
         }
+
+        if(creep.memory.role == WORKER_CLAIMER) {
+            roleClaimerV2.run(creep)
+        }
     }
 
     // Cleanup old creep memory
@@ -193,7 +222,8 @@ module.exports.tick = () => {
 function createCreep(role, maxEnergy, memory = {}) {
     var parts = getBodyParts(role, maxEnergy)
     var name = role + '_' + Game.time;
-    memory.role = role
+    memory[MEMORY_ROLE] = role
+    memory[MEMORY_ORIGIN] = Game.spawns['Spawn1'].room.name
     return Game.spawns['Spawn1'].spawnCreep(parts, name, {memory});
 }
 

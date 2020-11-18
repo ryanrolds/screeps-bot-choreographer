@@ -3,7 +3,7 @@ const { getEnergyReserveTarget } = require('helpers.targets')
 const behaviorMovement = require('behavior.movement')
 const { getHarvestLocation, resetHarvestTTL, clearAssignment } = require('helpers.energy')
 const { numMyCreepsNearby, numEnemeiesNearby } = require('helpers.proximity')
-const { MEMORY_SOURCE, MEMORY_HARVEST } = require('helpers.memory')
+const { MEMORY_HARVEST, MEMORY_ORIGIN } = require('helpers.memory')
 
 const behavior = behaviorTree.SelectorNode(
     "hauler_root",
@@ -80,6 +80,34 @@ const behavior = behaviorTree.SelectorNode(
                                     console.log("failed to harvest energy", creep.name, result)
                                     return behaviorTree.FAILURE
                                 }
+                            ),
+                            behaviorTree.RepeatUntilSuccess(
+                                'goto_origin_room',
+                                behaviorTree.LeafNode(
+                                    'move_to_exit',
+                                    (creep) => {
+                                        if (!creep.memory[MEMORY_ORIGIN]) {
+                                            return behaviorTree.SUCCESS
+                                        }
+
+                                        if (creep.room == creep.memory[MEMORY_ORIGIN]) {
+                                            return behaviorTree.SUCCESS
+                                        }
+
+                                        const exitDir = creep.room.findExitTo(creep.memory[MEMORY_ORIGIN])
+                                        if (exitDir === ERR_INVALID_ARGS) {
+                                            return behaviorTree.SUCCESS
+                                        }
+
+                                        const exit = creep.pos.findClosestByRange(exitDir);
+                                        const result = creep.moveTo(exit);
+                                        if (result === ERR_INVALID_ARGS) {
+                                            return behaviorTree.FAILURE
+                                        }
+
+                                        return behaviorTree.RUNNING
+                                    }
+                                )
                             ),
                             behaviorTree.LeafNode(
                                 'pick_storage',

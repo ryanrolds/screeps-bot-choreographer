@@ -1,6 +1,6 @@
 const roleBuilderV2 = require("./role.builder.v2")
-const { MEMORY_HARVEST, MEMORY_ROLE, MEMORY_WITHDRAW } = require('helpers.memory')
-const { WORKER_HARVESTER, WORKER_HAULER } = require('manager.creeps')
+const { MEMORY_HARVEST, MEMORY_ROLE, MEMORY_WITHDRAW, MEMORY_CLAIM } = require('helpers.memory')
+const { WORKER_HARVESTER, WORKER_HAULER, WORKER_CLAIMER } = require('manager.creeps')
 
 const state = {
     rooms: {
@@ -18,7 +18,19 @@ module.exports.tick = (charter) => {
     const desiredRooms = charter.rooms
     const exploreRooms = _.difference(desiredRooms, visibleRooms)
 
-    state.explore = exploreRooms
+    state.explore = exploreRooms.reduce((rooms, roomID) => {
+        const numExplorers = _.filter(Game.creeps, (creep) => {
+            return creep.memory[MEMORY_ROLE] && creep.memory[MEMORY_ROLE] === WORKER_CLAIMER &&
+                creep.memory[MEMORY_CLAIM] && creep.memory[MEMORY_CLAIM] === roomID
+        }).length
+
+        let room = {
+            id: roomID,
+            hasExplorer: numExplorers > 0
+        }
+        rooms[roomID] = room
+        return rooms
+    }, {})
 
     visibleRooms.forEach((roomID) => {
         const room = Game.rooms[roomID]
@@ -52,6 +64,7 @@ module.exports.tick = (charter) => {
 
             state.sources.energy[source.id] = {
                 id: source.id,
+                roomID: roomID,
                 containerID,
                 numMiners,
                 numHaulers
