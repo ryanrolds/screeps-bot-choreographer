@@ -9,7 +9,7 @@ const { MEMORY_HARVEST, MEMORY_WITHDRAW, MEMORY_CLAIM, MEMORY_ROLE, MEMORY_ORIGI
 
 var WORKER_BUILDER = module.exports.WORKER_BUILDER = "builder"
 var WORKER_HARVESTER = module.exports.WORKER_HARVESTER = "harvester"
-var WORKER_REMOTE_HARVESTER = module.exports.WORKER_HARVESTER = "remote_harvester"
+var WORKER_REMOTE_HARVESTER = module.exports.WORKER_REMOTE_HARVESTER = "remote_harvester"
 var WORKER_UPGRADER = module.exports.WORKER_UPGRADER = "upgrader"
 var WORKER_DEFENDER = module.exports.WORKER_DEFENDER = "defender"
 var WORKER_REPAIRER = module.exports.WORKER_REPAIRER = "repairer"
@@ -35,7 +35,7 @@ module.exports.spawnSuicide = (state, limits) => {
     // Manage the bar at which we build creeps
     let maxEnergy = Game.spawns['Spawn1'].room.energyCapacityAvailable
     let currentEnergy = Game.spawns['Spawn1'].room.energyAvailable
-    let minEnergy = _.max([300])
+    let minEnergy = _.max([300, maxEnergy * 0.6])
     //console.log("energy", currentEnergy, maxEnergy, minEnergy)
 
     let currentWorkers = _.countBy(Game.creeps, (creep) => {
@@ -178,6 +178,10 @@ module.exports.tick = () => {
     for(var name in Game.creeps) {
         var creep = Game.creeps[name];
         //console.log(creep.name, creep.memory.role)
+
+        if (creep.spawning) {
+            return
+        }
 
         if(creep.memory.role == WORKER_HARVESTER || creep.memory.role == "harvater") {
             //roleHarvester.run(creep);
