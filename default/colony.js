@@ -1,6 +1,6 @@
 const roleBuilderV2 = require("./role.builder.v2")
 const { MEMORY_HARVEST, MEMORY_ROLE, MEMORY_WITHDRAW, MEMORY_CLAIM } = require('helpers.memory')
-const { WORKER_HARVESTER, WORKER_HAULER, WORKER_CLAIMER } = require('manager.creeps')
+const { WORKER_HARVESTER, WORKER_HAULER, WORKER_CLAIMER, WORKER_REMOTE_HARVESTER } = require('manager.creeps')
 
 const state = {
     rooms: {
@@ -52,13 +52,15 @@ module.exports.tick = (charter) => {
             if (hasContainer) {
                 containerID = container[0].id
                 numHaulers = _.filter(Game.creeps, (creep) => {
-                    return creep.memory[MEMORY_ROLE] && creep.memory[MEMORY_ROLE] === WORKER_HAULER &&
+                    const role = creep.memory[MEMORY_ROLE]
+                    return role && role === WORKER_HAULER &&
                         creep.memory[MEMORY_WITHDRAW] && creep.memory[MEMORY_WITHDRAW] === containerID
                 }).length
             }
 
             const numMiners = _.filter(Game.creeps, (creep) => {
-                return creep.memory[MEMORY_ROLE] && creep.memory[MEMORY_ROLE] === WORKER_HARVESTER &&
+                const role = creep.memory[MEMORY_ROLE]
+                return role && (role === WORKER_HARVESTER || role === WORKER_REMOTE_HARVESTER) &&
                     creep.memory[MEMORY_HARVEST] && creep.memory[MEMORY_HARVEST] === source.id
             }).length
 

@@ -34,7 +34,18 @@ const behavior = behaviorTree.SelectorNode(
                     behaviorTree.LeafNode(
                         'move',
                         (creep) => {
-                            behaviorMovement.moveTo(creep, creep.room.controller, 1)
+                            return behaviorMovement.moveTo(creep, creep.room.controller, 1)
+                        }
+                    )
+                ),
+                behaviorTree.RepeatUntilSuccess(
+                    'reserve',
+                    behaviorTree.LeafNode(
+                        'move',
+                        (creep) => {
+                            let result = creep.reserveController(creep.room.controller)
+                            console.log(result)
+                            return behaviorTree.FAILURE
                         }
                     )
                 )

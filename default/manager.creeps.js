@@ -9,6 +9,7 @@ const { MEMORY_HARVEST, MEMORY_WITHDRAW, MEMORY_CLAIM, MEMORY_ROLE, MEMORY_ORIGI
 
 var WORKER_BUILDER = module.exports.WORKER_BUILDER = "builder"
 var WORKER_HARVESTER = module.exports.WORKER_HARVESTER = "harvester"
+var WORKER_REMOTE_HARVESTER = module.exports.WORKER_HARVESTER = "remote_harvester"
 var WORKER_UPGRADER = module.exports.WORKER_UPGRADER = "upgrader"
 var WORKER_DEFENDER = module.exports.WORKER_DEFENDER = "defender"
 var WORKER_REPAIRER = module.exports.WORKER_REPAIRER = "repairer"
@@ -18,19 +19,17 @@ var WORKER_EXPLORER = module.exports.WORKER_EXPLORER = "claimer"
 
 const workerRoles = {
     [WORKER_HARVESTER]: [CARRY, MOVE, WORK, WORK],
+    [WORKER_REMOTE_HARVESTER]: [CARRY, MOVE, WORK, MOVE, WORK],
     [WORKER_BUILDER]: [CARRY, MOVE, WORK, WORK],
     [WORKER_UPGRADER]: [CARRY, CARRY, MOVE, WORK],
     [WORKER_DEFENDER]: [TOUGH, TOUGH, TOUGH, MOVE, RANGED_ATTACK],
     [WORKER_REPAIRER]: [CARRY, CARRY, MOVE, WORK],
     [WORKER_HAULER]: [CARRY, CARRY, MOVE, MOVE],
     [WORKER_CLAIMER]: [MOVE, CLAIM, MOVE, MOVE],
-    [WORKER_EXPLORER]: [MOVE, MOVE, MOVE, MOVE]
+    [WORKER_EXPLORER]: [MOVE, CLAIM, MOVE, MOVE]
 }
 
 const buildOrder = [WORKER_BUILDER, WORKER_HAULER, WORKER_UPGRADER, WORKER_REPAIRER, WORKER_DEFENDER]
-
-const AUTO_BUILD_UPGRADER_FULL_TICKS = 10
-const CLAIMER_TTL = 200
 
 module.exports.spawnSuicide = (state, limits) => {
     // Manage the bar at which we build creeps
@@ -47,12 +46,19 @@ module.exports.spawnSuicide = (state, limits) => {
     if (!Game.spawns['Spawn1'].spawning && currentEnergy >= minEnergy) {
         // Check that all sources have a harvester and hauler if needed
         const energySources = state.sources.energy
-        const energySourceIDs = Object.keys(state.sources.energy)
+        let energySourceIDs = Object.keys(state.sources.energy)
+
+        // Sort the spawning room sources to the front
+        energySourceIDs = _.sortBy(energySourceIDs, (sourceID) => {
+            return Game.spawns['Spawn1'].room.name == state.sources.energy[sourceID].roomID ? 0 : 9999
+        })
+
         for (let i = 0; i < energySourceIDs.length; i++) {
             let source = energySources[energySourceIDs[i]]
 
             let desiredMiners = 3
             let desiredHaulers = 0
+
             if (source.containerID) {
                 desiredMiners = 1
                 desiredHaulers = 1
@@ -63,15 +69,22 @@ module.exports.spawnSuicide = (state, limits) => {
                 }
             }
 
-             // We need at least twice as many workers if the source
+            const differentRoom = Game.spawns['Spawn1'].room.name !== source.roomID
+
+            // We need at least twice as many workers if the source
             // is in another room
-            if (Game.spawns['Spawn1'].room.name !== source.roomID) {
-                desiredMiners = desiredMiners * 2
-                desiredHaulers = desiredHaulers * 2
+            if (differentRoom) {
+                //desiredMiners = desiredMiners * 2
+                //desiredHaulers = desiredHaulers * 2
             }
 
             if (source.numMiners < desiredMiners) {
-                let result = createCreep(WORKER_HARVESTER, currentEnergy, {
+                let harvesterType = WORKER_HARVESTER
+                if (differentRoom) {
+                    harvesterType = WORKER_REMOTE_HARVESTER
+                }
+
+                let result = createCreep(harvesterType, currentEnergy, {
                     [MEMORY_HARVEST]: source.id,
                 })
                 if (result != OK) {
@@ -117,21 +130,6 @@ module.exports.spawnSuicide = (state, limits) => {
                 }
             }
         }
-
-        /*
-        if (state.explore.length && (!Game.spawns['Spawn1'].memory.claimer_ttl ||
-            (Game.spawns['Spawn1'].memory.claimer_ttl + CLAIMER_TTL > Game.time))) {
-            console.log("should explore", state.explore)
-
-            let memory = {
-                claim: state.explore[0]
-            }
-
-            let result = createCreep(WORKER_CLAIMER, currentEnergy, memory)
-            Game.spawns['Spawn1'].memory.claimer_ttl = Game.time
-            return
-        }
-        */
 
         /*
         // ====================================
