@@ -22,16 +22,17 @@ module.exports.getEnergyStorageTargets = (creep) => {
 module.exports.getEnergyContainerTargets = (creep) => {
     let targets = creep.room.find(FIND_STRUCTURES, {
         filter: (structure) => {
-            return (
-                (structure.structureType == STRUCTURE_CONTAINER &&
-                    structure.store.getUsedCapacity(RESOURCE_ENERGY) >= creep.store.getCapacity())
-            )
+            return structure.structureType == STRUCTURE_CONTAINER && structure.store.getUsedCapacity() >= 50
         }
     })
 
     if (!targets || !targets.length) {
         return null
     }
+
+    targets = _.sortBy(targets, (target) => {
+        return target.store.getFreeCapacity()
+    })
 
     return getClosestTarget(creep, targets)
 }

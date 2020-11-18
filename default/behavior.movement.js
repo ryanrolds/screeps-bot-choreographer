@@ -73,7 +73,7 @@ module.exports.fillCreepFromDestination = (creep) => {
     }
 
     if (result === ERR_NOT_ENOUGH_RESOURCES) {
-        return SUCCESS
+        return FAILURE
     }
 
     //console.log("failed to withdraw from supply", creep.name, result)

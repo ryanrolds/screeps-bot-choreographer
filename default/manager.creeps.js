@@ -1,10 +1,10 @@
-const roleHarvester = require('role.harvester');
 const roleHarvesterV2 = require('role.harvester.v2');
 const roleUpgraderV2 = require('role.upgrader.v2');
 const roleBuilderV2 = require('role.builder.v2');
-const roleDefender = require('role.defender');
 const roleRepairerV2 = require('role.repairer.v2');
 const roleHaulerV2 = require('role.hauler.v2');
+const roleDefender = require('role.defender');
+const { MEMORY_HARVEST, MEMORY_WITHDRAW } = require('helpers.memory')
 
 var WORKER_BUILDER = module.exports.WORKER_BUILDER = "builder"
 var WORKER_HARVESTER = module.exports.WORKER_HARVESTER = "harvester"
@@ -12,6 +12,7 @@ var WORKER_UPGRADER = module.exports.WORKER_UPGRADER = "upgrader"
 var WORKER_DEFENDER = module.exports.WORKER_DEFENDER = "defender"
 var WORKER_REPAIRER = module.exports.WORKER_REPAIRER = "repairer"
 var WORKER_HAULER = module.exports.WORKER_HAULER = "hauler"
+var WORKER_CLAIMER = module.exports.WORKER_CLAIMER = "claimer"
 
 const workerRoles = {
     [WORKER_HARVESTER]: [CARRY, MOVE, WORK, WORK],
@@ -19,38 +20,72 @@ const workerRoles = {
     [WORKER_UPGRADER]: [CARRY, CARRY, MOVE, WORK],
     [WORKER_DEFENDER]: [TOUGH, TOUGH, TOUGH, MOVE, RANGED_ATTACK],
     [WORKER_REPAIRER]: [CARRY, CARRY, MOVE, WORK],
-    [WORKER_HAULER]: [CARRY, CARRY, CARRY, MOVE]
+    [WORKER_HAULER]: [CARRY, CARRY, MOVE, MOVE],
+    [WORKER_CLAIMER]: [CARRY, MOVE, MOVE, MOVE, MOVE]
 }
 
-const buildOrder = [WORKER_HARVESTER, WORKER_BUILDER, WORKER_HAULER, WORKER_UPGRADER,
-    WORKER_REPAIRER, WORKER_DEFENDER]
+const buildOrder = [WORKER_BUILDER, WORKER_HAULER, WORKER_UPGRADER, WORKER_REPAIRER, WORKER_DEFENDER]
 
 const AUTO_BUILD_UPGRADER_FULL_TICKS = 10
+const CLAIMER_TTL = 200
 
-module.exports.spawnSuicide = (limits) => {
+module.exports.spawnSuicide = (state, limits) => {
     // Manage the bar at which we build creeps
     let maxEnergy = Game.spawns['Spawn1'].room.energyCapacityAvailable
     let currentEnergy = Game.spawns['Spawn1'].room.energyAvailable
-    let minEnergy = _.max([300, maxEnergy * 0.8])
-    //console.log("energy", currentEnergy, maxEnergy, minEnergy)
+    let minEnergy = _.max([300])
+    console.log("energy", currentEnergy, maxEnergy, minEnergy)
 
-    if (!Game.spawns['Spawn1'].spawning) {
-        let currentWorkers = _.countBy(Game.creeps, (creep) => {
-            return creep.memory.role
-        })
+    let currentWorkers = _.countBy(Game.creeps, (creep) => {
+        return creep.memory.role
+    })
+    console.log(JSON.stringify(currentWorkers))
 
-        console.log(JSON.stringify(currentWorkers))
+    if (!Game.spawns['Spawn1'].spawning && currentEnergy >= minEnergy) {
+        // Check that all sources have a harvester and hauler if needed
+        const energySources = state.sources.energy
+        const energySourceIDs = Object.keys(state.sources.energy)
+        for (let i = 0; i < energySourceIDs.length; i++) {
+            let source = energySources[energySourceIDs[i]]
 
+            let desiredMiners = 3
+            let desiredHaulers = 0
+            if (source.containerID) {
+                desiredMiners = 1
+                desiredHaulers = 1
+
+                let container = Game.getObjectById(source.containerID)
+                if (container && container.store.getUsedCapacity() > 1500) {
+                    desiredHaulers = 2
+                }
+            }
+
+            if (source.numMiners < desiredMiners) {
+                let result = createCreep(WORKER_HARVESTER, currentEnergy, {[MEMORY_HARVEST]: source.id})
+                if (result != OK) {
+                    console.log("problem creating harvester", result)
+                }
+
+                return
+            }
+
+            if (source.numHaulers < desiredHaulers) {
+                let result = createCreep(WORKER_HAULER, currentEnergy, {[MEMORY_WITHDRAW]: source.containerID})
+                if (result != OK) {
+                    console.log("problem creating hauler", result)
+                }
+
+                return
+            }
+        }
+
+        // Maintain desired number of general units
         for (let i = 0; i < buildOrder.length; i++) {
             let role = buildOrder[i]
             let max = limits[role]
             let count = currentWorkers[role] || 0
             if (count < max) {
                 let result = createCreep(role, currentEnergy)
-                if (result == ERR_NOT_ENOUGH_ENERGY) {
-                    Game.spawns['Spawn1'].memory.energyAvailable = false
-                }
-
                 return
             } if (count > max * 2) {
                 suicideWorker(role)
@@ -58,6 +93,22 @@ module.exports.spawnSuicide = (limits) => {
             }
         }
 
+        /*
+        if (state.explore.length && (!Game.spawns['Spawn1'].memory.claimer_ttl ||
+            (Game.spawns['Spawn1'].memory.claimer_ttl + CLAIMER_TTL > Game.time))) {
+            console.log("should explore", state.explore)
+
+            let memory = {
+                claim: state.explore[0]
+            }
+
+            let result = createCreep(WORKER_CLAIMER, currentEnergy, memory)
+            Game.spawns['Spawn1'].memory.claimer_ttl = Game.time
+            return
+        }
+        */
+
+        /*
         // ====================================
         // Track ticks that the spawner is full and creates an upgraded if full for too long
         if (!Game.spawns['Spawn1'].memory.fullTicks) {
@@ -83,6 +134,7 @@ module.exports.spawnSuicide = (limits) => {
             return
         }
         // ====================================
+        */
 
         // If there is no need to spawn a creep at this time let workers
         // user the spawner/extractor energy
@@ -138,11 +190,11 @@ module.exports.tick = () => {
     }
 }
 
-function createCreep(role, maxEnergy) {
-    var name = role + '_' + Game.time;
+function createCreep(role, maxEnergy, memory = {}) {
     var parts = getBodyParts(role, maxEnergy)
-    //console.log('Spawning new creep:', name);
-    return Game.spawns['Spawn1'].spawnCreep(parts, name, {memory: {role: role}});
+    var name = role + '_' + Game.time;
+    memory.role = role
+    return Game.spawns['Spawn1'].spawnCreep(parts, name, {memory});
 }
 
 function getBodyParts(role, maxEnergy) {

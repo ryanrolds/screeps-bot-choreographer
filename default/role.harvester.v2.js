@@ -3,20 +3,7 @@ const { getEnergyReserveTarget } = require('helpers.targets')
 const behaviorMovement = require('behavior.movement')
 const { getHarvestLocation, resetHarvestTTL, clearAssignment } = require('helpers.energy')
 const { numMyCreepsNearby, numEnemeiesNearby } = require('helpers.proximity')
-
-const MEMORY_SOURCE = 'source'
-
-module.exports.setSource = (creep, sourceId) => {
-    creep.memory[MEMORY_SOURCE] = destinationId
-}
-
-module.exports.moveToSource = (creep) => {
-
-}
-
-module.exports.clearSource = (creep) => {
-    delete creep.memory[MEMORY_SOURCE]
-}
+const { MEMORY_SOURCE, MEMORY_HARVEST } = require('helpers.memory')
 
 const behavior = behaviorTree.SelectorNode(
     "hauler_root",
@@ -27,6 +14,13 @@ const behavior = behaviorTree.SelectorNode(
                 behaviorTree.LeafNode(
                     'pick_source',
                     (creep) => {
+                        // Don't look up a new source if creep already has one
+                        if (creep.memory[MEMORY_HARVEST]) {
+                            let source = Game.getObjectById(creep.memory[MEMORY_HARVEST])
+                            behaviorMovement.setSource(creep, source.id)
+                            return behaviorTree.SUCCESS
+                        }
+
                         var sources = creep.room.find(FIND_SOURCES)
 
                         sources = _.filter(sources, (source) => {
@@ -125,16 +119,12 @@ const behavior = behaviorTree.SelectorNode(
                                     }
 
                                     let result = creep.transfer(destination, RESOURCE_ENERGY)
-                                    console.log("transfer energy", creep.name, result)
-
                                     if (result === result != ERR_NOT_ENOUGH_RESOURCES) {
                                         return behaviorTree.SUCCESS
                                     }
-
                                     if (creep.store.getUsedCapacity() === 0) {
                                         return behaviorTree.SUCCESS
                                     }
-
                                     if (result != OK) {
                                         return behaviorTree.FAILURE
                                     }

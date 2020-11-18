@@ -50,19 +50,14 @@ module.exports.getEnergyFromContainer = (creep) => {
     }
 
     let result = creep.withdraw(source, RESOURCE_ENERGY)
-
-    console.log(result)
-
     if (result != OK) {
         //console.log(creep.name, "failed withdrawl", result)
     }
-
     if (result === ERR_NOT_IN_RANGE) {
         creep.moveTo(source, {visualizePathStyle: {stroke: '#ffaa00'}});
     }
 
     return
-
 }
 
 module.exports.getHarvestLocation = (creep) => {

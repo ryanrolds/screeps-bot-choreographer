@@ -8,83 +8,110 @@ const behavior = behaviorTree.SelectorNode(
         behaviorTree.SequenceNode(
             'haul_energy',
             [
-                behaviorTree.LeafNode(
-                    'pick_supply',
-                    (creep) => {
-                        let supply = getEnergyContainerTargets(creep)
-                        if (!supply) {
-                            console.log("failed to pick energy storage", creep.name)
-                            return behaviorTree.FAILURE
-                        }
-
-                        behaviorMovement.setDestination(creep, supply.id)
-
-                        return behaviorTree.SUCCESS
-                    }
-                ),
-                behaviorTree.LeafNode(
-                    'move_to_supply',
-                    (creep) => {
-                        return behaviorMovement.moveToDestination(creep)
-                    }
-                ),
-                behaviorTree.LeafNode(
+                behaviorTree.RepeatUntilSuccess(
                     'fill_creep',
-                    (creep) => {
-                        return behaviorMovement.fillCreepFromDestination(creep)
-                    }
+                    behaviorTree.SequenceNode(
+                        'get_energy',
+                        [
+                            behaviorTree.LeafNode(
+                                'pick_supply',
+                                (creep) => {
+                                    let supply = getEnergyContainerTargets(creep)
+                                    if (!supply) {
+                                        console.log("failed to pick energy storage", creep.name)
+                                        return behaviorTree.FAILURE
+                                    }
+
+                                    behaviorMovement.setDestination(creep, supply.id)
+
+                                    return behaviorTree.SUCCESS
+                                }
+                            ),
+                            behaviorTree.LeafNode(
+                                'move_to_supply',
+                                (creep) => {
+                                    return behaviorMovement.moveToDestination(creep)
+                                }
+                            ),
+                            behaviorTree.LeafNode(
+                                'fill_creep',
+                                (creep) => {
+                                    return behaviorMovement.fillCreepFromDestination(creep)
+                                }
+                            )
+                        ]
+                    )
                 ),
-                behaviorTree.LeafNode(
-                    'pick_construction_site',
-                    (creep) => {
-                        var flags = creep.room.find(FIND_FLAGS, {
-                            filter: (flag) => {
-                                return flag.name.startsWith("builder")
-                            }
-                        });
+                behaviorTree.RepeatUntilSuccess(
+                    'build_until_empty',
+                    behaviorTree.SequenceNode(
+                        'build_construction_site',
+                        [
+                            behaviorTree.LeafNode(
+                                'pick_construction_site',
+                                (creep) => {
+                                    var flags = creep.room.find(FIND_FLAGS, {
+                                        filter: (flag) => {
+                                            return flag.name.startsWith("builder")
+                                        }
+                                    });
 
-                        let target = null
-                        if (flags.length) {
-                            target = flags[0].pos.findClosestByPath(FIND_CONSTRUCTION_SITES)
-                        } else {
-                            target = creep.pos.findClosestByPath(FIND_CONSTRUCTION_SITES)
-                        }
+                                    let target = null
+                                    if (flags.length) {
+                                        target = flags[0].pos.findClosestByPath(FIND_CONSTRUCTION_SITES)
+                                    } else {
+                                        target = creep.pos.findClosestByPath(FIND_CONSTRUCTION_SITES)
+                                    }
 
-                        if (!target) {
-                            return behaviorTree.FAILURE
-                        }
+                                    if (!target) {
+                                        return behaviorTree.FAILURE
+                                    }
 
-                        behaviorMovement.setDestination(creep, target.id)
-                        return behaviorTree.SUCCESS
-                    }
-                ),
-                behaviorTree.LeafNode(
-                    'move_to_construction_site',
-                    (creep) => {
-                       return behaviorMovement.moveToDestination(creep)
-                    }
-                ),
-                behaviorTree.LeafNode(
-                    'build',
-                    (creep) => {
-                        let destination = Game.getObjectById(creep.memory.destination)
-                        if (!destination) {
-                            console.log("failed to get destination for build", creep.name)
-                            return behaviorTree.FAILURE
-                        }
+                                    behaviorMovement.setDestination(creep, target.id)
+                                    return behaviorTree.SUCCESS
+                                }
+                            ),
+                            behaviorTree.LeafNode(
+                                'move_to_construction_site',
+                                (creep) => {
+                                   return behaviorMovement.moveToDestination(creep)
+                                }
+                            ),
+                            behaviorTree.LeafNode(
+                                'build',
+                                (creep) => {
+                                    let destination = Game.getObjectById(creep.memory.destination)
+                                    if (!destination) {
+                                        console.log("failed to get destination for build", creep.name)
+                                        return behaviorTree.FAILURE
+                                    }
 
-                        let result = creep.build(destination)
-                        if (result != OK) {
-                            return behaviorTree.FAILURE
-                        }
+                                    let result = creep.build(destination)
+                                    console.log("build result", result, creep.name)
 
-                        if (creep.store.getUsedCapacity() === 0) {
-                            return behaviorTree.SUCCESS
-                        }
+                                    if (result === ERR_NOT_ENOUGH_RESOURCES) {
+                                        return behaviorTree.SUCCESS
+                                    }
 
-                       return behaviorTree.RUNNING
-                    }
-                ),
+                                    if (result === ERR_INVALID_TARGET) {
+                                        return behaviorTree.FAILURE
+                                    }
+
+                                    if (result != OK) {
+                                        console.log("builder result", result, creep.name)
+                                        return behaviorTree.FAILURE
+                                    }
+
+                                    if (creep.store.getUsedCapacity() === 0) {
+                                        return behaviorTree.SUCCESS
+                                    }
+
+                                    return behaviorTree.RUNNING
+                                }
+                            )
+                        ]
+                    )
+                )
             ]
         )
     ]

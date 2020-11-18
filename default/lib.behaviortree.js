@@ -66,6 +66,21 @@ module.exports.RepeatUntilFailure = (id, node) => {
     }
 }
 
+module.exports.RepeatUntilSuccess = (id, node) => {
+    return {
+        id,
+        node,
+        tick: function(actor) {
+            let result = this.node.tick(actor)
+            if (result === SUCCESS) {
+                return SUCCESS
+            }
+
+            return RUNNING
+        }
+    }
+}
+
 module.exports.LeafNode = (id, behavior) => {
     return {
         id,
