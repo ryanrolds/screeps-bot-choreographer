@@ -5,11 +5,13 @@ const roleRepairerV2 = require('role.repairer.v2');
 const roleHaulerV2 = require('role.hauler.v2');
 const roleDefender = require('role.defender');
 const roleClaimerV2 = require('role.claimer.v2');
-const { MEMORY_HARVEST, MEMORY_WITHDRAW, MEMORY_CLAIM, MEMORY_ROLE, MEMORY_ORIGIN } = require('helpers.memory')
+const { MEMORY_HARVEST, MEMORY_HARVEST_ROOM, MEMORY_WITHDRAW, MEMORY_WITHDRAW_ROOM, MEMORY_CLAIM,
+    MEMORY_ROLE, MEMORY_ORIGIN, MEMORY_FLAG, MEMORY_ROOM_ASSIGN } = require('helpers.memory')
 
 var WORKER_BUILDER = module.exports.WORKER_BUILDER = "builder"
 var WORKER_HARVESTER = module.exports.WORKER_HARVESTER = "harvester"
 var WORKER_REMOTE_HARVESTER = module.exports.WORKER_REMOTE_HARVESTER = "remote_harvester"
+var WORKER_MINER = module.exports.WORKER_MINER = "miner"
 var WORKER_UPGRADER = module.exports.WORKER_UPGRADER = "upgrader"
 var WORKER_DEFENDER = module.exports.WORKER_DEFENDER = "defender"
 var WORKER_REPAIRER = module.exports.WORKER_REPAIRER = "repairer"
@@ -19,24 +21,46 @@ var WORKER_EXPLORER = module.exports.WORKER_EXPLORER = "claimer"
 
 const workerRoles = {
     [WORKER_HARVESTER]: [CARRY, MOVE, WORK, WORK],
-    [WORKER_REMOTE_HARVESTER]: [CARRY, MOVE, WORK, MOVE, WORK],
+    [WORKER_REMOTE_HARVESTER]: [CARRY, MOVE, CARRY, MOVE, CARRY, MOVE, WORK, MOVE, WORK, MOVE],
+    [WORKER_MINER]: [WORK, WORK, WORK, CARRY, MOVE],
     [WORKER_BUILDER]: [CARRY, MOVE, WORK, WORK],
     [WORKER_UPGRADER]: [CARRY, CARRY, MOVE, WORK],
-    [WORKER_DEFENDER]: [TOUGH, TOUGH, TOUGH, MOVE, RANGED_ATTACK],
+    [WORKER_DEFENDER]: [MOVE, TOUGH, MOVE, TOUGH, MOVE, RANGED_ATTACK],
     [WORKER_REPAIRER]: [CARRY, CARRY, MOVE, WORK],
     [WORKER_HAULER]: [CARRY, CARRY, MOVE, MOVE],
-    [WORKER_CLAIMER]: [MOVE, CLAIM, MOVE, MOVE],
-    [WORKER_EXPLORER]: [MOVE, CLAIM, MOVE, MOVE]
+    [WORKER_CLAIMER]: [MOVE, CLAIM, MOVE],
+    [WORKER_EXPLORER]: [MOVE, MOVE, RANGED_ATTACK]
 }
 
-const buildOrder = [WORKER_BUILDER, WORKER_HAULER, WORKER_UPGRADER, WORKER_REPAIRER, WORKER_DEFENDER]
+const buildOrder = [WORKER_UPGRADER, WORKER_REPAIRER, WORKER_DEFENDER]
+
+const desiredBuildersPerBuild = 1
+const desiredDefendersPerRoom = 1
 
 module.exports.spawnSuicide = (state, limits) => {
     // Manage the bar at which we build creeps
     let maxEnergy = Game.spawns['Spawn1'].room.energyCapacityAvailable
     let currentEnergy = Game.spawns['Spawn1'].room.energyAvailable
-    let minEnergy = _.max([300, maxEnergy * 0.6])
-    //console.log("energy", currentEnergy, maxEnergy, minEnergy)
+    let minEnergy = 300
+
+    const numCreeps = Object.keys(Game.creeps).length
+    if (numCreeps > 5) {
+        minEnergy = maxEnergy * 0.5
+    }
+
+    if (numCreeps > 10) {
+        minEnergy = maxEnergy * 0.75
+    }
+
+    if (numCreeps > 15) {
+        minEnergy = maxEnergy * 0.8
+    }
+
+    if (numCreeps > 20) {
+        minEnergy = maxEnergy * 0.9
+    }
+
+    console.log("==== energy", currentEnergy, maxEnergy, minEnergy)
 
     let currentWorkers = _.countBy(Game.creeps, (creep) => {
         return creep.memory.role
@@ -53,6 +77,7 @@ module.exports.spawnSuicide = (state, limits) => {
             return Game.spawns['Spawn1'].room.name == state.sources.energy[sourceID].roomID ? 0 : 9999
         })
 
+        // Iterate energy sources and ensure they are staffed
         for (let i = 0; i < energySourceIDs.length; i++) {
             let source = energySources[energySourceIDs[i]]
 
@@ -80,12 +105,15 @@ module.exports.spawnSuicide = (state, limits) => {
 
             if (source.numMiners < desiredMiners) {
                 let harvesterType = WORKER_HARVESTER
-                if (differentRoom) {
+                if (source.containerID) {
+                    harvesterType = WORKER_MINER
+                } else if (differentRoom) {
                     harvesterType = WORKER_REMOTE_HARVESTER
                 }
 
                 let result = createCreep(harvesterType, currentEnergy, {
                     [MEMORY_HARVEST]: source.id,
+                    [MEMORY_HARVEST_ROOM]: source.roomID
                 })
                 if (result != OK) {
                     console.log("problem creating harvester", result)
@@ -95,9 +123,43 @@ module.exports.spawnSuicide = (state, limits) => {
             }
 
             if (source.numHaulers < desiredHaulers) {
-                let result = createCreep(WORKER_HAULER, currentEnergy, {[MEMORY_WITHDRAW]: source.containerID})
+                let result = createCreep(WORKER_HAULER, currentEnergy, {
+                    [MEMORY_WITHDRAW]: source.containerID,
+                    [MEMORY_WITHDRAW_ROOM]: source.roomID
+                })
                 if (result != OK) {
                     console.log("problem creating hauler", result)
+                }
+
+                return
+            }
+        }
+
+        // Iterate build and ensure they are staffed
+        for (let i = 0; i < state.builds.length; i++) {
+            let build = state.builds[i]
+            if (build.numBuilders < desiredBuildersPerBuild) {
+                let result = createCreep(WORKER_BUILDER, currentEnergy, {
+                    [MEMORY_FLAG]: build.id
+                })
+                if (result != OK) {
+                    console.log("problem creating hauler", result)
+                }
+
+                return
+            }
+        }
+
+        let roomIDs = Object.keys(state.rooms)
+        // Iterate rooms and ensure they are staffed
+        for (let i = 0; i < roomIDs.length; i++) {
+            let room = state.rooms[roomIDs[i]]
+            if (room.numDefenders < desiredDefendersPerRoom) {
+                let result = createCreep(WORKER_DEFENDER, currentEnergy, {
+                    [MEMORY_ROOM_ASSIGN]: room.name
+                })
+                if (result != OK) {
+                    console.log("problem creating defender", result)
                 }
 
                 return
@@ -119,14 +181,16 @@ module.exports.spawnSuicide = (state, limits) => {
         }
 
         const roomsToExplore = state.explore
-        const roomIDs = Object.keys(roomsToExplore)
-        for (let i = 0; i < roomIDs.length; i++) {
-            let explore = roomsToExplore[roomIDs[i]]
-            console.log(JSON.stringify(explore))
+        const exploreRoomIDs = Object.keys(roomsToExplore)
+        for (let i = 0; i < exploreRoomIDs.length; i++) {
+            let explore = roomsToExplore[exploreRoomIDs[i]]
             if (!explore.hasExplorer) {
-                let result = createCreep(WORKER_CLAIMER, currentEnergy, {[MEMORY_CLAIM]: explore.id})
+                let result = createCreep(WORKER_EXPLORER, currentEnergy, {
+                    [MEMORY_CLAIM]: explore.id
+                })
                 if (result != OK) {
                     console.log("problem creating claimer", result)
+                    return
                 }
             }
         }
@@ -183,32 +247,32 @@ module.exports.tick = () => {
             return
         }
 
-        if(creep.memory.role == WORKER_HARVESTER || creep.memory.role == "harvater") {
-            //roleHarvester.run(creep);
+        if (creep.memory.role == WORKER_HARVESTER || creep.memory.role == WORKER_REMOTE_HARVESTER ||
+            creep.memory.role == WORKER_MINER) {
             roleHarvesterV2.run(creep)
         }
 
-        if(creep.memory.role == WORKER_UPGRADER) {
+        if (creep.memory.role == WORKER_UPGRADER) {
             roleUpgraderV2.run(creep)
         }
 
-        if(creep.memory.role == WORKER_BUILDER) {
+        if (creep.memory.role == WORKER_BUILDER) {
             roleBuilderV2.run(creep);
         }
 
-        if(creep.memory.role == WORKER_DEFENDER) {
+        if (creep.memory.role == WORKER_DEFENDER) {
             roleDefender.run(creep);
         }
 
-        if(creep.memory.role == WORKER_REPAIRER) {
+        if (creep.memory.role == WORKER_REPAIRER) {
             roleRepairerV2.run(creep)
         }
 
-        if(creep.memory.role == WORKER_HAULER) {
+        if (creep.memory.role == WORKER_HAULER) {
             roleHaulerV2.run(creep)
         }
 
-        if(creep.memory.role == WORKER_CLAIMER) {
+        if (creep.memory.role == WORKER_CLAIMER || creep.memory.role == WORKER_EXPLORER) {
             roleClaimerV2.run(creep)
         }
     }

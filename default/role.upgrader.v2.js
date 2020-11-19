@@ -22,12 +22,7 @@ const behavior = behaviorTree.SelectorNode(
                         return behaviorTree.SUCCESS
                     }
                 ),
-                behaviorTree.LeafNode(
-                    'move_to_supply',
-                    (creep) => {
-                        return behaviorMovement.moveToDestination(creep)
-                    }
-                ),
+                behaviorMovement.moveToDestination(1),
                 behaviorTree.LeafNode(
                     'fill_creep',
                     (creep) => {
@@ -41,12 +36,7 @@ const behavior = behaviorTree.SelectorNode(
                         return behaviorTree.SUCCESS
                     }
                 ),
-                behaviorTree.LeafNode(
-                    'move_to_room_controller',
-                    (creep) => {
-                       return behaviorMovement.moveToDestination(creep, 3)
-                    }
-                ),
+                behaviorMovement.moveToDestination(3),
                 behaviorTree.LeafNode(
                     'empty_creep',
                     (creep) => {

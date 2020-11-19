@@ -1,6 +1,5 @@
 
 const behaviorTree = require('lib.behaviortree')
-const { getEnergyContainerTargets, getEnergyReserveTarget } = require('helpers.targets')
 const behaviorMovement = require('behavior.movement')
 const { MEMORY_CLAIM } = require('helpers.memory')
 
@@ -14,8 +13,6 @@ const behavior = behaviorTree.SelectorNode(
                     'move_to_room',
                     (creep) => {
                         const exitDir = creep.room.findExitTo(creep.memory[MEMORY_CLAIM])
-                        console.log("exit", exitDir)
-
                         if (exitDir === ERR_INVALID_ARGS) {
                             return behaviorTree.SUCCESS
                         }
@@ -44,7 +41,6 @@ const behavior = behaviorTree.SelectorNode(
                         'move',
                         (creep) => {
                             let result = creep.reserveController(creep.room.controller)
-                            console.log(result)
                             return behaviorTree.FAILURE
                         }
                     )

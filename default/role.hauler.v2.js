@@ -1,8 +1,9 @@
 
 const behaviorTree = require('lib.behaviortree')
-const { getEnergyContainerTargets, getEnergyReserveTarget } = require('helpers.targets')
 const behaviorMovement = require('behavior.movement')
-const { MEMORY_WITHDRAW } = require('helpers.memory')
+const behaviorStorage = require('behavior.storage')
+const { getEnergyContainerTargets } = require('helpers.targets')
+const { MEMORY_WITHDRAW, MEMORY_DESTINATION } = require('helpers.memory')
 
 const behavior = behaviorTree.SelectorNode(
     "hauler_root",
@@ -35,36 +36,28 @@ const behavior = behaviorTree.SelectorNode(
                                     return behaviorTree.SUCCESS
                                 }
                             ),
-                            behaviorTree.LeafNode(
-                                'move_to_supply',
-                                (creep) => {
-                                    return behaviorMovement.moveToDestination(creep)
-                                }
-                            ),
+                            behaviorMovement.moveToDestination(1),
                             behaviorTree.LeafNode(
                                 'fill_creep',
                                 (creep) => {
-                                    let destination = Game.getObjectById(creep.memory.destination)
+                                    let destination = Game.getObjectById(creep.memory[MEMORY_DESTINATION])
                                     if (!destination) {
                                         console.log("failed to get destination for withdraw", creep.name)
                                         return behaviorTree.FAILURE
                                     }
 
                                     let result = creep.withdraw(destination, RESOURCE_ENERGY)
-                                    if (result === OK) {
-                                        return behaviorTree.RUNNING
-                                    }
-
-                                    if (result === ERR_NOT_ENOUGH_RESOURCES) {
-                                        return behaviorTree.FAILURE
-                                    }
-
                                     if (result === ERR_FULL) {
                                         return behaviorTree.SUCCESS
                                     }
-
+                                    if (result === ERR_NOT_ENOUGH_RESOURCES) {
+                                        return behaviorTree.FAILURE
+                                    }
                                     if (creep.store.getFreeCapacity() === 0) {
                                         return behaviorTree.SUCCESS
+                                    }
+                                    if (result === OK) {
+                                        return behaviorTree.RUNNING
                                     }
 
                                     console.log("failed to withdraw from supply", creep.name, result)
@@ -74,84 +67,8 @@ const behavior = behaviorTree.SelectorNode(
                         ]
                     )
                 ),
-                behaviorTree.RepeatUntilSuccess(
-                    "transfer_until_empty",
-                    behaviorTree.SequenceNode(
-                        'dump_energy',
-                        [
-                            behaviorTree.SelectorNode(
-                                'pick_dump',
-                                [
-                                    behaviorTree.LeafNode(
-                                        'pick_spawner_extractor',
-                                        (creep) => {
-                                            let sink = getEnergyReserveTarget(creep)
-                                            if (!sink) {
-                                                return behaviorTree.FAILURE
-                                            }
-
-                                            behaviorMovement.setDestination(creep, sink.id)
-                                            return behaviorTree.SUCCESS
-                                        }
-                                    ),
-                                    behaviorTree.LeafNode(
-                                        'pick_container_near_spawner',
-                                        (creep) => {
-                                            const target = Game.spawns['Spawn1'].pos.
-                                                findClosestByRange(FIND_STRUCTURES, {
-                                                    filter: function(structure) {
-                                                        return structure.structureType === STRUCTURE_CONTAINER &&
-                                                            structure.store.getFreeCapacity() > 0
-                                                    }
-                                                });
-
-                                            if (!target) {
-                                                return behaviorTree.FAILURE
-                                            }
-
-                                            behaviorMovement.setDestination(creep, target.id)
-                                            return behaviorTree.SUCCESS
-                                        }
-                                    )
-                                ]
-                            ),
-                            behaviorTree.LeafNode(
-                                'move_to_sink',
-                                (creep) => {
-                                    return behaviorMovement.moveToDestination(creep)
-                                }
-                            ),
-                            behaviorTree.LeafNode(
-                                'empty_creep',
-                                (creep) => {
-                                    let destination = Game.getObjectById(creep.memory.destination)
-                                    if (!destination) {
-                                        console.log("failed to get destination for dump", creep.name)
-                                        return behaviorTree.FAILURE
-                                    }
-
-                                    let result = creep.transfer(destination, RESOURCE_ENERGY)
-                                    if (result === ERR_FULL) {
-                                        // We still have energy to transfer, fail so we find another
-                                        // place to dump
-                                        return behaviorTree.FAILURE
-                                    }
-                                    if (result === ERR_NOT_ENOUGH_RESOURCES) {
-                                        return behaviorTree.SUCCESS
-                                    }
-                                    if (creep.store.getUsedCapacity() === 0) {
-                                        return behaviorTree.SUCCESS
-                                    }
-                                    if (result != OK) {
-                                        return behaviorTree.FAILURE
-                                    }
-
-                                    return behaviorTree.RUNNING
-                                }
-                            )
-                        ]
-                    )
-                )
+                behaviorMovement.moveToOriginRoom,
+                behaviorStorage.emptyCreep
             ]
         )
     ]

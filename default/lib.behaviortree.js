@@ -9,6 +9,8 @@ module.exports.SelectorNode = (id, children) => {
         tick: function(actor) {
             let i = getState(actor, this.id)
 
+            //console.log("selector child", this.id, i, actor.name)
+
             for (; i < children.length; i++) {
                 switch (children[i].tick(actor)) {
                 case RUNNING:
@@ -32,6 +34,8 @@ module.exports.SequenceNode = (id, children) => {
         children,
         tick: function(actor) {
             let i = getState(actor, this.id)
+
+            //console.log("sequence child", this.id, i, actor.name)
 
             for (; i < children.length; i++) {
                 let result = children[i].tick(actor)
@@ -86,6 +90,8 @@ module.exports.LeafNode = (id, behavior) => {
         id,
         behavior,
         tick: function(actor) {
+            //console.log("leaf", this.id, actor.name)
+
             return this.behavior(actor)
         }
     }

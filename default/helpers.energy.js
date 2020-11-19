@@ -101,8 +101,6 @@ module.exports.getHarvestLocation = (creep) => {
     // If the TTL hits 0 then we get a new assignment
     creep.memory.ttl = DEFAULT_TTL
 
-    console.log("assigning", creep.name, source)
-
     return source
 }
 

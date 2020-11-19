@@ -1,11 +1,12 @@
 const roleBuilderV2 = require("./role.builder.v2")
-const { MEMORY_HARVEST, MEMORY_ROLE, MEMORY_WITHDRAW, MEMORY_CLAIM } = require('helpers.memory')
-const { WORKER_HARVESTER, WORKER_HAULER, WORKER_CLAIMER, WORKER_REMOTE_HARVESTER } = require('manager.creeps')
+const { MEMORY_HARVEST, MEMORY_ROLE, MEMORY_WITHDRAW, MEMORY_CLAIM, MEMORY_FLAG,
+    MEMORY_ROOM_ASSIGN } = require('helpers.memory')
+const { WORKER_HARVESTER, WORKER_MINER, WORKER_HAULER, WORKER_CLAIMER, WORKER_BUILDER,
+    WORKER_REMOTE_HARVESTER, WORKER_DEFENDER } = require('manager.creeps')
 
 const state = {
-    rooms: {
-
-    },
+    rooms: {},
+    builds: [],
     explore: [],
     hostiles: {},
     sources: {
@@ -19,18 +20,32 @@ module.exports.tick = (charter) => {
     const exploreRooms = _.difference(desiredRooms, visibleRooms)
 
     state.explore = exploreRooms.reduce((rooms, roomID) => {
-        const numExplorers = _.filter(Game.creeps, (creep) => {
-            return creep.memory[MEMORY_ROLE] && creep.memory[MEMORY_ROLE] === WORKER_CLAIMER &&
-                creep.memory[MEMORY_CLAIM] && creep.memory[MEMORY_CLAIM] === roomID
+        const hasExplorer = _.filter(Game.creeps, (creep) => {
+            return creep.memory[MEMORY_ROLE] === WORKER_CLAIMER && creep.memory[MEMORY_CLAIM] === roomID
         }).length
 
-        let room = {
+        rooms[roomID] = {
             id: roomID,
-            hasExplorer: numExplorers > 0
+            hasExplorer,
         }
-        rooms[roomID] = room
+
         return rooms
     }, {})
+
+    state.builds = []
+    _.each(Game.flags, (value, key) => {
+        if (key.startsWith("build")) {
+            const numBuilders = _.filter(Game.creeps, (creep) => {
+                const role = creep.memory[MEMORY_ROLE]
+                return role === WORKER_BUILDER && creep.memory[MEMORY_FLAG] === key
+            }).length
+
+            state.builds.push({
+                id: key,
+                numBuilders
+            })
+        }
+    })
 
     visibleRooms.forEach((roomID) => {
         const room = Game.rooms[roomID]
@@ -42,7 +57,7 @@ module.exports.tick = (charter) => {
         energySources.forEach((source) => {
             const container = source.pos.findInRange(FIND_STRUCTURES, 3, {
                 filter: (structure) => {
-                    return structure.structureType = STRUCTURE_CONTAINER
+                    return structure.structureType === STRUCTURE_CONTAINER
                 }
             })
             const hasContainer = container.length > 0
@@ -60,7 +75,8 @@ module.exports.tick = (charter) => {
 
             const numMiners = _.filter(Game.creeps, (creep) => {
                 const role = creep.memory[MEMORY_ROLE]
-                return role && (role === WORKER_HARVESTER || role === WORKER_REMOTE_HARVESTER) &&
+                return role && (role === WORKER_HARVESTER || role === WORKER_REMOTE_HARVESTER ||
+                    role === WORKER_MINER) &&
                     creep.memory[MEMORY_HARVEST] && creep.memory[MEMORY_HARVEST] === source.id
             }).length
 
@@ -73,8 +89,14 @@ module.exports.tick = (charter) => {
             }
         })
 
+        const numDefenders = _.filter(Game.creeps, (creep) => {
+            return creep.memory[MEMORY_ROLE] === WORKER_DEFENDER &&
+                creep.memory[MEMORY_ROOM_ASSIGN] === creep.room.name
+        }).length
+
         state.rooms[room.name] = {
             id: room.name,
+            numDefenders
         }
     })
 
