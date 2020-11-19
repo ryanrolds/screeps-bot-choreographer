@@ -16,10 +16,8 @@ module.exports.loop = function () {
     towers.tick(charter)
 
     const workersLimits = {
-        [creeps.WORKER_UPGRADER]: 5,
-        [creeps.WORKER_BUILDER]: 0,
+        [creeps.WORKER_UPGRADER]: 4,
         [creeps.WORKER_REPAIRER]: 0,
-        [creeps.WORKER_DEFENDER]: 0
     }
 
     // Manage creep composition

@@ -32,9 +32,9 @@ const workerRoles = {
     [WORKER_EXPLORER]: [MOVE, MOVE, RANGED_ATTACK]
 }
 
-const buildOrder = [WORKER_UPGRADER, WORKER_REPAIRER, WORKER_DEFENDER]
+const buildOrder = [WORKER_UPGRADER, WORKER_REPAIRER]
 
-const desiredBuildersPerBuild = 1
+const desiredBuildersPerBuild = 2
 const desiredDefendersPerRoom = 1
 
 module.exports.spawnSuicide = (state, limits) => {
