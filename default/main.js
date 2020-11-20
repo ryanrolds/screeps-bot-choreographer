@@ -1,11 +1,6 @@
 const creeps = require('manager.creeps')
 const towers = require('manager.towers')
-
-var colony = require('colony')
-
-var charter = {
-    rooms: ["E18S47", "E17S47", "E18S46", "E17S48", "E19S46"]
-}
+const colony = require('manager.colony')
 
 const workersLimits = {
     [creeps.WORKER_UPGRADER]: 4,

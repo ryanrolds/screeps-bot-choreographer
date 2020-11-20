@@ -3,34 +3,15 @@ const behaviorMovement = require('behavior.movement')
 const behaviorStorage = require('behavior.storage')
 const behaviorHarvest = require('behavior.harvest')
 
-const behavior = behaviorTree.SelectorNode(
-    "hauler_root",
+const behavior = behaviorTree.SequenceNode(
+    'haul_energy',
     [
-        behaviorTree.SequenceNode(
-            'haul_energy',
-            [
-                behaviorHarvest.moveToHarvestRoom,
-                behaviorHarvest.selectHarvestSource,
-                behaviorHarvest.moveToHarvest,
-                behaviorHarvest.harvest,
-                behaviorMovement.moveToOriginRoom,
-                behaviorStorage.emptyCreep
-                /*
-                behaviorTree.RepeatUntilFailure(
-                    "harvest_until_empty",
-                    behaviorTree.SequenceNode(
-                        'harvest_energy',
-                        [
-                            behaviorHarvest.moveToHarvest,
-                            behaviorHarvest.harvest,
-                            behaviorMovement.moveToOriginRoom,
-                            behaviorStorage.emptyCreep
-                        ]
-                    )
-                )
-                */
-            ]
-        )
+        behaviorHarvest.moveToHarvestRoom,
+        behaviorHarvest.selectHarvestSource,
+        behaviorHarvest.moveToHarvest,
+        behaviorHarvest.harvest,
+        behaviorMovement.moveToOriginRoom,
+        behaviorStorage.emptyCreep
     ]
 )
 

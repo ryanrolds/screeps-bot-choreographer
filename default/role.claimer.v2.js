@@ -1,7 +1,7 @@
 
 const behaviorTree = require('lib.behaviortree')
 const behaviorMovement = require('behavior.movement')
-const { MEMORY_CLAIM } = require('helpers.memory')
+const { MEMORY_CLAIM } = require('constants.memory')
 
 const behavior = behaviorTree.SelectorNode(
     "claimer_root",

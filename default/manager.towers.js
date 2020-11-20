@@ -1,5 +1,3 @@
-
-
 module.exports.tick = (charter) => {
     charter.rooms.forEach((roomId) => {
         const room = Game.rooms[roomId]

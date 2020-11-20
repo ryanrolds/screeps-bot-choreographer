@@ -1,7 +1,7 @@
 const {FAILURE, SUCCESS, RUNNING} = require('lib.behaviortree')
 const behaviorTree = require('lib.behaviortree')
 const { MEMORY_DESTINATION, MEMORY_DESTINATION_ROOM, MEMORY_ORIGIN,
-    MEMORY_SOURCE, MEMORY_SOURCE_ROOM } = require('helpers.memory')
+    MEMORY_SOURCE, MEMORY_SOURCE_ROOM } = require('constants.memory')
 
 const moveToMemory = module.exports.moveToMemory = (creep, memoryId,  range) => {
     let destination = Game.getObjectById(creep.memory[memoryId])

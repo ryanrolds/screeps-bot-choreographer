@@ -6,7 +6,7 @@ const roleHaulerV2 = require('role.hauler.v2');
 const roleDefender = require('role.defender');
 const roleClaimerV2 = require('role.claimer.v2');
 const { MEMORY_HARVEST, MEMORY_HARVEST_ROOM, MEMORY_WITHDRAW, MEMORY_WITHDRAW_ROOM, MEMORY_CLAIM,
-    MEMORY_ROLE, MEMORY_ORIGIN, MEMORY_FLAG, MEMORY_ASSIGN_ROOM } = require('helpers.memory')
+    MEMORY_ROLE, MEMORY_ORIGIN, MEMORY_FLAG, MEMORY_ASSIGN_ROOM } = require('constants.memory')
 
 var WORKER_BUILDER = module.exports.WORKER_BUILDER = "builder"
 var WORKER_HARVESTER = module.exports.WORKER_HARVESTER = "harvester"
@@ -148,15 +148,18 @@ module.exports.spawnSuicide = (state, limits) => {
                 continue
             }
 
-            if (build.numBuilders < desiredBuildersPerBuild) {
-                let result = createCreep(WORKER_BUILDER, currentEnergy, {
-                    [MEMORY_FLAG]: build.id
-                })
-                if (result != OK) {
-                    console.log("problem creating hauler", result)
-                }
+            // Don't spawn builders if nothing to build
+            if (build.hasSites) {
+                if (build.numBuilders < desiredBuildersPerBuild) {
+                    let result = createCreep(WORKER_BUILDER, currentEnergy, {
+                        [MEMORY_FLAG]: build.id
+                    })
+                    if (result != OK) {
+                        console.log("problem creating hauler", result)
+                    }
 
-                return
+                    return
+                }
             }
         }
 
@@ -167,7 +170,6 @@ module.exports.spawnSuicide = (state, limits) => {
 
             // We need repairers if we have structures that decay
             if (room.hasStructures) {
-                console.log("xxxxxxx has structures", room.id, room.numRepairers, desiredRepairersPerRoom)
                 if (room.numRepairers < desiredRepairersPerRoom) {
                     let result = createCreep(WORKER_REPAIRER, currentEnergy, {
                         [MEMORY_ASSIGN_ROOM]: room.id
@@ -180,18 +182,15 @@ module.exports.spawnSuicide = (state, limits) => {
                 }
             }
 
-            // Don't spawn builders if nothing to build
-            if (room.hasSites) {
-                if (room.numDefenders < desiredDefendersPerRoom) {
-                    let result = createCreep(WORKER_DEFENDER, currentEnergy, {
-                        [MEMORY_ASSIGN_ROOM]: room.id
-                    })
-                    if (result != OK) {
-                        console.log("problem creating defender", result)
-                    }
-
-                    return
+            if (room.numDefenders < desiredDefendersPerRoom) {
+                let result = createCreep(WORKER_DEFENDER, currentEnergy, {
+                    [MEMORY_ASSIGN_ROOM]: room.id
+                })
+                if (result != OK) {
+                    console.log("problem creating defender", result)
                 }
+
+                return
             }
         }
 
@@ -213,7 +212,6 @@ module.exports.spawnSuicide = (state, limits) => {
             }
         }
 
-
         // Explore
         const roomsToExplore = state.explore
         const exploreRoomIDs = Object.keys(roomsToExplore)
@@ -229,34 +227,6 @@ module.exports.spawnSuicide = (state, limits) => {
                 }
             }
         }
-
-        /*
-        // ====================================
-        // Track ticks that the spawner is full and creates an upgraded if full for too long
-        if (!Game.spawns['Spawn1'].memory.fullTicks) {
-            Game.spawns['Spawn1'].memory.fullTicks = 0
-        }
-
-        if (currentEnergy >= maxEnergy) {
-            Game.spawns['Spawn1'].memory.fullTicks++
-        } else {
-            Game.spawns['Spawn1'].memory.fullTicks = 0
-        }
-
-        console.log("upgrader", currentWorkers[WORKER_UPGRADER], limits[WORKER_UPGRADER])
-
-        if (Game.spawns['Spawn1'].memory.fullTicks >= AUTO_BUILD_UPGRADER_FULL_TICKS &&
-            (currentWorkers[WORKER_UPGRADER] < limits[WORKER_UPGRADER] * 2)) {
-            console.log("Auto building upgrader")
-            let result = createCreep(WORKER_UPGRADER, currentEnergy)
-            if (result == ERR_NOT_ENOUGH_ENERGY) {
-                Game.spawns['Spawn1'].memory.energyAvailable = false
-            }
-
-            return
-        }
-        // ====================================
-        */
     }
 
     if (Game.spawns['Spawn1'].spawning) {

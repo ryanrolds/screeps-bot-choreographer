@@ -1,7 +1,7 @@
 const behaviorTree = require('lib.behaviortree')
 const {FAILURE, SUCCESS, RUNNING} = require('lib.behaviortree')
 const behaviorMovement = require('behavior.movement')
-const { MEMORY_ASSIGN_ROOM } = require('helpers.memory')
+const { MEMORY_ASSIGN_ROOM } = require('constants.memory')
 
 const moveToRoom = behaviorTree.RepeatUntilSuccess(
     'bt.assign.moveToAssignedRoom',

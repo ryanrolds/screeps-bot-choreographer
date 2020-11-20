@@ -1,12 +1,10 @@
 const behaviorTree = require('lib.behaviortree')
 const {FAILURE, SUCCESS, RUNNING} = require('lib.behaviortree')
 const behaviorMovement = require('behavior.movement')
-const behaviorTargets = require('behavior.targets')
-const { MEMORY_HARVEST, MEMORY_FLAG } = require('helpers.memory')
-const { numMyCreepsNearby, numEnemeiesNearby } = require('helpers.proximity')
+const { MEMORY_FLAG } = require('constants.memory')
 
 const selectSite = behaviorTree.LeafNode(
-    'pick_construction_site',
+    'selectSite',
     (creep) => {
         var flags = creep.room.find(FIND_FLAGS, {
             filter: (flag) => {
@@ -34,7 +32,7 @@ const selectSite = behaviorTree.LeafNode(
 )
 
 const selectSiteNearFlag = behaviorTree.LeafNode(
-    'pick_site_near_flag',
+    'selectSiteNearFlag',
     (creep) => {
         const flagID = creep.memory[MEMORY_FLAG]
         if (!flagID) {
@@ -45,7 +43,7 @@ const selectSiteNearFlag = behaviorTree.LeafNode(
         if (!flag) {
             return FAILURE
         }
-        
+
         if (!flag.room) {
             return FAILURE
         }
@@ -56,7 +54,7 @@ const selectSiteNearFlag = behaviorTree.LeafNode(
         }
 
         behaviorMovement.setDestination(creep, target.id, target.room.id)
-        return behaviorTree.SUCCESS
+        return SUCCESS
     }
 )
 
@@ -66,28 +64,28 @@ const build = behaviorTree.LeafNode(
         let destination = Game.getObjectById(creep.memory.destination)
         if (!destination) {
             console.log("failed to get destination for build", creep.name)
-            return behaviorTree.FAILURE
+            return FAILURE
         }
 
         let result = creep.build(destination)
         if (result === ERR_NOT_ENOUGH_RESOURCES) {
-            return behaviorTree.SUCCESS
+            return SUCCESS
         }
 
         if (result === ERR_INVALID_TARGET) {
-            return behaviorTree.FAILURE
+            return FAILURE
         }
 
         if (result != OK) {
             console.log("builder result", result, creep.name)
-            return behaviorTree.FAILURE
+            return FAILURE
         }
 
         if (creep.store.getUsedCapacity() === 0) {
-            return behaviorTree.SUCCESS
+            return SUCCESS
         }
 
-        return behaviorTree.RUNNING
+        return RUNNING
     }
 )
 

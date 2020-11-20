@@ -6,7 +6,7 @@ const behaviorStorage = require('behavior.storage')
 const behaviorHarvest = require('behavior.harvest')
 const behaviorAssign = require('behavior.assign')
 
-const { MEMORY_DESTINATION } = require('helpers.memory')
+const { MEMORY_DESTINATION } = require('constants.memory')
 const { getDamagedStructure } = require('helpers.targets')
 
 const selectStructureToRepair = behaviorTree.LeafNode(
@@ -42,7 +42,7 @@ const repair = behaviorTree.LeafNode(
         if (creep.store.getUsedCapacity() === 0) {
             return SUCCESS
         }
-        
+
         if (result != OK) {
             return FAILURE
         }

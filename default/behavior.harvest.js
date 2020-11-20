@@ -2,8 +2,7 @@
 const behaviorTree = require('lib.behaviortree')
 const {FAILURE, SUCCESS, RUNNING} = require('lib.behaviortree')
 const behaviorMovement = require('behavior.movement')
-const behaviorTargets = require('behavior.targets')
-const { MEMORY_HARVEST, MEMORY_HARVEST_ROOM } = require('helpers.memory')
+const { MEMORY_HARVEST, MEMORY_HARVEST_ROOM } = require('constants.memory')
 const { numMyCreepsNearby, numEnemeiesNearby } = require('helpers.proximity')
 
 module.exports.selectHarvestSource = behaviorTree.LeafNode(
@@ -49,7 +48,6 @@ module.exports.moveToHarvestRoom = behaviorTree.RepeatUntilSuccess(
         'move_to_harvest_room',
         (creep) => {
             const room = creep.memory[MEMORY_HARVEST_ROOM]
-            console.log('bt.movement.room.harvest', creep.name, room)
             if (room) {
                 const exitDir = creep.room.findExitTo(room)
                 if (exitDir === ERR_INVALID_ARGS) {

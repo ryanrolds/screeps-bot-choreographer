@@ -2,10 +2,10 @@
 const behaviorTree = require('lib.behaviortree')
 const {FAILURE, SUCCESS, RUNNING} = require('lib.behaviortree')
 const behaviorMovement = require('behavior.movement')
-const { MEMORY_ROLE, MEMORY_DESTINATION } = require('helpers.memory')
+const { MEMORY_ROLE, MEMORY_DESTINATION } = require('constants.memory')
 
 const selectEnergyForWithdraw = module.exports.selectEnergyForWithdraw = behaviorTree.LeafNode(
-    'pick_central_storage',
+    'selectEnergyForWithdraw',
     (creep) => {
         // If not in primary room, fail
         if (creep.room.name !== Game.spawns['Spawn1'].room.name) {
@@ -51,7 +51,7 @@ const selectContainerForWithdraw = module.exports.selectContainerForWithdraw = b
 )
 
 const pickStorage = module.exports.pickStorage = behaviorTree.SelectorNode(
-    'pick_storage',
+    'pickStorage',
     [
         behaviorTree.LeafNode(
             'pick_adjecent_container',

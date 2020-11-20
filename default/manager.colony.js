@@ -1,6 +1,5 @@
-const roleBuilderV2 = require("./role.builder.v2")
 const { MEMORY_HARVEST, MEMORY_ROLE, MEMORY_WITHDRAW, MEMORY_CLAIM, MEMORY_FLAG,
-    MEMORY_ASSIGN_ROOM } = require('helpers.memory')
+    MEMORY_ASSIGN_ROOM } = require('constants.memory')
 const { WORKER_HARVESTER, WORKER_MINER, WORKER_HAULER, WORKER_CLAIMER, WORKER_BUILDER,
     WORKER_REMOTE_HARVESTER, WORKER_DEFENDER, WORKER_REPAIRER } = require('manager.creeps')
 

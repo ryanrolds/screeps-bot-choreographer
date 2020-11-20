@@ -3,7 +3,7 @@ const behaviorTree = require('lib.behaviortree')
 const behaviorMovement = require('behavior.movement')
 const behaviorStorage = require('behavior.storage')
 const { getEnergyContainerTargets } = require('helpers.targets')
-const { MEMORY_WITHDRAW, MEMORY_DESTINATION } = require('helpers.memory')
+const { MEMORY_WITHDRAW, MEMORY_DESTINATION } = require('constants.memory')
 
 const behavior = behaviorTree.SelectorNode(
     "hauler_root",
