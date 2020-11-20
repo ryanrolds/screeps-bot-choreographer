@@ -65,10 +65,14 @@ const behavior = behaviorTree.SelectorNode(
 
 
 module.exports = {
-    run: (creep) => {
-        let result = behavior.tick(creep)
+    run: (creep, trace) => {
+        const roleTrace = trace.begin('upgrader')
+
+        let result = behavior.tick(creep, roleTrace)
         if (result == behaviorTree.FAILURE) {
             console.log("INVESTIGATE: upgrader failure", creep.name)
         }
+
+        roleTrace.end()
     }
 }

@@ -92,10 +92,14 @@ const behavior = behaviorTree.SelectorNode(
 )
 
 module.exports = {
-    run: (creep) => {
-        let result = behavior.tick(creep)
+    run: (creep, trace) => {
+        const roleTrace = trace.begin('repairer')
+
+        let result = behavior.tick(creep, roleTrace)
         if (result == FAILURE) {
             console.log("INVESTIGATE: repairer failure", creep.name)
         }
+
+        roleTrace.end()
     }
 }

@@ -45,10 +45,14 @@ const behavior = behaviorTree.SelectorNode(
 )
 
 module.exports = {
-    run: (creep) => {
-        let result = behavior.tick(creep)
+    run: (creep, trace) => {
+        const roleTrace = trace.begin('builder')
+
+        let result = behavior.tick(creep, roleTrace)
         if (result == behaviorTree.FAILURE) {
             console.log("INVESTIGATE: builder failure", creep.name)
         }
+
+        roleTrace.end()
     }
 }

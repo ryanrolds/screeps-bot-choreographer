@@ -58,6 +58,7 @@ const pickStorage = module.exports.pickStorage = behaviorTree.SelectorNode(
             (creep) => {
                 const role = creep.memory[MEMORY_ROLE]
                 // haulers should pick containers near the spawner
+                // TODO this is hacky and feels bad
                 if (role && role === "hauler") {
                     return FAILURE
                 }

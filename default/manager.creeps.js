@@ -35,7 +35,7 @@ const workerRoles = {
 const buildOrder = [WORKER_UPGRADER]
 
 const desiredBuildersPerBuild = 2
-const desiredDefendersPerRoom = 1
+const desiredDefendersPerRoom = 0
 const desiredRepairersPerRoom = 2
 
 module.exports.spawnSuicide = (state, limits) => {
@@ -239,7 +239,7 @@ module.exports.spawnSuicide = (state, limits) => {
     }
 }
 
-module.exports.tick = () => {
+module.exports.tick = (trace) => {
     for(var name in Game.creeps) {
         var creep = Game.creeps[name];
         //console.log(creep.name, creep.memory.role)
@@ -250,31 +250,31 @@ module.exports.tick = () => {
 
         if (creep.memory.role == WORKER_HARVESTER || creep.memory.role == WORKER_REMOTE_HARVESTER ||
             creep.memory.role == WORKER_MINER) {
-            roleHarvesterV2.run(creep)
+            roleHarvesterV2.run(creep, trace)
         }
 
         if (creep.memory.role == WORKER_UPGRADER) {
-            roleUpgraderV2.run(creep)
+            roleUpgraderV2.run(creep, trace)
         }
 
         if (creep.memory.role == WORKER_BUILDER) {
-            roleBuilderV2.run(creep);
+            roleBuilderV2.run(creep, trace);
         }
 
         if (creep.memory.role == WORKER_DEFENDER) {
-            roleDefender.run(creep);
+            roleDefender.run(creep, trace);
         }
 
         if (creep.memory.role == WORKER_REPAIRER) {
-            roleRepairerV2.run(creep)
+            roleRepairerV2.run(creep, trace)
         }
 
         if (creep.memory.role == WORKER_HAULER) {
-            roleHaulerV2.run(creep)
+            roleHaulerV2.run(creep, trace)
         }
 
         if (creep.memory.role == WORKER_CLAIMER || creep.memory.role == WORKER_EXPLORER) {
-            roleClaimerV2.run(creep)
+            roleClaimerV2.run(creep, trace)
         }
     }
 

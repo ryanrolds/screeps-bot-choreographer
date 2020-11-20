@@ -16,10 +16,14 @@ const behavior = behaviorTree.SequenceNode(
 )
 
 module.exports = {
-    run: (creep) => {
-        let result = behavior.tick(creep)
+    run: (creep, trace) => {
+        const roleTrace = trace.begin('harvester')
+
+        let result = behavior.tick(creep, roleTrace)
         if (result == behaviorTree.FAILURE) {
             console.log("INVESTIGATE: harvester failure", creep.name)
         }
+
+        roleTrace.end()
     }
 }
