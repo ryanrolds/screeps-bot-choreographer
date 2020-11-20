@@ -1,79 +1,100 @@
 const behaviorTree = require('lib.behaviortree')
-const { getEnergyContainerTargets, getDamagedStructure } = require('helpers.targets')
+const {FAILURE, SUCCESS, RUNNING} = require('lib.behaviortree')
+
 const behaviorMovement = require('behavior.movement')
+const behaviorStorage = require('behavior.storage')
+const behaviorHarvest = require('behavior.harvest')
+const behaviorAssign = require('behavior.assign')
+
+const { MEMORY_DESTINATION } = require('helpers.memory')
+const { getDamagedStructure } = require('helpers.targets')
+
+const selectStructureToRepair = behaviorTree.LeafNode(
+    'selectStructureToRepair',
+    (creep) => {
+        let target = getDamagedStructure(creep)
+        if (!target) {
+            console.log("failed to pick damaged structure", creep.name)
+            return FAILURE
+        }
+
+        behaviorMovement.setDestination(creep, target.id)
+        return SUCCESS
+    }
+)
+
+const repair = behaviorTree.LeafNode(
+    'repair_structure',
+    (creep) => {
+        let destination = Game.getObjectById(creep.memory[MEMORY_DESTINATION])
+        if (!destination) {
+            console.log("failed to get destination for withdraw", creep.name)
+            return FAILURE
+        }
+
+        let result = creep.repair(destination)
+
+        // TODO this should not be a failure, I need to makea RepeatCondition node
+        if (destination.hits >= destination.hitsMax) {
+            return FAILURE
+        }
+
+        if (creep.store.getUsedCapacity() === 0) {
+            return SUCCESS
+        }
+        
+        if (result != OK) {
+            return FAILURE
+        }
+
+       return RUNNING
+    }
+)
 
 const behavior = behaviorTree.SelectorNode(
-    "hauler_root",
+    "repairer_root",
     [
         behaviorTree.SequenceNode(
-            'haul_energy',
+            'repair',
             [
-                behaviorTree.LeafNode(
-                    'pick_supply',
-                    (creep) => {
-                        let supply = getEnergyContainerTargets(creep)
-                        if (!supply) {
-                            console.log("failed to pick destiantion", creep.name)
-                            return behaviorTree.FAILURE
-                        }
-
-                        behaviorMovement.setDestination(creep, supply.id)
-
-                        return behaviorTree.SUCCESS
-                    }
+                behaviorTree.SelectorNode(
+                    'get_energy',
+                    [
+                        behaviorStorage.fillCreep,
+                        behaviorTree.RepeatUntilSuccess(
+                            'repeat_harvest',
+                            behaviorTree.SequenceNode(
+                                'harvest_if_needed',
+                                [
+                                    behaviorHarvest.selectHarvestSource,
+                                    behaviorHarvest.moveToHarvest,
+                                    behaviorHarvest.harvest
+                                ]
+                            )
+                        )
+                    ]
                 ),
-                behaviorMovement.moveToDestination(1),
-                behaviorTree.LeafNode(
-                    'fill_creep',
-                    (creep) => {
-                        return behaviorMovement.fillCreepFromDestination(creep)
-                    }
-                ),
-                behaviorTree.LeafNode(
-                    'pick_damaged',
-                    (creep) => {
-                        let target = getDamagedStructure(creep)
-                        if (!target) {
-                            console.log("failed to pick damaged structure", creep.name)
-                            return behaviorTree.FAILURE
-                        }
-
-                        behaviorMovement.setDestination(creep, target.id)
-                        return behaviorTree.SUCCESS
-                    }
-                ),
-                behaviorMovement.moveToDestination(1),
-                behaviorTree.LeafNode(
-                    'empty_creep',
-                    (creep) => {
-                        let destination = Game.getObjectById(creep.memory.destination)
-                        if (!destination) {
-                            console.log("failed to get destination for withdraw", creep.name)
-                            return behaviorTree.FAILURE
-                        }
-
-                        let result = creep.repair(destination)
-                        if (result != OK) {
-                            return behaviorTree.FAILURE
-                        }
-
-                        if (creep.store.getUsedCapacity() === 0) {
-                            return behaviorTree.SUCCESS
-                        }
-
-                       return behaviorTree.RUNNING
-                    }
-                ),
+                behaviorAssign.moveToRoom,
+                behaviorTree.RepeatUntilSuccess(
+                    'repair_until_empty',
+                    behaviorTree.SequenceNode(
+                        'select_and_repair',
+                        [
+                            selectStructureToRepair,
+                            behaviorMovement.moveToDestination(1),
+                            repair
+                        ]
+                    )
+                )
             ]
         )
     ]
 )
 
-
 module.exports = {
     run: (creep) => {
         let result = behavior.tick(creep)
-        if (result == behaviorTree.FAILURE) {
+        if (result == FAILURE) {
             console.log("INVESTIGATE: repairer failure", creep.name)
         }
     }

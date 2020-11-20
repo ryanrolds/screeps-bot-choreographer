@@ -29,6 +29,27 @@ const selectEnergyForWithdraw = module.exports.selectEnergyForWithdraw = behavio
     }
 )
 
+const selectContainerForWithdraw = module.exports.selectContainerForWithdraw = behaviorTree.LeafNode(
+    'selectContainerForWithdraw',
+    (creep) => {
+        var target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+            filter: (structure) => {
+                return (structure.structureType == STRUCTURE_CONTAINER ||
+                    structure.structureType == STRUCTURE_STORAGE) &&
+                    structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+            }
+        });
+
+        if (!target) {
+            console.log("failed to pick container", creep.name)
+            return FAILURE
+        }
+
+        behaviorMovement.setDestination(creep, target.id)
+        return SUCCESS
+    }
+)
+
 const pickStorage = module.exports.pickStorage = behaviorTree.SelectorNode(
     'pick_storage',
     [
@@ -122,6 +143,20 @@ module.exports.fillCreep = behaviorTree.SequenceNode(
     'energy_supply',
     [
         selectEnergyForWithdraw,
+        behaviorMovement.moveToDestination(1),
+        behaviorTree.LeafNode(
+            'fill_creep',
+            (creep) => {
+                return behaviorMovement.fillCreepFromDestination(creep)
+            }
+        )
+    ]
+)
+
+module.exports.fillCreepFromContainers = behaviorTree.SequenceNode(
+    'energy_supply',
+    [
+        selectContainerForWithdraw,
         behaviorMovement.moveToDestination(1),
         behaviorTree.LeafNode(
             'fill_creep',

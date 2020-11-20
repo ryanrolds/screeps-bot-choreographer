@@ -45,6 +45,10 @@ const selectSiteNearFlag = behaviorTree.LeafNode(
         if (!flag) {
             return FAILURE
         }
+        
+        if (!flag.room) {
+            return FAILURE
+        }
 
         const target = flag.pos.findClosestByPath(FIND_CONSTRUCTION_SITES)
         if (!target) {

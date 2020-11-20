@@ -6,7 +6,7 @@ const roleHaulerV2 = require('role.hauler.v2');
 const roleDefender = require('role.defender');
 const roleClaimerV2 = require('role.claimer.v2');
 const { MEMORY_HARVEST, MEMORY_HARVEST_ROOM, MEMORY_WITHDRAW, MEMORY_WITHDRAW_ROOM, MEMORY_CLAIM,
-    MEMORY_ROLE, MEMORY_ORIGIN, MEMORY_FLAG, MEMORY_ROOM_ASSIGN } = require('helpers.memory')
+    MEMORY_ROLE, MEMORY_ORIGIN, MEMORY_FLAG, MEMORY_ASSIGN_ROOM } = require('helpers.memory')
 
 var WORKER_BUILDER = module.exports.WORKER_BUILDER = "builder"
 var WORKER_HARVESTER = module.exports.WORKER_HARVESTER = "harvester"
@@ -24,7 +24,7 @@ const workerRoles = {
     [WORKER_REMOTE_HARVESTER]: [CARRY, MOVE, CARRY, MOVE, CARRY, MOVE, WORK, MOVE, WORK, MOVE],
     [WORKER_MINER]: [WORK, WORK, WORK, CARRY, MOVE],
     [WORKER_BUILDER]: [CARRY, MOVE, WORK, WORK],
-    [WORKER_UPGRADER]: [CARRY, CARRY, MOVE, WORK],
+    [WORKER_UPGRADER]: [CARRY, MOVE, WORK, WORK],
     [WORKER_DEFENDER]: [MOVE, TOUGH, MOVE, TOUGH, MOVE, RANGED_ATTACK],
     [WORKER_REPAIRER]: [CARRY, CARRY, MOVE, WORK],
     [WORKER_HAULER]: [CARRY, CARRY, MOVE, MOVE],
@@ -32,10 +32,11 @@ const workerRoles = {
     [WORKER_EXPLORER]: [MOVE, MOVE, RANGED_ATTACK]
 }
 
-const buildOrder = [WORKER_UPGRADER, WORKER_REPAIRER]
+const buildOrder = [WORKER_UPGRADER]
 
 const desiredBuildersPerBuild = 2
 const desiredDefendersPerRoom = 1
+const desiredRepairersPerRoom = 2
 
 module.exports.spawnSuicide = (state, limits) => {
     // Manage the bar at which we build creeps
@@ -44,28 +45,22 @@ module.exports.spawnSuicide = (state, limits) => {
     let minEnergy = 300
 
     const numCreeps = Object.keys(Game.creeps).length
-    if (numCreeps > 5) {
-        minEnergy = maxEnergy * 0.5
-    }
-
     if (numCreeps > 10) {
         minEnergy = maxEnergy * 0.75
     }
-
     if (numCreeps > 15) {
         minEnergy = maxEnergy * 0.8
     }
-
     if (numCreeps > 20) {
         minEnergy = maxEnergy * 0.9
     }
 
-    console.log("==== energy", currentEnergy, maxEnergy, minEnergy)
+    console.log(`==== Energy - Current: ${currentEnergy}, Min-Build: ${minEnergy}, Max-Build: ${maxEnergy}`)
 
     let currentWorkers = _.countBy(Game.creeps, (creep) => {
         return creep.memory.role
     })
-    console.log(JSON.stringify(currentWorkers))
+    console.log("==== Creeps:", JSON.stringify(currentWorkers))
 
     if (!Game.spawns['Spawn1'].spawning && currentEnergy >= minEnergy) {
         // Check that all sources have a harvester and hauler if needed
@@ -135,9 +130,24 @@ module.exports.spawnSuicide = (state, limits) => {
             }
         }
 
+        // We should always have an upgrader
+        if ((currentWorkers[WORKER_UPGRADER] || 0) < 1) {
+            let result = createCreep(WORKER_UPGRADER, currentEnergy, {})
+            if (result != OK) {
+                console.log("problem creating hauler", result)
+            }
+
+            return
+        }
+
         // Iterate build and ensure they are staffed
         for (let i = 0; i < state.builds.length; i++) {
             let build = state.builds[i]
+            if (!build.accessible) {
+                console.log("build site not accessible", build.id)
+                continue
+            }
+
             if (build.numBuilders < desiredBuildersPerBuild) {
                 let result = createCreep(WORKER_BUILDER, currentEnergy, {
                     [MEMORY_FLAG]: build.id
@@ -154,25 +164,48 @@ module.exports.spawnSuicide = (state, limits) => {
         // Iterate rooms and ensure they are staffed
         for (let i = 0; i < roomIDs.length; i++) {
             let room = state.rooms[roomIDs[i]]
-            if (room.numDefenders < desiredDefendersPerRoom) {
-                let result = createCreep(WORKER_DEFENDER, currentEnergy, {
-                    [MEMORY_ROOM_ASSIGN]: room.name
-                })
-                if (result != OK) {
-                    console.log("problem creating defender", result)
-                }
 
-                return
+            // We need repairers if we have structures that decay
+            if (room.hasStructures) {
+                console.log("xxxxxxx has structures", room.id, room.numRepairers, desiredRepairersPerRoom)
+                if (room.numRepairers < desiredRepairersPerRoom) {
+                    let result = createCreep(WORKER_REPAIRER, currentEnergy, {
+                        [MEMORY_ASSIGN_ROOM]: room.id
+                    })
+                    if (result != OK) {
+                        console.log("problem creating repairer", result)
+                    }
+
+                    return
+                }
+            }
+
+            // Don't spawn builders if nothing to build
+            if (room.hasSites) {
+                if (room.numDefenders < desiredDefendersPerRoom) {
+                    let result = createCreep(WORKER_DEFENDER, currentEnergy, {
+                        [MEMORY_ASSIGN_ROOM]: room.id
+                    })
+                    if (result != OK) {
+                        console.log("problem creating defender", result)
+                    }
+
+                    return
+                }
             }
         }
 
-        // Maintain desired number of general units
+        // Maintain desired number of specific roles
         for (let i = 0; i < buildOrder.length; i++) {
             let role = buildOrder[i]
             let max = limits[role]
             let count = currentWorkers[role] || 0
             if (count < max) {
                 let result = createCreep(role, currentEnergy)
+                if (result != OK) {
+                    console.log("problem creating", role, result)
+                }
+
                 return
             } if (count > max * 2) {
                 suicideWorker(role)
@@ -180,6 +213,8 @@ module.exports.spawnSuicide = (state, limits) => {
             }
         }
 
+
+        // Explore
         const roomsToExplore = state.explore
         const exploreRoomIDs = Object.keys(roomsToExplore)
         for (let i = 0; i < exploreRoomIDs.length; i++) {
@@ -222,10 +257,6 @@ module.exports.spawnSuicide = (state, limits) => {
         }
         // ====================================
         */
-
-        // If there is no need to spawn a creep at this time let workers
-        // user the spawner/extractor energy
-        Game.spawns['Spawn1'].memory.energyAvailable = true
     }
 
     if (Game.spawns['Spawn1'].spawning) {
@@ -290,6 +321,7 @@ function createCreep(role, maxEnergy, memory = {}) {
     var name = role + '_' + Game.time;
     memory[MEMORY_ROLE] = role
     memory[MEMORY_ORIGIN] = Game.spawns['Spawn1'].room.name
+    console.log(`==== Creating creep ${role}, ${parts}, ${memory}`)
     return Game.spawns['Spawn1'].spawnCreep(parts, name, {memory});
 }
 

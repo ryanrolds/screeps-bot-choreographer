@@ -1,8 +1,8 @@
 const roleBuilderV2 = require("./role.builder.v2")
 const { MEMORY_HARVEST, MEMORY_ROLE, MEMORY_WITHDRAW, MEMORY_CLAIM, MEMORY_FLAG,
-    MEMORY_ROOM_ASSIGN } = require('helpers.memory')
+    MEMORY_ASSIGN_ROOM } = require('helpers.memory')
 const { WORKER_HARVESTER, WORKER_MINER, WORKER_HAULER, WORKER_CLAIMER, WORKER_BUILDER,
-    WORKER_REMOTE_HARVESTER, WORKER_DEFENDER } = require('manager.creeps')
+    WORKER_REMOTE_HARVESTER, WORKER_DEFENDER, WORKER_REPAIRER } = require('manager.creeps')
 
 const state = {
     rooms: {},
@@ -40,16 +40,26 @@ module.exports.tick = (charter) => {
                 return role === WORKER_BUILDER && creep.memory[MEMORY_FLAG] === key
             }).length
 
+            // If a flag is in a room we don't have visibility, the room property is undefined
+            let hasSites = false
+            let accessible = false
+            if (Game.flags[key].room) {
+                accessible = true
+                hasSites = Game.flags[key].room.find(FIND_CONSTRUCTION_SITES).length > 0
+            }
+
             state.builds.push({
                 id: key,
-                numBuilders
+                accessible,
+                numBuilders,
+                hasSites
             })
         }
     })
 
     visibleRooms.forEach((roomID) => {
         const room = Game.rooms[roomID]
-        if (!room) {
+        if (!room || desiredRooms.indexOf(roomID) === -1) {
             return
         }
 
@@ -85,18 +95,46 @@ module.exports.tick = (charter) => {
                 roomID: roomID,
                 containerID,
                 numMiners,
-                numHaulers
+                numHaulers,
             }
         })
 
         const numDefenders = _.filter(Game.creeps, (creep) => {
             return creep.memory[MEMORY_ROLE] === WORKER_DEFENDER &&
-                creep.memory[MEMORY_ROOM_ASSIGN] === creep.room.name
+                creep.memory[MEMORY_ASSIGN_ROOM] === creep.room.name
+        }).length
+
+        const hasPrimaryStructures = room.find(FIND_STRUCTURES, {
+            filter: (s) => {
+                return s.hits < s.hitsMax && (
+                    s.structureType != STRUCTURE_WALL && s.structureType != STRUCTURE_RAMPART &&
+                    s.structureType != STRUCTURE_ROAD)
+
+            }
+        }).length > 0
+
+        const hasSecondaryStructures = room.find(FIND_STRUCTURES, {
+            filter: (s) => {
+                return s.hits < s.hitsMax && (
+                    s.structureType == STRUCTURE_RAMPART ||
+                    s.structureType == STRUCTURE_ROAD ||
+                    s.structureType == STRUCTURE_WALL
+                )
+            }
+        }).length > 0
+
+        const hasStructures = hasPrimaryStructures || hasSecondaryStructures
+
+        const numRepairers = _.filter(Game.creeps, (creep) => {
+            return creep.memory[MEMORY_ROLE] === WORKER_REPAIRER &&
+                creep.memory[MEMORY_ASSIGN_ROOM] === creep.room.name
         }).length
 
         state.rooms[room.name] = {
             id: room.name,
-            numDefenders
+            numDefenders,
+            hasStructures,
+            numRepairers
         }
     })
 

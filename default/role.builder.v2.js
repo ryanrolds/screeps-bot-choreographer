@@ -5,17 +5,17 @@ const behaviorHarvest = require('behavior.harvest')
 const behaviorBuild = require('behavior.build')
 
 const behavior = behaviorTree.SelectorNode(
-    "hauler_root",
+    "builder_root",
     [
         behaviorTree.SequenceNode(
-            'haul_energy',
+            'build',
             [
-                behaviorTree.SelectorNode(
-                    'get_energy',
-                    [
-                        behaviorStorage.fillCreep,
-                        behaviorTree.RepeatUntilSuccess(
-                            'repeat_harvest',
+                behaviorTree.RepeatUntilSuccess(
+                    'get_energy_until_success',
+                    behaviorTree.SelectorNode(
+                        'get_energy',
+                        [
+                            behaviorStorage.fillCreepFromContainers,
                             behaviorTree.SequenceNode(
                                 'harvest_if_needed',
                                 [
@@ -24,8 +24,8 @@ const behavior = behaviorTree.SelectorNode(
                                     behaviorHarvest.harvest
                                 ]
                             )
-                        )
-                    ]
+                        ]
+                    )
                 ),
                 behaviorTree.RepeatUntilSuccess(
                     'build_until_empty',

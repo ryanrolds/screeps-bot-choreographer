@@ -20,8 +20,7 @@ const moveTo = module.exports.moveTo = (creep, destination, range) => {
 
     let result = creep.moveTo(destination)
     if (result === ERR_NO_PATH) {
-        // TODO add counter and reset if we get too many no paths
-        return RUNNING
+        return FAILURE
     }
 
     if (result !== OK && result !== ERR_TIRED) {

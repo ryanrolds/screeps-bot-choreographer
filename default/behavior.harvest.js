@@ -49,6 +49,7 @@ module.exports.moveToHarvestRoom = behaviorTree.RepeatUntilSuccess(
         'move_to_harvest_room',
         (creep) => {
             const room = creep.memory[MEMORY_HARVEST_ROOM]
+            console.log('bt.movement.room.harvest', creep.name, room)
             if (room) {
                 const exitDir = creep.room.findExitTo(room)
                 if (exitDir === ERR_INVALID_ARGS) {
