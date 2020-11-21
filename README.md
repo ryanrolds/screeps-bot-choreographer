@@ -20,16 +20,16 @@ An AI for [Screeps](screeps.com).
 - [x] Organize logic and fix how builders and repairers source their energy
 - [x] Implement behavior tree
 - [x] Migrate creep roles to behavior tree
-- [ ] Storage construction tiggers Distributors and prioritized Storage usage
+- [ ] Storage construction triggers Distributors and prioritized Storage usage
 - [ ] Attack flag
 - [ ] Auto-defence of owned rooms
 - [ ] Scale number of repairers based on repair/decay rate for the room
 - [ ] Scale number of builders based on number of construction sites in room
-- [ ] Auto-manage Upgraders per spawn (maximize what the econmoy can support - net zero energy)
+- [ ] Auto-manage Upgraders per spawn (maximize what the economy can support - net zero energy)
 - [ ] Auto return-to-home and defense of remote harvesters
 - [ ] Don't require Build flags, staff rooms w/ construction sites, use flags to prioritize nearby sites
 - [ ] Refactor role and spawn logic to support easy addition of creep roles
-- [ ] Auto-contruction of roads to remote sources
+- [ ] Auto-construction of roads to remote sources
 
 #### Considering
 
@@ -39,31 +39,31 @@ An AI for [Screeps](screeps.com).
 
 > Backup your existing scripts.
 
-Copy the repo's `./default` contents in to your "default" screeps directory. You can also checkout this repo into the directory.
+Copy the repo's `./default` contents in to your "default" Screeps directory. You can also checkout this repo into the directory.
 
-Personally, I use WSL2 (Ubuntu), VS Code (`code .` in WSL2), and Git to do developement. Saving files in VS Code should trigger auto-upload to server. Opening the Screeps code directory in VSC without involving the WSL2 (PowerShell) should work.
+Personally, I use WSL2 (Ubuntu), VS Code (`code .` in WSL2), and Git to do development. Saving files in VS Code should trigger auto-upload to server. Opening the Screeps code directory in VSC without involving the WSL2 (PowerShell) should work.
 
 #### Key locations
-* `C:\Users\<user>\AppData\Local\Screeps\scripts\screeps.com\default` (Screeps code diretory)
-* `%localappdata%Screeps\scripts\screeps.com\default` (Screeps code diretory - but easier)
+* `C:\Users\<user>\AppData\Local\Screeps\scripts\screeps.com\default` (Screeps code directory)
+* `%localappdata%Screeps\scripts\screeps.com\default` (Screeps code directory - but easier)
 * `/mnt/c/Users/<user>/AppData/Local/Screeps/scripts/screeps.com/default` (WSL2)
 
 ## Operation
 
-The AI will focus on stablishing an economy, build, repair, and defend your colony. The build manager will spawn at least one Upgrader and will add more as long as the economy, contruction projects, and repairs are staffed.
+The AI will focus on establishing an economy, build, repair, and defend your colony. The build manager will spawn at least one Upgrader and will add more as long as the economy, construction projects, and repairs are staffed.
 
 ### Creeps
 
-* Harvester - harvests and brings engery back to Spawner/Origin
-* Miner - havests and places energy in nearby container
-* Hauler - Picks up and takes energy in containers to Origin spawner, extractor, turrent, storage
+* Harvester - Harvests and brings energy back to Spawner/Origin
+* Miner - Harvests and places energy in nearby container
+* Hauler - Picks up and takes energy in containers to Origin spawner, extractor, turret, storage
 * Builder - Harvest/pick up energy in room and completes construction
 * Repairer - Harvest/pick up energy in room and repair structures
 * Defender - Attacks hostiles creeps in room
 * Claimer - Claims/Reserves rooms (TODO)
-* Explorer - Goes to rooms in domain to get visibiilty (triggers remote harvesting)
+* Explorer - Goes to rooms in domain to get visibility (triggers remote harvesting)
 * Attacker - Rally at Attack Flag and attack hostiles in room (TODO)
-* Destributor - Moves energy from Containers/Storage into Spawner, Turrets (TODO)
+* Distributor - Moves energy from Containers/Storage into Spawner, Turrets (TODO)
 
 ### Colony
 
@@ -74,12 +74,12 @@ The `./default/main.js` file contains a list of room names that should be consid
 ### Build priorities
 
 1. Harvesters, miners, and haulers
-2. 1 upgrader
+2. Minimum of 1 Upgrader
 3. If attack flags, all energy goes into spawning Attackers (in-development)
 4. 1 Repairer for each room with structures (like road and containers)
 5. 2 Builders for each Build flag
 6. Build explorer and get visibility in rooms in Colony Domain
-7. Max 3 upgraders in each room with a Spawner
+7. Max 3 Upgraders in each room with a Spawner
 
 ### Economy & Building
 
@@ -91,15 +91,15 @@ It's up to you to choose the rooms in your Domain. You must also place construct
 * Always be building maximum allowed Extensions
 * Always place your Turrets in your spawn rooms
 * Build Containers near Spawners, will be used as buffer and trigger spawning of Distributors (TODO)
-* Build Storage when permitted, will tigger spawning of Distributors (specialized Spawner haulers) (TODO)
+* Build Storage when permitted, will triggers spawning of Distributors (specialized Spawner haulers) (TODO)
 
 ### Defense
 
 > On the roadmap and coming up soon
 
-When a hostile is present in the colony's domain all energy, except to maintain energy collection, will be used to produce Defenders. Early versions will pool Defenders in spawn rooms and energy will go to Turrents before the spawners and extensions.
+When a hostile is present in the colony's domain all energy, except to maintain energy collection, will be used to produce Defenders. Early versions will pool Defenders in spawn rooms and energy will go to Turrets before the spawners and extensions.
 
-Later versions will respond to hostile presence by sending groups of Defenders to the room being occupied. Also, non-combatent creeps in occupied rooms will withdraw to origin.
+Later versions will respond to hostile presence by sending groups of Defenders to the room being occupied. Also, non-combatant creeps in occupied rooms will withdraw to origin.
 
 ### Flags
 
