@@ -103,12 +103,24 @@ module.exports.tick = (charter) => {
                 creep.memory[MEMORY_ASSIGN_ROOM] === creep.room.name
         }).length
 
+        let maxHits = 0
+        let hits = 0
+        room.find(FIND_STRUCTURES).forEach((s) => {
+            if (s.structureType == STRUCTURE_WALL || s.structureType == STRUCTURE_RAMPART) {
+                return
+            }
+
+            if (s.hitsMax > 0 && s.hits > 0) {
+                maxHits += s.hitsMax
+                hits += s.hits
+            }
+        })
+
         const hasPrimaryStructures = room.find(FIND_STRUCTURES, {
             filter: (s) => {
                 return s.hits < s.hitsMax && (
                     s.structureType != STRUCTURE_WALL && s.structureType != STRUCTURE_RAMPART &&
                     s.structureType != STRUCTURE_ROAD)
-
             }
         }).length > 0
 
@@ -126,15 +138,20 @@ module.exports.tick = (charter) => {
 
         const numRepairers = _.filter(Game.creeps, (creep) => {
             return creep.memory[MEMORY_ROLE] === WORKER_REPAIRER &&
-                creep.memory[MEMORY_ASSIGN_ROOM] === creep.room.name
+                creep.memory[MEMORY_ASSIGN_ROOM] === room.name
         }).length
 
         state.rooms[room.name] = {
             id: room.name,
             numDefenders,
             hasStructures,
-            numRepairers
+            numRepairers,
+            hits,
+            maxHits,
+            hitsPercentage: hits/maxHits
         }
+
+        console.log("==== Room:", JSON.stringify(state.rooms[room.name]))
     })
 
     return state

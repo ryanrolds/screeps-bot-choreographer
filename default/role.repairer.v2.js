@@ -2,9 +2,8 @@ const behaviorTree = require('lib.behaviortree')
 const {FAILURE, SUCCESS, RUNNING} = require('lib.behaviortree')
 
 const behaviorMovement = require('behavior.movement')
-const behaviorStorage = require('behavior.storage')
-const behaviorHarvest = require('behavior.harvest')
 const behaviorAssign = require('behavior.assign')
+const behaviorRoom = require('behavior.room')
 
 const { MEMORY_DESTINATION } = require('constants.memory')
 const { getDamagedStructure } = require('helpers.targets')
@@ -51,42 +50,21 @@ const repair = behaviorTree.LeafNode(
     }
 )
 
-const behavior = behaviorTree.SelectorNode(
-    "repairer_root",
+const behavior = behaviorTree.SequenceNode(
+    'repair',
     [
-        behaviorTree.SequenceNode(
-            'repair',
-            [
-                behaviorTree.SelectorNode(
-                    'get_energy',
-                    [
-                        behaviorStorage.fillCreep,
-                        behaviorTree.RepeatUntilSuccess(
-                            'repeat_harvest',
-                            behaviorTree.SequenceNode(
-                                'harvest_if_needed',
-                                [
-                                    behaviorHarvest.selectHarvestSource,
-                                    behaviorHarvest.moveToHarvest,
-                                    behaviorHarvest.harvest
-                                ]
-                            )
-                        )
-                    ]
-                ),
-                behaviorAssign.moveToRoom,
-                behaviorTree.RepeatUntilSuccess(
-                    'repair_until_empty',
-                    behaviorTree.SequenceNode(
-                        'select_and_repair',
-                        [
-                            selectStructureToRepair,
-                            behaviorMovement.moveToDestination(1),
-                            repair
-                        ]
-                    )
-                )
-            ]
+        behaviorAssign.moveToRoom,
+        behaviorRoom.getEnergy,
+        behaviorTree.RepeatUntilSuccess(
+            'repair_until_empty',
+            behaviorTree.SequenceNode(
+                'select_and_repair',
+                [
+                    selectStructureToRepair,
+                    behaviorMovement.moveToDestination(1),
+                    repair
+                ]
+            )
         )
     ]
 )

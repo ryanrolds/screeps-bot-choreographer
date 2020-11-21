@@ -22,6 +22,7 @@ const moveToRoom = behaviorTree.RepeatUntilSuccess(
                 return SUCCESS
             }
 
+            // TODO cache the path
             const exit = creep.pos.findClosestByRange(exitDir);
             const result = creep.moveTo(exit);
             if (result === ERR_INVALID_ARGS) {

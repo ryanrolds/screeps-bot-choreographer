@@ -3,6 +3,7 @@ const behaviorMovement = require('behavior.movement')
 const behaviorStorage = require('behavior.storage')
 const behaviorHarvest = require('behavior.harvest')
 const behaviorBuild = require('behavior.build')
+const behaviorRoom = require('behavior.room')
 
 const behavior = behaviorTree.SelectorNode(
     "builder_root",
@@ -10,6 +11,7 @@ const behavior = behaviorTree.SelectorNode(
         behaviorTree.SequenceNode(
             'build',
             [
+                // TODO use behavior.room.getEnergy()
                 behaviorTree.RepeatUntilSuccess(
                     'get_energy_until_success',
                     behaviorTree.SelectorNode(

@@ -48,22 +48,27 @@ module.exports.moveToHarvestRoom = behaviorTree.RepeatUntilSuccess(
         'move_to_harvest_room',
         (creep) => {
             const room = creep.memory[MEMORY_HARVEST_ROOM]
-            if (room) {
-                const exitDir = creep.room.findExitTo(room)
-                if (exitDir === ERR_INVALID_ARGS) {
-                    return SUCCESS
-                }
-
-                const exit = creep.pos.findClosestByRange(exitDir);
-                const result = creep.moveTo(exit);
-                if (result === ERR_INVALID_ARGS) {
-                    return FAILURE
-                }
-
-                return RUNNING
+            // If creep doesn't have a harvest room assigned, we are done
+            if (!room) {
+                return SUCCESS
             }
 
-            return SUCCESS
+            // If the creep reaches the room we are done
+            if (creep.room.name === room) {
+                return SUCCESS
+            }
+
+            let result = creep.moveTo(new RoomPosition(25, 25, room));
+            if (result === ERR_NO_PATH) {
+                console.log("no path", creep.name, creep.pos)
+                return FAILURE
+            }
+
+            if (result === ERR_INVALID_ARGS) {
+                return FAILURE
+            }
+
+            return RUNNING
         }
     )
 )

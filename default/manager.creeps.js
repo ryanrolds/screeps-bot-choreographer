@@ -6,8 +6,11 @@ const roleHaulerV2 = require('role.hauler.v2');
 const roleDistributor = require('role.distributor');
 const roleDefender = require('role.defender');
 const roleClaimerV2 = require('role.claimer.v2');
+
 const { MEMORY_HARVEST, MEMORY_HARVEST_ROOM, MEMORY_WITHDRAW, MEMORY_WITHDRAW_ROOM, MEMORY_CLAIM,
     MEMORY_ROLE, MEMORY_ORIGIN, MEMORY_FLAG, MEMORY_ASSIGN_ROOM } = require('constants.memory')
+
+
 
 var WORKER_BUILDER = module.exports.WORKER_BUILDER = "builder"
 var WORKER_HARVESTER = module.exports.WORKER_HARVESTER = "harvester"
@@ -40,7 +43,6 @@ const buildOrder = [WORKER_UPGRADER]
 const desiredBuildersPerBuild = 1
 const desiredDefendersPerRoom = 0
 const desiredRepairersPerRoom = 1
-const desireDistributors = 4
 
 module.exports.spawnSuicide = (state, limits) => {
     // Manage the bar at which we build creeps
@@ -105,7 +107,7 @@ module.exports.spawnSuicide = (state, limits) => {
         for (let i = 0; i < energySourceIDs.length; i++) {
             let source = energySources[energySourceIDs[i]]
 
-            let desiredMiners = 3
+            let desiredMiners = 2
             let desiredHaulers = 0
 
             if (source.containerID) {
@@ -169,29 +171,6 @@ module.exports.spawnSuicide = (state, limits) => {
             return
         }
 
-        // Iterate build and ensure they are staffed
-        for (let i = 0; i < state.builds.length; i++) {
-            let build = state.builds[i]
-            if (!build.accessible) {
-                console.log("build site not accessible", build.id)
-                continue
-            }
-
-            // Don't spawn builders if nothing to build
-            if (build.hasSites) {
-                if (build.numBuilders < desiredBuildersPerBuild) {
-                    let result = createCreep(WORKER_BUILDER, currentEnergy, {
-                        [MEMORY_FLAG]: build.id
-                    })
-                    if (result != OK) {
-                        console.log("problem creating hauler", result)
-                    }
-
-                    return
-                }
-            }
-        }
-
         let roomIDs = Object.keys(state.rooms)
         // Iterate rooms and ensure they are staffed
         for (let i = 0; i < roomIDs.length; i++) {
@@ -199,7 +178,13 @@ module.exports.spawnSuicide = (state, limits) => {
 
             // We need repairers if we have structures that decay
             if (room.hasStructures) {
-                if (room.numRepairers < desiredRepairersPerRoom) {
+                let desiredRepairers = desiredRepairersPerRoom
+
+                if (room.hitsPercentage < 0.5) {
+                    desiredRepairers = desiredRepairersPerRoom * 2
+                }
+
+                if (room.numRepairers < desiredRepairers) {
                     let result = createCreep(WORKER_REPAIRER, currentEnergy, {
                         [MEMORY_ASSIGN_ROOM]: room.id
                     })
@@ -220,6 +205,29 @@ module.exports.spawnSuicide = (state, limits) => {
                 }
 
                 return
+            }
+        }
+
+        // Iterate build and ensure they are staffed
+        for (let i = 0; i < state.builds.length; i++) {
+            let build = state.builds[i]
+            if (!build.accessible) {
+                console.log("build site not accessible", build.id)
+                continue
+            }
+
+            // Don't spawn builders if nothing to build
+            if (build.hasSites) {
+                if (build.numBuilders < desiredBuildersPerBuild) {
+                    let result = createCreep(WORKER_BUILDER, currentEnergy, {
+                        [MEMORY_FLAG]: build.id
+                    })
+                    if (result != OK) {
+                        console.log("problem creating hauler", result)
+                    }
+
+                    return
+                }
             }
         }
 

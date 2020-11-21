@@ -22,7 +22,8 @@ An AI for [Screeps](screeps.com).
 - [x] Migrate creep roles to behavior tree
 - [x] Storage construction triggers Distributors and prioritized Storage usage
 - [ ] Attack flag
-- [ ] Refactor movement and storage selection
+- [ ] Refactor movement and storage selection (more hauling with fewer Distributors)
+- [ ] Track time between end and start of spawns and increase/decrease min energy (Spawn Time Governor)
 - [ ] Auto-defence of owned rooms
 - [ ] Scale number of repairers based on repair/decay rate for the room
 - [ ] Scale number of builders based on number of construction sites in room
@@ -52,7 +53,7 @@ Personally, I use WSL2 (Ubuntu), VS Code (`code .` in WSL2), and Git to do devel
 
 ## Operation
 
-The AI will focus on establishing an economy, build, repair, and defend your colony. The build manager will spawn at least one Upgrader and will add more as long as the economy, construction projects, and repairs are staffed.
+The AI will focus on establishing an economy, build, repair, and defend the colony. The build manager will spawn at least one Upgrader and will add more as long as the economy, construction projects, and repairs are staffed.
 
 ### Creeps
 
@@ -66,6 +67,7 @@ The AI will focus on establishing an economy, build, repair, and defend your col
 * Distributor - Moves energy from Containers/Storage into Spawner, Turrets
 * Claimer - Claims/Reserves rooms (TODO)
 * Attacker - Rally at Attack Flag and attack hostiles in room (TODO)
+* SanitationEng - Do I need someone to pick up ruins and dropped energy (CONSIDERING)
 
 ### Colony
 
@@ -74,7 +76,6 @@ The `./default/main.js` file contains a list of room names that should be consid
 > Make sure to update the list when setting up the project
 
 ### Build priorities
-
 
 1. If spawn Storage/Containers, spawn Distributors (1/5 the number of extensions)
 2. Harvesters, miners, and haulers
@@ -114,5 +115,27 @@ Creating flags prefixed with `build` will dispatch builders to the room. The man
 
 > Current focus of development. Not implement.
 
- When an Attack Flag (`attack*`) is placed all Builder and Upgrader spawning is halted, except to maintain a minimum 1 Upgrader. All of that energy is used to produce attackers. Attackers will move to the flag and attack any hostile it sees, even if not in the flag's room.
+When an Attack Flag (`attack*`) is placed all Builder and Upgrader spawning is halted, except to maintain a minimum 1 Upgrader. All of that energy is used to produce attackers. Attackers will move to the flag and attack any hostile it sees, even if not in the flag's room.
+
+## Design
+
+> The entire section, including subheadings, are a work in progress.
+
+Design and layout of of the AI and it's source code.
+
+### Memory
+
+### Behavior Trees
+
+This section will outline the BT's organizational strategy. Ideally, the `behavior.*` files would provide a well organized and DRY set of logic that can be composed to produce complex behavior.
+
+#### Build
+
+#### Room
+
+#### Movement
+
+#### Assign
+
+#### Storage
 
