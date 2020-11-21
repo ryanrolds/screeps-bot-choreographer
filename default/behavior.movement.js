@@ -66,18 +66,12 @@ module.exports.clearDestination = (creep) => {
 
 module.exports.fillCreepFromDestination = (creep) => {
     let destination = Game.getObjectById(creep.memory[MEMORY_DESTINATION])
-
-    console.log("xxxxx", creep.name, destination)
-
     if (!destination) {
         //console.log("failed to get destination for withdraw", creep.name)
         return FAILURE
     }
 
     let result = creep.withdraw(destination, RESOURCE_ENERGY)
-
-    console.log("xxxxx", creep.name, result)
-
     if (result === OK) {
         return RUNNING
     }
@@ -130,9 +124,6 @@ module.exports.moveToOriginRoom = behaviorTree.RepeatUntilSuccess(
             if (!creep.memory[MEMORY_ORIGIN]) {
                 return behaviorTree.SUCCESS
             }
-
-            console.log("xxxx", creep.name, creep.memory[MEMORY_ORIGIN], creep.memory[MEMORY_ORIGIN],
-                creep.room.name === creep.memory[MEMORY_ORIGIN])
 
             if (creep.room.name === creep.memory[MEMORY_ORIGIN]) {
                 return behaviorTree.SUCCESS

@@ -22,6 +22,7 @@ An AI for [Screeps](screeps.com).
 - [x] Migrate creep roles to behavior tree
 - [x] Storage construction triggers Distributors and prioritized Storage usage
 - [ ] Attack flag
+- [ ] Refactor movement and storage selection
 - [ ] Auto-defence of owned rooms
 - [ ] Scale number of repairers based on repair/decay rate for the room
 - [ ] Scale number of builders based on number of construction sites in room

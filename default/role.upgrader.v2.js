@@ -1,6 +1,6 @@
 const behaviorTree = require('lib.behaviortree')
-const { getEnergyContainerTargets } = require('helpers.targets')
 const behaviorMovement = require('behavior.movement')
+const behaviorStorage = require('behavior.storage')
 
 const behavior = behaviorTree.SelectorNode(
     "hauler_root",
@@ -8,20 +8,7 @@ const behavior = behaviorTree.SelectorNode(
         behaviorTree.SequenceNode(
             'haul_energy',
             [
-                behaviorTree.LeafNode(
-                    'pick_supply',
-                    (creep) => {
-                        let supply = getEnergyContainerTargets(creep)
-                        if (!supply) {
-                            console.log("failed to pick destiantion", creep.name)
-                            return behaviorTree.FAILURE
-                        }
-
-                        behaviorMovement.setDestination(creep, supply.id)
-
-                        return behaviorTree.SUCCESS
-                    }
-                ),
+                behaviorStorage.selectRoomDropoff,
                 behaviorMovement.moveToDestination(1),
                 behaviorTree.LeafNode(
                     'fill_creep',

@@ -45,19 +45,22 @@ const desireDistributors = 4
 module.exports.spawnSuicide = (state, limits) => {
     // Manage the bar at which we build creeps
     let maxEnergy = Game.spawns['Spawn1'].room.energyCapacityAvailable
-    let currentEnergy = Game.spawns['Spawn1'].room.energyAvailable
     let minEnergy = 300
 
-    const numCreeps = Object.keys(Game.creeps).length
-    if (numCreeps > 10) {
-        minEnergy = maxEnergy * 0.75
+    // Distributors
+    const numExtensions = Game.spawns['Spawn1'].room.find(FIND_STRUCTURES, {
+        filter: (structure) => {
+            return structure.structureType === STRUCTURE_EXTENSION
+        }
+    }).length
+    if (numExtensions > 10) {
+        minEnergy = maxEnergy * 0.6
     }
-    if (numCreeps > 15) {
-        minEnergy = maxEnergy * 0.8
+    if (numExtensions > 20) {
+        minEnergy = maxEnergy * 0.7
     }
-    if (numCreeps > 20) {
-        minEnergy = maxEnergy * 0.9
-    }
+
+    let currentEnergy = Game.spawns['Spawn1'].room.energyAvailable
 
     console.log(`==== Energy - Current: ${currentEnergy}, Min-Build: ${minEnergy}, Max-Build: ${maxEnergy}`)
 
@@ -67,23 +70,26 @@ module.exports.spawnSuicide = (state, limits) => {
     console.log("==== Creeps:", JSON.stringify(currentWorkers))
 
     if (!Game.spawns['Spawn1'].spawning && currentEnergy >= minEnergy) {
-
-        // Distributors
-        const extensions = Game.spawns['Spawn1'].room.find(FIND_STRUCTURES, {
+        const containersAndStorage = Game.spawns['Spawn1'].room.find(FIND_STRUCTURES, {
             filter: (structure) => {
-                return (structure.structureType == STRUCTURE_EXTENSION ||
-                    structure.structureType == STRUCTURE_SPAWN);
+                return (structure.structureType == STRUCTURE_CONTAINER ||
+                    structure.structureType == STRUCTURE_STORAGE);
             }
         }).length
 
-        let desireDistributors = extensions * 0.2
-        if ((currentWorkers[WORKER_DISTRIBUTOR] || 0) < desireDistributors) {
-            let result = createCreep(WORKER_DISTRIBUTOR, currentEnergy, {})
-            if (result != OK) {
-                console.log("problem creating distributor", result)
-            }
+        console.log("containersAndStorage", containersAndStorage)
 
-            return
+        if (containersAndStorage) {
+            let desiredDistributors = Math.ceil(numExtensions * 0.25)
+            console.log("distributors", numExtensions, desiredDistributors)
+            if ((currentWorkers[WORKER_DISTRIBUTOR] || 0) < desiredDistributors) {
+                let result = createCreep(WORKER_DISTRIBUTOR, currentEnergy, {})
+                if (result != OK) {
+                    console.log("problem creating distributor", result)
+                }
+
+                return
+            }
         }
 
         // Check that all sources have a harvester and hauler if needed
@@ -107,11 +113,8 @@ module.exports.spawnSuicide = (state, limits) => {
                 desiredHaulers = 1
 
                 let container = Game.getObjectById(source.containerID)
-                if (container && container.store.getUsedCapacity() > 1000) {
+                if (container && container.store.getUsedCapacity() > 1750) {
                     desiredHaulers = 2
-                }
-                if (container && container.store.getUsedCapacity() > 1500) {
-                    desiredHaulers = 3
                 }
             }
 
