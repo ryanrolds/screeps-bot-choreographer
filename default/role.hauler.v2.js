@@ -21,8 +21,13 @@ const behavior = behaviorTree.SelectorNode(
                                 (creep) => {
                                     if (creep.memory[MEMORY_WITHDRAW]) {
                                         let container = Game.getObjectById(creep.memory[MEMORY_WITHDRAW])
-                                        behaviorMovement.setDestination(creep, container.id)
-                                        return behaviorTree.SUCCESS
+                                        if (container) {
+                                            behaviorMovement.setDestination(creep, container.id)
+                                            return behaviorTree.SUCCESS
+                                        }
+                                        if (!container) {
+                                            console.log("Invalid container", creep.name, creep.memory[MEMORY_WITHDRAW])
+                                        }
                                     }
 
                                     let supply = getEnergyContainerTargets(creep)
@@ -67,7 +72,6 @@ const behavior = behaviorTree.SelectorNode(
                         ]
                     )
                 ),
-                behaviorMovement.moveToOriginRoom,
                 behaviorStorage.emptyCreep
             ]
         )

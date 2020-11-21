@@ -2,7 +2,7 @@
 const behaviorTree = require('lib.behaviortree')
 const {FAILURE, SUCCESS, RUNNING} = require('lib.behaviortree')
 const behaviorMovement = require('behavior.movement')
-const { MEMORY_ROLE, MEMORY_DESTINATION } = require('constants.memory')
+const { MEMORY_ROLE, MEMORY_DESTINATION, MEMORY_ORIGIN } = require('constants.memory')
 
 const selectEnergyForWithdraw = module.exports.selectEnergyForWithdraw = behaviorTree.LeafNode(
     'selectEnergyForWithdraw',
@@ -59,6 +59,8 @@ const pickStorage = module.exports.pickStorage = behaviorTree.SelectorNode(
                 const role = creep.memory[MEMORY_ROLE]
                 // haulers should pick containers near the spawner
                 // TODO this is hacky and feels bad
+                console.log("pick_adjecent_container xxxxx", creep.name)
+
                 if (role && role === "hauler") {
                     return FAILURE
                 }
@@ -82,7 +84,19 @@ const pickStorage = module.exports.pickStorage = behaviorTree.SelectorNode(
         behaviorTree.LeafNode(
             'pick_spawner_extension',
             (creep) => {
-                var target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+                console.log("pick_spawner_extension xxxxx", creep.name)
+
+                let originID = creep.memory[MEMORY_ORIGIN]
+                if (!originID) {
+                    return FAILURE
+                }
+
+                let room = Game.rooms[originID]
+                if (!room) {
+                    return FAILURE
+                }
+
+                let targets = room.find(FIND_STRUCTURES, {
                     filter: (structure) => {
                         return (structure.structureType == STRUCTURE_EXTENSION ||
                                 structure.structureType == STRUCTURE_SPAWN) &&
@@ -90,31 +104,62 @@ const pickStorage = module.exports.pickStorage = behaviorTree.SelectorNode(
                     }
                 });
 
-                if (!target) {
+                if (!targets.length) {
                     console.log("failed to pick destiantion", creep.name)
                     return FAILURE
                 }
 
-                behaviorMovement.setDestination(creep, target.id)
+                behaviorMovement.setDestination(creep, targets[0].id)
                 return SUCCESS
             }
         ),
         behaviorTree.LeafNode(
             'pick_tower',
             (creep) => {
-                var target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+                let originID = creep.memory[MEMORY_ORIGIN]
+                if (!originID) {
+                    return FAILURE
+                }
+
+                let room = Game.rooms[origin]
+                if (!room) {
+                    return FAILURE
+                }
+
+                var targets = room.find(FIND_STRUCTURES, {
                     filter: (structure) => {
                         return structure.structureType == STRUCTURE_TOWER &&
                                 structure.store.getFreeCapacity(RESOURCE_ENERGY) > 100;
                     }
                 });
 
-                if (!target) {
+                if (!targets.length) {
                     console.log("failed to pick destiantion", creep.name)
                     return FAILURE
                 }
 
-                behaviorMovement.setDestination(creep, target.id)
+                behaviorMovement.setDestination(creep, targets[0].id)
+                return SUCCESS
+            }
+        ),
+        behaviorTree.LeafNode(
+            'pick_storage',
+            (creep) => {
+                let originID = creep.memory[MEMORY_ORIGIN]
+                if (!originID) {
+                    return FAILURE
+                }
+
+                let room = Game.rooms[origin]
+                if (!room) {
+                    return FAILURE
+                }
+
+                if (!room.storage) {
+                    return FAILURE
+                }
+
+                behaviorMovement.setDestination(creep, room.storage.id)
                 return SUCCESS
             }
         ),
@@ -174,6 +219,7 @@ module.exports.emptyCreep = behaviorTree.RepeatUntilSuccess(
         'dump_energy',
         [
             pickStorage,
+            behaviorMovement.moveToDestinationRoom,
             behaviorMovement.moveToDestination(1),
             behaviorTree.LeafNode(
                 'empty_creep',

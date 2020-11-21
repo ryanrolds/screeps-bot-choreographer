@@ -10,7 +10,6 @@ const behavior = behaviorTree.SequenceNode(
         behaviorHarvest.selectHarvestSource,
         behaviorHarvest.moveToHarvest,
         behaviorHarvest.harvest,
-        behaviorMovement.moveToOriginRoom,
         behaviorStorage.emptyCreep
     ]
 )

@@ -23,20 +23,20 @@ const workerRoles = {
     [WORKER_HARVESTER]: [CARRY, MOVE, WORK, WORK],
     [WORKER_REMOTE_HARVESTER]: [CARRY, MOVE, CARRY, MOVE, CARRY, MOVE, WORK, MOVE, WORK, MOVE],
     [WORKER_MINER]: [WORK, WORK, WORK, CARRY, MOVE],
-    [WORKER_BUILDER]: [CARRY, MOVE, WORK, WORK],
+    [WORKER_BUILDER]: [CARRY, MOVE, WORK, MOVE, WORK],
     [WORKER_UPGRADER]: [CARRY, MOVE, WORK, WORK],
     [WORKER_DEFENDER]: [MOVE, TOUGH, MOVE, TOUGH, MOVE, RANGED_ATTACK],
-    [WORKER_REPAIRER]: [CARRY, CARRY, MOVE, WORK],
-    [WORKER_HAULER]: [CARRY, CARRY, MOVE, MOVE],
+    [WORKER_REPAIRER]: [CARRY, MOVE, CARRY, MOVE, WORK],
+    [WORKER_HAULER]: [CARRY, MOVE, CARRY, MOVE, CARRY, MOVE],
     [WORKER_CLAIMER]: [MOVE, CLAIM, MOVE],
     [WORKER_EXPLORER]: [MOVE, MOVE, RANGED_ATTACK]
 }
 
 const buildOrder = [WORKER_UPGRADER]
 
-const desiredBuildersPerBuild = 2
+const desiredBuildersPerBuild = 1
 const desiredDefendersPerRoom = 0
-const desiredRepairersPerRoom = 2
+const desiredRepairersPerRoom = 1
 
 module.exports.spawnSuicide = (state, limits) => {
     // Manage the bar at which we build creeps
@@ -84,8 +84,11 @@ module.exports.spawnSuicide = (state, limits) => {
                 desiredHaulers = 1
 
                 let container = Game.getObjectById(source.containerID)
-                if (container && container.store.getUsedCapacity() > 1500) {
+                if (container && container.store.getUsedCapacity() > 1000) {
                     desiredHaulers = 2
+                }
+                if (container && container.store.getUsedCapacity() > 1500) {
+                    desiredHaulers = 3
                 }
             }
 

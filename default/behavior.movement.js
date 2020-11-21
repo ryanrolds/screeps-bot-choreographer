@@ -126,6 +126,9 @@ module.exports.moveToOriginRoom = behaviorTree.RepeatUntilSuccess(
                 return behaviorTree.SUCCESS
             }
 
+            console.log("xxxx", creep.name, creep.memory[MEMORY_ORIGIN], creep.memory[MEMORY_ORIGIN],
+                creep.room.name === creep.memory[MEMORY_ORIGIN])
+
             if (creep.room.name === creep.memory[MEMORY_ORIGIN]) {
                 return behaviorTree.SUCCESS
             }
