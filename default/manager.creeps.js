@@ -3,6 +3,7 @@ const roleUpgraderV2 = require('role.upgrader.v2');
 const roleBuilderV2 = require('role.builder.v2');
 const roleRepairerV2 = require('role.repairer.v2');
 const roleHaulerV2 = require('role.hauler.v2');
+const roleDistributor = require('role.distributor');
 const roleDefender = require('role.defender');
 const roleClaimerV2 = require('role.claimer.v2');
 const { MEMORY_HARVEST, MEMORY_HARVEST_ROOM, MEMORY_WITHDRAW, MEMORY_WITHDRAW_ROOM, MEMORY_CLAIM,
@@ -16,6 +17,7 @@ var WORKER_UPGRADER = module.exports.WORKER_UPGRADER = "upgrader"
 var WORKER_DEFENDER = module.exports.WORKER_DEFENDER = "defender"
 var WORKER_REPAIRER = module.exports.WORKER_REPAIRER = "repairer"
 var WORKER_HAULER = module.exports.WORKER_HAULER = "hauler"
+var WORKER_DISTRIBUTOR = module.exports.WORKER_DISTRIBUTOR = "distributor"
 var WORKER_CLAIMER = module.exports.WORKER_CLAIMER = "claimer"
 var WORKER_EXPLORER = module.exports.WORKER_EXPLORER = "claimer"
 
@@ -28,6 +30,7 @@ const workerRoles = {
     [WORKER_DEFENDER]: [MOVE, TOUGH, MOVE, TOUGH, MOVE, RANGED_ATTACK],
     [WORKER_REPAIRER]: [CARRY, MOVE, CARRY, MOVE, WORK],
     [WORKER_HAULER]: [CARRY, MOVE, CARRY, MOVE, CARRY, MOVE],
+    [WORKER_DISTRIBUTOR]: [CARRY, MOVE, CARRY, MOVE, CARRY, MOVE],
     [WORKER_CLAIMER]: [MOVE, CLAIM, MOVE],
     [WORKER_EXPLORER]: [MOVE, MOVE, RANGED_ATTACK]
 }
@@ -37,6 +40,7 @@ const buildOrder = [WORKER_UPGRADER]
 const desiredBuildersPerBuild = 1
 const desiredDefendersPerRoom = 0
 const desiredRepairersPerRoom = 1
+const desireDistributors = 4
 
 module.exports.spawnSuicide = (state, limits) => {
     // Manage the bar at which we build creeps
@@ -63,6 +67,25 @@ module.exports.spawnSuicide = (state, limits) => {
     console.log("==== Creeps:", JSON.stringify(currentWorkers))
 
     if (!Game.spawns['Spawn1'].spawning && currentEnergy >= minEnergy) {
+
+        // Distributors
+        const extensions = Game.spawns['Spawn1'].room.find(FIND_STRUCTURES, {
+            filter: (structure) => {
+                return (structure.structureType == STRUCTURE_EXTENSION ||
+                    structure.structureType == STRUCTURE_SPAWN);
+            }
+        }).length
+
+        let desireDistributors = extensions * 0.2
+        if ((currentWorkers[WORKER_DISTRIBUTOR] || 0) < desireDistributors) {
+            let result = createCreep(WORKER_DISTRIBUTOR, currentEnergy, {})
+            if (result != OK) {
+                console.log("problem creating distributor", result)
+            }
+
+            return
+        }
+
         // Check that all sources have a harvester and hauler if needed
         const energySources = state.sources.energy
         let energySourceIDs = Object.keys(state.sources.energy)
@@ -278,6 +301,10 @@ module.exports.tick = (trace) => {
 
         if (creep.memory.role == WORKER_CLAIMER || creep.memory.role == WORKER_EXPLORER) {
             roleClaimerV2.run(creep, trace)
+        }
+
+        if (creep.memory.role == WORKER_DISTRIBUTOR) {
+            roleDistributor.run(creep, trace)
         }
     }
 

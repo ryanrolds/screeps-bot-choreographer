@@ -65,13 +65,19 @@ module.exports.clearDestination = (creep) => {
 }
 
 module.exports.fillCreepFromDestination = (creep) => {
-    let destination = Game.getObjectById(creep.memory.destination)
+    let destination = Game.getObjectById(creep.memory[MEMORY_DESTINATION])
+
+    console.log("xxxxx", creep.name, destination)
+
     if (!destination) {
         //console.log("failed to get destination for withdraw", creep.name)
         return FAILURE
     }
 
     let result = creep.withdraw(destination, RESOURCE_ENERGY)
+
+    console.log("xxxxx", creep.name, result)
+
     if (result === OK) {
         return RUNNING
     }
@@ -81,11 +87,10 @@ module.exports.fillCreepFromDestination = (creep) => {
     }
 
     if (result === ERR_NOT_ENOUGH_RESOURCES) {
-        return FAILURE
+        return SUCCESS
     }
 
-    //console.log("failed to withdraw from supply", creep.name, result)
-    return behaviorTree.FAILURE
+    return FAILURE
 }
 
 module.exports.moveToDestinationRoom = behaviorTree.RepeatUntilSuccess(

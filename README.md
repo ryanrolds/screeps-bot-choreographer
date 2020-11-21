@@ -20,11 +20,12 @@ An AI for [Screeps](screeps.com).
 - [x] Organize logic and fix how builders and repairers source their energy
 - [x] Implement behavior tree
 - [x] Migrate creep roles to behavior tree
-- [ ] Storage construction triggers Distributors and prioritized Storage usage
+- [x] Storage construction triggers Distributors and prioritized Storage usage
 - [ ] Attack flag
 - [ ] Auto-defence of owned rooms
 - [ ] Scale number of repairers based on repair/decay rate for the room
 - [ ] Scale number of builders based on number of construction sites in room
+- [ ] Refactor and support multiple spawners in room
 - [ ] Auto-manage Upgraders per spawn (maximize what the economy can support - net zero energy)
 - [ ] Auto return-to-home and defense of remote harvesters
 - [ ] Don't require Build flags, staff rooms w/ construction sites, use flags to prioritize nearby sites
@@ -60,10 +61,10 @@ The AI will focus on establishing an economy, build, repair, and defend your col
 * Builder - Harvest/pick up energy in room and completes construction
 * Repairer - Harvest/pick up energy in room and repair structures
 * Defender - Attacks hostiles creeps in room
-* Claimer - Claims/Reserves rooms (TODO)
 * Explorer - Goes to rooms in domain to get visibility (triggers remote harvesting)
+* Distributor - Moves energy from Containers/Storage into Spawner, Turrets
+* Claimer - Claims/Reserves rooms (TODO)
 * Attacker - Rally at Attack Flag and attack hostiles in room (TODO)
-* Distributor - Moves energy from Containers/Storage into Spawner, Turrets (TODO)
 
 ### Colony
 
@@ -73,13 +74,15 @@ The `./default/main.js` file contains a list of room names that should be consid
 
 ### Build priorities
 
-1. Harvesters, miners, and haulers
-2. Minimum of 1 Upgrader
-3. If attack flags, all energy goes into spawning Attackers (in-development)
-4. 1 Repairer for each room with structures (like road and containers)
-5. 2 Builders for each Build flag
-6. Build explorer and get visibility in rooms in Colony Domain
-7. Max 3 Upgraders in each room with a Spawner
+
+1. If spawn Storage/Containers, spawn Distributors (1/5 the number of extensions)
+2. Harvesters, miners, and haulers
+3. Minimum of 1 Upgrader
+4. If attack flags, all energy goes into spawning Attackers (in-development)
+5. 1 Repairer for each room with structures (like road and containers)
+6. 2 Builders for each Build flag
+7. Build explorer and get visibility in rooms in Colony Domain
+8. Max 3 Upgraders in each room with a Spawner
 
 ### Economy & Building
 
@@ -90,9 +93,8 @@ It's up to you to choose the rooms in your Domain. You must also place construct
 * Build Containers next to harvester, this will trigger Miners (specialized harvesters) and Haulers to spawn
 * Always be building maximum allowed Extensions
 * Always place your Turrets in your spawn rooms
-* Build Containers near Spawners, will be used as buffer and trigger spawning of Distributors (TODO)
-* Build Storage when permitted, will triggers spawning of Distributors (specialized Spawner haulers) (TODO)
-
+* Build Containers near Spawners, will be used as buffer and trigger spawning of Distributors
+* Build Storage when permitted, will triggers spawning of Distributors (specialized Spawner haulers)
 ### Defense
 
 > On the roadmap and coming up soon
