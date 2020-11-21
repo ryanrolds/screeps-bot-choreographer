@@ -197,6 +197,22 @@ module.exports.spawnSuicide = (state, limits) => {
             }
         }
 
+        // Explore
+        const roomsToExplore = state.explore
+        const exploreRoomIDs = Object.keys(roomsToExplore)
+        for (let i = 0; i < exploreRoomIDs.length; i++) {
+            let explore = roomsToExplore[exploreRoomIDs[i]]
+            if (!explore.hasExplorer) {
+                let result = createCreep(WORKER_EXPLORER, currentEnergy, {
+                    [MEMORY_CLAIM]: explore.id
+                })
+                if (result != OK) {
+                    console.log("problem creating claimer", result)
+                    return
+                }
+            }
+        }
+
         // Maintain desired number of specific roles
         for (let i = 0; i < buildOrder.length; i++) {
             let role = buildOrder[i]
@@ -212,22 +228,6 @@ module.exports.spawnSuicide = (state, limits) => {
             } if (count > max * 2) {
                 suicideWorker(role)
                 return
-            }
-        }
-
-        // Explore
-        const roomsToExplore = state.explore
-        const exploreRoomIDs = Object.keys(roomsToExplore)
-        for (let i = 0; i < exploreRoomIDs.length; i++) {
-            let explore = roomsToExplore[exploreRoomIDs[i]]
-            if (!explore.hasExplorer) {
-                let result = createCreep(WORKER_EXPLORER, currentEnergy, {
-                    [MEMORY_CLAIM]: explore.id
-                })
-                if (result != OK) {
-                    console.log("problem creating claimer", result)
-                    return
-                }
             }
         }
     }

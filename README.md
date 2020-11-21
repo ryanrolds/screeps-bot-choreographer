@@ -2,8 +2,8 @@
 
 An AI for [Screeps](screeps.com).
 
-[Game Docs](https://docs.screeps.com)
-[API Docs](https://docs.screeps.com/api)
+* [Game Docs](https://docs.screeps.com)
+* [API Docs](https://docs.screeps.com/api)
 
 #### Key Features:
 
@@ -20,13 +20,14 @@ An AI for [Screeps](screeps.com).
 - [x] Organize logic and fix how builders and repairers source their energy
 - [x] Implement behavior tree
 - [x] Migrate creep roles to behavior tree
+- [ ] Storage construction tiggers Distributors and prioritized Storage usage
 - [ ] Attack flag
 - [ ] Auto-defence of owned rooms
 - [ ] Scale number of repairers based on repair/decay rate for the room
 - [ ] Scale number of builders based on number of construction sites in room
-- [ ] Storage construction tiggers Distributors and prioritized Storage usage
 - [ ] Auto-manage Upgraders per spawn (maximize what the econmoy can support - net zero energy)
 - [ ] Auto return-to-home and defense of remote harvesters
+- [ ] Don't require Build flags, staff rooms w/ construction sites, use flags to prioritize nearby sites
 - [ ] Refactor role and spawn logic to support easy addition of creep roles
 - [ ] Auto-contruction of roads to remote sources
 
@@ -53,10 +54,16 @@ The AI will focus on stablishing an economy, build, repair, and defend your colo
 
 ### Creeps
 
-* Harvester
-* Miner
-* Hauler
-*
+* Harvester - harvests and brings engery back to Spawner/Origin
+* Miner - havests and places energy in nearby container
+* Hauler - Picks up and takes energy in containers to Origin spawner, extractor, turrent, storage
+* Builder - Harvest/pick up energy in room and completes construction
+* Repairer - Harvest/pick up energy in room and repair structures
+* Defender - Attacks hostiles creeps in room
+* Claimer - Claims/Reserves rooms (TODO)
+* Explorer - Goes to rooms in domain to get visibiilty (triggers remote harvesting)
+* Attacker - Rally at Attack Flag and attack hostiles in room (TODO)
+* Destributor - Moves energy from Containers/Storage into Spawner, Turrets (TODO)
 
 ### Colony
 
@@ -71,7 +78,8 @@ The `./default/main.js` file contains a list of room names that should be consid
 3. If attack flags, all energy goes into spawning Attackers (in-development)
 4. 1 Repairer for each room with structures (like road and containers)
 5. 2 Builders for each Build flag
-6. Max 3 upgraders in each room with a Spawner
+6. Build explorer and get visibility in rooms in Colony Domain
+7. Max 3 upgraders in each room with a Spawner
 
 ### Economy & Building
 
