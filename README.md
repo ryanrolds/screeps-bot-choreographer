@@ -23,10 +23,12 @@ An AI for [Screeps](screeps.com).
 - [x] Storage construction triggers Distributors and prioritized Storage usage
 - [ ] Attack flag
 - [ ] Refactor movement and storage selection (more hauling with fewer Distributors)
+- [ ] Refactor creep manager
 - [ ] Track time between end and start of spawns and increase/decrease min energy (Spawn Time Governor)
 - [ ] Auto-defence of owned rooms
 - [ ] Scale number of repairers based on repair/decay rate for the room
 - [ ] Scale number of builders based on number of construction sites in room
+- [ ] Scale number of haulers based on fullness/rate of harvesting
 - [ ] Refactor and support multiple spawners in room
 - [ ] Auto-manage Upgraders per spawn (maximize what the economy can support - net zero energy)
 - [ ] Auto return-to-home and defense of remote harvesters
@@ -80,10 +82,10 @@ The `./default/main.js` file contains a list of room names that should be consid
 1. If spawn Storage/Containers, spawn Distributors (1/5 the number of extensions)
 2. Harvesters, miners, and haulers
 3. Minimum of 1 Upgrader
-4. If attack flags, all energy goes into spawning Attackers (in-development)
-5. 1 Repairer for each room with structures (like road and containers)
-6. 2 Builders for each Build flag
-7. Build explorer and get visibility in rooms in Colony Domain
+4. Build explorer and get visibility in rooms in Colony Domain
+5. If attack flags, all energy goes into spawning Attackers (in-development)
+6. 1 Repairer for each room with structures (like road and containers)
+7. 2 Builders for each Build flag
 8. Max 3 Upgraders in each room with a Spawner
 
 ### Economy & Building
@@ -97,6 +99,7 @@ It's up to you to choose the rooms in your Domain. You must also place construct
 * Always place your Turrets in your spawn rooms
 * Build Containers near Spawners, will be used as buffer and trigger spawning of Distributors
 * Build Storage when permitted, will triggers spawning of Distributors (specialized Spawner haulers)
+
 ### Defense
 
 > On the roadmap and coming up soon
@@ -121,21 +124,23 @@ When an Attack Flag (`attack*`) is placed all Builder and Upgrader spawning is h
 
 > The entire section, including subheadings, are a work in progress.
 
-Design and layout of of the AI and it's source code.
+Design and layout of of the AI and it's source code. I'm actively migrating from the Manager model to a much more structured Kingdom model. Objects in the structure can request prioritized actions (creep spawn, defenders, etc...) from the Colony, which if important enough will request it from the rest of the colonies in the Kingdom.
+
+The Kingdom model is currently being built and it's not making any decisions or driving any in-game actions. I'm taking a very methodical approach to not destabilize the game. The work is mostly going through the Manager model and identifying where specific pieces of data and logic should fit into the model. Ideally, switching will cause very little behavior changes in the AI.
+
+### Structure
+
+1. Kingdom
+2. Colony, War Party
+3. Sources, Rooms, Spawns
+4. Creeps
+5. Behavior Trees
+6. Behaviors
 
 ### Memory
+
+WIP
 
 ### Behavior Trees
 
 This section will outline the BT's organizational strategy. Ideally, the `behavior.*` files would provide a well organized and DRY set of logic that can be composed to produce complex behavior.
-
-#### Build
-
-#### Room
-
-#### Movement
-
-#### Assign
-
-#### Storage
-

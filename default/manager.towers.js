@@ -41,9 +41,8 @@ module.exports.tick = (charter) => {
                     filter: (s) => {
                         return s.hits < s.hitsMax && (
                             s.structureType == STRUCTURE_RAMPART ||
-                            s.structureType == STRUCTURE_ROAD ||
-                            s.structureType == STRUCTURE_WALL
-                        )
+                            s.structureType == STRUCTURE_WALL) &&
+                            s.hits < 15000 // TODO this needs to scale with energy reserves
                     }
                 })
                 damagedSecondaryStructures = _.sortBy(damagedSecondaryStructures, (structure) => {
@@ -51,6 +50,19 @@ module.exports.tick = (charter) => {
                 })
                 if (damagedSecondaryStructures && damagedSecondaryStructures.length) {
                     tower.repair(damagedSecondaryStructures[0]);
+                    return
+                }
+
+                var damagedRoads = tower.room.find(FIND_STRUCTURES, {
+                    filter: (s) => {
+                        return s.hits < s.hitsMax && s.structureType == STRUCTURE_ROAD
+                    }
+                })
+                damagedRoads = _.sortBy(damagedRoads, (structure) => {
+                    return structure.hits
+                })
+                if (damagedRoads && damagedRoads.length) {
+                    tower.repair(damagedRoads[0]);
                     return
                 }
             }

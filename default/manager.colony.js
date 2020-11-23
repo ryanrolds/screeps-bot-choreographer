@@ -1,7 +1,7 @@
 const { MEMORY_HARVEST, MEMORY_ROLE, MEMORY_WITHDRAW, MEMORY_CLAIM, MEMORY_FLAG,
     MEMORY_ASSIGN_ROOM } = require('constants.memory')
 const { WORKER_HARVESTER, WORKER_MINER, WORKER_HAULER, WORKER_CLAIMER, WORKER_BUILDER,
-    WORKER_REMOTE_HARVESTER, WORKER_DEFENDER, WORKER_REPAIRER } = require('manager.creeps')
+    WORKER_REMOTE_HARVESTER, WORKER_DEFENDER, WORKER_REPAIRER, WORKER_ATTACKER } = require('constants.creeps')
 
 const state = {
     rooms: {},
@@ -10,7 +10,8 @@ const state = {
     hostiles: {},
     sources: {
         energy: {}
-    }
+    },
+    warParties: {}
 }
 
 module.exports.tick = (charter) => {
@@ -41,19 +42,44 @@ module.exports.tick = (charter) => {
 
             // If a flag is in a room we don't have visibility, the room property is undefined
             let hasSites = false
+            let numSites = 0
+            let flagRoom = null
             let accessible = false
             if (Game.flags[key].room) {
                 accessible = true
-                hasSites = Game.flags[key].room.find(FIND_CONSTRUCTION_SITES).length > 0
+                flagRoom = Game.flags[key].room
+                numSites = flagRoom.find(FIND_CONSTRUCTION_SITES).length
+                hasSites = numSites > 0
             }
 
-            state.builds.push({
+            let build = {
                 id: key,
                 accessible,
                 numBuilders,
+                numSites,
                 hasSites
-            })
+            }
+
+            console.log("==== Build:", JSON.stringify(build))
+
+            state.builds.push(build)
         }
+
+        if (key.startsWith("attack")) {
+            const numAttackers = _.filter(Game.creeps, (creep) => {
+                const role = creep.memory[MEMORY_ROLE]
+                return role === WORKER_ATTACKER && creep.memory[MEMORY_FLAG] === key
+            }).length
+
+            let warParty = {
+                id: key,
+                numAttackers
+            }
+
+            console.log("==== War Party:", JSON.stringify(warParty))
+
+            state.warParties[warParty.id] = warParty
+      }
     })
 
     visibleRooms.forEach((roomID) => {
@@ -72,9 +98,11 @@ module.exports.tick = (charter) => {
             const hasContainer = container.length > 0
 
             let containerID = null
+            let containerUsed = 0
             let numHaulers = 0
             if (hasContainer) {
                 containerID = container[0].id
+                containerUsed = container[0].store.getUsedCapacity()
                 numHaulers = _.filter(Game.creeps, (creep) => {
                     const role = creep.memory[MEMORY_ROLE]
                     return role && role === WORKER_HAULER &&
@@ -82,19 +110,28 @@ module.exports.tick = (charter) => {
                 }).length
             }
 
+            const numHarvesters = _.filter(Game.creeps, (creep) => {
+                const role = creep.memory[MEMORY_ROLE]
+                return (role === WORKER_HARVESTER || role === WORKER_REMOTE_HARVESTER) &&
+                    creep.memory[MEMORY_HARVEST] === source.id
+            }).length
+
             const numMiners = _.filter(Game.creeps, (creep) => {
                 const role = creep.memory[MEMORY_ROLE]
-                return role && (role === WORKER_HARVESTER || role === WORKER_REMOTE_HARVESTER ||
-                    role === WORKER_MINER) &&
-                    creep.memory[MEMORY_HARVEST] && creep.memory[MEMORY_HARVEST] === source.id
+                return role === WORKER_MINER && creep.memory[MEMORY_HARVEST] === source.id
             }).length
 
             state.sources.energy[source.id] = {
                 id: source.id,
                 roomID: roomID,
-                containerID,
+                numHarvesters,
                 numMiners,
                 numHaulers,
+                energyPercent: (source.energy / source.energyCapacity * 100).toFixed(2),
+                regenPercent: (source.ticksToRegeneration / 300 * 100).toFixed(2),
+                capacity: source.energyCapacity,
+                containerID,
+                containerUsed
             }
         })
 
@@ -141,17 +178,24 @@ module.exports.tick = (charter) => {
                 creep.memory[MEMORY_ASSIGN_ROOM] === room.name
         }).length
 
+        let hitsPercentage = 1
+        if (maxHits > 0) {
+            hitsPercentage = hits / maxHits
+        }
+
         state.rooms[room.name] = {
             id: room.name,
             numDefenders,
             hasStructures,
             numRepairers,
-            hits,
-            maxHits,
-            hitsPercentage: hits/maxHits
+            hitsPercentage
         }
 
         console.log("==== Room:", JSON.stringify(state.rooms[room.name]))
+    })
+
+    _.each(state.sources.energy, (source) => {
+        console.log("==== Source:", JSON.stringify(source))
     })
 
     return state

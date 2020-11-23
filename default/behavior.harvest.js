@@ -93,11 +93,11 @@ module.exports.harvest = behaviorTree.LeafNode(
         if (result === ERR_FULL) {
             return SUCCESS
         }
-        if (result === ERR_NOT_ENOUGH_RESOURCES) {
-            return SUCCESS
-        }
         if (creep.store.getFreeCapacity() === 0) {
             return SUCCESS
+        }
+        if (result === ERR_NOT_ENOUGH_RESOURCES) {
+            return RUNNING
         }
         if (result == OK) {
             return RUNNING

@@ -421,10 +421,13 @@ module.exports.emptyCreep = behaviorTree.RepeatUntilSuccess(
                     }
 
                     let result = creep.transfer(destination, RESOURCE_ENERGY)
+
+                    //console.log("xxxxx transfer", creep.name, result)
+
                     if (result === ERR_FULL) {
                         // We still have energy to transfer, fail so we find another
                         // place to dump
-                        return FAILURE
+                        return SUCCESS
                     }
                     if (result === ERR_NOT_ENOUGH_RESOURCES) {
                         return SUCCESS

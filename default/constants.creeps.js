@@ -4,6 +4,7 @@ var WORKER_REMOTE_HARVESTER = module.exports.WORKER_REMOTE_HARVESTER = "remote_h
 var WORKER_MINER = module.exports.WORKER_MINER = "miner"
 var WORKER_UPGRADER = module.exports.WORKER_UPGRADER = "upgrader"
 var WORKER_DEFENDER = module.exports.WORKER_DEFENDER = "defender"
+var WORKER_ATTACKER = module.exports.WORKER_ATTACKER = "attacker"
 var WORKER_REPAIRER = module.exports.WORKER_REPAIRER = "repairer"
 var WORKER_HAULER = module.exports.WORKER_HAULER = "hauler"
 var WORKER_DISTRIBUTOR = module.exports.WORKER_DISTRIBUTOR = "distributor"

@@ -3,13 +3,16 @@ const creeps = require('manager.creeps')
 const towers = require('manager.towers')
 const colony = require('manager.colony')
 
+const Kingdom = require('org.kingdom')
+
 const TRACING_ACTIVE = false
 
 const workersLimits = {
-    [creeps.WORKER_UPGRADER]: 3,
+    [creeps.WORKER_UPGRADER]: 1,
 }
 
 var charter = {
+    id: "E18S47-Shard3",
     rooms: ["E18S47", "E17S47", "E18S46", "E17S48", "E19S46"],
     workersLimits
 }
@@ -25,7 +28,20 @@ module.exports.loop = function () {
 
     console.log("======== TICK", Game.time, "========")
 
+    let kingdromTrace = trace.begin("kingdom")
 
+    try {
+        console.log("------- KINGDOM -------")
+        const kingdom = new Kingdom({
+            "E18S47": charter
+         })
+        kingdom.tick()
+        console.log("------- END -------")
+    } catch(e) {
+        console.log("KINGDOM ERROR", e)
+    }
+
+    kingdromTrace.end()
     let colonyTrace = trace.begin("colony")
 
     const state = colony.tick(charter)

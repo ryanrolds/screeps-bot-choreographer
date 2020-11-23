@@ -1,5 +1,5 @@
-const {FAILURE, SUCCESS, RUNNING} = require('lib.behaviortree')
 const behaviorTree = require('lib.behaviortree')
+const {FAILURE, SUCCESS, RUNNING} = require('lib.behaviortree')
 const { MEMORY_DESTINATION, MEMORY_DESTINATION_ROOM, MEMORY_ORIGIN,
     MEMORY_SOURCE, MEMORY_SOURCE_ROOM } = require('constants.memory')
 
@@ -93,25 +93,25 @@ module.exports.moveToDestinationRoom = behaviorTree.RepeatUntilSuccess(
         'move_to_exit',
         (creep) => {
             if (!creep.memory[MEMORY_DESTINATION_ROOM]) {
-                return behaviorTree.SUCCESS
+                return SUCCESS
             }
 
             if (creep.room.name === creep.memory[MEMORY_DESTINATION_ROOM]) {
-                return behaviorTree.SUCCESS
+                return SUCCESS
             }
 
             const exitDir = creep.room.findExitTo(creep.memory[MEMORY_DESTINATION_ROOM])
             if (exitDir === ERR_INVALID_ARGS) {
-                return behaviorTree.SUCCESS
+                return SUCCESS
             }
 
             const exit = creep.pos.findClosestByRange(exitDir);
             const result = creep.moveTo(exit);
             if (result === ERR_INVALID_ARGS) {
-                return behaviorTree.FAILURE
+                return FAILURE
             }
 
-            return behaviorTree.RUNNING
+            return RUNNING
         }
     )
 )
@@ -122,26 +122,26 @@ module.exports.moveToOriginRoom = behaviorTree.RepeatUntilSuccess(
         'move_to_exit',
         (creep) => {
             if (!creep.memory[MEMORY_ORIGIN]) {
-                return behaviorTree.SUCCESS
+                return SUCCESS
             }
 
             if (creep.room.name === creep.memory[MEMORY_ORIGIN]) {
-                return behaviorTree.SUCCESS
+                return SUCCESS
             }
 
             const exitDir = creep.room.findExitTo(creep.memory[MEMORY_ORIGIN])
             if (exitDir === ERR_INVALID_ARGS) {
-                return behaviorTree.SUCCESS
+                return SUCCESS
             }
 
             const exit = creep.pos.findClosestByRange(exitDir);
 
             const result = creep.moveTo(exit);
             if (result === ERR_INVALID_ARGS) {
-                return behaviorTree.FAILURE
+                return FAILURE
             }
 
-            return behaviorTree.RUNNING
+            return RUNNING
         }
     )
 )

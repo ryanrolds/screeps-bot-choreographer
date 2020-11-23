@@ -6,10 +6,12 @@ const roleHaulerV2 = require('role.hauler.v2');
 const roleDistributor = require('role.distributor');
 const roleDefender = require('role.defender');
 const roleClaimerV2 = require('role.claimer.v2');
+const roleAttacker = require('role.attacker')
 
 const { MEMORY_HARVEST, MEMORY_HARVEST_ROOM, MEMORY_WITHDRAW, MEMORY_WITHDRAW_ROOM, MEMORY_CLAIM,
     MEMORY_ROLE, MEMORY_ORIGIN, MEMORY_FLAG, MEMORY_ASSIGN_ROOM } = require('constants.memory')
 
+const { WORKER_ATTACKER } = require('constants.creeps')
 
 
 var WORKER_BUILDER = module.exports.WORKER_BUILDER = "builder"
@@ -35,14 +37,14 @@ const workerRoles = {
     [WORKER_HAULER]: [CARRY, MOVE, CARRY, MOVE, CARRY, MOVE],
     [WORKER_DISTRIBUTOR]: [CARRY, MOVE, CARRY, MOVE, CARRY, MOVE],
     [WORKER_CLAIMER]: [MOVE, CLAIM, MOVE],
-    [WORKER_EXPLORER]: [MOVE, MOVE, RANGED_ATTACK]
+    [WORKER_EXPLORER]: [MOVE, MOVE, RANGED_ATTACK],
+    [WORKER_ATTACKER]: [MOVE, TOUGH, MOVE, TOUGH, MOVE, RANGED_ATTACK],
 }
 
 const buildOrder = [WORKER_UPGRADER]
 
 const desiredBuildersPerBuild = 1
 const desiredDefendersPerRoom = 0
-const desiredRepairersPerRoom = 1
 
 module.exports.spawnSuicide = (state, limits) => {
     // Manage the bar at which we build creeps
@@ -79,11 +81,8 @@ module.exports.spawnSuicide = (state, limits) => {
             }
         }).length
 
-        console.log("containersAndStorage", containersAndStorage)
-
         if (containersAndStorage) {
-            let desiredDistributors = Math.ceil(numExtensions * 0.25)
-            console.log("distributors", numExtensions, desiredDistributors)
+            let desiredDistributors = Math.floor(numExtensions * 0.1)
             if ((currentWorkers[WORKER_DISTRIBUTOR] || 0) < desiredDistributors) {
                 let result = createCreep(WORKER_DISTRIBUTOR, currentEnergy, {})
                 if (result != OK) {
@@ -107,33 +106,33 @@ module.exports.spawnSuicide = (state, limits) => {
         for (let i = 0; i < energySourceIDs.length; i++) {
             let source = energySources[energySourceIDs[i]]
 
-            let desiredMiners = 2
+            let desiredHarvesters = 2
+            let desiredMiners = 0
             let desiredHaulers = 0
 
+            // Optimize energy collection - dedicated miners and haulers
             if (source.containerID) {
+                desiredHarvesters = 0
                 desiredMiners = 1
                 desiredHaulers = 1
 
                 let container = Game.getObjectById(source.containerID)
-                if (container && container.store.getUsedCapacity() > 1750) {
-                    desiredHaulers = 2
+                if (container && container.store.getUsedCapacity() > 1500) {
+                    //desiredHaulers = 2
                 }
             }
 
-            const differentRoom = Game.spawns['Spawn1'].room.name !== source.roomID
-
-            // We need at least twice as many workers if the source
+            // We need at least twice as many haulers and more harvesters if the source
             // is in another room
-            if (differentRoom) {
-                //desiredMiners = desiredMiners * 2
-                //desiredHaulers = desiredHaulers * 2
-            }
+            const differentRoom = Game.spawns['Spawn1'].room.name !== source.roomID
+            //if (differentRoom) {
+            //    desiredHarvesters = desiredHarvesters * 1.5
+            //    desiredHaulers = Math.ceil(desiredHaulers * 1.4)
+            //}
 
-            if (source.numMiners < desiredMiners) {
+            if (source.numHarvesters < desiredHarvesters) {
                 let harvesterType = WORKER_HARVESTER
-                if (source.containerID) {
-                    harvesterType = WORKER_MINER
-                } else if (differentRoom) {
+                if (differentRoom) {
                     harvesterType = WORKER_REMOTE_HARVESTER
                 }
 
@@ -143,6 +142,18 @@ module.exports.spawnSuicide = (state, limits) => {
                 })
                 if (result != OK) {
                     console.log("problem creating harvester", result)
+                }
+
+                return
+            }
+
+            if (source.numMiners < desiredMiners) {
+                let result = createCreep(WORKER_MINER, currentEnergy, {
+                    [MEMORY_HARVEST]: source.id,
+                    [MEMORY_HARVEST_ROOM]: source.roomID
+                })
+                if (result != OK) {
+                    console.log("problem creating miner", result)
                 }
 
                 return
@@ -178,10 +189,14 @@ module.exports.spawnSuicide = (state, limits) => {
 
             // We need repairers if we have structures that decay
             if (room.hasStructures) {
-                let desiredRepairers = desiredRepairersPerRoom
+                let desiredRepairers = 0
+
+                if (room.hitsPercentage < 0.8) {
+                    desiredRepairers = 1
+                }
 
                 if (room.hitsPercentage < 0.5) {
-                    desiredRepairers = desiredRepairersPerRoom * 2
+                    desiredRepairers = 2
                 }
 
                 if (room.numRepairers < desiredRepairers) {
@@ -208,29 +223,6 @@ module.exports.spawnSuicide = (state, limits) => {
             }
         }
 
-        // Iterate build and ensure they are staffed
-        for (let i = 0; i < state.builds.length; i++) {
-            let build = state.builds[i]
-            if (!build.accessible) {
-                console.log("build site not accessible", build.id)
-                continue
-            }
-
-            // Don't spawn builders if nothing to build
-            if (build.hasSites) {
-                if (build.numBuilders < desiredBuildersPerBuild) {
-                    let result = createCreep(WORKER_BUILDER, currentEnergy, {
-                        [MEMORY_FLAG]: build.id
-                    })
-                    if (result != OK) {
-                        console.log("problem creating hauler", result)
-                    }
-
-                    return
-                }
-            }
-        }
-
         // Explore
         const roomsToExplore = state.explore
         const exploreRoomIDs = Object.keys(roomsToExplore)
@@ -242,6 +234,49 @@ module.exports.spawnSuicide = (state, limits) => {
                 })
                 if (result != OK) {
                     console.log("problem creating claimer", result)
+                }
+
+                return
+            }
+        }
+
+        console.log("xxxxx", JSON.stringify(state.warParties))
+        const warPartyIDs =  Object.keys(state.warParties)
+        for (let i = 0; i < warPartyIDs.length; i++) {
+            let warParty = state.warParties[warPartyIDs[i]]
+            console.log("xxxxxxwar party", JSON.stringify(warParty))
+            if (warParty.numAttackers < 1) {
+                let result = createCreep(WORKER_ATTACKER, currentEnergy, {
+                    [MEMORY_FLAG]: warParty.id
+                })
+                if (result != OK) {
+                    console.log("problem creating attacker", result)
+                }
+
+                return
+            }
+        }
+
+        // Iterate build and ensure they are staffed
+        for (let i = 0; i < state.builds.length; i++) {
+            let build = state.builds[i]
+            if (!build.accessible) {
+                console.log("build site not accessible", build.id)
+                continue
+            }
+
+            let desiredBuilders = Math.ceil(build.numSites / 10)
+
+            // Don't spawn builders if nothing to build
+            if (build.hasSites) {
+                if (build.numBuilders < desiredBuilders) {
+                    let result = createCreep(WORKER_BUILDER, currentEnergy, {
+                        [MEMORY_FLAG]: build.id
+                    })
+                    if (result != OK) {
+                        console.log("problem creating builder", result)
+                    }
+
                     return
                 }
             }
@@ -283,6 +318,10 @@ module.exports.tick = (trace) => {
 
         if (creep.spawning) {
             return
+        }
+
+        if (creep.memory.role == WORKER_ATTACKER) {
+            roleAttacker.run(creep, trace)
         }
 
         if (creep.memory.role == WORKER_HARVESTER || creep.memory.role == WORKER_REMOTE_HARVESTER ||
