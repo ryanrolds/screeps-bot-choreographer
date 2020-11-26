@@ -427,7 +427,7 @@ module.exports.emptyCreep = behaviorTree.RepeatUntilSuccess(
                     if (result === ERR_FULL) {
                         // We still have energy to transfer, fail so we find another
                         // place to dump
-                        return SUCCESS
+                        return FAILURE
                     }
                     if (result === ERR_NOT_ENOUGH_RESOURCES) {
                         return SUCCESS

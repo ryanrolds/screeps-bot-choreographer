@@ -14,24 +14,28 @@ const behavior = behaviorTree.SequenceNode(
     [
         behaviorAssign.moveToRoom,
         behaviorTree.LeafNode(
-            "moveToRC",
-            (creep) => {
-                return behaviorMovement.moveTo(creep, creep.room.controller, 1)
-            }
-        ),
-        behaviorTree.LeafNode(
-            'defend_room',
+            'attack_hostiles',
             (creep) => {
                 let hostile = creep.pos.findClosestByPath(FIND_HOSTILE_CREEPS)
+                console.log(hostile)
                 if (hostile) {
-                    if(creep.rangedAttack(hostile) == ERR_NOT_IN_RANGE) {
+                    let result = creep.rangedAttack(hostile)
+                    if (result === ERR_NO_BODYPART) {
+                        return FAILURE
+                    }
+                    if (result === ERR_INVALID_TARGET) {
+                        return FAILURE
+                    }
+                    if (result === ERR_NOT_IN_RANGE) {
                         creep.moveTo(hostile, {visualizePathStyle: {stroke: '#ffffff'}});
                     }
+
+                    return RUNNING
                 }
 
-                return RUNNING
+                return SUCCESS
             }
-        )
+        ),
     ]
 )
 

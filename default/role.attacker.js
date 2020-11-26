@@ -11,8 +11,16 @@ const behavior = behaviorTree.SequenceNode(
             'attack_hostiles',
             (creep) => {
                 let hostile = creep.pos.findClosestByPath(FIND_HOSTILE_CREEPS)
+                console.log(hostile)
                 if (hostile) {
-                    if(creep.rangedAttack(hostile) == ERR_NOT_IN_RANGE) {
+                    let result = creep.rangedAttack(hostile)
+                    if (result === ERR_NO_BODYPART) {
+                        return FAILURE
+                    }
+                    if (result === ERR_INVALID_TARGET) {
+                        return FAILURE
+                    }
+                    if (result === ERR_NOT_IN_RANGE) {
                         creep.moveTo(hostile, {visualizePathStyle: {stroke: '#ffffff'}});
                     }
 
@@ -27,7 +35,14 @@ const behavior = behaviorTree.SequenceNode(
             (creep) => {
                 let hostile = creep.pos.findClosestByPath(FIND_HOSTILE_STRUCTURES)
                 if (hostile) {
-                    if(creep.rangedAttack(hostile) == ERR_NOT_IN_RANGE) {
+                    let result = creep.rangedAttack(hostile)
+                    if (result === ERR_NO_BODYPART) {
+                        return FAILURE
+                    }
+                    if (result === ERR_INVALID_TARGET) {
+                        return FAILURE
+                    }
+                    if (result === ERR_NOT_IN_RANGE) {
                         creep.moveTo(hostile, {visualizePathStyle: {stroke: '#ffffff'}});
                     }
 
@@ -42,7 +57,14 @@ const behavior = behaviorTree.SequenceNode(
             (creep) => {
                 let hostile = creep.pos.findClosestByPath(FIND_HOSTILE_SPAWNS)
                 if (hostile) {
-                    if(creep.rangedAttack(hostile) == ERR_NOT_IN_RANGE) {
+                    let result = creep.rangedAttack(hostile)
+                    if (result === ERR_NO_BODYPART) {
+                        return FAILURE
+                    }
+                    if (result === ERR_INVALID_TARGET) {
+                        return FAILURE
+                    }
+                    if (result === ERR_NOT_IN_RANGE) {
                         creep.moveTo(hostile, {visualizePathStyle: {stroke: '#ffffff'}});
                     }
 

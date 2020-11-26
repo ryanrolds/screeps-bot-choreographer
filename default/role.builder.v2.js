@@ -1,47 +1,25 @@
 const behaviorTree = require('lib.behaviortree')
 const behaviorMovement = require('behavior.movement')
-const behaviorStorage = require('behavior.storage')
-const behaviorHarvest = require('behavior.harvest')
 const behaviorBuild = require('behavior.build')
+const behaviorAssign = require('behavior.assign')
 const behaviorRoom = require('behavior.room')
 
-const behavior = behaviorTree.SelectorNode(
-    "builder_root",
+const behavior = behaviorTree.SequenceNode(
+    'builder_root',
     [
-        behaviorTree.SequenceNode(
-            'build',
-            [
-                // TODO use behavior.room.getEnergy()
-                behaviorTree.RepeatUntilSuccess(
-                    'get_energy_until_success',
-                    behaviorTree.SelectorNode(
-                        'get_energy',
-                        [
-                            behaviorStorage.fillCreepFromContainers,
-                            behaviorTree.SequenceNode(
-                                'harvest_if_needed',
-                                [
-                                    behaviorHarvest.selectHarvestSource,
-                                    behaviorHarvest.moveToHarvest,
-                                    behaviorHarvest.harvest
-                                ]
-                            )
-                        ]
-                    )
-                ),
-                behaviorTree.RepeatUntilSuccess(
-                    'build_until_empty',
-                    behaviorTree.SequenceNode(
-                        'build_construction_site',
-                        [
-                            behaviorBuild.selectSiteNearFlag,
-                            behaviorMovement.moveToDestinationRoom,
-                            behaviorMovement.moveToDestination(1),
-                            behaviorBuild.build
-                        ]
-                    )
-                )
-            ]
+        behaviorAssign.moveToRoom,
+        behaviorRoom.getEnergy,
+        behaviorTree.RepeatUntilSuccess(
+            'build_until_empty',
+            behaviorTree.SequenceNode(
+                'build_construction_site',
+                [
+                    behaviorBuild.selectSite,
+                    behaviorMovement.moveToDestinationRoom,
+                    behaviorMovement.moveToDestination(1),
+                    behaviorBuild.build
+                ]
+            )
         )
     ]
 )

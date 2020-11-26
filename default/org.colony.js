@@ -1,16 +1,29 @@
 const Room = require('org.room')
-const Source = require('./org.source')
+const Source = require('org.source')
+const Spawner = require('org.spawner')
+const OrgBase = require('org.base')
+const Topics = require('lib.topics')
 
-class Colony {
-    constructor(colony) {
-        this.id = colony.id
+const { MEMORY_CLAIM, MEMORY_ROLE, MEMORY_COLONY } = require('constants.memory')
+const { TOPIC_SPAWN, TOPIC_DEFENDERS } = require('constants.topics')
+const { WORKER_CLAIMER, WORKER_DEFENDER } = require('constants.creeps')
+const { PRIORITY_CLAIMER, PRIORITY_DEFENDER } = require('constants.priorities')
+
+const MAX_DEFENDERS = 3
+
+class Colony extends OrgBase {
+    constructor(parent, colony) {
+        super(parent, colony.id)
+
+        this.topics = new Topics()
+
         this.desiredRooms = colony.rooms
         this.missingRooms = _.difference(this.desiredRooms,  Object.keys(Game.rooms))
         this.colonyRooms =  _.difference(this.desiredRooms,  this.missingRooms)
 
         this.rooms = this.colonyRooms.reduce((rooms, id) => {
             if (Game.rooms[id]) {
-                rooms.push(new Room(Game.rooms[id]))
+                rooms.push(new Room(this, Game.rooms[id]))
             }
 
             return rooms
@@ -21,32 +34,106 @@ class Colony {
         this.sources = this.rooms.reduce((sources, room) => {
             const roomSources = room.getSources()
             roomSources.forEach((source) => {
-                sources.push(new Source(source))
+                sources.push(new Source(this, source))
             })
 
             return sources
         }, [])
 
-        this.defenders = []
+        this.spawns = this.rooms.reduce((spawns, room) => {
+            const roomSpawns = room.getSpawns()
+            roomSpawns.forEach((spawn) => {
+                spawns.push(new Spawner(this, spawn))
+            })
+
+            return spawns
+        }, [])
+
+        this.availableSpawns = this.spawns.filter((spawner) => {
+            return !spawner.getSpawning()
+        })
+
+        this.defenders = _.filter(Game.creeps, (creep) => {
+            return creep.memory[MEMORY_ROLE] == WORKER_DEFENDER &&
+                creep.memory[MEMORY_COLONY] === this.id
+        })
     }
-    tick() {
+    getColony() {
+        return this.id
+    }
+    update() {
         console.log(this)
 
+        this.missingRooms.forEach((roomID) => {
+            this.sendRequest(TOPIC_SPAWN, PRIORITY_CLAIMER, {
+                role: WORKER_CLAIMER,
+                memory: {
+                    [MEMORY_CLAIM]: roomID
+                }
+            })
+        })
+
         this.rooms.forEach((room) => {
-            room.tick()
+            room.update()
         })
 
         this.sources.forEach((source) => {
-            source.tick()
+            source.update()
         })
 
-        this.defenders.forEach((defender) => {
-            defender.tick()
+        this.spawns.forEach((spawn) => {
+            spawn.update()
+        })
+    }
+    process() {
+        this.updateStats()
+
+        let request = this.getNextRequest(TOPIC_DEFENDERS)
+        if (request) {
+            console.log("DEFENDER REQUEST", JSON.stringify(request))
+
+            let neededDefenders = MAX_DEFENDERS - this.defenders.length
+            for (let i = 0; i < neededDefenders; i++) {
+                this.sendRequest(TOPIC_SPAWN, PRIORITY_DEFENDER, request.details )
+            }
+
+            // Order existing defenders to the room
+            this.defenders.forEach((defender) => {
+                if (defender.memory[MEMORY_COLONY] !== request.details.memory[MEMORY_COLONY]) {
+                    return
+                }
+
+                defender.memory[MEMORY_ASSIGN_ROOM] = request.details.memory[MEMORY_ASSIGN_ROOM]
+            })
+        }
+
+        this.rooms.forEach((room) => {
+            room.process()
+        })
+
+        this.sources.forEach((source) => {
+            source.process()
+        })
+
+        this.spawns.forEach((spawn) => {
+            spawn.process()
         })
     }
     toString() {
         return `---- Colony - ID: ${this.id}, #Rooms: ${this.rooms.length}, #Missing: ${this.missingRooms.length}, ` +
-            `#Sources: ${this.sources.length}`
+            `#Sources: ${this.sources.length}, #Spawners: ${this.spawns.length}, ` +
+            `#AvailableSpawners: ${this.availableSpawns.length}, #Defenders: ${this.defenders.length}`
+    }
+    sendRequest(topic, priority, request) {
+        console.log(topic, priority, JSON.stringify(request))
+        this.topics.addRequest(topic, priority, request)
+    }
+    getNextRequest(topic) {
+        return this.topics.getNextRequest(topic)
+    }
+    updateStats() {
+        const stats = this.getStats()
+        stats.topics = this.topics.getCounts()
     }
 }
 

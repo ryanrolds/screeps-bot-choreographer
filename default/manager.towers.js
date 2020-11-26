@@ -9,6 +9,11 @@ module.exports.tick = (charter) => {
 
         var hostiles = room.find(FIND_HOSTILE_CREEPS);
         if (hostiles && hostiles.length) {
+
+            hostiles = _.sortBy(hostiles, (hostile) => {
+                return hostile.getActiveBodyparts(HEAL)
+            }).reverse()
+
             towers.forEach(tower => tower.attack(hostiles[0]));
             return
         }
@@ -17,13 +22,13 @@ module.exports.tick = (charter) => {
             for (let name in Game.creeps) {
                 // get the creep object
                 var creep = Game.creeps[name];
-                if (creep.hits < creep.hitsMax) {
+                if (creep.hits < creep.hitsMax && creep.room.name === tower.room.name) {
                     tower.heal(creep)
                     return
                 }
             }
 
-            if(tower.energy > 250) {
+            if (tower.energy > 250) {
                 var closestDamagedStructure = tower.pos.findClosestByRange(FIND_STRUCTURES, {
                     filter: (s) => {
                         return s.hits < s.hitsMax && (
@@ -42,7 +47,7 @@ module.exports.tick = (charter) => {
                         return s.hits < s.hitsMax && (
                             s.structureType == STRUCTURE_RAMPART ||
                             s.structureType == STRUCTURE_WALL) &&
-                            s.hits < 15000 // TODO this needs to scale with energy reserves
+                            s.hits < 30000 // TODO this needs to scale with energy reserves
                     }
                 })
                 damagedSecondaryStructures = _.sortBy(damagedSecondaryStructures, (structure) => {

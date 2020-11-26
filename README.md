@@ -21,18 +21,19 @@ An AI for [Screeps](screeps.com).
 - [x] Implement behavior tree
 - [x] Migrate creep roles to behavior tree
 - [x] Storage construction triggers Distributors and prioritized Storage usage
-- [ ] Attack flag
-- [ ] Refactor movement and storage selection (more hauling with fewer Distributors)
-- [ ] Refactor creep manager
+- [x] Attack flag
+- [x] Refactor movement and storage selection (more hauling with fewer Distributors)
+- [x] Kingdom refactor
+- [x] Refactor creep manager
 - [ ] Track time between end and start of spawns and increase/decrease min energy (Spawn Time Governor)
 - [ ] Auto-defence of owned rooms
-- [ ] Scale number of repairers based on repair/decay rate for the room
-- [ ] Scale number of builders based on number of construction sites in room
+- [x] Scale number of repairers based on repair needs of the room
+- [x] Scale number of builders based on number of construction sites in room
 - [ ] Scale number of haulers based on fullness/rate of harvesting
-- [ ] Refactor and support multiple spawners in room
+- [x] Refactor and support multiple spawners in room
 - [ ] Auto-manage Upgraders per spawn (maximize what the economy can support - net zero energy)
 - [ ] Auto return-to-home and defense of remote harvesters
-- [ ] Don't require Build flags, staff rooms w/ construction sites, use flags to prioritize nearby sites
+- [x] Don't require Build flags, staff rooms w/ construction sites, use flags to prioritize nearby sites
 - [ ] Refactor role and spawn logic to support easy addition of creep roles
 - [ ] Auto-construction of roads to remote sources
 
@@ -124,7 +125,7 @@ When an Attack Flag (`attack*`) is placed all Builder and Upgrader spawning is h
 
 > The entire section, including subheadings, are a work in progress.
 
-Design and layout of of the AI and it's source code. I'm actively migrating from the Manager model to a much more structured Kingdom model. Objects in the structure can request prioritized actions (creep spawn, defenders, etc...) from the Colony, which if important enough will request it from the rest of the colonies in the Kingdom.
+Design and layout of of the AI and it's source code. I'm actively migrating from the Manager+Domain model to a much more structured Kingdom model. Objects in the structure can request prioritized actions (creep spawn, defenders, etc...) from the Colony, which if important enough will request it from the rest of the colonies in the Kingdom.
 
 The Kingdom model is currently being built and it's not making any decisions or driving any in-game actions. I'm taking a very methodical approach to not destabilize the game. The work is mostly going through the Manager model and identifying where specific pieces of data and logic should fit into the model. Ideally, switching will cause very little behavior changes in the AI.
 
@@ -133,7 +134,7 @@ The Kingdom model is currently being built and it's not making any decisions or 
 1. Kingdom
 2. Colony, War Party
 3. Sources, Rooms, Spawns
-4. Creeps
+4. Creeps, Towers
 5. Behavior Trees
 6. Behaviors
 
@@ -141,6 +142,14 @@ The Kingdom model is currently being built and it's not making any decisions or 
 
 WIP
 
+### Topics
+
+WIP
+
 ### Behavior Trees
 
 This section will outline the BT's organizational strategy. Ideally, the `behavior.*` files would provide a well organized and DRY set of logic that can be composed to produce complex behavior.
+
+### Stats & Dashboard
+
+WIP

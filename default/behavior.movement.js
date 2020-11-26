@@ -18,7 +18,7 @@ const moveTo = module.exports.moveTo = (creep, destination, range) => {
         return SUCCESS
     }
 
-    let result = creep.moveTo(destination)
+    let result = creep.moveTo(destination, {reusePath: 25, maxOps: 500})
     if (result === ERR_NO_PATH) {
         return FAILURE
     }

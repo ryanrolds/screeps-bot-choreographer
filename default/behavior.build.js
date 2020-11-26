@@ -6,21 +6,7 @@ const { MEMORY_FLAG } = require('constants.memory')
 const selectSite = behaviorTree.LeafNode(
     'selectSite',
     (creep) => {
-        var flags = creep.room.find(FIND_FLAGS, {
-            filter: (flag) => {
-                return flag.name.startsWith("builder")
-            }
-        });
-
-        var flag = Game.flags["build_here"] || null
-
-        let target = null
-        if (flag) {
-            target = flag.pos.findClosestByPath(FIND_CONSTRUCTION_SITES)
-        } else {
-            target = creep.pos.findClosestByPath(FIND_CONSTRUCTION_SITES)
-        }
-
+        let target = creep.pos.findClosestByPath(FIND_CONSTRUCTION_SITES)
         if (!target) {
             return behaviorTree.FAILURE
         }

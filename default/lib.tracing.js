@@ -62,7 +62,7 @@ const report = () => {
     console.log('------- CPU Usage report --------')
 
     summary.reverse().forEach((metric) => {
-        console.log(`* ${(metric.total / metric.count).toFixed(2)}, ${metric.count.toFixed(2)},` +
+        console.log(`* ${(metric.total / metric.count).toFixed(2)}, ${metric.count.toFixed(0)},` +
             ` ${metric.total.toFixed(2)} - ${metric.key}`)
     })
 }
