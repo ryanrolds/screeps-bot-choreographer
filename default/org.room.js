@@ -1,5 +1,7 @@
 
 const OrgBase = require('org.base')
+const Link = require('org.link')
+const Topics = require('lib.topics')
 
 const { MEMORY_ROLE, MEMORY_ASSIGN_ROOM } = require('constants.memory')
 const { TOPIC_SPAWN, TOPIC_DEFENDERS } = require('constants.topics')
@@ -7,14 +9,24 @@ const { WORKER_UPGRADER, WORKER_REPAIRER, WORKER_BUILDER, WORKER_DEFENDER } = re
 const { PRIORITY_UPGRADER, PRIORITY_BUILDER, PRIORITY_REPAIRER,
     PRIORITY_REPAIRER_URGENT, PRIORITY_DEFENDER } = require('constants.priorities')
 
-const MAX_UPGRADERS = 5
+const MAX_UPGRADERS = 3
 
 class Room extends OrgBase {
     constructor(parent, room) {
         super(parent, room.name)
 
+        this.topics = new Topics()
+
         this.gameObject = room
         this.claimedByMe = room.controller.my
+
+        this.links = room.find(FIND_MY_STRUCTURES, {
+            filter: (structure) => {
+                return structure.structureType === STRUCTURE_LINK
+            }
+        }).map((link) => {
+            return new Link(this, link)
+        })
 
         // TODO
         this.towers = room.find(FIND_MY_STRUCTURES, {
@@ -85,7 +97,7 @@ class Room extends OrgBase {
         // Upgrader request
         if (this.claimedByMe && this.upgraders.length < MAX_UPGRADERS) {
             // As we get more upgraders, lower the priority
-            let upgraderPriority = PRIORITY_UPGRADER - (this.upgraders.length * 0.5)
+            let upgraderPriority = PRIORITY_UPGRADER - (this.upgraders.length * 1)
 
             // TODO this will need to be expanded to support
             // multiple claims
@@ -127,15 +139,46 @@ class Room extends OrgBase {
                 }
             })
         }
+
+        this.links.forEach((link) => {
+            link.update()
+        })
     }
     process() {
         this.updateStats()
+
+        this.links.forEach((link) => {
+            link.process()
+        })
     }
     toString() {
         return `---- Room - ID: ${this.id}, #Builders: ${this.builders.length}, ` +
         `#Upgraders: ${this.upgraders.length}, #Hostiles: ${this.numHostiles}, ` +
         `#Towers: ${this.towers.length}, #Sites: ${this.numConstructionSites}, ` +
-        `%Hits: ${this.hitsPercentage.toFixed(2)}, #Repairer: ${this.numRepairers}`
+        `%Hits: ${this.hitsPercentage.toFixed(2)}, #Repairer: ${this.numRepairers}, ` +
+        `#Links: ${this.links.length}`
+    }
+    /*
+    // Request handling
+    sendRequest(topic, priority, request) {
+        console.log(this.parent)
+        //if (topic === TOPIC_SPAWN) {
+        //    this.parent.addRequest(topic, priority, request)
+        //    return
+        //}
+
+        console.log(topic, priority, request)
+        this.topics.addRequest(topic, priority, request)
+    }
+    getNextRequest(topic) {
+        return this.topics.getNextRequest(topic)
+    }
+    getTopicLength(topic) {
+        return this.topics.getLength(topic)
+    }
+    */
+    getRoom() {
+        return this
     }
     getSources() {
         return this.gameObject.find(FIND_SOURCES)

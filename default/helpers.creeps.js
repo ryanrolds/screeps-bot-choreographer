@@ -48,7 +48,8 @@ module.exports.tick = (trace) => {
             roleRepairerV2.run(creep, trace)
         }
 
-        if (creep.memory.role == CREEPS.WORKER_HAULER) {
+        if (creep.memory.role == CREEPS.WORKER_HAULER ||
+            creep.memory.role == CREEPS.WORKER_REMOTE_HAULER) {
             roleHaulerV2.run(creep, trace)
         }
 
@@ -70,16 +71,19 @@ module.exports.tick = (trace) => {
     }
 }
 
-module.exports.createCreepV2 = (colony, room, role, memory, energy) => {
-    console.log(role)
+module.exports.createCreepV2 = (colony, room, role, memory, energy, energyLimit) => {
     const definition = definitions[role]
 
-    const energyLimit = definition.energyLimit
-    if (energyLimit && energy > energyLimit) {
+    const roleEnergyLimit = definition.energyLimit
+    if (roleEnergyLimit && energy > roleEnergyLimit) {
+        energy = roleEnergyLimit
+    }
+
+    if (energy > energyLimit) {
         energy = energyLimit
     }
 
-    let parts = getBodyParts(definition.parts, energy)
+    let parts = getBodyParts(definition, energy)
 
     const name = role + '_' + Game.time;
     memory[MEMORY_COLONY] = colony
@@ -90,34 +94,21 @@ module.exports.createCreepV2 = (colony, room, role, memory, energy) => {
     return Game.spawns['Spawn1'].spawnCreep(parts, name, {memory});
 }
 
-// Deprecated
-module.exports.createCreep = (role, maxEnergy, memory = {}) => {
-    let roleParts = CREEPS.roles[role]
-    var parts = getBodyParts(roleParts, maxEnergy)
-
-    var name = role + '_' + Game.time;
-    memory[MEMORY_ROLE] = role
-    memory[MEMORY_ORIGIN] = Game.spawns['Spawn1'].room.name
-
-    console.log(`==== Creating creep ${role}, ${parts}, ${memory}`)
-    return Game.spawns['Spawn1'].spawnCreep(parts, name, {memory});
-}
-
-function getBodyParts(roleParts, maxEnergy) {
-    let parts = roleParts
+function getBodyParts(definition, maxEnergy) {
+    let base = definition.base.slice(0)
     let i = 0
     let total = 0
 
     while (true) {
-        let nextPart = roleParts[i % roleParts.length]
-        let estimate = parts.concat([nextPart]).reduce((acc, part) => {
+        let nextPart = definition.parts[i % definition.parts.length]
+        let estimate = base.concat([nextPart]).reduce((acc, part) => {
             return acc + BODYPART_COST[part]
         }, 0)
 
         //console.log("estimate", estimate, maxEnergy)
 
-        if (estimate < maxEnergy && parts.length <= 50) {
-            parts.push(nextPart)
+        if (estimate <= maxEnergy && base.length <= 50) {
+            base.push(nextPart)
             total = estimate
 
             // console.log("under estimated parts", parts, estimate, maxEnergy)
@@ -129,7 +120,7 @@ function getBodyParts(roleParts, maxEnergy) {
         i++
     }
 
-    console.log("using parts for", parts, total, maxEnergy)
+    console.log("using parts for", base, total, maxEnergy)
 
-    return parts
+    return base
 }

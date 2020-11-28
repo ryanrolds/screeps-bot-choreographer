@@ -31,6 +31,7 @@ const selectDestination = behaviorTree.LeafNode(
             filter: (structure) => {
                 return ( // Fill extensions and spawns with room
                     (structure.structureType == STRUCTURE_EXTENSION ||
+                        structure.structureType == STRUCTURE_LINK ||
                         structure.structureType == STRUCTURE_SPAWN) &&
                     structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0
                 ) || ( // Will towers with more than 250 capacity

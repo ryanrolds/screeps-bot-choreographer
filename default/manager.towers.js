@@ -1,3 +1,6 @@
+
+const MAX_DEFENSE_HITS = 120000
+
 module.exports.tick = (charter) => {
     charter.rooms.forEach((roomId) => {
         const room = Game.rooms[roomId]
@@ -47,7 +50,7 @@ module.exports.tick = (charter) => {
                         return s.hits < s.hitsMax && (
                             s.structureType == STRUCTURE_RAMPART ||
                             s.structureType == STRUCTURE_WALL) &&
-                            s.hits < 30000 // TODO this needs to scale with energy reserves
+                            s.hits < MAX_DEFENSE_HITS // TODO this needs to scale with energy reserves
                     }
                 })
                 damagedSecondaryStructures = _.sortBy(damagedSecondaryStructures, (structure) => {

@@ -8,8 +8,8 @@ const TRACING_ACTIVE = false
 var charter = {
     id: "E18S47-Shard3",
     rooms: [
-        "E18S47", "E17S47", "E18S46", "E17S48", "E19S46", "E18S48"
-    ],
+        "E18S47", "E17S47", "E18S46", "E19S46"
+    ]
 }
 
 module.exports.loop = function () {
@@ -26,7 +26,14 @@ module.exports.loop = function () {
     let kingdomTrace = trace.begin("kingdom")
 
     const kingdom = new Kingdom({
-        "E18S47": charter
+        "E18S48": {
+            id: "E18S48-Shard3",
+            rooms: ["E18S48"]
+        },
+        "E18S47": {
+            id: "E18S47-Shard3",
+            rooms: ["E18S47", "E17S47", "E18S46", "E19S46"]
+        }
     })
     kingdom.update()
     kingdom.process()

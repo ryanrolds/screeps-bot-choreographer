@@ -56,8 +56,17 @@ class Kingdom extends OrgBase {
     getNextRequest(topic) {
         return this.topics.getNextRequest(topic)
     }
+    getTopicLength(topic) {
+        return this.topics.getLength(topic)
+    }
+    getKingdom() {
+        return this
+    }
     getColony() {
         throw new Error("a kingdom is not a colony")
+    }
+    getRoom() {
+        throw new Error("a kingdom is not a room")
     }
     getStats() {
         return this.stats

@@ -50,6 +50,27 @@ class Spawner extends OrgBase {
     process() {
         this.updateStats()
 
+        const spawnTopicSize = this.getTopicLength(TOPIC_SPAWN)
+        const spawnTopicBackPressure = Math.floor(this.energyCapacity * (1 - (0.09 * spawnTopicSize)))
+        let energyLimit = _.max([300, spawnTopicBackPressure])
+
+        let minEnergy = 300
+        const numCreeps = this.getColony().numCreeps
+        if (this.energyCapacity > 800) {
+            if (numCreeps > 50) {
+                minEnergy = this.energyCapacity * 0.90
+            } else if (numCreeps > 30) {
+                minEnergy = this.energyCapacity * 0.80
+            } else if (numCreeps > 20) {
+                minEnergy = this.energyCapacity * 0.60
+            } else if (numCreeps > 10) {
+                minEnergy = 500
+            }
+        }
+        minEnergy = _.min([minEnergy, spawnTopicBackPressure])
+
+        console.log(this.energyCapacity, minEnergy, energyLimit, spawnTopicBackPressure, numCreeps, spawnTopicSize)
+
         if (!this.isIdle) {
             this.gameObject.room.visual.text(
                 this.gameObject.spawning.name + '🛠️',
@@ -61,30 +82,29 @@ class Spawner extends OrgBase {
             return
         }
 
-        let request = this.getNextRequest(TOPIC_SPAWN)
-        if (request) {
-            console.log("BUILDING", JSON.stringify(request))
-            this.createCreep(request.details.role, request.details.memory)
-            return
+        if (this.energy >= minEnergy) {
+            let request = this.getNextRequest(TOPIC_SPAWN)
+            if (request) {
+                console.log("BUILDING", JSON.stringify(request))
+                let result = this.createCreep(request.details.role, request.details.memory, energyLimit)
+                console.log("spawn result", result)
+                return
+            }
         }
 
         // Track how long we sit without something to do (no requests or no energy)
-        this.gameObject.Memory['ticksIdle']++
+        this.gameObject.memory['ticksIdle']++
     }
-    createCreep(role, memory) {
-        let energyLimit = this.energyCapacity * 0.6
-        if (role === WORKER_ATTACKER) {
-            energyLimit = this.energyCapacity
-        }
-
-        creepHelpers.createCreepV2(this.getColony(), this.roomId, role, memory, energyLimit)
+    createCreep(role, memory, energyLimit) {
+        let energy = this.energy
+        return creepHelpers.createCreepV2(this.getColony().id, this.roomId, role, memory, energy, energyLimit)
         //creepHelpers.createCreep(role, energyLimit, memory)
     }
     getSpawning() {
         return this.gameObject.spawning
     }
     toString() {
-        return `---- Spawner - ID: ${this.id}, Idle: ${this.isIdle}, `+
+        return `---- Spawner - ID: ${this.id}, Idle: ${this.isIdle}, Energy: ${this.energy}, `+
             `%Energy: ${this.energyPercentage.toFixed(2)}, hasStorage: ${this.hasStorage}, `+
             `#Distributors: ${this.numDistributors}`
     }

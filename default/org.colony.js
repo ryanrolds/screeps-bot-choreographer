@@ -57,20 +57,40 @@ class Colony extends OrgBase {
             return creep.memory[MEMORY_ROLE] == WORKER_DEFENDER &&
                 creep.memory[MEMORY_COLONY] === this.id
         })
+
+        this.numCreeps = _.filter(Game.creeps, (creep) => {
+            return creep.memory[MEMORY_COLONY] === this.id
+        }).length
     }
     getColony() {
-        return this.id
+        return this
+    }
+    getRoom() {
+        throw new Error("a colony is not a room")
     }
     update() {
         console.log(this)
 
         this.missingRooms.forEach((roomID) => {
-            this.sendRequest(TOPIC_SPAWN, PRIORITY_CLAIMER, {
-                role: WORKER_CLAIMER,
-                memory: {
-                    [MEMORY_CLAIM]: roomID
-                }
-            })
+            // TODO check if a claimer is already on its way
+
+            if (this.spawns.length) {
+                this.sendRequest(TOPIC_SPAWN, PRIORITY_CLAIMER, {
+                    role: WORKER_CLAIMER,
+                    memory: {
+                        [MEMORY_CLAIM]: roomID
+                    }
+                })
+            } else {
+                // Bootstrapping a new colony requires another colony sending
+                // creeps to claim and build a spawner
+                this.getParent().sendRequest(TOPIC_SPAWN, PRIORITY_CLAIMER, {
+                    role: WORKER_CLAIMER,
+                    memory: {
+                        [MEMORY_CLAIM]: roomID
+                    }
+                })
+            }
         })
 
         this.rooms.forEach((room) => {
@@ -88,6 +108,7 @@ class Colony extends OrgBase {
     process() {
         this.updateStats()
 
+        // Check intra-colony requests for defenders
         let request = this.getNextRequest(TOPIC_DEFENDERS)
         if (request) {
             console.log("DEFENDER REQUEST", JSON.stringify(request))
@@ -105,6 +126,16 @@ class Colony extends OrgBase {
 
                 defender.memory[MEMORY_ASSIGN_ROOM] = request.details.memory[MEMORY_ASSIGN_ROOM]
             })
+        }
+
+        // Check inter-colony requests if the colony has spawns
+        if (this.spawns.length) {
+            let request = this.getParent().getNextRequest(TOPIC_SPAWN)
+            if (request) {
+                console.log(JSON.stringify(request))
+                //this.sendRequest(TOPIC_SPAWN, request.priority, request.details)
+            }
+
         }
 
         this.rooms.forEach((room) => {
@@ -130,6 +161,9 @@ class Colony extends OrgBase {
     }
     getNextRequest(topic) {
         return this.topics.getNextRequest(topic)
+    }
+    getTopicLength(topic) {
+        return this.topics.getLength(topic)
     }
     updateStats() {
         const stats = this.getStats()

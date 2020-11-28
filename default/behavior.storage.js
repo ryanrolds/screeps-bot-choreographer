@@ -3,7 +3,7 @@ const behaviorTree = require('lib.behaviortree')
 const {FAILURE, SUCCESS, RUNNING} = require('lib.behaviortree')
 const behaviorMovement = require('behavior.movement')
 const { MEMORY_ROLE, MEMORY_DESTINATION, MEMORY_ORIGIN } = require('constants.memory')
-const { WORKER_HAULER, WORKER_DISTRIBUTOR } = require('constants.creeps')
+const { WORKER_HAULER, WORKER_DISTRIBUTOR, WORKER_REMOTE_HAULER } = require('constants.creeps')
 
 const selectEnergyForWithdraw = module.exports.selectEnergyForWithdraw = behaviorTree.LeafNode(
     'selectEnergyForWithdraw',
@@ -95,14 +95,40 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.Select
                 const role = creep.memory[MEMORY_ROLE]
                 // haulers should pick containers near the spawner
                 // TODO this is hacky and feels bad
-                if (role && (role === WORKER_HAULER || role ===  WORKER_DISTRIBUTOR)) {
+                if (role && (role === WORKER_HAULER || role === WORKER_REMOTE_HAULER ||
+                    role ===  WORKER_DISTRIBUTOR)) {
                     return FAILURE
                 }
 
                 var targets = creep.pos.findInRange(FIND_STRUCTURES, 1, {
                     filter: (structure) => {
                         return structure.structureType == STRUCTURE_CONTAINER &&
+                            structure.structureType == STRUCTURE_CONTAINER &&
                             structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+                    }
+                });
+
+                if (!targets || !targets.length) {
+                    console.log("failed to pick destination", creep.name)
+                    return FAILURE
+                }
+
+                behaviorMovement.setDestination(creep, targets[0].id)
+                return SUCCESS
+            }
+        ),
+        behaviorTree.LeafNode(
+            'pick_adjacent_link',
+            (creep) => {
+                const role = creep.memory[MEMORY_ROLE]
+                if (role && role ===  WORKER_DISTRIBUTOR) {
+                    return FAILURE
+                }
+
+                var targets = creep.pos.findInRange(FIND_STRUCTURES, 2, {
+                    filter: (structure) => {
+                        // TODO things seeking to gain energy should use another function
+                        return structure.structureType == STRUCTURE_LINK;
                     }
                 });
 

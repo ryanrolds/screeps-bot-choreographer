@@ -37,6 +37,14 @@ class Topics {
         let request = topic.pop()
         return request
     }
+    getLength(topicID) {
+        const topic =  this.topics[topicID]
+        if (!topic) {
+            return 0
+        }
+
+        return topic.length
+    }
     getCounts() {
         return _.reduce(this.topics, (acc, topic, key) => {
             acc[key] = topic.length

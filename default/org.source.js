@@ -3,8 +3,9 @@ const OrgBase = require('org.base')
 const MEMORY = require('constants.memory')
 const { TOPIC_SPAWN } = require('constants.topics')
 const { WORKER_HAULER, WORKER_REMOTE_HARVESTER, WORKER_MINER,
-    WORKER_HARVESTER, WORKER_REMOTE_MINER } = require('constants.creeps')
-const { PRIORITY_HARVESTER, PRIORITY_MINER, PRIORITY_HAULER } = require('constants.priorities')
+    WORKER_HARVESTER, WORKER_REMOTE_MINER, WORKER_REMOTE_HAULER } = require('constants.creeps')
+const { PRIORITY_HARVESTER, PRIORITY_MINER, PRIORITY_HAULER, PRIORITY_REMOTE_HAULER,
+    PRIORITY_REMOTE_MINER } = require('constants.priorities')
 
 class Source extends OrgBase {
     constructor(parent, source) {
@@ -29,7 +30,7 @@ class Source extends OrgBase {
 
             this.numHaulers =  _.filter(Game.creeps, (creep) => {
                 const role = creep.memory[MEMORY.MEMORY_ROLE]
-                return role === WORKER_HAULER &&
+                return (role === WORKER_HAULER || role === WORKER_REMOTE_HAULER) &&
                     creep.memory[MEMORY.MEMORY_WITHDRAW] === this.container.id &&
                     creep.ticksToLive > 100
             }).length
@@ -63,9 +64,14 @@ class Source extends OrgBase {
             desiredHaulers = 1
 
             // Hauling adjacent rooms requires additional haulers
-            //if (!this.gameObject.room.controller.my) {
-            //    desiredHaulers++
-            //}
+            if (!this.gameObject.room.controller.my) {
+                desiredHaulers++
+            }
+
+            // If container is full, request an additional hauler
+            if (this.container & this.container.store.getFreeCapacity) {
+                desiredHaulers++
+            }
         }
 
         if (this.numHarvesters < desiredHarvesters) {
@@ -82,13 +88,15 @@ class Source extends OrgBase {
 
         if (this.numMiners < desiredMiners) {
             let role = WORKER_MINER
+            let priority = PRIORITY_MINER
 
             // Energy sources in unowned rooms require half as many parts
             if (!this.gameObject.room.controller.my) {
                 role = WORKER_REMOTE_MINER
+                priority = PRIORITY_REMOTE_MINER
             }
 
-            this.sendRequest(TOPIC_SPAWN, PRIORITY_MINER, {
+            this.sendRequest(TOPIC_SPAWN, priority, {
                 role: role,
                 memory: {
                     [MEMORY.MEMORY_HARVEST]: this.id,
@@ -98,8 +106,15 @@ class Source extends OrgBase {
         }
 
         if (this.numHaulers < desiredHaulers) {
-            this.sendRequest(TOPIC_SPAWN, PRIORITY_HAULER, {
-                role: WORKER_HAULER,
+            let priority = PRIORITY_HAULER
+            let role = WORKER_HAULER
+            if (!this.gameObject.room.controller.my) {
+                priority = PRIORITY_REMOTE_HAULER
+                role = WORKER_REMOTE_HAULER
+            }
+
+            this.sendRequest(TOPIC_SPAWN, priority, {
+                role,
                 memory: {
                     [MEMORY.MEMORY_WITHDRAW]: this.container.id,
                     [MEMORY.MEMORY_WITHDRAW_ROOM]: this.roomID

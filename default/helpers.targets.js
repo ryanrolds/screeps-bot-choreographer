@@ -1,6 +1,7 @@
 const { numEnemeiesNearby } = require('helpers.proximity')
 
 const WALL_LEVEL = 1000
+const RAMPART_LEVEL = 1000
 
 module.exports.getEnergyContainerTargets = (creep) => {
     let targets = creep.room.find(FIND_STRUCTURES, {
@@ -24,8 +25,14 @@ module.exports.getDamagedStructure = (creep) => {
     var target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
         filter: (structure) => {
             return (
-                (structure.hits < structure.hitsMax && structure.structureType != STRUCTURE_WALL) ||
-                (structure.hits < WALL_LEVEL && structure.structureType === STRUCTURE_WALL)
+                (structure.hits < structure.hitsMax &&
+                    (
+                        structure.structureType != STRUCTURE_WALL &&
+                        structure.structureType != STRUCTURE_RAMPART
+                    )
+                ) ||
+                (structure.hits < WALL_LEVEL && structure.structureType === STRUCTURE_WALL) ||
+                (structure.hits < RAMPART_LEVEL && structure.structureType === STRUCTURE_RAMPART)
             )
         }
     });

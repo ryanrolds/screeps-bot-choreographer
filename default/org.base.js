@@ -9,7 +9,13 @@ class OrgBase {
     getParent() {
         return this.parent
     }
+    getKingdom() {
+        return this.getParent().getColony()
+    }
     getColony() {
+        return this.getParent().getColony()
+    }
+    getRoom() {
         return this.getParent().getColony()
     }
     getStats() {
@@ -30,6 +36,14 @@ class OrgBase {
         }
 
         return parent.getNextRequest(topic)
+    }
+    getTopicLength(topic) {
+        const parent = this.getParent()
+        if (!parent) {
+            return null
+        }
+
+        return parent.getTopicLength(topic)
     }
 }
 
