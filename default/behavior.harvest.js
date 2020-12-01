@@ -52,7 +52,6 @@ module.exports.moveToHarvestRoom = behaviorTree.RepeatUntilSuccess(
             if (!room) {
                 return SUCCESS
             }
-
             // If the creep reaches the room we are done
             if (creep.room.name === room) {
                 return SUCCESS
@@ -60,10 +59,8 @@ module.exports.moveToHarvestRoom = behaviorTree.RepeatUntilSuccess(
 
             let result = creep.moveTo(new RoomPosition(25, 25, room));
             if (result === ERR_NO_PATH) {
-                console.log("no path", creep.name, creep.pos)
                 return FAILURE
             }
-
             if (result === ERR_INVALID_ARGS) {
                 return FAILURE
             }
@@ -85,7 +82,6 @@ module.exports.harvest = behaviorTree.LeafNode(
     (creep) => {
         let destination = Game.getObjectById(creep.memory.source)
         if (!destination) {
-            console.log("failed to get destination for harvest", creep.name)
             return FAILURE
         }
 
@@ -103,7 +99,6 @@ module.exports.harvest = behaviorTree.LeafNode(
             return RUNNING
         }
 
-        console.log("failed to harvest energy", creep.name, result)
         return FAILURE
     }
 )

@@ -49,7 +49,6 @@ const build = behaviorTree.LeafNode(
     (creep) => {
         let destination = Game.getObjectById(creep.memory.destination)
         if (!destination) {
-            console.log("failed to get destination for build", creep.name)
             return FAILURE
         }
 
@@ -57,16 +56,12 @@ const build = behaviorTree.LeafNode(
         if (result === ERR_NOT_ENOUGH_RESOURCES) {
             return SUCCESS
         }
-
         if (result === ERR_INVALID_TARGET) {
             return FAILURE
         }
-
         if (result != OK) {
-            console.log("builder result", result, creep.name)
             return FAILURE
         }
-
         if (creep.store.getUsedCapacity() === 0) {
             return SUCCESS
         }

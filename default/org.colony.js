@@ -4,7 +4,7 @@ const Spawner = require('org.spawner')
 const OrgBase = require('org.base')
 const Topics = require('lib.topics')
 
-const { MEMORY_CLAIM, MEMORY_ROLE, MEMORY_COLONY } = require('constants.memory')
+const { MEMORY_ASSIGN_ROOM, MEMORY_ROLE, MEMORY_COLONY } = require('constants.memory')
 const { TOPIC_SPAWN, TOPIC_DEFENDERS } = require('constants.topics')
 const { WORKER_CLAIMER, WORKER_DEFENDER } = require('constants.creeps')
 const { PRIORITY_CLAIMER, PRIORITY_DEFENDER } = require('constants.priorities')
@@ -17,6 +17,7 @@ class Colony extends OrgBase {
 
         this.topics = new Topics()
 
+        this.primaryRoom = colony.primary
         this.desiredRooms = colony.rooms
         this.missingRooms = _.difference(this.desiredRooms,  Object.keys(Game.rooms))
         this.colonyRooms =  _.difference(this.desiredRooms,  this.missingRooms)
@@ -78,7 +79,7 @@ class Colony extends OrgBase {
                 this.sendRequest(TOPIC_SPAWN, PRIORITY_CLAIMER, {
                     role: WORKER_CLAIMER,
                     memory: {
-                        [MEMORY_CLAIM]: roomID
+                        [MEMORY_ASSIGN_ROOM]: roomID
                     }
                 })
             } else {
@@ -87,7 +88,7 @@ class Colony extends OrgBase {
                 this.getParent().sendRequest(TOPIC_SPAWN, PRIORITY_CLAIMER, {
                     role: WORKER_CLAIMER,
                     memory: {
-                        [MEMORY_CLAIM]: roomID
+                        [MEMORY_ASSIGN_ROOM]: roomID
                     }
                 })
             }
@@ -120,22 +121,8 @@ class Colony extends OrgBase {
 
             // Order existing defenders to the room
             this.defenders.forEach((defender) => {
-                if (defender.memory[MEMORY_COLONY] !== request.details.memory[MEMORY_COLONY]) {
-                    return
-                }
-
                 defender.memory[MEMORY_ASSIGN_ROOM] = request.details.memory[MEMORY_ASSIGN_ROOM]
             })
-        }
-
-        // Check inter-colony requests if the colony has spawns
-        if (this.spawns.length) {
-            let request = this.getParent().getNextRequest(TOPIC_SPAWN)
-            if (request) {
-                console.log(JSON.stringify(request))
-                //this.sendRequest(TOPIC_SPAWN, request.priority, request.details)
-            }
-
         }
 
         this.rooms.forEach((room) => {
@@ -151,12 +138,11 @@ class Colony extends OrgBase {
         })
     }
     toString() {
-        return `---- Colony - ID: ${this.id}, #Rooms: ${this.rooms.length}, #Missing: ${this.missingRooms.length}, ` +
+        return `** Colony - ID: ${this.id}, #Rooms: ${this.rooms.length}, #Missing: ${this.missingRooms.length}, ` +
             `#Sources: ${this.sources.length}, #Spawners: ${this.spawns.length}, ` +
             `#AvailableSpawners: ${this.availableSpawns.length}, #Defenders: ${this.defenders.length}`
     }
     sendRequest(topic, priority, request) {
-        console.log(topic, priority, JSON.stringify(request))
         this.topics.addRequest(topic, priority, request)
     }
     getNextRequest(topic) {

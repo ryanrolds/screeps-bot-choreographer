@@ -54,7 +54,8 @@ class Kingdom extends OrgBase {
         this.topics.addRequest(topic, priority, request)
     }
     getNextRequest(topic) {
-        return this.topics.getNextRequest(topic)
+        let request = this.topics.getNextRequest(topic)
+        return request
     }
     getTopicLength(topic) {
         return this.topics.getLength(topic)

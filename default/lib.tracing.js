@@ -24,8 +24,6 @@ const startTrace = (name) => {
             const end = Game.cpu.getUsed()
             const cpuTime = end - this.start
             metrics.push({key: name, value: cpuTime})
-
-            //console.log(`TRACE: ${name} CPUTime: ${cpuTime}`)
         }
     }
 }

@@ -22,7 +22,7 @@ module.exports.getEnergyContainerTargets = (creep) => {
 }
 
 module.exports.getDamagedStructure = (creep) => {
-    var target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+    var targets = creep.room.find(FIND_STRUCTURES, {
         filter: (structure) => {
             return (
                 (structure.hits < structure.hitsMax &&
@@ -37,11 +37,15 @@ module.exports.getDamagedStructure = (creep) => {
         }
     });
 
-    if (!target) {
+    if (!targets.length) {
         return null
     }
 
-    return target
+    targets = _.sortBy(targets, (structure) => {
+        return structure.hits / structure.hitsMax
+    })
+
+    return targets[0]
 }
 
 const getClosestTarget = module.exports.getClosestTarget = (creep, targets) => {

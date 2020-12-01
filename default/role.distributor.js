@@ -73,7 +73,6 @@ const behavior = behaviorTree.SequenceNode(
                         (creep) => {
                             let destination = Game.getObjectById(creep.memory[MEMORY_DESTINATION])
                             if (!destination) {
-                                console.log("failed to get destination for dump", creep.name)
                                 return FAILURE
                             }
 

@@ -7,6 +7,7 @@ const TRACING_ACTIVE = false
 
 var charter = {
     id: "E18S47-Shard3",
+    primary: "E18S47",
     rooms: [
         "E18S47", "E17S47", "E18S46", "E19S46"
     ]
@@ -28,10 +29,12 @@ module.exports.loop = function () {
     const kingdom = new Kingdom({
         "E18S48": {
             id: "E18S48-Shard3",
+            primary: "E18S48",
             rooms: ["E18S48"]
         },
         "E18S47": {
             id: "E18S47-Shard3",
+            primary: "E18S47",
             rooms: ["E18S47", "E17S47", "E18S46", "E19S46"]
         }
     })

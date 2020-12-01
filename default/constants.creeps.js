@@ -11,6 +11,7 @@ var WORKER_REMOTE_HAULER = module.exports.WORKER_HAULER = "remote_hauler"
 var WORKER_HAULER = module.exports.WORKER_HAULER = "hauler"
 var WORKER_DISTRIBUTOR = module.exports.WORKER_DISTRIBUTOR = "distributor"
 var WORKER_CLAIMER = module.exports.WORKER_CLAIMER = "claimer"
+var WORKER_RESERVER = module.exports.WORKER_RESERVER = "reserver"
 var WORKER_EXPLORER = module.exports.WORKER_EXPLORER = "claimer"
 
 
@@ -23,27 +24,32 @@ const definitions = {
         base: [CARRY, MOVE, CARRY, MOVE, WORK]
     },
     [WORKER_REMOTE_HARVESTER]:{
-        energyLimit: 1000,
-        parts: [CARRY, MOVE, CARRY, MOVE, CARRY, MOVE, CARRY, MOVE, WORK, MOVE, WORK, MOVE],
+        energyLimit: 1050,
+        ignoreSpawnEnergyLimit: true,
+        parts: [CARRY, MOVE, WORK, MOVE],
         base: [CARRY, MOVE, CARRY, MOVE, WORK, MOVE]
     },
     [WORKER_MINER]: {
         energyLimit: 900,
+        ignoreSpawnEnergyLimit: true,
         parts: [WORK],
         base: [CARRY, MOVE, WORK, WORK]
     },
     [WORKER_REMOTE_MINER]: {
-        energyLimit: 600,
+        energyLimit: 900,
+        ignoreSpawnEnergyLimit: true,
         parts: [WORK],
         base: [CARRY, MOVE, WORK, WORK]
     },
     [WORKER_HAULER]: {
-        energyLimit: 800,
+        energyLimit: 900,
+        ignoreSpawnEnergyLimit: true,
         parts: [MOVE, CARRY],
         base: [MOVE, CARRY, MOVE, CARRY, MOVE, CARRY]
     },
     [WORKER_REMOTE_HAULER]: {
         energyLimit: 1000,
+        ignoreSpawnEnergyLimit: true,
         parts: [MOVE, CARRY],
         base: [MOVE, CARRY, MOVE, CARRY, MOVE, CARRY]
     },
@@ -53,8 +59,8 @@ const definitions = {
         base: [CARRY, MOVE, WORK, MOVE, WORK, MOVE]
     },
     [WORKER_REPAIRER]: {
-        energyLimit: 600,
-        parts: [CARRY, MOVE, CARRY, MOVE, WORK, MOVE],
+        energyLimit: 900,
+        parts: [CARRY, MOVE, WORK, MOVE],
         base: [CARRY, MOVE, CARRY, MOVE, WORK, MOVE]
     },
     [WORKER_UPGRADER]: {
@@ -68,6 +74,11 @@ const definitions = {
         base: [CARRY, MOVE, CARRY, MOVE, CARRY, MOVE]
     },
     [WORKER_CLAIMER]: {
+        energyLimit: 1950,
+        parts: [CLAIM, MOVE],
+        base: [MOVE, CLAIM]
+    },
+    [WORKER_RESERVER]: {
         energyLimit: 1950,
         parts: [CLAIM, MOVE],
         base: [MOVE, CLAIM]
@@ -104,6 +115,7 @@ module.exports = {
     WORKER_REMOTE_HAULER,
     WORKER_DISTRIBUTOR,
     WORKER_CLAIMER,
+    WORKER_RESERVER,
     WORKER_EXPLORER,
     // V2
     definitions

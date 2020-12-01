@@ -30,7 +30,7 @@ class Link extends OrgBase {
     update() {
         console.log(this)
 
-        if ((this.isNearRC || this.isNearStorage) && this.fullness < 0.5) {
+        if ((this.isNearRC || this.isNearStorage) && this.fullness < 0.97) {
             // Request enough energy to fill
             this.sendRequest(TOPIC_ROOM_LINKS, this.fullness, {
                 REQUESTER_ID: this.id,
@@ -41,7 +41,7 @@ class Link extends OrgBase {
     }
     process() {
         // If near source or storage and has at least 50%
-        if (this.isNearStorage && this.fullness >= 0.5) {
+        if (this.isNearStorage && this.fullness > 0.03) {
             // Check requests
             const request = this.getNextRequest(TOPIC_ROOM_LINKS)
             if (request && request.details.REQUESTER_ID != this.id) {

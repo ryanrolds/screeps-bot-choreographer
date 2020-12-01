@@ -6,7 +6,6 @@ const { MEMORY_DESTINATION, MEMORY_DESTINATION_ROOM, MEMORY_ORIGIN,
 const moveToMemory = module.exports.moveToMemory = (creep, memoryId,  range) => {
     let destination = Game.getObjectById(creep.memory[memoryId])
     if (!destination) {
-        console.log("failed to get destination for movement", creep.name)
         return FAILURE
     }
 
@@ -22,9 +21,7 @@ const moveTo = module.exports.moveTo = (creep, destination, range) => {
     if (result === ERR_NO_PATH) {
         return FAILURE
     }
-
     if (result !== OK && result !== ERR_TIRED) {
-        //console.log("failed to move", creep.name, result)
         return FAILURE
     }
 
@@ -67,7 +64,6 @@ module.exports.clearDestination = (creep) => {
 module.exports.fillCreepFromDestination = (creep) => {
     let destination = Game.getObjectById(creep.memory[MEMORY_DESTINATION])
     if (!destination) {
-        //console.log("failed to get destination for withdraw", creep.name)
         return FAILURE
     }
 
@@ -75,11 +71,9 @@ module.exports.fillCreepFromDestination = (creep) => {
     if (result === OK) {
         return RUNNING
     }
-
     if (result === ERR_FULL) {
         return SUCCESS
     }
-
     if (result === ERR_NOT_ENOUGH_RESOURCES) {
         return SUCCESS
     }
@@ -92,21 +86,22 @@ module.exports.moveToDestinationRoom = behaviorTree.RepeatUntilSuccess(
     behaviorTree.LeafNode(
         'move_to_exit',
         (creep) => {
-            if (!creep.memory[MEMORY_DESTINATION_ROOM]) {
+            const room = creep.memory[MEMORY_DESTINATION_ROOM]
+            // If creep doesn't have a harvest room assigned, we are done
+            if (!room) {
                 return SUCCESS
             }
 
-            if (creep.room.name === creep.memory[MEMORY_DESTINATION_ROOM]) {
+            // If the creep reaches the room we are done
+            if (creep.room.name === room) {
                 return SUCCESS
             }
 
-            const exitDir = creep.room.findExitTo(creep.memory[MEMORY_DESTINATION_ROOM])
-            if (exitDir === ERR_INVALID_ARGS) {
-                return SUCCESS
+            let result = creep.moveTo(new RoomPosition(25, 25, room));
+            if (result === ERR_NO_PATH) {
+                return FAILURE
             }
 
-            const exit = creep.pos.findClosestByRange(exitDir);
-            const result = creep.moveTo(exit);
             if (result === ERR_INVALID_ARGS) {
                 return FAILURE
             }
@@ -121,22 +116,22 @@ module.exports.moveToOriginRoom = behaviorTree.RepeatUntilSuccess(
     behaviorTree.LeafNode(
         'move_to_exit',
         (creep) => {
-            if (!creep.memory[MEMORY_ORIGIN]) {
+            const room = creep.memory[MEMORY_ORIGIN]
+            // If creep doesn't have a harvest room assigned, we are done
+            if (!room) {
                 return SUCCESS
             }
 
-            if (creep.room.name === creep.memory[MEMORY_ORIGIN]) {
+            // If the creep reaches the room we are done
+            if (creep.room.name === room) {
                 return SUCCESS
             }
 
-            const exitDir = creep.room.findExitTo(creep.memory[MEMORY_ORIGIN])
-            if (exitDir === ERR_INVALID_ARGS) {
-                return SUCCESS
+            let result = creep.moveTo(new RoomPosition(25, 25, room));
+            if (result === ERR_NO_PATH) {
+                return FAILURE
             }
 
-            const exit = creep.pos.findClosestByRange(exitDir);
-
-            const result = creep.moveTo(exit);
             if (result === ERR_INVALID_ARGS) {
                 return FAILURE
             }

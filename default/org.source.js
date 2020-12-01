@@ -69,7 +69,7 @@ class Source extends OrgBase {
             }
 
             // If container is full, request an additional hauler
-            if (this.container & this.container.store.getFreeCapacity) {
+            if (this.container & this.container.store.getFreeCapacity() < 500) {
                 desiredHaulers++
             }
         }

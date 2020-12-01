@@ -25,14 +25,10 @@ const behavior = behaviorTree.SelectorNode(
                                             behaviorMovement.setDestination(creep, container.id)
                                             return behaviorTree.SUCCESS
                                         }
-                                        if (!container) {
-                                            console.log("Invalid container", creep.name, creep.memory[MEMORY_WITHDRAW])
-                                        }
                                     }
 
                                     let supply = getEnergyContainerTargets(creep)
                                     if (!supply) {
-                                        console.log("failed to pick energy supply", creep.name)
                                         return behaviorTree.FAILURE
                                     }
 
@@ -47,7 +43,6 @@ const behavior = behaviorTree.SelectorNode(
                                 (creep) => {
                                     let destination = Game.getObjectById(creep.memory[MEMORY_DESTINATION])
                                     if (!destination) {
-                                        console.log("failed to get destination for withdraw", creep.name)
                                         return behaviorTree.FAILURE
                                     }
 
@@ -65,7 +60,6 @@ const behavior = behaviorTree.SelectorNode(
                                         return behaviorTree.RUNNING
                                     }
 
-                                    console.log("failed to withdraw from supply", creep.name, result)
                                     return behaviorTree.FAILURE
                                 }
                             ),

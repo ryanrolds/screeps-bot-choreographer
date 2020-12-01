@@ -22,7 +22,6 @@ const selectEnergyForWithdraw = module.exports.selectEnergyForWithdraw = behavio
         });
 
         if (!targets || !targets.length) {
-            console.log("failed to pick container near spawn", creep.name)
             return FAILURE
         }
 
@@ -37,13 +36,13 @@ const selectContainerForWithdraw = module.exports.selectContainerForWithdraw = b
         var target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
             filter: (structure) => {
                 return (structure.structureType == STRUCTURE_CONTAINER ||
-                    structure.structureType == STRUCTURE_STORAGE) &&
-                    structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+                    structure.structureType == STRUCTURE_STORAGE ||
+                    structure.structureType == STRUCTURE_LINK) &&
+                    structure.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
             }
         });
 
         if (!target) {
-            console.log("failed to pick container", creep.name)
             return FAILURE
         }
 
@@ -81,7 +80,6 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.Select
                 });
 
                 if (!targets.length) {
-                    console.log("failed to pick destination", creep.name)
                     return FAILURE
                 }
 
@@ -100,7 +98,7 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.Select
                     return FAILURE
                 }
 
-                var targets = creep.pos.findInRange(FIND_STRUCTURES, 1, {
+                var targets = creep.pos.findInRange(FIND_STRUCTURES, 2, {
                     filter: (structure) => {
                         return structure.structureType == STRUCTURE_CONTAINER &&
                             structure.structureType == STRUCTURE_CONTAINER &&
@@ -109,7 +107,6 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.Select
                 });
 
                 if (!targets || !targets.length) {
-                    console.log("failed to pick destination", creep.name)
                     return FAILURE
                 }
 
@@ -133,7 +130,6 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.Select
                 });
 
                 if (!targets || !targets.length) {
-                    console.log("failed to pick destination", creep.name)
                     return FAILURE
                 }
 
@@ -213,7 +209,6 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.Select
                 });
 
                 if (!targets || !targets.length) {
-                    console.log("failed to pick container near spawn", creep.name)
                     return FAILURE
                 }
 
@@ -243,7 +238,6 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.Select
                 });
 
                 if (!targets.length) {
-                    console.log("failed to pick destination", creep.name)
                     return FAILURE
                 }
 
@@ -275,7 +269,6 @@ const pickStorage = module.exports.pickStorage = behaviorTree.SelectorNode(
                 });
 
                 if (!targets || !targets.length) {
-                    console.log("failed to pick destination", creep.name)
                     return FAILURE
                 }
 
@@ -305,7 +298,6 @@ const pickStorage = module.exports.pickStorage = behaviorTree.SelectorNode(
                 });
 
                 if (!targets.length) {
-                    console.log("failed to pick destination", creep.name)
                     return FAILURE
                 }
 
@@ -334,7 +326,6 @@ const pickStorage = module.exports.pickStorage = behaviorTree.SelectorNode(
                 });
 
                 if (!targets.length) {
-                    console.log("failed to pick destination", creep.name)
                     return FAILURE
                 }
 
@@ -374,7 +365,6 @@ const pickStorage = module.exports.pickStorage = behaviorTree.SelectorNode(
                 });
 
                 if (!targets || !targets.length) {
-                    console.log("failed to pick container near spawn", creep.name)
                     return FAILURE
                 }
 
@@ -442,14 +432,10 @@ module.exports.emptyCreep = behaviorTree.RepeatUntilSuccess(
                 (creep) => {
                     let destination = Game.getObjectById(creep.memory[MEMORY_DESTINATION])
                     if (!destination) {
-                        console.log("failed to get destination for dump", creep.name)
                         return FAILURE
                     }
 
                     let result = creep.transfer(destination, RESOURCE_ENERGY)
-
-                    //console.log("xxxxx transfer", creep.name, result)
-
                     if (result === ERR_FULL) {
                         // We still have energy to transfer, fail so we find another
                         // place to dump

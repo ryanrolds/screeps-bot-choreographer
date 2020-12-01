@@ -69,7 +69,7 @@ class Spawner extends OrgBase {
         }
         minEnergy = _.min([minEnergy, spawnTopicBackPressure])
 
-        console.log(this.energyCapacity, minEnergy, energyLimit, spawnTopicBackPressure, numCreeps, spawnTopicSize)
+        console.log(this.energy, this.energyCapacity, minEnergy, energyLimit, spawnTopicBackPressure, numCreeps, spawnTopicSize)
 
         if (!this.isIdle) {
             this.gameObject.room.visual.text(
@@ -87,7 +87,14 @@ class Spawner extends OrgBase {
             if (request) {
                 console.log("BUILDING", JSON.stringify(request))
                 let result = this.createCreep(request.details.role, request.details.memory, energyLimit)
-                console.log("spawn result", result)
+                return
+            }
+
+            // Check inter-colony requests if the colony has spawns
+            request = this.getKingdom().getNextRequest(TOPIC_SPAWN)
+            if (request) {
+                console.log("KINGDOM BUILDING", JSON.stringify(request))
+                let result = this.createCreep(request.details.role, request.details.memory, energyLimit)
                 return
             }
         }

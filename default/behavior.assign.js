@@ -4,7 +4,7 @@ const behaviorMovement = require('behavior.movement')
 const { MEMORY_ASSIGN_ROOM } = require('constants.memory')
 
 const moveToRoom = behaviorTree.RepeatUntilSuccess(
-    'bt.assign.moveToAssignedRoom',
+    'moveToAssignedRoom',
     behaviorTree.LeafNode(
         'move_to_exit',
         (creep) => {
@@ -18,14 +18,21 @@ const moveToRoom = behaviorTree.RepeatUntilSuccess(
             }
 
             const exitDir = creep.room.findExitTo(roomID)
+            if (exitDir === ERR_NO_PATH) {
+                return FAILURE
+            }
             if (exitDir === ERR_INVALID_ARGS) {
                 return SUCCESS
             }
 
             // TODO cache the path
             const exit = creep.pos.findClosestByRange(exitDir);
+
             const result = creep.moveTo(exit);
             if (result === ERR_INVALID_ARGS) {
+                return FAILURE
+            }
+            if (result === ERR_NO_PATH) {
                 return FAILURE
             }
 

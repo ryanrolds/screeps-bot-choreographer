@@ -17,7 +17,6 @@ const behavior = behaviorTree.SequenceNode(
             'attack_hostiles',
             (creep) => {
                 let hostile = creep.pos.findClosestByPath(FIND_HOSTILE_CREEPS)
-                console.log(hostile)
                 if (hostile) {
                     let result = creep.rangedAttack(hostile)
                     if (result === ERR_NO_BODYPART) {

@@ -29,7 +29,6 @@ const moveToFlag = module.exports.moveToFlag = behaviorTree.SequenceNode(
                 }
 
                 if (result !== OK && result !== ERR_TIRED) {
-                    //console.log("failed to move", creep.name, result)
                     return FAILURE
                 }
 

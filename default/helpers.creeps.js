@@ -7,6 +7,7 @@ const roleDistributor = require('role.distributor');
 const roleDefender = require('role.defender');
 const roleClaimerV2 = require('role.claimer.v2');
 const roleAttacker = require('role.attacker')
+const roleReserver = require('role.reserver')
 
 const CREEPS = require('constants.creeps')
 const { definitions } = require('constants.creeps')
@@ -15,8 +16,6 @@ const { MEMORY_ROLE, MEMORY_ORIGIN, MEMORY_COLONY } = require('constants.memory'
 module.exports.tick = (trace) => {
     for(var name in Game.creeps) {
         var creep = Game.creeps[name];
-        //console.log(creep.name, creep.memory.role)
-
         if (creep.spawning) {
             return
         }
@@ -61,6 +60,10 @@ module.exports.tick = (trace) => {
         if (creep.memory.role == CREEPS.WORKER_DISTRIBUTOR) {
             roleDistributor.run(creep, trace)
         }
+
+        if (creep.memory.role == CREEPS.WORKER_RESERVER) {
+            roleReserver.run(creep, trace)
+        }
     }
 
     // Cleanup old creep memory
@@ -74,12 +77,13 @@ module.exports.tick = (trace) => {
 module.exports.createCreepV2 = (colony, room, role, memory, energy, energyLimit) => {
     const definition = definitions[role]
 
+    const ignoreSpawnEnergyLimit = definition.ignoreSpawnEnergyLimit || false
     const roleEnergyLimit = definition.energyLimit
     if (roleEnergyLimit && energy > roleEnergyLimit) {
         energy = roleEnergyLimit
     }
 
-    if (energy > energyLimit) {
+    if (energy > energyLimit && !ignoreSpawnEnergyLimit) {
         energy = energyLimit
     }
 
@@ -105,15 +109,10 @@ function getBodyParts(definition, maxEnergy) {
             return acc + BODYPART_COST[part]
         }, 0)
 
-        //console.log("estimate", estimate, maxEnergy)
-
         if (estimate <= maxEnergy && base.length <= 50) {
             base.push(nextPart)
             total = estimate
-
-            // console.log("under estimated parts", parts, estimate, maxEnergy)
         } else {
-            // console.log("over estimated parts", parts, estimate, maxEnergy)
             break
         }
 

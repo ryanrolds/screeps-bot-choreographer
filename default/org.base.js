@@ -10,13 +10,13 @@ class OrgBase {
         return this.parent
     }
     getKingdom() {
-        return this.getParent().getColony()
+        return this.getParent().getKingdom()
     }
     getColony() {
         return this.getParent().getColony()
     }
     getRoom() {
-        return this.getParent().getColony()
+        return this.getParent().getRoom()
     }
     getStats() {
         return this.getParent().getStats()

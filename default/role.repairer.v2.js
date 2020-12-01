@@ -12,8 +12,8 @@ const selectStructureToRepair = behaviorTree.LeafNode(
     'selectStructureToRepair',
     (creep) => {
         let target = getDamagedStructure(creep)
+
         if (!target) {
-            console.log("failed to pick damaged structure", creep.name)
             return FAILURE
         }
 
@@ -27,7 +27,6 @@ const repair = behaviorTree.LeafNode(
     (creep) => {
         let destination = Game.getObjectById(creep.memory[MEMORY_DESTINATION])
         if (!destination) {
-            console.log("failed to get destination for withdraw", creep.name)
             return FAILURE
         }
 

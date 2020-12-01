@@ -16,8 +16,10 @@ const MEMORY_WITHDRAW = module.exports.MEMORY_WITHDRAW = 'withdraw'
 const MEMORY_WITHDRAW_ROOM = module.exports.MEMORY_WITHDRAW_ROOM = 'withdraw_room'
 const MEMORY_TRANSFER = module.exports.MEMORY_DROPOFF = 'transfer'
 const MEMORY_CLAIM = module.exports.MEMORY_CLAIM = 'claim'
+const MEMORY_RESERVE = module.exports.MEMORY_RESERVE = 'reserve'
 const MEMORY_ORIGIN = module.exports.MEMORY_ORIGIN = 'origin'
 const MEMORY_FLAG = module.exports.MEMORY_FLAG = 'flag'
 const MEMORY_ASSIGN_ROOM = module.exports.MEMORY_ASSIGN_ROOM = 'assignment_room'
 const MEMORY_COLONY = module.exports.MEMORY_COLONY = 'colony'
+
 

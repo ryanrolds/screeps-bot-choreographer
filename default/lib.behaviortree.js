@@ -11,7 +11,6 @@ module.exports.SelectorNode = (id, children) => {
         tickChildren: function(actor, trace) {
             let i = getState(actor, this.id)
             for (; i < children.length; i++) {
-                //console.log("selector child", this.id, i, actor.name)
                 const child = children[i]
                 const result = child.tick(actor, trace)
                 switch (result) {
@@ -45,7 +44,6 @@ module.exports.SequenceNode = (id, children) => {
         children,
         tickChildren: function(actor, trace) {
             let i = getState(actor, this.id)
-            //console.log("sequence child", this.id, i, actor.name)
             for (; i < children.length; i++) {
                 let result = children[i].tick(actor, trace)
                 switch (result) {
@@ -126,8 +124,6 @@ module.exports.LeafNode = (id, behavior) => {
         id,
         behavior,
         tickNode: function(actor, trace) {
-            //console.log("leaf", this.id, actor.name)
-
             return this.behavior(actor, trace)
         },
         tick: function(actor, trace) {
@@ -149,14 +145,11 @@ function getState(actor, id) {
         i = actor.memory[id]
     }
 
-    //console.log("getting state", actor, id, i)
-
     delete actor.memory[id]
 
     return i
 }
 
 function setState(actor, id, value) {
-    //console.log("setting state", actor, id, value)
     actor.memory[id] = value
 }
