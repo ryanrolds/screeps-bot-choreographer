@@ -74,7 +74,7 @@ module.exports.tick = (trace) => {
     }
 }
 
-module.exports.createCreepV2 = (colony, room, role, memory, energy, energyLimit) => {
+module.exports.createCreepV2 = (colony, room, spawn, role, memory, energy, energyLimit) => {
     const definition = definitions[role]
 
     const ignoreSpawnEnergyLimit = definition.ignoreSpawnEnergyLimit || false
@@ -94,8 +94,13 @@ module.exports.createCreepV2 = (colony, room, role, memory, energy, energyLimit)
     memory[MEMORY_ORIGIN] = room
     memory[MEMORY_ROLE] = role
 
-    console.log(`==== Creating creep ${role}, ${parts}, ${memory}`)
-    return Game.spawns['Spawn1'].spawnCreep(parts, name, {memory});
+    console.log(`==== Creating creep ${colony}, ${room}, ${role}, ${parts}, ${JSON.stringify(memory)}`)
+
+    let result = spawn.spawnCreep(parts, name, {memory});
+
+    console.log(`RESULT: ${result}, ${colony}, ${room}, ${role}`)
+
+    return result
 }
 
 function getBodyParts(definition, maxEnergy) {

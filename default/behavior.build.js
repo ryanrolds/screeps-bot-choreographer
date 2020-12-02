@@ -6,9 +6,18 @@ const { MEMORY_FLAG } = require('constants.memory')
 const selectSite = behaviorTree.LeafNode(
     'selectSite',
     (creep) => {
-        let target = creep.pos.findClosestByPath(FIND_CONSTRUCTION_SITES)
+        let target = creep.pos.findClosestByPath(FIND_CONSTRUCTION_SITES, {
+            filter: (site) => {
+                return site.structureType !== STRUCTURE_ROAD
+            }
+        })
+
         if (!target) {
-            return behaviorTree.FAILURE
+            target = creep.pos.findClosestByPath(FIND_CONSTRUCTION_SITES)
+
+            if (!target) {
+                return behaviorTree.FAILURE
+            }
         }
 
         behaviorMovement.setDestination(creep, target.id, target.room.id)

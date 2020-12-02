@@ -40,11 +40,14 @@ const selectDestination = behaviorTree.LeafNode(
                 )
             }
         });
-
-        // Filter out destinations that are already assigned to another Distributor
-        destinations = _.filter(destinations, (structure) => {
-            return assignedDestinations.indexOf(structure.id) === -1
-        })
+        
+        // We get a a deadlock if there are fewer sources than distributors
+        if (destinations.length > 2) {
+            // Filter out destinations that are already assigned to another Distributor
+            destinations = _.filter(destinations, (structure) => {
+                return assignedDestinations.indexOf(structure.id) === -1
+            })
+        }
 
         // Of the unassigned destinations, get the closest
         let closest = creep.pos.findClosestByRange(destinations)
