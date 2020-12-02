@@ -21,6 +21,8 @@ class WarParty extends OrgBase {
         }, [])
     }
     update() {
+        console.log(this)
+
         if (this.creeps.length < MIN_ATTACKERS) {
             this.sendRequest(TOPIC_SPAWN, PRIORITY_ATTACKER, {
                 role: WORKER_ATTACKER,

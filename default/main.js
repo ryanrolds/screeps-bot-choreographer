@@ -18,7 +18,7 @@ let config = {
     }
 }
 
-if (Game.shard.name === "shardSeason") {
+if (Game.shard.name === "seasonal") {
     config = {
         "W22S21": {
             id: "W22S21-Shard3",

@@ -83,12 +83,16 @@ class Spawner extends OrgBase {
         }
 
         if (this.energy >= minEnergy) {
+            console.log(this.id, "have enough energy to build")
+
             let request = this.getNextRequest(TOPIC_SPAWN)
             if (request) {
-                console.log("BUILDING", JSON.stringify(request))
+                console.log("BUILDING", this.id, JSON.stringify(request))
                 let result = this.createCreep(request.details.role, request.details.memory, energyLimit)
                 return
             }
+
+            console.log(this.id, "home colony does not need anything")
 
             // Check inter-colony requests if the colony has spawns
             request = this.getKingdom().getNextRequest(TOPIC_SPAWN)
@@ -104,8 +108,8 @@ class Spawner extends OrgBase {
     }
     createCreep(role, memory, energyLimit) {
         let energy = this.energy
-        return creepHelpers.createCreepV2(this.getColony().id, this.roomId, role, memory, energy, energyLimit)
-        //creepHelpers.createCreep(role, energyLimit, memory)
+        return creepHelpers.createCreepV2(this.getColony().id, this.roomId, this.gameObject,
+            role, memory, energy, energyLimit)
     }
     getSpawning() {
         return this.gameObject.spawning

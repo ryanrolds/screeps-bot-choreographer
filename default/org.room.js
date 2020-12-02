@@ -6,7 +6,7 @@ const Topics = require('lib.topics')
 const { MEMORY_ROLE, MEMORY_ASSIGN_ROOM } = require('constants.memory')
 const { TOPIC_SPAWN, TOPIC_DEFENDERS } = require('constants.topics')
 const { WORKER_UPGRADER, WORKER_REPAIRER, WORKER_BUILDER, WORKER_DEFENDER } = require('constants.creeps')
-const { PRIORITY_UPGRADER, PRIORITY_BUILDER, PRIORITY_REPAIRER,
+const { PRIORITY_UPGRADER, PRIORITY_BUILDER, PRIORITY_REPAIRER, PRIORITY_BOOTSTRAP,
     PRIORITY_REPAIRER_URGENT, PRIORITY_DEFENDER, PRIORITY_CLAIMER } = require('constants.priorities')
 const { WORKER_CLAIMER, WORKER_RESERVER } = require('./constants.creeps')
 const { PRIORITY_RESERVER } = require('./constants.priorities')
@@ -134,7 +134,7 @@ class Room extends OrgBase {
                 })
             } else {
                 console.log("requesting upgraders")
-                this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITY_CLAIMER + 1, {
+                this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITY_BOOTSTRAP + PRIORITY_CLAIMER + 1, {
                     role: WORKER_CLAIMER,
                     memory: {
                         [MEMORY_ASSIGN_ROOM]: this.id
@@ -173,9 +173,12 @@ class Room extends OrgBase {
             desiredUpgraders = 1
         }
 
+        console.log(this.id, this.getColony().spawns.length, this.isPrimary)
+
+
         if (this.isPrimary && this.upgraders.length < desiredUpgraders) {
             // As we get more upgraders, lower the priority
-            let upgraderPriority = PRIORITY_UPGRADER - this.upgraders.length
+            let upgraderPriority = PRIORITY_UPGRADER - (this.upgraders.length * 2)
 
             // TODO this will need to be expanded to support
             // multiple claims
@@ -189,7 +192,7 @@ class Room extends OrgBase {
                 })
             } else {
                 console.log("requesting upgraders")
-                this.getKingdom().sendRequest(TOPIC_SPAWN, upgraderPriority, {
+                this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITY_BOOTSTRAP + upgraderPriority, {
                     role: WORKER_UPGRADER,
                     memory: {
                         [MEMORY_ASSIGN_ROOM]: this.id
@@ -209,7 +212,7 @@ class Room extends OrgBase {
                 })
             } else {
                 console.log("requesting builders")
-                this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITY_BUILDER - this.builders.length, {
+                this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITY_BOOTSTRAP + PRIORITY_BUILDER - this.builders.length, {
                     role: WORKER_BUILDER,
                     memory: {
                         [MEMORY_ASSIGN_ROOM]: this.id

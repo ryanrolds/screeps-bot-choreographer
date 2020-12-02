@@ -61,7 +61,7 @@ const definitions = {
     [WORKER_REPAIRER]: {
         energyLimit: 900,
         parts: [CARRY, MOVE, WORK, MOVE],
-        base: [CARRY, MOVE, CARRY, MOVE, WORK, MOVE]
+        base: [CARRY, MOVE, WORK, MOVE]
     },
     [WORKER_UPGRADER]: {
         energyLimit: 800,
@@ -90,8 +90,8 @@ const definitions = {
     },
     [WORKER_DEFENDER]: {
         energyLimit: null,
-        parts: [MOVE, TOUGH, MOVE, TOUGH, MOVE, RANGED_ATTACK],
-        base: [MOVE, TOUGH, MOVE, TOUGH, MOVE, RANGED_ATTACK]
+        parts: [MOVE, TOUGH, MOVE, TOUGH, MOVE, ATTACK],
+        base: [MOVE, TOUGH, MOVE, TOUGH, MOVE, ATTACK]
     },
     [WORKER_ATTACKER]: {
         energyLimit: null,

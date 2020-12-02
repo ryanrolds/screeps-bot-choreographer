@@ -8,24 +8,30 @@ const { WORKER_HAULER, WORKER_DISTRIBUTOR, WORKER_REMOTE_HAULER } = require('con
 const selectEnergyForWithdraw = module.exports.selectEnergyForWithdraw = behaviorTree.LeafNode(
     'selectEnergyForWithdraw',
     (creep) => {
-        // If not in primary room, fail
-        if (creep.room.name !== Game.spawns['Spawn1'].room.name) {
-            return FAILURE
-        }
-
-        var targets = Game.spawns['Spawn1'].pos.findInRange(FIND_STRUCTURES, 8, {
+        let spawns = creep.room.find(FIND_STRUCTURES, {
             filter: (structure) => {
-                return (structure.structureType == STRUCTURE_CONTAINER ||
-                    structure.structureType == STRUCTURE_STORAGE) &&
-                    structure.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
+                return structure.structureType === STRUCTURE_SPAWN
             }
-        });
+        })
 
-        if (!targets || !targets.length) {
+        let spawnContainers = _.reduce(spawns, (acc, spawn) => {
+            let containers = spawn.pos.findInRange(FIND_STRUCTURES, 8, {
+                filter: (structure) => {
+                   return (structure.structureType == STRUCTURE_CONTAINER ||
+                        structure.structureType == STRUCTURE_STORAGE) &&
+                        structure.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
+                }
+            })
+
+            return acc.concat(containers)
+        }, [])
+
+        var target = creep.pos.findClosestByPath(spawnContainers)
+        if (!target) {
             return FAILURE
         }
 
-        behaviorMovement.setDestination(creep, targets[0].id)
+        behaviorMovement.setDestination(creep, target.id)
         return SUCCESS
     }
 )
@@ -201,18 +207,28 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.Select
                     return FAILURE
                 }
 
-                var targets = Game.spawns['Spawn1'].pos.findInRange(FIND_STRUCTURES, 8, {
+                let spawns = creep.room.find(FIND_STRUCTURES, {
                     filter: (structure) => {
-                        return structure.structureType == STRUCTURE_CONTAINER &&
-                            structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+                        return structure.structureType === STRUCTURE_SPAWN
                     }
-                });
+                })
+                let spawnContainers = _.reduce(spawns, (acc, spawn) => {
+                    let containers = spawn.pos.findInRange(FIND_STRUCTURES, 8, {
+                        filter: (structure) => {
+                            return structure.structureType == STRUCTURE_CONTAINER &&
+                                structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+                        }
+                    });
 
-                if (!targets || !targets.length) {
+                    return acc.concat(containers)
+                }, [])
+
+                var target = creep.pos.findClosestByPath(spawnContainers)
+                if (!target) {
                     return FAILURE
                 }
 
-                behaviorMovement.setDestination(creep, targets[0].id)
+                behaviorMovement.setDestination(creep, target.id)
                 return SUCCESS
             }
         ),

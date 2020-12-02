@@ -15,6 +15,9 @@ const PRIORITY_BUILDER = 5
 const PRIORITY_CLAIMER = 4
 const PRIORITY_RESERVER = 3
 
+// Prioritize setting up additional colonies
+const PRIORITY_BOOTSTRAP = 0
+
 // Defense - TODO
 
 module.exports = {
@@ -32,5 +35,6 @@ module.exports = {
     PRIORITY_REPAIRER_URGENT,
     PRIORITY_CLAIMER,
     PRIORITY_RESERVER,
-    PRIORITY_ATTACKER
+    PRIORITY_ATTACKER,
+    PRIORITY_BOOTSTRAP
 }
