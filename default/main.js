@@ -18,21 +18,21 @@ let config = {
     }
 }
 
+if (Game.shard.name === "seasonal") {
+    config = {
+        "W22S21": {
+            id: "W22S21-Shard3",
+            primary: "W22S21",
+            rooms: [
+                "W22S21"
+            ]
+        }
+    }
+}
+
 module.exports.loop = function () {
     if (TRACING_ACTIVE) {
         tracing.setActive()
-    }
-
-    if (Game.shard.name === "seasonal") {
-        config = {
-            "W22S21": {
-                id: "W22S21-Shard3",
-                primary: "W22S21",
-                rooms: [
-                    "W22S21"
-                ]
-            }
-        }
     }
 
     tracing.reset()
