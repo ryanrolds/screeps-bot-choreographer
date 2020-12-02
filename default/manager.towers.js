@@ -1,14 +1,9 @@
 
 const MAX_DEFENSE_HITS = 120000
 
-module.exports.tick = (charter) => {
-    charter.rooms.forEach((roomId) => {
-        const room = Game.rooms[roomId]
-        if (!room) {
-            return
-        }
-
-        const towers = room.find(FIND_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_TOWER});
+module.exports.tick = () => {
+    _.forEach(Game.rooms, (room) => {
+        const towers = room.find(FIND_MY_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_TOWER});
 
         var hostiles = room.find(FIND_HOSTILE_CREEPS);
         if (hostiles && hostiles.length) {

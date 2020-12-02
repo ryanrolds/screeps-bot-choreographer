@@ -5,12 +5,29 @@ const helpersCreeps = require('helpers.creeps')
 
 const TRACING_ACTIVE = false
 
-var charter = {
-    id: "W22S21-Shard3",
-    primary: "W22S21",
-    rooms: [
-        "W22S21"
-    ]
+let config = {
+    "E18S48": {
+        id: "E18S48-Shard3",
+        primary: "E18S48",
+        rooms: ["E18S48"]
+    },
+    "E18S47": {
+        id: "E18S47-Shard3",
+        primary: "E18S47",
+        rooms: ["E18S47", "E17S47", "E18S46", "E19S46"]
+    }
+}
+
+if (Game.shard.name === "shardSeason") {
+    config = {
+        "W22S21": {
+            id: "W22S21-Shard3",
+            primary: "W22S21",
+            rooms: [
+                "W22S21"
+            ]
+        }
+    }
 }
 
 module.exports.loop = function () {
@@ -26,15 +43,7 @@ module.exports.loop = function () {
 
     let kingdomTrace = trace.begin("kingdom")
 
-    const kingdom = new Kingdom({
-        "W22S21": {
-            id: "W22S21-Shard3",
-            primary: "W22S21",
-            rooms: [
-                "W22S21"
-            ]
-        }
-    })
+    const kingdom = new Kingdom(config)
     kingdom.update()
     kingdom.process()
 
@@ -42,7 +51,7 @@ module.exports.loop = function () {
 
     // TODO bring towers into the Kingdom model
     let towersTrace = trace.begin("towers")
-    towers.tick(charter)
+    towers.tick()
     towersTrace.end()
 
     let creepsTrace = trace.begin("creeps")
