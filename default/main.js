@@ -9,7 +9,7 @@ let config = {
     "E18S48": {
         id: "E18S48-Shard3",
         primary: "E18S48",
-        rooms: ["E18S48", "W21S21"]
+        rooms: ["E18S48"]
     },
     "E18S47": {
         id: "E18S47-Shard3",
@@ -24,7 +24,10 @@ if (Game.shard.name === "shardSeason") {
             id: "W22S21-Shard3",
             primary: "W22S21",
             rooms: [
-                "W22S21"
+                "W22S21",
+                "W21S21",
+                "W22S22",
+                "W21S22"
             ]
         }
     }

@@ -1,5 +1,5 @@
 
-const MAX_DEFENSE_HITS = 120000
+const MAX_DEFENSE_HITS = 50000
 
 module.exports.tick = () => {
     _.forEach(Game.rooms, (room) => {

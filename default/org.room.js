@@ -11,7 +11,7 @@ const { PRIORITY_UPGRADER, PRIORITY_BUILDER, PRIORITY_REPAIRER, PRIORITY_BOOTSTR
 const { WORKER_CLAIMER, WORKER_RESERVER } = require('./constants.creeps')
 const { PRIORITY_RESERVER } = require('./constants.priorities')
 
-const MAX_UPGRADERS = 5
+const MAX_UPGRADERS = 4
 
 class Room extends OrgBase {
     constructor(parent, room) {

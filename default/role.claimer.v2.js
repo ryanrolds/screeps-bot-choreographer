@@ -23,6 +23,8 @@ const behavior = behaviorTree.SelectorNode(
                         if (creep.room.name === room) {
                             return behaviorTree.SUCCESS
                         }
+                        
+                        console.log(room)
 
                         let result = creep.moveTo(new RoomPosition(25, 25, room));
                         if (result === ERR_NO_PATH) {
