@@ -8,11 +8,11 @@ module.exports.SelectorNode = (id, children) => {
     return {
         id,
         children,
-        tickChildren: function(actor, trace) {
+        tickChildren: function(actor, trace, kingdom) {
             let i = getState(actor, this.id)
             for (; i < children.length; i++) {
                 const child = children[i]
-                const result = child.tick(actor, trace)
+                const result = child.tick(actor, trace, kingdom)
                 switch (result) {
                 case RUNNING:
                     setState(actor, this.id, i)
@@ -26,10 +26,10 @@ module.exports.SelectorNode = (id, children) => {
 
             return FAILURE
         },
-        tick: function(actor, trace) {
+        tick: function(actor, trace, kingdom) {
             trace = trace.begin(this.id)
 
-            const result = this.tickChildren(actor, trace)
+            const result = this.tickChildren(actor, trace, kingdom)
 
             trace.end()
 
@@ -42,10 +42,10 @@ module.exports.SequenceNode = (id, children) => {
     return {
         id, // used track state in memory
         children,
-        tickChildren: function(actor, trace) {
+        tickChildren: function(actor, trace, kingdom) {
             let i = getState(actor, this.id)
             for (; i < children.length; i++) {
-                let result = children[i].tick(actor, trace)
+                let result = children[i].tick(actor, trace, kingdom)
                 switch (result) {
                 case RUNNING:
                     setState(actor, this.id, i)
@@ -59,10 +59,10 @@ module.exports.SequenceNode = (id, children) => {
 
             return SUCCESS
         },
-        tick: function(actor, trace) {
+        tick: function(actor, trace, kingdom) {
             trace = trace.begin(this.id)
 
-            const result = this.tickChildren(actor, trace)
+            const result = this.tickChildren(actor, trace, kingdom)
 
             trace.end()
 
@@ -75,8 +75,8 @@ module.exports.RepeatUntilFailure = (id, node) => {
     return {
         id,
         node,
-        tickNode: function(actor, trace) {
-            let result = this.node.tick(actor, trace)
+        tickNode: function(actor, trace, kingdom) {
+            let result = this.node.tick(actor, trace, kingdom)
             if (result === FAILURE) {
                 return FAILURE
             }
@@ -86,7 +86,7 @@ module.exports.RepeatUntilFailure = (id, node) => {
         tick: function(actor, trace) {
             trace = trace.begin(this.id)
 
-            const result = this.tickNode(actor, trace)
+            const result = this.tickNode(actor, trace, kingdom)
 
             trace.end()
 
@@ -99,18 +99,18 @@ module.exports.RepeatUntilSuccess = (id, node) => {
     return {
         id,
         node,
-        tickNode: function(actor, trace) {
-            let result = this.node.tick(actor, trace)
+        tickNode: function(actor, trace, kingdom) {
+            let result = this.node.tick(actor, trace, kingdom)
             if (result === SUCCESS) {
                 return SUCCESS
             }
 
             return RUNNING
         },
-        tick: function(actor, trace) {
+        tick: function(actor, trace, kingdom) {
             trace = trace.begin(this.id)
 
-            const result = this.tickNode(actor, trace)
+            const result = this.tickNode(actor, trace, kingdom)
 
             trace.end()
 
@@ -123,13 +123,13 @@ module.exports.LeafNode = (id, behavior) => {
     return {
         id,
         behavior,
-        tickNode: function(actor, trace) {
-            return this.behavior(actor, trace)
+        tickNode: function(actor, trace, kingdom) {
+            return this.behavior(actor, trace, kingdom)
         },
-        tick: function(actor, trace) {
+        tick: function(actor, trace, kingdom) {
             trace = trace.begin(this.id)
 
-            const result = this.tickNode(actor, trace)
+            const result = this.tickNode(actor, trace, kingdom)
 
             trace.end()
 

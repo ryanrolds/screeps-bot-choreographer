@@ -11,7 +11,7 @@ const { PRIORITY_UPGRADER, PRIORITY_BUILDER, PRIORITY_REPAIRER, PRIORITY_BOOTSTR
 const { WORKER_CLAIMER, WORKER_RESERVER } = require('./constants.creeps')
 const { PRIORITY_RESERVER } = require('./constants.priorities')
 
-const MAX_UPGRADERS = 5
+const MAX_UPGRADERS = 4
 
 class Room extends OrgBase {
     constructor(parent, room) {
@@ -173,9 +173,6 @@ class Room extends OrgBase {
             desiredUpgraders = 1
         }
 
-        console.log(this.id, this.getColony().spawns.length, this.isPrimary)
-
-
         if (this.isPrimary && this.upgraders.length < desiredUpgraders) {
             // As we get more upgraders, lower the priority
             let upgraderPriority = PRIORITY_UPGRADER - (this.upgraders.length * 2)
@@ -211,7 +208,6 @@ class Room extends OrgBase {
                     }
                 })
             } else {
-                console.log("requesting builders")
                 this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITY_BOOTSTRAP + PRIORITY_BUILDER - this.builders.length, {
                     role: WORKER_BUILDER,
                     memory: {

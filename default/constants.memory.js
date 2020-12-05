@@ -22,4 +22,12 @@ const MEMORY_FLAG = module.exports.MEMORY_FLAG = 'flag'
 const MEMORY_ASSIGN_ROOM = module.exports.MEMORY_ASSIGN_ROOM = 'assignment_room'
 const MEMORY_COLONY = module.exports.MEMORY_COLONY = 'colony'
 
+// V3 - base task
+const MEMORY_TASK_REQUESTER = module.exports.MEMORY_TASK_REQUESTER = 'task_requestor'
+const MEMORY_TASK_TYPE = module.exports.MEMORY_TASK_TYPE = 'task_type'
+const MEMORY_TASK_REASON = module.exports.MEMORY_TASK_REASON = 'task_reason'
 
+// V3 - haul task
+const MEMORY_HAUL_PICKUP = module.exports.MEMORY_HAUL_PICKUP = 'haul_pickup'
+const MEMORY_HAUL_RESOURCE = module.exports.MEMORY_HAUL_RESOURCE = 'haul_resource'
+const MEMORY_HAUL_DROPOFF = module.exports.MEMORY_HAUL_DROPOFF = 'haul_dropoff'

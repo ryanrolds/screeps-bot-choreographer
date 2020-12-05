@@ -3,6 +3,7 @@ const roleUpgraderV2 = require('role.upgrader.v2');
 const roleBuilderV2 = require('role.builder.v2');
 const roleRepairerV2 = require('role.repairer.v2');
 const roleHaulerV2 = require('role.hauler.v2');
+const roleHaulerV3 = require('role.hauler.v3');
 const roleDistributor = require('role.distributor');
 const roleDefender = require('role.defender');
 const roleClaimerV2 = require('role.claimer.v2');
@@ -13,12 +14,14 @@ const CREEPS = require('constants.creeps')
 const { definitions } = require('constants.creeps')
 const { MEMORY_ROLE, MEMORY_ORIGIN, MEMORY_COLONY } = require('constants.memory')
 
-module.exports.tick = (trace) => {
+module.exports.tick = (kingdom, trace) => {
     for(var name in Game.creeps) {
         var creep = Game.creeps[name];
         if (creep.spawning) {
             return
         }
+
+        // TODO move the below to a map and/or lookup function
 
         if (creep.memory.role == CREEPS.WORKER_ATTACKER) {
             roleAttacker.run(creep, trace)
@@ -52,6 +55,10 @@ module.exports.tick = (trace) => {
             roleHaulerV2.run(creep, trace)
         }
 
+        if (creep.memory.role == CREEPS.WORKER_HAULER_V3) {
+            roleHaulerV3.run(creep, trace, kingdom)
+        }
+
         if (creep.memory.role == CREEPS. WORKER_CLAIMER ||
             creep.memory.role == CREEPS.WORKER_EXPLORER) {
             roleClaimerV2.run(creep, trace)
@@ -64,6 +71,7 @@ module.exports.tick = (trace) => {
         if (creep.memory.role == CREEPS.WORKER_RESERVER) {
             roleReserver.run(creep, trace)
         }
+
     }
 
     // Cleanup old creep memory
