@@ -133,7 +133,7 @@ class Colony extends OrgBase {
         }
 
         const numHaulTasks = this.getTopicLength(TOPIC_HAUL_TASK)
-        const desiredHaulers = Math.ceil(numHaulTasks / 2.5)
+        const desiredHaulers = Math.ceil(numHaulTasks / 2.25)
         if (this.numHaulers < desiredHaulers) {
             this.sendRequest(TOPIC_SPAWN, PRIORITY_HAULER, {
                 role: WORKERS.WORKER_HAULER_V3,

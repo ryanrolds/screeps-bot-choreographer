@@ -133,7 +133,6 @@ class Room extends OrgBase {
                     }
                 })
             } else {
-                console.log("requesting upgraders")
                 this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITY_BOOTSTRAP + PRIORITY_CLAIMER + 1, {
                     role: WORKER_CLAIMER,
                     memory: {
@@ -153,7 +152,6 @@ class Room extends OrgBase {
                     }
                 })
             } else {
-                console.log("requesting reserver")
                 this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITY_RESERVER + 1, {
                     role: WORKER_RESERVER,
                     memory: {
@@ -188,7 +186,6 @@ class Room extends OrgBase {
                     }
                 })
             } else {
-                console.log("requesting upgraders")
                 this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITY_BOOTSTRAP + upgraderPriority, {
                     role: WORKER_UPGRADER,
                     memory: {

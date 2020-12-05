@@ -25,8 +25,6 @@ class Topics {
             details
         }
 
-        console.log("topic add", topicID, priority, JSON.stringify(details))
-
         topic.push(request)
         this.topics[topicID] = _.sortBy(topic, 'priority')
     }
@@ -41,9 +39,6 @@ class Topics {
     }
     getLength(topicID) {
         const topic =  this.topics[topicID]
-
-        console.log(topicID, JSON.stringify(this.topics))
-
         if (!topic) {
             return 0
         }

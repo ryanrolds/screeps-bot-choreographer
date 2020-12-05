@@ -185,15 +185,14 @@ class Source extends OrgBase {
         const loadsToHaul = Math.floor(untaskedUsedCapacity / averageLoad)
 
         for (let i = 0; i < loadsToHaul; i++) {
+            const loadPriority = (untaskedUsedCapacity - (i * averageLoad)) / storeCapacity
+
             const details = {
                 [MEMORY.MEMORY_TASK_TYPE]:  TASKS.HAUL_TASK,
                 [MEMORY.MEMORY_HAUL_PICKUP]: this.container.id,
                 [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY
             }
 
-            const loadPriority = (untaskedUsedCapacity - (i * averageLoad)) / storeCapacity
-
-            console.log("xxxxxxxxxx hauling job", TOPICS.TOPIC_HAUL_TASK, loadPriority, JSON.stringify(details))
             this.sendRequest(TOPICS.TOPIC_HAUL_TASK, loadPriority, details)
         }
     }

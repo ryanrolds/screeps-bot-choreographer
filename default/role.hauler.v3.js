@@ -21,9 +21,6 @@ const behavior = behaviorTree.SequenceNode(
 
                 // get next haul task
                 const task = colony.getNextRequest(TOPICS.TOPIC_HAUL_TASK)
-
-                console.log("hauler task", JSON.stringify(task))
-
                 if (!task) {
                     return FAILURE
                 }
