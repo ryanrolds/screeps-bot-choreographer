@@ -106,8 +106,6 @@ module.exports.createCreepV2 = (colony, room, spawn, role, memory, energy, energ
 
     let result = spawn.spawnCreep(parts, name, {memory});
 
-    console.log(`RESULT: ${result}, ${colony}, ${room}, ${role}`)
-
     return result
 }
 
@@ -131,8 +129,6 @@ function getBodyParts(definition, maxEnergy) {
 
         i++
     }
-
-    console.log("using parts for", base, total, maxEnergy)
 
     return base
 }
