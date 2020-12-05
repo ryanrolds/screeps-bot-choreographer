@@ -3,7 +3,7 @@ const behaviorTree = require('lib.behaviortree')
 const {FAILURE, SUCCESS, RUNNING} = require('lib.behaviortree')
 const behaviorMovement = require('behavior.movement')
 const { MEMORY_ROLE, MEMORY_DESTINATION, MEMORY_ORIGIN } = require('constants.memory')
-const { WORKER_HAULER, WORKER_DISTRIBUTOR, WORKER_REMOTE_HAULER } = require('constants.creeps')
+const { WORKER_HAULER, WORKER_DISTRIBUTOR, WORKER_REMOTE_HAULER,  WORKER_HAULER_V3 } = require('constants.creeps')
 
 const selectEnergyForWithdraw = module.exports.selectEnergyForWithdraw = behaviorTree.LeafNode(
     'selectEnergyForWithdraw',
@@ -60,6 +60,7 @@ const selectContainerForWithdraw = module.exports.selectContainerForWithdraw = b
 const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.SelectorNode(
     'selectRoomDropoff',
     [
+        /*
         behaviorTree.LeafNode(
             'pick_tower',
             (creep) => {
@@ -93,6 +94,7 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.Select
                 return SUCCESS
             }
         ),
+        */
         behaviorTree.LeafNode(
             'pick_adjacent_container',
             (creep) => {
@@ -100,7 +102,7 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.Select
                 // haulers should pick containers near the spawner
                 // TODO this is hacky and feels bad
                 if (role && (role === WORKER_HAULER || role === WORKER_REMOTE_HAULER ||
-                    role ===  WORKER_DISTRIBUTOR)) {
+                    role ===  WORKER_DISTRIBUTOR || role === WORKER_HAULER_V3)) {
                     return FAILURE
                 }
 

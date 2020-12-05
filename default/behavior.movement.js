@@ -48,6 +48,15 @@ module.exports.setDestination = (creep, destinationId, roomId = null) => {
     }
 }
 
+module.exports.moveToCreepMemory = (memoryID, range = 1) => {
+    return behaviorTree.LeafNode(
+        'bt.movement.moveToCreepMemory',
+        (creep) => {
+            return moveToMemory(creep, memoryID, range)
+        }
+    )
+}
+
 module.exports.moveToDestination = (range = 1) => {
     return behaviorTree.LeafNode(
         'bt.movement.moveToDestiantion',

@@ -66,6 +66,9 @@ class Kingdom extends OrgBase {
     getColony() {
         throw new Error("a kingdom is not a colony")
     }
+    getColonyById(colonyId) {
+        return _.find(this.colonies, {id: colonyId})
+    }
     getRoom() {
         throw new Error("a kingdom is not a room")
     }

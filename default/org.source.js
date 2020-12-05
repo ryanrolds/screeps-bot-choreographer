@@ -1,6 +1,10 @@
 const OrgBase = require('org.base')
 
 const MEMORY = require('constants.memory')
+const TASKS = require('constants.tasks')
+const CREEPS = require('constants.creeps')
+const TOPICS = require('constants.topics')
+
 const { TOPIC_SPAWN } = require('constants.topics')
 const { WORKER_HAULER, WORKER_REMOTE_HARVESTER, WORKER_MINER,
     WORKER_HARVESTER, WORKER_REMOTE_MINER, WORKER_REMOTE_HAULER } = require('constants.creeps')
@@ -22,6 +26,7 @@ class Source extends OrgBase {
 
         this.container = null
         this.containerID = null
+        this.containerUser = null
         this.numHaulers = 0
 
         if (containers.length) {
@@ -34,6 +39,8 @@ class Source extends OrgBase {
                     creep.memory[MEMORY.MEMORY_WITHDRAW] === this.container.id &&
                     creep.ticksToLive > 100
             }).length
+
+            this.containerUsed = this.container.store.getUsedCapacity()
         }
 
         this.numHarvesters = _.filter(Game.creeps, (creep) => {
@@ -49,9 +56,27 @@ class Source extends OrgBase {
                 creep.memory[MEMORY.MEMORY_HARVEST] === this.id &&
                 creep.ticksToLive > 100
         }).length
+
+        this.haulersWithTask = _.filter(Game.creeps, (creep) => {
+            const task = creep.memory[MEMORY.MEMORY_TASK_TYPE]
+            const pickup = creep.memory[MEMORY.MEMORY_HAUL_PICKUP]
+
+            // do not count creeps that have already picked up a load
+            if (creep.store.getUsedCapacity() > 0) {
+                return false
+            }
+
+            return task === TASKS.TASK_HAUL && pickup === this.containerID
+        })
+
+        this.haulerCapacity = _.reduce(this.haulersWithTask, (total, hauler) => {
+            return total += hauler.store.getFreeCapacity()
+        }, 0)
     }
     update() {
         console.log(this)
+
+        this.sendHaulTasks()
 
         let desiredHarvesters = 3
         let desiredMiners = 0
@@ -105,6 +130,7 @@ class Source extends OrgBase {
             })
         }
 
+        /*
         if (this.numHaulers < desiredHaulers) {
             let priority = PRIORITY_HAULER
             let role = WORKER_HAULER
@@ -121,13 +147,15 @@ class Source extends OrgBase {
                 }
             })
         }
+        */
     }
     process() {
         this.updateStats()
     }
     toString() {
         return `---- Source - ${this.id}, #Harvesters: ${this.numHarvesters}, #Miners: ${this.numMiners}, ` +
-            `#Haulers: ${this.numHaulers}, Container: ${this.containerID}`
+            `#Haulers: ${this.numHaulers}, Container: ${this.containerID}, #HaulerWithTask: ${this.haulersWithTask.length}, ` +
+            `SumHaulerTaskCapacity: ${this.haulerCapacity}, UsedCapacity: ${this.containerUsed}`
     }
     updateStats() {
         const source = this.gameObject
@@ -138,6 +166,35 @@ class Source extends OrgBase {
             capacity: source.energyCapacity,
             regen: source.ticksToRegeneration,
             containerFree: (this.container != null) ? this.container.store.getFreeCapacity() : null
+        }
+    }
+    sendHaulTasks() {
+        if (!this.container) {
+            return
+        }
+
+        let averageLoad = 300
+        if (this.haulersWithTask.length) {
+            averageLoad = Math.floor(this.haulerCapacity / this.haulersWithTask.length)
+        }
+
+        const storeCapacity = this.container.store.getCapacity()
+        const storeUsedCapacity = this.container.store.getUsedCapacity()
+        const untaskedUsedCapacity = storeUsedCapacity - this.haulerCapacity
+
+        const loadsToHaul = Math.floor(untaskedUsedCapacity / averageLoad)
+
+        for (let i = 0; i < loadsToHaul; i++) {
+            const details = {
+                [MEMORY.MEMORY_TASK_TYPE]:  TASKS.HAUL_TASK,
+                [MEMORY.MEMORY_HAUL_PICKUP]: this.container.id,
+                [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY
+            }
+
+            const loadPriority = (untaskedUsedCapacity - (i * averageLoad)) / storeCapacity
+
+            console.log("xxxxxxxxxx hauling job", TOPICS.TOPIC_HAUL_TASK, loadPriority, JSON.stringify(details))
+            this.sendRequest(TOPICS.TOPIC_HAUL_TASK, loadPriority, details)
         }
     }
 }

@@ -173,9 +173,6 @@ class Room extends OrgBase {
             desiredUpgraders = 1
         }
 
-        console.log(this.id, this.getColony().spawns.length, this.isPrimary)
-
-
         if (this.isPrimary && this.upgraders.length < desiredUpgraders) {
             // As we get more upgraders, lower the priority
             let upgraderPriority = PRIORITY_UPGRADER - (this.upgraders.length * 2)
@@ -202,7 +199,7 @@ class Room extends OrgBase {
         }
 
         // Builder requests
-        if (this.builders.length < Math.ceil(this.numConstructionSites / 10)) {
+        if (this.builders.length < Math.ceil(this.numConstructionSites / 15)) {
             if (this.getColony().spawns.length) {
                 this.sendRequest(TOPIC_SPAWN, PRIORITY_BUILDER - (this.builders.length * 2), {
                     role: WORKER_BUILDER,
@@ -211,7 +208,6 @@ class Room extends OrgBase {
                     }
                 })
             } else {
-                console.log("requesting builders")
                 this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITY_BOOTSTRAP + PRIORITY_BUILDER - this.builders.length, {
                     role: WORKER_BUILDER,
                     memory: {

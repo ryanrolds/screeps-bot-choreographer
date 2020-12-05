@@ -4,10 +4,12 @@ const Spawner = require('org.spawner')
 const OrgBase = require('org.base')
 const Topics = require('lib.topics')
 
+const WORKERS = require('constants.creeps')
+
 const { MEMORY_ASSIGN_ROOM, MEMORY_ROLE, MEMORY_COLONY } = require('constants.memory')
-const { TOPIC_SPAWN, TOPIC_DEFENDERS } = require('constants.topics')
+const { TOPIC_SPAWN, TOPIC_DEFENDERS, TOPIC_HAUL_TASK } = require('constants.topics')
 const { WORKER_CLAIMER, WORKER_DEFENDER } = require('constants.creeps')
-const { PRIORITY_CLAIMER, PRIORITY_DEFENDER } = require('constants.priorities')
+const { PRIORITY_CLAIMER, PRIORITY_DEFENDER, PRIORITY_HAULER } = require('constants.priorities')
 
 const MAX_DEFENDERS = 3
 
@@ -61,6 +63,11 @@ class Colony extends OrgBase {
 
         this.numCreeps = _.filter(Game.creeps, (creep) => {
             return creep.memory[MEMORY_COLONY] === this.id
+        }).length
+
+        this.numHaulers = _.filter(Game.creeps, (creep) => {
+            return creep.memory[MEMORY_ROLE] == WORKERS.WORKER_HAULER_V3 &&
+                creep.memory[MEMORY_COLONY] === this.id
         }).length
     }
     getColony() {
@@ -125,6 +132,15 @@ class Colony extends OrgBase {
             })
         }
 
+        const numHaulTasks = this.getTopicLength(TOPIC_HAUL_TASK)
+        const desiredHaulers = Math.ceil(numHaulTasks / 2.5)
+        if (this.numHaulers < desiredHaulers) {
+            this.sendRequest(TOPIC_SPAWN, PRIORITY_HAULER, {
+                role: WORKERS.WORKER_HAULER_V3,
+                memory: {}
+            })
+        }
+
         this.rooms.forEach((room) => {
             room.process()
         })
@@ -139,7 +155,7 @@ class Colony extends OrgBase {
     }
     toString() {
         return `** Colony - ID: ${this.id}, #Rooms: ${this.rooms.length}, #Missing: ${this.missingRooms.length}, ` +
-            `#Sources: ${this.sources.length}, #Spawners: ${this.spawns.length}, ` +
+            `#Sources: ${this.sources.length}, #Haulers: ${this.numHaulers}, #Spawners: ${this.spawns.length}, ` +
             `#AvailableSpawners: ${this.availableSpawns.length}, #Defenders: ${this.defenders.length}`
     }
     sendRequest(topic, priority, request) {

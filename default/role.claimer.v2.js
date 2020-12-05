@@ -53,6 +53,11 @@ const behavior = behaviorTree.SelectorNode(
                         'move',
                         (creep) => {
                             let result = creep.claimController(creep.room.controller)
+
+                            if (result === ERR_GCL_NOT_ENOUGH) {
+                                creep.reserveController(creep.room.controller)
+                            }
+
                             return behaviorTree.FAILURE
                         }
                     )
