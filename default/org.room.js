@@ -266,7 +266,10 @@ class Room extends OrgBase {
     updateStats() {
         const room = this.gameObject
 
-        const roomStats = {}
+        const roomStats = {
+            sources: {}
+        }
+
         roomStats.storageEnergy           = (room.storage ? room.storage.store.energy : 0);
         roomStats.terminalEnergy          = (room.terminal ? room.terminal.store.energy : 0);
         roomStats.energyAvailable         = room.energyAvailable;
@@ -276,7 +279,7 @@ class Room extends OrgBase {
         roomStats.controllerLevel         = room.controller.level;
 
         const stats = this.getStats()
-        stats.rooms[this.id] = roomStats
+        stats.colonies[this.getColony().id].rooms[this.id] = roomStats
     }
 }
 

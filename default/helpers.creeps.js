@@ -4,6 +4,7 @@ const roleBuilderV2 = require('role.builder.v2');
 const roleRepairerV2 = require('role.repairer.v2');
 const roleHaulerV2 = require('role.hauler.v2');
 const roleHaulerV3 = require('role.hauler.v3');
+const roleMiner = require('role.miner');
 const roleDistributor = require('role.distributor');
 const roleDefender = require('role.defender');
 const roleClaimerV2 = require('role.claimer.v2');
@@ -27,10 +28,13 @@ module.exports.tick = (kingdom, trace) => {
             roleAttacker.run(creep, trace)
         }
 
-        if (creep.memory.role == CREEPS.WORKER_HARVESTER ||
-            creep.memory.role == CREEPS.WORKER_REMOTE_HARVESTER ||
-            creep.memory.role == CREEPS.WORKER_MINER ||
+        if (creep.memory.role == CREEPS.WORKER_MINER ||
             creep.memory.role == CREEPS.WORKER_REMOTE_MINER) {
+            roleMiner.run(creep, trace)
+        }
+
+        if (creep.memory.role == CREEPS.WORKER_HARVESTER ||
+            creep.memory.role == CREEPS.WORKER_REMOTE_HARVESTER) {
             roleHarvesterV2.run(creep, trace)
         }
 

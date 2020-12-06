@@ -11,6 +11,7 @@ const MEMORY_DESTINATION_ROOM = module.exports.MEMORY_DESTINATION_ROOM = 'destin
 
 // Long term memory IDs
 const MEMORY_HARVEST = module.exports.MEMORY_HARVEST = 'harvest'
+const MEMORY_HARVEST_CONTAINER = module.exports.MEMORY_HARVEST_CONTAINER = 'harvest_container'
 const MEMORY_HARVEST_ROOM = module.exports.MEMORY_HARVEST_ROOM = 'harvest_room'
 const MEMORY_WITHDRAW = module.exports.MEMORY_WITHDRAW = 'withdraw'
 const MEMORY_WITHDRAW_ROOM = module.exports.MEMORY_WITHDRAW_ROOM = 'withdraw_room'

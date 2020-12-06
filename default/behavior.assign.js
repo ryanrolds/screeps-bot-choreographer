@@ -17,22 +17,12 @@ const moveToRoom = behaviorTree.RepeatUntilSuccess(
                 return SUCCESS
             }
 
-            const exitDir = creep.room.findExitTo(roomID)
-            if (exitDir === ERR_NO_PATH) {
-                return FAILURE
-            }
-            if (exitDir === ERR_INVALID_ARGS) {
-                return SUCCESS
-            }
-
-            // TODO cache the path
-            const exit = creep.pos.findClosestByRange(exitDir);
-
-            const result = creep.moveTo(exit);
-            if (result === ERR_INVALID_ARGS) {
-                return FAILURE
-            }
+            let result = creep.moveTo(new RoomPosition(25, 25, roomID));
             if (result === ERR_NO_PATH) {
+                return FAILURE
+            }
+
+            if (result === ERR_INVALID_ARGS) {
                 return FAILURE
             }
 

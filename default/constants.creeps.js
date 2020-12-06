@@ -16,7 +16,6 @@ var WORKER_EXPLORER = module.exports.WORKER_EXPLORER = "claimer"
 
 const WORKER_HAULER_V3 = module.exports.WORKER_HAULER_V3 = 'hauler_v3'
 
-
 // The 'base' should at most 300 energy as it will form the base of the creep
 // The 'parts' are additional parts that will be used to fill up to the 'energyLimit'
 const definitions = {
@@ -50,7 +49,7 @@ const definitions = {
         base: [MOVE, CARRY, MOVE, CARRY, MOVE, CARRY]
     },
     [WORKER_HAULER_V3]: {
-        energyLimit: 900,
+        energyLimit: 2200,
         ignoreSpawnEnergyLimit: true,
         parts: [MOVE, CARRY],
         base: [MOVE, CARRY, MOVE, CARRY, MOVE, CARRY]

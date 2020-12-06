@@ -9,7 +9,8 @@ class Kingdom extends OrgBase {
 
         this.topics = new Topics()
         this.stats = {
-            rooms: {},
+            rooms: {}, // DEPRECATED, use colonies
+            colonies: {},
             sources: {},
             spawns: {}
         }

@@ -133,7 +133,7 @@ class Colony extends OrgBase {
         }
 
         const numHaulTasks = this.getTopicLength(TOPIC_HAUL_TASK)
-        const desiredHaulers = Math.ceil(numHaulTasks / 2.25)
+        const desiredHaulers = Math.ceil(numHaulTasks / 2)
         if (this.numHaulers < desiredHaulers) {
             this.sendRequest(TOPIC_SPAWN, PRIORITY_HAULER, {
                 role: WORKERS.WORKER_HAULER_V3,
@@ -168,8 +168,13 @@ class Colony extends OrgBase {
         return this.topics.getLength(topic)
     }
     updateStats() {
+        const colonyStats = {
+            rooms: {}
+        }
+        colonyStats.topics = this.topics.getCounts()
+
         const stats = this.getStats()
-        stats.topics = this.topics.getCounts()
+        stats.colonies[this.id] = colonyStats
     }
 }
 

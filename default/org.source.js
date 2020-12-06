@@ -24,14 +24,16 @@ class Source extends OrgBase {
             }
         })
 
+        const container = source.pos.findClosestByRange(containers)
+
         this.container = null
         this.containerID = null
         this.containerUser = null
         this.numHaulers = 0
 
-        if (containers.length) {
-            this.container = containers[0]
-            this.containerID = containers[0].id
+        if (container) {
+            this.container = container
+            this.containerID = container.id
 
             this.numHaulers =  _.filter(Game.creeps, (creep) => {
                 const role = creep.memory[MEMORY.MEMORY_ROLE]
@@ -72,6 +74,13 @@ class Source extends OrgBase {
         this.haulerCapacity = _.reduce(this.haulersWithTask, (total, hauler) => {
             return total += hauler.store.getFreeCapacity()
         }, 0)
+
+        const colonyId = this.getColony().id
+        this.colonyCreeps = _.filter(Game.creeps,  {memory: {[MEMORY.MEMORY_COLONY]: colonyId}})
+        this.haulers = _.filter(this.colonyCreeps, {memory: {[MEMORY.MEMORY_ROLE]: CREEPS.WORKER_HAULER_V3}})
+        this.avgHaulerCapacity = _.reduce(this.haulers, (total, hauler) => {
+            return total + hauler.store.getCapacity()
+        }, 0) / this.haulers.length
     }
     update() {
         console.log(this)
@@ -125,6 +134,7 @@ class Source extends OrgBase {
                 role: role,
                 memory: {
                     [MEMORY.MEMORY_HARVEST]: this.id,
+                    [MEMORY.MEMORY_HARVEST_CONTAINER]: this.containerID,
                     [MEMORY.MEMORY_HARVEST_ROOM]: this.roomID
                 }
             })
@@ -161,28 +171,25 @@ class Source extends OrgBase {
         const source = this.gameObject
 
         const stats = this.getStats()
-        stats.sources[this.id] = {
+        const sourceStats = {
             energy: source.energy,
             capacity: source.energyCapacity,
             regen: source.ticksToRegeneration,
             containerFree: (this.container != null) ? this.container.store.getFreeCapacity() : null
         }
+
+        stats.colonies[this.getColony().id].rooms[this.roomID].sources[this.id] = sourceStats
     }
     sendHaulTasks() {
         if (!this.container) {
             return
         }
 
-        let averageLoad = 300
-        if (this.haulersWithTask.length) {
-            averageLoad = Math.floor(this.haulerCapacity / this.haulersWithTask.length)
-        }
-
+        const averageLoad = this.avgHaulerCapacity || 300
         const storeCapacity = this.container.store.getCapacity()
         const storeUsedCapacity = this.container.store.getUsedCapacity()
         const untaskedUsedCapacity = storeUsedCapacity - this.haulerCapacity
-
-        const loadsToHaul = Math.floor(untaskedUsedCapacity / averageLoad)
+        const loadsToHaul = Math.ceil(untaskedUsedCapacity / averageLoad)
 
         for (let i = 0; i < loadsToHaul; i++) {
             const loadPriority = (untaskedUsedCapacity - (i * averageLoad)) / storeCapacity
