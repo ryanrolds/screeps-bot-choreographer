@@ -4,8 +4,7 @@ const {FAILURE, SUCCESS, RUNNING} = require('lib.behaviortree')
 const behaviorMovement = require('behavior.movement')
 const behaviorHarvest = require('behavior.harvest')
 
-const { MEMORY_ROLE, MEMORY_DESTINATION, MEMORY_ORIGIN } = require('constants.memory')
-const { WORKER_HAULER, WORKER_DISTRIBUTOR, WORKER_REMOTE_HAULER,  WORKER_HAULER_V3 } = require('constants.creeps')
+const MEMORY = require('constants.memory')
 
 const harvest = behaviorTree.LeafNode(
     'fill_creep',
@@ -25,7 +24,7 @@ const harvest = behaviorTree.LeafNode(
         if (result === ERR_NOT_ENOUGH_RESOURCES) {
             return FAILURE
         }
-        if (result == OK) {
+        if (result === OK) {
             return RUNNING
         }
 
@@ -70,7 +69,6 @@ const emptyCreep = behaviorTree.SequenceNode(
         behaviorTree.LeafNode(
             'pick_adjacent_container',
             (creep) => {
-                const role = creep.memory[MEMORY_ROLE]
                 var targets = creep.pos.findInRange(FIND_STRUCTURES, 2, {
                     filter: (structure) => {
                         return structure.structureType == STRUCTURE_CONTAINER &&
@@ -88,9 +86,32 @@ const emptyCreep = behaviorTree.SequenceNode(
             }
         ),
         behaviorTree.LeafNode(
+            'move_to_destination',
+            (creep) => {
+                let destination = Game.getObjectById(creep.memory[MEMORY.MEMORY_DESTINATION])
+                if (!destination) {
+                    return FAILURE
+                }
+
+                if (creep.pos.inRangeTo(destination, 1)) {
+                    return SUCCESS
+                }
+
+                const result = creep.moveTo(destination)
+                if (result === ERR_NO_PATH) {
+                    return FAILURE
+                }
+                if (result !== OK && result !== ERR_TIRED) {
+                    return FAILURE
+                }
+
+                return RUNNING
+            }
+        ),
+        behaviorTree.LeafNode(
             'empty_creep',
             (creep) => {
-                let destination = Game.getObjectById(creep.memory[MEMORY_DESTINATION])
+                let destination = Game.getObjectById(creep.memory[MEMORY.MEMORY_DESTINATION])
                 if (!destination) {
                     return FAILURE
                 }

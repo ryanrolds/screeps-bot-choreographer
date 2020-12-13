@@ -32,3 +32,15 @@ const MEMORY_TASK_REASON = module.exports.MEMORY_TASK_REASON = 'task_reason'
 const MEMORY_HAUL_PICKUP = module.exports.MEMORY_HAUL_PICKUP = 'haul_pickup'
 const MEMORY_HAUL_RESOURCE = module.exports.MEMORY_HAUL_RESOURCE = 'haul_resource'
 const MEMORY_HAUL_DROPOFF = module.exports.MEMORY_HAUL_DROPOFF = 'haul_dropoff'
+
+// PID Controller prefixes
+module.exports.PID_PREFIX_HAULERS = 'haulers_'
+
+// PID Controller suffixes
+module.exports.PID_SUFFIX_P = 'pid_p'
+module.exports.PID_SUFFIX_I = 'pid_i'
+module.exports.PID_SUFFIX_D = 'pid_d'
+module.exports.PID_SUFFIX_INTEGRAL = 'pid_integral'
+module.exports.PID_SUFFIX_TIME = 'pid_time'
+module.exports.PID_SUFFIX_ERROR = 'pid_error'
+module.exports.PID_SUFFIX_SETPOINT = 'pid_setpoint'

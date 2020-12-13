@@ -20,7 +20,7 @@ class Room extends OrgBase {
         this.topics = new Topics()
 
         this.gameObject = room
-        this.isPrimary = room.name === parent.primaryRoom
+        this.isPrimary = room.name === parent.primaryRoomId
         this.claimedByMe = room.controller.my || false
 
         this.hasClaimer = _.filter(Game.creeps, (creep) => {

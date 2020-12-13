@@ -3,13 +3,16 @@ const Source = require('org.source')
 const Spawner = require('org.spawner')
 const OrgBase = require('org.base')
 const Topics = require('lib.topics')
+const Pid = require('lib.pid')
 
+const MEMORY = require('constants.memory')
 const WORKERS = require('constants.creeps')
 
 const { MEMORY_ASSIGN_ROOM, MEMORY_ROLE, MEMORY_COLONY } = require('constants.memory')
 const { TOPIC_SPAWN, TOPIC_DEFENDERS, TOPIC_HAUL_TASK } = require('constants.topics')
 const { WORKER_CLAIMER, WORKER_DEFENDER } = require('constants.creeps')
 const { PRIORITY_CLAIMER, PRIORITY_DEFENDER, PRIORITY_HAULER } = require('constants.priorities')
+const { PID_SUFFIX_D } = require('./constants.memory')
 
 const MAX_DEFENDERS = 3
 
@@ -19,7 +22,8 @@ class Colony extends OrgBase {
 
         this.topics = new Topics()
 
-        this.primaryRoom = colony.primary
+        this.primaryRoomId = colony.primary
+        this.primaryRoom = Game.rooms[this.primaryRoomId]
         this.desiredRooms = colony.rooms
         this.missingRooms = _.difference(this.desiredRooms,  Object.keys(Game.rooms))
         this.colonyRooms =  _.difference(this.desiredRooms,  this.missingRooms)
@@ -69,6 +73,10 @@ class Colony extends OrgBase {
             return creep.memory[MEMORY_ROLE] == WORKERS.WORKER_HAULER_V3 &&
                 creep.memory[MEMORY_COLONY] === this.id
         }).length
+
+        // PIDS
+        this.haulerSetpoint = Math.round(this.desiredRooms.length * 1)
+        Pid.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, this.haulerSetpoint, 0.15, 0.0004, 0)
     }
     getColony() {
         return this
@@ -81,6 +89,16 @@ class Colony extends OrgBase {
 
         this.missingRooms.forEach((roomID) => {
             // TODO check if a claimer is already on its way
+
+            const numClaimers = _.filter(Game.creeps, (creep) => {
+                return creep.memory[MEMORY_ROLE] == WORKERS.WORKER_CLAIMER &&
+                    creep.memory[MEMORY_ASSIGN_ROOM] === roomID
+            }).length
+
+            // A claimer already assigned, don't send more
+            if (numClaimers) {
+                return
+            }
 
             if (this.spawns.length) {
                 this.sendRequest(TOPIC_SPAWN, PRIORITY_CLAIMER, {
@@ -114,8 +132,6 @@ class Colony extends OrgBase {
         })
     }
     process() {
-        this.updateStats()
-
         // Check intra-colony requests for defenders
         let request = this.getNextRequest(TOPIC_DEFENDERS)
         if (request) {
@@ -132,14 +148,22 @@ class Colony extends OrgBase {
             })
         }
 
+        // Fraction of num haul tasks
         const numHaulTasks = this.getTopicLength(TOPIC_HAUL_TASK)
-        const desiredHaulers = Math.ceil(numHaulTasks / 2)
-        if (this.numHaulers < desiredHaulers) {
+        this.desiredHaulers = Math.ceil(numHaulTasks / 2)
+
+        // PID approach
+        this.pidDesiredHaulers = Pid.update(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, numHaulTasks, Game.time)
+        console.log(this.id, this.primaryRoomId, JSON.stringify(this.primaryRoom.memory), numHaulTasks, this.desiredHaulers, this.pidDesiredHaulers)
+
+        if (this.numHaulers <= this.pidDesiredHaulers) {
             this.sendRequest(TOPIC_SPAWN, PRIORITY_HAULER, {
                 role: WORKERS.WORKER_HAULER_V3,
                 memory: {}
             })
         }
+
+        this.updateStats()
 
         this.rooms.forEach((room) => {
             room.process()
@@ -169,6 +193,10 @@ class Colony extends OrgBase {
     }
     updateStats() {
         const colonyStats = {
+            numHaulers: this.numHaulers,
+            haulerSetpoint: this.haulerSetpoint,
+            desiredHaulers: this.desiredHaulers,
+            pidDesiredHaulers: this.pidDesiredHaulers,
             rooms: {}
         }
         colonyStats.topics = this.topics.getCounts()

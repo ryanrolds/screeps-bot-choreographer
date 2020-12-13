@@ -8,16 +8,17 @@ const pickupDroppedEnergy = behaviorTree.LeafNode(
     'janitor',
     (creep) => {
         // Locate dropped resource close to creep
-        let resource = creep.pos.findInRange(FIND_DROPPED_RESOURCES, 2, {
+        let resources = creep.pos.findInRange(FIND_DROPPED_RESOURCES, 2, {
             filter: (r) => {
                 return r.resourceType === RESOURCE_ENERGY
             }
         })
-        if (!resource.length) {
+        console.log("builder dropped", creep.name, JSON.stringify(resources))
+        if (!resources.length) {
             return FAILURE
         }
 
-        let result = creep.pickup(resource[0])
+        let result = creep.pickup(resources[0])
         if (result === ERR_FULL) {
             // We still have energy to transfer, fail so we find another
             // place to dump
