@@ -1,5 +1,5 @@
 const behaviorTree = require('lib.behaviortree')
-const behaviorMovement = require('behavior.movement')
+const behaviorCommute = require('behavior.commute')
 const behaviorStorage = require('behavior.storage')
 const behaviorHarvest = require('behavior.harvest')
 
@@ -9,6 +9,7 @@ const behavior = behaviorTree.SequenceNode(
         behaviorHarvest.moveToHarvestRoom,
         behaviorHarvest.selectHarvestSource,
         behaviorHarvest.moveToHarvest,
+        behaviorCommute.setCommuteDuration,
         behaviorHarvest.harvest,
         behaviorStorage.emptyCreep
     ]

@@ -1,7 +1,9 @@
 const behaviorTree = require('lib.behaviortree')
 const {FAILURE, SUCCESS, RUNNING} = require('lib.behaviortree')
 
+const behaviorNonCombatant = require('behavior.noncombatant')
 const behaviorMovement = require('behavior.movement')
+const behaviorCommute = require('behavior.commute')
 const behaviorHarvest = require('behavior.harvest')
 
 const MEMORY = require('constants.memory')
@@ -37,13 +39,11 @@ const janitor = behaviorTree.LeafNode(
     (creep) => {
         // Locate dropped resource close to creep
         let resource = creep.pos.findInRange(FIND_DROPPED_RESOURCES, 1)
-        console.log("resource", creep.name, resource)
         if (!resource) {
             return FAILURE
         }
 
         let result = creep.pickup(resource[0])
-        console.log("pickup", creep.name, result)
         if (result === ERR_FULL) {
             // We still have energy to transfer, fail so we find another
             // place to dump
@@ -144,6 +144,7 @@ const behavior = behaviorTree.SequenceNode(
         behaviorHarvest.moveToHarvestRoom,
         behaviorHarvest.selectHarvestSource,
         behaviorHarvest.moveToHarvest,
+        behaviorCommute.setCommuteDuration,
         behaviorTree.SelectorNode(
             'get_energy',
             [
@@ -156,10 +157,10 @@ const behavior = behaviorTree.SequenceNode(
 )
 
 module.exports = {
-    run: (creep, trace) => {
+    run: (creep, trace, kingdom) => {
         const roleTrace = trace.begin('miner')
 
-        let result = behavior.tick(creep, roleTrace)
+        let result = behaviorNonCombatant(behavior).tick(creep, roleTrace, kingdom)
         if (result == behaviorTree.FAILURE) {
             console.log("INVESTIGATE: miner failure", creep.name)
         }

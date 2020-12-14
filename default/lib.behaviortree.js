@@ -51,7 +51,38 @@ module.exports.SequenceNode = (id, children) => {
                     setState(actor, this.id, i)
                     return RUNNING
                 case FAILURE:
-                    return FAILURE;
+                    return FAILURE
+                case SUCCESS:
+                    continue
+                }
+            }
+
+            return SUCCESS
+        },
+        tick: function(actor, trace, kingdom) {
+            trace = trace.begin(this.id)
+
+            const result = this.tickChildren(actor, trace, kingdom)
+
+            trace.end()
+
+            return result
+        }
+    }
+}
+
+module.exports.SequenceAlwaysNode = (id, children) => {
+    return {
+        id, // used track state in memory
+        children,
+        tickChildren: function(actor, trace, kingdom) {
+            for (let i = 0; i < children.length; i++) {
+                let result = children[i].tick(actor, trace, kingdom)
+                switch (result) {
+                case RUNNING:
+                    return RUNNING
+                case FAILURE:
+                    return FAILURE
                 case SUCCESS:
                     continue
                 }

@@ -3,6 +3,8 @@ const OrgBase = require('org.base')
 const Link = require('org.link')
 const Topics = require('lib.topics')
 
+const MEMORY = require('constants.memory')
+
 const { MEMORY_ROLE, MEMORY_ASSIGN_ROOM } = require('constants.memory')
 const { TOPIC_SPAWN, TOPIC_DEFENDERS } = require('constants.topics')
 const { WORKER_UPGRADER, WORKER_REPAIRER, WORKER_BUILDER, WORKER_DEFENDER } = require('constants.creeps')
@@ -11,7 +13,7 @@ const { PRIORITY_UPGRADER, PRIORITY_BUILDER, PRIORITY_REPAIRER, PRIORITY_BOOTSTR
 const { WORKER_CLAIMER, WORKER_RESERVER } = require('./constants.creeps')
 const { PRIORITY_RESERVER } = require('./constants.priorities')
 
-const MAX_UPGRADERS = 4
+const MAX_UPGRADERS = 2
 
 class Room extends OrgBase {
     constructor(parent, room) {
@@ -23,6 +25,7 @@ class Room extends OrgBase {
         this.isPrimary = room.name === parent.primaryRoomId
         this.claimedByMe = room.controller.my || false
 
+
         this.hasClaimer = _.filter(Game.creeps, (creep) => {
             return creep.memory[MEMORY_ROLE] === WORKER_CLAIMER &&
                 creep.memory[MEMORY_ASSIGN_ROOM] === room.name
@@ -30,8 +33,14 @@ class Room extends OrgBase {
 
         this.hasReserver = _.filter(Game.creeps, (creep) => {
             return creep.memory[MEMORY_ROLE] === WORKER_RESERVER &&
-                creep.memory[MEMORY_ASSIGN_ROOM] === room.name
+                creep.memory[MEMORY_ASSIGN_ROOM] === room.name &&
+                (creep.ticksToLive > (creep.memory[MEMORY.MEMORY_COMMUTE_DURATION] || 100))
         }).length > 0
+
+        this.reservationTicks = 0
+        if (room.controller.reservation) {
+            this.reservationTicks = room.controller.reservation.ticksToEnd
+        }
 
         this.links = room.find(FIND_MY_STRUCTURES, {
             filter: (structure) => {
@@ -50,7 +59,8 @@ class Room extends OrgBase {
 
         this.numRepairers = _.filter(Game.creeps, (creep) => {
             return creep.memory[MEMORY_ROLE] === WORKER_REPAIRER &&
-                creep.memory[MEMORY_ASSIGN_ROOM] === room.name
+                creep.memory[MEMORY_ASSIGN_ROOM] === room.name  &&
+                (creep.ticksToLive > (creep.memory[MEMORY.MEMORY_COMMUTE_DURATION] || 100))
         }).length
 
         // Construction sites will help decide how many builders we need
@@ -58,12 +68,14 @@ class Room extends OrgBase {
 
         this.builders = _.filter(Game.creeps, (creep) => {
             return creep.memory[MEMORY_ROLE] === WORKER_BUILDER &&
-                creep.memory[MEMORY_ASSIGN_ROOM] === room.name
+                creep.memory[MEMORY_ASSIGN_ROOM] === room.name &&
+                (creep.ticksToLive > (creep.memory[MEMORY.MEMORY_COMMUTE_DURATION] || 100))
         })
 
         this.upgraders = _.filter(Game.creeps, (creep) => {
             return creep.memory[MEMORY_ROLE] == WORKER_UPGRADER &&
-                creep.memory[MEMORY_ASSIGN_ROOM] === room.name
+                creep.memory[MEMORY_ASSIGN_ROOM] === room.name &&
+                (creep.ticksToLive > (creep.memory[MEMORY.MEMORY_COMMUTE_DURATION] || 100))
         })
 
         // We want to know if the room has hostiles, request defenders or put room in safe mode
@@ -143,7 +155,7 @@ class Room extends OrgBase {
         }
 
         // If not claimed by me and no claimer assigned and not primary, request a reserver
-        if (!this.claimedByMe && !this.isPrimary && !this.hasReserver ) {
+        if (!this.claimedByMe && !this.isPrimary && !this.hasReserver && this.reservationTicks < 1000) {
             if (this.getColony().spawns.length) {
                 this.sendRequest(TOPIC_SPAWN, PRIORITY_RESERVER, {
                     role: WORKER_RESERVER,
@@ -163,12 +175,8 @@ class Room extends OrgBase {
 
         // Upgrader request
         let desiredUpgraders = MAX_UPGRADERS
-        if (this.gameObject.storage && this.gameObject.storage.store.getUsedCapacity(RESOURCE_ENERGY) < 10000) {
-            desiredUpgraders = 1
-        }
-
-        if (!this.claimedByMe) {
-            desiredUpgraders = 1
+        if (this.gameObject.storage) {
+            desiredUpgraders = Math.ceil(this.gameObject.storage.store.getUsedCapacity(RESOURCE_ENERGY) / 25000)
         }
 
         if (this.isPrimary && this.upgraders.length < desiredUpgraders) {

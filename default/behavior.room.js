@@ -13,7 +13,6 @@ const pickupDroppedEnergy = behaviorTree.LeafNode(
                 return r.resourceType === RESOURCE_ENERGY
             }
         })
-        console.log("builder dropped", creep.name, JSON.stringify(resources))
         if (!resources.length) {
             return FAILURE
         }

@@ -1,8 +1,8 @@
 
 const behaviorTree = require('lib.behaviortree')
+const behaviorCommute = require('behavior.commute')
 const behaviorMovement = require('behavior.movement')
 const { MEMORY_ASSIGN_ROOM } = require('constants.memory')
-const { fillCreepFromContainers } = require('./behavior.storage')
 
 const behavior = behaviorTree.SelectorNode(
     "claimer_root",
@@ -45,6 +45,7 @@ const behavior = behaviorTree.SelectorNode(
                         }
                     )
                 ),
+                behaviorCommute.setCommuteDuration,
                 behaviorTree.RepeatUntilSuccess(
                     'reserve',
                     behaviorTree.LeafNode(

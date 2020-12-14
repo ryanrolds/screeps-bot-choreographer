@@ -13,7 +13,6 @@ const WORKER_DISTRIBUTOR = module.exports.WORKER_DISTRIBUTOR = "distributor"
 const WORKER_CLAIMER = module.exports.WORKER_CLAIMER = "claimer"
 const WORKER_RESERVER = module.exports.WORKER_RESERVER = "reserver"
 const WORKER_EXPLORER = module.exports.WORKER_EXPLORER = "claimer"
-
 const WORKER_HAULER_V3 = module.exports.WORKER_HAULER_V3 = 'hauler_v3'
 
 // The 'base' should at most 300 energy as it will form the base of the creep
@@ -49,7 +48,7 @@ const definitions = {
         base: [MOVE, CARRY, MOVE, CARRY, MOVE, CARRY]
     },
     [WORKER_HAULER_V3]: {
-        energyLimit: 2200,
+        energyLimit: 2000,
         ignoreSpawnEnergyLimit: true,
         parts: [MOVE, CARRY],
         base: [MOVE, CARRY, MOVE, CARRY, MOVE, CARRY]
@@ -97,8 +96,8 @@ const definitions = {
     },
     [WORKER_DEFENDER]: {
         energyLimit: null,
-        parts: [MOVE, TOUGH, MOVE, TOUGH, MOVE, ATTACK],
-        base: [MOVE, TOUGH, MOVE, TOUGH, MOVE, ATTACK]
+        parts: [MOVE, TOUGH, MOVE, TOUGH, MOVE, RANGED_ATTACK],
+        base: [MOVE, TOUGH, MOVE, TOUGH, MOVE, RANGED_ATTACK]
     },
     [WORKER_ATTACKER]: {
         energyLimit: null,

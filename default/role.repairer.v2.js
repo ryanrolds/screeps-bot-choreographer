@@ -2,6 +2,7 @@ const behaviorTree = require('lib.behaviortree')
 const {FAILURE, SUCCESS, RUNNING} = require('lib.behaviortree')
 
 const behaviorMovement = require('behavior.movement')
+const behaviorCommute = require('behavior.commute')
 const behaviorAssign = require('behavior.assign')
 const behaviorRoom = require('behavior.room')
 
@@ -53,6 +54,7 @@ const behavior = behaviorTree.SequenceNode(
     'repair',
     [
         behaviorAssign.moveToRoom,
+        behaviorCommute.setCommuteDuration,
         behaviorRoom.getEnergy,
         behaviorTree.RepeatUntilSuccess(
             'repair_until_empty',

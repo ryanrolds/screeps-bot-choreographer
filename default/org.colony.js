@@ -71,18 +71,24 @@ class Colony extends OrgBase {
 
         this.numHaulers = _.filter(Game.creeps, (creep) => {
             return creep.memory[MEMORY_ROLE] == WORKERS.WORKER_HAULER_V3 &&
-                creep.memory[MEMORY_COLONY] === this.id
+                creep.memory[MEMORY_COLONY] === this.id &&
+                creep.ticksToLive > 100
         }).length
 
         // PIDS
         this.haulerSetpoint = Math.round(this.desiredRooms.length * 1)
-        Pid.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, this.haulerSetpoint, 0.15, 0.0004, 0)
+        Pid.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, this.haulerSetpoint, 0.15, 0.0003, 0)
     }
     getColony() {
         return this
     }
     getRoom() {
         throw new Error("a colony is not a room")
+    }
+    getRoomByID(roomId) {
+        return _.find(this.rooms, (room) => {
+            return room.id == roomId
+        })
     }
     update() {
         console.log(this)
@@ -154,8 +160,6 @@ class Colony extends OrgBase {
 
         // PID approach
         this.pidDesiredHaulers = Pid.update(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, numHaulTasks, Game.time)
-        console.log(this.id, this.primaryRoomId, JSON.stringify(this.primaryRoom.memory), numHaulTasks, this.desiredHaulers, this.pidDesiredHaulers)
-
         if (this.numHaulers <= this.pidDesiredHaulers) {
             this.sendRequest(TOPIC_SPAWN, PRIORITY_HAULER, {
                 role: WORKERS.WORKER_HAULER_V3,

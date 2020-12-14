@@ -3,6 +3,9 @@ const WarParty = require('org.warparty')
 const OrgBase = require('org.base')
 const Topics = require('lib.topics')
 
+const MEMORY = require('constants.memory')
+const { MEMORY_DROPOFF } = require('constants.memory')
+
 class Kingdom extends OrgBase {
     constructor(colonies) {
         super(null, 'kingdom')
@@ -72,6 +75,23 @@ class Kingdom extends OrgBase {
     }
     getRoom() {
         throw new Error("a kingdom is not a room")
+    }
+    getCreepRoom(creep) {
+        const colony = this.getCreepColony(creep)
+        if (!colony) {
+            return null
+        }
+
+        const roomId = creep.room.name
+        return colony.getRoomByID(roomId)
+    }
+    getCreepColony(creep) {
+        const colonyId = creep.memory[MEMORY.MEMORY_COLONY]
+        if (!colonyId) {
+            return null
+        }
+
+        return this.getColonyById(colonyId)
     }
     getStats() {
         return this.stats

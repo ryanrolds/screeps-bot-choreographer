@@ -1,4 +1,5 @@
 const behaviorTree = require('lib.behaviortree')
+const behaviorCommute = require('behavior.commute')
 const behaviorMovement = require('behavior.movement')
 const behaviorBuild = require('behavior.build')
 const behaviorAssign = require('behavior.assign')
@@ -8,6 +9,7 @@ const behavior = behaviorTree.SequenceNode(
     'builder_root',
     [
         behaviorAssign.moveToRoom,
+        behaviorCommute.setCommuteDuration,
         behaviorRoom.getEnergy,
         behaviorTree.RepeatUntilSuccess(
             'build_until_empty',

@@ -17,8 +17,6 @@ module.exports.update = (memory, prefix, value, time) => {
     const i = memory[`${prefix}${MEMORY.PID_SUFFIX_I}`] || 0
     const d = memory[`${prefix}${MEMORY.PID_SUFFIX_D}`] || 0
 
-    console.log("pid", setPoint, p, i, d)
-
     if (!setPoint || !p) {
         throw new Error("update: missing setpoint or p")
     }
@@ -32,8 +30,6 @@ module.exports.update = (memory, prefix, value, time) => {
     const integral = prevIntegral + (err * dt * i)
 
     const prevErr = memory[`${prefix}${MEMORY.PID_SUFFIX_ERROR}`] || err
-
-    console.log(setPoint, p, i, d, prevTime, dt, prevIntegral, integral, err, prevErr)
 
     let det = 0
     if (dt > 0) {

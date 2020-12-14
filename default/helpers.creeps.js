@@ -12,6 +12,8 @@ const roleAttacker = require('role.attacker')
 const roleReserver = require('role.reserver')
 
 const CREEPS = require('constants.creeps')
+const MEMORY = require('constants.memory')
+
 const { definitions } = require('constants.creeps')
 const { MEMORY_ROLE, MEMORY_ORIGIN, MEMORY_COLONY } = require('constants.memory')
 
@@ -25,38 +27,38 @@ module.exports.tick = (kingdom, trace) => {
         // TODO move the below to a map and/or lookup function
 
         if (creep.memory.role == CREEPS.WORKER_ATTACKER) {
-            roleAttacker.run(creep, trace)
+            roleAttacker.run(creep, trace, kingdom)
         }
 
         if (creep.memory.role == CREEPS.WORKER_MINER ||
             creep.memory.role == CREEPS.WORKER_REMOTE_MINER) {
-            roleMiner.run(creep, trace)
+            roleMiner.run(creep, trace, kingdom)
         }
 
         if (creep.memory.role == CREEPS.WORKER_HARVESTER ||
             creep.memory.role == CREEPS.WORKER_REMOTE_HARVESTER) {
-            roleHarvesterV2.run(creep, trace)
+            roleHarvesterV2.run(creep, trace, kingdom)
         }
 
         if (creep.memory.role == CREEPS.WORKER_UPGRADER) {
-            roleUpgraderV2.run(creep, trace)
+            roleUpgraderV2.run(creep, trace, kingdom)
         }
 
         if (creep.memory.role == CREEPS.WORKER_BUILDER) {
-            roleBuilderV2.run(creep, trace);
+            roleBuilderV2.run(creep, trace, kingdom);
         }
 
         if (creep.memory.role == CREEPS.WORKER_DEFENDER) {
-            roleDefender.run(creep, trace);
+            roleDefender.run(creep, trace, kingdom);
         }
 
         if (creep.memory.role == CREEPS.WORKER_REPAIRER) {
-            roleRepairerV2.run(creep, trace)
+            roleRepairerV2.run(creep, trace, kingdom)
         }
 
         if (creep.memory.role == CREEPS.WORKER_HAULER ||
             creep.memory.role == CREEPS.WORKER_REMOTE_HAULER) {
-            roleHaulerV2.run(creep, trace)
+            roleHaulerV2.run(creep, trace, kingdom)
         }
 
         if (creep.memory.role == CREEPS.WORKER_HAULER_V3) {
@@ -65,15 +67,15 @@ module.exports.tick = (kingdom, trace) => {
 
         if (creep.memory.role == CREEPS. WORKER_CLAIMER ||
             creep.memory.role == CREEPS.WORKER_EXPLORER) {
-            roleClaimerV2.run(creep, trace)
+            roleClaimerV2.run(creep, trace, kingdom)
         }
 
         if (creep.memory.role == CREEPS.WORKER_DISTRIBUTOR) {
-            roleDistributor.run(creep, trace)
+            roleDistributor.run(creep, trace, kingdom)
         }
 
         if (creep.memory.role == CREEPS.WORKER_RESERVER) {
-            roleReserver.run(creep, trace)
+            roleReserver.run(creep, trace, kingdom)
         }
 
     }
@@ -105,6 +107,7 @@ module.exports.createCreepV2 = (colony, room, spawn, role, memory, energy, energ
     memory[MEMORY_COLONY] = colony
     memory[MEMORY_ORIGIN] = room
     memory[MEMORY_ROLE] = role
+    memory[MEMORY.MEMORY_START_TICK] = Game.time
 
     console.log(`==== Creating creep ${colony}, ${room}, ${role}, ${parts}, ${JSON.stringify(memory)}`)
 

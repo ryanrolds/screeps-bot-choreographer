@@ -22,6 +22,8 @@ const MEMORY_ORIGIN = module.exports.MEMORY_ORIGIN = 'origin'
 const MEMORY_FLAG = module.exports.MEMORY_FLAG = 'flag'
 const MEMORY_ASSIGN_ROOM = module.exports.MEMORY_ASSIGN_ROOM = 'assignment_room'
 const MEMORY_COLONY = module.exports.MEMORY_COLONY = 'colony'
+module.exports.MEMORY_START_TICK = 'start_tick'
+module.exports.MEMORY_COMMUTE_DURATION = 'commute_duration'
 
 // V3 - base task
 const MEMORY_TASK_REQUESTER = module.exports.MEMORY_TASK_REQUESTER = 'task_requestor'

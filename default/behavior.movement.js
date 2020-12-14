@@ -28,6 +28,19 @@ const moveTo = module.exports.moveTo = (creep, destination, range) => {
     return RUNNING
 }
 
+const moveToRoom = module.exports.moveToRoom = (creep, room) => {
+    let result = creep.moveTo(new RoomPosition(25, 25, room));
+    if (result === ERR_NO_PATH) {
+        return FAILURE
+    }
+
+    if (result === ERR_INVALID_ARGS) {
+        return FAILURE
+    }
+
+    return RUNNING
+}
+
 module.exports.setSource = (creep, sourceId) => {
     creep.memory[MEMORY_SOURCE] = sourceId
 }

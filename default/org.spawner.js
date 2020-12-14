@@ -31,7 +31,8 @@ class Spawner extends OrgBase {
 
         this.numDistributors = _.filter(Game.creeps, (creep) => {
             return creep.memory[MEMORY_ROLE] === WORKER_DISTRIBUTOR &&
-                creep.memory[MEMORY_ASSIGN_ROOM] === spawner.room.name
+                creep.memory[MEMORY_ASSIGN_ROOM] === spawner.room.name &&
+                creep.ticksToLive > 30
         }).length
     }
     update() {

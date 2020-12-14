@@ -47,16 +47,18 @@ class Source extends OrgBase {
 
         this.numHarvesters = _.filter(Game.creeps, (creep) => {
             const role = creep.memory[MEMORY.MEMORY_ROLE]
+            const commuteTime = creep.memory[MEMORY.MEMORY_COMMUTE_DURATION]
             return (role === WORKER_HARVESTER || role === WORKER_REMOTE_HARVESTER) &&
                 creep.memory[MEMORY.MEMORY_HARVEST] === this.id &&
-                creep.ticksToLive > 100
+                (creep.ticksToLive > (commuteTime || 100))
         }).length
 
         this.numMiners = _.filter(Game.creeps, (creep) => {
             const role = creep.memory[MEMORY.MEMORY_ROLE]
+            const commuteTime = creep.memory[MEMORY.MEMORY_COMMUTE_DURATION]
             return (role === WORKER_MINER || role === WORKER_REMOTE_MINER) &&
                 creep.memory[MEMORY.MEMORY_HARVEST] === this.id &&
-                creep.ticksToLive > 100
+                (creep.ticksToLive > (commuteTime || 100))
         }).length
 
         this.haulersWithTask = _.filter(Game.creeps, (creep) => {
@@ -84,6 +86,12 @@ class Source extends OrgBase {
     }
     update() {
         console.log(this)
+
+        const room = this.getColony().getRoomByID(this.roomID)
+        if (room.numHostiles > 0 && !room.isPrimary) {
+            // Do not request hauling or more workers if room has hostiles and is not the main room
+            return
+        }
 
         this.sendHaulTasks()
 
@@ -139,25 +147,6 @@ class Source extends OrgBase {
                 }
             })
         }
-
-        /*
-        if (this.numHaulers < desiredHaulers) {
-            let priority = PRIORITY_HAULER
-            let role = WORKER_HAULER
-            if (!this.gameObject.room.controller.my) {
-                priority = PRIORITY_REMOTE_HAULER
-                role = WORKER_REMOTE_HAULER
-            }
-
-            this.sendRequest(TOPIC_SPAWN, priority, {
-                role,
-                memory: {
-                    [MEMORY.MEMORY_WITHDRAW]: this.container.id,
-                    [MEMORY.MEMORY_WITHDRAW_ROOM]: this.roomID
-                }
-            })
-        }
-        */
     }
     process() {
         this.updateStats()
@@ -189,7 +178,7 @@ class Source extends OrgBase {
         const storeCapacity = this.container.store.getCapacity()
         const storeUsedCapacity = this.container.store.getUsedCapacity()
         const untaskedUsedCapacity = storeUsedCapacity - this.haulerCapacity
-        const loadsToHaul = Math.ceil(untaskedUsedCapacity / averageLoad)
+        const loadsToHaul = Math.floor(untaskedUsedCapacity / averageLoad)
 
         for (let i = 0; i < loadsToHaul; i++) {
             const loadPriority = (untaskedUsedCapacity - (i * averageLoad)) / storeCapacity
