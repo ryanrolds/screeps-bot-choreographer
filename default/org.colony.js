@@ -82,7 +82,7 @@ class Colony extends OrgBase {
 
         if (this.primaryRoom) {
             // PIDS
-            this.haulerSetpoint = Math.ceil(this.desiredRooms.length * 0.5)
+            this.haulerSetpoint = Math.ceil(this.desiredRooms.length * 0.75)
             Pid.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, this.haulerSetpoint, 0.2, 0.0002, 0)
         }
     }
