@@ -12,9 +12,10 @@ const { PRIORITY_HARVESTER, PRIORITY_MINER, PRIORITY_HAULER, PRIORITY_REMOTE_HAU
     PRIORITY_REMOTE_MINER } = require('constants.priorities')
 
 class Source extends OrgBase {
-    constructor(parent, source) {
+    constructor(parent, source, sourceType) {
         super(parent, source.id)
 
+        this.sourceType = sourceType
         this.gameObject = source
         this.roomID = source.room.name
 
@@ -97,23 +98,15 @@ class Source extends OrgBase {
 
         let desiredHarvesters = 3
         let desiredMiners = 0
-        let desiredHaulers = 0
 
         // If there is a container, we want a miner and a hauler
         if (this.container) {
             desiredHarvesters = 0
             desiredMiners = 1
-            desiredHaulers = 1
+        }
 
-            // Hauling adjacent rooms requires additional haulers
-            if (!this.gameObject.room.controller.my) {
-                desiredHaulers++
-            }
-
-            // If container is full, request an additional hauler
-            if (this.container & this.container.store.getFreeCapacity() < 500) {
-                desiredHaulers++
-            }
+        if (this.sourceType !== "energy") {
+            desiredHarvesters = 1
         }
 
         if (this.numHarvesters < desiredHarvesters) {

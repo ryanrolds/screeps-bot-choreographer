@@ -35,6 +35,13 @@ const MEMORY_HAUL_PICKUP = module.exports.MEMORY_HAUL_PICKUP = 'haul_pickup'
 const MEMORY_HAUL_RESOURCE = module.exports.MEMORY_HAUL_RESOURCE = 'haul_resource'
 const MEMORY_HAUL_DROPOFF = module.exports.MEMORY_HAUL_DROPOFF = 'haul_dropoff'
 
+// Attacker
+module.exports.MEMORY_ATTACK = 'attack'
+module.exports.MEMORY_HEAL = 'heal'
+module.exports.MEMORY_POSITION_X = 'position_x'
+module.exports.MEMORY_POSITION_Y = 'position_y'
+module.exports.MEMORY_POSITION_ROOM = 'position_room'
+
 // PID Controller prefixes
 module.exports.PID_PREFIX_HAULERS = 'haulers_'
 

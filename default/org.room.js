@@ -1,6 +1,7 @@
 
 const OrgBase = require('org.base')
 const Link = require('org.link')
+const Tower = require('org.tower')
 const Topics = require('lib.topics')
 
 const MEMORY = require('constants.memory')
@@ -10,10 +11,11 @@ const { TOPIC_SPAWN, TOPIC_DEFENDERS } = require('constants.topics')
 const { WORKER_UPGRADER, WORKER_REPAIRER, WORKER_BUILDER, WORKER_DEFENDER } = require('constants.creeps')
 const { PRIORITY_UPGRADER, PRIORITY_BUILDER, PRIORITY_REPAIRER, PRIORITY_BOOTSTRAP,
     PRIORITY_REPAIRER_URGENT, PRIORITY_DEFENDER, PRIORITY_CLAIMER } = require('constants.priorities')
-const { WORKER_CLAIMER, WORKER_RESERVER } = require('./constants.creeps')
-const { PRIORITY_RESERVER } = require('./constants.priorities')
+const { WORKER_CLAIMER, WORKER_RESERVER, WORKER_DISTRIBUTOR } = require('./constants.creeps')
+const { PRIORITY_RESERVER, PRIORITY_DISTRIBUTOR } = require('./constants.priorities')
 
 const MAX_UPGRADERS = 2
+const MIN_DISTRIBUTORS = 2
 
 class Room extends OrgBase {
     constructor(parent, room) {
@@ -24,7 +26,6 @@ class Room extends OrgBase {
         this.gameObject = room
         this.isPrimary = room.name === parent.primaryRoomId
         this.claimedByMe = room.controller.my || false
-
 
         this.hasClaimer = _.filter(Game.creeps, (creep) => {
             return creep.memory[MEMORY_ROLE] === WORKER_CLAIMER &&
@@ -55,31 +56,58 @@ class Room extends OrgBase {
             filter: (structure) => {
                 return structure.structureType === STRUCTURE_TOWER
             }
+        }).map((tower) => {
+            return new Tower(this, tower)
         })
 
-        this.numRepairers = _.filter(Game.creeps, (creep) => {
+        this.myCreeps = room.find(FIND_MY_CREEPS)
+        this.myDamagedCreeps = this.myCreeps.filter((creep) => {
+            return creep.hits < creep.hitsMax
+        })
+
+        this.assignedCreeps = _.filter(Game.creeps, (creep) => {
+            return creep.memory[MEMORY_ASSIGN_ROOM] === room.name
+        })
+
+        this.numRepairers = _.filter(this.assignedCreeps, (creep) => {
             return creep.memory[MEMORY_ROLE] === WORKER_REPAIRER &&
-                creep.memory[MEMORY_ASSIGN_ROOM] === room.name  &&
                 (creep.ticksToLive > (creep.memory[MEMORY.MEMORY_COMMUTE_DURATION] || 100))
         }).length
 
         // Construction sites will help decide how many builders we need
         this.numConstructionSites = room.find(FIND_CONSTRUCTION_SITES).length
 
-        this.builders = _.filter(Game.creeps, (creep) => {
+        this.builders = _.filter(this.assignedCreeps, (creep) => {
             return creep.memory[MEMORY_ROLE] === WORKER_BUILDER &&
-                creep.memory[MEMORY_ASSIGN_ROOM] === room.name &&
                 (creep.ticksToLive > (creep.memory[MEMORY.MEMORY_COMMUTE_DURATION] || 100))
         })
 
-        this.upgraders = _.filter(Game.creeps, (creep) => {
+        this.upgraders = _.filter(this.assignedCreeps, (creep) => {
             return creep.memory[MEMORY_ROLE] == WORKER_UPGRADER &&
-                creep.memory[MEMORY_ASSIGN_ROOM] === room.name &&
                 (creep.ticksToLive > (creep.memory[MEMORY.MEMORY_COMMUTE_DURATION] || 100))
         })
+
+        this.hasStorage = this.getSpawns().reduce((containers, spawn) => {
+            return containers.concat(spawn.pos.findInRange(FIND_STRUCTURES, 8, {
+                filter: (structure) => {
+                    return (structure.structureType == STRUCTURE_CONTAINER ||
+                        structure.structureType == STRUCTURE_STORAGE);
+                }
+            }))
+        }, []).length > 0
+
+        this.distributors = _.filter(Game.creeps, (creep) => {
+            return creep.memory[MEMORY_ROLE] === WORKER_DISTRIBUTOR &&
+                creep.memory[MEMORY_ASSIGN_ROOM] === this.id &&
+                creep.ticksToLive > 30
+        })
+        this.numDistributors = this.distributors.length
 
         // We want to know if the room has hostiles, request defenders or put room in safe mode
-        this.numHostiles = room.find(FIND_HOSTILE_CREEPS).length
+        let hostiles = room.find(FIND_HOSTILE_CREEPS)
+        // TODO order hostiles by priority
+        this.hostiles = hostiles
+        this.numHostiles = this.hostiles.length
 
         // We want to know if our defenses are being attacked
         this.lowHitsDefenses = room.find(FIND_STRUCTURES).filter((s) => {
@@ -113,8 +141,6 @@ class Room extends OrgBase {
         this.numStructures = numStructures
     }
     update() {
-        console.log(this)
-
         let controller = this.gameObject.controller
 
         // If hostiles present spawn defenders and/or activate safe mode
@@ -133,6 +159,16 @@ class Room extends OrgBase {
                     }
                 })
             }
+        }
+
+        // Send a request if we are short on distributors
+        if (this.hasStorage && this.numDistributors < MIN_DISTRIBUTORS) {
+            this.sendRequest(TOPIC_SPAWN, PRIORITY_DISTRIBUTOR, {
+                role: WORKER_DISTRIBUTOR,
+                memory: {
+                    [MEMORY_ASSIGN_ROOM]: this.id
+                }
+            })
         }
 
         // If not claimed by me and no claimer assigned and primary, request a claimer
@@ -243,8 +279,14 @@ class Room extends OrgBase {
             })
         }
 
+        console.log(this)
+
         this.links.forEach((link) => {
             link.update()
+        })
+
+        this.towers.forEach((tower) => {
+            tower.update()
         })
     }
     process() {
@@ -253,6 +295,10 @@ class Room extends OrgBase {
         this.links.forEach((link) => {
             link.process()
         })
+
+        this.towers.forEach((tower) => {
+            tower.process()
+        })
     }
     toString() {
         return `-- Room - ID: ${this.id}, Primary: ${this.isPrimary}, Claimed: ${this.claimedByMe}, ` +
@@ -260,7 +306,7 @@ class Room extends OrgBase {
         `#Upgraders: ${this.upgraders.length}, #Hostiles: ${this.numHostiles}, ` +
         `#Towers: ${this.towers.length}, #Sites: ${this.numConstructionSites}, ` +
         `%Hits: ${this.hitsPercentage.toFixed(2)}, #Repairer: ${this.numRepairers}, ` +
-        `#Links: ${this.links.length}`
+        `#Links: ${this.links.length}, #Distributors: ${this.numDistributors}`
     }
     getRoom() {
         return this
@@ -270,6 +316,46 @@ class Room extends OrgBase {
     }
     getSpawns() {
         return this.gameObject.find(FIND_MY_SPAWNS)
+    }
+    getHostiles() {
+        return this.hostiles
+    }
+    getMyCreeps() {
+        return this.myCreeps
+    }
+    getClosestStoreWithEnergy(creep) {
+        if (this.gameObject.storage) {
+            return this.gameObject.storage.id
+        }
+
+        const container = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+            filter: (structure) => {
+                return structure.structureType === STRUCTURE_CONTAINER &&
+                    structure.store.getUsedCapacity(RESOURCE_ENERGY) > 0
+            }
+        })
+
+        if (container) {
+            return container.id
+        }
+
+        if (this.isPrimary) {
+            return null
+        }
+
+        return this.getColony().primaryRoom.getClosestStoreWithEnergy(creep)
+    }
+    getMineralsWithExtractor() {
+        const extractors = this.gameObject.find(FIND_STRUCTURES, {
+            filter: (structure) => {
+                return structure.structureType === STRUCTURE_EXTRACTOR
+            }
+        })
+
+        return extractors.map((extractor) => {
+            const minerals = extractor.pos.findInRange(FIND_MINERALS, 0)
+            return minerals[0]
+        })
     }
     updateStats() {
         const room = this.gameObject

@@ -1,81 +1,72 @@
 const behaviorTree = require('lib.behaviortree')
 const {FAILURE, SUCCESS, RUNNING} = require('lib.behaviortree')
-const behaviorMovement = require('behavior.movement')
-const behaviorFlag = require('behavior.flag')
+
+const MEMORY = require('constants.memory')
 
 const behavior = behaviorTree.SequenceNode(
     "attacker_root",
     [
-        behaviorFlag.moveToFlag,
         behaviorTree.LeafNode(
-            'attack_hostiles',
+            'move_node',
             (creep) => {
-                let hostile = creep.pos.findClosestByPath(FIND_HOSTILE_CREEPS)
-                if (hostile) {
-                    let result = creep.rangedAttack(hostile)
-                    if (result === ERR_NO_BODYPART) {
-                        return FAILURE
-                    }
-                    if (result === ERR_INVALID_TARGET) {
-                        return FAILURE
-                    }
-                    if (result === ERR_NOT_IN_RANGE) {
-                        creep.moveTo(hostile, {visualizePathStyle: {stroke: '#ffffff'}});
-                    }
-
-                    return RUNNING
+                const x = creep.memory[MEMORY.MEMORY_POSITION_X]
+                const y = creep.memory[MEMORY.MEMORY_POSITION_Y]
+                const roomId = creep.memory[MEMORY.MEMORY_POSITION_ROOM]
+                if (!x || !y || !roomId) {
+                    return SUCCESS
                 }
+
+                const position = new RoomPosition(x, y, roomId)
+
+                if (creep.pos.isEqualTo(position)) {
+                    return SUCCESS
+                }
+
+                const result = creep.moveTo(position, {reusePath: 0})
+                console.log("move", creep.name, position, result)
+
 
                 return SUCCESS
             }
         ),
         behaviorTree.LeafNode(
-            'attack_structures',
+            'attack_node',
             (creep) => {
-                let hostile = creep.pos.findClosestByPath(FIND_HOSTILE_STRUCTURES)
-                if (hostile) {
-                    let result = creep.rangedAttack(hostile)
-                    if (result === ERR_NO_BODYPART) {
-                        return FAILURE
-                    }
-                    if (result === ERR_INVALID_TARGET) {
-                        return FAILURE
-                    }
-                    if (result === ERR_NOT_IN_RANGE) {
-                        creep.moveTo(hostile, {visualizePathStyle: {stroke: '#ffffff'}});
-                    }
-
-                    return RUNNING
+                const attack = creep.memory[MEMORY.MEMORY_ATTACK]
+                if (!attack) {
+                    return SUCCESS
                 }
+
+                const target = Game.getObjectById(attack)
+                if (!creep.pos.inRangeTo(target, 3)) {
+                    return SUCCESS
+                }
+
+                const result = creep.rangedAttack(target)
+                console.log("attack", creep.name, target, result)
 
                 return SUCCESS
             }
         ),
         behaviorTree.LeafNode(
-            'attack_spawns',
+            'heal_node',
             (creep) => {
-                let hostile = creep.pos.findClosestByPath(FIND_HOSTILE_SPAWNS)
-                if (hostile) {
-                    let result = creep.rangedAttack(hostile)
-                    if (result === ERR_NO_BODYPART) {
-                        return FAILURE
-                    }
-                    if (result === ERR_INVALID_TARGET) {
-                        return FAILURE
-                    }
-                    if (result === ERR_NOT_IN_RANGE) {
-                        creep.moveTo(hostile, {visualizePathStyle: {stroke: '#ffffff'}});
-                    }
-
-                    return RUNNING
+                const heal = creep.memory[MEMORY.MEMORY_HEAL]
+                if (!heal) {
+                    return SUCCESS
                 }
+
+                const target = Game.getObjectById(heal)
+                if (!creep.pos.inRangeTo(target, 3)) {
+                    return SUCCESS
+                }
+
+                const result = creep.rangedAttack(target)
+                console.log("heal", creep.name, target, result)
 
                 return SUCCESS
             }
         ),
-        // TODO attack turrets
-        // TODO attack RC
-        // TODO attack walls/ramparts
     ]
 )
 

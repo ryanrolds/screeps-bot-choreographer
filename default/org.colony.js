@@ -41,7 +41,12 @@ class Colony extends OrgBase {
         this.sources = this.rooms.reduce((sources, room) => {
             const roomSources = room.getSources()
             roomSources.forEach((source) => {
-                sources.push(new Source(this, source))
+                sources.push(new Source(this, source, "energy"))
+            })
+
+            const minerals = room.getMineralsWithExtractor()
+            minerals.forEach((mineral) => {
+                sources.push(new Source(this, mineral, "mineral"))
             })
 
             return sources
@@ -75,9 +80,11 @@ class Colony extends OrgBase {
                 creep.ticksToLive > 100
         }).length
 
-        // PIDS
-        this.haulerSetpoint = Math.round(this.desiredRooms.length * 1)
-        Pid.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, this.haulerSetpoint, 0.15, 0.0003, 0)
+        if (this.primaryRoom) {
+            // PIDS
+            this.haulerSetpoint = Math.ceil(this.desiredRooms.length * 0.5)
+            Pid.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, this.haulerSetpoint, 0.2, 0.0002, 0)
+        }
     }
     getColony() {
         return this
@@ -156,15 +163,16 @@ class Colony extends OrgBase {
 
         // Fraction of num haul tasks
         const numHaulTasks = this.getTopicLength(TOPIC_HAUL_TASK)
-        this.desiredHaulers = Math.ceil(numHaulTasks / 2)
-
-        // PID approach
-        this.pidDesiredHaulers = Pid.update(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, numHaulTasks, Game.time)
-        if (this.numHaulers <= this.pidDesiredHaulers) {
-            this.sendRequest(TOPIC_SPAWN, PRIORITY_HAULER, {
-                role: WORKERS.WORKER_HAULER_V3,
-                memory: {}
-            })
+        this.pidDesiredHaulers = 0
+        if (this.primaryRoom) {
+            // PID approach
+            this.pidDesiredHaulers = Pid.update(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, numHaulTasks, Game.time)
+            if (this.numHaulers <= this.pidDesiredHaulers) {
+                this.sendRequest(TOPIC_SPAWN, PRIORITY_HAULER, {
+                    role: WORKERS.WORKER_HAULER_V3,
+                    memory: {}
+                })
+            }
         }
 
         this.updateStats()
@@ -199,7 +207,6 @@ class Colony extends OrgBase {
         const colonyStats = {
             numHaulers: this.numHaulers,
             haulerSetpoint: this.haulerSetpoint,
-            desiredHaulers: this.desiredHaulers,
             pidDesiredHaulers: this.pidDesiredHaulers,
             rooms: {}
         }

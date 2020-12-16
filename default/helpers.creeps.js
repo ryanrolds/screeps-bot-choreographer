@@ -77,7 +77,6 @@ module.exports.tick = (kingdom, trace) => {
         if (creep.memory.role == CREEPS.WORKER_RESERVER) {
             roleReserver.run(creep, trace, kingdom)
         }
-
     }
 
     // Cleanup old creep memory
@@ -136,6 +135,26 @@ function getBodyParts(definition, maxEnergy) {
 
         i++
     }
+
+    base = _.sortBy(base, (part) => {
+        switch (part) {
+        case TOUGH:
+            return 0
+        case WORK:
+        case CARRY:
+            return 1
+        case MOVE:
+            return 2
+        case ATTACK:
+            return 8
+        case RANGED_ATTACK:
+            return 9
+        case HEAL:
+            return 10
+        default:
+            return 1
+        }
+    })
 
     return base
 }

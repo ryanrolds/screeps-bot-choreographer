@@ -4,6 +4,7 @@ const behaviorMovement = require('behavior.movement')
 const behaviorBuild = require('behavior.build')
 const behaviorAssign = require('behavior.assign')
 const behaviorRoom = require('behavior.room')
+const behaviorNonCombatant = require('behavior.noncombatant')
 
 const behavior = behaviorTree.SequenceNode(
     'builder_root',
@@ -27,10 +28,10 @@ const behavior = behaviorTree.SequenceNode(
 )
 
 module.exports = {
-    run: (creep, trace) => {
+    run: (creep, trace, kingdom) => {
         const roleTrace = trace.begin('builder')
 
-        let result = behavior.tick(creep, roleTrace)
+        let result = behaviorNonCombatant(behavior).tick(creep, roleTrace, kingdom)
         if (result == behaviorTree.FAILURE) {
             console.log("INVESTIGATE: builder failure", creep.name)
         }

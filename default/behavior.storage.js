@@ -2,6 +2,12 @@
 const behaviorTree = require('lib.behaviortree')
 const {FAILURE, SUCCESS, RUNNING} = require('lib.behaviortree')
 const behaviorMovement = require('behavior.movement')
+
+const MEMORY = require('constants.memory')
+const TASKS = require('constants.tasks')
+const CREEPS = require('constants.creeps')
+const TOPICS = require('constants.topics')
+
 const { MEMORY_ROLE, MEMORY_DESTINATION, MEMORY_ORIGIN } = require('constants.memory')
 const { WORKER_HAULER, WORKER_DISTRIBUTOR, WORKER_REMOTE_HAULER,  WORKER_HAULER_V3 } = require('constants.creeps')
 
@@ -95,6 +101,18 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.Select
             }
         ),
         */
+        behaviorTree.LeafNode(
+            'use_memory_dropoff',
+            (creep) => {
+                const dropoff = creep.memory[MEMORY.MEMORY_HAUL_DROPOFF]
+                if (dropoff) {
+                    behaviorMovement.setDestination(creep, dropoff)
+                    return SUCCESS
+                }
+
+                return FAILURE
+            }
+        ),
         behaviorTree.LeafNode(
             'pick_adjacent_container',
             (creep) => {
@@ -453,11 +471,12 @@ module.exports.emptyCreep = behaviorTree.RepeatUntilSuccess(
                         return FAILURE
                     }
 
-                    let result = creep.transfer(destination, RESOURCE_ENERGY)
+                    let resource = Object.keys(creep.store).pop()
+                    let result = creep.transfer(destination, resource)
                     if (result === ERR_FULL) {
                         // We still have energy to transfer, fail so we find another
                         // place to dump
-                        return FAILURE
+                        return SUCCESS
                     }
                     if (result === ERR_NOT_ENOUGH_RESOURCES) {
                         return SUCCESS
@@ -469,7 +488,7 @@ module.exports.emptyCreep = behaviorTree.RepeatUntilSuccess(
                         return FAILURE
                     }
 
-                    return RUNNING
+                    return SUCCESS
                 }
             )
         ]

@@ -2,7 +2,9 @@ const Colony = require('org.colony')
 const WarParty = require('org.warparty')
 const OrgBase = require('org.base')
 const Topics = require('lib.topics')
+const tracing = require('lib.tracing')
 
+const helpersCreeps = require('helpers.creeps')
 const MEMORY = require('constants.memory')
 const { MEMORY_DROPOFF } = require('constants.memory')
 
@@ -49,6 +51,15 @@ class Kingdom extends OrgBase {
         Object.values(this.colonies).forEach((colony) => {
             colony.process()
         })
+
+        let creepsTrace = tracing.startTrace("main")
+        helpersCreeps.tick(this, creepsTrace)
+        creepsTrace.end()
+
+        this.updateStats()
+
+        // Set stats in memory for pulling and display in Grafana
+        Memory.stats = this.getStats()
     }
     toString() {
         return `---- Kingdom - #Colonies: ${this.colonies.length}`
@@ -116,8 +127,6 @@ class Kingdom extends OrgBase {
         stats.creeps = _.countBy(Game.creeps, (creep) => {
             return creep.memory.role
         })
-
-        Memory.stats = stats
     }
 }
 

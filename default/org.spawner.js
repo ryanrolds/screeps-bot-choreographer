@@ -1,13 +1,6 @@
 const OrgBase = require('org.base');
-
-const { MEMORY_ROLE, MEMORY_ASSIGN_ROOM } = require('constants.memory');
-const { WORKER_DISTRIBUTOR, WORKER_ATTACKER } = require('constants.creeps');
 const { TOPIC_SPAWN } = require('constants.topics')
-const { PRIORITY_DISTRIBUTOR } = require('constants.priorities');
-
 const creepHelpers = require('helpers.creeps')
-
-const MIN_DISTRIBUTORS = 2
 
 class Spawner extends OrgBase {
     constructor(parent, spawner) {
@@ -21,36 +14,11 @@ class Spawner extends OrgBase {
         this.energy = spawner.room.energyAvailable
         this.energyCapacity = spawner.room.energyCapacityAvailable
         this.energyPercentage = this.energy / this.energyCapacity
-
-        this.hasStorage = spawner.pos.findInRange(FIND_STRUCTURES, 8, {
-            filter: (structure) => {
-                return (structure.structureType == STRUCTURE_CONTAINER ||
-                    structure.structureType == STRUCTURE_STORAGE);
-            }
-        }).length > 0
-
-        this.numDistributors = _.filter(Game.creeps, (creep) => {
-            return creep.memory[MEMORY_ROLE] === WORKER_DISTRIBUTOR &&
-                creep.memory[MEMORY_ASSIGN_ROOM] === spawner.room.name &&
-                creep.ticksToLive > 30
-        }).length
     }
     update() {
         console.log(this)
-
-        // Send a request if we are short on distributors
-        if (this.hasStorage && this.numDistributors < MIN_DISTRIBUTORS) {
-            this.sendRequest(TOPIC_SPAWN, PRIORITY_DISTRIBUTOR, {
-                role: WORKER_DISTRIBUTOR,
-                memory: {
-                    [MEMORY_ASSIGN_ROOM]: this.roomId
-                }
-            })
-        }
     }
     process() {
-        this.updateStats()
-
         const spawnTopicSize = this.getTopicLength(TOPIC_SPAWN)
         const spawnTopicBackPressure = Math.floor(this.energyCapacity * (1 - (0.09 * spawnTopicSize)))
         let energyLimit = _.max([300, spawnTopicBackPressure])
@@ -69,8 +37,6 @@ class Spawner extends OrgBase {
             }
         }
         minEnergy = _.min([minEnergy, spawnTopicBackPressure])
-
-        //console.log(this.energy, this.energyCapacity, minEnergy, energyLimit, spawnTopicBackPressure, numCreeps, spawnTopicSize)
 
         if (!this.isIdle) {
             this.gameObject.room.visual.text(
@@ -102,6 +68,8 @@ class Spawner extends OrgBase {
 
         // Track how long we sit without something to do (no requests or no energy)
         this.gameObject.memory['ticksIdle']++
+
+        this.updateStats()
     }
     createCreep(role, memory, energyLimit) {
         let energy = this.energy
@@ -113,8 +81,7 @@ class Spawner extends OrgBase {
     }
     toString() {
         return `---- Spawner - ID: ${this.id}, Idle: ${this.isIdle}, Energy: ${this.energy}, `+
-            `%Energy: ${this.energyPercentage.toFixed(2)}, hasStorage: ${this.hasStorage}, `+
-            `#Distributors: ${this.numDistributors}`
+            `%Energy: ${this.energyPercentage.toFixed(2)}`
     }
     updateStats() {
         const spawn = this.gameObject

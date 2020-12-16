@@ -101,8 +101,8 @@ const definitions = {
     },
     [WORKER_ATTACKER]: {
         energyLimit: null,
-        parts: [MOVE, TOUGH, MOVE, TOUGH, MOVE, RANGED_ATTACK],
-        base: [MOVE, TOUGH, MOVE, TOUGH, MOVE, RANGED_ATTACK]
+        parts: [MOVE, TOUGH, MOVE, RANGED_ATTACK, MOVE, HEAL],
+        base: [MOVE, TOUGH, MOVE, RANGED_ATTACK]
     }
 }
 

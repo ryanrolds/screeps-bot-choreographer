@@ -3,6 +3,7 @@ const behaviorTree = require('lib.behaviortree')
 const {FAILURE, SUCCESS, RUNNING} = require('lib.behaviortree')
 const behaviorMovement = require('behavior.movement')
 const behaviorStorage = require('behavior.storage')
+const behaviorNonCombatant = require('behavior.noncombatant')
 
 const MEMORY = require('constants.memory')
 const TASKS = require('constants.tasks')
@@ -24,6 +25,8 @@ const behavior = behaviorTree.SequenceNode(
                 if (!task) {
                     return FAILURE
                 }
+
+                console.log(creep.name, "task", JSON.stringify(task))
 
                 // set task details
                 creep.memory[MEMORY.MEMORY_TASK_TYPE] = TASKS.TASK_HAUL
@@ -61,36 +64,6 @@ const behavior = behaviorTree.SequenceNode(
             }
         ),
         behaviorStorage.emptyCreep
-        /* TODO task should include dropoff
-        behaviorMovement.moveToCreepMemory(MEMORY.MEMORY_HAUL_DROPOFF),
-        behaviorTree.LeafNode(
-            'dropoff_resource',
-            (creep, kingdom) => {
-                let dropoff = Game.getObjectById(creep.memory[MEMORY.MEMORY_HAUL_DROPOFF])
-                if (!dropoff) {
-                    return behaviorTree.FAILURE
-                }
-
-                let result = creep.transfer(destination, RESOURCE_ENERGY)
-                if (result === ERR_FULL) {
-                    // We still have energy to transfer, fail so we find another
-                    // place to dump
-                    return FAILURE
-                }
-                if (result === ERR_NOT_ENOUGH_RESOURCES) {
-                    return SUCCESS
-                }
-                if (creep.store.getUsedCapacity() === 0) {
-                    return SUCCESS
-                }
-                if (result != OK) {
-                    return FAILURE
-                }
-
-                return RUNNING
-            }
-        ),
-        */
     ]
 )
 
@@ -98,7 +71,7 @@ module.exports = {
     run: (creep, trace, kingdom) => {
         const roleTrace = trace.begin('hauler_v3')
 
-        let result = behavior.tick(creep, roleTrace, kingdom)
+        let result = behaviorNonCombatant(behavior).tick(creep, roleTrace, kingdom)
         if (result == behaviorTree.FAILURE) {
             console.log("INVESTIGATE: hauler_v3 failure", creep.name)
         }

@@ -5,6 +5,7 @@ const behaviorMovement = require('behavior.movement')
 const behaviorCommute = require('behavior.commute')
 const behaviorAssign = require('behavior.assign')
 const behaviorRoom = require('behavior.room')
+const behaviorNonCombatant = require('behavior.noncombatant')
 
 const { MEMORY_DESTINATION } = require('constants.memory')
 const { getDamagedStructure } = require('helpers.targets')
@@ -71,11 +72,11 @@ const behavior = behaviorTree.SequenceNode(
 )
 
 module.exports = {
-    run: (creep, trace) => {
+    run: (creep, trace, kingdom) => {
         const roleTrace = trace.begin('repairer')
 
-        let result = behavior.tick(creep, roleTrace)
-        if (result == FAILURE) {
+        let result = behaviorNonCombatant(behavior).tick(creep, roleTrace, kingdom)
+        if (result == behaviorTree.FAILURE) {
             console.log("INVESTIGATE: repairer failure", creep.name)
         }
 

@@ -4,6 +4,8 @@ const behaviorCommute = require('behavior.commute')
 const behaviorMovement = require('behavior.movement')
 const { MEMORY_ASSIGN_ROOM } = require('constants.memory')
 
+const behaviorNonCombatant = require('behavior.noncombatant')
+
 const behavior = behaviorTree.SelectorNode(
     "reserver_root",
     [
@@ -66,10 +68,10 @@ const behavior = behaviorTree.SelectorNode(
 )
 
 module.exports = {
-    run: (creep, trace) => {
+    run: (creep, trace, kingdom) => {
         const roleTrace = trace.begin('reserver')
 
-        let result = behavior.tick(creep, roleTrace)
+        let result = behaviorNonCombatant(behavior).tick(creep, roleTrace, kingdom)
         if (result == behaviorTree.FAILURE) {
             console.log("INVESTIGATE: reserver failure", creep.name)
         }
