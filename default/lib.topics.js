@@ -10,6 +10,15 @@ class Topics {
 
         return this.topics[topic]
     }
+    setTopic(topic, value){
+        if (!this.topics[topic]) {
+            return null
+        }
+
+        console.log("setting", topic)
+
+        this.topics[topic] = value
+    }
     createTopic(topic) {
         this.topics[topic] = []
         return this.topics[topic]
@@ -28,6 +37,18 @@ class Topics {
         topic.push(request)
         this.topics[topicID] = _.sortBy(topic, 'priority')
     }
+    peekNextRequest(topicID) {
+        const topic = this.getTopic(topicID)
+        if (!topic) {
+            return null
+        }
+
+        if (!topic.length) {
+            return null
+        }
+
+        return topic[topic.length-1]
+    }
     getNextRequest(topicID) {
         const topic = this.getTopic(topicID)
         if (!topic) {
@@ -35,6 +56,9 @@ class Topics {
         }
 
         let request = topic.pop()
+
+        this.setTopic(topicID, topic)
+
         return request
     }
     getLength(topicID) {

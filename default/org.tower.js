@@ -5,8 +5,6 @@ const TASKS = require('constants.tasks')
 const CREEPS = require('constants.creeps')
 const TOPICS = require('constants.topics')
 
-const MAX_DEFENSE_HITS = 120000
-
 class Tower extends OrgBase {
     constructor(parent, tower) {
         super(parent, tower.id)
@@ -26,7 +24,14 @@ class Tower extends OrgBase {
             return total += hauler.store.getUsedCapacity()
         }, 0)
 
-        // TODO port tower logic over
+        const room = tower.room
+        const rcLevel = room.controller.level.toString()
+        let rcLevelHitsMax = RAMPART_HITS_MAX[rcLevel] || 10000
+        let energyFullness = 2
+        if (room.storage) {
+            energyFullness = room.storage.store.getUsedCapacity() / room.storage.store.getCapacity() * 10
+        }
+        this.defenseHitsLimit = rcLevelHitsMax * Math.pow(0.45, (10 - energyFullness))
     }
     update() {
         console.log(this)
@@ -34,10 +39,11 @@ class Tower extends OrgBase {
     process() {
         let tower = this.gameObject
 
-        if (tower.energy + this.haulerUsedCapacity < 500) {
+        if (tower.energy + this.haulerUsedCapacity < 500 && this.getRoom().getAmountInReserve(RESOURCE_ENERGY) > 2000) {
             const pickupId = this.parent.getClosestStoreWithEnergy(tower)
 
-            const priority = 1 - ((tower.energy + this.haulerUsedCapacity) /
+            // The -0.01 is so that we haul full mining containers before fueling towers
+            const priority = 1 - (0.75 * (tower.energy + this.haulerUsedCapacity) /
                 tower.store.getCapacity(RESOURCE_ENERGY))
 
             const details = {
@@ -52,13 +58,18 @@ class Tower extends OrgBase {
 
         var hostiles = this.parent.getHostiles()
         if (hostiles && hostiles.length) {
+            hostiles = hostiles.filter((hostile) => {
+                return tower.pos.getRangeTo(hostile) <= 15
+            })
 
-            hostiles = _.sortBy(hostiles, (hostile) => {
-                return hostile.getActiveBodyparts(HEAL)
-            }).reverse()
+            if (hostiles.length) {
+                hostiles = _.sortBy(hostiles, (hostile) => {
+                    return hostile.getActiveBodyparts(HEAL)
+                }).reverse()
 
-            tower.attack(hostiles[0])
-            return
+                tower.attack(hostiles[0])
+                return
+            }
         }
 
         for (let name in Game.creeps) {
@@ -84,38 +95,40 @@ class Tower extends OrgBase {
                 return
             }
 
-            var damagedSecondaryStructures = tower.room.find(FIND_STRUCTURES, {
-                filter: (s) => {
-                    return s.hits < s.hitsMax && (
-                        s.structureType == STRUCTURE_RAMPART ||
-                        s.structureType == STRUCTURE_WALL) &&
-                        s.hits < MAX_DEFENSE_HITS // TODO this needs to scale with energy reserves
+            if (this.getRoom().getAmountInReserve(RESOURCE_ENERGY) > 4000) {
+                var damagedSecondaryStructures = tower.room.find(FIND_STRUCTURES, {
+                    filter: (s) => {
+                        return s.hits < s.hitsMax && (
+                            s.structureType == STRUCTURE_RAMPART ||
+                            s.structureType == STRUCTURE_WALL) &&
+                            s.hits < this.defenseHitsLimit
+                    }
+                })
+                damagedSecondaryStructures = _.sortBy(damagedSecondaryStructures, (structure) => {
+                    return structure.hits
+                })
+                if (damagedSecondaryStructures && damagedSecondaryStructures.length) {
+                    tower.repair(damagedSecondaryStructures[0]);
+                    return
                 }
-            })
-            damagedSecondaryStructures = _.sortBy(damagedSecondaryStructures, (structure) => {
-                return structure.hits
-            })
-            if (damagedSecondaryStructures && damagedSecondaryStructures.length) {
-                tower.repair(damagedSecondaryStructures[0]);
-                return
-            }
 
-            var damagedRoads = tower.room.find(FIND_STRUCTURES, {
-                filter: (s) => {
-                    return s.hits < s.hitsMax && s.structureType == STRUCTURE_ROAD
+                var damagedRoads = tower.room.find(FIND_STRUCTURES, {
+                    filter: (s) => {
+                        return s.hits < s.hitsMax && s.structureType == STRUCTURE_ROAD
+                    }
+                })
+                damagedRoads = _.sortBy(damagedRoads, (structure) => {
+                    return structure.hits
+                })
+                if (damagedRoads && damagedRoads.length) {
+                    tower.repair(damagedRoads[0]);
+                    return
                 }
-            })
-            damagedRoads = _.sortBy(damagedRoads, (structure) => {
-                return structure.hits
-            })
-            if (damagedRoads && damagedRoads.length) {
-                tower.repair(damagedRoads[0]);
-                return
             }
         }
     }
     toString() {
-        return `---- Tower - ID: ${this.id}, Energy: ${this.energy}`
+        return `---- Tower - ID: ${this.id}, Energy: ${this.energy}, DefenseHitsLimit: ${this.defenseHitsLimit}`
     }
 }
 

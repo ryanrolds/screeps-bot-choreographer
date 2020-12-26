@@ -65,12 +65,6 @@ class Source extends OrgBase {
         this.haulersWithTask = _.filter(Game.creeps, (creep) => {
             const task = creep.memory[MEMORY.MEMORY_TASK_TYPE]
             const pickup = creep.memory[MEMORY.MEMORY_HAUL_PICKUP]
-
-            // do not count creeps that have already picked up a load
-            if (creep.store.getUsedCapacity() > 0) {
-                return false
-            }
-
             return task === TASKS.TASK_HAUL && pickup === this.containerID
         })
 

@@ -17,10 +17,11 @@ const moveTo = module.exports.moveTo = (creep, destination, range) => {
         return SUCCESS
     }
 
-    let result = creep.moveTo(destination, {reusePath: 25, maxOps: 2000})
+    let result = creep.moveTo(destination, {reusePath: 20, maxOps: 1000})
     if (result === ERR_NO_PATH) {
         return FAILURE
     }
+
     if (result !== OK && result !== ERR_TIRED) {
         return FAILURE
     }
@@ -72,7 +73,7 @@ module.exports.moveToCreepMemory = (memoryID, range = 1) => {
 
 module.exports.moveToDestination = (range = 1) => {
     return behaviorTree.LeafNode(
-        'bt.movement.moveToDestiantion',
+        'bt.movement.moveToDestination',
         (creep) => {
             return moveToMemory(creep, MEMORY_DESTINATION, range)
         }

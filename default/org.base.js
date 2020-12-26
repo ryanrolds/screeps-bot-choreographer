@@ -29,6 +29,14 @@ class OrgBase {
 
         parent.sendRequest(topic, priority, request)
     }
+    peekNextRequest() {
+        const parent = this.getParent()
+        if (!parent) {
+            return null
+        }
+
+        return parent.peekNextRequest(topic)
+    }
     getNextRequest(topic) {
         const parent = this.getParent()
         if (!parent) {

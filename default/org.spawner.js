@@ -1,6 +1,7 @@
 const OrgBase = require('org.base');
 const { TOPIC_SPAWN } = require('constants.topics')
 const creepHelpers = require('helpers.creeps')
+const { definitions } = require('constants.creeps')
 
 class Spawner extends OrgBase {
     constructor(parent, spawner) {
@@ -55,6 +56,15 @@ class Spawner extends OrgBase {
                 console.log("BUILDING", this.id, JSON.stringify(request))
                 let result = this.createCreep(request.details.role, request.details.memory, energyLimit)
                 return
+            }
+
+            const peek = this.getKingdom().peekNextRequest(TOPIC_SPAWN)
+            if (peek) {
+                const role = peek.details.role
+                const definition = definitions[role]
+                if (definition.energyMinimum && this.energy < definition.energyMinimum) {
+                    return
+                }
             }
 
             // Check inter-colony requests if the colony has spawns

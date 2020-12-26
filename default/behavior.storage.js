@@ -11,28 +11,35 @@ const TOPICS = require('constants.topics')
 const { MEMORY_ROLE, MEMORY_DESTINATION, MEMORY_ORIGIN } = require('constants.memory')
 const { WORKER_HAULER, WORKER_DISTRIBUTOR, WORKER_REMOTE_HAULER,  WORKER_HAULER_V3 } = require('constants.creeps')
 
+const spawnContainerCache = {}
+
 const selectEnergyForWithdraw = module.exports.selectEnergyForWithdraw = behaviorTree.LeafNode(
     'selectEnergyForWithdraw',
     (creep) => {
-        let spawns = creep.room.find(FIND_STRUCTURES, {
-            filter: (structure) => {
-                return structure.structureType === STRUCTURE_SPAWN
-            }
-        })
-
-        let spawnContainers = _.reduce(spawns, (acc, spawn) => {
-            let containers = spawn.pos.findInRange(FIND_STRUCTURES, 8, {
+        let spawnContainers = spawnContainerCache[creep.room.name]
+        if (!spawnContainers || Game.tick % 100 === 0) {
+            let spawns = creep.room.find(FIND_STRUCTURES, {
                 filter: (structure) => {
-                   return (structure.structureType == STRUCTURE_CONTAINER ||
-                        structure.structureType == STRUCTURE_STORAGE) &&
-                        structure.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
+                    return structure.structureType === STRUCTURE_SPAWN
                 }
             })
 
-            return acc.concat(containers)
-        }, [])
+            let spawnContainers = _.reduce(spawns, (acc, spawn) => {
+                let containers = spawn.pos.findInRange(FIND_STRUCTURES, 8, {
+                    filter: (structure) => {
+                       return (structure.structureType == STRUCTURE_CONTAINER ||
+                            structure.structureType == STRUCTURE_STORAGE) &&
+                            structure.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
+                    }
+                })
 
-        var target = creep.pos.findClosestByPath(spawnContainers)
+                return acc.concat(containers)
+            }, [])
+
+            spawnContainerCache[creep.room.name] = spawnContainers
+        }
+
+        var target = creep.pos.findClosestByRange(spawnContainers)
         if (!target) {
             return FAILURE
         }
@@ -45,7 +52,7 @@ const selectEnergyForWithdraw = module.exports.selectEnergyForWithdraw = behavio
 const selectContainerForWithdraw = module.exports.selectContainerForWithdraw = behaviorTree.LeafNode(
     'selectContainerForWithdraw',
     (creep) => {
-        var target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+        var target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
             filter: (structure) => {
                 return (structure.structureType == STRUCTURE_CONTAINER ||
                     structure.structureType == STRUCTURE_STORAGE ||
@@ -243,7 +250,7 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.Select
                     return acc.concat(containers)
                 }, [])
 
-                var target = creep.pos.findClosestByPath(spawnContainers)
+                var target = creep.pos.findClosestByRange(spawnContainers)
                 if (!target) {
                     return FAILURE
                 }
@@ -442,7 +449,7 @@ module.exports.fillCreepFrom = (from) => {
 }
 
 module.exports.fillCreepFromContainers = behaviorTree.SequenceNode(
-    'energy_supply',
+    'energy_supply_containers',
     [
         selectContainerForWithdraw,
         behaviorMovement.moveToDestination(1),
@@ -474,8 +481,6 @@ module.exports.emptyCreep = behaviorTree.RepeatUntilSuccess(
                     let resource = Object.keys(creep.store).pop()
                     let result = creep.transfer(destination, resource)
                     if (result === ERR_FULL) {
-                        // We still have energy to transfer, fail so we find another
-                        // place to dump
                         return SUCCESS
                     }
                     if (result === ERR_NOT_ENOUGH_RESOURCES) {
@@ -488,7 +493,7 @@ module.exports.emptyCreep = behaviorTree.RepeatUntilSuccess(
                         return FAILURE
                     }
 
-                    return SUCCESS
+                    return RUNNING
                 }
             )
         ]

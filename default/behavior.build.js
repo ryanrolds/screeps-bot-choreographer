@@ -6,7 +6,7 @@ const { MEMORY_FLAG } = require('constants.memory')
 const selectSite = behaviorTree.LeafNode(
     'selectSite',
     (creep) => {
-        let sites = creep.pos.findInRange(FIND_CONSTRUCTION_SITES)
+        let sites = creep.room.find(FIND_CONSTRUCTION_SITES)
         if (!sites || !sites.length) {
             return behaviorTree.FAILURE
         }
@@ -14,26 +14,25 @@ const selectSite = behaviorTree.LeafNode(
         sites = _.sortBy(sites, (site) => {
             switch (site.structureType) {
             case STRUCTURE_SPAWN:
-                return 0
+                return 0 - site.progress / site.progressTotal
             case STRUCTURE_EXTENSION:
-                return 1
+                return 1 - site.progress / site.progressTotal
             case STRUCTURE_STORAGE:
             case STRUCTURE_CONTAINER:
-                return 1
+                return 2 - site.progress / site.progressTotal
             case STRUCTURE_TOWER:
-                return 2
+                return 3 - site.progress / site.progressTotal
             case STRUCTURE_ROAD:
-                return 11
+                return 11 - site.progress / site.progressTotal
             case STRUCTURE_RAMPART:
             case STRUCTURE_WALL:
-                return 12
+                return 12 - site.progress / site.progressTotal
             default:
-                return 10
+                return 10 - site.progress / site.progressTotal
             }
         })
 
-
-        behaviorMovement.setDestination(creep, target.id, target.room.id)
+        behaviorMovement.setDestination(creep, sites[0].id, sites[0].room.id)
 
         return behaviorTree.SUCCESS
     }
@@ -56,7 +55,7 @@ const selectSiteNearFlag = behaviorTree.LeafNode(
             return FAILURE
         }
 
-        const target = flag.pos.findClosestByPath(FIND_CONSTRUCTION_SITES)
+        const target = flag.pos.findClosestByRange(FIND_CONSTRUCTION_SITES)
         if (!target) {
             return FAILURE
         }

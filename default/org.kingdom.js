@@ -1,6 +1,7 @@
+const OrgBase = require('org.base')
 const Colony = require('org.colony')
 const WarParty = require('org.warparty')
-const OrgBase = require('org.base')
+const ResourceGovernor = require('org.resource_governor')
 const Topics = require('lib.topics')
 const tracing = require('lib.tracing')
 
@@ -31,6 +32,9 @@ class Kingdom extends OrgBase {
 
             return parties
         }, {})
+
+
+        //this.resourceGovernor = new ResourceGovernor(this)
     }
     update() {
         console.log(this)
@@ -42,6 +46,9 @@ class Kingdom extends OrgBase {
         Object.values(this.colonies).forEach((colony) => {
             colony.update()
         })
+
+
+        //this.resourceGovernor.update()
     }
     process() {
         Object.values(this.warParties).forEach((party) => {
@@ -52,7 +59,9 @@ class Kingdom extends OrgBase {
             colony.process()
         })
 
-        let creepsTrace = tracing.startTrace("main")
+        //this.resourceGovernor.process()
+
+        let creepsTrace = tracing.startTrace("creeps")
         helpersCreeps.tick(this, creepsTrace)
         creepsTrace.end()
 
@@ -72,11 +81,17 @@ class Kingdom extends OrgBase {
         let request = this.topics.getNextRequest(topic)
         return request
     }
+    peekNextRequest(topic) {
+        return this.topics.peekNextRequest(topic)
+    }
     getTopicLength(topic) {
         return this.topics.getLength(topic)
     }
     getKingdom() {
         return this
+    }
+    getColonies() {
+        return this.colonies
     }
     getColony() {
         throw new Error("a kingdom is not a colony")
@@ -104,6 +119,23 @@ class Kingdom extends OrgBase {
 
         return this.getColonyById(colonyId)
     }
+    getReserveResources() {
+        return this.colonies.reduce((acc, colony) => {
+            const colonyResources = colony.getReserveResources()
+            Object.keys(colonyResources).forEach((resource) => {
+                let current = acc[resource] || 0
+                acc[resource] = colonyResources[resource] + current
+            })
+
+            return acc
+        }, {})
+    }
+    getAmountInReserve(resource) {
+        return this.colonies.reduce((acc, colony) => {
+            return acc + colony.getAmountInReserve(resource)
+        }, 0)
+        return this.primaryRoom.getAmountInReserve(resource)
+    }
     getStats() {
         return this.stats
     }
@@ -127,6 +159,8 @@ class Kingdom extends OrgBase {
         stats.creeps = _.countBy(Game.creeps, (creep) => {
             return creep.memory.role
         })
+
+        stats.resources = this.getReserveResources()
     }
 }
 

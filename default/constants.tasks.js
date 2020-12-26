@@ -1,1 +1,6 @@
-const TASK_HAUL = module.exports.TASK_HAUL = 'haul'
+
+module.exports = {
+    TASK_HAUL: 'haul',
+    TASK_MARKET_ORDER: 'order',
+    TASK_TRANSFER: 'transfer'
+}

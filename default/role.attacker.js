@@ -22,9 +22,7 @@ const behavior = behaviorTree.SequenceNode(
                     return SUCCESS
                 }
 
-                const result = creep.moveTo(position, {reusePath: 0})
-                console.log("move", creep.name, position, result)
-
+                const result = creep.moveTo(position, {reusePath: 0, ignoreCreeps: true})
 
                 return SUCCESS
             }
@@ -38,12 +36,11 @@ const behavior = behaviorTree.SequenceNode(
                 }
 
                 const target = Game.getObjectById(attack)
-                if (!creep.pos.inRangeTo(target, 3)) {
+                if (!creep.pos.inRangeTo(target, 1)) {
                     return SUCCESS
                 }
 
-                const result = creep.rangedAttack(target)
-                console.log("attack", creep.name, target, result)
+                const result = creep.attack(target)
 
                 return SUCCESS
             }
@@ -57,12 +54,11 @@ const behavior = behaviorTree.SequenceNode(
                 }
 
                 const target = Game.getObjectById(heal)
-                if (!creep.pos.inRangeTo(target, 3)) {
+                if (!creep.pos.inRangeTo(target, 1)) {
                     return SUCCESS
                 }
 
-                const result = creep.rangedAttack(target)
-                console.log("heal", creep.name, target, result)
+                const result = creep.heal(target)
 
                 return SUCCESS
             }

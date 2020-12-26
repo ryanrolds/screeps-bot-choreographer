@@ -17,8 +17,16 @@ const MEMORY = require('constants.memory')
 const { definitions } = require('constants.creeps')
 const { MEMORY_ROLE, MEMORY_ORIGIN, MEMORY_COLONY } = require('constants.memory')
 
+const MIN_BUCKET_THROTTLE = 1000
+
 module.exports.tick = (kingdom, trace) => {
+    // Take modulus of tick to give us an offset so that we don't always skip
+    // the same 20%
+    let skipCount = Game.time % 5
+
     for(var name in Game.creeps) {
+        skipCount++
+
         var creep = Game.creeps[name];
         if (creep.spawning) {
             return
@@ -40,16 +48,28 @@ module.exports.tick = (kingdom, trace) => {
             roleHarvesterV2.run(creep, trace, kingdom)
         }
 
+        if (creep.memory.role == CREEPS.WORKER_DISTRIBUTOR) {
+            roleDistributor.run(creep, trace, kingdom)
+        }
+
+        if (creep.memory.role == CREEPS.WORKER_DEFENDER) {
+            roleDefender.run(creep, trace, kingdom);
+        }
+
+        // If we are running low on CPU start skipping 20% of non-essential creeps
+        if (Game.cpu.bucket < MIN_BUCKET_THROTTLE) {
+            if (skipCount % 5 === 0) {
+                console.log("skipping", creep.name)
+                continue
+            }
+        }
+
         if (creep.memory.role == CREEPS.WORKER_UPGRADER) {
             roleUpgraderV2.run(creep, trace, kingdom)
         }
 
         if (creep.memory.role == CREEPS.WORKER_BUILDER) {
             roleBuilderV2.run(creep, trace, kingdom);
-        }
-
-        if (creep.memory.role == CREEPS.WORKER_DEFENDER) {
-            roleDefender.run(creep, trace, kingdom);
         }
 
         if (creep.memory.role == CREEPS.WORKER_REPAIRER) {
@@ -70,20 +90,21 @@ module.exports.tick = (kingdom, trace) => {
             roleClaimerV2.run(creep, trace, kingdom)
         }
 
-        if (creep.memory.role == CREEPS.WORKER_DISTRIBUTOR) {
-            roleDistributor.run(creep, trace, kingdom)
-        }
-
         if (creep.memory.role == CREEPS.WORKER_RESERVER) {
             roleReserver.run(creep, trace, kingdom)
         }
     }
 
-    // Cleanup old creep memory
-    for(var i in Memory.creeps) {
-        if (!Game.creeps[i]) {
-            delete Memory.creeps[i];
+    if (Game.time % 100 === 0) {
+        // Cleanup old creep memory
+        let numCleanedUp = 0
+        for (var i in Memory.creeps) {
+            if (!Game.creeps[i]) {
+                delete Memory.creeps[i]
+                numCleanedUp++
+            }
         }
+        console.log("Cleaning up creeps", numCleanedUp)
     }
 }
 
@@ -111,6 +132,7 @@ module.exports.createCreepV2 = (colony, room, spawn, role, memory, energy, energ
     console.log(`==== Creating creep ${colony}, ${room}, ${role}, ${parts}, ${JSON.stringify(memory)}`)
 
     let result = spawn.spawnCreep(parts, name, {memory});
+    console.log("spawn result", result, parts.length)
 
     return result
 }
@@ -126,7 +148,7 @@ function getBodyParts(definition, maxEnergy) {
             return acc + BODYPART_COST[part]
         }, 0)
 
-        if (estimate <= maxEnergy && base.length <= 50) {
+        if (estimate <= maxEnergy && base.length < 50) {
             base.push(nextPart)
             total = estimate
         } else {

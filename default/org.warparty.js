@@ -43,23 +43,13 @@ class WarParty extends OrgBase {
         this.nearbyWalls = []
 
         if (flag.room) {
-            console.log("health", JSON.stringify(this.sortedHealth))
-
-            this.nearbyHostiles = flag.pos.findInRange(FIND_HOSTILE_CREEPS, 3)
-
-            console.log("hostiles", JSON.stringify(this.nearbyHostile))
-
-            this.nearbyEnemyStructures = flag.pos.findInRange(FIND_HOSTILE_STRUCTURES, 3)
-
-            console.log("structures", JSON.stringify(this.nearbyEnemyStructure))
-
-            this.nearbyWalls = flag.pos.findInRange(FIND_STRUCTURES, 3, {
+            this.nearbyHostiles = flag.pos.findInRange(FIND_HOSTILE_CREEPS, 2)
+            this.nearbyEnemyStructures = flag.pos.findInRange(FIND_HOSTILE_STRUCTURES, 2)
+            this.nearbyWalls = flag.pos.findInRange(FIND_STRUCTURES, 2, {
                 filter: (structure) => {
                     return structure.structureType === STRUCTURE_WALL
                 }
             })
-
-            console.log("wall", JSON.stringify(this.nearbyWall))
         }
     }
     update() {
@@ -71,8 +61,8 @@ class WarParty extends OrgBase {
                 creep.memory[MEMORY.MEMORY_ATTACK] = this.nearbyHostiles[0].id
             } else if (this.nearbyEnemyStructures.length) {
                 creep.memory[MEMORY.MEMORY_ATTACK] = this.nearbyEnemyStructures[0].id
-            } else if (!creep.room.controller.my && this.nearbyWalls.length) {
-                creep.memory[MEMORY.MEMORY_ATTACK] = this.nearbyWalls[0].id
+            } else if ((!creep.room.controller || !creep.room.controller.my) && this.nearbyWalls.length) {
+                creep.memory[MEMORY.MEMORY_ATTACK] = this.flag.pos.findClosestByRange(nearbyWalls).id
             }
 
             if (this.sortedHealth.length) {

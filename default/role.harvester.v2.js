@@ -32,11 +32,9 @@ const behavior = behaviorTree.SequenceNode(
                                 if (!destination) {
                                     return FAILURE
                                 }
-            
+
                                 let resource = Object.keys(creep.store).pop()
-                                console.log(creep.name, resource)
                                 let result = creep.transfer(destination, resource)
-                                console.log(creep.name, result)
                                 if (result === ERR_FULL) {
                                     // We still have energy to transfer, fail so we find another
                                     // place to dump
@@ -51,7 +49,7 @@ const behavior = behaviorTree.SequenceNode(
                                 if (result != OK) {
                                     return FAILURE
                                 }
-            
+
                                 return RUNNING
                             }
                         )
@@ -68,7 +66,7 @@ const behavior = behaviorTree.SequenceNode(
                 )
             ]
         )
-       
+
     ]
 )
 

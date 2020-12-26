@@ -12,50 +12,18 @@ const { WORKER_DISTRIBUTOR } = require('constants.creeps')
 // needing energy
 const selectDestination = behaviorTree.LeafNode(
     'select_distributor_transfer',
-    (creep) => {
-        let room = creep.room
-        let assignedDestinations = _.reduce(Game.creeps, (acc, c) => {
-            // We want a list of current destinations for current Distributors
-            // Return if any of them
-            if (c.room.name !== room.name || c.memory[MEMORY_ROLE] !== WORKER_DISTRIBUTOR ||
-                !c.memory[MEMORY_DESTINATION]) {
-                return acc
-            }
-
-            acc.push(c.memory[MEMORY_DESTINATION])
-
-            return acc
-        }, [])
-
-        let destinations = creep.room.find(FIND_STRUCTURES, {
-            filter: (structure) => {
-                return ( // Fill extensions and spawns with room
-                    (structure.structureType == STRUCTURE_EXTENSION ||
-                        structure.structureType == STRUCTURE_LINK ||
-                        structure.structureType == STRUCTURE_SPAWN) &&
-                    structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0
-                ) || ( // Will towers with more than 250 capacity
-                    (structure.structureType == STRUCTURE_TOWER) &&
-                    structure.store.getFreeCapacity(RESOURCE_ENERGY) > 250
-                )
-            }
-        });
-
-        // We get a a deadlock if there are fewer sources than distributors
-        if (destinations.length > 2) {
-            // Filter out destinations that are already assigned to another Distributor
-            destinations = _.filter(destinations, (structure) => {
-                return assignedDestinations.indexOf(structure.id) === -1
-            })
-        }
-
-        // Of the unassigned destinations, get the closest
-        let closest = creep.pos.findClosestByRange(destinations)
-        if (!closest) {
+    (creep, trace, kingdom) => {
+        const room = kingdom.getCreepRoom(creep)
+        if (!room) {
             return FAILURE
         }
 
-        behaviorMovement.setDestination(creep, closest.id)
+        const structure = room.getNextEnergyStructure(creep)
+        if (!structure) {
+            return FAILURE
+        }
+
+        behaviorMovement.setDestination(creep, structure.id)
         return SUCCESS
     }
 )
@@ -81,6 +49,11 @@ const behavior = behaviorTree.SequenceNode(
 
                             let result = creep.transfer(destination, RESOURCE_ENERGY)
                             if (result === ERR_FULL) {
+                                // If creep has less then 50 energy, succeed so we get more energy
+                                if (creep.store.getUsedCapacity(RESOURCE_ENERGY) < 50) {
+                                    return SUCCESS
+                                }
+
                                 // We still have energy to transfer, fail so we find another
                                 // place to dump
                                 return FAILURE
@@ -88,7 +61,7 @@ const behavior = behaviorTree.SequenceNode(
                             if (result === ERR_NOT_ENOUGH_RESOURCES) {
                                 return SUCCESS
                             }
-                            if (creep.store.getUsedCapacity() === 0) {
+                            if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
                                 return SUCCESS
                             }
                             if (result != OK) {
@@ -105,10 +78,10 @@ const behavior = behaviorTree.SequenceNode(
 )
 
 module.exports = {
-    run: (creep, trace) => {
+    run: (creep, trace, kingdom) => {
         const roleTrace = trace.begin('distributor')
 
-        let result = behavior.tick(creep, roleTrace)
+        let result = behavior.tick(creep, roleTrace, kingdom)
         if (result == behaviorTree.FAILURE) {
             console.log("INVESTIGATE: distributor failure", creep.name)
         }

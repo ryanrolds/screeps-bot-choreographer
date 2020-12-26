@@ -12,14 +12,19 @@ const { getDamagedStructure } = require('helpers.targets')
 
 const selectStructureToRepair = behaviorTree.LeafNode(
     'selectStructureToRepair',
-    (creep) => {
-        let target = getDamagedStructure(creep)
+    (creep, trace, kingdom) => {
+        const room = kingdom.getCreepRoom(creep)
+        if (!room) {
+            return FAILURE
+        }
 
+        let target = room.getNextDamagedStructure()
         if (!target) {
             return FAILURE
         }
 
         behaviorMovement.setDestination(creep, target.id)
+
         return SUCCESS
     }
 )

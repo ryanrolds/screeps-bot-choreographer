@@ -60,7 +60,7 @@ const definitions = {
         base: [MOVE, CARRY, MOVE, CARRY, MOVE, CARRY]
     },
     [WORKER_BUILDER]: {
-        energyLimit: 900,
+        energyLimit: 1500,
         parts: [CARRY, MOVE, WORK, MOVE],
         base: [CARRY, MOVE, WORK, MOVE]
     },
@@ -70,7 +70,7 @@ const definitions = {
         base: [CARRY, MOVE, WORK, MOVE]
     },
     [WORKER_UPGRADER]: {
-        energyLimit: 800,
+        energyLimit: 2000,
         parts: [MOVE, CARRY, MOVE, WORK],
         base: [CARRY, MOVE, CARRY, MOVE, WORK]
     },
@@ -101,8 +101,9 @@ const definitions = {
     },
     [WORKER_ATTACKER]: {
         energyLimit: null,
-        parts: [MOVE, TOUGH, MOVE, RANGED_ATTACK, MOVE, HEAL],
-        base: [MOVE, TOUGH, MOVE, RANGED_ATTACK]
+        energyMinimum: 2200,
+        parts: [MOVE, TOUGH, ATTACK, HEAL],
+        base: [MOVE, TOUGH, MOVE, ATTACK]
     }
 }
 

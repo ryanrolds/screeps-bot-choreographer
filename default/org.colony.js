@@ -36,6 +36,8 @@ class Colony extends OrgBase {
             return rooms
         }, [])
 
+        this.primaryOrgRoom = _.find(this.rooms, {id: this.primaryRoomId})
+
         this.builds = []
 
         this.sources = this.rooms.reduce((sources, room) => {
@@ -46,7 +48,9 @@ class Colony extends OrgBase {
 
             const minerals = room.getMineralsWithExtractor()
             minerals.forEach((mineral) => {
-                sources.push(new Source(this, mineral, "mineral"))
+                if (mineral.mineralAmount > 0) {
+                    sources.push(new Source(this, mineral, "mineral"))
+                }
             })
 
             return sources
@@ -82,8 +86,8 @@ class Colony extends OrgBase {
 
         if (this.primaryRoom) {
             // PIDS
-            this.haulerSetpoint = Math.ceil(this.desiredRooms.length * 0.75)
-            Pid.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, this.haulerSetpoint, 0.2, 0.0002, 0)
+            this.haulerSetpoint = this.desiredRooms.length
+            Pid.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, this.haulerSetpoint, 0.075, 0.00009, 0)
         }
     }
     getColony() {
@@ -151,8 +155,8 @@ class Colony extends OrgBase {
             console.log("DEFENDER REQUEST", JSON.stringify(request))
 
             let neededDefenders = MAX_DEFENDERS - this.defenders.length
-            for (let i = 0; i < neededDefenders; i++) {
-                this.sendRequest(TOPIC_SPAWN, PRIORITY_DEFENDER, request.details )
+            if (neededDefenders > 0) {
+                this.sendRequest(TOPIC_SPAWN, PRIORITY_DEFENDER, request.details)
             }
 
             // Order existing defenders to the room
@@ -200,8 +204,39 @@ class Colony extends OrgBase {
     getNextRequest(topic) {
         return this.topics.getNextRequest(topic)
     }
+    peekNextRequest(topic) {
+        return this.topics.peekNextRequest(topic)
+    }
     getTopicLength(topic) {
         return this.topics.getLength(topic)
+    }
+    getReserveStructures() {
+        if (!this.primaryRoom) {
+            return []
+        }
+
+        return this.primaryRoom.getReserveStructures()
+    }
+    getReserveResources() {
+        if (!this.primaryOrgRoom) {
+            return {}
+        }
+
+        return this.primaryOrgRoom.getReserveResources()
+    }
+    getAmountInReserve(resource) {
+        if (!this.primaryOrgRoom) {
+            return 0
+        }
+
+        return this.primaryOrgRoom.getAmountInReserve(resource)
+    }
+    getReserveStructureWithMostOfAResource(resource) {
+        if (!this.primaryOrgRoom) {
+            return 0
+        }
+
+        return this.primaryOrgRoom.getReserveStructureWithMostOfAResource(resource)
     }
     updateStats() {
         const colonyStats = {

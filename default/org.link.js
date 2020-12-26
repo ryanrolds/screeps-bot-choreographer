@@ -1,6 +1,10 @@
 const OrgBase = require('org.base')
 
 const MEMORY = require('constants.memory')
+const TASKS = require('constants.tasks')
+const CREEPS = require('constants.creeps')
+const TOPICS = require('constants.topics')
+
 const { TOPIC_ROOM_LINKS } = require('constants.topics')
 const { WORKER_HAULER, WORKER_REMOTE_HARVESTER, WORKER_MINER,
     WORKER_HARVESTER, WORKER_REMOTE_MINER, WORKER_REMOTE_HAULER } = require('constants.creeps')
@@ -30,13 +34,28 @@ class Link extends OrgBase {
     update() {
         console.log(this)
 
-        if ((this.isNearRC || this.isNearStorage) && this.fullness < 0.97) {
+        if (this.isNearRC && this.fullness < 0.25) {
             // Request enough energy to fill
             this.sendRequest(TOPIC_ROOM_LINKS, this.fullness, {
                 REQUESTER_ID: this.id,
                 REQUESTER_ROOM: this.gameObject.room.id,
-                AMOUNT: this.gameObject.store.getFreeCapacity()
+                AMOUNT: this.gameObject.store.getFreeCapacity(RESOURCE_ENERGY)
             })
+        }
+
+        if (this.isNearStorage && this.fullness < 0.75) {
+            const reserve = this.parent.getRoom().getReserveStructureWithMostOfAResource(RESOURCE_ENERGY)
+            if (reserve) {
+                const details = {
+                    [MEMORY.MEMORY_TASK_TYPE]:  TASKS.HAUL_TASK,
+                    [MEMORY.MEMORY_HAUL_PICKUP]: reserve.id,
+                    [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
+                    [MEMORY.MEMORY_HAUL_AMOUNT]: this.gameObject.store.getFreeCapacity(RESOURCE_ENERGY),
+                    [MEMORY.MEMORY_HAUL_DROPOFF]: this.id
+                }
+
+                this.sendRequest(TOPICS.TOPIC_HAUL_TASK, 1, details)
+            }
         }
     }
     process() {

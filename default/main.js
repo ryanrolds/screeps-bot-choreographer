@@ -12,7 +12,7 @@ let config = {
     "E18S47": {
         id: "E18S47-Shard3",
         primary: "E18S47",
-        rooms: ["E18S47", "E18S46", "E19S46"]
+        rooms: ["E18S47", "E19S46"]
     },
     "E18S45": {
         id: "E18S45-Shard3",
@@ -38,7 +38,7 @@ module.exports.loop = function () {
         tracing.setActive()
     }
 
-    tracing.reset()
+    //tracing.reset()
 
     let trace = tracing.startTrace("main")
 

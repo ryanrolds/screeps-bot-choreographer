@@ -1,11 +1,8 @@
-const TOPIC_SPAWN = 'spawn'
-const TOPIC_DEFENDERS = 'defenders'
-const TOPIC_ROOM_LINKS = 'room_links'
-const TOPIC_HAUL_TASK = 'task_haul'
-
 module.exports = {
-    TOPIC_SPAWN,
-    TOPIC_DEFENDERS,
-    TOPIC_ROOM_LINKS,
-    TOPIC_HAUL_TASK
+    TOPIC_SPAWN: 'spawn',
+    TOPIC_DEFENDERS: 'defenders',
+    TOPIC_ROOM_LINKS: 'room_links',
+    TOPIC_HAUL_TASK: 'task_haul',
+    TOPIC_REACTION_TASK: 'task_reaction',
+    TOPIC_TERMINAL_TASK: 'task_terminal'
 }

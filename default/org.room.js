@@ -2,8 +2,8 @@
 const OrgBase = require('org.base')
 const Link = require('org.link')
 const Tower = require('org.tower')
+const Terminal = require('org.terminal')
 const Topics = require('lib.topics')
-
 const MEMORY = require('constants.memory')
 
 const { MEMORY_ROLE, MEMORY_ASSIGN_ROOM } = require('constants.memory')
@@ -11,11 +11,14 @@ const { TOPIC_SPAWN, TOPIC_DEFENDERS } = require('constants.topics')
 const { WORKER_UPGRADER, WORKER_REPAIRER, WORKER_BUILDER, WORKER_DEFENDER } = require('constants.creeps')
 const { PRIORITY_UPGRADER, PRIORITY_BUILDER, PRIORITY_REPAIRER, PRIORITY_BOOTSTRAP,
     PRIORITY_REPAIRER_URGENT, PRIORITY_DEFENDER, PRIORITY_CLAIMER } = require('constants.priorities')
-const { WORKER_CLAIMER, WORKER_RESERVER, WORKER_DISTRIBUTOR } = require('./constants.creeps')
+const { WORKER_CLAIMER, WORKER_RESERVER, WORKER_DISTRIBUTOR, WORKER_HAULER } = require('./constants.creeps')
 const { PRIORITY_RESERVER, PRIORITY_DISTRIBUTOR } = require('./constants.priorities')
 
-const MAX_UPGRADERS = 2
+
+const MIN_UPGRADERS = 2
 const MIN_DISTRIBUTORS = 2
+const WALL_LEVEL = 1000
+const RAMPART_LEVEL = 1000
 
 class Room extends OrgBase {
     constructor(parent, room) {
@@ -23,7 +26,8 @@ class Room extends OrgBase {
 
         this.topics = new Topics()
 
-        this.gameObject = room
+        this.roomObject = room // preferred
+
         this.isPrimary = room.name === parent.primaryRoomId
         this.claimedByMe = room.controller.my || false
 
@@ -59,6 +63,11 @@ class Room extends OrgBase {
         }).map((tower) => {
             return new Tower(this, tower)
         })
+
+        this.terminal = null
+        if (room.terminal) {
+            this.terminal = new Terminal(this, room.terminal)
+        }
 
         this.myCreeps = room.find(FIND_MY_CREEPS)
         this.myDamagedCreeps = this.myCreeps.filter((creep) => {
@@ -141,7 +150,7 @@ class Room extends OrgBase {
         this.numStructures = numStructures
     }
     update() {
-        let controller = this.gameObject.controller
+        let controller = this.roomObject.controller
 
         // If hostiles present spawn defenders and/or activate safe mode
         if (this.numHostiles) {
@@ -210,10 +219,9 @@ class Room extends OrgBase {
         }
 
         // Upgrader request
-        let desiredUpgraders = MAX_UPGRADERS
-        if (this.gameObject.storage) {
-            desiredUpgraders = Math.ceil(this.gameObject.storage.store.getUsedCapacity(RESOURCE_ENERGY) / 25000)
-        }
+        let desiredUpgraders = MIN_UPGRADERS
+        let fullness = this.getEnergyFullness()
+        desiredUpgraders = Math.ceil(fullness / 0.10)
 
         if (this.isPrimary && this.upgraders.length < desiredUpgraders) {
             // As we get more upgraders, lower the priority
@@ -288,6 +296,10 @@ class Room extends OrgBase {
         this.towers.forEach((tower) => {
             tower.update()
         })
+
+        if (this.terminal) {
+            this.terminal.update()
+        }
     }
     process() {
         this.updateStats()
@@ -299,6 +311,10 @@ class Room extends OrgBase {
         this.towers.forEach((tower) => {
             tower.process()
         })
+
+        if (this.terminal) {
+            this.terminal.process()
+        }
     }
     toString() {
         return `-- Room - ID: ${this.id}, Primary: ${this.isPrimary}, Claimed: ${this.claimedByMe}, ` +
@@ -306,16 +322,20 @@ class Room extends OrgBase {
         `#Upgraders: ${this.upgraders.length}, #Hostiles: ${this.numHostiles}, ` +
         `#Towers: ${this.towers.length}, #Sites: ${this.numConstructionSites}, ` +
         `%Hits: ${this.hitsPercentage.toFixed(2)}, #Repairer: ${this.numRepairers}, ` +
-        `#Links: ${this.links.length}, #Distributors: ${this.numDistributors}`
+        `#Links: ${this.links.length}, #Distributors: ${this.numDistributors}, ` +
+        `EnergyFullness: ${this.getEnergyFullness()}`
     }
     getRoom() {
         return this
     }
+    getRoomObject() {
+        return this.roomObject
+    }
     getSources() {
-        return this.gameObject.find(FIND_SOURCES)
+        return this.roomObject.find(FIND_SOURCES)
     }
     getSpawns() {
-        return this.gameObject.find(FIND_MY_SPAWNS)
+        return this.roomObject.find(FIND_MY_SPAWNS)
     }
     getHostiles() {
         return this.hostiles
@@ -324,11 +344,11 @@ class Room extends OrgBase {
         return this.myCreeps
     }
     getClosestStoreWithEnergy(creep) {
-        if (this.gameObject.storage) {
-            return this.gameObject.storage.id
+        if (this.roomObject.storage) {
+            return this.roomObject.storage.id
         }
 
-        const container = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+        const container = creep.pos.findClosestByRange(FIND_STRUCTURES, {
             filter: (structure) => {
                 return structure.structureType === STRUCTURE_CONTAINER &&
                     structure.store.getUsedCapacity(RESOURCE_ENERGY) > 0
@@ -345,8 +365,217 @@ class Room extends OrgBase {
 
         return this.getColony().primaryRoom.getClosestStoreWithEnergy(creep)
     }
+    getReserveStructures() {
+        if (this.roomObject.storage) {
+            return [this.roomObject.storage]
+        }
+
+        let room = this.roomObject
+        let spawns = room.find(FIND_MY_STRUCTURES, {
+            filter: (structure) => {
+                return structure.structureType === STRUCTURE_SPAWN
+            }
+        })
+
+        if (!spawns.length) {
+            return []
+        }
+
+        let stores = _.reduce(spawns, (acc, spawn) => {
+            let containers = spawn.pos.findInRange(FIND_STRUCTURES, 9, {
+                filter: (structure) => {
+                   return structure.structureType === STRUCTURE_CONTAINER
+                }
+            })
+
+            return acc.concat(containers)
+        }, [])
+
+        return stores
+    }
+    getEnergyFullness() {
+        let structures = this.getReserveStructures()
+
+        if (!structures.length) {
+            return 0
+        }
+
+        let stores = structures.reduce((acc, structure) => {
+            acc.capacity += structure.store.getCapacity(RESOURCE_ENERGY)
+            acc.used += structure.store.getUsedCapacity(RESOURCE_ENERGY)
+            return acc
+        }, {capacity: 0, used: 0})
+
+        return stores.used / stores.capacity
+    }
+    getReserveResources() {
+        let structures = this.getReserveStructures()
+
+        return structures.reduce((acc, structure) => {
+            Object.keys(structure.store).forEach((resource) => {
+                let current = acc[resource] || 0
+                acc[resource] = structure.store.getUsedCapacity(resource) + current
+            })
+
+            return acc
+        }, {})
+    }
+    getAmountInReserve(resource) {
+        return this.getReserveResources()[resource] || 0
+    }
+    getReserveStructureWithRoomForResource(resource) {
+        let structures = this.getReserveStructures(resource)
+        if (!structures.length) {
+            return null
+        }
+
+        structures = _.sortBy(structures, (structure) => {
+            return structure.store.getFreeCapacity(resource) || 0
+        }).reverse()
+
+        return structures[0]
+
+    }
+    getReserveStructureWithMostOfAResource(resource) {
+        let structures = this.getReserveStructures(resource).filter((structure) => {
+            const amount = structure.store.getUsedCapacity(resource) || 0
+            return amount > 0
+        })
+
+        if (!structures.length) {
+            return null
+        }
+
+        structures = _.sortBy(structures, (structure) => {
+            return structure.store.getUsedCapacity(resource) || 0
+        })
+
+        return structures[0]
+    }
+    getNextEnergyStructure(creep) {
+        let list = this.roomObject.memory[MEMORY.ROOM_NEEDS_ENERGY_LIST] || []
+        let listTime = this.roomObject.memory[MEMORY.ROOM_NEEDS_ENERGY_TIME] || Game.time
+
+        if (!listTime || Game.time - listTime > 20) {
+            const room = this.roomObject
+
+            let assignedDestinations = _.reduce(this.assignedCreeps, (acc, c) => {
+                if (c.room.name !== room.name) {
+                    return acc
+                }
+
+                if (c.memory[MEMORY.MEMORY_ROLE] !== WORKER_DISTRIBUTOR &&
+                    c.memory[MEMORY.MEMORY_ROLE] !== WORKER_HAULER) {
+                    return acc
+                }
+
+                if (c.memory[MEMORY.MEMORY_DESTINATION]) {
+                    return acc
+                }
+
+                acc.push(c.memory[MEMORY.MEMORY_DESTINATION])
+
+                return acc
+            }, [])
+
+            list = room.find(FIND_STRUCTURES, {
+                filter: (structure) => {
+                    return ( // Fill extensions and spawns with room
+                        (structure.structureType == STRUCTURE_EXTENSION ||
+                            structure.structureType == STRUCTURE_SPAWN) &&
+                        structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0
+                    )
+                }
+            })
+
+            // We get a a deadlock if there are fewer sources than distributors
+            if (list.length > 2) {
+                // Filter out destinations that are already assigned to another Distributor
+                list = _.filter(list, (structure) => {
+                    return assignedDestinations.indexOf(structure.id) === -1
+                })
+            }
+
+            list = list.map((structure) => {
+                return structure.id
+            })
+        }
+
+        list = _.sortBy(list, (id) => {
+            return creep.pos.getRangeTo(Game.getObjectById(id))
+        })
+
+        const next = list.shift()
+
+        this.roomObject.memory[MEMORY.ROOM_NEEDS_ENERGY_LIST] = list
+        this.roomObject.memory[MEMORY.ROOM_NEEDS_ENERGY_TIME] = listTime
+
+        if (!next) {
+            return null
+        }
+
+        return Game.getObjectById(next)
+    }
+    getNextDamagedStructure() {
+        let list = this.roomObject.memory[MEMORY.ROOM_DAMAGED_STRUCTURES_LIST] || []
+        let listTime = this.roomObject.memory[MEMORY.ROOM_DAMAGED_STRUCTURES_TIME] || 0
+
+        if (!listTime || Game.time - listTime > 20) {
+            var targets = this.roomObject.find(FIND_STRUCTURES, {
+                filter: (structure) => {
+                    return (
+                        (structure.hits < structure.hitsMax &&
+                            (
+                                structure.structureType != STRUCTURE_WALL &&
+                                structure.structureType != STRUCTURE_RAMPART
+                            )
+                        ) ||
+                        (structure.hits < WALL_LEVEL && structure.structureType === STRUCTURE_WALL) ||
+                        (structure.hits < RAMPART_LEVEL && structure.structureType === STRUCTURE_RAMPART)
+                    )
+                }
+            })
+
+            listTime = Game.time
+            list = []
+
+            if (targets.length) {
+                list = _.sortBy(targets, (structure) => {
+                    return structure.hits / structure.hitsMax
+                })
+            }
+
+            list = list.map((structure) => {
+                return structure.id
+            })
+        }
+
+        const next = list.shift()
+
+        this.roomObject.memory[MEMORY.ROOM_DAMAGED_STRUCTURES_LIST] = list
+        this.roomObject.memory[MEMORY.ROOM_DAMAGED_STRUCTURES_TIME] = listTime
+
+        if (!next) {
+            return null
+        }
+
+        return Game.getObjectById(next)
+    }
+    getParkingLot() {
+        const parkingLots = this.roomObject.find(FIND_FLAGS, {
+            filter: (flag) => {
+                return flag.name.startsWith('parking')
+            }
+        })
+
+        if (!parkingLots.length) {
+            return null
+        }
+
+        return parkingLots[0]
+    }
     getMineralsWithExtractor() {
-        const extractors = this.gameObject.find(FIND_STRUCTURES, {
+        const extractors = this.roomObject.find(FIND_STRUCTURES, {
             filter: (structure) => {
                 return structure.structureType === STRUCTURE_EXTRACTOR
             }
@@ -358,7 +587,7 @@ class Room extends OrgBase {
         })
     }
     updateStats() {
-        const room = this.gameObject
+        const room = this.roomObject
 
         const roomStats = {
             sources: {}

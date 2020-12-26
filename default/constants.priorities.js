@@ -18,6 +18,11 @@ const PRIORITY_RESERVER = 3
 // Prioritize setting up additional colonies
 const PRIORITY_BOOTSTRAP = 0
 
+// Terminal
+const TERMINAL_SELL = 1
+const TERMINAL_BUY = 2
+
+
 // Defense - TODO
 
 module.exports = {
@@ -36,5 +41,7 @@ module.exports = {
     PRIORITY_CLAIMER,
     PRIORITY_RESERVER,
     PRIORITY_ATTACKER,
-    PRIORITY_BOOTSTRAP
+    PRIORITY_BOOTSTRAP,
+    TERMINAL_SELL,
+    TERMINAL_BUY
 }
