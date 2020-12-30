@@ -114,9 +114,16 @@ class Room extends OrgBase {
 
         // We want to know if the room has hostiles, request defenders or put room in safe mode
         let hostiles = room.find(FIND_HOSTILE_CREEPS)
+
         // TODO order hostiles by priority
         this.hostiles = hostiles
         this.numHostiles = this.hostiles.length
+
+        this.hasInvaderCore = room.find(FIND_STRUCTURES, {
+            filter: (structure) => {
+                return structure.structureType === STRUCTURE_INVADER_CORE
+            }
+        }).length > 0
 
         // We want to know if our defenses are being attacked
         this.lowHitsDefenses = room.find(FIND_STRUCTURES).filter((s) => {
@@ -153,13 +160,13 @@ class Room extends OrgBase {
         let controller = this.roomObject.controller
 
         // If hostiles present spawn defenders and/or activate safe mode
-        if (this.numHostiles) {
+        if (this.numHostiles || this.hasInvaderCore) {
             // If there are defenses low on
             if (controller && controller.my && this.lowHitsDefenses && controller.safeModeAvailable &&
                 !controller.safeMode && !controller.safeModeCooldown) {
                 console.log("ACTIVATING SAFEMODE!!!!!")
                 controller.activateSafeMode()
-            } else {
+            } else if (!controller.safeMode || controller.safeModeCooldown < 250) {
                 // Request defenders
                 this.sendRequest(TOPIC_DEFENDERS, PRIORITY_DEFENDER, {
                     role: WORKER_DEFENDER,
@@ -180,27 +187,9 @@ class Room extends OrgBase {
             })
         }
 
-        // If not claimed by me and no claimer assigned and primary, request a claimer
-        if (!this.claimedByMe && !this.hasClaimer && this.isPrimary) {
-            if (this.getColony().spawns.length) {
-                this.sendRequest(TOPIC_SPAWN, PRIORITY_CLAIMER, {
-                    role: WORKER_CLAIMER,
-                    memory: {
-                        [MEMORY_ASSIGN_ROOM]: this.id
-                    }
-                })
-            } else {
-                this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITY_BOOTSTRAP + PRIORITY_CLAIMER + 1, {
-                    role: WORKER_CLAIMER,
-                    memory: {
-                        [MEMORY_ASSIGN_ROOM]: this.id
-                    }
-                })
-            }
-        }
-
         // If not claimed by me and no claimer assigned and not primary, request a reserver
-        if (!this.claimedByMe && !this.isPrimary && !this.hasReserver && this.reservationTicks < 1000) {
+        if ((!this.claimedByMe && !this.hasReserver && !this.numHostiles) ||
+            (this.claimedByMe && !this.isPrimary && this.reservationTicks < 100 )) {
             if (this.getColony().spawns.length) {
                 this.sendRequest(TOPIC_SPAWN, PRIORITY_RESERVER, {
                     role: WORKER_RESERVER,

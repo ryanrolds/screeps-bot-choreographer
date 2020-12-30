@@ -15,24 +15,21 @@ class Terminal extends OrgBase {
         console.log(this)
 
         const task = this.room.memory[MEMORY.TERMINAL_TASK]
-
-        console.log(this.getRoom().getAmountInReserve(RESOURCE_ENERGY), task)
         if (task) {
             const details = task.details
-            console.log("have", this.id, task.details[MEMORY.TERMINAL_TASK_TYPE], JSON.stringify(task))
-
             switch(task.details[MEMORY.TERMINAL_TASK_TYPE]) {
                 case TASKS.TASK_TRANSFER:
                     this.transferResource(details)
                     break
                 case TASKS.TASK_MARKET_ORDER:
-                    //this.marketOrder(details)
+                    this.marketOrder(details)
                     break
             }
         } else {
-            console.log(this.getRoom().getAmountInReserve(RESOURCE_ENERGY))
+            // If reserve is low then transfer engery back
+            if (this.getRoom().getAmountInReserve(RESOURCE_ENERGY) < 2000 &&
+                this.terminal.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
 
-            if (this.getRoom().getAmountInReserve(RESOURCE_ENERGY) < 2000) {
                 const reserve = this.getRoom().getReserveStructureWithRoomForResource(RESOURCE_ENERGY)
                 if (!reserve) {
                     return
@@ -45,11 +42,7 @@ class Terminal extends OrgBase {
                     [MEMORY.MEMORY_HAUL_AMOUNT]: 1000,
                     [MEMORY.MEMORY_HAUL_DROPOFF]: reserve.id
                 }
-
-                console.log("terminal resource send", JSON.stringify(details))
-
                 this.sendRequest(TOPICS.TOPIC_HAUL_TASK, 1, details)
-
             }
         }
     }
@@ -59,7 +52,7 @@ class Terminal extends OrgBase {
         if (!this.room.memory[MEMORY.TERMINAL_TASK]) {
             const task = this.getNextRequest(TOPICS.TOPIC_TERMINAL_TASK)
             if (task) {
-                //console.log("got", this.id, JSON.stringify(task))
+                console.log("got", this.id, JSON.stringify(task))
                 this.room.memory[MEMORY.TERMINAL_TASK] = task
             }
         }
@@ -73,6 +66,17 @@ class Terminal extends OrgBase {
         const amount = task[MEMORY.MEMORY_ORDER_AMOUNT]
 
         if (this.terminal.store.getUsedCapacity(resource) < amount) {
+            const numHaulers = _.filter(this.getRoom().assignedCreeps, (creep) => {
+                return creep.memory[MEMORY.MEMORY_TASK_TYPE] === TASKS.HAUL_TASK &&
+                    creep.memory[MEMORY.MEMORY_HAUL_RESOURCE] === resource &&
+                    creep.memory[MEMORY.MEMORY_HAUL_DROPOFF] === this.terminal.id
+            }).length
+
+            // If we already have a hauler assigned, don't assign more
+            if (numHaulers) {
+                return
+            }
+
             const reserve = this.getRoom().getReserveStructureWithMostOfAResource(resource)
             if (!reserve) {
                 return
@@ -85,8 +89,6 @@ class Terminal extends OrgBase {
                 [MEMORY.MEMORY_HAUL_AMOUNT]: amount,
                 [MEMORY.MEMORY_HAUL_DROPOFF]: this.terminal.id
             }
-
-            console.log("terminal resource haul", JSON.stringify(details))
 
             this.sendRequest(TOPICS.TOPIC_HAUL_TASK, 1, details)
 
@@ -107,27 +109,38 @@ class Terminal extends OrgBase {
         }
 
         orders = _.sortBy(orders, 'price').reverse()
+
         console.log("orders", JSON.stringify(orders))
+
         const order = orders[0]
+
+        if (order.price < 0.2) {
+            return
+        }
 
         const dealAmount = Math.min(amount, order.remainingAmount)
         const energyRequired = Game.market.calcTransactionCost(dealAmount, this.room.name, order.roomName)
         console.log("energy required", energyRequired, dealAmount, this.room.name, order.roomName)
 
         if (this.terminal.store.getUsedCapacity(RESOURCE_ENERGY) < energyRequired) {
-            const reserve = this.parent.getRoom().getReserveStructureWithMostOfAResource(resource)
+            const reserve = this.getRoom().getReserveStructureWithMostOfAResource(resource)
 
-            const details = {
-                [MEMORY.MEMORY_TASK_TYPE]:  TASKS.HAUL_TASK,
-                [MEMORY.MEMORY_HAUL_PICKUP]: reserve.id,
-                [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
-                [MEMORY.MEMORY_HAUL_AMOUNT]: energyRequired,
-                [MEMORY.MEMORY_HAUL_DROPOFF]: this.terminal.id
+            // If we are low on energy don't take any from reserve
+            if (this.getRoom().getAmountInReserve(RESOURCE_ENERGY) > 20000) {
+                const details = {
+                    [MEMORY.MEMORY_TASK_TYPE]:  TASKS.HAUL_TASK,
+                    [MEMORY.MEMORY_HAUL_PICKUP]: reserve.id,
+                    [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
+                    [MEMORY.MEMORY_HAUL_AMOUNT]: energyRequired,
+                    [MEMORY.MEMORY_HAUL_DROPOFF]: this.terminal.id
+                }
+
+                console.log("terminal energy haul", JSON.stringify(details))
+
+                this.sendRequest(TOPICS.TOPIC_HAUL_TASK, 1, details)
+            } else {
+                console.log(this.getRoom().id, "does not have energy to spare for selling minerals")
             }
-
-            console.log("terminal energy haul", JSON.stringify(details))
-
-            this.sendRequest(TOPICS.TOPIC_HAUL_TASK, 1, details)
 
             return
         }

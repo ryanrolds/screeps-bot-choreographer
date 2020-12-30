@@ -34,7 +34,7 @@ class Kingdom extends OrgBase {
         }, {})
 
 
-        //this.resourceGovernor = new ResourceGovernor(this)
+        this.resourceGovernor = new ResourceGovernor(this)
     }
     update() {
         console.log(this)
@@ -48,7 +48,7 @@ class Kingdom extends OrgBase {
         })
 
 
-        //this.resourceGovernor.update()
+        this.resourceGovernor.update()
     }
     process() {
         Object.values(this.warParties).forEach((party) => {
@@ -59,7 +59,7 @@ class Kingdom extends OrgBase {
             colony.process()
         })
 
-        //this.resourceGovernor.process()
+        this.resourceGovernor.process()
 
         let creepsTrace = tracing.startTrace("creeps")
         helpersCreeps.tick(this, creepsTrace)

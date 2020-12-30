@@ -104,6 +104,7 @@ module.exports.tick = (kingdom, trace) => {
                 numCleanedUp++
             }
         }
+
         console.log("Cleaning up creeps", numCleanedUp)
     }
 }

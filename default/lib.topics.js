@@ -15,8 +15,6 @@ class Topics {
             return null
         }
 
-        console.log("setting", topic)
-
         this.topics[topic] = value
     }
     createTopic(topic) {

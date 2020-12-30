@@ -36,45 +36,21 @@ const behavior = behaviorTree.SequenceNode(
                         creep.memory[MEMORY.MEMORY_TASK_TYPE] = TASKS.TASK_HAUL
                         creep.memory[MEMORY.MEMORY_HAUL_PICKUP] = task.details[MEMORY.MEMORY_HAUL_PICKUP]
                         creep.memory[MEMORY.MEMORY_HAUL_RESOURCE] = task.details[MEMORY.MEMORY_HAUL_RESOURCE]
-                         // Clear this, "needs energy" task was limiting regular haul tasks
-                        delete creep.memory[MEMORY.MEMORY_HAUL_AMOUNT]
+
+                        if (creep.memory[MEMORY.MEMORY_HAUL_AMOUNT]) {
+                            creep.memory[MEMORY.MEMORY_HAUL_AMOUNT] = task.details[MEMORY.MEMORY_HAUL_AMOUNT]
+                        } else {
+                            // Clear this, "needs energy" task was limiting regular haul tasks
+                            delete creep.memory[MEMORY.MEMORY_HAUL_AMOUNT]
+                        }
+
                         creep.memory[MEMORY.MEMORY_HAUL_DROPOFF] = task.details[MEMORY.MEMORY_HAUL_DROPOFF]
 
                         return SUCCESS
                     }
                 ),
                 behaviorTree.LeafNode(
-                    'pick_needs_energy',
-                    (creep, trace, kingdom) => {
-                        const room = kingdom.getCreepRoom(creep)
-                        if (!room) {
-                            return FAILURE
-                        }
-
-                        const structure = room.getNextEnergyStructure(creep)
-                        if (!structure) {
-                            return FAILURE
-                        }
-
-                        const reserve = room.getReserveStructureWithMostOfAResource(RESOURCE_ENERGY)
-                        if (!reserve) {
-                            return FAILURE
-                        }
-
-                        console.log("get needs energy", creep.name, structure.store.getFreeCapacity(RESOURCE_ENERGY))
-
-                        // set haul details
-                        creep.memory[MEMORY.MEMORY_TASK_TYPE] = TASKS.TASK_HAUL
-                        creep.memory[MEMORY.MEMORY_HAUL_PICKUP] = reserve.id
-                        creep.memory[MEMORY.MEMORY_HAUL_RESOURCE] = RESOURCE_ENERGY
-                        creep.memory[MEMORY.MEMORY_HAUL_AMOUNT] = structure.store.getFreeCapacity(RESOURCE_ENERGY)
-                        creep.memory[MEMORY.MEMORY_HAUL_DROPOFF] = structure.id
-
-                        return SUCCESS
-                    }
-                ),
-                behaviorTree.LeafNode(
-                    'pick_needs_energy',
+                    'parking_lot',
                     (creep, trace, kingdom) => {
                         const room = kingdom.getCreepRoom(creep)
                         if (!room) {

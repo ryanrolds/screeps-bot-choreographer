@@ -43,6 +43,17 @@ const behavior = behaviorTree.SelectorNode(
                     behaviorTree.LeafNode(
                         'move',
                         (creep) => {
+                            const room = creep.memory[MEMORY_ASSIGN_ROOM]
+                            // If creep doesn't have a harvest room assigned, we are done
+                            if (!room) {
+                                return behaviorTree.SUCCESS
+                            }
+
+                            // If the creep reaches the room we are done
+                            if (creep.room.name !== room) {
+                                return behaviorTree.SUCCESS
+                            }
+
                             return behaviorMovement.moveTo(creep, creep.room.controller, 1)
                         }
                     )
@@ -52,10 +63,38 @@ const behavior = behaviorTree.SelectorNode(
                     'reserve',
                     behaviorTree.LeafNode(
                         'move',
-                        (creep) => {
-                            let result = creep.reserveController(creep.room.controller)
-                            if (result != OK) {
-                                return behaviorTree.FAILURE
+                        (creep, trace, kingdom) => {
+                            const roomId = creep.memory[MEMORY_ASSIGN_ROOM]
+                            // If creep doesn't have a harvest room assigned, we are done
+                            if (!roomId) {
+                                return behaviorTree.SUCCESS
+                            }
+
+                            // If the creep reaches the room we are done
+                            if (creep.room.name !== roomId) {
+                                return behaviorTree.SUCCESS
+                            }
+
+                            if (!creep.room.controller.owner) {
+                                let room = kingdom.getCreepRoom(creep)
+
+                                if (room.isPrimary) {
+                                    let result = creep.claimController(creep.room.controller)
+                                    if (result != OK) {
+                                        return behaviorTree.FAILURE
+                                    }
+                                } else {
+                                    let result = creep.reserveController(creep.room.controller)
+                                    if (result != OK) {
+                                        return behaviorTree.FAILURE
+                                    }
+                                }
+
+                            } else if (!creep.room.controller.my) {
+                                let result = creep.attackController(creep.room.controller)
+                                if (result != OK) {
+                                    return behaviorTree.FAILURE
+                                }
                             }
 
                             return behaviorTree.RUNNING

@@ -23,6 +23,8 @@ class Resources extends OrgBase {
                     return
                 }
 
+                console.log(colony.id, resource)
+
                 if (resources[resource] > RESERVE_LIMIT) {
                     const details = {
                         [MEMORY.TERMINAL_TASK_TYPE]: TASKS.TASK_MARKET_ORDER,
@@ -31,8 +33,8 @@ class Resources extends OrgBase {
                         [MEMORY.MEMORY_ORDER_AMOUNT]: resources[resource] - RESERVE_LIMIT
                     }
 
-                    //colony.sendRequest(TOPICS.TOPIC_TERMINAL_TASK, PRIORITIES.TERMINAL_SELL,
-                    //    details)
+                    colony.sendRequest(TOPICS.TOPIC_TERMINAL_TASK, PRIORITIES.TERMINAL_SELL,
+                        details)
                 }
             })
         })

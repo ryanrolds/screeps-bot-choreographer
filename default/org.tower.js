@@ -56,7 +56,7 @@ class Tower extends OrgBase {
             this.sendRequest(TOPICS.TOPIC_HAUL_TASK, priority, details)
         }
 
-        var hostiles = this.parent.getHostiles()
+        var hostiles = this.getRoom().getHostiles()
         if (hostiles && hostiles.length) {
             hostiles = hostiles.filter((hostile) => {
                 return tower.pos.getRangeTo(hostile) <= 15

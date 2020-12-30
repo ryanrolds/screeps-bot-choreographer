@@ -1,0 +1,23 @@
+{
+  "name": "screeps.com",
+  "version": "1.0.0",
+  "description": "An AI for [Screeps](screeps.com).",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint default/*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ryanrolds/screeps.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ryanrolds/screeps/issues"
+  },
+  "homepage": "https://github.com/ryanrolds/screeps#readme",
+  "devDependencies": {
+    "eslint": "^7.16.0"
+  }
+}

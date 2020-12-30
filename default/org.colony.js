@@ -14,7 +14,7 @@ const { WORKER_CLAIMER, WORKER_DEFENDER } = require('constants.creeps')
 const { PRIORITY_CLAIMER, PRIORITY_DEFENDER, PRIORITY_HAULER } = require('constants.priorities')
 const { PID_SUFFIX_D } = require('./constants.memory')
 
-const MAX_DEFENDERS = 3
+const MAX_DEFENDERS = 1
 
 class Colony extends OrgBase {
     constructor(parent, colony) {
@@ -87,7 +87,7 @@ class Colony extends OrgBase {
         if (this.primaryRoom) {
             // PIDS
             this.haulerSetpoint = this.desiredRooms.length
-            Pid.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, this.haulerSetpoint, 0.075, 0.00009, 0)
+            Pid.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, this.haulerSetpoint, 0.1, 0.00009, 0)
         }
     }
     getColony() {
@@ -105,8 +105,6 @@ class Colony extends OrgBase {
         console.log(this)
 
         this.missingRooms.forEach((roomID) => {
-            // TODO check if a claimer is already on its way
-
             const numClaimers = _.filter(Game.creeps, (creep) => {
                 return creep.memory[MEMORY_ROLE] == WORKERS.WORKER_CLAIMER &&
                     creep.memory[MEMORY_ASSIGN_ROOM] === roomID

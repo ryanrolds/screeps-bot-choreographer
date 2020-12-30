@@ -19,8 +19,20 @@ const behavior = behaviorTree.SequenceNode(
             (creep) => {
                 let hostile = creep.pos.findClosestByRange(FIND_HOSTILE_CREEPS)
                 if (!hostile) {
-                    return SUCCESS
+                    const invaderCores = creep.room.find(FIND_STRUCTURES, {
+                        filter: (structure) => {
+                            return structure.structureType === STRUCTURE_INVADER_CORE
+                        }
+                    })
+
+                    if (!invaderCores.length) {
+                        return SUCCESS
+                    }
+
+                    hostile = invaderCores[0]
                 }
+
+                console.log('hostile', creep.name, hostile)
 
                 const inRange = creep.pos.getRangeTo(hostile) <= 3
                 if (inRange) {
@@ -28,14 +40,19 @@ const behavior = behaviorTree.SequenceNode(
                     console.log('attack', creep.name, result)
                 }
 
+                console.log('inRange', creep.name, inRange)
+
                 let pathToHostile = creep.pos.findPathTo(hostile)
                 const lastRampart = pathToHostile.reduce((lastRampart, pos) => {
-                    const posStructures = creep.pos.lookFor(LOOK_STRUCTURES)
+                    pos = creep.room.getPositionAt(pos.x, pos.y)
+                    const posStructures = pos.lookFor(LOOK_STRUCTURES)
                     const hasRampart = _.filter(posStructures, (structure) => {
                         return structure.structureType === STRUCTURE_RAMPART
                     })
 
-                    const hasCreep = creep.pos.lookFor(LOOK_STRUCTURES).length > 0
+                    const hasCreep = pos.lookFor(LOOK_CREEPS).length > 0
+
+                    console.log("structures", creep.name, posStructures, hasRampart, hasCreep)
 
                     if (hasRampart && !hasCreep) {
                         lastRampart = pos
@@ -44,7 +61,7 @@ const behavior = behaviorTree.SequenceNode(
                     return lastRampart
                 }, null)
 
-                console.log("last rampart", creep.name, lastRampart)
+                console.log("last rampart", creep.name, JSON.stringify(lastRampart))
 
                 if (lastRampart) {
                     creep.moveTo(lastRampart, {visualizePathStyle: {stroke: '#ffffff'}})
