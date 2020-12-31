@@ -320,6 +320,9 @@ class Room extends OrgBase {
   getRoomObject() {
     return this.roomObject;
   }
+  getCreeps() {
+    return this.assignedCreeps;
+  }
   getSources() {
     return this.roomObject.find(FIND_SOURCES);
   }

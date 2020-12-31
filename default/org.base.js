@@ -18,6 +18,9 @@ class OrgBase {
   getRoom() {
     return this.getParent().getRoom();
   }
+  getCreeps() {
+    return this.getParent().getCreeps();
+  }
   getStats() {
     return this.getParent().getStats();
   }

@@ -100,6 +100,11 @@ class Colony extends OrgBase {
       return room.id == roomId;
     });
   }
+  getCreeps() {
+    return _.reduce(this.rooms, (acc, room) => {
+      return acc.concat(room.getCreeps());
+    }, []);
+  }
   update() {
     console.log(this);
 

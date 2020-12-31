@@ -100,6 +100,9 @@ class Kingdom extends OrgBase {
   getRoom() {
     throw new Error('a kingdom is not a room');
   }
+  getCreeps() {
+    return _.values(Game.creeps);
+  }
   getCreepRoom(creep) {
     const colony = this.getCreepColony(creep);
     if (!colony) {
