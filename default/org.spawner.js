@@ -83,7 +83,7 @@ class Spawner extends OrgBase {
   }
   createCreep(role, memory, energyLimit) {
     const energy = this.energy;
-    return creepHelpers.createCreepV2(this.getColony().id, this.roomId, this.gameObject,
+    return creepHelpers.createCreep(this.getColony().id, this.roomId, this.gameObject,
       role, memory, energy, energyLimit);
   }
   getSpawning() {

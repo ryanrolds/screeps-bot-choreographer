@@ -115,11 +115,11 @@ const behavior = behaviorTree.sequenceNode(
 
 module.exports = {
   run: (creep, trace, kingdom) => {
-    const roleTrace = trace.begin('hauler_v3');
+    const roleTrace = trace.begin('hauler');
 
     const result = behaviorNonCombatant(behavior).tick(creep, roleTrace, kingdom);
     if (result == behaviorTree.FAILURE) {
-      console.log('INVESTIGATE: hauler_v3 failure', creep.name);
+      console.log('INVESTIGATE: hauler failure', creep.name);
     }
 
     roleTrace.end();

@@ -25,12 +25,12 @@ module.exports.MEMORY_COLONY = 'colony';
 module.exports.MEMORY_START_TICK = 'start_tick';
 module.exports.MEMORY_COMMUTE_DURATION = 'commute_duration';
 
-// V3 - base task
+// base task
 module.exports.MEMORY_TASK_REQUESTER = 'task_requestor';
 module.exports.MEMORY_TASK_TYPE = 'task_type';
 module.exports.MEMORY_TASK_REASON = 'task_reason';
 
-// V3 - haul task
+// haul task
 module.exports.MEMORY_HAUL_PICKUP = 'haul_pickup';
 module.exports.MEMORY_HAUL_RESOURCE = 'haul_resource';
 module.exports.MEMORY_HAUL_AMOUNT = 'haul_amount';

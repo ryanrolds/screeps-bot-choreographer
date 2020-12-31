@@ -78,7 +78,7 @@ class Colony extends OrgBase {
     }).length;
 
     this.numHaulers = _.filter(Game.creeps, (creep) => {
-      return creep.memory[MEMORY_ROLE] == WORKERS.WORKER_HAULER_V3 &&
+      return creep.memory[MEMORY_ROLE] == WORKERS.WORKER_HAULER &&
         creep.memory[MEMORY_COLONY] === this.id &&
         creep.ticksToLive > 100;
     }).length;
@@ -175,7 +175,7 @@ class Colony extends OrgBase {
       this.pidDesiredHaulers = Pid.update(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, numHaulTasks, Game.time);
       if (this.numHaulers <= this.pidDesiredHaulers) {
         this.sendRequest(TOPIC_SPAWN, PRIORITY_HAULER, {
-          role: WORKERS.WORKER_HAULER_V3,
+          role: WORKERS.WORKER_HAULER,
           memory: {},
         });
       }

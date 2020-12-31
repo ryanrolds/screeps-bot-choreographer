@@ -6,8 +6,7 @@ const MEMORY = require('constants.memory');
 
 const {MEMORY_ROLE, MEMORY_DESTINATION,
   MEMORY_ORIGIN} = require('constants.memory');
-const {WORKER_HAULER, WORKER_DISTRIBUTOR, WORKER_REMOTE_HAULER,
-  WORKER_HAULER_V3} = require('constants.creeps');
+const {WORKER_DISTRIBUTOR, WORKER_HAULER_V3} = require('constants.creeps');
 
 const spawnContainerCache = {};
 
@@ -71,41 +70,6 @@ const selectContainerForWithdraw = module.exports.selectContainerForWithdraw = b
 const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.selectorNode(
   'selectRoomDropoff',
   [
-    /*
-      behaviorTree.leafNode(
-          'pick_tower',
-          (creep) => {
-              const role = creep.memory[MEMORY_ROLE] || null
-              if (role !== WORKER_HAULER && role !==  WORKER_DISTRIBUTOR) {
-                  return FAILURE
-              }
-
-              let originID = creep.memory[MEMORY_ORIGIN]
-              if (!originID) {
-                  return FAILURE
-              }
-
-              let room = Game.rooms[originID]
-              if (!room) {
-                  return FAILURE
-              }
-
-              var targets = room.find(FIND_STRUCTURES, {
-                  filter: (structure) => {
-                      return structure.structureType == STRUCTURE_TOWER &&
-                              structure.store.getFreeCapacity(RESOURCE_ENERGY) > 250;
-                  }
-              });
-
-              if (!targets.length) {
-                  return FAILURE
-              }
-
-              behaviorMovement.setDestination(creep, targets[0].id)
-              return SUCCESS
-          }
-      ),
-      */
     behaviorTree.leafNode(
       'use_memory_dropoff',
       (creep) => {
@@ -124,8 +88,7 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.select
         const role = creep.memory[MEMORY_ROLE];
         // haulers should pick containers near the spawner
         // TODO this is hacky and feels bad
-        if (role && (role === WORKER_HAULER || role === WORKER_REMOTE_HAULER ||
-          role === WORKER_DISTRIBUTOR || role === WORKER_HAULER_V3)) {
+        if (role && (role === WORKER_DISTRIBUTOR || role === WORKER_HAULER_V3)) {
           return FAILURE;
         }
 
@@ -298,7 +261,7 @@ module.exports.pickStorage = behaviorTree.selectorNode(
         const role = creep.memory[MEMORY_ROLE];
         // haulers should pick containers near the spawner
         // TODO this is hacky and feels bad
-        if (role && role === WORKER_HAULER || role === WORKER_DISTRIBUTOR) {
+        if (role && role === WORKER_HAULER_V3 || role === WORKER_DISTRIBUTOR) {
           return FAILURE;
         }
 

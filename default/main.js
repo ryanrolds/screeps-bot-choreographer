@@ -38,8 +38,6 @@ module.exports.loop = function() {
     tracing.setActive();
   }
 
-  // tracing.reset()
-
   const trace = tracing.startTrace('main');
 
   console.log('======== TICK', Game.time, '========');

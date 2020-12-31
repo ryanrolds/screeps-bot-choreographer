@@ -7,13 +7,10 @@ const WORKER_UPGRADER = module.exports.WORKER_UPGRADER = 'upgrader';
 const WORKER_DEFENDER = module.exports.WORKER_DEFENDER = 'defender';
 const WORKER_ATTACKER = module.exports.WORKER_ATTACKER = 'attacker';
 const WORKER_REPAIRER = module.exports.WORKER_REPAIRER = 'repairer';
-const WORKER_REMOTE_HAULER = module.exports.WORKER_HAULER = 'remote_hauler';
-const WORKER_HAULER = module.exports.WORKER_HAULER = 'hauler';
 const WORKER_DISTRIBUTOR = module.exports.WORKER_DISTRIBUTOR = 'distributor';
 const WORKER_CLAIMER = module.exports.WORKER_CLAIMER = 'claimer';
 const WORKER_RESERVER = module.exports.WORKER_RESERVER = 'reserver';
-const WORKER_EXPLORER = module.exports.WORKER_EXPLORER = 'claimer';
-const WORKER_HAULER_V3 = module.exports.WORKER_HAULER_V3 = 'hauler_v3';
+const WORKER_HAULER = module.exports.WORKER_HAULER = 'hauler_v3';
 
 // The 'base' should at most 300 energy as it will form the base of the creep
 // The 'parts' are additional parts that will be used to fill up to the 'energyLimit'
@@ -42,19 +39,7 @@ const definitions = {
     base: [CARRY, MOVE, WORK, WORK],
   },
   [WORKER_HAULER]: {
-    energyLimit: 900,
-    ignoreSpawnEnergyLimit: true,
-    parts: [MOVE, CARRY],
-    base: [MOVE, CARRY, MOVE, CARRY, MOVE, CARRY],
-  },
-  [WORKER_HAULER_V3]: {
     energyLimit: 2000,
-    ignoreSpawnEnergyLimit: true,
-    parts: [MOVE, CARRY],
-    base: [MOVE, CARRY, MOVE, CARRY, MOVE, CARRY],
-  },
-  [WORKER_REMOTE_HAULER]: {
-    energyLimit: 1000,
     ignoreSpawnEnergyLimit: true,
     parts: [MOVE, CARRY],
     base: [MOVE, CARRY, MOVE, CARRY, MOVE, CARRY],
@@ -89,11 +74,6 @@ const definitions = {
     parts: [CLAIM, MOVE],
     base: [MOVE, CLAIM],
   },
-  [WORKER_EXPLORER]: { // Deprecated - use claimer
-    energyLimit: 1300,
-    parts: [CLAIM, MOVE],
-    base: [MOVE, CLAIM],
-  },
   [WORKER_DEFENDER]: {
     energyLimit: null,
     parts: [MOVE, TOUGH, MOVE, TOUGH, MOVE, RANGED_ATTACK],
@@ -108,7 +88,6 @@ const definitions = {
 };
 
 module.exports = {
-  // V1 Deprecated
   WORKER_BUILDER,
   WORKER_HARVESTER,
   WORKER_REMOTE_HARVESTER,
@@ -118,14 +97,10 @@ module.exports = {
   WORKER_DEFENDER,
   WORKER_ATTACKER,
   WORKER_REPAIRER,
-  WORKER_HAULER,
-  WORKER_REMOTE_HAULER,
   WORKER_DISTRIBUTOR,
   WORKER_CLAIMER,
   WORKER_RESERVER,
-  WORKER_EXPLORER,
-  // V2
+  WORKER_HAULER,
+  // definitions
   definitions,
-  // V3 roles
-  WORKER_HAULER_V3,
 };

@@ -6,8 +6,7 @@ const CREEPS = require('constants.creeps');
 const TOPICS = require('constants.topics');
 
 const {TOPIC_SPAWN} = require('constants.topics');
-const {WORKER_HAULER, WORKER_REMOTE_HARVESTER, WORKER_MINER,
-  WORKER_HARVESTER, WORKER_REMOTE_MINER, WORKER_REMOTE_HAULER} = require('constants.creeps');
+const {WORKER_REMOTE_HARVESTER, WORKER_MINER, WORKER_HARVESTER, WORKER_REMOTE_MINER} = require('constants.creeps');
 const {PRIORITY_HARVESTER, PRIORITY_MINER, PRIORITY_REMOTE_MINER} = require('constants.priorities');
 
 class Source extends OrgBase {
@@ -37,7 +36,7 @@ class Source extends OrgBase {
 
       this.numHaulers = _.filter(Game.creeps, (creep) => {
         const role = creep.memory[MEMORY.MEMORY_ROLE];
-        return (role === WORKER_HAULER || role === WORKER_REMOTE_HAULER) &&
+        return (role === WORKER_HAULER) &&
           creep.memory[MEMORY.MEMORY_WITHDRAW] === this.container.id &&
           creep.ticksToLive > 100;
       }).length;
@@ -73,7 +72,7 @@ class Source extends OrgBase {
 
     const colonyId = this.getColony().id;
     this.colonyCreeps = _.filter(Game.creeps, {memory: {[MEMORY.MEMORY_COLONY]: colonyId}});
-    this.haulers = _.filter(this.colonyCreeps, {memory: {[MEMORY.MEMORY_ROLE]: CREEPS.WORKER_HAULER_V3}});
+    this.haulers = _.filter(this.colonyCreeps, {memory: {[MEMORY.MEMORY_ROLE]: CREEPS.WORKER_HAULER}});
     this.avgHaulerCapacity = _.reduce(this.haulers, (total, hauler) => {
       return total + hauler.store.getCapacity();
     }, 0) / this.haulers.length;
