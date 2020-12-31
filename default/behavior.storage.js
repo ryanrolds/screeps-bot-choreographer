@@ -1,502 +1,500 @@
 
-const behaviorTree = require('lib.behaviortree')
-const {FAILURE, SUCCESS, RUNNING} = require('lib.behaviortree')
-const behaviorMovement = require('behavior.movement')
+const behaviorTree = require('lib.behaviortree');
+const {FAILURE, SUCCESS, RUNNING} = require('lib.behaviortree');
+const behaviorMovement = require('behavior.movement');
+const MEMORY = require('constants.memory');
 
-const MEMORY = require('constants.memory')
-const TASKS = require('constants.tasks')
-const CREEPS = require('constants.creeps')
-const TOPICS = require('constants.topics')
+const {MEMORY_ROLE, MEMORY_DESTINATION,
+  MEMORY_ORIGIN} = require('constants.memory');
+const {WORKER_HAULER, WORKER_DISTRIBUTOR, WORKER_REMOTE_HAULER,
+  WORKER_HAULER_V3} = require('constants.creeps');
 
-const { MEMORY_ROLE, MEMORY_DESTINATION, MEMORY_ORIGIN } = require('constants.memory')
-const { WORKER_HAULER, WORKER_DISTRIBUTOR, WORKER_REMOTE_HAULER,  WORKER_HAULER_V3 } = require('constants.creeps')
+const spawnContainerCache = {};
 
-const spawnContainerCache = {}
-
-const selectEnergyForWithdraw = module.exports.selectEnergyForWithdraw = behaviorTree.LeafNode(
+const selectEnergyForWithdraw = module.exports.selectEnergyForWithdraw = behaviorTree.leafNode(
     'selectEnergyForWithdraw',
     (creep) => {
-        let spawnContainers = spawnContainerCache[creep.room.name]
-        if (!spawnContainers || Game.tick % 100 === 0) {
-            let spawns = creep.room.find(FIND_STRUCTURES, {
-                filter: (structure) => {
-                    return structure.structureType === STRUCTURE_SPAWN
-                }
-            })
-
-            let spawnContainers = _.reduce(spawns, (acc, spawn) => {
-                let containers = spawn.pos.findInRange(FIND_STRUCTURES, 8, {
-                    filter: (structure) => {
-                       return (structure.structureType == STRUCTURE_CONTAINER ||
-                            structure.structureType == STRUCTURE_STORAGE) &&
-                            structure.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
-                    }
-                })
-
-                return acc.concat(containers)
-            }, [])
-
-            spawnContainerCache[creep.room.name] = spawnContainers
-        }
-
-        var target = creep.pos.findClosestByRange(spawnContainers)
-        if (!target) {
-            return FAILURE
-        }
-
-        behaviorMovement.setDestination(creep, target.id)
-        return SUCCESS
-    }
-)
-
-const selectContainerForWithdraw = module.exports.selectContainerForWithdraw = behaviorTree.LeafNode(
-    'selectContainerForWithdraw',
-    (creep) => {
-        var target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
-            filter: (structure) => {
-                return (structure.structureType == STRUCTURE_CONTAINER ||
-                    structure.structureType == STRUCTURE_STORAGE ||
-                    structure.structureType == STRUCTURE_LINK) &&
-                    structure.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
-            }
+      const spawnContainers = spawnContainerCache[creep.room.name];
+      if (!spawnContainers || Game.tick % 100 === 0) {
+        const spawns = creep.room.find(FIND_STRUCTURES, {
+          filter: (structure) => {
+            return structure.structureType === STRUCTURE_SPAWN;
+          },
         });
 
-        if (!target) {
-            return FAILURE
-        }
+        const spawnContainers = _.reduce(spawns, (acc, spawn) => {
+          const containers = spawn.pos.findInRange(FIND_STRUCTURES, 8, {
+            filter: (structure) => {
+              return (structure.structureType == STRUCTURE_CONTAINER ||
+              structure.structureType == STRUCTURE_STORAGE) &&
+              structure.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
+            },
+          });
 
-        behaviorMovement.setDestination(creep, target.id)
-        return SUCCESS
-    }
-)
+          return acc.concat(containers);
+        }, []);
 
-const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.SelectorNode(
+        spawnContainerCache[creep.room.name] = spawnContainers;
+      }
+
+      const target = creep.pos.findClosestByRange(spawnContainers);
+      if (!target) {
+        return FAILURE;
+      }
+
+      behaviorMovement.setDestination(creep, target.id);
+      return SUCCESS;
+    },
+);
+
+const selectContainerForWithdraw = module.exports.selectContainerForWithdraw = behaviorTree.leafNode(
+    'selectContainerForWithdraw',
+    (creep) => {
+      const target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
+        filter: (structure) => {
+          return (structure.structureType == STRUCTURE_CONTAINER ||
+          structure.structureType == STRUCTURE_STORAGE ||
+          structure.structureType == STRUCTURE_LINK) &&
+          structure.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
+        },
+      });
+
+      if (!target) {
+        return FAILURE;
+      }
+
+      behaviorMovement.setDestination(creep, target.id);
+      return SUCCESS;
+    },
+);
+
+const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.selectorNode(
     'selectRoomDropoff',
     [
-        /*
-        behaviorTree.LeafNode(
-            'pick_tower',
-            (creep) => {
-                const role = creep.memory[MEMORY_ROLE] || null
-                if (role !== WORKER_HAULER && role !==  WORKER_DISTRIBUTOR) {
-                    return FAILURE
-                }
+    /*
+      behaviorTree.leafNode(
+          'pick_tower',
+          (creep) => {
+              const role = creep.memory[MEMORY_ROLE] || null
+              if (role !== WORKER_HAULER && role !==  WORKER_DISTRIBUTOR) {
+                  return FAILURE
+              }
 
-                let originID = creep.memory[MEMORY_ORIGIN]
-                if (!originID) {
-                    return FAILURE
-                }
+              let originID = creep.memory[MEMORY_ORIGIN]
+              if (!originID) {
+                  return FAILURE
+              }
 
-                let room = Game.rooms[originID]
-                if (!room) {
-                    return FAILURE
-                }
+              let room = Game.rooms[originID]
+              if (!room) {
+                  return FAILURE
+              }
 
-                var targets = room.find(FIND_STRUCTURES, {
-                    filter: (structure) => {
-                        return structure.structureType == STRUCTURE_TOWER &&
-                                structure.store.getFreeCapacity(RESOURCE_ENERGY) > 250;
-                    }
-                });
+              var targets = room.find(FIND_STRUCTURES, {
+                  filter: (structure) => {
+                      return structure.structureType == STRUCTURE_TOWER &&
+                              structure.store.getFreeCapacity(RESOURCE_ENERGY) > 250;
+                  }
+              });
 
-                if (!targets.length) {
-                    return FAILURE
-                }
+              if (!targets.length) {
+                  return FAILURE
+              }
 
-                behaviorMovement.setDestination(creep, targets[0].id)
-                return SUCCESS
+              behaviorMovement.setDestination(creep, targets[0].id)
+              return SUCCESS
+          }
+      ),
+      */
+      behaviorTree.leafNode(
+          'use_memory_dropoff',
+          (creep) => {
+            const dropoff = creep.memory[MEMORY.MEMORY_HAUL_DROPOFF];
+            if (dropoff) {
+              behaviorMovement.setDestination(creep, dropoff);
+              return SUCCESS;
             }
-        ),
-        */
-        behaviorTree.LeafNode(
-            'use_memory_dropoff',
-            (creep) => {
-                const dropoff = creep.memory[MEMORY.MEMORY_HAUL_DROPOFF]
-                if (dropoff) {
-                    behaviorMovement.setDestination(creep, dropoff)
-                    return SUCCESS
-                }
 
-                return FAILURE
+            return FAILURE;
+          },
+      ),
+      behaviorTree.leafNode(
+          'pick_adjacent_container',
+          (creep) => {
+            const role = creep.memory[MEMORY_ROLE];
+            // haulers should pick containers near the spawner
+            // TODO this is hacky and feels bad
+            if (role && (role === WORKER_HAULER || role === WORKER_REMOTE_HAULER ||
+          role === WORKER_DISTRIBUTOR || role === WORKER_HAULER_V3)) {
+              return FAILURE;
             }
-        ),
-        behaviorTree.LeafNode(
-            'pick_adjacent_container',
-            (creep) => {
-                const role = creep.memory[MEMORY_ROLE]
-                // haulers should pick containers near the spawner
-                // TODO this is hacky and feels bad
-                if (role && (role === WORKER_HAULER || role === WORKER_REMOTE_HAULER ||
-                    role ===  WORKER_DISTRIBUTOR || role === WORKER_HAULER_V3)) {
-                    return FAILURE
-                }
 
-                var targets = creep.pos.findInRange(FIND_STRUCTURES, 2, {
-                    filter: (structure) => {
-                        return structure.structureType == STRUCTURE_CONTAINER &&
-                            structure.structureType == STRUCTURE_CONTAINER &&
-                            structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
-                    }
-                });
+            const targets = creep.pos.findInRange(FIND_STRUCTURES, 2, {
+              filter: (structure) => {
+                return structure.structureType == STRUCTURE_CONTAINER &&
+              structure.structureType == STRUCTURE_CONTAINER &&
+              structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+              },
+            });
 
-                if (!targets || !targets.length) {
-                    return FAILURE
-                }
-
-                behaviorMovement.setDestination(creep, targets[0].id)
-                return SUCCESS
+            if (!targets || !targets.length) {
+              return FAILURE;
             }
-        ),
-        behaviorTree.LeafNode(
-            'pick_adjacent_link',
-            (creep) => {
-                const role = creep.memory[MEMORY_ROLE]
-                if (role && role ===  WORKER_DISTRIBUTOR) {
-                    return FAILURE
-                }
 
-                var targets = creep.pos.findInRange(FIND_STRUCTURES, 2, {
-                    filter: (structure) => {
-                        // TODO things seeking to gain energy should use another function
-                        return structure.structureType == STRUCTURE_LINK;
-                    }
-                });
-
-                if (!targets || !targets.length) {
-                    return FAILURE
-                }
-
-                behaviorMovement.setDestination(creep, targets[0].id)
-                return SUCCESS
+            behaviorMovement.setDestination(creep, targets[0].id);
+            return SUCCESS;
+          },
+      ),
+      behaviorTree.leafNode(
+          'pick_adjacent_link',
+          (creep) => {
+            const role = creep.memory[MEMORY_ROLE];
+            if (role && role === WORKER_DISTRIBUTOR) {
+              return FAILURE;
             }
-        ),
-        behaviorTree.LeafNode(
-            'pick_storage',
-            (creep) => {
-                const role = creep.memory[MEMORY_ROLE]
-                if (role && role ===  WORKER_DISTRIBUTOR) {
-                    return FAILURE
-                }
 
-                let originID = creep.memory[MEMORY_ORIGIN]
-                if (!originID) {
-                    return FAILURE
-                }
+            const targets = creep.pos.findInRange(FIND_STRUCTURES, 2, {
+              filter: (structure) => {
+                // TODO things seeking to gain energy should use another function
+                return structure.structureType == STRUCTURE_LINK;
+              },
+            });
 
-                let room = Game.rooms[originID]
-                if (!room) {
-                    return FAILURE
-                }
-
-                if (!room.storage) {
-                    return FAILURE
-                }
-
-                let distributors = room.find(FIND_MY_CREEPS, {
-                    filter: (creep) => {
-                        return creep.memory[MEMORY_ROLE] === WORKER_DISTRIBUTOR
-                    }
-                })
-
-                if (!distributors.length) {
-                    return FAILURE
-                }
-
-                behaviorMovement.setDestination(creep, room.storage.id)
-                return SUCCESS
+            if (!targets || !targets.length) {
+              return FAILURE;
             }
-        ),
-        behaviorTree.LeafNode(
-            'pick_container',
-            (creep) => {
-                const role = creep.memory[MEMORY_ROLE]
-                if (role && role ===  WORKER_DISTRIBUTOR) {
-                    return FAILURE
-                }
 
-                let originID = creep.memory[MEMORY_ORIGIN]
-                if (!originID) {
-                    return FAILURE
-                }
-
-                let room = Game.rooms[originID]
-                if (!room) {
-                    return FAILURE
-                }
-
-                let distributors = room.find(FIND_MY_CREEPS, {
-                    filter: (creep) => {
-                        return creep.memory[MEMORY_ROLE] === WORKER_DISTRIBUTOR
-                    }
-                })
-
-                if (!distributors.length) {
-                    return FAILURE
-                }
-
-                let spawns = creep.room.find(FIND_STRUCTURES, {
-                    filter: (structure) => {
-                        return structure.structureType === STRUCTURE_SPAWN
-                    }
-                })
-                let spawnContainers = _.reduce(spawns, (acc, spawn) => {
-                    let containers = spawn.pos.findInRange(FIND_STRUCTURES, 8, {
-                        filter: (structure) => {
-                            return structure.structureType == STRUCTURE_CONTAINER &&
-                                structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
-                        }
-                    });
-
-                    return acc.concat(containers)
-                }, [])
-
-                var target = creep.pos.findClosestByRange(spawnContainers)
-                if (!target) {
-                    return FAILURE
-                }
-
-                behaviorMovement.setDestination(creep, target.id)
-                return SUCCESS
+            behaviorMovement.setDestination(creep, targets[0].id);
+            return SUCCESS;
+          },
+      ),
+      behaviorTree.leafNode(
+          'pick_storage',
+          (creep) => {
+            const role = creep.memory[MEMORY_ROLE];
+            if (role && role === WORKER_DISTRIBUTOR) {
+              return FAILURE;
             }
-        ),
-        behaviorTree.LeafNode(
-            'pick_spawner_extension',
-            (creep) => {
-                let originID = creep.memory[MEMORY_ORIGIN]
-                if (!originID) {
-                    return FAILURE
-                }
 
-                let room = Game.rooms[originID]
-                if (!room) {
-                    return FAILURE
-                }
-
-                let targets = room.find(FIND_STRUCTURES, {
-                    filter: (structure) => {
-                        return (structure.structureType == STRUCTURE_EXTENSION ||
-                                structure.structureType == STRUCTURE_SPAWN) &&
-                                structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
-                    }
-                });
-
-                if (!targets.length) {
-                    return FAILURE
-                }
-
-                behaviorMovement.setDestination(creep, targets[0].id)
-                return SUCCESS
+            const originID = creep.memory[MEMORY_ORIGIN];
+            if (!originID) {
+              return FAILURE;
             }
-        ),
-    ]
-)
 
-const pickStorage = module.exports.pickStorage = behaviorTree.SelectorNode(
+            const room = Game.rooms[originID];
+            if (!room) {
+              return FAILURE;
+            }
+
+            if (!room.storage) {
+              return FAILURE;
+            }
+
+            const distributors = room.find(FIND_MY_CREEPS, {
+              filter: (creep) => {
+                return creep.memory[MEMORY_ROLE] === WORKER_DISTRIBUTOR;
+              },
+            });
+
+            if (!distributors.length) {
+              return FAILURE;
+            }
+
+            behaviorMovement.setDestination(creep, room.storage.id);
+            return SUCCESS;
+          },
+      ),
+      behaviorTree.leafNode(
+          'pick_container',
+          (creep) => {
+            const role = creep.memory[MEMORY_ROLE];
+            if (role && role === WORKER_DISTRIBUTOR) {
+              return FAILURE;
+            }
+
+            const originID = creep.memory[MEMORY_ORIGIN];
+            if (!originID) {
+              return FAILURE;
+            }
+
+            const room = Game.rooms[originID];
+            if (!room) {
+              return FAILURE;
+            }
+
+            const distributors = room.find(FIND_MY_CREEPS, {
+              filter: (creep) => {
+                return creep.memory[MEMORY_ROLE] === WORKER_DISTRIBUTOR;
+              },
+            });
+
+            if (!distributors.length) {
+              return FAILURE;
+            }
+
+            const spawns = creep.room.find(FIND_STRUCTURES, {
+              filter: (structure) => {
+                return structure.structureType === STRUCTURE_SPAWN;
+              },
+            });
+            const spawnContainers = _.reduce(spawns, (acc, spawn) => {
+              const containers = spawn.pos.findInRange(FIND_STRUCTURES, 8, {
+                filter: (structure) => {
+                  return structure.structureType == STRUCTURE_CONTAINER &&
+                structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+                },
+              });
+
+              return acc.concat(containers);
+            }, []);
+
+            const target = creep.pos.findClosestByRange(spawnContainers);
+            if (!target) {
+              return FAILURE;
+            }
+
+            behaviorMovement.setDestination(creep, target.id);
+            return SUCCESS;
+          },
+      ),
+      behaviorTree.leafNode(
+          'pick_spawner_extension',
+          (creep) => {
+            const originID = creep.memory[MEMORY_ORIGIN];
+            if (!originID) {
+              return FAILURE;
+            }
+
+            const room = Game.rooms[originID];
+            if (!room) {
+              return FAILURE;
+            }
+
+            const targets = room.find(FIND_STRUCTURES, {
+              filter: (structure) => {
+                return (structure.structureType == STRUCTURE_EXTENSION ||
+              structure.structureType == STRUCTURE_SPAWN) &&
+              structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+              },
+            });
+
+            if (!targets.length) {
+              return FAILURE;
+            }
+
+            behaviorMovement.setDestination(creep, targets[0].id);
+            return SUCCESS;
+          },
+      ),
+    ],
+);
+
+module.exports.pickStorage = behaviorTree.selectorNode(
     'pickStorage',
     [
-        behaviorTree.LeafNode(
-            'pick_adjacent_container',
-            (creep) => {
-                const role = creep.memory[MEMORY_ROLE]
-                // haulers should pick containers near the spawner
-                // TODO this is hacky and feels bad
-                if (role && role === WORKER_HAULER || role ===  WORKER_DISTRIBUTOR) {
-                    return FAILURE
-                }
-
-                var targets = creep.pos.findInRange(FIND_STRUCTURES, 1, {
-                    filter: (structure) => {
-                        return structure.structureType == STRUCTURE_CONTAINER &&
-                            structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
-                    }
-                });
-
-                if (!targets || !targets.length) {
-                    return FAILURE
-                }
-
-                behaviorMovement.setDestination(creep, targets[0].id)
-                return SUCCESS
+      behaviorTree.leafNode(
+          'pick_adjacent_container',
+          (creep) => {
+            const role = creep.memory[MEMORY_ROLE];
+            // haulers should pick containers near the spawner
+            // TODO this is hacky and feels bad
+            if (role && role === WORKER_HAULER || role === WORKER_DISTRIBUTOR) {
+              return FAILURE;
             }
-        ),
-        behaviorTree.LeafNode(
-            'pick_spawner_extension',
-            (creep) => {
-                let originID = creep.memory[MEMORY_ORIGIN]
-                if (!originID) {
-                    return FAILURE
-                }
 
-                let room = Game.rooms[originID]
-                if (!room) {
-                    return FAILURE
-                }
+            const targets = creep.pos.findInRange(FIND_STRUCTURES, 1, {
+              filter: (structure) => {
+                return structure.structureType == STRUCTURE_CONTAINER &&
+              structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+              },
+            });
 
-                let targets = room.find(FIND_STRUCTURES, {
-                    filter: (structure) => {
-                        return (structure.structureType == STRUCTURE_EXTENSION ||
-                                structure.structureType == STRUCTURE_SPAWN) &&
-                                structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
-                    }
-                });
-
-                if (!targets.length) {
-                    return FAILURE
-                }
-
-                behaviorMovement.setDestination(creep, targets[0].id)
-                return SUCCESS
+            if (!targets || !targets.length) {
+              return FAILURE;
             }
-        ),
-        behaviorTree.LeafNode(
-            'pick_tower',
-            (creep) => {
-                let originID = creep.memory[MEMORY_ORIGIN]
-                if (!originID) {
-                    return FAILURE
-                }
 
-                let room = Game.rooms[originID]
-                if (!room) {
-                    return FAILURE
-                }
-
-                var targets = room.find(FIND_STRUCTURES, {
-                    filter: (structure) => {
-                        return structure.structureType == STRUCTURE_TOWER &&
-                                structure.store.getFreeCapacity(RESOURCE_ENERGY) > 100;
-                    }
-                });
-
-                if (!targets.length) {
-                    return FAILURE
-                }
-
-                behaviorMovement.setDestination(creep, targets[0].id)
-                return SUCCESS
+            behaviorMovement.setDestination(creep, targets[0].id);
+            return SUCCESS;
+          },
+      ),
+      behaviorTree.leafNode(
+          'pick_spawner_extension',
+          (creep) => {
+            const originID = creep.memory[MEMORY_ORIGIN];
+            if (!originID) {
+              return FAILURE;
             }
-        ),
-        behaviorTree.LeafNode(
-            'pick_storage',
-            (creep) => {
-                let originID = creep.memory[MEMORY_ORIGIN]
-                if (!originID) {
-                    return FAILURE
-                }
 
-                let room = Game.rooms[originID]
-                if (!room) {
-                    return FAILURE
-                }
-
-                if (!room.storage) {
-                    return FAILURE
-                }
-
-                behaviorMovement.setDestination(creep, room.storage.id)
-                return SUCCESS
+            const room = Game.rooms[originID];
+            if (!room) {
+              return FAILURE;
             }
-        ),
-        behaviorTree.LeafNode(
-            'pick_container',
-            (creep) => {
-                var targets = Game.spawns['Spawn1'].pos.findInRange(FIND_STRUCTURES, 8, {
-                    filter: (structure) => {
-                        return structure.structureType == STRUCTURE_CONTAINER &&
-                            structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
-                    }
-                });
 
-                if (!targets || !targets.length) {
-                    return FAILURE
-                }
+            const targets = room.find(FIND_STRUCTURES, {
+              filter: (structure) => {
+                return (structure.structureType == STRUCTURE_EXTENSION ||
+              structure.structureType == STRUCTURE_SPAWN) &&
+              structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+              },
+            });
 
-                behaviorMovement.setDestination(creep, targets[0].id)
-                return SUCCESS
+            if (!targets.length) {
+              return FAILURE;
             }
-        )
-    ]
-)
 
-module.exports.fillCreep = behaviorTree.SequenceNode(
+            behaviorMovement.setDestination(creep, targets[0].id);
+            return SUCCESS;
+          },
+      ),
+      behaviorTree.leafNode(
+          'pick_tower',
+          (creep) => {
+            const originID = creep.memory[MEMORY_ORIGIN];
+            if (!originID) {
+              return FAILURE;
+            }
+
+            const room = Game.rooms[originID];
+            if (!room) {
+              return FAILURE;
+            }
+
+            const targets = room.find(FIND_STRUCTURES, {
+              filter: (structure) => {
+                return structure.structureType == STRUCTURE_TOWER &&
+              structure.store.getFreeCapacity(RESOURCE_ENERGY) > 100;
+              },
+            });
+
+            if (!targets.length) {
+              return FAILURE;
+            }
+
+            behaviorMovement.setDestination(creep, targets[0].id);
+            return SUCCESS;
+          },
+      ),
+      behaviorTree.leafNode(
+          'pick_storage',
+          (creep) => {
+            const originID = creep.memory[MEMORY_ORIGIN];
+            if (!originID) {
+              return FAILURE;
+            }
+
+            const room = Game.rooms[originID];
+            if (!room) {
+              return FAILURE;
+            }
+
+            if (!room.storage) {
+              return FAILURE;
+            }
+
+            behaviorMovement.setDestination(creep, room.storage.id);
+            return SUCCESS;
+          },
+      ),
+      behaviorTree.leafNode(
+          'pick_container',
+          (creep) => {
+            const targets = Game.spawns['Spawn1'].pos.findInRange(FIND_STRUCTURES, 8, {
+              filter: (structure) => {
+                return structure.structureType == STRUCTURE_CONTAINER &&
+              structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+              },
+            });
+
+            if (!targets || !targets.length) {
+              return FAILURE;
+            }
+
+            behaviorMovement.setDestination(creep, targets[0].id);
+            return SUCCESS;
+          },
+      ),
+    ],
+);
+
+module.exports.fillCreep = behaviorTree.sequenceNode(
     'energy_supply',
     [
-        selectEnergyForWithdraw,
-        behaviorMovement.moveToDestination(1),
-        behaviorTree.LeafNode(
-            'fill_creep',
-            (creep) => {
-                return behaviorMovement.fillCreepFromDestination(creep)
-            }
-        )
-    ]
-)
+      selectEnergyForWithdraw,
+      behaviorMovement.moveToDestination(1),
+      behaviorTree.leafNode(
+          'fill_creep',
+          (creep) => {
+            return behaviorMovement.fillCreepFromDestination(creep);
+          },
+      ),
+    ],
+);
 
 module.exports.fillCreepFrom = (from) => {
-    return behaviorTree.SequenceNode(
-        `fill_creep_from_${from}`,
-        [
-            from,
-            behaviorMovement.moveToDestination(1),
-            behaviorTree.LeafNode(
-                'fill_creep_from_destination',
-                (creep) => {
-                    return behaviorMovement.fillCreepFromDestination(creep)
-                }
-            )
-        ]
-    )
-}
+  return behaviorTree.sequenceNode(
+      `fill_creep_from_${from}`,
+      [
+        from,
+        behaviorMovement.moveToDestination(1),
+        behaviorTree.leafNode(
+            'fill_creep_from_destination',
+            (creep) => {
+              return behaviorMovement.fillCreepFromDestination(creep);
+            },
+        ),
+      ],
+  );
+};
 
-module.exports.fillCreepFromContainers = behaviorTree.SequenceNode(
+module.exports.fillCreepFromContainers = behaviorTree.sequenceNode(
     'energy_supply_containers',
     [
-        selectContainerForWithdraw,
-        behaviorMovement.moveToDestination(1),
-        behaviorTree.LeafNode(
-            'fill_creep',
-            (creep) => {
-                return behaviorMovement.fillCreepFromDestination(creep)
-            }
-        )
-    ]
-)
+      selectContainerForWithdraw,
+      behaviorMovement.moveToDestination(1),
+      behaviorTree.leafNode(
+          'fill_creep',
+          (creep) => {
+            return behaviorMovement.fillCreepFromDestination(creep);
+          },
+      ),
+    ],
+);
 
-module.exports.emptyCreep = behaviorTree.RepeatUntilSuccess(
-    "transfer_until_empty",
-    behaviorTree.SequenceNode(
+module.exports.emptyCreep = behaviorTree.repeatUntilSuccess(
+    'transfer_until_empty',
+    behaviorTree.sequenceNode(
         'dump_energy',
         [
-            selectRoomDropoff,
-            behaviorMovement.moveToDestinationRoom,
-            behaviorMovement.moveToDestination(1),
-            behaviorTree.LeafNode(
-                'empty_creep',
-                (creep) => {
-                    let destination = Game.getObjectById(creep.memory[MEMORY_DESTINATION])
-                    if (!destination) {
-                        return FAILURE
-                    }
-
-                    let resource = Object.keys(creep.store).pop()
-                    let result = creep.transfer(destination, resource)
-                    if (result === ERR_FULL) {
-                        return SUCCESS
-                    }
-                    if (result === ERR_NOT_ENOUGH_RESOURCES) {
-                        return SUCCESS
-                    }
-                    if (creep.store.getUsedCapacity() === 0) {
-                        return SUCCESS
-                    }
-                    if (result != OK) {
-                        return FAILURE
-                    }
-
-                    return RUNNING
+          selectRoomDropoff,
+          behaviorMovement.moveToDestinationRoom,
+          behaviorMovement.moveToDestination(1),
+          behaviorTree.leafNode(
+              'empty_creep',
+              (creep) => {
+                const destination = Game.getObjectById(creep.memory[MEMORY_DESTINATION]);
+                if (!destination) {
+                  return FAILURE;
                 }
-            )
-        ]
-    )
-)
+
+                const resource = Object.keys(creep.store).pop();
+                const result = creep.transfer(destination, resource);
+                if (result === ERR_FULL) {
+                  return SUCCESS;
+                }
+                if (result === ERR_NOT_ENOUGH_RESOURCES) {
+                  return SUCCESS;
+                }
+                if (creep.store.getUsedCapacity() === 0) {
+                  return SUCCESS;
+                }
+                if (result != OK) {
+                  return FAILURE;
+                }
+
+                return RUNNING;
+              },
+          ),
+        ],
+    ),
+);
 

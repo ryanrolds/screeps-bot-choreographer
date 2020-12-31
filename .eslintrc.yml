@@ -1,8 +1,15 @@
 env:
-  browser: true
   es2021: true
-extends: 'eslint:recommended'
+  node: true
+  screeps/screeps: true
+extends: "google"
 parserOptions:
   ecmaVersion: 12
   sourceType: module
-rules: {}
+rules:
+  require-jsdoc: 0
+  max-len:
+    - error
+    - code: 120
+plugins:
+ - screeps

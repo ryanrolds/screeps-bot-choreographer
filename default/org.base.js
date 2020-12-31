@@ -1,58 +1,58 @@
 class OrgBase {
-    constructor(parent, id) {
-        this.parent = parent
-        this.id = id
+  constructor(parent, id) {
+    this.parent = parent;
+    this.id = id;
+  }
+  getID() {
+    return this.id;
+  }
+  getParent() {
+    return this.parent;
+  }
+  getKingdom() {
+    return this.getParent().getKingdom();
+  }
+  getColony() {
+    return this.getParent().getColony();
+  }
+  getRoom() {
+    return this.getParent().getRoom();
+  }
+  getStats() {
+    return this.getParent().getStats();
+  }
+  sendRequest(topic, priority, request) {
+    const parent = this.getParent();
+    if (!parent) {
+      return;
     }
-    getID() {
-        return this.id
-    }
-    getParent() {
-        return this.parent
-    }
-    getKingdom() {
-        return this.getParent().getKingdom()
-    }
-    getColony() {
-        return this.getParent().getColony()
-    }
-    getRoom() {
-        return this.getParent().getRoom()
-    }
-    getStats() {
-        return this.getParent().getStats()
-    }
-    sendRequest(topic, priority, request) {
-        const parent = this.getParent()
-        if (!parent) {
-            return
-        }
 
-        parent.sendRequest(topic, priority, request)
+    parent.sendRequest(topic, priority, request);
+  }
+  peekNextRequest() {
+    const parent = this.getParent();
+    if (!parent) {
+      return null;
     }
-    peekNextRequest() {
-        const parent = this.getParent()
-        if (!parent) {
-            return null
-        }
 
-        return parent.peekNextRequest(topic)
+    return parent.peekNextRequest(topic);
+  }
+  getNextRequest(topic) {
+    const parent = this.getParent();
+    if (!parent) {
+      return null;
     }
-    getNextRequest(topic) {
-        const parent = this.getParent()
-        if (!parent) {
-            return null
-        }
 
-        return parent.getNextRequest(topic)
+    return parent.getNextRequest(topic);
+  }
+  getTopicLength(topic) {
+    const parent = this.getParent();
+    if (!parent) {
+      return null;
     }
-    getTopicLength(topic) {
-        const parent = this.getParent()
-        if (!parent) {
-            return null
-        }
 
-        return parent.getTopicLength(topic)
-    }
+    return parent.getTopicLength(topic);
+  }
 }
 
-module.exports = OrgBase
+module.exports = OrgBase;

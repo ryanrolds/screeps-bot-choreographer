@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "lint": "eslint default/*"
+    "lint": "eslint default/*",
+    "lint-fix": "eslint default/* --fix"
   },
   "repository": {
     "type": "git",
@@ -18,6 +19,8 @@
   },
   "homepage": "https://github.com/ryanrolds/screeps#readme",
   "devDependencies": {
-    "eslint": "^7.16.0"
+    "eslint": "^7.16.0",
+    "eslint-config-google": "^0.14.0",
+    "eslint-plugin-screeps": "^2.1.0"
   }
 }
