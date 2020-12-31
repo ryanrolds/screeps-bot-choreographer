@@ -10,70 +10,70 @@ const {MEMORY_DESTINATION} = require('constants.memory');
 // from the list of structures needing energy. Then we find the closest structure
 // needing energy
 const selectDestination = behaviorTree.leafNode(
-    'select_distributor_transfer',
-    (creep, trace, kingdom) => {
-      const room = kingdom.getCreepRoom(creep);
-      if (!room) {
-        return FAILURE;
-      }
+  'select_distributor_transfer',
+  (creep, trace, kingdom) => {
+    const room = kingdom.getCreepRoom(creep);
+    if (!room) {
+      return FAILURE;
+    }
 
-      const structure = room.getNextEnergyStructure(creep);
-      if (!structure) {
-        return FAILURE;
-      }
+    const structure = room.getNextEnergyStructure(creep);
+    if (!structure) {
+      return FAILURE;
+    }
 
-      behaviorMovement.setDestination(creep, structure.id);
-      return SUCCESS;
-    },
+    behaviorMovement.setDestination(creep, structure.id);
+    return SUCCESS;
+  },
 );
 
 const behavior = behaviorTree.sequenceNode(
-    'distributor_root',
-    [
-      behaviorStorage.fillCreep,
-      behaviorTree.repeatUntilSuccess(
-          'transfer_until_empty',
-          behaviorTree.sequenceNode(
-              'dump_energy',
-              [
-                selectDestination,
-                behaviorMovement.moveToDestination(1),
-                behaviorTree.leafNode(
-                    'empty_creep',
-                    (creep) => {
-                      const destination = Game.getObjectById(creep.memory[MEMORY_DESTINATION]);
-                      if (!destination) {
-                        return FAILURE;
-                      }
+  'distributor_root',
+  [
+    behaviorStorage.fillCreep,
+    behaviorTree.repeatUntilSuccess(
+      'transfer_until_empty',
+      behaviorTree.sequenceNode(
+        'dump_energy',
+        [
+          selectDestination,
+          behaviorMovement.moveToDestination(1),
+          behaviorTree.leafNode(
+            'empty_creep',
+            (creep) => {
+              const destination = Game.getObjectById(creep.memory[MEMORY_DESTINATION]);
+              if (!destination) {
+                return FAILURE;
+              }
 
-                      const result = creep.transfer(destination, RESOURCE_ENERGY);
-                      if (result === ERR_FULL) {
-                        // If creep has less then 50 energy, succeed so we get more energy
-                        if (creep.store.getUsedCapacity(RESOURCE_ENERGY) < 50) {
-                          return SUCCESS;
-                        }
+              const result = creep.transfer(destination, RESOURCE_ENERGY);
+              if (result === ERR_FULL) {
+                // If creep has less then 50 energy, succeed so we get more energy
+                if (creep.store.getUsedCapacity(RESOURCE_ENERGY) < 50) {
+                  return SUCCESS;
+                }
 
-                        // We still have energy to transfer, fail so we find another
-                        // place to dump
-                        return FAILURE;
-                      }
-                      if (result === ERR_NOT_ENOUGH_RESOURCES) {
-                        return SUCCESS;
-                      }
-                      if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
-                        return SUCCESS;
-                      }
-                      if (result != OK) {
-                        return FAILURE;
-                      }
+                // We still have energy to transfer, fail so we find another
+                // place to dump
+                return FAILURE;
+              }
+              if (result === ERR_NOT_ENOUGH_RESOURCES) {
+                return SUCCESS;
+              }
+              if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
+                return SUCCESS;
+              }
+              if (result != OK) {
+                return FAILURE;
+              }
 
-                      return RUNNING;
-                    },
-                ),
-              ],
+              return RUNNING;
+            },
           ),
+        ],
       ),
-    ],
+    ),
+  ],
 );
 
 module.exports = {

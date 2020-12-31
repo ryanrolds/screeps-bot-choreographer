@@ -13,10 +13,10 @@ const startTrace = (name) => {
   return {
     name,
     start: Game.cpu.getUsed(),
-    begin: function(name) {
+    begin: function (name) {
       return startTrace(`${this.name}.${name}`);
     },
-    end: function() {
+    end: function () {
       if (!isActive) {
         return;
       }

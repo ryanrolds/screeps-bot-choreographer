@@ -33,7 +33,7 @@ if (Game.shard.name === 'shardSeason') {
   };
 }
 
-module.exports.loop = function() {
+module.exports.loop = function () {
   if (TRACING_ACTIVE) {
     tracing.setActive();
   }

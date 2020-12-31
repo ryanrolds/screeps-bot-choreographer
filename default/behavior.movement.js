@@ -64,19 +64,19 @@ module.exports.setDestination = (creep, destinationId, roomId = null) => {
 
 module.exports.moveToCreepMemory = (memoryID, range = 1) => {
   return behaviorTree.leafNode(
-      'bt.movement.moveToCreepMemory',
-      (creep) => {
-        return moveToMemory(creep, memoryID, range);
-      },
+    'bt.movement.moveToCreepMemory',
+    (creep) => {
+      return moveToMemory(creep, memoryID, range);
+    },
   );
 };
 
 module.exports.moveToDestination = (range = 1) => {
   return behaviorTree.leafNode(
-      'bt.movement.moveToDestination',
-      (creep) => {
-        return moveToMemory(creep, MEMORY_DESTINATION, range);
-      },
+    'bt.movement.moveToDestination',
+    (creep) => {
+      return moveToMemory(creep, MEMORY_DESTINATION, range);
+    },
   );
 };
 
@@ -105,61 +105,61 @@ module.exports.fillCreepFromDestination = (creep) => {
 };
 
 module.exports.moveToDestinationRoom = behaviorTree.repeatUntilSuccess(
-    'bt.movement.moveToDestinationRoom',
-    behaviorTree.leafNode(
-        'move_to_exit',
-        (creep) => {
-          const room = creep.memory[MEMORY_DESTINATION_ROOM];
-          // If creep doesn't have a harvest room assigned, we are done
-          if (!room) {
-            return SUCCESS;
-          }
+  'bt.movement.moveToDestinationRoom',
+  behaviorTree.leafNode(
+    'move_to_exit',
+    (creep) => {
+      const room = creep.memory[MEMORY_DESTINATION_ROOM];
+      // If creep doesn't have a harvest room assigned, we are done
+      if (!room) {
+        return SUCCESS;
+      }
 
-          // If the creep reaches the room we are done
-          if (creep.room.name === room) {
-            return SUCCESS;
-          }
+      // If the creep reaches the room we are done
+      if (creep.room.name === room) {
+        return SUCCESS;
+      }
 
-          const result = creep.moveTo(new RoomPosition(25, 25, room));
-          if (result === ERR_NO_PATH) {
-            return FAILURE;
-          }
+      const result = creep.moveTo(new RoomPosition(25, 25, room));
+      if (result === ERR_NO_PATH) {
+        return FAILURE;
+      }
 
-          if (result === ERR_INVALID_ARGS) {
-            return FAILURE;
-          }
+      if (result === ERR_INVALID_ARGS) {
+        return FAILURE;
+      }
 
-          return RUNNING;
-        },
-    ),
+      return RUNNING;
+    },
+  ),
 );
 
 module.exports.moveToOriginRoom = behaviorTree.repeatUntilSuccess(
-    'goto_origin_room',
-    behaviorTree.leafNode(
-        'move_to_exit',
-        (creep) => {
-          const room = creep.memory[MEMORY_ORIGIN];
-          // If creep doesn't have a harvest room assigned, we are done
-          if (!room) {
-            return SUCCESS;
-          }
+  'goto_origin_room',
+  behaviorTree.leafNode(
+    'move_to_exit',
+    (creep) => {
+      const room = creep.memory[MEMORY_ORIGIN];
+      // If creep doesn't have a harvest room assigned, we are done
+      if (!room) {
+        return SUCCESS;
+      }
 
-          // If the creep reaches the room we are done
-          if (creep.room.name === room) {
-            return SUCCESS;
-          }
+      // If the creep reaches the room we are done
+      if (creep.room.name === room) {
+        return SUCCESS;
+      }
 
-          const result = creep.moveTo(new RoomPosition(25, 25, room));
-          if (result === ERR_NO_PATH) {
-            return FAILURE;
-          }
+      const result = creep.moveTo(new RoomPosition(25, 25, room));
+      if (result === ERR_NO_PATH) {
+        return FAILURE;
+      }
 
-          if (result === ERR_INVALID_ARGS) {
-            return FAILURE;
-          }
+      if (result === ERR_INVALID_ARGS) {
+        return FAILURE;
+      }
 
-          return RUNNING;
-        },
-    ),
+      return RUNNING;
+    },
+  ),
 );

@@ -34,7 +34,7 @@ class Resources extends OrgBase {
           };
 
           colony.sendRequest(TOPICS.TOPIC_TERMINAL_TASK, PRIORITIES.TERMINAL_SELL,
-              details);
+            details);
         }
       });
     });

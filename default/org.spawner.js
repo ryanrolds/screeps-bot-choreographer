@@ -41,10 +41,10 @@ class Spawner extends OrgBase {
 
     if (!this.isIdle) {
       this.gameObject.room.visual.text(
-          this.gameObject.spawning.name + '🛠️',
-          Game.spawns['Spawn1'].pos.x - 1,
-          Game.spawns['Spawn1'].pos.y,
-          {align: 'right', opacity: 0.8});
+        this.gameObject.spawning.name + '🛠️',
+        Game.spawns['Spawn1'].pos.x - 1,
+        Game.spawns['Spawn1'].pos.y,
+        {align: 'right', opacity: 0.8});
 
       this.gameObject.memory['ticksIdle'] = 0;
       return;
@@ -84,7 +84,7 @@ class Spawner extends OrgBase {
   createCreep(role, memory, energyLimit) {
     const energy = this.energy;
     return creepHelpers.createCreepV2(this.getColony().id, this.roomId, this.gameObject,
-        role, memory, energy, energyLimit);
+      role, memory, energy, energyLimit);
   }
   getSpawning() {
     return this.gameObject.spawning;

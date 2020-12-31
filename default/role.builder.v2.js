@@ -7,24 +7,24 @@ const behaviorRoom = require('behavior.room');
 const behaviorNonCombatant = require('behavior.noncombatant');
 
 const behavior = behaviorTree.sequenceNode(
-    'builder_root',
-    [
-      behaviorAssign.moveToRoom,
-      behaviorCommute.setCommuteDuration,
-      behaviorRoom.getEnergy,
-      behaviorTree.repeatUntilSuccess(
-          'build_until_empty',
-          behaviorTree.sequenceNode(
-              'build_construction_site',
-              [
-                behaviorBuild.selectSite,
-                behaviorMovement.moveToDestinationRoom,
-                behaviorMovement.moveToDestination(1),
-                behaviorBuild.build,
-              ],
-          ),
+  'builder_root',
+  [
+    behaviorAssign.moveToRoom,
+    behaviorCommute.setCommuteDuration,
+    behaviorRoom.getEnergy,
+    behaviorTree.repeatUntilSuccess(
+      'build_until_empty',
+      behaviorTree.sequenceNode(
+        'build_construction_site',
+        [
+          behaviorBuild.selectSite,
+          behaviorMovement.moveToDestinationRoom,
+          behaviorMovement.moveToDestination(1),
+          behaviorBuild.build,
+        ],
       ),
-    ],
+    ),
+  ],
 );
 
 module.exports = {
