@@ -1,7 +1,7 @@
-const behaviorTree = require('lib.behaviortree');
-const {SUCCESS} = require('lib.behaviortree');
+const behaviorTree = require('./lib.behaviortree');
+const {SUCCESS} = require('./lib.behaviortree');
 
-const MEMORY = require('constants.memory');
+const MEMORY = require('./constants.memory');
 
 const behavior = behaviorTree.sequenceNode(
   'attacker_root',

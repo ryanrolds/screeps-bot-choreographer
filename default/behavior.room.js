@@ -1,8 +1,8 @@
-const behaviorTree = require('lib.behaviortree');
-const {FAILURE, SUCCESS, RUNNING} = require('lib.behaviortree');
+const behaviorTree = require('./lib.behaviortree');
+const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
 
-const behaviorStorage = require('behavior.storage');
-const behaviorHarvest = require('behavior.harvest');
+const behaviorStorage = require('./behavior.storage');
+const behaviorHarvest = require('./behavior.harvest');
 
 const pickupDroppedEnergy = behaviorTree.leafNode(
   'janitor',

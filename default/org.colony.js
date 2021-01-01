@@ -1,17 +1,17 @@
-const Room = require('org.room');
-const Source = require('org.source');
-const Spawner = require('org.spawner');
-const OrgBase = require('org.base');
-const Topics = require('lib.topics');
-const Pid = require('lib.pid');
+const Room = require('./org.room');
+const Source = require('./org.source');
+const Spawner = require('./org.spawner');
+const OrgBase = require('./org.base');
+const Topics = require('./lib.topics');
+const Pid = require('./lib.pid');
 
-const MEMORY = require('constants.memory');
-const WORKERS = require('constants.creeps');
+const MEMORY = require('./constants.memory');
+const WORKERS = require('./constants.creeps');
 
-const {MEMORY_ASSIGN_ROOM, MEMORY_ROLE, MEMORY_COLONY} = require('constants.memory');
-const {TOPIC_SPAWN, TOPIC_DEFENDERS, TOPIC_HAUL_TASK} = require('constants.topics');
-const {WORKER_CLAIMER, WORKER_DEFENDER} = require('constants.creeps');
-const {PRIORITY_CLAIMER, PRIORITY_DEFENDER, PRIORITY_HAULER} = require('constants.priorities');
+const {MEMORY_ASSIGN_ROOM, MEMORY_ROLE, MEMORY_COLONY} = require('./constants.memory');
+const {TOPIC_SPAWN, TOPIC_DEFENDERS, TOPIC_HAUL_TASK} = require('./constants.topics');
+const {WORKER_CLAIMER, WORKER_DEFENDER} = require('./constants.creeps');
+const {PRIORITY_CLAIMER, PRIORITY_DEFENDER, PRIORITY_HAULER} = require('./constants.priorities');
 
 const MAX_DEFENDERS = 1;
 

@@ -1,12 +1,12 @@
-const behaviorTree = require('lib.behaviortree');
-const {FAILURE, SUCCESS, RUNNING} = require('lib.behaviortree');
-const behaviorCommute = require('behavior.commute');
-const behaviorStorage = require('behavior.storage');
-const behaviorMovement = require('behavior.movement');
-const behaviorBuild = require('behavior.build');
-const behaviorHarvest = require('behavior.harvest');
-const behaviorNonCombatant = require('behavior.noncombatant');
-const MEMORY = require('constants.memory');
+const behaviorTree = require('./lib.behaviortree');
+const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
+const behaviorCommute = require('./behavior.commute');
+const behaviorStorage = require('./behavior.storage');
+const behaviorMovement = require('./behavior.movement');
+const behaviorBuild = require('./behavior.build');
+const behaviorHarvest = require('./behavior.harvest');
+const behaviorNonCombatant = require('./behavior.noncombatant');
+const MEMORY = require('./constants.memory');
 
 const behavior = behaviorTree.sequenceNode(
   'haul_energy',

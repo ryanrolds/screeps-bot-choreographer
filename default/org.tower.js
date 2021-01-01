@@ -1,8 +1,8 @@
-const OrgBase = require('org.base');
+const OrgBase = require('./org.base');
 
-const MEMORY = require('constants.memory');
-const TASKS = require('constants.tasks');
-const TOPICS = require('constants.topics');
+const MEMORY = require('./constants.memory');
+const TASKS = require('./constants.tasks');
+const TOPICS = require('./constants.topics');
 
 class Tower extends OrgBase {
   constructor(parent, tower) {

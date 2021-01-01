@@ -1,13 +1,13 @@
-const behaviorTree = require('lib.behaviortree');
-const {FAILURE, SUCCESS, RUNNING} = require('lib.behaviortree');
+const behaviorTree = require('./lib.behaviortree');
+const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
 
-const behaviorMovement = require('behavior.movement');
-const behaviorCommute = require('behavior.commute');
-const behaviorAssign = require('behavior.assign');
-const behaviorRoom = require('behavior.room');
-const behaviorNonCombatant = require('behavior.noncombatant');
+const behaviorMovement = require('./behavior.movement');
+const behaviorCommute = require('./behavior.commute');
+const behaviorAssign = require('./behavior.assign');
+const behaviorRoom = require('./behavior.room');
+const behaviorNonCombatant = require('./behavior.noncombatant');
 
-const {MEMORY_DESTINATION} = require('constants.memory');
+const {MEMORY_DESTINATION} = require('./constants.memory');
 
 const selectStructureToRepair = behaviorTree.leafNode(
   'selectStructureToRepair',

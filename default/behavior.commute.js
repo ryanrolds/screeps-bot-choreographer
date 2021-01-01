@@ -1,6 +1,6 @@
-const behaviorTree = require('lib.behaviortree');
-const {SUCCESS} = require('lib.behaviortree');
-const MEMORY = require('constants.memory');
+const behaviorTree = require('./lib.behaviortree');
+const {SUCCESS} = require('./lib.behaviortree');
+const MEMORY = require('./constants.memory');
 
 module.exports.setCommuteDuration = behaviorTree.leafNode(
   'bt.harvest.setCommuteDuration',

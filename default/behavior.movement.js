@@ -1,7 +1,7 @@
-const behaviorTree = require('lib.behaviortree');
-const {FAILURE, SUCCESS, RUNNING} = require('lib.behaviortree');
+const behaviorTree = require('./lib.behaviortree');
+const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
 const {MEMORY_DESTINATION, MEMORY_DESTINATION_ROOM, MEMORY_ORIGIN,
-  MEMORY_SOURCE} = require('constants.memory');
+  MEMORY_SOURCE} = require('./constants.memory');
 
 const moveToMemory = module.exports.moveToMemory = (creep, memoryId, range) => {
   const destination = Game.getObjectById(creep.memory[memoryId]);

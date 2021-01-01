@@ -1,8 +1,8 @@
-const behaviorTree = require('lib.behaviortree');
-const behaviorAssign = require('behavior.assign');
-const behaviorRoom = require('behavior.room');
-const behaviorMovement = require('behavior.movement');
-const behaviorCommute = require('behavior.commute');
+const behaviorTree = require('./lib.behaviortree');
+const behaviorAssign = require('./behavior.assign');
+const behaviorRoom = require('./behavior.room');
+const behaviorMovement = require('./behavior.movement');
+const behaviorCommute = require('./behavior.commute');
 
 const behavior = behaviorTree.sequenceNode(
   'hauler_root',

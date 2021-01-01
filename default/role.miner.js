@@ -1,12 +1,12 @@
-const behaviorTree = require('lib.behaviortree');
-const {FAILURE, SUCCESS, RUNNING} = require('lib.behaviortree');
+const behaviorTree = require('./lib.behaviortree');
+const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
 
-const behaviorNonCombatant = require('behavior.noncombatant');
-const behaviorMovement = require('behavior.movement');
-const behaviorCommute = require('behavior.commute');
-const behaviorHarvest = require('behavior.harvest');
+const behaviorNonCombatant = require('./behavior.noncombatant');
+const behaviorMovement = require('./behavior.movement');
+const behaviorCommute = require('./behavior.commute');
+const behaviorHarvest = require('./behavior.harvest');
 
-const MEMORY = require('constants.memory');
+const MEMORY = require('./constants.memory');
 
 const harvest = behaviorTree.leafNode(
   'fill_creep',

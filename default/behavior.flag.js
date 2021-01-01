@@ -1,6 +1,6 @@
-const behaviorTree = require('lib.behaviortree');
-const {FAILURE, SUCCESS, RUNNING} = require('lib.behaviortree');
-const {MEMORY_FLAG} = require('constants.memory');
+const behaviorTree = require('./lib.behaviortree');
+const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
+const {MEMORY_FLAG} = require('./constants.memory');
 
 module.exports.moveToFlag = behaviorTree.sequenceNode(
   'move_to_flag',

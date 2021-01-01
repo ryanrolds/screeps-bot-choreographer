@@ -1,9 +1,9 @@
 
-const behaviorTree = require('lib.behaviortree');
-const {FAILURE, SUCCESS, RUNNING} = require('lib.behaviortree');
-const behaviorMovement = require('behavior.movement');
-const behaviorStorage = require('behavior.storage');
-const {MEMORY_DESTINATION} = require('constants.memory');
+const behaviorTree = require('./lib.behaviortree');
+const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
+const behaviorMovement = require('./behavior.movement');
+const behaviorStorage = require('./behavior.storage');
+const {MEMORY_DESTINATION} = require('./constants.memory');
 
 // The goal is to not tell two  Distributors to go to the same structure needing
 // energy. So, we lookup all the currently assigned destinations and subtract those

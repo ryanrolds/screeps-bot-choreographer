@@ -1,12 +1,12 @@
 
-const behaviorTree = require('lib.behaviortree');
-const {FAILURE, SUCCESS, RUNNING} = require('lib.behaviortree');
-const behaviorMovement = require('behavior.movement');
-const MEMORY = require('constants.memory');
+const behaviorTree = require('./lib.behaviortree');
+const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
+const behaviorMovement = require('./behavior.movement');
+const MEMORY = require('./constants.memory');
 
 const {MEMORY_ROLE, MEMORY_DESTINATION,
-  MEMORY_ORIGIN} = require('constants.memory');
-const {WORKER_DISTRIBUTOR, WORKER_HAULER_V3} = require('constants.creeps');
+  MEMORY_ORIGIN} = require('./constants.memory');
+const {WORKER_DISTRIBUTOR, WORKER_HAULER_V3} = require('./constants.creeps');
 
 const spawnContainerCache = {};
 

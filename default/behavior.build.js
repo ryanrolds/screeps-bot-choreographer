@@ -1,7 +1,7 @@
-const behaviorTree = require('lib.behaviortree');
-const {FAILURE, SUCCESS, RUNNING} = require('lib.behaviortree');
-const behaviorMovement = require('behavior.movement');
-const {MEMORY_FLAG} = require('constants.memory');
+const behaviorTree = require('./lib.behaviortree');
+const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
+const behaviorMovement = require('./behavior.movement');
+const {MEMORY_FLAG} = require('./constants.memory');
 
 const selectSite = behaviorTree.leafNode(
   'selectSite',

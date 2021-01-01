@@ -1,7 +1,7 @@
-const OrgBase = require('org.base');
-const {TOPIC_SPAWN} = require('constants.topics');
-const creepHelpers = require('helpers.creeps');
-const {definitions} = require('constants.creeps');
+const OrgBase = require('./org.base');
+const {TOPIC_SPAWN} = require('./constants.topics');
+const creepHelpers = require('./helpers.creeps');
+const {definitions} = require('./constants.creeps');
 
 class Spawner extends OrgBase {
   constructor(parent, spawner) {

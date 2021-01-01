@@ -1,16 +1,16 @@
 
-const OrgBase = require('org.base');
-const Link = require('org.link');
-const Tower = require('org.tower');
-const Terminal = require('org.terminal');
-const Topics = require('lib.topics');
-const MEMORY = require('constants.memory');
+const OrgBase = require('./org.base');
+const Link = require('./org.link');
+const Tower = require('./org.tower');
+const Terminal = require('./org.terminal');
+const Topics = require('./lib.topics');
+const MEMORY = require('./constants.memory');
 
-const {MEMORY_ROLE, MEMORY_ASSIGN_ROOM} = require('constants.memory');
-const {TOPIC_SPAWN, TOPIC_DEFENDERS} = require('constants.topics');
-const {WORKER_UPGRADER, WORKER_REPAIRER, WORKER_BUILDER, WORKER_DEFENDER} = require('constants.creeps');
+const {MEMORY_ROLE, MEMORY_ASSIGN_ROOM} = require('./constants.memory');
+const {TOPIC_SPAWN, TOPIC_DEFENDERS} = require('./constants.topics');
+const {WORKER_UPGRADER, WORKER_REPAIRER, WORKER_BUILDER, WORKER_DEFENDER} = require('./constants.creeps');
 const {PRIORITY_UPGRADER, PRIORITY_BUILDER, PRIORITY_REPAIRER, PRIORITY_BOOTSTRAP,
-  PRIORITY_REPAIRER_URGENT, PRIORITY_DEFENDER} = require('constants.priorities');
+  PRIORITY_REPAIRER_URGENT, PRIORITY_DEFENDER} = require('./constants.priorities');
 const {WORKER_CLAIMER, WORKER_RESERVER, WORKER_DISTRIBUTOR, WORKER_HAULER} = require('./constants.creeps');
 const {PRIORITY_RESERVER, PRIORITY_DISTRIBUTOR} = require('./constants.priorities');
 

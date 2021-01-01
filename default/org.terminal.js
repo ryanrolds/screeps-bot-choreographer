@@ -1,7 +1,7 @@
-const OrgBase = require('org.base');
-const TOPICS = require('constants.topics');
-const MEMORY = require('constants.memory');
-const TASKS = require('constants.tasks');
+const OrgBase = require('./org.base');
+const TOPICS = require('./constants.topics');
+const MEMORY = require('./constants.memory');
+const TASKS = require('./constants.tasks');
 
 class Terminal extends OrgBase {
   constructor(parent, terminal) {

@@ -1,13 +1,13 @@
-const OrgBase = require('org.base');
+const OrgBase = require('./org.base');
 
-const MEMORY = require('constants.memory');
-const TASKS = require('constants.tasks');
-const CREEPS = require('constants.creeps');
-const TOPICS = require('constants.topics');
+const MEMORY = require('./constants.memory');
+const TASKS = require('./constants.tasks');
+const CREEPS = require('./constants.creeps');
+const TOPICS = require('./constants.topics');
 
-const {TOPIC_SPAWN} = require('constants.topics');
-const {WORKER_REMOTE_HARVESTER, WORKER_MINER, WORKER_HARVESTER, WORKER_REMOTE_MINER} = require('constants.creeps');
-const {PRIORITY_HARVESTER, PRIORITY_MINER, PRIORITY_REMOTE_MINER} = require('constants.priorities');
+const {TOPIC_SPAWN} = require('./constants.topics');
+const {WORKER_REMOTE_HARVESTER, WORKER_MINER, WORKER_HARVESTER, WORKER_REMOTE_MINER} = require('./constants.creeps');
+const {PRIORITY_HARVESTER, PRIORITY_MINER, PRIORITY_REMOTE_MINER} = require('./constants.priorities');
 
 class Source extends OrgBase {
   constructor(parent, source, sourceType) {

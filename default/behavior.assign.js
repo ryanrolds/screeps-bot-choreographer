@@ -1,6 +1,6 @@
-const behaviorTree = require('lib.behaviortree');
-const {FAILURE, SUCCESS, RUNNING} = require('lib.behaviortree');
-const {MEMORY_ASSIGN_ROOM} = require('constants.memory');
+const behaviorTree = require('./lib.behaviortree');
+const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
+const {MEMORY_ASSIGN_ROOM} = require('./constants.memory');
 
 const moveToRoom = behaviorTree.repeatUntilSuccess(
   'moveToAssignedRoom',

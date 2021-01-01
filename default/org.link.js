@@ -1,10 +1,10 @@
-const OrgBase = require('org.base');
+const OrgBase = require('./org.base');
 
-const MEMORY = require('constants.memory');
-const TASKS = require('constants.tasks');
-const TOPICS = require('constants.topics');
+const MEMORY = require('./constants.memory');
+const TASKS = require('./constants.tasks');
+const TOPICS = require('./constants.topics');
 
-const {TOPIC_ROOM_LINKS} = require('constants.topics');
+const {TOPIC_ROOM_LINKS} = require('./constants.topics');
 
 class Link extends OrgBase {
   constructor(parent, link) {

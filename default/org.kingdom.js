@@ -1,11 +1,11 @@
-const OrgBase = require('org.base');
-const Colony = require('org.colony');
-const WarParty = require('org.warparty');
-const ResourceGovernor = require('org.resource_governor');
-const Topics = require('lib.topics');
-const tracing = require('lib.tracing');
-const helpersCreeps = require('helpers.creeps');
-const MEMORY = require('constants.memory');
+const OrgBase = require('./org.base');
+const Colony = require('./org.colony');
+const WarParty = require('./org.warparty');
+const ResourceGovernor = require('./org.resource_governor');
+const Topics = require('./lib.topics');
+const tracing = require('./lib.tracing');
+const helpersCreeps = require('./helpers.creeps');
+const MEMORY = require('./constants.memory');
 
 class Kingdom extends OrgBase {
   constructor(colonies) {

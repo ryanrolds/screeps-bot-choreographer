@@ -2,11 +2,13 @@
   "name": "screeps.com",
   "version": "1.0.0",
   "description": "An AI for [Screeps](screeps.com).",
-  "main": "index.js",
+  "private": true,
+  "type": "commonjs",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "eslint default/*",
-    "lint-fix": "eslint default/* --fix"
+    "lint-fix": "eslint default/* --fix",
+    "build": "webpack"
   },
   "repository": {
     "type": "git",

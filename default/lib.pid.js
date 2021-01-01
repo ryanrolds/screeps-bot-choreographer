@@ -1,4 +1,4 @@
-const MEMORY = require('constants.memory');
+const MEMORY = require('./constants.memory');
 
 module.exports.setup = (memory, prefix, setPoint, p, i, d) => {
   if (!setPoint || !p) {

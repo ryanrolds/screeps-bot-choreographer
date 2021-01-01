@@ -1,8 +1,8 @@
-const OrgBase = require('org.base');
-const TOPICS = require('constants.topics');
-const MEMORY = require('constants.memory');
-const TASKS = require('constants.tasks');
-const PRIORITIES = require('constants.priorities');
+const OrgBase = require('./org.base');
+const TOPICS = require('./constants.topics');
+const MEMORY = require('./constants.memory');
+const TASKS = require('./constants.tasks');
+const PRIORITIES = require('./constants.priorities');
 
 const RESERVE_LIMIT = 10000;
 

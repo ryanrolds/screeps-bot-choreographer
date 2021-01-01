@@ -1,6 +1,6 @@
-const behaviorTree = require('lib.behaviortree');
-const {FAILURE, SUCCESS, RUNNING} = require('lib.behaviortree');
-const behaviorAssign = require('behavior.assign');
+const behaviorTree = require('./lib.behaviortree');
+const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
+const behaviorAssign = require('./behavior.assign');
 
 const behavior = behaviorTree.sequenceNode(
   'defender_root',

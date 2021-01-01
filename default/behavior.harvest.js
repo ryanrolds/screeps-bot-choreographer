@@ -1,9 +1,9 @@
 
-const behaviorTree = require('lib.behaviortree');
-const {FAILURE, SUCCESS, RUNNING} = require('lib.behaviortree');
-const behaviorMovement = require('behavior.movement');
-const {MEMORY_HARVEST, MEMORY_HARVEST_ROOM} = require('constants.memory');
-const {numMyCreepsNearby, numEnemeiesNearby} = require('helpers.proximity');
+const behaviorTree = require('./lib.behaviortree');
+const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
+const behaviorMovement = require('./behavior.movement');
+const {MEMORY_HARVEST, MEMORY_HARVEST_ROOM} = require('./constants.memory');
+const {numMyCreepsNearby, numEnemeiesNearby} = require('./helpers.proximity');
 
 module.exports.selectHarvestSource = behaviorTree.leafNode(
   'bt.harvest.selectHarvestSource',

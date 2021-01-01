@@ -1,10 +1,10 @@
 
-const behaviorTree = require('lib.behaviortree');
-const behaviorCommute = require('behavior.commute');
-const behaviorMovement = require('behavior.movement');
-const {MEMORY_ASSIGN_ROOM} = require('constants.memory');
+const behaviorTree = require('./lib.behaviortree');
+const behaviorCommute = require('./behavior.commute');
+const behaviorMovement = require('./behavior.movement');
+const {MEMORY_ASSIGN_ROOM} = require('./constants.memory');
 
-const behaviorNonCombatant = require('behavior.noncombatant');
+const behaviorNonCombatant = require('./behavior.noncombatant');
 
 const behavior = behaviorTree.selectorNode(
   'reserver_root',

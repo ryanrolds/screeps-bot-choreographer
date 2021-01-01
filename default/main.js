@@ -1,5 +1,5 @@
-const tracing = require('lib.tracing');
-const Kingdom = require('org.kingdom');
+const tracing = require('./lib.tracing');
+const Kingdom = require('./org.kingdom');
 
 const TRACING_ACTIVE = false;
 

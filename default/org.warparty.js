@@ -1,8 +1,8 @@
-const OrgBase = require('org.base');
-const MEMORY = require('constants.memory');
-const {TOPIC_SPAWN} = require('constants.topics');
-const {WORKER_ATTACKER} = require('constants.creeps');
-const {PRIORITY_ATTACKER} = require('constants.priorities');
+const OrgBase = require('./org.base');
+const MEMORY = require('./constants.memory');
+const {TOPIC_SPAWN} = require('./constants.topics');
+const {WORKER_ATTACKER} = require('./constants.creeps');
+const {PRIORITY_ATTACKER} = require('./constants.priorities');
 
 const NUM_ATTACKERS = 4;
 
