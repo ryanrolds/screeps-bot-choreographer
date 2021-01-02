@@ -39,7 +39,7 @@ const definitions = {
     base: [CARRY, MOVE, WORK, WORK],
   },
   [WORKER_HAULER]: {
-    energyLimit: 2000,
+    energyLimit: 3000,
     ignoreSpawnEnergyLimit: true,
     parts: [MOVE, CARRY],
     base: [MOVE, CARRY, MOVE, CARRY, MOVE, CARRY],

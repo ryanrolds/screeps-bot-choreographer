@@ -18,6 +18,7 @@ const MIN_UPGRADERS = 2;
 const MIN_DISTRIBUTORS = 2;
 const WALL_LEVEL = 1000;
 const RAMPART_LEVEL = 1000;
+const MY_USERNAME = 'ENETDOWN'
 
 class Room extends OrgBase {
   constructor(parent, room) {
@@ -28,7 +29,9 @@ class Room extends OrgBase {
     this.roomObject = room; // preferred
 
     this.isPrimary = room.name === parent.primaryRoomId;
+    console.log(this.id, room.controller.my, JSON.stringify(room.controller))
     this.claimedByMe = room.controller.my || false;
+    this.reservedByMe = room.reservation && room.reservation.username === MY_USERNAME
 
     this.hasClaimer = _.filter(Game.creeps, (creep) => {
       return creep.memory[MEMORY_ROLE] === WORKER_CLAIMER &&
@@ -186,9 +189,11 @@ class Room extends OrgBase {
       });
     }
 
+    console.log(this.id, this.claimedByMe, this.hasReserver, this.numHostiles, this.reservationTicks)
+
     // If not claimed by me and no claimer assigned and not primary, request a reserver
     if ((!this.claimedByMe && !this.hasReserver && !this.numHostiles) ||
-      (this.claimedByMe && !this.isPrimary && this.reservationTicks < 100)) {
+      (this.reservedByMe && this.reservationTicks < 1000)) {
       if (this.getColony().spawns.length) {
         this.sendRequest(TOPIC_SPAWN, PRIORITY_RESERVER, {
           role: WORKER_RESERVER,
