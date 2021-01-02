@@ -72,13 +72,16 @@ class Tower extends OrgBase {
     }
 
     const room = this.getRoom();
-    const creepsByHealth = _.sortBy(room.assignedCreeps, (creep) => {
+    const damagedCreeps = _.filter(this.assignedCreeps, (creep) => {
+      return creep.hits < creep.hitsMax;
+    })
+    const creepsByHealth = _.sortBy(damagedCreeps, (creep) => {
       return creep.hits / creep.hitsMax;
     });
 
-    if (creepsByHealth.length && creep.hits < creep.hitsMax) {
-      tower.heal(creep);
-      return;
+    if (creepsByHealth.length) {
+      //tower.heal(creepsByHealth[0]);
+      //return;
     }
 
     if (tower.energy > 250) {

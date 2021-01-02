@@ -6,7 +6,7 @@ const MEMORY = require('./constants.memory');
 
 const {MEMORY_ROLE, MEMORY_DESTINATION,
   MEMORY_ORIGIN} = require('./constants.memory');
-const {WORKER_DISTRIBUTOR, WORKER_HAULER_V3} = require('./constants.creeps');
+const {WORKER_DISTRIBUTOR, WORKER_HAULER} = require('./constants.creeps');
 
 const spawnContainerCache = {};
 
@@ -88,7 +88,7 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.select
         const role = creep.memory[MEMORY_ROLE];
         // haulers should pick containers near the spawner
         // TODO this is hacky and feels bad
-        if (role && (role === WORKER_DISTRIBUTOR || role === WORKER_HAULER_V3)) {
+        if (role && (role === WORKER_DISTRIBUTOR || role === WORKER_HAULER)) {
           return FAILURE;
         }
 
@@ -261,7 +261,7 @@ module.exports.pickStorage = behaviorTree.selectorNode(
         const role = creep.memory[MEMORY_ROLE];
         // haulers should pick containers near the spawner
         // TODO this is hacky and feels bad
-        if (role && role === WORKER_HAULER_V3 || role === WORKER_DISTRIBUTOR) {
+        if (role && role === WORKER_HAULER || role === WORKER_DISTRIBUTOR) {
           return FAILURE;
         }
 

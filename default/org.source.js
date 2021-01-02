@@ -6,7 +6,8 @@ const CREEPS = require('./constants.creeps');
 const TOPICS = require('./constants.topics');
 
 const {TOPIC_SPAWN} = require('./constants.topics');
-const {WORKER_REMOTE_HARVESTER, WORKER_MINER, WORKER_HARVESTER, WORKER_REMOTE_MINER} = require('./constants.creeps');
+const {WORKER_REMOTE_HARVESTER, WORKER_MINER, WORKER_HARVESTER,
+  WORKER_HAULER, WORKER_REMOTE_MINER} = require('./constants.creeps');
 const {PRIORITY_HARVESTER, PRIORITY_MINER, PRIORITY_REMOTE_MINER} = require('./constants.priorities');
 
 class Source extends OrgBase {
@@ -36,7 +37,7 @@ class Source extends OrgBase {
 
       this.numHaulers = _.filter(Game.creeps, (creep) => {
         const role = creep.memory[MEMORY.MEMORY_ROLE];
-        return (role === WORKER_HAULER) &&
+        return role === WORKER_HAULER &&
           creep.memory[MEMORY.MEMORY_WITHDRAW] === this.container.id &&
           creep.ticksToLive > 100;
       }).length;
