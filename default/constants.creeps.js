@@ -33,10 +33,10 @@ const definitions = {
     base: [CARRY, MOVE, WORK, WORK],
   },
   [WORKER_REMOTE_MINER]: {
-    energyLimit: 900,
+    energyLimit: 1300,
     ignoreSpawnEnergyLimit: true,
-    parts: [WORK],
-    base: [CARRY, MOVE, WORK, WORK],
+    parts: [WORK, MOVE],
+    base: [CARRY, MOVE, WORK, MOVE],
   },
   [WORKER_HAULER]: {
     energyLimit: 3000,

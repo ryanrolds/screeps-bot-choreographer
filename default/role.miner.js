@@ -1,12 +1,25 @@
 const behaviorTree = require('./lib.behaviortree');
 const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
-
 const behaviorNonCombatant = require('./behavior.noncombatant');
 const behaviorMovement = require('./behavior.movement');
 const behaviorCommute = require('./behavior.commute');
 const behaviorHarvest = require('./behavior.harvest');
-
 const MEMORY = require('./constants.memory');
+
+const selectSource = behaviorTree.leafNode(
+  'selectSource',
+  (creep) => {
+    const source = Game.getObjectById(creep.memory[MEMORY.MEMORY_HARVEST]);
+    const container = Game.getObjectById(creep.memory[MEMORY.MEMORY_HARVEST_CONTAINER]);
+    if (source && container) {
+      behaviorMovement.setSource(creep, source.id);
+      behaviorMovement.setDestination(creep, container.id)
+      return SUCCESS;
+    }
+
+    return FAILURE;
+  },
+);
 
 const harvest = behaviorTree.leafNode(
   'fill_creep',
@@ -142,8 +155,8 @@ const behavior = behaviorTree.sequenceNode(
   'haul_energy',
   [
     behaviorHarvest.moveToHarvestRoom,
-    behaviorHarvest.selectHarvestSource,
-    behaviorHarvest.moveToHarvest,
+    selectSource,
+    behaviorMovement.moveToDestination(0),
     behaviorCommute.setCommuteDuration,
     behaviorTree.selectorNode(
       'get_energy',

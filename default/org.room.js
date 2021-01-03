@@ -18,7 +18,7 @@ const MIN_UPGRADERS = 2;
 const MIN_DISTRIBUTORS = 2;
 const WALL_LEVEL = 1000;
 const RAMPART_LEVEL = 1000;
-const MY_USERNAME = 'ENETDOWN'
+const MY_USERNAME = 'ENETDOWN';
 
 class Room extends OrgBase {
   constructor(parent, room) {
@@ -27,11 +27,9 @@ class Room extends OrgBase {
     this.topics = new Topics();
 
     this.roomObject = room; // preferred
-
     this.isPrimary = room.name === parent.primaryRoomId;
-    console.log(this.id, room.controller.my, JSON.stringify(room.controller))
     this.claimedByMe = room.controller.my || false;
-    this.reservedByMe = room.reservation && room.reservation.username === MY_USERNAME
+    this.reservedByMe = room.controller.reservation && room.controller.reservation.username === MY_USERNAME;
 
     this.hasClaimer = _.filter(Game.creeps, (creep) => {
       return creep.memory[MEMORY_ROLE] === WORKER_CLAIMER &&
@@ -189,10 +187,10 @@ class Room extends OrgBase {
       });
     }
 
-    console.log(this.id, this.claimedByMe, this.hasReserver, this.numHostiles, this.reservationTicks)
+    console.log(this.id, this.claimedByMe, this.reservedByMe, this.hasReserver, this.numHostiles, this.reservationTicks)
 
     // If not claimed by me and no claimer assigned and not primary, request a reserver
-    if ((!this.claimedByMe && !this.hasReserver && !this.numHostiles) ||
+    if (!this.hasReserver && (!this.reservedByMe && !this.claimedByMe && !this.numHostiles) ||
       (this.reservedByMe && this.reservationTicks < 1000)) {
       if (this.getColony().spawns.length) {
         this.sendRequest(TOPIC_SPAWN, PRIORITY_RESERVER, {
@@ -451,7 +449,7 @@ class Room extends OrgBase {
     let list = this.roomObject.memory[MEMORY.ROOM_NEEDS_ENERGY_LIST] || [];
     const listTime = this.roomObject.memory[MEMORY.ROOM_NEEDS_ENERGY_TIME] || Game.time;
 
-    if (!listTime || Game.time - listTime > 20) {
+    if (!list || !list.length || !listTime || Game.time - listTime > 20) {
       const room = this.roomObject;
 
       const assignedDestinations = _.reduce(this.assignedCreeps, (acc, c) => {

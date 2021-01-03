@@ -4,8 +4,7 @@ const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
 const behaviorMovement = require('./behavior.movement');
 const MEMORY = require('./constants.memory');
 
-const {MEMORY_ROLE, MEMORY_DESTINATION,
-  MEMORY_ORIGIN} = require('./constants.memory');
+const {MEMORY_ROLE, MEMORY_DESTINATION, MEMORY_ORIGIN} = require('./constants.memory');
 const {WORKER_DISTRIBUTOR, WORKER_HAULER} = require('./constants.creeps');
 
 const spawnContainerCache = {};
@@ -439,8 +438,18 @@ module.exports.emptyCreep = behaviorTree.repeatUntilSuccess(
             return FAILURE;
           }
 
-          const resource = Object.keys(creep.store).pop();
-          const result = creep.transfer(destination, resource);
+          let resource = Object.keys(creep.store).pop();
+          if (creep.memory[MEMORY.MEMORY_HAUL_RESOURCE]) {
+            resource = creep.memory[MEMORY.MEMORY_HAUL_RESOURCE]
+          }
+
+          let amount = undefined
+          if (creep.memory[MEMORY.MEMORY_HAUL_AMOUNT]) {
+            amount = creep.memory[MEMORY.MEMORY_HAUL_AMOUNT]
+          }
+
+          const result = creep.transfer(destination, resource, amount);
+          console.log('transfer', destination.id, resource, amount)
           if (result === ERR_FULL) {
             return SUCCESS;
           }
