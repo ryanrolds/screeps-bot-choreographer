@@ -23,8 +23,6 @@ class Resources extends OrgBase {
           return;
         }
 
-        console.log(colony.id, resource);
-
         if (resources[resource] > RESERVE_LIMIT) {
           const details = {
             [MEMORY.TERMINAL_TASK_TYPE]: TASKS.TASK_MARKET_ORDER,

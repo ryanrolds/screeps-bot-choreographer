@@ -31,11 +31,17 @@ class Source extends OrgBase {
     this.containerUser = null;
     this.numHaulers = 0;
 
+    const roomCreeps = this.getRoom().getCreeps();
+    this.assignedCreeps = _.filter(roomCreeps, (creep) => {
+      return creep.memory[MEMORY.MEMORY_HARVEST] === this.id ||
+        creep.memory[MEMORY.MEMORY_SOURCE] === this.id;
+    });
+
     if (container) {
       this.container = container;
       this.containerID = container.id;
 
-      this.numHaulers = _.filter(Game.creeps, (creep) => {
+      this.numHaulers = _.filter(roomCreeps, (creep) => {
         const role = creep.memory[MEMORY.MEMORY_ROLE];
         return role === WORKER_HAULER &&
           creep.memory[MEMORY.MEMORY_WITHDRAW] === this.container.id &&
@@ -45,7 +51,7 @@ class Source extends OrgBase {
       this.containerUsed = this.container.store.getUsedCapacity();
     }
 
-    this.numHarvesters = _.filter(Game.creeps, (creep) => {
+    this.numHarvesters = _.filter(roomCreeps, (creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
       const commuteTime = creep.memory[MEMORY.MEMORY_COMMUTE_DURATION];
       return (role === WORKER_HARVESTER || role === WORKER_REMOTE_HARVESTER) &&
@@ -53,7 +59,7 @@ class Source extends OrgBase {
         (creep.ticksToLive > (commuteTime || 100));
     }).length;
 
-    this.numMiners = _.filter(Game.creeps, (creep) => {
+    this.numMiners = _.filter(roomCreeps, (creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
       const commuteTime = creep.memory[MEMORY.MEMORY_COMMUTE_DURATION];
       return (role === WORKER_MINER || role === WORKER_REMOTE_MINER) &&
@@ -61,7 +67,7 @@ class Source extends OrgBase {
         (creep.ticksToLive > (commuteTime || 100));
     }).length;
 
-    this.haulersWithTask = _.filter(Game.creeps, (creep) => {
+    this.haulersWithTask = _.filter(roomCreeps, (creep) => {
       const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
       const pickup = creep.memory[MEMORY.MEMORY_HAUL_PICKUP];
       return task === TASKS.TASK_HAUL && pickup === this.containerID;
@@ -72,7 +78,7 @@ class Source extends OrgBase {
     }, 0);
 
     const colonyId = this.getColony().id;
-    this.colonyCreeps = _.filter(Game.creeps, {memory: {[MEMORY.MEMORY_COLONY]: colonyId}});
+    this.colonyCreeps = _.filter(parent.getColony().getCreeps(), {memory: {[MEMORY.MEMORY_COLONY]: colonyId}});
     this.haulers = _.filter(this.colonyCreeps, {memory: {[MEMORY.MEMORY_ROLE]: CREEPS.WORKER_HAULER}});
     this.avgHaulerCapacity = _.reduce(this.haulers, (total, hauler) => {
       return total + hauler.store.getCapacity();
@@ -108,8 +114,10 @@ class Source extends OrgBase {
       this.sendRequest(TOPIC_SPAWN, priority, {
         role: WORKER_REMOTE_HARVESTER,
         memory: {
-          [MEMORY.MEMORY_HARVEST]: this.id,
-          [MEMORY.MEMORY_HARVEST_ROOM]: this.roomID,
+          [MEMORY.MEMORY_HARVEST]: this.id, // Deprecated
+          [MEMORY.MEMORY_HARVEST_ROOM]: this.roomID, // Deprecated
+          [MEMORY.MEMORY_SOURCE]: this.id,
+          [MEMORY.MEMORY_ASSIGN_ROOM]: this.roomID,
         },
       });
     }
@@ -127,9 +135,11 @@ class Source extends OrgBase {
       this.sendRequest(TOPIC_SPAWN, priority, {
         role: role,
         memory: {
-          [MEMORY.MEMORY_HARVEST]: this.id,
+          [MEMORY.MEMORY_HARVEST]: this.id, // Deprecated
           [MEMORY.MEMORY_HARVEST_CONTAINER]: this.containerID,
-          [MEMORY.MEMORY_HARVEST_ROOM]: this.roomID,
+          [MEMORY.MEMORY_HARVEST_ROOM]: this.roomID, // Deprecated
+          [MEMORY.MEMORY_SOURCE]: this.id,
+          [MEMORY.MEMORY_ASSIGN_ROOM]: this.roomID,
         },
       });
     }

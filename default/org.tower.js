@@ -12,7 +12,7 @@ class Tower extends OrgBase {
 
     this.energy = tower.energy;
 
-    this.haulersWithTask = _.filter(Game.creeps, (creep) => {
+    this.haulersWithTask = _.filter(parent.getCreeps(), (creep) => {
       const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
       const dropoff = creep.memory[MEMORY.MEMORY_HAUL_DROPOFF];
 
@@ -71,17 +71,16 @@ class Tower extends OrgBase {
       }
     }
 
-    const room = this.getRoom();
     const damagedCreeps = _.filter(this.assignedCreeps, (creep) => {
       return creep.hits < creep.hitsMax;
-    })
+    });
     const creepsByHealth = _.sortBy(damagedCreeps, (creep) => {
       return creep.hits / creep.hitsMax;
     });
 
     if (creepsByHealth.length) {
-      //tower.heal(creepsByHealth[0]);
-      //return;
+      tower.heal(creepsByHealth[0]);
+      return;
     }
 
     if (tower.energy > 250) {

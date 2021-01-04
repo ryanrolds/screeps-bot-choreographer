@@ -19,7 +19,7 @@ class WarParty extends OrgBase {
 
     this.flag = flag;
     this.roomId = flag.room && flag.room.name || 'unknown';
-    this.creeps = Object.values(Game.creeps).reduce((creeps, creep) => {
+    this.creeps = Object.values(parent.getCreeps()).reduce((creeps, creep) => {
       if (creep.memory[MEMORY.MEMORY_FLAG] === this.id) {
         creeps.push(creep);
       }

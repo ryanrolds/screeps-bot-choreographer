@@ -440,16 +440,16 @@ module.exports.emptyCreep = behaviorTree.repeatUntilSuccess(
 
           let resource = Object.keys(creep.store).pop();
           if (creep.memory[MEMORY.MEMORY_HAUL_RESOURCE]) {
-            resource = creep.memory[MEMORY.MEMORY_HAUL_RESOURCE]
+            resource = creep.memory[MEMORY.MEMORY_HAUL_RESOURCE];
           }
 
-          let amount = undefined
+          let amount = undefined;
           if (creep.memory[MEMORY.MEMORY_HAUL_AMOUNT]) {
-            amount = creep.memory[MEMORY.MEMORY_HAUL_AMOUNT]
+            amount = creep.memory[MEMORY.MEMORY_HAUL_AMOUNT];
           }
 
           const result = creep.transfer(destination, resource, amount);
-          console.log('transfer', destination.id, resource, amount)
+          console.log('transfer', destination.id, resource, amount);
           if (result === ERR_FULL) {
             return SUCCESS;
           }

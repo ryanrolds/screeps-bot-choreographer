@@ -12,7 +12,6 @@ const behavior = behaviorTree.sequenceNode(
   'haul_energy',
   [
     behaviorHarvest.moveToHarvestRoom,
-    behaviorHarvest.selectHarvestSource,
     behaviorHarvest.moveToHarvest,
     behaviorCommute.setCommuteDuration,
     behaviorHarvest.harvest,

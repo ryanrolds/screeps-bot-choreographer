@@ -7,7 +7,7 @@ let config = {
   'E18S48': {
     id: 'E18S48-Shard3',
     primary: 'E18S48',
-    rooms: ['E18S48', 'E17S48'],
+    rooms: ['E18S48'],
   },
   'E18S47': {
     id: 'E18S47-Shard3',
@@ -17,7 +17,12 @@ let config = {
   'E18S45': {
     id: 'E18S45-Shard3',
     primary: 'E18S45',
-    rooms: ['E18S45', 'E19S45'],
+    rooms: ['E18S45'],
+  },
+  'E17S49': {
+    id: 'E17S49-Shard3',
+    primary: 'E17S49',
+    rooms: ['E17S49'],
   },
 };
 

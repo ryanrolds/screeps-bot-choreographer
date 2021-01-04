@@ -2,23 +2,12 @@
 const behaviorTree = require('./lib.behaviortree');
 const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
 const behaviorMovement = require('./behavior.movement');
-const {MEMORY_HARVEST, MEMORY_HARVEST_ROOM} = require('./constants.memory');
-const {numMyCreepsNearby, numEnemeiesNearby} = require('./helpers.proximity');
+const {MEMORY_HARVEST_ROOM, MEMORY_SOURCE} = require('./constants.memory');
+const {numMyCreepsNearby, numEnemeiesNearby, numOfSourceSpots} = require('./helpers.proximity');
 
 module.exports.selectHarvestSource = behaviorTree.leafNode(
   'bt.harvest.selectHarvestSource',
-  (creep) => {
-    // Don't look up a new source if creep already has one
-    if (creep.memory[MEMORY_HARVEST]) {
-      const source = Game.getObjectById(creep.memory[MEMORY_HARVEST]);
-      if (source) {
-        behaviorMovement.setSource(creep, source.id);
-        return SUCCESS;
-      }
-
-      return FAILURE;
-    }
-
+  (creep, trace, kingdom) => {
     let sources = creep.room.find(FIND_SOURCES);
 
     sources = _.filter(sources, (source) => {
@@ -26,9 +15,14 @@ module.exports.selectHarvestSource = behaviorTree.leafNode(
       return numEnemeiesNearby(source.pos, 5) < 1;
     });
 
-    // Sort by the number of creeps by the source
+    const room = kingdom.getCreepRoom(creep);
+
     sources = _.sortBy(sources, (source) => {
-      return numMyCreepsNearby(source.pos, 8);
+      const numAssigned = _.filter(room.assignedCreeps, (creep) => {
+        return creep.memory[MEMORY_SOURCE] === source.id;
+      }).length;
+      const numSpots = numOfSourceSpots(source);
+      return numAssigned / numSpots;
     });
 
     if (!sources || !sources.length) {

@@ -1,5 +1,4 @@
 const Room = require('./org.room');
-const Source = require('./org.source');
 const Spawner = require('./org.spawner');
 const OrgBase = require('./org.base');
 const Topics = require('./lib.topics');
@@ -27,6 +26,12 @@ class Colony extends OrgBase {
     this.missingRooms = _.difference(this.desiredRooms, Object.keys(Game.rooms));
     this.colonyRooms = _.difference(this.desiredRooms, this.missingRooms);
 
+    this.assignedCreeps = _.filter(parent.getCreeps(), (creep) => {
+      return creep.memory[MEMORY.MEMORY_COLONY] === this.id;
+    });
+
+    this.builds = [];
+
     this.rooms = this.colonyRooms.reduce((rooms, id) => {
       if (Game.rooms[id]) {
         rooms.push(new Room(this, Game.rooms[id]));
@@ -36,24 +41,6 @@ class Colony extends OrgBase {
     }, []);
 
     this.primaryOrgRoom = _.find(this.rooms, {id: this.primaryRoomId});
-
-    this.builds = [];
-
-    this.sources = this.rooms.reduce((sources, room) => {
-      const roomSources = room.getSources();
-      roomSources.forEach((source) => {
-        sources.push(new Source(this, source, 'energy'));
-      });
-
-      const minerals = room.getMineralsWithExtractor();
-      minerals.forEach((mineral) => {
-        if (mineral.mineralAmount > 0) {
-          sources.push(new Source(this, mineral, 'mineral'));
-        }
-      });
-
-      return sources;
-    }, []);
 
     this.spawns = this.rooms.reduce((spawns, room) => {
       const roomSpawns = room.getSpawns();
@@ -68,16 +55,16 @@ class Colony extends OrgBase {
       return !spawner.getSpawning();
     });
 
-    this.defenders = _.filter(Game.creeps, (creep) => {
+    this.defenders = _.filter(this.assignedCreeps, (creep) => {
       return creep.memory[MEMORY_ROLE] == WORKER_DEFENDER &&
         creep.memory[MEMORY_COLONY] === this.id;
     });
 
-    this.numCreeps = _.filter(Game.creeps, (creep) => {
+    this.numCreeps = _.filter(this.assignedCreeps, (creep) => {
       return creep.memory[MEMORY_COLONY] === this.id;
     }).length;
 
-    this.numHaulers = _.filter(Game.creeps, (creep) => {
+    this.numHaulers = _.filter(this.assignedCreeps, (creep) => {
       return creep.memory[MEMORY_ROLE] == WORKERS.WORKER_HAULER &&
         creep.memory[MEMORY_COLONY] === this.id &&
         creep.ticksToLive > 100;
@@ -101,15 +88,13 @@ class Colony extends OrgBase {
     });
   }
   getCreeps() {
-    return _.reduce(this.rooms, (acc, room) => {
-      return acc.concat(room.getCreeps());
-    }, []);
+    return this.assignedCreeps;
   }
   update() {
     console.log(this);
 
     this.missingRooms.forEach((roomID) => {
-      const numClaimers = _.filter(Game.creeps, (creep) => {
+      const numClaimers = _.filter(this.assignedCreeps, (creep) => {
         return creep.memory[MEMORY_ROLE] == WORKERS.WORKER_CLAIMER &&
           creep.memory[MEMORY_ASSIGN_ROOM] === roomID;
       }).length;
@@ -140,10 +125,6 @@ class Colony extends OrgBase {
 
     this.rooms.forEach((room) => {
       room.update();
-    });
-
-    this.sources.forEach((source) => {
-      source.update();
     });
 
     this.spawns.forEach((spawn) => {
@@ -187,17 +168,13 @@ class Colony extends OrgBase {
       room.process();
     });
 
-    this.sources.forEach((source) => {
-      source.process();
-    });
-
     this.spawns.forEach((spawn) => {
       spawn.process();
     });
   }
   toString() {
     return `** Colony - ID: ${this.id}, #Rooms: ${this.rooms.length}, #Missing: ${this.missingRooms.length}, ` +
-      `#Sources: ${this.sources.length}, #Haulers: ${this.numHaulers}, #Spawners: ${this.spawns.length}, ` +
+      `#Haulers: ${this.numHaulers}, #Spawners: ${this.spawns.length}, ` +
       `#AvailableSpawners: ${this.availableSpawns.length}, #Defenders: ${this.defenders.length}`;
   }
   sendRequest(topic, priority, request) {

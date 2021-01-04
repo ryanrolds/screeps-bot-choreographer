@@ -60,7 +60,7 @@ const definitions = {
     base: [CARRY, MOVE, CARRY, MOVE, WORK],
   },
   [WORKER_DISTRIBUTOR]: {
-    energyLimit: 1000,
+    energyLimit: 1500,
     parts: [CARRY, MOVE],
     base: [CARRY, MOVE, CARRY, MOVE, CARRY, MOVE],
   },

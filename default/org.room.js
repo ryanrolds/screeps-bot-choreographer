@@ -4,9 +4,10 @@ const Link = require('./org.link');
 const Tower = require('./org.tower');
 const Terminal = require('./org.terminal');
 const Topics = require('./lib.topics');
+const Source = require('./org.source');
 const MEMORY = require('./constants.memory');
 
-const {MEMORY_ROLE, MEMORY_ASSIGN_ROOM} = require('./constants.memory');
+const {MEMORY_ROLE, MEMORY_ASSIGN_ROOM, MEMORY_HARVEST_ROOM} = require('./constants.memory');
 const {TOPIC_SPAWN, TOPIC_DEFENDERS} = require('./constants.topics');
 const {WORKER_UPGRADER, WORKER_REPAIRER, WORKER_BUILDER, WORKER_DEFENDER} = require('./constants.creeps');
 const {PRIORITY_UPGRADER, PRIORITY_BUILDER, PRIORITY_REPAIRER, PRIORITY_BOOTSTRAP,
@@ -29,15 +30,24 @@ class Room extends OrgBase {
     this.roomObject = room; // preferred
     this.isPrimary = room.name === parent.primaryRoomId;
     this.claimedByMe = room.controller.my || false;
-    this.reservedByMe = room.controller.reservation && room.controller.reservation.username === MY_USERNAME;
+    this.reservedByMe = false;
+    if (room.controller.reservation && room.controller.reservation.username === MY_USERNAME) {
+      this.reservedByMe = true;
+    }
 
-    this.hasClaimer = _.filter(Game.creeps, (creep) => {
+    this.assignedCreeps = _.filter(parent.getCreeps(), (creep) => {
+      return creep.memory[MEMORY_ASSIGN_ROOM] === room.name ||
+        creep.memory[MEMORY_HARVEST_ROOM] === room.name;
+    });
+
+    this.hasClaimer = _.filter(this.assignedCreeps, (creep) => {
       return creep.memory[MEMORY_ROLE] === WORKER_CLAIMER &&
         creep.memory[MEMORY_ASSIGN_ROOM] === room.name;
     }).length > 0;
 
-    this.hasReserver = _.filter(Game.creeps, (creep) => {
-      return creep.memory[MEMORY_ROLE] === WORKER_RESERVER &&
+    this.hasReserver = _.filter(this.assignedCreeps, (creep) => {
+      const role = creep.memory[MEMORY_ROLE];
+      return (role === WORKER_RESERVER || role === WORKER_CLAIMER) &&
         creep.memory[MEMORY_ASSIGN_ROOM] === room.name &&
         (creep.ticksToLive > (creep.memory[MEMORY.MEMORY_COMMUTE_DURATION] || 100));
     }).length > 0;
@@ -47,35 +57,9 @@ class Room extends OrgBase {
       this.reservationTicks = room.controller.reservation.ticksToEnd;
     }
 
-    this.links = room.find(FIND_MY_STRUCTURES, {
-      filter: (structure) => {
-        return structure.structureType === STRUCTURE_LINK;
-      },
-    }).map((link) => {
-      return new Link(this, link);
-    });
-
-    // TODO build out org towers
-    this.towers = room.find(FIND_MY_STRUCTURES, {
-      filter: (structure) => {
-        return structure.structureType === STRUCTURE_TOWER;
-      },
-    }).map((tower) => {
-      return new Tower(this, tower);
-    });
-
-    this.terminal = null;
-    if (room.terminal) {
-      this.terminal = new Terminal(this, room.terminal);
-    }
-
     this.myCreeps = room.find(FIND_MY_CREEPS);
     this.myDamagedCreeps = this.myCreeps.filter((creep) => {
       return creep.hits < creep.hitsMax;
-    });
-
-    this.assignedCreeps = _.filter(Game.creeps, (creep) => {
-      return creep.memory[MEMORY_ASSIGN_ROOM] === room.name;
     });
 
     this.numRepairers = _.filter(this.assignedCreeps, (creep) => {
@@ -96,21 +80,14 @@ class Room extends OrgBase {
         (creep.ticksToLive > (creep.memory[MEMORY.MEMORY_COMMUTE_DURATION] || 100));
     });
 
-    this.hasStorage = this.getSpawns().reduce((containers, spawn) => {
-      return containers.concat(spawn.pos.findInRange(FIND_STRUCTURES, 8, {
-        filter: (structure) => {
-          return (structure.structureType == STRUCTURE_CONTAINER ||
-            structure.structureType == STRUCTURE_STORAGE);
-        },
-      }));
-    }, []).length > 0;
-
-    this.distributors = _.filter(Game.creeps, (creep) => {
+    this.distributors = _.filter(this.assignedCreeps, (creep) => {
       return creep.memory[MEMORY_ROLE] === WORKER_DISTRIBUTOR &&
         creep.memory[MEMORY_ASSIGN_ROOM] === this.id &&
         creep.ticksToLive > 30;
     });
     this.numDistributors = this.distributors.length;
+
+    this.hasStorage = this.getReserveStructures().length > 0;
 
     // We want to know if the room has hostiles, request defenders or put room in safe mode
     const hostiles = room.find(FIND_HOSTILE_CREEPS);
@@ -155,6 +132,43 @@ class Room extends OrgBase {
     }
     this.hitsPercentage = hitsPercentage;
     this.numStructures = numStructures;
+
+    const sources = [];
+    const roomSources = this.getSources();
+    roomSources.forEach((source) => {
+      sources.push(new Source(this, source, 'energy'));
+    });
+
+    const minerals = this.getMineralsWithExtractor();
+    minerals.forEach((mineral) => {
+      if (mineral.mineralAmount > 0) {
+        sources.push(new Source(this, mineral, 'mineral'));
+      }
+    });
+
+    this.sources = sources;
+
+    this.links = room.find(FIND_MY_STRUCTURES, {
+      filter: (structure) => {
+        return structure.structureType === STRUCTURE_LINK;
+      },
+    }).map((link) => {
+      return new Link(this, link);
+    });
+
+    // TODO build out org towers
+    this.towers = room.find(FIND_MY_STRUCTURES, {
+      filter: (structure) => {
+        return structure.structureType === STRUCTURE_TOWER;
+      },
+    }).map((tower) => {
+      return new Tower(this, tower);
+    });
+
+    this.terminal = null;
+    if (room.terminal) {
+      this.terminal = new Terminal(this, room.terminal);
+    }
   }
   update() {
     const controller = this.roomObject.controller;
@@ -187,8 +201,6 @@ class Room extends OrgBase {
       });
     }
 
-    console.log(this.id, this.claimedByMe, this.reservedByMe, this.hasReserver, this.numHostiles, this.reservationTicks)
-
     // If not claimed by me and no claimer assigned and not primary, request a reserver
     if (!this.hasReserver && (!this.reservedByMe && !this.claimedByMe && !this.numHostiles) ||
       (this.reservedByMe && this.reservationTicks < 1000)) {
@@ -210,9 +222,12 @@ class Room extends OrgBase {
     }
 
     // Upgrader request
-    let desiredUpgraders = MIN_UPGRADERS;
     const fullness = this.getEnergyFullness();
-    desiredUpgraders = Math.ceil(fullness / 0.10);
+    let desiredUpgraders = Math.ceil(fullness / 0.10);
+
+    if (desiredUpgraders < MIN_UPGRADERS) {
+      desiredUpgraders = MIN_UPGRADERS;
+    }
 
     if (this.isPrimary && this.upgraders.length < desiredUpgraders) {
       // As we get more upgraders, lower the priority
@@ -280,6 +295,10 @@ class Room extends OrgBase {
 
     console.log(this);
 
+    this.sources.forEach((source) => {
+      source.update();
+    });
+
     this.links.forEach((link) => {
       link.update();
     });
@@ -294,6 +313,10 @@ class Room extends OrgBase {
   }
   process() {
     this.updateStats();
+
+    this.sources.forEach((source) => {
+      source.process();
+    });
 
     this.links.forEach((link) => {
       link.process();
@@ -378,7 +401,12 @@ class Room extends OrgBase {
     const stores = _.reduce(spawns, (acc, spawn) => {
       const containers = spawn.pos.findInRange(FIND_STRUCTURES, 9, {
         filter: (structure) => {
-          return structure.structureType === STRUCTURE_CONTAINER;
+          if (structure.structureType !== STRUCTURE_CONTAINER) {
+            return false
+          }
+
+          const notSourceContainer = structure.pos.findInRange(FIND_SOURCES, 1).length < 1;
+          return notSourceContainer;
         },
       });
 

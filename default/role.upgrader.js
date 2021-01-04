@@ -48,10 +48,10 @@ const behavior = behaviorTree.sequenceNode(
 
 
 module.exports = {
-  run: (creep, trace) => {
+  run: (creep, trace, kingdom) => {
     const roleTrace = trace.begin('upgrader');
 
-    const result = behavior.tick(creep, roleTrace);
+    const result = behavior.tick(creep, roleTrace, kingdom);
     if (result == behaviorTree.FAILURE) {
       console.log('INVESTIGATE: upgrader failure', creep.name);
     }

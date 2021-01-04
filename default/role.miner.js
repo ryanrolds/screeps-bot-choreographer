@@ -13,7 +13,7 @@ const selectSource = behaviorTree.leafNode(
     const container = Game.getObjectById(creep.memory[MEMORY.MEMORY_HARVEST_CONTAINER]);
     if (source && container) {
       behaviorMovement.setSource(creep, source.id);
-      behaviorMovement.setDestination(creep, container.id)
+      behaviorMovement.setDestination(creep, container.id);
       return SUCCESS;
     }
 
