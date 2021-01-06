@@ -13,10 +13,6 @@ const moveToMemory = module.exports.moveToMemory = (creep, memoryId, range) => {
 };
 
 const moveTo = module.exports.moveTo = (creep, destination, range) => {
-  if (creep.pos.inRangeTo(destination, range)) {
-    return SUCCESS;
-  }
-
   const result = creep.moveTo(destination, {reusePath: 20, maxOps: 1000});
   if (result === ERR_NO_PATH) {
     return FAILURE;
@@ -24,6 +20,10 @@ const moveTo = module.exports.moveTo = (creep, destination, range) => {
 
   if (result !== OK && result !== ERR_TIRED) {
     return FAILURE;
+  }
+
+  if (creep.pos.inRangeTo(destination, range)) {
+    return SUCCESS;
   }
 
   return RUNNING;
@@ -98,7 +98,7 @@ module.exports.fillCreepFromDestination = (creep) => {
     return SUCCESS;
   }
   if (result === ERR_NOT_ENOUGH_RESOURCES) {
-    return SUCCESS;
+    return FAILURE;
   }
 
   return FAILURE;

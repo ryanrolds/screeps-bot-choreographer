@@ -168,7 +168,7 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.select
     ),
     behaviorTree.leafNode(
       'pick_container',
-      (creep) => {
+      (creep, trace, kingdom) => {
         const role = creep.memory[MEMORY_ROLE];
         if (role && role === WORKER_DISTRIBUTOR) {
           return FAILURE;
@@ -194,25 +194,10 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.select
           return FAILURE;
         }
 
-        const spawns = creep.room.find(FIND_STRUCTURES, {
-          filter: (structure) => {
-            return structure.structureType === STRUCTURE_SPAWN;
-          },
-        });
-        const spawnContainers = _.reduce(spawns, (acc, spawn) => {
-          const containers = spawn.pos.findInRange(FIND_STRUCTURES, 8, {
-            filter: (structure) => {
-              return structure.structureType == STRUCTURE_CONTAINER &&
-                structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
-            },
-          });
-
-          return acc.concat(containers);
-        }, []);
-
-        const target = creep.pos.findClosestByRange(spawnContainers);
+        const colony = kingdom.getCreepColony(creep)
+        const target = colony.getReserveStructureWithRoomForResource(RESOURCE_ENERGY)
         if (!target) {
-          return FAILURE;
+          return FAILURE
         }
 
         behaviorMovement.setDestination(creep, target.id);
@@ -241,133 +226,6 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.select
         });
 
         if (!targets.length) {
-          return FAILURE;
-        }
-
-        behaviorMovement.setDestination(creep, targets[0].id);
-        return SUCCESS;
-      },
-    ),
-  ],
-);
-
-module.exports.pickStorage = behaviorTree.selectorNode(
-  'pickStorage',
-  [
-    behaviorTree.leafNode(
-      'pick_adjacent_container',
-      (creep) => {
-        const role = creep.memory[MEMORY_ROLE];
-        // haulers should pick containers near the spawner
-        // TODO this is hacky and feels bad
-        if (role && role === WORKER_HAULER || role === WORKER_DISTRIBUTOR) {
-          return FAILURE;
-        }
-
-        const targets = creep.pos.findInRange(FIND_STRUCTURES, 1, {
-          filter: (structure) => {
-            return structure.structureType == STRUCTURE_CONTAINER &&
-              structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
-          },
-        });
-
-        if (!targets || !targets.length) {
-          return FAILURE;
-        }
-
-        behaviorMovement.setDestination(creep, targets[0].id);
-        return SUCCESS;
-      },
-    ),
-    behaviorTree.leafNode(
-      'pick_spawner_extension',
-      (creep) => {
-        const originID = creep.memory[MEMORY_ORIGIN];
-        if (!originID) {
-          return FAILURE;
-        }
-
-        const room = Game.rooms[originID];
-        if (!room) {
-          return FAILURE;
-        }
-
-        const targets = room.find(FIND_STRUCTURES, {
-          filter: (structure) => {
-            return (structure.structureType == STRUCTURE_EXTENSION ||
-              structure.structureType == STRUCTURE_SPAWN) &&
-              structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
-          },
-        });
-
-        if (!targets.length) {
-          return FAILURE;
-        }
-
-        behaviorMovement.setDestination(creep, targets[0].id);
-        return SUCCESS;
-      },
-    ),
-    behaviorTree.leafNode(
-      'pick_tower',
-      (creep) => {
-        const originID = creep.memory[MEMORY_ORIGIN];
-        if (!originID) {
-          return FAILURE;
-        }
-
-        const room = Game.rooms[originID];
-        if (!room) {
-          return FAILURE;
-        }
-
-        const targets = room.find(FIND_STRUCTURES, {
-          filter: (structure) => {
-            return structure.structureType == STRUCTURE_TOWER &&
-              structure.store.getFreeCapacity(RESOURCE_ENERGY) > 100;
-          },
-        });
-
-        if (!targets.length) {
-          return FAILURE;
-        }
-
-        behaviorMovement.setDestination(creep, targets[0].id);
-        return SUCCESS;
-      },
-    ),
-    behaviorTree.leafNode(
-      'pick_storage',
-      (creep) => {
-        const originID = creep.memory[MEMORY_ORIGIN];
-        if (!originID) {
-          return FAILURE;
-        }
-
-        const room = Game.rooms[originID];
-        if (!room) {
-          return FAILURE;
-        }
-
-        if (!room.storage) {
-          return FAILURE;
-        }
-
-        behaviorMovement.setDestination(creep, room.storage.id);
-        return SUCCESS;
-      },
-    ),
-    behaviorTree.leafNode(
-      'pick_container',
-      (creep) => {
-        const targets = Game.spawns['Spawn1'].pos.findInRange(FIND_STRUCTURES, 8, {
-          filter: (structure) => {
-            return structure.structureType == STRUCTURE_CONTAINER &&
-              structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
-          },
-        });
-
-        if (!targets || !targets.length) {
           return FAILURE;
         }
 
@@ -433,6 +291,10 @@ module.exports.emptyCreep = behaviorTree.repeatUntilSuccess(
       behaviorTree.leafNode(
         'empty_creep',
         (creep) => {
+          if (creep.store.getUsedCapacity() === 0) {
+            return SUCCESS;
+          }
+
           const destination = Game.getObjectById(creep.memory[MEMORY_DESTINATION]);
           if (!destination) {
             return FAILURE;
@@ -449,16 +311,13 @@ module.exports.emptyCreep = behaviorTree.repeatUntilSuccess(
           }
 
           const result = creep.transfer(destination, resource, amount);
-          console.log('transfer', destination.id, resource, amount);
           if (result === ERR_FULL) {
             return SUCCESS;
           }
           if (result === ERR_NOT_ENOUGH_RESOURCES) {
-            return SUCCESS;
+            return FAILURE;
           }
-          if (creep.store.getUsedCapacity() === 0) {
-            return SUCCESS;
-          }
+
           if (result != OK) {
             return FAILURE;
           }

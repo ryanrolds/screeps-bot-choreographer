@@ -67,7 +67,8 @@ class Source extends OrgBase {
         (creep.ticksToLive > (commuteTime || 100));
     }).length;
 
-    this.haulersWithTask = _.filter(roomCreeps, (creep) => {
+    const haulers = this.getColony().getHaulers()
+    this.haulersWithTask = _.filter(haulers, (creep) => {
       const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
       const pickup = creep.memory[MEMORY.MEMORY_HAUL_PICKUP];
       return task === TASKS.TASK_HAUL && pickup === this.containerID;
@@ -181,6 +182,8 @@ class Source extends OrgBase {
     const untaskedUsedCapacity = storeUsedCapacity - this.haulerCapacity;
     const loadsToHaul = Math.floor(untaskedUsedCapacity / averageLoad);
 
+    console.log("loads", this.id, loadsToHaul, this.haulerCapacity, untaskedUsedCapacity)
+
     for (let i = 0; i < loadsToHaul; i++) {
       const loadPriority = (untaskedUsedCapacity - (i * averageLoad)) / storeCapacity;
 
@@ -189,6 +192,8 @@ class Source extends OrgBase {
         [MEMORY.MEMORY_HAUL_PICKUP]: this.container.id,
         [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
       };
+
+      console.log("haul task", this.id, JSON.stringify(details))
 
       this.sendRequest(TOPICS.TOPIC_HAUL_TASK, loadPriority, details);
     }

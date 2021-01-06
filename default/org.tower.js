@@ -37,19 +37,24 @@ class Tower extends OrgBase {
   }
   process() {
     const tower = this.gameObject;
+    const towerUsed = tower.store.getUsedCapacity(RESOURCE_ENERGY)
+    const towerFree = tower.store.getUsedCapacity(RESOURCE_ENERGY)
+    const towerTotal = tower.store.getCapacity(RESOURCE_ENERGY)
+    const roomEnergy = this.getRoom().getAmountInReserve(RESOURCE_ENERGY)
 
-    if (tower.energy + this.haulerUsedCapacity < 500 && this.getRoom().getAmountInReserve(RESOURCE_ENERGY) > 2000) {
+    if (towerUsed + this.haulerUsedCapacity < 500 && roomEnergy > 2000) {
       const pickupId = this.parent.getClosestStoreWithEnergy(tower);
+      const amount = towerFree - this.haulerUsedCapacity
 
       // The -0.01 is so that we haul full mining containers before fueling towers
-      const priority = 1 - (0.75 * (tower.energy + this.haulerUsedCapacity) /
-        tower.store.getCapacity(RESOURCE_ENERGY));
+      const priority = 1 - (0.75 * (towerUsed + this.haulerUsedCapacity) / towerTotal);
 
       const details = {
         [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
         [MEMORY.MEMORY_HAUL_PICKUP]: pickupId,
         [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
         [MEMORY.MEMORY_HAUL_DROPOFF]: tower.id,
+        [MEMORY.MEMORY_HAUL_AMOUNT]: amount,
       };
 
       this.sendRequest(TOPICS.TOPIC_HAUL_TASK, priority, details);

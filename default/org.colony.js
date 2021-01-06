@@ -9,7 +9,7 @@ const WORKERS = require('./constants.creeps');
 
 const {MEMORY_ASSIGN_ROOM, MEMORY_ROLE, MEMORY_COLONY} = require('./constants.memory');
 const {TOPIC_SPAWN, TOPIC_DEFENDERS, TOPIC_HAUL_TASK} = require('./constants.topics');
-const {WORKER_CLAIMER, WORKER_DEFENDER} = require('./constants.creeps');
+const {WORKER_RESERVER, WORKER_DEFENDER} = require('./constants.creeps');
 const {PRIORITY_CLAIMER, PRIORITY_DEFENDER, PRIORITY_HAULER} = require('./constants.priorities');
 
 const MAX_DEFENDERS = 1;
@@ -29,6 +29,23 @@ class Colony extends OrgBase {
     this.assignedCreeps = _.filter(parent.getCreeps(), (creep) => {
       return creep.memory[MEMORY.MEMORY_COLONY] === this.id;
     });
+
+    this.defenders = _.filter(this.assignedCreeps, (creep) => {
+      return creep.memory[MEMORY_ROLE] == WORKER_DEFENDER &&
+        creep.memory[MEMORY_COLONY] === this.id;
+    });
+
+    this.numCreeps = _.filter(this.assignedCreeps, (creep) => {
+      return creep.memory[MEMORY_COLONY] === this.id;
+    }).length;
+
+    this.haulers = _.filter(this.assignedCreeps, (creep) => {
+      return creep.memory[MEMORY_ROLE] == WORKERS.WORKER_HAULER &&
+        creep.memory[MEMORY_COLONY] === this.id &&
+        creep.ticksToLive > 100;
+    });
+
+    this.numHaulers = this.haulers.length
 
     this.builds = [];
 
@@ -55,21 +72,6 @@ class Colony extends OrgBase {
       return !spawner.getSpawning();
     });
 
-    this.defenders = _.filter(this.assignedCreeps, (creep) => {
-      return creep.memory[MEMORY_ROLE] == WORKER_DEFENDER &&
-        creep.memory[MEMORY_COLONY] === this.id;
-    });
-
-    this.numCreeps = _.filter(this.assignedCreeps, (creep) => {
-      return creep.memory[MEMORY_COLONY] === this.id;
-    }).length;
-
-    this.numHaulers = _.filter(this.assignedCreeps, (creep) => {
-      return creep.memory[MEMORY_ROLE] == WORKERS.WORKER_HAULER &&
-        creep.memory[MEMORY_COLONY] === this.id &&
-        creep.ticksToLive > 100;
-    }).length;
-
     if (this.primaryRoom) {
       // PIDS
       this.haulerSetpoint = this.desiredRooms.length;
@@ -90,23 +92,26 @@ class Colony extends OrgBase {
   getCreeps() {
     return this.assignedCreeps;
   }
+  getHaulers() {
+    return this.haulers;
+  }
   update() {
     console.log(this);
 
     this.missingRooms.forEach((roomID) => {
-      const numClaimers = _.filter(this.assignedCreeps, (creep) => {
-        return creep.memory[MEMORY_ROLE] == WORKERS.WORKER_CLAIMER &&
+      const numReservers = _.filter(this.assignedCreeps, (creep) => {
+        return creep.memory[MEMORY_ROLE] == WORKERS.WORKER_RESERVER &&
           creep.memory[MEMORY_ASSIGN_ROOM] === roomID;
       }).length;
 
       // A claimer already assigned, don't send more
-      if (numClaimers) {
+      if (numReservers) {
         return;
       }
 
       if (this.spawns.length) {
         this.sendRequest(TOPIC_SPAWN, PRIORITY_CLAIMER, {
-          role: WORKER_CLAIMER,
+          role: WORKER_RESERVER,
           memory: {
             [MEMORY_ASSIGN_ROOM]: roomID,
           },
@@ -115,7 +120,7 @@ class Colony extends OrgBase {
         // Bootstrapping a new colony requires another colony sending
         // creeps to claim and build a spawner
         this.getParent().sendRequest(TOPIC_SPAWN, PRIORITY_CLAIMER, {
-          role: WORKER_CLAIMER,
+          role: WORKER_RESERVER,
           memory: {
             [MEMORY_ASSIGN_ROOM]: roomID,
           },
@@ -212,10 +217,17 @@ class Colony extends OrgBase {
   }
   getReserveStructureWithMostOfAResource(resource) {
     if (!this.primaryOrgRoom) {
-      return 0;
+      return null;
     }
 
     return this.primaryOrgRoom.getReserveStructureWithMostOfAResource(resource);
+  }
+  getReserveStructureWithRoomForResource(resource) {
+    if (!this.primaryOrgRoom) {
+      return null;
+    }
+
+    return this.primaryOrgRoom.getReserveStructureWithRoomForResource(resource);
   }
   updateStats() {
     const colonyStats = {

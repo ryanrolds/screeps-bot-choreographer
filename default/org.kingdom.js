@@ -45,7 +45,6 @@ class Kingdom extends OrgBase {
       colony.update();
     });
 
-
     this.resourceGovernor.update();
   }
   process() {

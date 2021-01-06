@@ -18,10 +18,6 @@ module.exports.moveToFlag = behaviorTree.sequenceNode(
           return FAILURE;
         }
 
-        if (creep.pos.inRangeTo(flag, 3)) {
-          return SUCCESS;
-        }
-
         const result = creep.moveTo(flag);
         if (result === ERR_NO_PATH) {
           return FAILURE;
@@ -29,6 +25,10 @@ module.exports.moveToFlag = behaviorTree.sequenceNode(
 
         if (result !== OK && result !== ERR_TIRED) {
           return FAILURE;
+        }
+
+        if (creep.pos.inRangeTo(flag, 3)) {
+          return SUCCESS;
         }
 
         return RUNNING;

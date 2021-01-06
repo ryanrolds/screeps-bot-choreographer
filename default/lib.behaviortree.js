@@ -100,7 +100,7 @@ module.exports.sequenceAlwaysNode = (id, children) => {
   };
 };
 
-module.exports.RepeatUntilFailure = (id, node) => {
+module.exports.repeatUntilFailure = (id, node) => {
   return {
     id,
     node,
@@ -112,7 +112,7 @@ module.exports.RepeatUntilFailure = (id, node) => {
 
       return RUNNING;
     },
-    tick: function(actor, trace) {
+    tick: function(actor, trace, kingdom) {
       trace = trace.begin(this.id);
 
       const result = this.tickNode(actor, trace, kingdom);

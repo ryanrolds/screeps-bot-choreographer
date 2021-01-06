@@ -42,8 +42,8 @@ class Spawner extends OrgBase {
     if (!this.isIdle) {
       this.gameObject.room.visual.text(
         this.gameObject.spawning.name + '🛠️',
-        Game.spawns['Spawn1'].pos.x - 1,
-        Game.spawns['Spawn1'].pos.y,
+        this.gameObject.pos.x - 1,
+        this.gameObject.pos.y,
         {align: 'right', opacity: 0.8});
 
       this.gameObject.memory['ticksIdle'] = 0;

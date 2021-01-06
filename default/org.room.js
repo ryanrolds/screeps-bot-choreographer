@@ -15,7 +15,7 @@ const {PRIORITY_UPGRADER, PRIORITY_BUILDER, PRIORITY_REPAIRER, PRIORITY_BOOTSTRA
 const {WORKER_CLAIMER, WORKER_RESERVER, WORKER_DISTRIBUTOR, WORKER_HAULER} = require('./constants.creeps');
 const {PRIORITY_RESERVER, PRIORITY_DISTRIBUTOR} = require('./constants.priorities');
 
-const MIN_UPGRADERS = 2;
+const MIN_UPGRADERS = 1;
 const MIN_DISTRIBUTORS = 2;
 const WALL_LEVEL = 1000;
 const RAMPART_LEVEL = 1000;
@@ -39,11 +39,6 @@ class Room extends OrgBase {
       return creep.memory[MEMORY_ASSIGN_ROOM] === room.name ||
         creep.memory[MEMORY_HARVEST_ROOM] === room.name;
     });
-
-    this.hasClaimer = _.filter(this.assignedCreeps, (creep) => {
-      return creep.memory[MEMORY_ROLE] === WORKER_CLAIMER &&
-        creep.memory[MEMORY_ASSIGN_ROOM] === room.name;
-    }).length > 0;
 
     this.hasReserver = _.filter(this.assignedCreeps, (creep) => {
       const role = creep.memory[MEMORY_ROLE];
@@ -202,8 +197,8 @@ class Room extends OrgBase {
     }
 
     // If not claimed by me and no claimer assigned and not primary, request a reserver
-    if (!this.hasReserver && (!this.reservedByMe && !this.claimedByMe && !this.numHostiles) ||
-      (this.reservedByMe && this.reservationTicks < 1000)) {
+    if (!this.hasReserver && ((!this.reservedByMe && !this.claimedByMe && !this.numHostiles) ||
+      (this.reservedByMe && this.reservationTicks < 1000))) {
       if (this.getColony().spawns.length) {
         this.sendRequest(TOPIC_SPAWN, PRIORITY_RESERVER, {
           role: WORKER_RESERVER,
@@ -332,7 +327,7 @@ class Room extends OrgBase {
   }
   toString() {
     return `-- Room - ID: ${this.id}, Primary: ${this.isPrimary}, Claimed: ${this.claimedByMe}, ` +
-      `Claimers: ${this.hasClaimer}, #Builders: ${this.builders.length}, ` +
+      `Reservers: ${this.hasReserver}, #Builders: ${this.builders.length}, ` +
       `#Upgraders: ${this.upgraders.length}, #Hostiles: ${this.numHostiles}, ` +
       `#Towers: ${this.towers.length}, #Sites: ${this.numConstructionSites}, ` +
       `%Hits: ${this.hitsPercentage.toFixed(2)}, #Repairer: ${this.numRepairers}, ` +
@@ -401,7 +396,8 @@ class Room extends OrgBase {
     const stores = _.reduce(spawns, (acc, spawn) => {
       const containers = spawn.pos.findInRange(FIND_STRUCTURES, 9, {
         filter: (structure) => {
-          if (structure.structureType !== STRUCTURE_CONTAINER) {
+          if (structure.structureType !== STRUCTURE_CONTAINER &&
+            structure.structureType !== STRUCTURE_SPAWN) {
             return false
           }
 

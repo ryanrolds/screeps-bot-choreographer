@@ -8,7 +8,7 @@ const pickupDroppedEnergy = behaviorTree.leafNode(
   'janitor',
   (creep) => {
     // Locate dropped resource close to creep
-    const resources = creep.pos.findInRange(FIND_DROPPED_RESOURCES, 2, {
+    const resources = creep.pos.findInRange(FIND_DROPPED_RESOURCES, 25, {
       filter: (r) => {
         return r.resourceType === RESOURCE_ENERGY;
       },

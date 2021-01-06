@@ -106,10 +106,6 @@ const emptyCreep = behaviorTree.sequenceNode(
           return FAILURE;
         }
 
-        if (creep.pos.inRangeTo(destination, 1)) {
-          return SUCCESS;
-        }
-
         const result = creep.moveTo(destination);
         if (result === ERR_NO_PATH) {
           return FAILURE;
@@ -118,15 +114,23 @@ const emptyCreep = behaviorTree.sequenceNode(
           return FAILURE;
         }
 
+        if (creep.pos.inRangeTo(destination, 1)) {
+          return SUCCESS;
+        }
+
         return RUNNING;
       },
     ),
     behaviorTree.leafNode(
-      'empty_creep',
+      'transfer_energy',
       (creep) => {
         const destination = Game.getObjectById(creep.memory[MEMORY.MEMORY_DESTINATION]);
         if (!destination) {
           return FAILURE;
+        }
+
+        if (destination.store.getUsedCapacity(RESOURCE_ENERGY) < 1) {
+          return SUCCESS;
         }
 
         const result = creep.transfer(destination, RESOURCE_ENERGY);
@@ -151,21 +155,46 @@ const emptyCreep = behaviorTree.sequenceNode(
   ],
 );
 
+const waitUntilSourceReady = behaviorTree.leafNode(
+  'selectSource',
+  (creep) => {
+    const source = Game.getObjectById(creep.memory[MEMORY.MEMORY_HARVEST]);
+    if (!source) {
+      return FAILURE;
+    }
+
+    if (source.energy < 1) {
+      return RUNNING;
+    }
+
+    return SUCCESS;
+  },
+);
+
 const behavior = behaviorTree.sequenceNode(
-  'haul_energy',
+  'mine_energy',
   [
     behaviorHarvest.moveToHarvestRoom,
     selectSource,
     behaviorMovement.moveToDestination(0),
     behaviorCommute.setCommuteDuration,
-    behaviorTree.selectorNode(
-      'get_energy',
-      [
-        harvest,
-        janitor,
-      ],
+    behaviorTree.repeatUntilFailure(
+      'mine_until_failure',
+      behaviorTree.sequenceNode(
+        'get_energy_and_dump',
+        [
+          behaviorTree.selectorNode(
+            'get_energy',
+            [
+              harvest,
+              janitor,
+              waitUntilSourceReady,
+            ],
+          ),
+          emptyCreep,
+        ]
+      )
     ),
-    emptyCreep,
   ],
 );
 

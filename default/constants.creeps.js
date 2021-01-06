@@ -39,10 +39,10 @@ const definitions = {
     base: [CARRY, MOVE, WORK, MOVE],
   },
   [WORKER_HAULER]: {
-    energyLimit: 3000,
+    energyLimit: 1500,
     ignoreSpawnEnergyLimit: true,
-    parts: [MOVE, CARRY],
-    base: [MOVE, CARRY, MOVE, CARRY, MOVE, CARRY],
+    parts: [MOVE, CARRY, CARRY],
+    base: [MOVE, CARRY, CARRY, MOVE, CARRY, CARRY],
   },
   [WORKER_BUILDER]: {
     energyLimit: 1500,
@@ -51,8 +51,8 @@ const definitions = {
   },
   [WORKER_REPAIRER]: {
     energyLimit: 900,
-    parts: [CARRY, MOVE, WORK, MOVE],
-    base: [CARRY, MOVE, WORK, MOVE],
+    parts: [MOVE, CARRY, WORK],
+    base: [CARRY, MOVE, WORK],
   },
   [WORKER_UPGRADER]: {
     energyLimit: 2000,
@@ -60,9 +60,9 @@ const definitions = {
     base: [CARRY, MOVE, CARRY, MOVE, WORK],
   },
   [WORKER_DISTRIBUTOR]: {
-    energyLimit: 1500,
-    parts: [CARRY, MOVE],
-    base: [CARRY, MOVE, CARRY, MOVE, CARRY, MOVE],
+    energyLimit: 1000,
+    parts: [MOVE, CARRY, CARRY],
+    base: [CARRY, MOVE, CARRY, CARRY, MOVE, CARRY],
   },
   [WORKER_CLAIMER]: {
     energyLimit: 1950,

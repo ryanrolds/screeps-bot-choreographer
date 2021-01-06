@@ -50,7 +50,7 @@ class Terminal extends OrgBase {
     if (!this.room.memory[MEMORY.TERMINAL_TASK]) {
       const task = this.getNextRequest(TOPICS.TOPIC_TERMINAL_TASK);
       if (task) {
-        console.log('got', this.id, JSON.stringify(task));
+
         this.room.memory[MEMORY.TERMINAL_TASK] = task;
       }
     }

@@ -78,11 +78,8 @@ module.exports.tick = (kingdom, trace) => {
       roleHauler.run(creep, trace, kingdom);
     }
 
-    if (creep.memory.role == CREEPS.WORKER_CLAIMER) {
-      roleClaimer.run(creep, trace, kingdom);
-    }
-
-    if (creep.memory.role == CREEPS.WORKER_RESERVER) {
+    if (creep.memory.role == CREEPS.WORKER_RESERVER ||
+      creep.memory.role == CREEPS.WORKER_CLAIMER) {
       roleReserver.run(creep, trace, kingdom);
     }
   });

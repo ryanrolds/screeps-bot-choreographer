@@ -19,7 +19,7 @@ const selectDestination = behaviorTree.leafNode(
 
     const structure = room.getNextEnergyStructure(creep);
     if (!structure) {
-      return FAILURE;
+      return RUNNING;
     }
 
     behaviorMovement.setDestination(creep, structure.id);
@@ -47,22 +47,18 @@ const behavior = behaviorTree.sequenceNode(
               }
 
               const result = creep.transfer(destination, RESOURCE_ENERGY);
-              if (result === ERR_FULL) {
-                // If creep has less then 50 energy, succeed so we get more energy
-                if (creep.store.getUsedCapacity(RESOURCE_ENERGY) < 50) {
-                  return SUCCESS;
-                }
 
-                // We still have energy to transfer, fail so we find another
-                // place to dump
+              if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
+                return SUCCESS;
+              }
+
+              if (result === ERR_FULL) {
                 return FAILURE;
               }
               if (result === ERR_NOT_ENOUGH_RESOURCES) {
                 return SUCCESS;
               }
-              if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
-                return SUCCESS;
-              }
+
               if (result != OK) {
                 return FAILURE;
               }
