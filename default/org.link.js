@@ -29,12 +29,14 @@ class Link extends OrgBase {
   update() {
     console.log(this);
 
+    const link = this.gameObject
+
     if (this.isNearRC && this.fullness < 0.25) {
       // Request enough energy to fill
       this.sendRequest(TOPIC_ROOM_LINKS, this.fullness, {
         REQUESTER_ID: this.id,
-        REQUESTER_ROOM: this.gameObject.room.id,
-        AMOUNT: this.gameObject.store.getFreeCapacity(RESOURCE_ENERGY),
+        REQUESTER_ROOM: link.room.id,
+        AMOUNT: link.store.getFreeCapacity(RESOURCE_ENERGY),
       });
     }
 
@@ -45,11 +47,11 @@ class Link extends OrgBase {
           [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
           [MEMORY.MEMORY_HAUL_PICKUP]: reserve.id,
           [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
-          [MEMORY.MEMORY_HAUL_AMOUNT]: this.gameObject.store.getFreeCapacity(RESOURCE_ENERGY),
+          [MEMORY.MEMORY_HAUL_AMOUNT]: link.store.getFreeCapacity(RESOURCE_ENERGY),
           [MEMORY.MEMORY_HAUL_DROPOFF]: this.id,
         };
 
-        this.sendRequest(TOPICS.TOPIC_HAUL_TASK, 1, details);
+        this.sendRequest(TOPICS.TOPIC_HAUL_TASK, 1.1, details);
       }
     }
   }

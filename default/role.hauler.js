@@ -22,11 +22,13 @@ const behavior = behaviorTree.sequenceNode(
             const colonyId = creep.memory[MEMORY.MEMORY_COLONY];
             const colony = kingdom.getColonyById(colonyId);
 
+            delete creep.memory[MEMORY.MEMORY_TASK_TYPE]
+            delete creep.memory[MEMORY.MEMORY_HAUL_PICKUP]
+            delete creep.memory[MEMORY.MEMORY_HAUL_RESOURCE]
+            delete creep.memory[MEMORY.MEMORY_HAUL_AMOUNT]
+
             // get next haul task
             const task = colony.getNextRequest(TOPICS.TOPIC_HAUL_TASK);
-
-            console.log('pick', creep.name, JSON.stringify(task));
-
             if (!task) {
               return FAILURE;
             }
@@ -36,7 +38,7 @@ const behavior = behaviorTree.sequenceNode(
             creep.memory[MEMORY.MEMORY_HAUL_PICKUP] = task.details[MEMORY.MEMORY_HAUL_PICKUP];
             creep.memory[MEMORY.MEMORY_HAUL_RESOURCE] = task.details[MEMORY.MEMORY_HAUL_RESOURCE];
 
-            if (creep.memory[MEMORY.MEMORY_HAUL_AMOUNT]) {
+            if (task.details[MEMORY.MEMORY_HAUL_AMOUNT]) {
               creep.memory[MEMORY.MEMORY_HAUL_AMOUNT] = task.details[MEMORY.MEMORY_HAUL_AMOUNT];
             } else {
               // Clear this, "needs energy" task was limiting regular haul tasks
@@ -78,14 +80,19 @@ const behavior = behaviorTree.sequenceNode(
         }
 
         const amount = creep.memory[MEMORY.MEMORY_HAUL_AMOUNT] || undefined;
-        console.log('pickup', creep.name, amount, JSON.stringify(creep.memory));
 
-        const result = creep.withdraw(pickup, creep.memory[MEMORY.MEMORY_HAUL_RESOURCE], amount);
-        console.log('withdrawl result', creep.name, result);
+        let result = null
+        if (pickup instanceof Resource) {
+          result = creep.pickup(pickup)
+        } else {
+
+          result = creep.withdraw(pickup, creep.memory[MEMORY.MEMORY_HAUL_RESOURCE], amount);
+        }
 
         if (result === ERR_FULL) {
           return SUCCESS;
         }
+
         if (result === ERR_NOT_ENOUGH_RESOURCES) {
           if (creep.store.getUsedCapacity(RESOURCE_ENERGY) >= 50) {
             return SUCCESS;

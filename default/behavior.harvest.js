@@ -16,6 +16,9 @@ module.exports.selectHarvestSource = behaviorTree.leafNode(
     });
 
     const room = kingdom.getCreepRoom(creep);
+    if (!room) {
+      return FAILURE
+    }
 
     sources = _.sortBy(sources, (source) => {
       const numAssigned = _.filter(room.assignedCreeps, (creep) => {

@@ -39,10 +39,9 @@ const definitions = {
     base: [CARRY, MOVE, WORK, MOVE],
   },
   [WORKER_HAULER]: {
-    energyLimit: 1500,
     ignoreSpawnEnergyLimit: true,
     parts: [MOVE, CARRY, CARRY],
-    base: [MOVE, CARRY, CARRY, MOVE, CARRY, CARRY],
+    base: [MOVE, CARRY, MOVE, CARRY, MOVE, CARRY],
   },
   [WORKER_BUILDER]: {
     energyLimit: 1500,
@@ -51,18 +50,18 @@ const definitions = {
   },
   [WORKER_REPAIRER]: {
     energyLimit: 900,
-    parts: [MOVE, CARRY, WORK],
-    base: [CARRY, MOVE, WORK],
+    parts: [CARRY, MOVE, WORK, MOVE],
+    base: [CARRY, MOVE, WORK, MOVE],
   },
   [WORKER_UPGRADER]: {
     energyLimit: 2000,
-    parts: [MOVE, CARRY, MOVE, WORK],
+    parts: [MOVE, CARRY, WORK],
     base: [CARRY, MOVE, CARRY, MOVE, WORK],
   },
   [WORKER_DISTRIBUTOR]: {
     energyLimit: 1000,
     parts: [MOVE, CARRY, CARRY],
-    base: [CARRY, MOVE, CARRY, CARRY, MOVE, CARRY],
+    base: [CARRY, MOVE, CARRY, MOVE, CARRY, MOVE],
   },
   [WORKER_CLAIMER]: {
     energyLimit: 1950,
@@ -81,8 +80,8 @@ const definitions = {
   },
   [WORKER_ATTACKER]: {
     energyLimit: null,
-    energyMinimum: 2200,
-    parts: [MOVE, TOUGH, ATTACK, HEAL],
+    energyMinimum: 4000,
+    parts: [MOVE, TOUGH, MOVE, ATTACK, MOVE, HEAL],
     base: [MOVE, TOUGH, MOVE, ATTACK],
   },
 };

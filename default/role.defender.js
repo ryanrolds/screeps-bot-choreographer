@@ -24,15 +24,10 @@ const behavior = behaviorTree.sequenceNode(
           hostile = invaderCores[0];
         }
 
-        console.log('hostile', creep.name, hostile);
-
         const inRange = creep.pos.getRangeTo(hostile) <= 3;
         if (inRange) {
           const result = creep.rangedAttack(hostile);
-          console.log('attack', creep.name, result);
         }
-
-        console.log('inRange', creep.name, inRange);
 
         const pathToHostile = creep.pos.findPathTo(hostile);
         const lastRampart = pathToHostile.reduce((lastRampart, pos) => {
@@ -44,16 +39,12 @@ const behavior = behaviorTree.sequenceNode(
 
           const hasCreep = pos.lookFor(LOOK_CREEPS).length > 0;
 
-          console.log('structures', creep.name, posStructures, hasRampart, hasCreep);
-
           if (hasRampart && !hasCreep) {
             lastRampart = pos;
           }
 
           return lastRampart;
         }, null);
-
-        console.log('last rampart', creep.name, JSON.stringify(lastRampart));
 
         if (lastRampart) {
           creep.moveTo(lastRampart, {visualizePathStyle: {stroke: '#ffffff'}});
@@ -64,8 +55,6 @@ const behavior = behaviorTree.sequenceNode(
         const inRampart = _.filter(creepPosStructures, (structure) => {
           return structure.structureType === STRUCTURE_RAMPART;
         }).length > 0;
-
-        console.log('in rampart', creep.name, inRampart);
 
         if (inRampart) {
           return RUNNING;

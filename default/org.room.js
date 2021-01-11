@@ -5,7 +5,10 @@ const Tower = require('./org.tower');
 const Terminal = require('./org.terminal');
 const Topics = require('./lib.topics');
 const Source = require('./org.source');
+
 const MEMORY = require('./constants.memory');
+const TASKS = require('./constants.tasks');
+const TOPICS = require('./constants.topics');
 
 const {MEMORY_ROLE, MEMORY_ASSIGN_ROOM, MEMORY_HARVEST_ROOM} = require('./constants.memory');
 const {TOPIC_SPAWN, TOPIC_DEFENDERS} = require('./constants.topics');
@@ -20,6 +23,7 @@ const MIN_DISTRIBUTORS = 2;
 const WALL_LEVEL = 1000;
 const RAMPART_LEVEL = 1000;
 const MY_USERNAME = 'ENETDOWN';
+const MIN_RESERVATION_TICKS = 1000;
 
 class Room extends OrgBase {
   constructor(parent, room) {
@@ -34,6 +38,8 @@ class Room extends OrgBase {
     if (room.controller.reservation && room.controller.reservation.username === MY_USERNAME) {
       this.reservedByMe = true;
     }
+
+    this.unowned = !room.controller.reservation && !room.controller.owner
 
     this.assignedCreeps = _.filter(parent.getCreeps(), (creep) => {
       return creep.memory[MEMORY_ASSIGN_ROOM] === room.name ||
@@ -143,6 +149,26 @@ class Room extends OrgBase {
 
     this.sources = sources;
 
+    this.droppedResourcesToHaul = room.find(FIND_DROPPED_RESOURCES, {
+      filter: (resource) => {
+        const isDispatched = _.filter(this.getColony().getHaulers(), (hauler) => {
+          return hauler.memory[MEMORY.MEMORY_PICKUP] == resource.id
+        }).length > 0
+
+        const isSource = _.filter(this.sources, (source) => {
+          if (source.gameObject instanceof Mineral) {
+            return false
+          }
+
+          return resource.pos.inRangeTo(source.gameObject, 1)
+        }).length > 0
+
+        return !isDispatched && !isSource
+      }
+    })
+
+    console.log(this.id, JSON.stringify(this.droppedResourcesToHaul))
+
     this.links = room.find(FIND_MY_STRUCTURES, {
       filter: (structure) => {
         return structure.structureType === STRUCTURE_LINK;
@@ -198,7 +224,7 @@ class Room extends OrgBase {
 
     // If not claimed by me and no claimer assigned and not primary, request a reserver
     if (!this.hasReserver && ((!this.reservedByMe && !this.claimedByMe && !this.numHostiles) ||
-      (this.reservedByMe && this.reservationTicks < 1000))) {
+      (this.reservedByMe && this.reservationTicks < MIN_RESERVATION_TICKS))) {
       if (this.getColony().spawns.length) {
         this.sendRequest(TOPIC_SPAWN, PRIORITY_RESERVER, {
           role: WORKER_RESERVER,
@@ -215,6 +241,16 @@ class Room extends OrgBase {
         });
       }
     }
+
+    this.droppedResourcesToHaul.forEach((resource) => {
+      const loadPriority = 0.8
+      const details = {
+        [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
+        [MEMORY.MEMORY_HAUL_PICKUP]: resource.id,
+        [MEMORY.MEMORY_HAUL_RESOURCE]: resource.resourceType,
+      };
+      this.sendRequest(TOPICS.TOPIC_HAUL_TASK, loadPriority, details);
+    })
 
     // Upgrader request
     const fullness = this.getEnergyFullness();
@@ -267,25 +303,27 @@ class Room extends OrgBase {
       }
     }
 
-    // Repairer requests
-    let desiredRepairers = 0;
-    let repairerPriority = PRIORITY_REPAIRER;
-    if (this.hitsPercentage < 0.8) {
-      desiredRepairers = 1;
-    }
+    if (!this.numHostiles && !this.hasInvaderCore) {
+      // Repairer requests
+      let desiredRepairers = 0;
+      let repairerPriority = PRIORITY_REPAIRER;
+      if (this.hitsPercentage < 0.8) {
+        desiredRepairers = 1;
+      }
 
-    if (this.hitsPercentage < 0.6) {
-      desiredRepairers = 2;
-      repairerPriority = PRIORITY_REPAIRER_URGENT;
-    }
+      if (this.hitsPercentage < 0.6) {
+        desiredRepairers = 2;
+        repairerPriority = PRIORITY_REPAIRER_URGENT;
+      }
 
-    if (this.numStructures > 0 && this.numRepairers < desiredRepairers) {
-      this.sendRequest(TOPIC_SPAWN, repairerPriority, {
-        role: WORKER_REPAIRER,
-        memory: {
-          [MEMORY_ASSIGN_ROOM]: this.id,
-        },
-      });
+      if (this.numStructures > 0 && this.numRepairers < desiredRepairers) {
+        this.sendRequest(TOPIC_SPAWN, repairerPriority, {
+          role: WORKER_REPAIRER,
+          memory: {
+            [MEMORY_ASSIGN_ROOM]: this.id,
+          },
+        });
+      }
     }
 
     console.log(this);
@@ -471,7 +509,7 @@ class Room extends OrgBase {
   }
   getNextEnergyStructure(creep) {
     let list = this.roomObject.memory[MEMORY.ROOM_NEEDS_ENERGY_LIST] || [];
-    const listTime = this.roomObject.memory[MEMORY.ROOM_NEEDS_ENERGY_TIME] || Game.time;
+    let listTime = this.roomObject.memory[MEMORY.ROOM_NEEDS_ENERGY_TIME] || Game.time;
 
     if (!list || !list.length || !listTime || Game.time - listTime > 20) {
       const room = this.roomObject;
@@ -516,6 +554,8 @@ class Room extends OrgBase {
       list = list.map((structure) => {
         return structure.id;
       });
+
+      listTime = Game.time
     }
 
     list = _.sortBy(list, (id) => {

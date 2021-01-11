@@ -75,7 +75,14 @@ const behavior = behaviorTree.selectorNode(
                 return behaviorTree.SUCCESS;
               }
 
-              if (!creep.room.controller.owner) {
+              const room = kingdom.getCreepRoom(creep)
+
+              if (!room.unowned && !room.claimedByName && !room.reservedByMe) {
+                const result = creep.attackController(creep.room.controller);
+                if (result != OK) {
+                  return behaviorTree.FAILURE;
+                }
+              } else {
                 const room = kingdom.getCreepRoom(creep);
 
                 if (room.isPrimary) {
@@ -88,11 +95,6 @@ const behavior = behaviorTree.selectorNode(
                   if (result != OK) {
                     return behaviorTree.FAILURE;
                   }
-                }
-              } else if (!creep.room.controller.my) {
-                const result = creep.attackController(creep.room.controller);
-                if (result != OK) {
-                  return behaviorTree.FAILURE;
                 }
               }
 

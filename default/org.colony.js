@@ -12,7 +12,7 @@ const {TOPIC_SPAWN, TOPIC_DEFENDERS, TOPIC_HAUL_TASK} = require('./constants.top
 const {WORKER_RESERVER, WORKER_DEFENDER} = require('./constants.creeps');
 const {PRIORITY_CLAIMER, PRIORITY_DEFENDER, PRIORITY_HAULER} = require('./constants.priorities');
 
-const MAX_DEFENDERS = 1;
+const MAX_DEFENDERS = 3;
 
 class Colony extends OrgBase {
   constructor(parent, colony) {
@@ -22,6 +22,8 @@ class Colony extends OrgBase {
 
     this.primaryRoomId = colony.primary;
     this.primaryRoom = Game.rooms[this.primaryRoomId];
+
+
     this.desiredRooms = colony.rooms;
     this.missingRooms = _.difference(this.desiredRooms, Object.keys(Game.rooms));
     this.colonyRooms = _.difference(this.desiredRooms, this.missingRooms);

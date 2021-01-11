@@ -22,7 +22,7 @@ const behavior = behaviorTree.sequenceNode(
           return SUCCESS;
         }
 
-        creep.moveTo(position, {reusePath: 0, ignoreCreeps: true});
+        creep.moveTo(position, {reusePath: 0, ignoreCreeps: false});
 
         return SUCCESS;
       },

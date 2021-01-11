@@ -56,11 +56,26 @@ const janitor = behaviorTree.leafNode(
       return FAILURE;
     }
 
+    const container = Game.getObjectById(creep.memory[MEMORY.MEMORY_HARVEST_CONTAINER])
+
+    console.log(container)
+
+    if (!container) {
+      return FAILURE
+    }
+
+    if (container.store.getFreeCapacity(RESOURCE_ENERGY) === 0) {
+      return FAILURE
+    }
+
     const result = creep.pickup(resource[0]);
+
+    console.log(creep.name, "pickup", result)
+
     if (result === ERR_FULL) {
       // We still have energy to transfer, fail so we find another
       // place to dump
-      return FAILURE;
+      return SUCCESS;
     }
     if (result === ERR_NOT_ENOUGH_RESOURCES) {
       return SUCCESS;
@@ -129,11 +144,14 @@ const emptyCreep = behaviorTree.sequenceNode(
           return FAILURE;
         }
 
-        if (destination.store.getUsedCapacity(RESOURCE_ENERGY) < 1) {
+        if (destination.store.getFreeCapacity(RESOURCE_ENERGY) === 0) {
           return SUCCESS;
         }
 
         const result = creep.transfer(destination, RESOURCE_ENERGY);
+
+        console.log(creep.name, "transfer", result)
+
         if (result === ERR_FULL) {
           // We still have energy to transfer, fail so we find another
           // place to dump

@@ -40,7 +40,7 @@ const selectEnergyForWithdraw = module.exports.selectEnergyForWithdraw = behavio
       return FAILURE;
     }
 
-    behaviorMovement.setDestination(creep, target.id);
+    behaviorMovement.setDestination(creep, target.id, Game.tick % 100);
     return SUCCESS;
   },
 );

@@ -13,17 +13,19 @@ const moveToMemory = module.exports.moveToMemory = (creep, memoryId, range) => {
 };
 
 const moveTo = module.exports.moveTo = (creep, destination, range) => {
-  const result = creep.moveTo(destination, {reusePath: 20, maxOps: 1000});
+  if (creep.pos.inRangeTo(destination, range)) {
+    return SUCCESS;
+  }
+
+  const result = creep.moveTo(destination, {reusePath: 50, maxOps: 1000});
   if (result === ERR_NO_PATH) {
-    return FAILURE;
+    // Clear existing path so we build a new one
+    delete creep.memory["_move"]
+    return RUNNING;
   }
 
   if (result !== OK && result !== ERR_TIRED) {
     return FAILURE;
-  }
-
-  if (creep.pos.inRangeTo(destination, range)) {
-    return SUCCESS;
   }
 
   return RUNNING;

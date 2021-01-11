@@ -22,7 +22,7 @@ let config = {
   'E17S49': {
     id: 'E17S49-Shard3',
     primary: 'E17S49',
-    rooms: ['E17S49'],
+    rooms: ['E17S49', 'E16S49'],
   },
 };
 

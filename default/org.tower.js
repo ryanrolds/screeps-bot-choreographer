@@ -12,15 +12,15 @@ class Tower extends OrgBase {
 
     this.energy = tower.energy;
 
-    this.haulersWithTask = _.filter(parent.getCreeps(), (creep) => {
+    const haulers = this.getColony().getHaulers()
+    this.haulersWithTask = _.filter(haulers, (creep) => {
       const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
       const dropoff = creep.memory[MEMORY.MEMORY_HAUL_DROPOFF];
-
       return task === TASKS.TASK_HAUL && dropoff === this.id;
     });
 
     this.haulerUsedCapacity = _.reduce(this.haulersWithTask, (total, hauler) => {
-      return total += hauler.store.getUsedCapacity();
+      return total + hauler.store.getUsedCapacity(RESOURCE_ENERGY);
     }, 0);
 
     const room = tower.room;
@@ -38,7 +38,7 @@ class Tower extends OrgBase {
   process() {
     const tower = this.gameObject;
     const towerUsed = tower.store.getUsedCapacity(RESOURCE_ENERGY)
-    const towerFree = tower.store.getUsedCapacity(RESOURCE_ENERGY)
+    const towerFree = tower.store.getFreeCapacity(RESOURCE_ENERGY)
     const towerTotal = tower.store.getCapacity(RESOURCE_ENERGY)
     const roomEnergy = this.getRoom().getAmountInReserve(RESOURCE_ENERGY)
 
@@ -47,7 +47,7 @@ class Tower extends OrgBase {
       const amount = towerFree - this.haulerUsedCapacity
 
       // The -0.01 is so that we haul full mining containers before fueling towers
-      const priority = 1 - (0.75 * (towerUsed + this.haulerUsedCapacity) / towerTotal);
+      const priority = 1 - ((towerUsed - 250 + this.haulerUsedCapacity) / towerTotal);
 
       const details = {
         [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,

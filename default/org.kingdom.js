@@ -75,8 +75,7 @@ class Kingdom extends OrgBase {
     this.topics.addRequest(topic, priority, request);
   }
   getNextRequest(topic) {
-    const request = this.topics.getNextRequest(topic);
-    return request;
+    return this.topics.getNextRequest(topic);
   }
   peekNextRequest(topic) {
     return this.topics.peekNextRequest(topic);

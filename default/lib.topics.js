@@ -53,7 +53,11 @@ class Topics {
       return null;
     }
 
+    const topicLength = topic.length
+
     const request = topic.pop();
+
+    console.log("getNextRequeset", topicLength, topic.length, topicID, JSON.stringify(request))
 
     this.setTopic(topicID, topic);
 

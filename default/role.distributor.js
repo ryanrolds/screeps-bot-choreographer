@@ -19,6 +19,7 @@ const selectDestination = behaviorTree.leafNode(
 
     const structure = room.getNextEnergyStructure(creep);
     if (!structure) {
+      console.log("getNextEnergyStructure returns falsey", creep.name)
       return RUNNING;
     }
 

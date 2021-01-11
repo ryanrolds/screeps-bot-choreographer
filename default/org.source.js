@@ -89,12 +89,17 @@ class Source extends OrgBase {
     console.log(this);
 
     const room = this.getColony().getRoomByID(this.roomID);
-    if (room.numHostiles > 0 && !room.isPrimary) {
+    if ((room.numHostiles > 0 || room.hasInvaderCore) && !room.isPrimary) {
       // Do not request hauling or more workers if room has hostiles and is not the main room
       return;
     }
 
     this.sendHaulTasks();
+
+    // Don't send miners or harvesters if room isn't claimed/reserved by me
+    if (!room.claimedByMe && !room.reservedByMe) {
+      return;
+    }
 
     let desiredHarvesters = 3;
     let desiredMiners = 0;
@@ -182,18 +187,14 @@ class Source extends OrgBase {
     const untaskedUsedCapacity = storeUsedCapacity - this.haulerCapacity;
     const loadsToHaul = Math.floor(untaskedUsedCapacity / averageLoad);
 
-    console.log("loads", this.id, loadsToHaul, this.haulerCapacity, untaskedUsedCapacity)
-
     for (let i = 0; i < loadsToHaul; i++) {
-      const loadPriority = (untaskedUsedCapacity - (i * averageLoad)) / storeCapacity;
+      const loadPriority = (storeUsedCapacity - (i * averageLoad)) / storeCapacity;
 
       const details = {
         [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
         [MEMORY.MEMORY_HAUL_PICKUP]: this.container.id,
         [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
       };
-
-      console.log("haul task", this.id, JSON.stringify(details))
 
       this.sendRequest(TOPICS.TOPIC_HAUL_TASK, loadPriority, details);
     }
