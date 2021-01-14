@@ -68,6 +68,5 @@ const behavior = behaviorTree.selectorNode(
 );
 
 module.exports = {
-  id: 'claimer',
-  run: behaviorTree.rootNode(this.id, behaviorNonCombatant(behavior)).tick
+  run: behaviorTree.rootNode('claimer', behaviorNonCombatant(behavior))
 };

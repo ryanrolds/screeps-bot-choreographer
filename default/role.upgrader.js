@@ -110,6 +110,5 @@ const behavior = behaviorTree.sequenceNode(
 
 
 module.exports = {
-  id: 'upgrader',
-  run: behaviorTree.rootNode(this.id, behavior).tick
+  run: behaviorTree.rootNode('upgrader', behavior)
 };

@@ -40,7 +40,9 @@ class Link extends OrgBase {
       });
     }
 
-    if (this.isNearStorage && this.fullness < 1) {
+    const roomEnergy = this.getRoom().getAmountInReserve(RESOURCE_ENERGY)
+
+    if (this.isNearStorage && this.fullness < 1 && roomEnergy > 5000) {
       const reserve = this.parent.getRoom().getReserveStructureWithMostOfAResource(RESOURCE_ENERGY);
       if (reserve) {
         const details = {

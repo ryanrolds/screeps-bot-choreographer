@@ -3,22 +3,15 @@ const SUCCESS = module.exports.SUCCESS = 'success';
 const FAILURE = module.exports.FAILURE = 'failure';
 
 module.exports.rootNode = (id, behavior) => {
-  return {
-    id,
-    behavior,
-    tickNode: function(actor, trace, kingdom) {
-      return this.behavior(actor, trace, kingdom);
-    },
-    tick: function(actor, trace, kingdom) {
-      const rootTrace = trace.begin(this.id);
+  return function(actor, trace, kingdom) {
+    const rootTrace = trace.begin(id);
 
-      const result = behavior.tick(actor, rootTrace, kingdom);
-      if (result == FAILURE) {
-        console.log('ROOT FAILURE:', actor.name);
-      }
+    const result = behavior.tick(actor, rootTrace, kingdom);
+    if (result == FAILURE) {
+      console.log('ROOT FAILURE:', actor.room.name, actor.id, actor.name);
+    }
 
-      rootTrace.end();
-    },
+    rootTrace.end();
   }
 }
 

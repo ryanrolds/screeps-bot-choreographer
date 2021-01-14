@@ -11,9 +11,9 @@ const spawnContainerCache = {};
 
 const selectEnergyForWithdraw = module.exports.selectEnergyForWithdraw = behaviorTree.leafNode(
   'selectEnergyForWithdraw',
-  (creep) => {
+  (creep, trace, kingdom) => {
     const spawnContainers = spawnContainerCache[creep.room.name];
-    if (!spawnContainers || Game.tick % 100 === 0) {
+    if (!spawnContainers || !spawnContainers.length || Game.tick % 100 === 0) {
       const spawns = creep.room.find(FIND_STRUCTURES, {
         filter: (structure) => {
           return structure.structureType === STRUCTURE_SPAWN;

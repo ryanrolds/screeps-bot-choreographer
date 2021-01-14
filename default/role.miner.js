@@ -91,11 +91,9 @@ const emptyCreep = behaviorTree.sequenceNode(
     behaviorTree.leafNode(
       'pick_adjacent_container',
       (creep) => {
-        const targets = creep.pos.findInRange(FIND_STRUCTURES, 2, {
+        const targets = creep.pos.findInRange(FIND_STRUCTURES, 1, {
           filter: (structure) => {
-            return structure.structureType == STRUCTURE_CONTAINER &&
-              structure.structureType == STRUCTURE_CONTAINER &&
-              structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+            return structure.structureType == STRUCTURE_CONTAINER;
           },
         });
 
@@ -115,7 +113,14 @@ const emptyCreep = behaviorTree.sequenceNode(
           return FAILURE;
         }
 
+        if (creep.pos.inRangeTo(destination, 0)) {
+          return SUCCESS;
+        }
+
         const result = creep.moveTo(destination);
+
+        trace.log(creep.id, 'moveTo', result)
+
         if (result === ERR_NO_PATH) {
           return FAILURE;
         }
@@ -123,7 +128,7 @@ const emptyCreep = behaviorTree.sequenceNode(
           return FAILURE;
         }
 
-        if (creep.pos.inRangeTo(destination, 1)) {
+        if (creep.pos.inRangeTo(destination, 0)) {
           return SUCCESS;
         }
 
@@ -132,7 +137,7 @@ const emptyCreep = behaviorTree.sequenceNode(
     ),
     behaviorTree.leafNode(
       'transfer_energy',
-      (creep) => {
+      (creep, trace, kingdom) => {
         const destination = Game.getObjectById(creep.memory[MEMORY.MEMORY_DESTINATION]);
         if (!destination) {
           return FAILURE;
@@ -143,6 +148,9 @@ const emptyCreep = behaviorTree.sequenceNode(
         }
 
         const result = creep.transfer(destination, RESOURCE_ENERGY);
+
+        trace.log(creep.id, 'transfer', result)
+
         if (result === ERR_FULL) {
           // We still have energy to transfer, fail so we find another
           // place to dump
@@ -208,6 +216,5 @@ const behavior = behaviorTree.sequenceNode(
 );
 
 module.exports = {
-  id: 'miner',
-  run: behaviorTree.rootNode(this.id, behaviorNonCombatant(behavior)).tick
+  run: behaviorTree.rootNode('miner', behaviorNonCombatant(behavior))
 };

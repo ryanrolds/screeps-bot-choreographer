@@ -78,6 +78,5 @@ const behavior = behaviorTree.sequenceNode(
 );
 
 module.exports = {
-  id: 'defender',
-  run: behaviorTree.rootNode(this.id, behavior).tick
+  run: behaviorTree.rootNode('defender', behavior)
 };

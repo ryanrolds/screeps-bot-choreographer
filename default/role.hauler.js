@@ -125,6 +125,5 @@ const behavior = behaviorTree.sequenceNode(
 );
 
 module.exports = {
-  id: 'hauler',
-  run: behaviorTree.rootNode(this.id, behaviorNonCombatant(behavior)).tick
+  run: behaviorTree.rootNode('hauler', behaviorNonCombatant(behavior))
 };

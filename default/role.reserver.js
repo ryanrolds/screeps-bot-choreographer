@@ -108,6 +108,5 @@ const behavior = behaviorTree.selectorNode(
 );
 
 module.exports = {
-  id: 'reserver',
-  run: behaviorTree.rootNode(this.id, behaviorNonCombatant(behavior)).tick
+  run: behaviorTree.rootNode('reserver', behaviorNonCombatant(behavior))
 };

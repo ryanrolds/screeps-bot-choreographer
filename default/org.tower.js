@@ -46,7 +46,7 @@ class Tower extends OrgBase {
     const towerTotal = tower.store.getCapacity(RESOURCE_ENERGY)
     const roomEnergy = this.getRoom().getAmountInReserve(RESOURCE_ENERGY)
 
-    if (towerUsed + this.haulerUsedCapacity < 500 && roomEnergy > 2000) {
+    if (towerUsed + this.haulerUsedCapacity < 500 && roomEnergy > 5000) {
       const pickupId = this.parent.getClosestStoreWithEnergy(tower);
       const amount = towerFree - this.haulerUsedCapacity
 

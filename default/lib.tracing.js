@@ -1,7 +1,7 @@
 let isActive = false;
 let metrics = [];
 
-global.logWhenId = null
+global.LOG_WHEN_ID = null
 
 const reset = () => {
   metrics = [];
@@ -19,7 +19,7 @@ const startTrace = (name) => {
       return startTrace(`${this.name}.${name}`);
     },
     log: function(id, message, details) {
-      if (id !== global.logWhenId) {
+      if (id !== global.LOG_WHEN_ID) {
         return
       }
 
