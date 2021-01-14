@@ -51,7 +51,7 @@ class Link extends OrgBase {
           [MEMORY.MEMORY_HAUL_DROPOFF]: this.id,
         };
 
-        this.sendRequest(TOPICS.TOPIC_HAUL_TASK, 1.1, details);
+        this.sendRequest(TOPICS.TOPIC_HAUL_TASK, 0.9, details);
       }
     }
   }

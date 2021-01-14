@@ -57,9 +57,6 @@ const janitor = behaviorTree.leafNode(
     }
 
     const container = Game.getObjectById(creep.memory[MEMORY.MEMORY_HARVEST_CONTAINER])
-
-    console.log(container)
-
     if (!container) {
       return FAILURE
     }
@@ -69,9 +66,6 @@ const janitor = behaviorTree.leafNode(
     }
 
     const result = creep.pickup(resource[0]);
-
-    console.log(creep.name, "pickup", result)
-
     if (result === ERR_FULL) {
       // We still have energy to transfer, fail so we find another
       // place to dump
@@ -149,9 +143,6 @@ const emptyCreep = behaviorTree.sequenceNode(
         }
 
         const result = creep.transfer(destination, RESOURCE_ENERGY);
-
-        console.log(creep.name, "transfer", result)
-
         if (result === ERR_FULL) {
           // We still have energy to transfer, fail so we find another
           // place to dump
@@ -217,14 +208,6 @@ const behavior = behaviorTree.sequenceNode(
 );
 
 module.exports = {
-  run: (creep, trace, kingdom) => {
-    const roleTrace = trace.begin('miner');
-
-    const result = behaviorNonCombatant(behavior).tick(creep, roleTrace, kingdom);
-    if (result == behaviorTree.FAILURE) {
-      console.log('INVESTIGATE: miner failure', creep.name);
-    }
-
-    roleTrace.end();
-  },
+  id: 'miner',
+  run: behaviorTree.rootNode(this.id, behaviorNonCombatant(behavior)).tick
 };

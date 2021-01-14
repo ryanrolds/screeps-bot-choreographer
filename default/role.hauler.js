@@ -79,14 +79,18 @@ const behavior = behaviorTree.sequenceNode(
           return FAILURE;
         }
 
-        const amount = creep.memory[MEMORY.MEMORY_HAUL_AMOUNT] || undefined;
+        const resource = creep.memory[MEMORY.MEMORY_HAUL_RESOURCE] || undefined
+        let amount = creep.memory[MEMORY.MEMORY_HAUL_AMOUNT] || undefined;
+
+        if (amount > creep.store.getFreeCapacity(resource)) {
+          amount = creep.store.getFreeCapacity(resource)
+        }
 
         let result = null
         if (pickup instanceof Resource) {
           result = creep.pickup(pickup)
         } else {
-
-          result = creep.withdraw(pickup, creep.memory[MEMORY.MEMORY_HAUL_RESOURCE], amount);
+          result = creep.withdraw(pickup, resource, amount);
         }
 
         if (result === ERR_FULL) {
@@ -121,14 +125,6 @@ const behavior = behaviorTree.sequenceNode(
 );
 
 module.exports = {
-  run: (creep, trace, kingdom) => {
-    const roleTrace = trace.begin('hauler');
-
-    const result = behaviorNonCombatant(behavior).tick(creep, roleTrace, kingdom);
-    if (result == behaviorTree.FAILURE) {
-      console.log('INVESTIGATE: hauler failure', creep.name);
-    }
-
-    roleTrace.end();
-  },
+  id: 'hauler',
+  run: behaviorTree.rootNode(this.id, behaviorNonCombatant(behavior)).tick
 };

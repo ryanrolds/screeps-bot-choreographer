@@ -9,7 +9,6 @@ module.exports.selectHarvestSource = behaviorTree.leafNode(
   'bt.harvest.selectHarvestSource',
   (creep, trace, kingdom) => {
     let sources = creep.room.find(FIND_SOURCES);
-
     sources = _.filter(sources, (source) => {
       // Do not send creeps to sources with hostiles near by
       return numEnemeiesNearby(source.pos, 5) < 1;

@@ -19,7 +19,6 @@ const selectDestination = behaviorTree.leafNode(
 
     const structure = room.getNextEnergyStructure(creep);
     if (!structure) {
-      console.log("getNextEnergyStructure returns falsey", creep.name)
       return RUNNING;
     }
 
@@ -74,14 +73,6 @@ const behavior = behaviorTree.sequenceNode(
 );
 
 module.exports = {
-  run: (creep, trace, kingdom) => {
-    const roleTrace = trace.begin('distributor');
-
-    const result = behavior.tick(creep, roleTrace, kingdom);
-    if (result == behaviorTree.FAILURE) {
-      console.log('INVESTIGATE: distributor failure', creep.name);
-    }
-
-    roleTrace.end();
-  },
+  id: 'distributor',
+  run: behaviorTree.rootNode(this.id, behavior).tick
 };

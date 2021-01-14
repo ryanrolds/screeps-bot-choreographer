@@ -108,14 +108,6 @@ const behavior = behaviorTree.selectorNode(
 );
 
 module.exports = {
-  run: (creep, trace, kingdom) => {
-    const roleTrace = trace.begin('reserver');
-
-    const result = behaviorNonCombatant(behavior).tick(creep, roleTrace, kingdom);
-    if (result == behaviorTree.FAILURE) {
-      console.log('INVESTIGATE: reserver failure', creep.name);
-    }
-
-    roleTrace.end();
-  },
+  id: 'reserver',
+  run: behaviorTree.rootNode(this.id, behaviorNonCombatant(behavior)).tick
 };

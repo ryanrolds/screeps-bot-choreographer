@@ -2,6 +2,26 @@ const RUNNING = module.exports.RUNNING = 'running';
 const SUCCESS = module.exports.SUCCESS = 'success';
 const FAILURE = module.exports.FAILURE = 'failure';
 
+module.exports.rootNode = (id, behavior) => {
+  return {
+    id,
+    behavior,
+    tickNode: function(actor, trace, kingdom) {
+      return this.behavior(actor, trace, kingdom);
+    },
+    tick: function(actor, trace, kingdom) {
+      const rootTrace = trace.begin(this.id);
+
+      const result = behavior.tick(actor, rootTrace, kingdom);
+      if (result == FAILURE) {
+        console.log('ROOT FAILURE:', actor.name);
+      }
+
+      rootTrace.end();
+    },
+  }
+}
+
 module.exports.selectorNode = (id, children) => {
   return {
     id,
@@ -28,6 +48,8 @@ module.exports.selectorNode = (id, children) => {
       trace = trace.begin(this.id);
 
       const result = this.tickChildren(actor, trace, kingdom);
+
+      trace.log(actor.id, "result", result)
 
       trace.end();
 
@@ -62,6 +84,8 @@ module.exports.sequenceNode = (id, children) => {
 
       const result = this.tickChildren(actor, trace, kingdom);
 
+      trace.log(actor.id, "result", result)
+
       trace.end();
 
       return result;
@@ -93,6 +117,8 @@ module.exports.sequenceAlwaysNode = (id, children) => {
 
       const result = this.tickChildren(actor, trace, kingdom);
 
+      trace.log(actor.id, "result", result)
+
       trace.end();
 
       return result;
@@ -116,6 +142,8 @@ module.exports.repeatUntilFailure = (id, node) => {
       trace = trace.begin(this.id);
 
       const result = this.tickNode(actor, trace, kingdom);
+
+      trace.log(actor.id, "result", result)
 
       trace.end();
 
@@ -141,6 +169,8 @@ module.exports.repeatUntilSuccess = (id, node) => {
 
       const result = this.tickNode(actor, trace, kingdom);
 
+      trace.log(actor.id, "result", result)
+
       trace.end();
 
       return result;
@@ -159,6 +189,8 @@ module.exports.leafNode = (id, behavior) => {
       trace = trace.begin(this.id);
 
       const result = this.tickNode(actor, trace, kingdom);
+
+      trace.log(actor.id, "result", result)
 
       trace.end();
 

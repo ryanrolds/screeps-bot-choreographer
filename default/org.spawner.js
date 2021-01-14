@@ -53,7 +53,6 @@ class Spawner extends OrgBase {
     if (this.energy >= minEnergy) {
       let request = this.getNextRequest(TOPIC_SPAWN);
       if (request) {
-        console.log('BUILDING', this.id, JSON.stringify(request));
         this.createCreep(request.details.role, request.details.memory, energyLimit);
         return;
       }
@@ -70,7 +69,6 @@ class Spawner extends OrgBase {
       // Check inter-colony requests if the colony has spawns
       request = this.getKingdom().getNextRequest(TOPIC_SPAWN);
       if (request) {
-        console.log('KINGDOM BUILDING', JSON.stringify(request));
         this.createCreep(request.details.role, request.details.memory, energyLimit);
         return;
       }

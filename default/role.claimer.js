@@ -68,14 +68,6 @@ const behavior = behaviorTree.selectorNode(
 );
 
 module.exports = {
-  run: (creep, trace, kingdom) => {
-    const roleTrace = trace.begin('claimer');
-
-    const result = behaviorNonCombatant(behavior).tick(creep, roleTrace, kingdom);
-    if (result == behaviorTree.FAILURE) {
-      console.log('INVESTIGATE: claimer failure', creep.name);
-    }
-
-    roleTrace.end();
-  },
+  id: 'claimer',
+  run: behaviorTree.rootNode(this.id, behaviorNonCombatant(behavior)).tick
 };

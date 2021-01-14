@@ -122,8 +122,6 @@ module.exports.createCreep = (colony, room, spawn, role, memory, energy, energyL
   console.log(`==== Creating creep ${colony}, ${room}, ${role}, ${parts}, ${JSON.stringify(memory)}`);
 
   const result = spawn.spawnCreep(parts, name, {memory});
-  console.log('spawn result', result, parts.length);
-
   return result;
 };
 

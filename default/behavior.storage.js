@@ -310,12 +310,21 @@ module.exports.emptyCreep = behaviorTree.repeatUntilSuccess(
             amount = creep.memory[MEMORY.MEMORY_HAUL_AMOUNT];
           }
 
+          if (amount > creep.store.getUsedCapacity(resource)) {
+            amount = creep.store.getUsedCapacity(resource)
+          }
+
           const result = creep.transfer(destination, resource, amount);
           if (result === ERR_FULL) {
             return SUCCESS;
           }
+
           if (result === ERR_NOT_ENOUGH_RESOURCES) {
-            return FAILURE;
+            return SUCCESS;
+          }
+
+          if (result === ERR_INVALID_TARGET) {
+            return SUCCESS;
           }
 
           if (result != OK) {

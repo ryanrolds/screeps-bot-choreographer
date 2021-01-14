@@ -76,14 +76,6 @@ const behavior = behaviorTree.sequenceNode(
 );
 
 module.exports = {
-  run: (creep, trace, kingdom) => {
-    const roleTrace = trace.begin('repairer');
-
-    const result = behaviorNonCombatant(behavior).tick(creep, roleTrace, kingdom);
-    if (result == behaviorTree.FAILURE) {
-      console.log('INVESTIGATE: repairer failure', creep.name);
-    }
-
-    roleTrace.end();
-  },
+  id: 'repairer',
+  run: behaviorTree.rootNode(this.id, behaviorNonCombatant(behavior)).tick
 };

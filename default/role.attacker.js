@@ -67,14 +67,6 @@ const behavior = behaviorTree.sequenceNode(
 );
 
 module.exports = {
-  run: (creep, trace) => {
-    const roleTrace = trace.begin('attacker');
-
-    const result = behavior.tick(creep, roleTrace);
-    if (result == behaviorTree.FAILURE) {
-      console.log('INVESTIGATE: attacker failure', creep.name);
-    }
-
-    roleTrace.end();
-  },
+  id: 'attacker',
+  run: behaviorTree.rootNode(this.id, behavior).tick
 };

@@ -23,7 +23,7 @@ const MIN_DISTRIBUTORS = 2;
 const WALL_LEVEL = 1000;
 const RAMPART_LEVEL = 1000;
 const MY_USERNAME = 'ENETDOWN';
-const MIN_RESERVATION_TICKS = 1000;
+const MIN_RESERVATION_TICKS = 2500;
 
 class Room extends OrgBase {
   constructor(parent, room) {
@@ -166,8 +166,6 @@ class Room extends OrgBase {
         return !isDispatched && !isSource
       }
     })
-
-    console.log(this.id, JSON.stringify(this.droppedResourcesToHaul))
 
     this.links = room.find(FIND_MY_STRUCTURES, {
       filter: (structure) => {

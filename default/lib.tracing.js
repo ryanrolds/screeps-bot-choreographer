@@ -1,6 +1,8 @@
 let isActive = false;
 let metrics = [];
 
+global.logWhenId = null
+
 const reset = () => {
   metrics = [];
 };
@@ -15,6 +17,13 @@ const startTrace = (name) => {
     start: Game.cpu.getUsed(),
     begin: function(name) {
       return startTrace(`${this.name}.${name}`);
+    },
+    log: function(id, message, details) {
+      if (id !== global.logWhenId) {
+        return
+      }
+
+      console.log(id, this.name, message, details)
     },
     end: function() {
       if (!isActive) {

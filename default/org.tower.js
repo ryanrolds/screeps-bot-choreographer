@@ -31,6 +31,10 @@ class Tower extends OrgBase {
       energyFullness = room.storage.store.getUsedCapacity() / room.storage.store.getCapacity() * 10;
     }
     this.defenseHitsLimit = rcLevelHitsMax * Math.pow(0.45, (10 - energyFullness));
+
+    if (room.storage && room.storage.store.getUsedCapacity(RESOURCE_ENERGY) < 50000) {
+      this.defenseHitsLimit = 10000
+    }
   }
   update() {
     console.log(this);

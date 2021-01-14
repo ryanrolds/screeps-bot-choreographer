@@ -69,7 +69,7 @@ const definitions = {
     base: [MOVE, CLAIM],
   },
   [WORKER_RESERVER]: {
-    energyLimit: 1950,
+    energyLimit: 2600,
     parts: [CLAIM, MOVE],
     base: [MOVE, CLAIM],
   },

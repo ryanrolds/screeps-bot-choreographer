@@ -13,9 +13,12 @@ module.exports = (behaviorNode) => {
           if (!room) {
             return SUCCESS;
           }
+
           if (!room.numHostiles) {
             return SUCCESS;
           }
+
+          trace.log(creep.id, "numHostiles", room.numHostiles)
 
           const colony = kingdom.getCreepColony(creep);
           if (!colony) {
