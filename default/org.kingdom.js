@@ -118,9 +118,14 @@ class Kingdom extends OrgBase {
 
     return this.getColonyById(colonyId);
   }
-  getReserveResources() {
+  getReserveResources(includeTerminal) {
     return this.colonies.reduce((acc, colony) => {
-      const colonyResources = colony.getReserveResources();
+      // If colony doesn't have a terminal don't include it
+      if (!colony.getPrimaryRoom().terminal) {
+        return acc
+      }
+
+      const colonyResources = colony.getReserveResources(includeTerminal);
       Object.keys(colonyResources).forEach((resource) => {
         const current = acc[resource] || 0;
         acc[resource] = colonyResources[resource] + current;
@@ -134,6 +139,46 @@ class Kingdom extends OrgBase {
       return acc + colony.getAmountInReserve(resource);
     }, 0);
     return this.primaryRoom.getAmountInReserve(resource);
+  }
+  getTerminalWithResource(resource) {
+    const terminals = this.getColonies().reduce((acc, colony) => {
+      const room = colony.getPrimaryRoom()
+      // If colony doesn't have a terminal don't include it
+      if (!room.terminal) {
+        return acc;
+      }
+
+      const amount = colony.getAmountInReserve(resource)
+      if (!amount) {
+        return acc;
+      }
+
+      return acc.concat({terminal: room.getTerminal(), amount})
+    }, [])
+
+    return _.sortBy(terminals, 'amount').pop()
+  }
+  getTerminals() {
+    return this.getColonies().reduce((acc, colony) => {
+      const room = colony.getPrimaryRoom()
+      // If colony doesn't have a terminal don't include it
+      if (!room.terminal) {
+        return acc
+      }
+
+      return acc.concat(room.terminal)
+    }, [])
+  }
+  getReactors() {
+    return this.getColonies().reduce((acc, colony) => {
+      const room = colony.getPrimaryRoom()
+      // If colony doesn't have a terminal don't include it
+      if (!room.reactors.length) {
+        return acc
+      }
+
+      return acc.concat(room.reactors)
+    }, [])
   }
   getStats() {
     return this.stats;
@@ -159,7 +204,9 @@ class Kingdom extends OrgBase {
       return creep.memory.role;
     });
 
-    stats.resources = this.getReserveResources();
+    stats.topics = this.topics.getCounts();
+
+    stats.resources = this.getReserveResources(true);
   }
 }
 

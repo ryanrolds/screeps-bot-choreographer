@@ -90,7 +90,7 @@ const emptyCreep = behaviorTree.sequenceNode(
   [
     behaviorTree.leafNode(
       'pick_adjacent_container',
-      (creep) => {
+      (creep, trace, kingdom) => {
         const targets = creep.pos.findInRange(FIND_STRUCTURES, 1, {
           filter: (structure) => {
             return structure.structureType == STRUCTURE_CONTAINER;
@@ -107,7 +107,7 @@ const emptyCreep = behaviorTree.sequenceNode(
     ),
     behaviorTree.leafNode(
       'move_to_destination',
-      (creep) => {
+      (creep, trace, kingdom) => {
         const destination = Game.getObjectById(creep.memory[MEMORY.MEMORY_DESTINATION]);
         if (!destination) {
           return FAILURE;
@@ -173,7 +173,7 @@ const emptyCreep = behaviorTree.sequenceNode(
 );
 
 const waitUntilSourceReady = behaviorTree.leafNode(
-  'selectSource',
+  'waitUntilReady',
   (creep) => {
     const source = Game.getObjectById(creep.memory[MEMORY.MEMORY_HARVEST]);
     if (!source) {

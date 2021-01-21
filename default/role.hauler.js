@@ -26,6 +26,8 @@ const behavior = behaviorTree.sequenceNode(
             delete creep.memory[MEMORY.MEMORY_HAUL_PICKUP]
             delete creep.memory[MEMORY.MEMORY_HAUL_RESOURCE]
             delete creep.memory[MEMORY.MEMORY_HAUL_AMOUNT]
+            delete creep.memory[MEMORY.MEMORY_HAUL_DROPOFF]
+            delete creep.memory[MEMORY.MEMORY_DESTINATION]
 
             // get next haul task
             const task = colony.getNextRequest(TOPICS.TOPIC_HAUL_TASK);
@@ -74,23 +76,45 @@ const behavior = behaviorTree.sequenceNode(
     behaviorTree.leafNode(
       'load_resource',
       (creep, trace, kingdom) => {
+        if (creep.store.getFreeCapacity() === 0) {
+          return SUCCESS;
+        }
+
         const pickup = Game.getObjectById(creep.memory[MEMORY.MEMORY_HAUL_PICKUP]);
         if (!pickup) {
           return FAILURE;
         }
 
         const resource = creep.memory[MEMORY.MEMORY_HAUL_RESOURCE] || undefined
-        let amount = creep.memory[MEMORY.MEMORY_HAUL_AMOUNT] || undefined;
-
-        if (amount > creep.store.getFreeCapacity(resource)) {
-          amount = creep.store.getFreeCapacity(resource)
-        }
 
         let result = null
         if (pickup instanceof Resource) {
           result = creep.pickup(pickup)
         } else {
+          let amount = creep.memory[MEMORY.MEMORY_HAUL_AMOUNT] || undefined;
+
+          if (amount > creep.store.getFreeCapacity(resource)) {
+            amount = creep.store.getFreeCapacity(resource)
+          }
+
+          if (amount > pickup.store.getUsedCapacity(resource)) {
+            amount = pickup.store.getUsedCapacity(resource)
+          }
+
+          if (amount === 0) {
+            return FAILURE;
+          }
+
+          // If we are seeing a specific amount, we are done when we have that amount in the hold
+          if (amount && creep.store.getUsedCapacity(resource) >= amount) {
+            return SUCCESS;
+          }
+
           result = creep.withdraw(pickup, resource, amount);
+        }
+
+        if (result === ERR_INVALID_ARGS) {
+          return FAILURE;
         }
 
         if (result === ERR_FULL) {
@@ -98,26 +122,14 @@ const behavior = behaviorTree.sequenceNode(
         }
 
         if (result === ERR_NOT_ENOUGH_RESOURCES) {
-          if (creep.store.getUsedCapacity(RESOURCE_ENERGY) >= 50) {
-            return SUCCESS;
-          }
-
           return FAILURE;
         }
-        if (creep.store.getFreeCapacity() === 0) {
-          return SUCCESS;
+
+        if (result !== OK) {
+          return FAILURE;
         }
 
-        // If we are seeing a specific amount, we are done when we have that amount in the hold
-        if (amount && creep.store.getUsedCapacity(RESOURCE_ENERGY) >= amount) {
-          return SUCCESS;
-        }
-
-        if (result === OK) {
-          return RUNNING;
-        }
-
-        return SUCCESS;
+        return RUNNING;
       },
     ),
     behaviorStorage.emptyCreep,

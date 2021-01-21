@@ -37,7 +37,7 @@ class Tower extends OrgBase {
     }
   }
   update() {
-    console.log(this);
+    //console.log(this);
   }
   process() {
     const tower = this.gameObject;
@@ -80,7 +80,7 @@ class Tower extends OrgBase {
       }
     }
 
-    const damagedCreeps = _.filter(this.assignedCreeps, (creep) => {
+    const damagedCreeps = _.filter(this.getRoom().getCreeps(), (creep) => {
       return creep.hits < creep.hitsMax;
     });
     const creepsByHealth = _.sortBy(damagedCreeps, (creep) => {

@@ -9,7 +9,7 @@ module.exports.setCommuteDuration = behaviorTree.leafNode(
     // Only set commute if we have a start tick and if we have not already
     // set the commute time
     if (startTick && !creep.memory[MEMORY.MEMORY_COMMUTE_DURATION]) {
-      const commuteTime = Game.time - startTick;
+      const commuteTime = Game.time - startTick + creep.body.length;
       creep.memory[MEMORY.MEMORY_COMMUTE_DURATION] = commuteTime;
     }
 

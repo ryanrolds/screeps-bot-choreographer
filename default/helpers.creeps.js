@@ -34,24 +34,27 @@ module.exports.tick = (kingdom, trace) => {
 
     if (creep.memory.role == CREEPS.WORKER_ATTACKER) {
       roleAttacker.run(creep, trace, kingdom);
+      return;
     }
 
-    if (creep.memory.role == CREEPS.WORKER_MINER ||
-      creep.memory.role == CREEPS.WORKER_REMOTE_MINER) {
+    if (creep.memory.role == CREEPS.WORKER_MINER) {
       roleMiner.run(creep, trace, kingdom);
+      return;
     }
 
-    if (creep.memory.role == CREEPS.WORKER_HARVESTER ||
-      creep.memory.role == CREEPS.WORKER_REMOTE_HARVESTER) {
+    if (creep.memory.role == CREEPS.WORKER_HARVESTER) {
       roleHarvester.run(creep, trace, kingdom);
+      return;
     }
 
     if (creep.memory.role == CREEPS.WORKER_DISTRIBUTOR) {
       roleDistributor.run(creep, trace, kingdom);
+      return;
     }
 
     if (creep.memory.role == CREEPS.WORKER_DEFENDER) {
       roleDefender.run(creep, trace, kingdom);
+      return;
     }
 
     // If we are running low on CPU start skipping 20% of non-essential creeps
@@ -64,23 +67,29 @@ module.exports.tick = (kingdom, trace) => {
 
     if (creep.memory.role == CREEPS.WORKER_UPGRADER) {
       roleUpgrader.run(creep, trace, kingdom);
+      return;
     }
 
     if (creep.memory.role == CREEPS.WORKER_BUILDER) {
       roleBuilder.run(creep, trace, kingdom);
+      return;
     }
 
     if (creep.memory.role == CREEPS.WORKER_REPAIRER) {
       roleRepairer.run(creep, trace, kingdom);
+      return;
     }
 
-    if (creep.memory.role == CREEPS.WORKER_HAULER) {
+    if (creep.memory.role == CREEPS.WORKER_HAULER ||
+      creep.memory.role == CREEPS.WORKER_HAULER_V3) {
       roleHauler.run(creep, trace, kingdom);
+      return;
     }
 
     if (creep.memory.role == CREEPS.WORKER_RESERVER ||
       creep.memory.role == CREEPS.WORKER_CLAIMER) {
       roleReserver.run(creep, trace, kingdom);
+      return;
     }
   });
 
@@ -119,7 +128,7 @@ module.exports.createCreep = (colony, room, spawn, role, memory, energy, energyL
   memory[MEMORY_ROLE] = role;
   memory[MEMORY.MEMORY_START_TICK] = Game.time;
 
-  console.log(`==== Creating creep ${colony}, ${room}, ${role}, ${parts}, ${JSON.stringify(memory)}`);
+  console.log(`==== Creating creep ${colony}, ${room}, ${role}, ${energyLimit}, ${parts}, ${JSON.stringify(memory)}`);
 
   const result = spawn.spawnCreep(parts, name, {memory});
   return result;

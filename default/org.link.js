@@ -27,7 +27,7 @@ class Link extends OrgBase {
     this.isNearSource = link.pos.findInRange(FIND_SOURCES, 2).length > 0;
   }
   update() {
-    console.log(this);
+    //console.log(this);
 
     const link = this.gameObject
 

@@ -40,7 +40,7 @@ const pickupDroppedEnergy = behaviorTree.leafNode(
 module.exports.getEnergy = behaviorTree.repeatUntilSuccess(
   'get_energy_until_success',
   behaviorTree.selectorNode(
-    'moveToDestination',
+    'containers_dropped_harvest',
     [
       behaviorStorage.fillCreepFromContainers,
       pickupDroppedEnergy,

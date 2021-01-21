@@ -6,8 +6,7 @@ const CREEPS = require('./constants.creeps');
 const TOPICS = require('./constants.topics');
 
 const {TOPIC_SPAWN} = require('./constants.topics');
-const {WORKER_REMOTE_HARVESTER, WORKER_MINER, WORKER_HARVESTER,
-  WORKER_HAULER, WORKER_REMOTE_MINER} = require('./constants.creeps');
+const {WORKER_MINER, WORKER_HARVESTER, WORKER_HAULER, WORKER_HAULER_V3} = require('./constants.creeps');
 const {PRIORITY_HARVESTER, PRIORITY_MINER, PRIORITY_REMOTE_MINER} = require('./constants.priorities');
 
 class Source extends OrgBase {
@@ -43,7 +42,7 @@ class Source extends OrgBase {
 
       this.numHaulers = _.filter(roomCreeps, (creep) => {
         const role = creep.memory[MEMORY.MEMORY_ROLE];
-        return role === WORKER_HAULER &&
+        return (role === WORKER_HAULER || role === WORKER_HAULER_V3) &&
           creep.memory[MEMORY.MEMORY_WITHDRAW] === this.container.id &&
           creep.ticksToLive > 100;
       }).length;
@@ -54,7 +53,7 @@ class Source extends OrgBase {
     this.numHarvesters = _.filter(roomCreeps, (creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
       const commuteTime = creep.memory[MEMORY.MEMORY_COMMUTE_DURATION];
-      return (role === WORKER_HARVESTER || role === WORKER_REMOTE_HARVESTER) &&
+      return role === WORKER_HARVESTER &&
         creep.memory[MEMORY.MEMORY_HARVEST] === this.id &&
         (creep.ticksToLive > (commuteTime || 100));
     }).length;
@@ -62,7 +61,7 @@ class Source extends OrgBase {
     this.numMiners = _.filter(roomCreeps, (creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
       const commuteTime = creep.memory[MEMORY.MEMORY_COMMUTE_DURATION];
-      return (role === WORKER_MINER || role === WORKER_REMOTE_MINER) &&
+      return role === WORKER_MINER &&
         creep.memory[MEMORY.MEMORY_HARVEST] === this.id &&
         (creep.ticksToLive > (commuteTime || 100));
     }).length;
@@ -80,16 +79,19 @@ class Source extends OrgBase {
 
     const colonyId = this.getColony().id;
     this.colonyCreeps = _.filter(parent.getColony().getCreeps(), {memory: {[MEMORY.MEMORY_COLONY]: colonyId}});
-    this.haulers = _.filter(this.colonyCreeps, {memory: {[MEMORY.MEMORY_ROLE]: CREEPS.WORKER_HAULER}});
+    this.haulers = _.filter(this.colonyCreeps, (creep) => {
+      const role = creep.memory[MEMORY.MEMORY_ROLE];
+      return role === CREEPS.WORKER_HAULER || role === CREEPS.WORKER_HAULER_V3;
+    });
     this.avgHaulerCapacity = _.reduce(this.haulers, (total, hauler) => {
       return total + hauler.store.getCapacity();
     }, 0) / this.haulers.length;
   }
   update() {
-    console.log(this);
+    //console.log(this);
 
     const room = this.getColony().getRoomByID(this.roomID);
-    if ((room.numHostiles > 0 || room.hasInvaderCore) && !room.isPrimary) {
+    if ((room.numHostiles > 0) && !room.isPrimary) {
       // Do not request hauling or more workers if room has hostiles and is not the main room
       return;
     }
@@ -118,7 +120,7 @@ class Source extends OrgBase {
       // As we get more harvesters, make sure other creeps get a chance to spawn
       const priority = PRIORITY_HARVESTER - (this.numHarvesters * 1.5);
       this.sendRequest(TOPIC_SPAWN, priority, {
-        role: WORKER_REMOTE_HARVESTER,
+        role: WORKER_HARVESTER,
         memory: {
           [MEMORY.MEMORY_HARVEST]: this.id, // Deprecated
           [MEMORY.MEMORY_HARVEST_ROOM]: this.roomID, // Deprecated
@@ -134,7 +136,6 @@ class Source extends OrgBase {
 
       // Energy sources in unowned rooms require half as many parts
       if (!this.gameObject.room.controller.my) {
-        role = WORKER_REMOTE_MINER;
         priority = PRIORITY_REMOTE_MINER;
       }
 

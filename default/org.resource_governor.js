@@ -4,17 +4,35 @@ const MEMORY = require('./constants.memory');
 const TASKS = require('./constants.tasks');
 const PRIORITIES = require('./constants.priorities');
 
-const RESERVE_LIMIT = 10000;
+const RESERVE_LIMIT = 5000;
+const REACTION_BATCH_SIZE = 1000;
 
 class Resources extends OrgBase {
   constructor(parent) {
     super(parent, 'resources');
+
+    this.resources = this.getKingdom().getReserveResources(true);
+    this.activeReactions = this.getKingdom().getReactors().filter((reactor) => {
+      return !reactor.isIdle();
+    }).map((reactor) => {
+      return reactor.getOutput()
+    });
+    this.availableReactions = this.getReactions();
   }
   update() {
-    console.log(this);
+    this.availableReactions.forEach((reaction) => {
+      const priority = PRIORITIES.REACTION_PRIORITIES[reaction['output']];
+      const details = {
+        [MEMORY.REACTOR_TASK_TYPE]: TASKS.REACTION,
+        [MEMORY.REACTOR_INPUT_A]: reaction['inputA'],
+        [MEMORY.REACTOR_INPUT_B]: reaction['inputB'],
+        [MEMORY.REACTOR_OUTPUT]: reaction['output'],
+        [MEMORY.REACTOR_AMOUNT]: REACTION_BATCH_SIZE,
+      };
+      this.getKingdom().sendRequest(TOPICS.TASK_REACTION, priority, details);
+    })
 
     const colonies = this.getKingdom().getColonies();
-
     colonies.forEach((colony) => {
       const resources = colony.getReserveResources();
 
@@ -36,16 +54,77 @@ class Resources extends OrgBase {
         }
       });
     });
+
+    console.log(this);
   }
   process() {
-
+    this.updateStats()
   }
   toString() {
-    return `-- Resources`;
+    const reactions = this.availableReactions.map((reaction) => {return reaction.output});
+
+    return `** Resource Gov - Resources: ${JSON.stringify(this.resources)}, ` +
+      `NextReactions: ${reactions.join(' ')}, CurrentReactions: ${this.activeReactions}`;
   }
   updateStats() {
     const stats = this.getStats();
-    stats.resources = this.parent.getReserveResources();
+    stats.resources = this.resource;
+  }
+  getReactions() {
+    let availableReactions = {};
+    let missingOneInput = {};
+    let firstInputs = Object.keys(REACTIONS);
+    firstInputs.forEach((inputA) => {
+      // If we don't have a full batch, move onto next
+      if (!this.resources[inputA] || this.resources[inputA] < REACTION_BATCH_SIZE) {
+        return;
+      }
+
+      let secondInputs = Object.keys(REACTIONS[inputA]);
+      secondInputs.forEach((inputB) => {
+        const output = REACTIONS[inputA][inputB];
+
+        if (this.activeReactions.indexOf(output) !== -1) {
+          return;
+        }
+
+        // Check if we need more of the output
+        if (this.resources[output] > RESERVE_LIMIT) {
+          return;
+        }
+
+        // If we don't have a full batch if input mark missing one and go to next
+        if (!this.resources[inputB] || this.resources[inputB] < REACTION_BATCH_SIZE) {
+          if (!missingOneInput[output]) {
+            missingOneInput[output] = {inputA, inputB, output};
+          }
+          return;
+        }
+
+        if (!availableReactions[output]) {
+          availableReactions[output] = {inputA, inputB, output};
+        }
+      });
+    });
+
+    missingOneInput = this.prioritizeReactions(missingOneInput);
+    availableReactions = this.prioritizeReactions(availableReactions);
+
+    if (missingOneInput.length && Game.market.credit > 40000) {
+      availableReactions.push(missingOneInput.pop());
+    }
+
+    return availableReactions;
+  }
+  prioritizeReactions(reactions) {
+    return _.sortBy(Object.values(reactions), (reaction) => {
+      let priority = PRIORITIES.REACTION_PRIORITIES[reaction['output']];
+      if (this.resources[reaction['output']] >= RESERVE_LIMIT) {
+        priority = priority - 3
+      }
+
+      return priority
+    });
   }
 }
 

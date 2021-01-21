@@ -22,7 +22,7 @@ class Spawner extends OrgBase {
   process() {
     const spawnTopicSize = this.getTopicLength(TOPIC_SPAWN);
     const spawnTopicBackPressure = Math.floor(this.energyCapacity * (1 - (0.09 * spawnTopicSize)));
-    const energyLimit = _.max([300, spawnTopicBackPressure]);
+    let energyLimit = _.max([300, spawnTopicBackPressure]);
 
     let minEnergy = 300;
     const numCreeps = this.getColony().numCreeps;
@@ -53,6 +53,11 @@ class Spawner extends OrgBase {
     if (this.energy >= minEnergy) {
       let request = this.getNextRequest(TOPIC_SPAWN);
       if (request) {
+        // Allow request to override energy limit
+        if (request.details.energyLimit) {
+          energyLimit = request.details.energyLimit
+        }
+
         this.createCreep(request.details.role, request.details.memory, energyLimit);
         return;
       }
@@ -88,7 +93,7 @@ class Spawner extends OrgBase {
     return this.gameObject.spawning;
   }
   toString() {
-    return `---- Spawner - ID: ${this.id}, Idle: ${this.isIdle}, Energy: ${this.energy}, ` +
+    return `-- Spawner - ID: ${this.id}, Idle: ${this.isIdle}, Energy: ${this.energy}, ` +
       `%Energy: ${this.energyPercentage.toFixed(2)}`;
   }
   updateStats() {

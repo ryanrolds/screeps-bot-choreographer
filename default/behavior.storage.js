@@ -5,7 +5,7 @@ const behaviorMovement = require('./behavior.movement');
 const MEMORY = require('./constants.memory');
 
 const {MEMORY_ROLE, MEMORY_DESTINATION, MEMORY_ORIGIN} = require('./constants.memory');
-const {WORKER_DISTRIBUTOR, WORKER_HAULER} = require('./constants.creeps');
+const {WORKER_DISTRIBUTOR, WORKER_HAULER, WORKER_HAULER_V3} = require('./constants.creeps');
 
 const spawnContainerCache = {};
 
@@ -87,7 +87,7 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.select
         const role = creep.memory[MEMORY_ROLE];
         // haulers should pick containers near the spawner
         // TODO this is hacky and feels bad
-        if (role && (role === WORKER_DISTRIBUTOR || role === WORKER_HAULER)) {
+        if (role && (role === WORKER_DISTRIBUTOR || role === WORKER_HAULER || role === WORKER_HAULER_V3)) {
           return FAILURE;
         }
 
@@ -291,6 +291,7 @@ module.exports.emptyCreep = behaviorTree.repeatUntilSuccess(
       behaviorTree.leafNode(
         'empty_creep',
         (creep) => {
+          console.log(creep.name, creep.store.getUsedCapacity())
           if (creep.store.getUsedCapacity() === 0) {
             return SUCCESS;
           }
@@ -301,20 +302,8 @@ module.exports.emptyCreep = behaviorTree.repeatUntilSuccess(
           }
 
           let resource = Object.keys(creep.store).pop();
-          if (creep.memory[MEMORY.MEMORY_HAUL_RESOURCE]) {
-            resource = creep.memory[MEMORY.MEMORY_HAUL_RESOURCE];
-          }
 
-          let amount = undefined;
-          if (creep.memory[MEMORY.MEMORY_HAUL_AMOUNT]) {
-            amount = creep.memory[MEMORY.MEMORY_HAUL_AMOUNT];
-          }
-
-          if (amount > creep.store.getUsedCapacity(resource)) {
-            amount = creep.store.getUsedCapacity(resource)
-          }
-
-          const result = creep.transfer(destination, resource, amount);
+          const result = creep.transfer(destination, resource);
           if (result === ERR_FULL) {
             return SUCCESS;
           }

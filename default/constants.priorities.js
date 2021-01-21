@@ -21,9 +21,48 @@ const PRIORITY_BOOTSTRAP = 0;
 // Terminal
 const TERMINAL_SELL = 1;
 const TERMINAL_BUY = 2;
+const TERMINAL_TRANSFER = 3;
 
+// Hauling
+const HAUL_REACTION = 0.9
 
-// Defense - TODO
+// Reactions
+REACTION_PRIORITIES = {
+  G: 3,
+  OH: 2,
+  ZK: 1,
+  UL: 1,
+  LH: 3,
+  ZH: 1,
+  GH: 2,
+  KH: 2,
+  UH: 2,
+  LO: 1,
+  ZO: 1,
+  KO: 1,
+  UO: 2,
+  GO: 3,
+  LH2O: 1,
+  KH2O: 9,
+  ZH2O: 1,
+  UH2O: 9,
+  GH2O: 8,
+  LHO2: 10,
+  UHO2: 9,
+  KHO2: 9,
+  ZHO2: 1,
+  GHO2: 10,
+  XLH2O: 1,
+  XKH2O: 9,
+  XZH2O: 1,
+  XUH2O: 9,
+  XGH2O: 8,
+  XLHO2: 10,
+  XUHO2: 9,
+  XKHO2: 9,
+  XZHO2: 1,
+  XGHO2: 10,
+};
 
 module.exports = {
   PRIORITY_DISTRIBUTOR,
@@ -44,4 +83,7 @@ module.exports = {
   PRIORITY_BOOTSTRAP,
   TERMINAL_SELL,
   TERMINAL_BUY,
+  TERMINAL_TRANSFER,
+  HAUL_REACTION,
+  REACTION_PRIORITIES,
 };

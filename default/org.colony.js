@@ -42,7 +42,8 @@ class Colony extends OrgBase {
     }).length;
 
     this.haulers = _.filter(this.assignedCreeps, (creep) => {
-      return creep.memory[MEMORY_ROLE] == WORKERS.WORKER_HAULER &&
+      return (creep.memory[MEMORY_ROLE] == WORKERS.WORKER_HAULER ||
+        creep.memory[MEMORY_ROLE] == WORKERS.WORKER_HAULER_V3) &&
         creep.memory[MEMORY_COLONY] === this.id &&
         creep.ticksToLive > 100;
     });
@@ -85,6 +86,9 @@ class Colony extends OrgBase {
   }
   getRoom() {
     throw new Error('a colony is not a room');
+  }
+  getPrimaryRoom() {
+    return this.primaryOrgRoom
   }
   getRoomByID(roomId) {
     return _.find(this.rooms, (room) => {
@@ -161,7 +165,7 @@ class Colony extends OrgBase {
     if (this.primaryRoom) {
       // PID approach
       this.pidDesiredHaulers = Pid.update(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, numHaulTasks, Game.time);
-      if (this.numHaulers <= this.pidDesiredHaulers) {
+      if (this.numHaulers < this.pidDesiredHaulers) {
         this.sendRequest(TOPIC_SPAWN, PRIORITY_HAULER, {
           role: WORKERS.WORKER_HAULER,
           memory: {},
@@ -203,12 +207,12 @@ class Colony extends OrgBase {
 
     return this.primaryRoom.getReserveStructures();
   }
-  getReserveResources() {
+  getReserveResources(includeTerminal) {
     if (!this.primaryOrgRoom) {
       return {};
     }
 
-    return this.primaryOrgRoom.getReserveResources();
+    return this.primaryOrgRoom.getReserveResources(includeTerminal);
   }
   getAmountInReserve(resource) {
     if (!this.primaryOrgRoom) {
@@ -223,6 +227,13 @@ class Colony extends OrgBase {
     }
 
     return this.primaryOrgRoom.getReserveStructureWithMostOfAResource(resource);
+  }
+  getStructureWithMostOfAResource(resource) {
+    if (!this.primaryOrgRoom) {
+      return null;
+    }
+
+    return this.primaryOrgRoom.getStructureWithMostOfAResource(resource);
   }
   getReserveStructureWithRoomForResource(resource) {
     if (!this.primaryOrgRoom) {

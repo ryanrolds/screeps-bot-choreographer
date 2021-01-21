@@ -29,12 +29,17 @@ module.exports.MEMORY_COMMUTE_DURATION = 'commute_duration';
 module.exports.MEMORY_TASK_REQUESTER = 'task_requestor';
 module.exports.MEMORY_TASK_TYPE = 'task_type';
 module.exports.MEMORY_TASK_REASON = 'task_reason';
+module.exports.TASK_PHASE = 'task_phase';
+module.exports.TASK_TTL = 'task_ttl';
 
 // haul task
 module.exports.MEMORY_HAUL_PICKUP = 'haul_pickup';
 module.exports.MEMORY_HAUL_RESOURCE = 'haul_resource';
 module.exports.MEMORY_HAUL_AMOUNT = 'haul_amount';
 module.exports.MEMORY_HAUL_DROPOFF = 'haul_dropoff';
+
+// reactor
+module.exports.REACTOR_TASK = 'ractor_task'
 
 // terminal
 module.exports.TERMINAL_TASK = 'terminal_task';
@@ -46,10 +51,10 @@ module.exports.MEMORY_ORDER_RESOURCE = 'order_resource';
 module.exports.MEMORY_ORDER_AMOUNT = 'order_amount';
 
 // transfer task
-module.exports.MEMORY_TRANSFER_ROOM = 'transfer_room';
-module.exports.MEMORY_TRANSFER_DESTINATION = 'transfer_destination';
-module.exports.MEMORY_TRANSFER_RESOURCE = 'order_resource';
-module.exports.MEMORY_TRANSFER_AMOUNT = 'order_amount';
+module.exports.TRANSFER_ROOM = 'transfer_room';
+module.exports.TRANSFER_DESTINATION = 'transfer_destination';
+module.exports.TRANSFER_RESOURCE = 'transfer_resource';
+module.exports.TRANSFER_AMOUNT = 'transfer_amount';
 
 // Attacker
 module.exports.MEMORY_ATTACK = 'attack';
@@ -75,3 +80,10 @@ module.exports.ROOM_DAMAGED_STRUCTURES_LIST = 'damaged_structure_list';
 module.exports.ROOM_DAMAGED_STRUCTURES_TIME = 'damaged_structure_time';
 module.exports.ROOM_NEEDS_ENERGY_LIST = 'needs_energy_list';
 module.exports.ROOM_NEEDS_ENERGY_TIME = 'needs_energy_time';
+
+// Reactor tasks
+module.exports.REACTOR_TASK_TYPE = 'reactor_task_type';
+module.exports.REACTOR_INPUT_A = 'reactor_input_a';
+module.exports.REACTOR_INPUT_B = 'reactor_input_b';
+module.exports.REACTOR_OUTPUT = 'reactor_output';
+module.exports.REACTOR_AMOUNT = 'reactor_amount';
