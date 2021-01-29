@@ -26,10 +26,10 @@ const behavior = behaviorTree.selectorNode(
               return behaviorTree.SUCCESS;
             }
 
-            let destination = new RoomPosition(25, 25, room)
-            const roomObject = Game.rooms[room]
+            let destination = new RoomPosition(25, 25, room);
+            const roomObject = Game.rooms[room];
             if (roomObject) {
-              destination = roomObject.controller
+              destination = roomObject.controller;
             }
 
             const result = creep.moveTo(destination);
@@ -81,9 +81,9 @@ const behavior = behaviorTree.selectorNode(
                 return behaviorTree.SUCCESS;
               }
 
-              const room = kingdom.getCreepRoom(creep)
+              const room = kingdom.getCreepRoom(creep);
               if (!room) {
-                //creep.suicide()
+                // creep.suicide()
                 return behaviorTree.FAILURE;
               }
 
@@ -116,5 +116,5 @@ const behavior = behaviorTree.selectorNode(
 );
 
 module.exports = {
-  run: behaviorTree.rootNode('reserver', behaviorNonCombatant(behavior))
+  run: behaviorTree.rootNode('reserver', behaviorNonCombatant(behavior)),
 };

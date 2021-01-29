@@ -28,12 +28,12 @@ class Link extends OrgBase {
     }).length > 0;
     this.isNearSource = link.pos.findInRange(FIND_SOURCES, 2).length > 0;
 
-    setupTrace.end()
+    setupTrace.end();
   }
   update() {
-    //console.log(this);
+    // console.log(this);
 
-    const link = this.gameObject
+    const link = this.gameObject;
 
     if (this.isNearRC && this.fullness < 0.25) {
       // Request enough energy to fill
@@ -44,7 +44,7 @@ class Link extends OrgBase {
       });
     }
 
-    const roomEnergy = this.getRoom().getAmountInReserve(RESOURCE_ENERGY)
+    const roomEnergy = this.getRoom().getAmountInReserve(RESOURCE_ENERGY);
 
     if (this.isNearStorage && this.fullness < 1 && roomEnergy > 5000) {
       const reserve = this.parent.getRoom().getReserveStructureWithMostOfAResource(RESOURCE_ENERGY);

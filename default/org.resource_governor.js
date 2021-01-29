@@ -17,11 +17,11 @@ class Resources extends OrgBase {
     this.activeReactions = this.getKingdom().getReactors().filter((reactor) => {
       return !reactor.isIdle();
     }).map((reactor) => {
-      return reactor.getOutput()
+      return reactor.getOutput();
     });
     this.availableReactions = this.getReactions();
 
-    setupTrace.end()
+    setupTrace.end();
   }
   update() {
     this.availableReactions.forEach((reaction) => {
@@ -34,7 +34,7 @@ class Resources extends OrgBase {
         [MEMORY.REACTOR_AMOUNT]: REACTION_BATCH_SIZE,
       };
       this.getKingdom().sendRequest(TOPICS.TASK_REACTION, priority, details);
-    })
+    });
 
     const colonies = this.getKingdom().getColonies();
     colonies.forEach((colony) => {
@@ -62,10 +62,12 @@ class Resources extends OrgBase {
     console.log(this);
   }
   process() {
-    this.updateStats()
+    this.updateStats();
   }
   toString() {
-    const reactions = this.availableReactions.map((reaction) => {return reaction.output});
+    const reactions = this.availableReactions.map((reaction) => {
+return reaction.output;
+});
 
     return `** Resource Gov - Resources: ${JSON.stringify(this.resources)}, ` +
       `NextReactions: ${reactions.join(' ')}, CurrentReactions: ${this.activeReactions}`;
@@ -77,14 +79,14 @@ class Resources extends OrgBase {
   getReactions() {
     let availableReactions = {};
     let missingOneInput = {};
-    let firstInputs = Object.keys(REACTIONS);
+    const firstInputs = Object.keys(REACTIONS);
     firstInputs.forEach((inputA) => {
       // If we don't have a full batch, move onto next
       if (!this.resources[inputA] || this.resources[inputA] < REACTION_BATCH_SIZE) {
         return;
       }
 
-      let secondInputs = Object.keys(REACTIONS[inputA]);
+      const secondInputs = Object.keys(REACTIONS[inputA]);
       secondInputs.forEach((inputB) => {
         const output = REACTIONS[inputA][inputB];
 
@@ -124,10 +126,10 @@ class Resources extends OrgBase {
     return _.sortBy(Object.values(reactions), (reaction) => {
       let priority = PRIORITIES.REACTION_PRIORITIES[reaction['output']];
       if (this.resources[reaction['output']] >= RESERVE_LIMIT) {
-        priority = priority - 3
+        priority = priority - 3;
       }
 
-      return priority
+      return priority;
     });
   }
 }

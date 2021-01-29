@@ -70,5 +70,5 @@ const behavior = behaviorTree.sequenceNode(
 );
 
 module.exports = {
-  run: behaviorTree.rootNode('attacker', behavior)
+  run: behaviorTree.rootNode('attacker', behavior),
 };

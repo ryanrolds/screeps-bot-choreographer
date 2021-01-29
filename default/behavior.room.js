@@ -17,7 +17,7 @@ const pickupDroppedEnergy = behaviorTree.leafNode(
       return FAILURE;
     }
 
-    const resource = resources[0]
+    const resource = resources[0];
 
     if (!creep.pos.inRangeTo(resource, 1)) {
       creep.moveTo(resource);

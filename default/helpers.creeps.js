@@ -6,7 +6,6 @@ const roleHauler = require('./role.hauler');
 const roleMiner = require('./role.miner');
 const roleDistributor = require('./role.distributor');
 const roleDefender = require('./role.defender');
-const roleClaimer = require('./role.claimer');
 const roleAttacker = require('./role.attacker');
 const roleReserver = require('./role.reserver');
 
@@ -85,8 +84,7 @@ module.exports.tick = (kingdom, trace) => {
       return;
     }
 
-    if (creep.memory.role == CREEPS.WORKER_RESERVER ||
-      creep.memory.role == CREEPS.WORKER_CLAIMER) {
+    if (creep.memory.role == CREEPS.WORKER_RESERVER) {
       roleReserver.run(creep, trace, kingdom);
       return;
     }

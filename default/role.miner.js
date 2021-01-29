@@ -56,13 +56,13 @@ const janitor = behaviorTree.leafNode(
       return FAILURE;
     }
 
-    const container = Game.getObjectById(creep.memory[MEMORY.MEMORY_HARVEST_CONTAINER])
+    const container = Game.getObjectById(creep.memory[MEMORY.MEMORY_HARVEST_CONTAINER]);
     if (!container) {
-      return FAILURE
+      return FAILURE;
     }
 
     if (container.store.getFreeCapacity(RESOURCE_ENERGY) === 0) {
-      return FAILURE
+      return FAILURE;
     }
 
     const result = creep.pickup(resource[0]);
@@ -119,7 +119,7 @@ const emptyCreep = behaviorTree.sequenceNode(
 
         const result = creep.moveTo(destination);
 
-        trace.log(creep.id, 'moveTo', result)
+        trace.log(creep.id, 'moveTo', result);
 
         if (result === ERR_NO_PATH) {
           return FAILURE;
@@ -149,7 +149,7 @@ const emptyCreep = behaviorTree.sequenceNode(
 
         const result = creep.transfer(destination, RESOURCE_ENERGY);
 
-        trace.log(creep.id, 'transfer', result)
+        trace.log(creep.id, 'transfer', result);
 
         if (result === ERR_FULL) {
           // We still have energy to transfer, fail so we find another
@@ -209,12 +209,12 @@ const behavior = behaviorTree.sequenceNode(
             ],
           ),
           emptyCreep,
-        ]
-      )
+        ],
+      ),
     ),
   ],
 );
 
 module.exports = {
-  run: behaviorTree.rootNode('miner', behaviorNonCombatant(behavior))
+  run: behaviorTree.rootNode('miner', behaviorNonCombatant(behavior)),
 };

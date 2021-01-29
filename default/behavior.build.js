@@ -41,7 +41,7 @@ const selectSite = behaviorTree.leafNode(
         return 0;
       }
 
-      return site.pos.getRangeTo(spawn)
+      return site.pos.getRangeTo(spawn);
     });
 
     behaviorMovement.setDestination(creep, sites[0].id, sites[0].room.id);

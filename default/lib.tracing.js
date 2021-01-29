@@ -1,7 +1,7 @@
 let isActive = false;
 let metrics = [];
 
-global.LOG_WHEN_ID = null
+global.LOG_WHEN_ID = null;
 
 const reset = () => {
   metrics = [];
@@ -14,7 +14,7 @@ const setActive = () => {
 const setInactive = () => {
   isActive = false;
   reset();
-}
+};
 
 const startTrace = (name) => {
   return {
@@ -30,10 +30,10 @@ const startTrace = (name) => {
     },
     log: function(id, message, details) {
       if (id !== global.LOG_WHEN_ID) {
-        return
+        return;
       }
 
-      console.log(id, this.name, message, details)
+      console.log(id, this.name, message, details);
     },
     end: function() {
       if (!isActive) {

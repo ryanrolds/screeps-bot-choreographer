@@ -35,7 +35,7 @@ const behavior = behaviorTree.sequenceNode(
               return SUCCESS;
             }
 
-            hostile = hostileStructures[0]
+            hostile = hostileStructures[0];
           } else {
             hostile = invaderCores[0];
           }
@@ -43,7 +43,7 @@ const behavior = behaviorTree.sequenceNode(
 
         const inRange = creep.pos.getRangeTo(hostile) <= 3;
         if (inRange) {
-          const result = creep.rangedAttack(hostile);
+          creep.rangedAttack(hostile);
         }
 
         const pathToHostile = creep.pos.findPathTo(hostile);
@@ -95,5 +95,5 @@ const behavior = behaviorTree.sequenceNode(
 );
 
 module.exports = {
-  run: behaviorTree.rootNode('defender', behavior)
+  run: behaviorTree.rootNode('defender', behavior),
 };

@@ -3,13 +3,10 @@ const behaviorTree = require('./lib.behaviortree');
 const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
 const behaviorMovement = require('./behavior.movement');
 const behaviorStorage = require('./behavior.storage');
-const behaviorHaul = require('./behavior.haul');
 
-const MEMORY = require('./constants.memory')
-const TOPICS = require('./constants.topics')
-const TASKS = require('./constants.tasks')
-
-const {MEMORY_DESTINATION} = require('./constants.memory');
+const MEMORY = require('./constants.memory');
+const TOPICS = require('./constants.topics');
+const TASKS = require('./constants.tasks');
 
 // The goal is to not tell two  Distributors to go to the same structure needing
 // energy. So, we lookup all the currently assigned destinations and subtract those
@@ -28,7 +25,7 @@ const selectDropoff = behaviorTree.leafNode(
       return RUNNING;
     }
 
-    creep.memory[MEMORY.MEMORY_HAUL_DROPOFF] = structure.id
+    creep.memory[MEMORY.MEMORY_HAUL_DROPOFF] = structure.id;
     return SUCCESS;
   },
 );
@@ -58,14 +55,14 @@ const behavior = behaviorTree.selectorNode(
               'fill_if_empty',
               (creep, trace, kingdom) => {
                 if (creep.store.getUsedCapacity(RESOURCE_ENERGY) !== 0) {
-                  return SUCCESS
+                  return SUCCESS;
                 }
 
                 return FAILURE;
-              }
+              },
             ),
-            behaviorStorage.fillCreep
-          ]
+            behaviorStorage.fillCreep,
+          ],
         ),
         behaviorMovement.moveToCreepMemory(MEMORY.MEMORY_HAUL_DROPOFF, 1),
         behaviorTree.leafNode(
@@ -93,10 +90,10 @@ const behavior = behaviorTree.selectorNode(
         ),
       ],
     ),
-  ]
+  ],
 );
 
 
 module.exports = {
-  run: behaviorTree.rootNode('distributor', behavior)
+  run: behaviorTree.rootNode('distributor', behavior),
 };

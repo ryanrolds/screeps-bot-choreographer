@@ -10,15 +10,15 @@ const Reactor = require('./org.reactor');
 const MEMORY = require('./constants.memory');
 const TASKS = require('./constants.tasks');
 const TOPICS = require('./constants.topics');
-const PRIORITIES = require('./constants.priorities')
-const {creepIsFresh} = require('./behavior.commute')
+const PRIORITIES = require('./constants.priorities');
+const {creepIsFresh} = require('./behavior.commute');
 
 const {MEMORY_ROLE, MEMORY_ASSIGN_ROOM, MEMORY_HARVEST_ROOM} = require('./constants.memory');
 const {TOPIC_SPAWN, TOPIC_DEFENDERS} = require('./constants.topics');
 const {WORKER_UPGRADER, WORKER_REPAIRER, WORKER_BUILDER, WORKER_DEFENDER} = require('./constants.creeps');
 const {PRIORITY_UPGRADER, PRIORITY_BUILDER, PRIORITY_REPAIRER, PRIORITY_BOOTSTRAP,
   PRIORITY_REPAIRER_URGENT, PRIORITY_DEFENDER} = require('./constants.priorities');
-const {WORKER_CLAIMER, WORKER_RESERVER, WORKER_DISTRIBUTOR, WORKER_HAULER} = require('./constants.creeps');
+const {WORKER_RESERVER, WORKER_DISTRIBUTOR, WORKER_HAULER} = require('./constants.creeps');
 const {PRIORITY_RESERVER, PRIORITY_DISTRIBUTOR} = require('./constants.priorities');
 
 const MIN_UPGRADERS = 1;
@@ -27,7 +27,7 @@ const WALL_LEVEL = 1000;
 const RAMPART_LEVEL = 1000;
 const MY_USERNAME = 'ENETDOWN';
 const MIN_RESERVATION_TICKS = 4000;
-const RESERVE_BUFFER = 200000
+const RESERVE_BUFFER = 200000;
 
 class Room extends OrgBase {
   constructor(parent, room, trace) {
@@ -43,9 +43,9 @@ class Room extends OrgBase {
       this.reservedByMe = true;
     }
 
-    const roomPropsTrace = setupTrace.begin('room_props')
+    const roomPropsTrace = setupTrace.begin('room_props');
 
-    this.unowned = !room.controller.reservation && !room.controller.owner
+    this.unowned = !room.controller.reservation && !room.controller.owner;
     // Construction sites will help decide how many builders we need
     this.numConstructionSites = room.find(FIND_CONSTRUCTION_SITES).length;
     this.myStructures = room.find(FIND_MY_STRUCTURES);
@@ -62,11 +62,11 @@ class Room extends OrgBase {
 
     roomPropsTrace.end();
 
-    const creepPrepTrace = setupTrace.begin('creep_prep')
+    const creepPrepTrace = setupTrace.begin('creep_prep');
 
     this.roomCreeps = Object.values(Game.creeps).filter((creep) => {
-      return creep.room.name === room.name
-    })
+      return creep.room.name === room.name;
+    });
 
     this.assignedCreeps = _.filter(parent.getCreeps(), (creep) => {
       return creep.memory[MEMORY_ASSIGN_ROOM] === room.name ||
@@ -75,7 +75,7 @@ class Room extends OrgBase {
 
     this.numReservers = _.filter(this.assignedCreeps, (creep) => {
       const role = creep.memory[MEMORY_ROLE];
-      return (role === WORKER_RESERVER || role === WORKER_CLAIMER) &&
+      return (role === WORKER_RESERVER) &&
         creep.memory[MEMORY_ASSIGN_ROOM] === room.name && creepIsFresh(creep);
     }).length;
 
@@ -113,7 +113,7 @@ class Room extends OrgBase {
 
     creepPrepTrace.end();
 
-    const defenseTrace = setupTrace.begin('defenses')
+    const defenseTrace = setupTrace.begin('defenses');
 
     // We want to know if our defenses are being attacked
 
@@ -149,7 +149,7 @@ class Room extends OrgBase {
 
     defenseTrace.end();
 
-    const orgSetupTrace = setupTrace.begin('org_setup')
+    const orgSetupTrace = setupTrace.begin('org_setup');
 
     const sources = [];
     const roomSources = room.find(FIND_SOURCES);
@@ -197,33 +197,33 @@ class Room extends OrgBase {
 
     orgSetupTrace.end();
 
-    const labsSetupTrace = setupTrace.begin('lab_setup')
+    const labsSetupTrace = setupTrace.begin('lab_setup');
 
-    let [reactors, booster] = this.assignLabs(labsSetupTrace);
+    const [reactors, booster] = this.assignLabs(labsSetupTrace);
     this.reactors = reactors;
     this.booster = booster;
 
-    labsSetupTrace.end()
+    labsSetupTrace.end();
 
-    const droppedResourcesTrace = setupTrace.begin('dropped_resources')
+    const droppedResourcesTrace = setupTrace.begin('dropped_resources');
 
     this.droppedResourcesToHaul = room.find(FIND_DROPPED_RESOURCES, {
       filter: (resource) => {
         const isDispatched = _.filter(this.getColony().getHaulers(), (hauler) => {
-          return hauler.memory[MEMORY.MEMORY_PICKUP] == resource.id
-        }).length > 0
+          return hauler.memory[MEMORY.MEMORY_PICKUP] == resource.id;
+        }).length > 0;
 
         const isSource = _.filter(this.sources, (source) => {
           if (source.gameObject instanceof Mineral) {
-            return false
+            return false;
           }
 
-          return resource.pos.inRangeTo(source.gameObject, 1)
-        }).length > 0
+          return resource.pos.inRangeTo(source.gameObject, 1);
+        }).length > 0;
 
-        return !isDispatched && !isSource
-      }
-    })
+        return !isDispatched && !isSource;
+      },
+    });
 
     droppedResourcesTrace.end();
 
@@ -250,16 +250,16 @@ class Room extends OrgBase {
       }
     }
 
-    let desiredDistributors = MIN_DISTRIBUTORS
+    let desiredDistributors = MIN_DISTRIBUTORS;
     if (this.roomObject.controller.level >= 3) {
-      desiredDistributors = 2
+      desiredDistributors = 2;
     }
 
     // Send a request if we are short on distributors
     if (this.hasStorage && this.numDistributors < desiredDistributors) {
-      let distributorPriority = PRIORITY_DISTRIBUTOR
+      let distributorPriority = PRIORITY_DISTRIBUTOR;
       if (this.getAmountInReserve(RESOURCE_ENERGY) === 0) {
-        distributorPriority = PRIORITIES.DISTRIBUTOR_NO_RESERVE
+        distributorPriority = PRIORITIES.DISTRIBUTOR_NO_RESERVE;
       }
 
       this.sendRequest(TOPIC_SPAWN, distributorPriority, {
@@ -292,18 +292,18 @@ class Room extends OrgBase {
     }
 
     this.droppedResourcesToHaul.forEach((resource) => {
-      const loadPriority = 0.8
+      const loadPriority = 0.8;
       const details = {
         [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
         [MEMORY.MEMORY_HAUL_PICKUP]: resource.id,
         [MEMORY.MEMORY_HAUL_RESOURCE]: resource.resourceType,
       };
       this.sendRequest(TOPICS.TOPIC_HAUL_TASK, loadPriority, details);
-    })
+    });
 
     // Upgrader request
-    let desiredUpgraders = this.getDesiredUpgraders()
-    console.log(this.id, this.isPrimary, this.upgraders.length, desiredUpgraders)
+    const desiredUpgraders = this.getDesiredUpgraders();
+    console.log(this.id, this.isPrimary, this.upgraders.length, desiredUpgraders);
     if (this.isPrimary && this.upgraders.length < desiredUpgraders) {
       // As we get more upgraders, lower the priority
       const upgraderPriority = PRIORITY_UPGRADER - (this.upgraders.length * 2);
@@ -312,9 +312,9 @@ class Room extends OrgBase {
       const reserveEnergy = this.getAmountInReserve(RESOURCE_ENERGY);
       if (reserveEnergy > RESERVE_BUFFER) {
         // Determine energy limit by the amount of energy above the dedicated buffer
-        energyLimit = (reserveEnergy - RESERVE_BUFFER) / 1500 * 200
+        energyLimit = (reserveEnergy - RESERVE_BUFFER) / 1500 * 200;
         if (energyLimit < 300) {
-          energyLimit = 300
+          energyLimit = 300;
         }
       }
 
@@ -404,12 +404,12 @@ class Room extends OrgBase {
 
     if (this.reactors && this.reactors.length) {
       this.reactors.forEach((reactor) => {
-        reactor.update()
-      })
+        reactor.update();
+      });
     }
 
     if (this.booster) {
-      //this.booster.update()
+      // this.booster.update()
     }
   }
   process() {
@@ -433,12 +433,12 @@ class Room extends OrgBase {
 
     if (this.reactors && this.reactors.length) {
       this.reactors.forEach((reactor) => {
-        reactor.process()
-      })
+        reactor.process();
+      });
     }
 
     if (this.booster) {
-      //this.booster.process()
+      // this.booster.process()
     }
   }
   toString() {
@@ -470,12 +470,12 @@ class Room extends OrgBase {
   }
   getLabs() {
     return this.myStructures.filter((structure) => {
-      return structure.structureType === STRUCTURE_LAB
-    })
+      return structure.structureType === STRUCTURE_LAB;
+    });
   }
   assignLabs(trace) {
-    let reactors = []
-    let booster = null
+    const reactors = [];
+    let booster = null;
 
     // Get list of labs in rooms
     let labs = this.getLabs();
@@ -483,49 +483,49 @@ class Room extends OrgBase {
     // Find lab closest to spawn
     const spawns = this.getSpawns();
     if (!spawns.length) {
-      return [reactors, booster]
+      return [reactors, booster];
     }
 
-    let boosterLabs = []
-    const primaryBooster = _.sortBy(spawns[0].pos.findInRange(labs, 2), 'id').shift()
+    let boosterLabs = [];
+    const primaryBooster = _.sortBy(spawns[0].pos.findInRange(labs, 2), 'id').shift();
     if (primaryBooster) {
-      boosterLabs = _.sortBy(primaryBooster.pos.findInRange(labs, 1), 'id')
-      booster = new Booster(this, boosterLabs, trace)
+      boosterLabs = _.sortBy(primaryBooster.pos.findInRange(labs, 1), 'id');
+      booster = new Booster(this, boosterLabs, trace);
     }
 
     // Subtract booster labs from list
     labs = labs.filter((lab) => {
-      return _.findIndex(boosterLabs, {id: lab.id}) === -1
-    })
+      return _.findIndex(boosterLabs, {id: lab.id}) === -1;
+    });
 
     if (this.roomObject.storage) {
       // While we have at least 3 labs, create a reactor
       while (labs.length >= 3) {
         // Find labs within 3 of spawns and make booster
-        let reactorLabs = []
-        const primaryReactor = _.sortBy(this.roomObject.storage.pos.findInRange(labs, 3), 'id').shift()
+        let reactorLabs = [];
+        const primaryReactor = _.sortBy(this.roomObject.storage.pos.findInRange(labs, 3), 'id').shift();
         if (!primaryReactor) {
           break;
         }
 
-        reactorLabs = _.sortBy(primaryReactor.pos.findInRange(labs, 1), 'id')
+        reactorLabs = _.sortBy(primaryReactor.pos.findInRange(labs, 1), 'id');
         if (reactorLabs.length >= 3) {
-          reactorLabs = reactorLabs.slice(0, 3)
+          reactorLabs = reactorLabs.slice(0, 3);
           // Make reactor
-          reactors.push(new Reactor(this, reactorLabs, trace))
+          reactors.push(new Reactor(this, reactorLabs, trace));
         }
 
         // Subtract reactor labs from list
         labs = labs.filter((lab) => {
-          return _.findIndex(reactorLabs, {id: lab.id}) === -1
-        })
+          return _.findIndex(reactorLabs, {id: lab.id}) === -1;
+        });
       }
     }
 
-    return [reactors, booster]
+    return [reactors, booster];
   }
   getDesiredUpgraders() {
-    let desiredUpgraders = 0
+    let desiredUpgraders = 0;
 
     if (!this.roomObject.controller.my) {
       desiredUpgraders = 0;
@@ -543,7 +543,7 @@ class Room extends OrgBase {
       }
     }
 
-    return desiredUpgraders
+    return desiredUpgraders;
   }
   getClosestStoreWithEnergy(creep) {
     if (this.roomObject.storage) {
@@ -568,7 +568,7 @@ class Room extends OrgBase {
     return this.getColony().primaryRoom.getClosestStoreWithEnergy(creep);
   }
   getReserveStructures(includeTerminal = false) {
-    const reserveStructures = []
+    const reserveStructures = [];
 
     if (this.roomObject.storage) {
       reserveStructures.push(this.roomObject.storage);
@@ -579,7 +579,7 @@ class Room extends OrgBase {
     }
 
     if (reserveStructures.length) {
-      return reserveStructures
+      return reserveStructures;
     }
 
     const spawns = this.myStructures.filter((structure) => {
@@ -595,7 +595,7 @@ class Room extends OrgBase {
         filter: (structure) => {
           if (structure.structureType !== STRUCTURE_CONTAINER &&
             structure.structureType !== STRUCTURE_SPAWN) {
-            return false
+            return false;
           }
 
           const notSourceContainer = structure.pos.findInRange(FIND_SOURCES, 1).length < 1;
@@ -610,7 +610,7 @@ class Room extends OrgBase {
   }
   getEnergyFullness() {
     const structures = this.getReserveStructures();
-    console.log(this.id, structures)
+    console.log(this.id, structures);
 
     if (!structures.length) {
       return 0;
@@ -623,10 +623,10 @@ class Room extends OrgBase {
     }, {capacity: 0, used: 0});
 
     if (!stores.capacity) {
-      return 0
+      return 0;
     }
 
-    console.log(stores.used, stores.capacity)
+    console.log(stores.used, stores.capacity);
 
     return stores.used / stores.capacity;
   }
@@ -723,7 +723,7 @@ class Room extends OrgBase {
         return structure.id;
       });
 
-      listTime = Game.time
+      listTime = Game.time;
     }
 
     list = _.sortBy(list, (id) => {
@@ -788,7 +788,7 @@ class Room extends OrgBase {
     return this.parkingLot;
   }
   getTerminal() {
-    return this.terminal
+    return this.terminal;
   }
   getMineralsWithExtractor() {
     const extractors = this.roomStructures.filter((structure) => {

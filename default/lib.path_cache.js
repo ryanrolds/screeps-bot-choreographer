@@ -11,24 +11,24 @@ class PathCacheItem {
   }
   add(prev) {
     if (prev.next) {
-      this.next = prev.next
-      this.next.prev = this
+      this.next = prev.next;
+      this.next.prev = this;
     }
 
-    this.prev = prev
-    this.prev.next = this
+    this.prev = prev;
+    this.prev.next = this;
   }
   remove() {
-    this.next.prev = this.prev
-    this.prev.next = this.next
+    this.next.prev = this.prev;
+    this.prev.next = this.next;
   }
   increment() {
     if (!this.next) {
-      return
+      return;
     }
 
-    let newNext = this.next.next;
-    let newPrev = this.next;
+    const newNext = this.next.next;
+    const newPrev = this.next;
 
     const oldPrev = this.prev;
 
@@ -38,7 +38,7 @@ class PathCacheItem {
     }
 
     newPrev.next = this;
-    newPrev.prev = this.prev
+    newPrev.prev = this.prev;
     this.prev = newPrev;
 
     oldPrev.next = newPrev;
@@ -50,46 +50,46 @@ class PathCache {
     this.maxSize = maxSize;
     this.listCount = 0;
     this.linkedList = new PathCacheItem();
-    this.originGoalToPathMap = {}
+    this.originGoalToPathMap = {};
   }
   get(origin, goal) {
-    const originGoals = this.originGoalToPathMap[origin.id]
+    const originGoals = this.originGoalToPathMap[origin.id];
     if (!originGoals) {
-      this.originGoalToPathMap[origin.id] = {}
+      this.originGoalToPathMap[origin.id] = {};
     }
 
-    let item = this.originGoalToPathMap[origin.id][goal.id]
+    let item = this.originGoalToPathMap[origin.id][goal.id];
     if (!item) {
       // Calculate new path
-      const path = origin.findPathTo(goal, {ignoreCreeps: true})
+      const path = origin.findPathTo(goal, {ignoreCreeps: true});
 
-      item = new PathCacheItem(origin.id, goal.id, path)
-      item.add(this.linkedList)
+      item = new PathCacheItem(origin.id, goal.id, path);
+      item.add(this.linkedList);
 
       // Add path to cache
-      this.originGoalToPathMap[origin.id][goal.id] = item
+      this.originGoalToPathMap[origin.id][goal.id] = item;
       this.listCount += 1;
     }
 
     if (item) {
-      item.increment()
+      item.increment();
     }
 
     if (this.listCount > this.maxSize) {
-      const toRemove = this.linkedList.next
-      delete this.originGoalToPathMap[toRemove.originId][toRemove.goalId]
-      toRemove.remove()
+      const toRemove = this.linkedList.next;
+      delete this.originGoalToPathMap[toRemove.originId][toRemove.goalId];
+      toRemove.remove();
       this.listCount += 1;
     }
 
-    console.log(this.listCount)
+    console.log(this.listCount);
 
-    return item.value
+    return item.value;
   }
 }
 
-const pathCache = new PathCache(250)
+const pathCache = new PathCache(250);
 
 module.exports.getPath = (origin, goal) => {
-  return pathCache.get(origin, goal)
+  return pathCache.get(origin, goal);
 };

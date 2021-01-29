@@ -6,7 +6,6 @@ const WORKER_DEFENDER = module.exports.WORKER_DEFENDER = 'defender';
 const WORKER_ATTACKER = module.exports.WORKER_ATTACKER = 'attacker';
 const WORKER_REPAIRER = module.exports.WORKER_REPAIRER = 'repairer';
 const WORKER_DISTRIBUTOR = module.exports.WORKER_DISTRIBUTOR = 'distributor';
-const WORKER_CLAIMER = module.exports.WORKER_CLAIMER = 'claimer';
 const WORKER_RESERVER = module.exports.WORKER_RESERVER = 'reserver';
 const WORKER_HAULER = module.exports.WORKER_HAULER = 'hauler';
 
@@ -50,12 +49,7 @@ const definitions = {
     energyLimit: 1000,
     parts: [MOVE, CARRY, CARRY],
     base: [MOVE, CARRY, CARRY, MOVE, CARRY, CARRY],
-    //boosts: ['carry'],
-  },
-  [WORKER_CLAIMER]: {
-    energyLimit: 1950,
-    parts: [CLAIM, MOVE],
-    base: [MOVE, CLAIM],
+    // boosts: ['carry'],
   },
   [WORKER_RESERVER]: {
     energyLimit: 2600,
@@ -84,7 +78,6 @@ module.exports = {
   WORKER_ATTACKER,
   WORKER_REPAIRER,
   WORKER_DISTRIBUTOR,
-  WORKER_CLAIMER,
   WORKER_RESERVER,
   WORKER_HAULER,
   // definitions

@@ -6,7 +6,7 @@ const Pid = require('./lib.pid');
 
 const MEMORY = require('./constants.memory');
 const WORKERS = require('./constants.creeps');
-const {creepIsFresh} = require('./behavior.commute')
+const {creepIsFresh} = require('./behavior.commute');
 
 const {MEMORY_ASSIGN_ROOM, MEMORY_ROLE, MEMORY_COLONY} = require('./constants.memory');
 const {TOPIC_SPAWN, TOPIC_DEFENDERS, TOPIC_HAUL_TASK} = require('./constants.topics');
@@ -42,14 +42,14 @@ class Colony extends OrgBase {
     this.haulers = _.filter(this.assignedCreeps, (creep) => {
       return creep.memory[MEMORY_ROLE] == WORKERS.WORKER_HAULER &&
         creep.memory[MEMORY_COLONY] === this.id &&
-        creepIsFresh(creep)
+        creepIsFresh(creep);
     });
 
     this.numCreeps = _.filter(this.assignedCreeps, (creep) => {
       return creep.memory[MEMORY_COLONY] === this.id;
     }).length;
 
-    this.numHaulers = this.haulers.length
+    this.numHaulers = this.haulers.length;
     this.avgHaulerCapacity = _.reduce(this.haulers, (total, hauler) => {
       return total + hauler.store.getCapacity();
     }, 0) / this.haulers.length;
@@ -59,7 +59,7 @@ class Colony extends OrgBase {
     this.roomMap = [];
     this.rooms = this.colonyRooms.reduce((rooms, id) => {
       if (Game.rooms[id]) {
-        const room = new Room(this, Game.rooms[id], setupTrace)
+        const room = new Room(this, Game.rooms[id], setupTrace);
         this.roomMap[id] = room;
         rooms.push(room);
       }
@@ -99,7 +99,7 @@ class Colony extends OrgBase {
           creep.memory[MEMORY_ASSIGN_ROOM] === roomID;
       }).length;
 
-      console.log(roomID, "numReservers", numReservers)
+      console.log(roomID, 'numReservers', numReservers);
 
       // A reserver is already assigned, don't send more
       if (numReservers) {
@@ -114,8 +114,8 @@ class Colony extends OrgBase {
           },
         });
       } else {
-        //Bootstrapping a new colony requires another colony sending
-        //creeps to claim and build a spawner
+        // Bootstrapping a new colony requires another colony sending
+        // creeps to claim and build a spawner
         this.getParent().sendRequest(TOPIC_SPAWN, PRIORITY_CLAIMER, {
           role: WORKER_RESERVER,
           memory: {
@@ -147,7 +147,7 @@ class Colony extends OrgBase {
           this.sendRequest(TOPIC_SPAWN, PRIORITY_DEFENDER, request.details);
         } else {
           request.details.memory[MEMORY.MEMORY_COLONY] = this.id;
-          this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITY_DEFENDER, request.details)
+          this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITY_DEFENDER, request.details);
         }
       }
 
@@ -163,10 +163,11 @@ class Colony extends OrgBase {
       this.pidDesiredHaulers = 0;
       if (this.primaryRoom) {
         // PID approach
-        this.pidDesiredHaulers = Pid.update(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, numHaulTasks, Game.time);
-        console.log("num and desired", this.numHaulers, this.pidDesiredHaulers, numHaulTasks, Game.time)
+        this.pidDesiredHaulers = Pid.update(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS,
+          numHaulTasks, Game.time);
+        console.log('num and desired', this.numHaulers, this.pidDesiredHaulers, numHaulTasks, Game.time);
         if (this.numHaulers < this.pidDesiredHaulers) {
-          console.log("requesting hauler")
+          console.log('requesting hauler');
           this.sendRequest(TOPIC_SPAWN, PRIORITY_HAULER, {
             role: WORKERS.WORKER_HAULER,
             memory: {},
@@ -198,10 +199,10 @@ class Colony extends OrgBase {
     throw new Error('a colony is not a room');
   }
   getPrimaryRoom() {
-    return this.primaryOrgRoom
+    return this.primaryOrgRoom;
   }
   getRoomByID(roomId) {
-    return this.roomMap[roomId] || null
+    return this.roomMap[roomId] || null;
   }
   getCreeps() {
     return this.assignedCreeps;
@@ -264,7 +265,7 @@ class Colony extends OrgBase {
     return this.primaryOrgRoom.getReserveStructureWithRoomForResource(resource);
   }
   getAvgHaulerCapacity() {
-    return this.avgHaulerCapacity
+    return this.avgHaulerCapacity;
   }
   updateStats() {
     const colonyStats = {

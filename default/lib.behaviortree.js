@@ -12,8 +12,8 @@ module.exports.rootNode = (id, behavior) => {
     }
 
     rootTrace.end();
-  }
-}
+  };
+};
 
 module.exports.selectorNode = (id, children) => {
   return {
@@ -42,7 +42,7 @@ module.exports.selectorNode = (id, children) => {
 
       const result = this.tickChildren(actor, trace, kingdom);
 
-      trace.log(actor.id, "result", result)
+      trace.log(actor.id, 'result', result);
 
       trace.end();
 
@@ -77,7 +77,7 @@ module.exports.sequenceNode = (id, children) => {
 
       const result = this.tickChildren(actor, trace, kingdom);
 
-      trace.log(actor.id, "result", result)
+      trace.log(actor.id, 'result', result);
 
       trace.end();
 
@@ -110,7 +110,7 @@ module.exports.sequenceAlwaysNode = (id, children) => {
 
       const result = this.tickChildren(actor, trace, kingdom);
 
-      trace.log(actor.id, "result", result)
+      trace.log(actor.id, 'result', result);
 
       trace.end();
 
@@ -136,7 +136,7 @@ module.exports.repeatUntilFailure = (id, node) => {
 
       const result = this.tickNode(actor, trace, kingdom);
 
-      trace.log(actor.id, "result", result)
+      trace.log(actor.id, 'result', result);
 
       trace.end();
 
@@ -162,7 +162,7 @@ module.exports.repeatUntilSuccess = (id, node) => {
 
       const result = this.tickNode(actor, trace, kingdom);
 
-      trace.log(actor.id, "result", result)
+      trace.log(actor.id, 'result', result);
 
       trace.end();
 
@@ -179,11 +179,11 @@ module.exports.repeatUntilConditionMet = (id, condition, node) => {
     tick: function(actor, trace, kingdom) {
       trace = trace.begin(this.id);
 
-      const conditionResult = this.condition(actor, trace, kingdom)
+      const conditionResult = this.condition(actor, trace, kingdom);
       if (!conditionResult) {
         const result = this.node.tick(actor, trace, kingdom);
 
-        trace.log(actor.id, "result", result)
+        trace.log(actor.id, 'result', result);
 
         trace.end();
 
@@ -195,7 +195,7 @@ module.exports.repeatUntilConditionMet = (id, condition, node) => {
       }
 
       return SUCCESS;
-    }
+    },
   };
 };
 
@@ -211,7 +211,7 @@ module.exports.leafNode = (id, behavior) => {
 
       const result = this.tickNode(actor, trace, kingdom);
 
-      trace.log(actor.id, "result", result)
+      trace.log(actor.id, 'result', result);
 
       trace.end();
 

@@ -25,8 +25,8 @@ const TERMINAL_BUY = 2;
 const TERMINAL_TRANSFER = 3;
 
 // Hauling
-const HAUL_REACTION = 0.9
-const HAUL_BOOST = 1
+const HAUL_REACTION = 0.9;
+const HAUL_BOOST = 1;
 
 // Reactions
 REACTION_PRIORITIES = {

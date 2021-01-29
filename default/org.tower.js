@@ -16,7 +16,7 @@ class Tower extends OrgBase {
 
     this.energy = tower.energy;
 
-    const haulers = this.getColony().getHaulers()
+    const haulers = this.getColony().getHaulers();
     this.haulersWithTask = _.filter(haulers, (creep) => {
       const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
       const dropoff = creep.memory[MEMORY.MEMORY_HAUL_DROPOFF];
@@ -37,20 +37,20 @@ class Tower extends OrgBase {
     this.defenseHitsLimit = rcLevelHitsMax * Math.pow(0.45, (10 - energyFullness));
 
     if (room.storage && room.storage.store.getUsedCapacity(RESOURCE_ENERGY) < 50000) {
-      this.defenseHitsLimit = 10000
+      this.defenseHitsLimit = 10000;
     }
 
     setupTrace.end();
   }
   update() {
-    //console.log(this);
+    // console.log(this);
   }
   process() {
     const tower = this.gameObject;
-    const towerUsed = tower.store.getUsedCapacity(RESOURCE_ENERGY)
-    const towerFree = tower.store.getFreeCapacity(RESOURCE_ENERGY)
-    const towerTotal = tower.store.getCapacity(RESOURCE_ENERGY)
-    const roomEnergy = this.getRoom().getAmountInReserve(RESOURCE_ENERGY)
+    const towerUsed = tower.store.getUsedCapacity(RESOURCE_ENERGY);
+    const towerFree = tower.store.getFreeCapacity(RESOURCE_ENERGY);
+    const towerTotal = tower.store.getCapacity(RESOURCE_ENERGY);
+    const roomEnergy = this.getRoom().getAmountInReserve(RESOURCE_ENERGY);
 
     let minEnergy = MIN_ROOM_ENERGY;
     if (this.getRoom().roomObject.controller.level <= 3) {
@@ -59,7 +59,7 @@ class Tower extends OrgBase {
 
     if (towerUsed + this.haulerUsedCapacity < 500 && roomEnergy > minEnergy) {
       const pickupId = this.parent.getClosestStoreWithEnergy(tower);
-      const amount = towerFree - this.haulerUsedCapacity
+      const amount = towerFree - this.haulerUsedCapacity;
 
       // The -0.01 is so that we haul full mining containers before fueling towers
       const priority = 1 - ((towerUsed - 250 + this.haulerUsedCapacity) / towerTotal);

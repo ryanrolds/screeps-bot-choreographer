@@ -3,7 +3,7 @@ const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
 const {MEMORY_DESTINATION, MEMORY_DESTINATION_ROOM, MEMORY_ORIGIN,
   MEMORY_SOURCE} = require('./constants.memory');
 
-const MEMORY = require('./constants.memory')
+const MEMORY = require('./constants.memory');
 
 const moveToMemory = module.exports.moveToMemory = (creep, memoryId, range) => {
   const destination = Game.getObjectById(creep.memory[memoryId]);
@@ -36,7 +36,7 @@ const moveTo = module.exports.moveTo = (creep, destination, range) => {
   const result = creep.moveTo(destination, {reusePath: 50, maxOps: 1000});
   if (result === ERR_NO_PATH) {
     // Clear existing path so we build a new one
-    delete creep.memory["_move"]
+    delete creep.memory['_move'];
     return RUNNING;
   }
 
@@ -73,10 +73,10 @@ module.exports.clearSource = (creep) => {
 };
 
 module.exports.setDestination = (creep, destinationId, roomId = null) => {
-  creep.memory[MEMORY_DESTINATION] = destinationId;
+  creep.memory[MEMORY.MEMORY_DESTINATION] = destinationId;
 
   if (roomId) {
-    creep.memory[MEMORY_DESTINATION_ROOM] = roomId;
+    creep.memory[MEMORY.MEMORY_DESTINATION_ROOM] = roomId;
   }
 };
 
@@ -93,17 +93,17 @@ module.exports.moveToDestination = (range = 1) => {
   return behaviorTree.leafNode(
     'bt.movement.moveToDestination',
     (creep) => {
-      return moveToMemory(creep, MEMORY_DESTINATION, range);
+      return moveToMemory(creep, MEMORY.MEMORY_DESTINATION, range);
     },
   );
 };
 
 module.exports.clearDestination = (creep) => {
-  delete creep.memory[MEMORY_DESTINATION];
+  delete creep.memory[MEMORY.MEMORY_DESTINATION];
 };
 
 module.exports.fillCreepFromDestination = (creep) => {
-  const destination = Game.getObjectById(creep.memory[MEMORY_DESTINATION]);
+  const destination = Game.getObjectById(creep.memory[MEMORY.MEMORY_DESTINATION]);
   if (!destination) {
     return FAILURE;
   }
@@ -127,7 +127,7 @@ module.exports.moveToDestinationRoom = behaviorTree.repeatUntilSuccess(
   behaviorTree.leafNode(
     'move_to_exit',
     (creep) => {
-      const room = creep.memory[MEMORY_DESTINATION_ROOM];
+      const room = creep.memory[MEMORY.MEMORY_DESTINATION_ROOM];
       // If creep doesn't have a harvest room assigned, we are done
       if (!room) {
         return SUCCESS;

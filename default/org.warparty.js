@@ -55,7 +55,7 @@ class WarParty extends OrgBase {
       });
     }
 
-    setupTrace.end()
+    setupTrace.end();
   }
   update() {
     console.log(this);

@@ -2,13 +2,10 @@ const OrgBase = require('./org.base');
 
 const MEMORY = require('./constants.memory');
 const TASKS = require('./constants.tasks');
-const CREEPS = require('./constants.creeps');
 const TOPICS = require('./constants.topics');
-const {creepIsFresh} = require('./behavior.commute')
-
-const {TOPIC_SPAWN} = require('./constants.topics');
-const {WORKER_MINER, WORKER_HARVESTER, WORKER_HAULER} = require('./constants.creeps');
-const {PRIORITY_HARVESTER, PRIORITY_MINER, PRIORITY_REMOTE_MINER} = require('./constants.priorities');
+const CREEPS = require('./constants.creeps');
+const PRIORITIES = require('./constants.priorities');
+const {creepIsFresh} = require('./behavior.commute');
 
 class Source extends OrgBase {
   constructor(parent, source, sourceType, trace) {
@@ -41,26 +38,26 @@ class Source extends OrgBase {
     const roomCreeps = this.getRoom().getCreeps();
     this.numHarvesters = _.filter(roomCreeps, (creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
-      const commuteTime = creep.memory[MEMORY.MEMORY_COMMUTE_DURATION];
-      return role === WORKER_HARVESTER && creep.memory[MEMORY.MEMORY_HARVEST] === this.id &&
+      return role === CREEPS.WORKER_HARVESTER &&
+        creep.memory[MEMORY.MEMORY_HARVEST] === this.id &&
         creepIsFresh(creep);
     }).length;
 
     this.numMiners = _.filter(roomCreeps, (creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
-      const commuteTime = creep.memory[MEMORY.MEMORY_COMMUTE_DURATION];
-      return role === WORKER_MINER &&
-        creep.memory[MEMORY.MEMORY_HARVEST] === this.id && creepIsFresh(creep);
+      return role === CREEPS.WORKER_MINER &&
+        creep.memory[MEMORY.MEMORY_HARVEST] === this.id &&
+        creepIsFresh(creep);
     }).length;
 
-    const haulers = this.getColony().getHaulers()
+    const haulers = this.getColony().getHaulers();
     this.haulersWithTask = _.filter(haulers, (creep) => {
       const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
       const pickup = creep.memory[MEMORY.MEMORY_HAUL_PICKUP];
       return task === TASKS.TASK_HAUL && pickup === this.containerID;
     });
 
-    this.avgHaulerCapacity = this.getColony().getAvgHaulerCapacity()
+    this.avgHaulerCapacity = this.getColony().getAvgHaulerCapacity();
 
     this.haulerCapacity = _.reduce(this.haulersWithTask, (total, hauler) => {
       return total += hauler.store.getFreeCapacity();
@@ -69,7 +66,7 @@ class Source extends OrgBase {
     setupTrace.end();
   }
   update() {
-    //console.log(this);
+    // console.log(this);
 
     const room = this.getColony().getRoomByID(this.roomID);
     if ((room.numHostiles > 0) && !room.isPrimary) {
@@ -99,9 +96,9 @@ class Source extends OrgBase {
 
     if (this.numHarvesters < desiredHarvesters) {
       // As we get more harvesters, make sure other creeps get a chance to spawn
-      const priority = PRIORITY_HARVESTER - (this.numHarvesters * 1.5);
-      this.sendRequest(TOPIC_SPAWN, priority, {
-        role: WORKER_HARVESTER,
+      const priority = PRIORITIES.PRIORITY_HARVESTER - (this.numHarvesters * 1.5);
+      this.sendRequest(TOPICS.TOPIC_SPAWN, priority, {
+        role: CREEPS.WORKER_HARVESTER,
         memory: {
           [MEMORY.MEMORY_HARVEST]: this.id, // Deprecated
           [MEMORY.MEMORY_HARVEST_ROOM]: this.roomID, // Deprecated
@@ -112,15 +109,15 @@ class Source extends OrgBase {
     }
 
     if (this.numMiners < desiredMiners) {
-      let role = WORKER_MINER;
-      let priority = PRIORITY_MINER;
+      const role = CREEPS.WORKER_MINER;
+      let priority = PRIORITIES.PRIORITY_MINER;
 
       // Energy sources in unowned rooms require half as many parts
       if (!this.gameObject.room.controller.my) {
-        priority = PRIORITY_REMOTE_MINER;
+        priority = PRIORITIES.PRIORITY_REMOTE_MINER;
       }
 
-      this.sendRequest(TOPIC_SPAWN, priority, {
+      this.sendRequest(TOPICS.TOPIC_SPAWN, priority, {
         role: role,
         memory: {
           [MEMORY.MEMORY_HARVEST]: this.id, // Deprecated
@@ -177,7 +174,7 @@ class Source extends OrgBase {
         [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
       };
 
-      console.log("load", loadPriority, JSON.stringify(details))
+      console.log('load', loadPriority, JSON.stringify(details));
 
       this.sendRequest(TOPICS.TOPIC_HAUL_TASK, loadPriority, details);
     }

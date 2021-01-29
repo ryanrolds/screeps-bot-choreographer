@@ -3,7 +3,7 @@ const TOPICS = require('./constants.topics');
 const creepHelpers = require('./helpers.creeps');
 const {definitions} = require('./constants.creeps');
 const MEMORY = require('./constants.memory');
-const CREEPS = require('./constants.creeps')
+const CREEPS = require('./constants.creeps');
 
 class Spawner extends OrgBase {
   constructor(parent, spawner, trace) {
@@ -28,24 +28,24 @@ class Spawner extends OrgBase {
     if (!this.isIdle) {
       const spawn = this.gameObject;
       const priority = 50 / spawn.spawning.remainingTime;
-      const creep = Game.creeps[spawn.spawning.name]
-      const role = creep.memory[MEMORY.MEMORY_ROLE]
-      const boosts = CREEPS.definitions[role].boosts
-      console.log(creep.name, role, JSON.stringify(boosts))
+      const creep = Game.creeps[spawn.spawning.name];
+      const role = creep.memory[MEMORY.MEMORY_ROLE];
+      const boosts = CREEPS.definitions[role].boosts;
+      console.log(creep.name, role, JSON.stringify(boosts));
 
       if (boosts) {
-        console.log("sending boost request", JSON.stringify(boosts))
+        console.log('sending boost request', JSON.stringify(boosts));
 
         this.getColony().sendRequest(TOPICS.BOOST_PREP, priority, {
           [MEMORY.PREPARE_BOOSTS]: boosts,
-        })
+        });
       }
 
       spawn.room.visual.text(
         spawn.spawning.name + '🛠️',
         spawn.pos.x - 1,
         spawn.pos.y,
-        {align: 'right', opacity: 0.8}
+        {align: 'right', opacity: 0.8},
       );
 
       spawn.memory['ticksIdle'] = 0;
@@ -75,15 +75,15 @@ class Spawner extends OrgBase {
       }
       minEnergy = _.min([minEnergy, spawnTopicBackPressure]);
 
-      console.log("energy", this.energy, minEnergy)
+      console.log('energy', this.energy, minEnergy);
       if (this.energy >= minEnergy) {
         let request = this.getNextRequest(TOPICS.TOPIC_SPAWN);
         if (request) {
-          console.log("spawner", JSON.stringify(request))
+          console.log('spawner', JSON.stringify(request));
 
           // Allow request to override energy limit
           if (request.details.energyLimit) {
-            energyLimit = request.details.energyLimit
+            energyLimit = request.details.energyLimit;
           }
 
           this.createCreep(request.details.role, request.details.memory, energyLimit);

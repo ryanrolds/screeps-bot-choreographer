@@ -3,7 +3,7 @@ const Colony = require('./org.colony');
 const WarParty = require('./org.warparty');
 const ResourceGovernor = require('./org.resource_governor');
 const Topics = require('./lib.topics');
-const tracing = require('./lib.tracing');
+
 const helpersCreeps = require('./helpers.creeps');
 const MEMORY = require('./constants.memory');
 
@@ -20,13 +20,13 @@ class Kingdom extends OrgBase {
     };
     this.creeps = _.values(Game.creeps);
 
-    const setupTrace = this.trace.begin('constructor')
+    const setupTrace = this.trace.begin('constructor');
 
-    this.colonyIdMap = {}
+    this.colonyIdMap = {};
     this.colonies = Object.values(colonies).map((colony) => {
       const orgColony = new Colony(this, colony, setupTrace);
       this.colonyIdMap[colony.id] = orgColony;
-      return orgColony
+      return orgColony;
     });
 
     this.warParties = Object.values(Game.flags).reduce((parties, flag) => {
@@ -39,7 +39,7 @@ class Kingdom extends OrgBase {
 
     this.resourceGovernor = new ResourceGovernor(this, setupTrace);
 
-    setupTrace.end()
+    setupTrace.end();
   }
   update() {
     console.log(this);
@@ -80,7 +80,7 @@ class Kingdom extends OrgBase {
     // Set stats in memory for pulling and display in Grafana
     Memory.stats = this.getStats();
 
-    processTrace.end()
+    processTrace.end();
   }
   toString() {
     return `---- Kingdom - #Colonies: ${this.colonies.length}`;
@@ -108,7 +108,7 @@ class Kingdom extends OrgBase {
     throw new Error('a kingdom is not a colony');
   }
   getColonyById(colonyId) {
-    return this.colonyIdMap[colonyId]
+    return this.colonyIdMap[colonyId];
   }
   getRoom() {
     throw new Error('a kingdom is not a room');
@@ -137,7 +137,7 @@ class Kingdom extends OrgBase {
     return this.colonies.reduce((acc, colony) => {
       // If colony doesn't have a terminal don't include it
       if (!colony.getPrimaryRoom() || !colony.getPrimaryRoom().terminal) {
-        return acc
+        return acc;
       }
 
       const colonyResources = colony.getReserveResources(includeTerminal);
@@ -157,47 +157,47 @@ class Kingdom extends OrgBase {
   }
   getTerminalWithResource(resource) {
     const terminals = this.getColonies().reduce((acc, colony) => {
-      const room = colony.getPrimaryRoom()
+      const room = colony.getPrimaryRoom();
       // If colony doesn't have a terminal don't include it
       if (!room.terminal) {
         return acc;
       }
 
-      const amount = colony.getAmountInReserve(resource)
+      const amount = colony.getAmountInReserve(resource);
       if (!amount) {
         return acc;
       }
 
-      return acc.concat({terminal: room.getTerminal(), amount})
-    }, [])
+      return acc.concat({terminal: room.getTerminal(), amount});
+    }, []);
 
-    return _.sortBy(terminals, 'amount').pop()
+    return _.sortBy(terminals, 'amount').pop();
   }
   getTerminals() {
     return this.getColonies().reduce((acc, colony) => {
-      const room = colony.getPrimaryRoom()
+      const room = colony.getPrimaryRoom();
       // If colony doesn't have a terminal don't include it
       if (!room.terminal) {
-        return acc
+        return acc;
       }
 
-      return acc.concat(room.terminal)
-    }, [])
+      return acc.concat(room.terminal);
+    }, []);
   }
   getReactors() {
     return this.getColonies().reduce((acc, colony) => {
-      const room = colony.getPrimaryRoom()
+      const room = colony.getPrimaryRoom();
       if (!room) {
         return acc;
       }
 
       // If colony doesn't have a terminal don't include it
       if (!room.reactors.length) {
-        return acc
+        return acc;
       }
 
-      return acc.concat(room.reactors)
-    }, [])
+      return acc.concat(room.reactors);
+    }, []);
   }
   getStats() {
     return this.stats;

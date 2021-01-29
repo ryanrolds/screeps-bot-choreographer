@@ -1,13 +1,13 @@
 const behaviorTree = require('./lib.behaviortree');
+const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
+
 const behaviorAssign = require('./behavior.assign');
-const behaviorRoom = require('./behavior.room');
 const behaviorHarvest = require('./behavior.harvest');
 const behaviorStorage = require('./behavior.storage');
 const behaviorMovement = require('./behavior.movement');
 const behaviorCommute = require('./behavior.commute');
-const MEMORY = require('./constants.memory')
-const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
 
+const MEMORY = require('./constants.memory');
 
 const fillCreepFromDestination = (creep) => {
   const destination = Game.getObjectById(creep.memory[MEMORY.MEMORY_DESTINATION]);
@@ -24,7 +24,7 @@ const fillCreepFromDestination = (creep) => {
   }
   if (result === ERR_NOT_ENOUGH_RESOURCES) {
     if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
-      return SUCCESS
+      return SUCCESS;
     }
 
 
@@ -110,5 +110,5 @@ const behavior = behaviorTree.sequenceNode(
 
 
 module.exports = {
-  run: behaviorTree.rootNode('upgrader', behavior)
+  run: behaviorTree.rootNode('upgrader', behavior),
 };

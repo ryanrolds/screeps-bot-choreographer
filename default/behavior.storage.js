@@ -194,10 +194,10 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.select
           return FAILURE;
         }
 
-        const colony = kingdom.getCreepColony(creep)
-        const target = colony.getReserveStructureWithRoomForResource(RESOURCE_ENERGY)
+        const colony = kingdom.getCreepColony(creep);
+        const target = colony.getReserveStructureWithRoomForResource(RESOURCE_ENERGY);
         if (!target) {
-          return FAILURE
+          return FAILURE;
         }
 
         behaviorMovement.setDestination(creep, target.id);
@@ -291,7 +291,7 @@ module.exports.emptyCreep = behaviorTree.repeatUntilSuccess(
       behaviorTree.leafNode(
         'empty_creep',
         (creep) => {
-          console.log(creep.name, creep.store.getUsedCapacity())
+          console.log(creep.name, creep.store.getUsedCapacity());
           if (creep.store.getUsedCapacity() === 0) {
             return SUCCESS;
           }
@@ -301,7 +301,7 @@ module.exports.emptyCreep = behaviorTree.repeatUntilSuccess(
             return FAILURE;
           }
 
-          let resource = Object.keys(creep.store).pop();
+          const resource = Object.keys(creep.store).pop();
 
           const result = creep.transfer(destination, resource);
           if (result === ERR_FULL) {

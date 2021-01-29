@@ -4,7 +4,7 @@ const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
 const behaviorMovement = require('./behavior.movement');
 const behaviorStorage = require('./behavior.storage');
 const behaviorNonCombatant = require('./behavior.noncombatant');
-const behaviorHaul = require('./behavior.haul')
+const behaviorHaul = require('./behavior.haul');
 
 const MEMORY = require('./constants.memory');
 const TASKS = require('./constants.tasks');
@@ -44,5 +44,5 @@ const behavior = behaviorTree.sequenceNode(
 );
 
 module.exports = {
-  run: behaviorTree.rootNode('hauler', behaviorNonCombatant(behavior))
+  run: behaviorTree.rootNode('hauler', behaviorNonCombatant(behavior)),
 };

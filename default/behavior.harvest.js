@@ -3,7 +3,7 @@ const behaviorTree = require('./lib.behaviortree');
 const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
 const behaviorMovement = require('./behavior.movement');
 const {MEMORY_HARVEST_ROOM, MEMORY_SOURCE} = require('./constants.memory');
-const {numMyCreepsNearby, numEnemeiesNearby, numOfSourceSpots} = require('./helpers.proximity');
+const {numEnemeiesNearby, numOfSourceSpots} = require('./helpers.proximity');
 
 module.exports.selectHarvestSource = behaviorTree.leafNode(
   'bt.harvest.selectHarvestSource',
@@ -16,7 +16,7 @@ module.exports.selectHarvestSource = behaviorTree.leafNode(
 
     const room = kingdom.getCreepRoom(creep);
     if (!room) {
-      return FAILURE
+      return FAILURE;
     }
 
     sources = _.sortByAll(sources, (source) => {
@@ -27,8 +27,8 @@ module.exports.selectHarvestSource = behaviorTree.leafNode(
       const numSpots = numOfSourceSpots(source);
       return Math.floor(numAssigned / numSpots);
     }, (source) => {
-      const path = creep.pos.findPathTo(source)
-      return path.length
+      const path = creep.pos.findPathTo(source);
+      return path.length;
     });
 
     if (!sources || !sources.length) {

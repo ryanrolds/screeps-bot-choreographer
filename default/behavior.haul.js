@@ -1,14 +1,10 @@
 const behaviorTree = require('./lib.behaviortree');
 const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
-const behaviorMovement = require('./behavior.movement');
-const behaviorStorage = require('./behavior.storage');
-const behaviorNonCombatant = require('./behavior.noncombatant');
 
 const MEMORY = require('./constants.memory');
 const TASKS = require('./constants.tasks');
-const TOPICS = require('./constants.topics');
 
-const pathCache = require('./lib.path_cache')
+const pathCache = require('./lib.path_cache');
 
 module.exports.getTaskFromTopic = function(topic) {
   return behaviorTree.leafNode(
@@ -18,12 +14,12 @@ module.exports.getTaskFromTopic = function(topic) {
       const colonyId = creep.memory[MEMORY.MEMORY_COLONY];
       const colony = kingdom.getColonyById(colonyId);
 
-      delete creep.memory[MEMORY.MEMORY_TASK_TYPE]
-      delete creep.memory[MEMORY.MEMORY_HAUL_PICKUP]
-      delete creep.memory[MEMORY.MEMORY_HAUL_RESOURCE]
-      delete creep.memory[MEMORY.MEMORY_HAUL_AMOUNT]
-      delete creep.memory[MEMORY.MEMORY_HAUL_DROPOFF]
-      delete creep.memory[MEMORY.MEMORY_DESTINATION]
+      delete creep.memory[MEMORY.MEMORY_TASK_TYPE];
+      delete creep.memory[MEMORY.MEMORY_HAUL_PICKUP];
+      delete creep.memory[MEMORY.MEMORY_HAUL_RESOURCE];
+      delete creep.memory[MEMORY.MEMORY_HAUL_AMOUNT];
+      delete creep.memory[MEMORY.MEMORY_HAUL_DROPOFF];
+      delete creep.memory[MEMORY.MEMORY_DESTINATION];
 
       // get next haul task
       const task = colony.getNextRequest(topic);
@@ -47,8 +43,8 @@ module.exports.getTaskFromTopic = function(topic) {
 
       return SUCCESS;
     },
-  )
-}
+  );
+};
 
 module.exports.loadCreep = behaviorTree.leafNode(
   'load_resource',
@@ -62,19 +58,19 @@ module.exports.loadCreep = behaviorTree.leafNode(
       return FAILURE;
     }
 
-    let result = null
+    let result = null;
     if (pickup instanceof Resource) {
-      result = creep.pickup(pickup)
+      result = creep.pickup(pickup);
     } else {
-      const resource = creep.memory[MEMORY.MEMORY_HAUL_RESOURCE] || undefined
+      const resource = creep.memory[MEMORY.MEMORY_HAUL_RESOURCE] || undefined;
       let amount = creep.memory[MEMORY.MEMORY_HAUL_AMOUNT] || undefined;
 
       if (amount > creep.store.getFreeCapacity(resource)) {
-        amount = creep.store.getFreeCapacity(resource)
+        amount = creep.store.getFreeCapacity(resource);
       }
 
       if (amount > pickup.store.getUsedCapacity(resource)) {
-        amount = pickup.store.getUsedCapacity(resource)
+        amount = pickup.store.getUsedCapacity(resource);
       }
 
       if (amount === 0) {
