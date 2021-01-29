@@ -8,8 +8,8 @@ const helpersCreeps = require('./helpers.creeps');
 const MEMORY = require('./constants.memory');
 
 class Kingdom extends OrgBase {
-  constructor(colonies) {
-    super(null, 'kingdom');
+  constructor(colonies, trace) {
+    super(null, 'kingdom', trace);
 
     this.topics = new Topics();
     this.stats = {
@@ -18,24 +18,33 @@ class Kingdom extends OrgBase {
       sources: {},
       spawns: {},
     };
+    this.creeps = _.values(Game.creeps);
 
+    const setupTrace = this.trace.begin('constructor')
+
+    this.colonyIdMap = {}
     this.colonies = Object.values(colonies).map((colony) => {
-      return new Colony(this, colony);
+      const orgColony = new Colony(this, colony, setupTrace);
+      this.colonyIdMap[colony.id] = orgColony;
+      return orgColony
     });
 
     this.warParties = Object.values(Game.flags).reduce((parties, flag) => {
       if (flag.name.startsWith('attack')) {
-        parties[flag.name] = new WarParty(this, flag);
+        parties[flag.name] = new WarParty(this, flag, setupTrace);
       }
 
       return parties;
     }, {});
 
+    this.resourceGovernor = new ResourceGovernor(this, setupTrace);
 
-    this.resourceGovernor = new ResourceGovernor(this);
+    setupTrace.end()
   }
   update() {
     console.log(this);
+
+    const updateTrace = this.trace.begin('update');
 
     Object.values(this.warParties).forEach((party) => {
       party.update();
@@ -46,8 +55,12 @@ class Kingdom extends OrgBase {
     });
 
     this.resourceGovernor.update();
+
+    updateTrace.end();
   }
   process() {
+    const processTrace = this.trace.begin('process');
+
     Object.values(this.warParties).forEach((party) => {
       party.process();
     });
@@ -58,7 +71,7 @@ class Kingdom extends OrgBase {
 
     this.resourceGovernor.process();
 
-    const creepsTrace = tracing.startTrace('creeps');
+    const creepsTrace = processTrace.begin('creeps');
     helpersCreeps.tick(this, creepsTrace);
     creepsTrace.end();
 
@@ -66,6 +79,8 @@ class Kingdom extends OrgBase {
 
     // Set stats in memory for pulling and display in Grafana
     Memory.stats = this.getStats();
+
+    processTrace.end()
   }
   toString() {
     return `---- Kingdom - #Colonies: ${this.colonies.length}`;
@@ -93,13 +108,13 @@ class Kingdom extends OrgBase {
     throw new Error('a kingdom is not a colony');
   }
   getColonyById(colonyId) {
-    return _.find(this.colonies, {id: colonyId});
+    return this.colonyIdMap[colonyId]
   }
   getRoom() {
     throw new Error('a kingdom is not a room');
   }
   getCreeps() {
-    return _.values(Game.creeps);
+    return this.creeps;
   }
   getCreepRoom(creep) {
     const colony = this.getCreepColony(creep);
@@ -121,7 +136,7 @@ class Kingdom extends OrgBase {
   getReserveResources(includeTerminal) {
     return this.colonies.reduce((acc, colony) => {
       // If colony doesn't have a terminal don't include it
-      if (!colony.getPrimaryRoom().terminal) {
+      if (!colony.getPrimaryRoom() || !colony.getPrimaryRoom().terminal) {
         return acc
       }
 
@@ -172,6 +187,10 @@ class Kingdom extends OrgBase {
   getReactors() {
     return this.getColonies().reduce((acc, colony) => {
       const room = colony.getPrimaryRoom()
+      if (!room) {
+        return acc;
+      }
+
       // If colony doesn't have a terminal don't include it
       if (!room.reactors.length) {
         return acc

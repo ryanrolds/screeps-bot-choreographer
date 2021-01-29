@@ -8,7 +8,7 @@ const behavior = behaviorTree.sequenceNode(
     behaviorAssign.moveToRoom,
     behaviorTree.leafNode(
       'attack_hostiles',
-      (creep) => {
+      (creep, trace, kingdom) => {
         let hostile = creep.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
         if (!hostile) {
           const invaderCores = creep.room.find(FIND_STRUCTURES, {
@@ -18,10 +18,27 @@ const behavior = behaviorTree.sequenceNode(
           });
 
           if (!invaderCores.length) {
-            return SUCCESS;
-          }
+            if (creep.room.controller.my) {
+              return SUCCESS;
+            }
 
-          hostile = invaderCores[0];
+            const hostileStructures = creep.room.find(FIND_STRUCTURES, {
+              filter: (structure) => {
+                return structure.structureType === STRUCTURE_SPAWN ||
+                  structure.structureType === STRUCTURE_CONTAINER ||
+                  structure.structureType === STRUCTURE_TOWER ||
+                  structure.structureType === STRUCTURE_EXTENSION;
+              },
+            });
+
+            if (!hostileStructures.length) {
+              return SUCCESS;
+            }
+
+            hostile = hostileStructures[0]
+          } else {
+            hostile = invaderCores[0];
+          }
         }
 
         const inRange = creep.pos.getRangeTo(hostile) <= 3;

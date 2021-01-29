@@ -16,3 +16,11 @@ module.exports.setCommuteDuration = behaviorTree.leafNode(
     return SUCCESS;
   },
 );
+
+module.exports.creepIsFresh = (creep) => {
+  if (creep.spawning) {
+    return true;
+  }
+
+  return creep.ticksToLive > (creep.memory[MEMORY.MEMORY_COMMUTE_DURATION] || 100);
+};

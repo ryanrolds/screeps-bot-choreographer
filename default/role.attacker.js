@@ -22,7 +22,10 @@ const behavior = behaviorTree.sequenceNode(
           return SUCCESS;
         }
 
-        creep.moveTo(position, {reusePath: 0, ignoreCreeps: false});
+        if (creep.room.name != roomId) {
+          creep.moveTo(position, {reusePath: 20});
+        }
+        creep.moveTo(position, {reusePath: 5, ignoreCreeps: false});
 
         return SUCCESS;
       },

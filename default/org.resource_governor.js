@@ -8,8 +8,10 @@ const RESERVE_LIMIT = 5000;
 const REACTION_BATCH_SIZE = 1000;
 
 class Resources extends OrgBase {
-  constructor(parent) {
-    super(parent, 'resources');
+  constructor(parent, trace) {
+    super(parent, 'resources', trace);
+
+    const setupTrace = this.trace.begin('constructor');
 
     this.resources = this.getKingdom().getReserveResources(true);
     this.activeReactions = this.getKingdom().getReactors().filter((reactor) => {
@@ -18,6 +20,8 @@ class Resources extends OrgBase {
       return reactor.getOutput()
     });
     this.availableReactions = this.getReactions();
+
+    setupTrace.end()
   }
   update() {
     this.availableReactions.forEach((reaction) => {
@@ -110,7 +114,7 @@ class Resources extends OrgBase {
     missingOneInput = this.prioritizeReactions(missingOneInput);
     availableReactions = this.prioritizeReactions(availableReactions);
 
-    if (missingOneInput.length && Game.market.credit > 40000) {
+    if (missingOneInput.length && Game.market.credits > 40000) {
       availableReactions.push(missingOneInput.pop());
     }
 

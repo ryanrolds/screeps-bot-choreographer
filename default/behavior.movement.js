@@ -3,11 +3,27 @@ const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
 const {MEMORY_DESTINATION, MEMORY_DESTINATION_ROOM, MEMORY_ORIGIN,
   MEMORY_SOURCE} = require('./constants.memory');
 
+const MEMORY = require('./constants.memory')
+
 const moveToMemory = module.exports.moveToMemory = (creep, memoryId, range) => {
   const destination = Game.getObjectById(creep.memory[memoryId]);
   if (!destination) {
     return FAILURE;
   }
+
+  /*
+  let path = creep.memory[MEMORY.PATH_CACHE];
+  if (!path) {
+    path = pathCache.getPath(creep.pos, destination.pos)
+    console.log("path cache", JSON.stringify(path))
+  }
+
+  if (path) {
+
+  } else {
+
+  }
+  */
 
   return moveTo(creep, destination, range);
 };

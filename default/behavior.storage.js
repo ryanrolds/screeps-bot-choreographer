@@ -5,7 +5,7 @@ const behaviorMovement = require('./behavior.movement');
 const MEMORY = require('./constants.memory');
 
 const {MEMORY_ROLE, MEMORY_DESTINATION, MEMORY_ORIGIN} = require('./constants.memory');
-const {WORKER_DISTRIBUTOR, WORKER_HAULER, WORKER_HAULER_V3} = require('./constants.creeps');
+const {WORKER_DISTRIBUTOR, WORKER_HAULER} = require('./constants.creeps');
 
 const spawnContainerCache = {};
 
@@ -13,7 +13,7 @@ const selectEnergyForWithdraw = module.exports.selectEnergyForWithdraw = behavio
   'selectEnergyForWithdraw',
   (creep, trace, kingdom) => {
     const spawnContainers = spawnContainerCache[creep.room.name];
-    if (!spawnContainers || !spawnContainers.length || Game.tick % 100 === 0) {
+    if (!spawnContainers || !spawnContainers.length || Game.tick % 20 === 0) {
       const spawns = creep.room.find(FIND_STRUCTURES, {
         filter: (structure) => {
           return structure.structureType === STRUCTURE_SPAWN;
@@ -87,7 +87,7 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.select
         const role = creep.memory[MEMORY_ROLE];
         // haulers should pick containers near the spawner
         // TODO this is hacky and feels bad
-        if (role && (role === WORKER_DISTRIBUTOR || role === WORKER_HAULER || role === WORKER_HAULER_V3)) {
+        if (role && (role === WORKER_DISTRIBUTOR || role === WORKER_HAULER)) {
           return FAILURE;
         }
 

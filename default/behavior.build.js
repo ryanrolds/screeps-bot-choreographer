@@ -5,13 +5,13 @@ const {MEMORY_FLAG} = require('./constants.memory');
 
 const selectSite = behaviorTree.leafNode(
   'selectSite',
-  (creep) => {
+  (creep, trace, kingdom) => {
     let sites = creep.room.find(FIND_CONSTRUCTION_SITES);
     if (!sites || !sites.length) {
       return behaviorTree.FAILURE;
     }
 
-    sites = _.sortBy(sites, (site) => {
+    sites = _.sortByAll(sites, (site) => {
       switch (site.structureType) {
         case STRUCTURE_SPAWN:
           return 0 - site.progress / site.progressTotal;
@@ -30,6 +30,18 @@ const selectSite = behaviorTree.leafNode(
         default:
           return 10 - site.progress / site.progressTotal;
       }
+    }, (site) => {
+      const colony = kingdom.getCreepColony(creep);
+      if (!colony.spawns.length) {
+        return 0;
+      }
+
+      const spawn = colony.spawns[0].gameObject;
+      if (spawn.room.name != creep.room.name) {
+        return 0;
+      }
+
+      return site.pos.getRangeTo(spawn)
     });
 
     behaviorMovement.setDestination(creep, sites[0].id, sites[0].room.id);

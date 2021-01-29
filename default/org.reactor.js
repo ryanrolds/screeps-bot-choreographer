@@ -10,13 +10,17 @@ const TASK_PHASE_REACT = 'phase_react'
 const TASK_PHASE_UNLOAD = 'phase_unload'
 
 class Reactor extends OrgBase {
-  constructor(parent, labs) {
-    super(parent, labs[0].id)
+  constructor(parent, labs, trace) {
+    super(parent, labs[0].id, trace)
+
+    const setupTrace = this.trace.begin('constructor');
 
     this.labs = labs;
     this.room = this.getRoom().getRoomObject()
     this.terminal = this.getRoom().getTerminal()
     this.task = this.getRoom().roomObject.memory[MEMORY.REACTOR_TASK] || null;
+
+    setupTrace.end()
   }
   update() {
     console.log(this);

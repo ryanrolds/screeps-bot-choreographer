@@ -11,12 +11,22 @@ const setActive = () => {
   isActive = true;
 };
 
+const setInactive = () => {
+  isActive = false;
+  reset();
+}
+
 const startTrace = (name) => {
   return {
     name,
     start: Game.cpu.getUsed(),
-    begin: function(name) {
+    with: function(name) {
       return startTrace(`${this.name}.${name}`);
+    },
+    begin: function(name) {
+      const trace = startTrace(`${this.name}.${name}`);
+      trace.start = Game.cpu.getUsed();
+      return trace;
     },
     log: function(id, message, details) {
       if (id !== global.LOG_WHEN_ID) {
@@ -68,7 +78,7 @@ const report = () => {
   console.log('------- CPU Usage report --------');
 
   // slice to 50 so that we don't overflow the console in the game
-  summary.reverse().slice(0, 50).forEach((metric) => {
+  summary.reverse().slice(0, 75).forEach((metric) => {
     console.log(`* ${(metric.total / metric.count).toFixed(2)}, ${metric.count.toFixed(0)},` +
       ` ${metric.total.toFixed(2)} - ${metric.key}`);
   });
@@ -77,6 +87,7 @@ const report = () => {
 module.exports = {
   reset,
   setActive,
+  setInactive,
   startTrace,
   report,
 };

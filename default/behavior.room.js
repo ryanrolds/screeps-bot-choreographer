@@ -17,7 +17,14 @@ const pickupDroppedEnergy = behaviorTree.leafNode(
       return FAILURE;
     }
 
-    const result = creep.pickup(resources[0]);
+    const resource = resources[0]
+
+    if (!creep.pos.inRangeTo(resource, 1)) {
+      creep.moveTo(resource);
+      return RUNNING;
+    }
+
+    const result = creep.pickup(resource);
     if (result === ERR_FULL) {
       // We still have energy to transfer, fail so we find another
       // place to dump

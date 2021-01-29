@@ -36,17 +36,12 @@ const repair = behaviorTree.leafNode(
       return FAILURE;
     }
 
-    const result = creep.repair(destination);
-
     // TODO this should not be a failure, I need to makea RepeatCondition node
     if (destination.hits >= destination.hitsMax) {
-      return FAILURE;
-    }
-
-    if (creep.store.getUsedCapacity() === 0) {
       return SUCCESS;
     }
 
+    const result = creep.repair(destination);
     if (result != OK) {
       return FAILURE;
     }
@@ -61,8 +56,15 @@ const behavior = behaviorTree.sequenceNode(
     behaviorAssign.moveToRoom,
     behaviorCommute.setCommuteDuration,
     behaviorRoom.getEnergy,
-    behaviorTree.repeatUntilSuccess(
+    behaviorTree.repeatUntilConditionMet(
       'repair_until_empty',
+      (creep, trace, kingdom) => {
+        if (creep.store.getUsedCapacity() === 0) {
+          return true;
+        }
+
+        return false;
+      },
       behaviorTree.sequenceNode(
         'select_and_repair',
         [

@@ -26,7 +26,13 @@ const behavior = behaviorTree.selectorNode(
               return behaviorTree.SUCCESS;
             }
 
-            const result = creep.moveTo(new RoomPosition(25, 25, room));
+            let destination = new RoomPosition(25, 25, room)
+            const roomObject = Game.rooms[room]
+            if (roomObject) {
+              destination = roomObject.controller
+            }
+
+            const result = creep.moveTo(destination);
             if (result === ERR_NO_PATH) {
               return behaviorTree.FAILURE;
             }
@@ -76,6 +82,10 @@ const behavior = behaviorTree.selectorNode(
               }
 
               const room = kingdom.getCreepRoom(creep)
+              if (!room) {
+                //creep.suicide()
+                return behaviorTree.FAILURE;
+              }
 
               if (!room.unowned && !room.claimedByName && !room.reservedByMe) {
                 const result = creep.attackController(creep.room.controller);
@@ -83,8 +93,6 @@ const behavior = behaviorTree.selectorNode(
                   return behaviorTree.FAILURE;
                 }
               } else {
-                const room = kingdom.getCreepRoom(creep);
-
                 if (room.isPrimary) {
                   const result = creep.claimController(creep.room.controller);
                   if (result != OK) {

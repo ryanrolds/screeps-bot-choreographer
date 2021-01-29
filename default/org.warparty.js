@@ -14,8 +14,10 @@ const FORMATION = [
 ];
 
 class WarParty extends OrgBase {
-  constructor(parent, flag) {
-    super(parent, flag.name);
+  constructor(parent, flag, trace) {
+    super(parent, flag.name, trace);
+
+    const setupTrace = this.trace.begin('constructor');
 
     this.flag = flag;
     this.roomId = flag.room && flag.room.name || 'unknown';
@@ -48,10 +50,12 @@ class WarParty extends OrgBase {
       this.nearbyEnemyStructures = flag.pos.findInRange(FIND_HOSTILE_STRUCTURES, 2);
       this.nearbyWalls = flag.pos.findInRange(FIND_STRUCTURES, 2, {
         filter: (structure) => {
-          return structure.structureType === STRUCTURE_WALL;
+          return structure.structureType === STRUCTURE_WALL || structure.structureType === STRUCTURE_RAMPART;
         },
       });
     }
+
+    setupTrace.end()
   }
   update() {
     console.log(this);
@@ -65,7 +69,7 @@ class WarParty extends OrgBase {
       } else if (this.nearbyInvaderCores.length) {
         creep.memory[MEMORY.MEMORY_ATTACK] = this.nearbyInvaderCores[0].id;
       } else if ((!creep.room.controller || !creep.room.controller.my) && this.nearbyWalls.length) {
-        creep.memory[MEMORY.MEMORY_ATTACK] = this.flag.pos.findClosestByRange(nearbyWalls).id;
+        creep.memory[MEMORY.MEMORY_ATTACK] = this.flag.pos.findClosestByRange(this.nearbyWalls).id;
       }
 
       if (this.sortedHealth.length) {

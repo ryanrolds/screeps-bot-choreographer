@@ -7,8 +7,10 @@ const TOPICS = require('./constants.topics');
 const {TOPIC_ROOM_LINKS} = require('./constants.topics');
 
 class Link extends OrgBase {
-  constructor(parent, link) {
-    super(parent, link.id);
+  constructor(parent, link, trace) {
+    super(parent, link.id, trace);
+
+    const setupTrace = this.trace.begin('constructor');
 
     this.gameObject = link;
 
@@ -25,6 +27,8 @@ class Link extends OrgBase {
       },
     }).length > 0;
     this.isNearSource = link.pos.findInRange(FIND_SOURCES, 2).length > 0;
+
+    setupTrace.end()
   }
   update() {
     //console.log(this);

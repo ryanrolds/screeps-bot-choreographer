@@ -11,12 +11,16 @@ const TASK_PHASE_TRANSFER = 'phase_transfer'
 const TASK_TTL = 100
 
 class Terminal extends OrgBase {
-  constructor(parent, terminal) {
-    super(parent, terminal.id);
+  constructor(parent, terminal, trace) {
+    super(parent, terminal.id, trace);
+
+    const setupTrace = this.trace.begin('constructor');
 
     this.terminal = terminal;
     this.room = parent.getRoomObject();
     this.task = this.room.memory[MEMORY.TERMINAL_TASK] || null;
+
+    setupTrace.end();
   }
   update() {
     console.log(this);

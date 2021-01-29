@@ -8,6 +8,7 @@ module.exports.MEMORY_SOURCE_ROOM = 'source';
 // General movement memory IDs (use this for nearly all movement)
 module.exports.MEMORY_DESTINATION = 'destination';
 module.exports.MEMORY_DESTINATION_ROOM = 'destination_room';
+module.exports.PATH_CACHE = 'path_cache'
 
 // Long term memory IDs
 module.exports.MEMORY_HARVEST = 'harvest';
@@ -55,6 +56,9 @@ module.exports.TRANSFER_ROOM = 'transfer_room';
 module.exports.TRANSFER_DESTINATION = 'transfer_destination';
 module.exports.TRANSFER_RESOURCE = 'transfer_resource';
 module.exports.TRANSFER_AMOUNT = 'transfer_amount';
+
+// boosts
+module.exports.PREPARE_BOOSTS = 'prepare_boosts'
 
 // Attacker
 module.exports.MEMORY_ATTACK = 'attack';

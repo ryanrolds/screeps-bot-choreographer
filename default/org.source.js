@@ -4,14 +4,17 @@ const MEMORY = require('./constants.memory');
 const TASKS = require('./constants.tasks');
 const CREEPS = require('./constants.creeps');
 const TOPICS = require('./constants.topics');
+const {creepIsFresh} = require('./behavior.commute')
 
 const {TOPIC_SPAWN} = require('./constants.topics');
-const {WORKER_MINER, WORKER_HARVESTER, WORKER_HAULER, WORKER_HAULER_V3} = require('./constants.creeps');
+const {WORKER_MINER, WORKER_HARVESTER, WORKER_HAULER} = require('./constants.creeps');
 const {PRIORITY_HARVESTER, PRIORITY_MINER, PRIORITY_REMOTE_MINER} = require('./constants.priorities');
 
 class Source extends OrgBase {
-  constructor(parent, source, sourceType) {
-    super(parent, source.id);
+  constructor(parent, source, sourceType, trace) {
+    super(parent, source.id, trace);
+
+    const setupTrace = this.trace.begin('constructor');
 
     this.sourceType = sourceType;
     this.gameObject = source;
@@ -28,42 +31,26 @@ class Source extends OrgBase {
     this.container = null;
     this.containerID = null;
     this.containerUser = null;
-    this.numHaulers = 0;
-
-    const roomCreeps = this.getRoom().getCreeps();
-    this.assignedCreeps = _.filter(roomCreeps, (creep) => {
-      return creep.memory[MEMORY.MEMORY_HARVEST] === this.id ||
-        creep.memory[MEMORY.MEMORY_SOURCE] === this.id;
-    });
 
     if (container) {
       this.container = container;
       this.containerID = container.id;
-
-      this.numHaulers = _.filter(roomCreeps, (creep) => {
-        const role = creep.memory[MEMORY.MEMORY_ROLE];
-        return (role === WORKER_HAULER || role === WORKER_HAULER_V3) &&
-          creep.memory[MEMORY.MEMORY_WITHDRAW] === this.container.id &&
-          creep.ticksToLive > 100;
-      }).length;
-
       this.containerUsed = this.container.store.getUsedCapacity();
     }
 
+    const roomCreeps = this.getRoom().getCreeps();
     this.numHarvesters = _.filter(roomCreeps, (creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
       const commuteTime = creep.memory[MEMORY.MEMORY_COMMUTE_DURATION];
-      return role === WORKER_HARVESTER &&
-        creep.memory[MEMORY.MEMORY_HARVEST] === this.id &&
-        (creep.ticksToLive > (commuteTime || 100));
+      return role === WORKER_HARVESTER && creep.memory[MEMORY.MEMORY_HARVEST] === this.id &&
+        creepIsFresh(creep);
     }).length;
 
     this.numMiners = _.filter(roomCreeps, (creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
       const commuteTime = creep.memory[MEMORY.MEMORY_COMMUTE_DURATION];
       return role === WORKER_MINER &&
-        creep.memory[MEMORY.MEMORY_HARVEST] === this.id &&
-        (creep.ticksToLive > (commuteTime || 100));
+        creep.memory[MEMORY.MEMORY_HARVEST] === this.id && creepIsFresh(creep);
     }).length;
 
     const haulers = this.getColony().getHaulers()
@@ -73,19 +60,13 @@ class Source extends OrgBase {
       return task === TASKS.TASK_HAUL && pickup === this.containerID;
     });
 
+    this.avgHaulerCapacity = this.getColony().getAvgHaulerCapacity()
+
     this.haulerCapacity = _.reduce(this.haulersWithTask, (total, hauler) => {
       return total += hauler.store.getFreeCapacity();
     }, 0);
 
-    const colonyId = this.getColony().id;
-    this.colonyCreeps = _.filter(parent.getColony().getCreeps(), {memory: {[MEMORY.MEMORY_COLONY]: colonyId}});
-    this.haulers = _.filter(this.colonyCreeps, (creep) => {
-      const role = creep.memory[MEMORY.MEMORY_ROLE];
-      return role === CREEPS.WORKER_HAULER || role === CREEPS.WORKER_HAULER_V3;
-    });
-    this.avgHaulerCapacity = _.reduce(this.haulers, (total, hauler) => {
-      return total + hauler.store.getCapacity();
-    }, 0) / this.haulers.length;
+    setupTrace.end();
   }
   update() {
     //console.log(this);
@@ -158,7 +139,6 @@ class Source extends OrgBase {
     return `---- Source - ${this.id}, ` +
       `#Harvesters: ${this.numHarvesters}, ` +
       `#Miners: ${this.numMiners}, ` +
-      `#Haulers: ${this.numHaulers}, ` +
       `Container: ${this.containerID}, ` +
       `#HaulerWithTask: ${this.haulersWithTask.length}, ` +
       `SumHaulerTaskCapacity: ${this.haulerCapacity}, ` +
@@ -196,6 +176,8 @@ class Source extends OrgBase {
         [MEMORY.MEMORY_HAUL_PICKUP]: this.container.id,
         [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
       };
+
+      console.log("load", loadPriority, JSON.stringify(details))
 
       this.sendRequest(TOPICS.TOPIC_HAUL_TASK, loadPriority, details);
     }

@@ -9,7 +9,6 @@ const WORKER_DISTRIBUTOR = module.exports.WORKER_DISTRIBUTOR = 'distributor';
 const WORKER_CLAIMER = module.exports.WORKER_CLAIMER = 'claimer';
 const WORKER_RESERVER = module.exports.WORKER_RESERVER = 'reserver';
 const WORKER_HAULER = module.exports.WORKER_HAULER = 'hauler';
-const WORKER_HAULER_V3 = module.exports.WORKER_HAULER = 'hauler_v3';
 
 // The 'base' should at most 300 energy as it will form the base of the creep
 // The 'parts' are additional parts that will be used to fill up to the 'energyLimit'
@@ -24,16 +23,13 @@ const definitions = {
     ignoreSpawnEnergyLimit: true,
     parts: [WORK, WORK, WORK, WORK, MOVE],
     base: [MOVE, CARRY, WORK],
+    boosts: ['harvest'],
   },
   [WORKER_HAULER]: {
     ignoreSpawnEnergyLimit: true,
     parts: [MOVE, CARRY, CARRY],
     base: [MOVE, CARRY, MOVE, CARRY, MOVE, CARRY],
-  },
-  [WORKER_HAULER_V3]: {
-    ignoreSpawnEnergyLimit: true,
-    parts: [MOVE, CARRY, CARRY],
-    base: [MOVE, CARRY, MOVE, CARRY, MOVE, CARRY],
+    boosts: ['capacity'],
   },
   [WORKER_BUILDER]: {
     energyLimit: 1500,
@@ -48,12 +44,13 @@ const definitions = {
   [WORKER_UPGRADER]: {
     parts: [MOVE, CARRY, WORK],
     base: [CARRY, MOVE, CARRY, MOVE, WORK],
-    boost: [['work', 'upgradedController']],
+    boosts: ['upgradeController'],
   },
   [WORKER_DISTRIBUTOR]: {
     energyLimit: 1000,
     parts: [MOVE, CARRY, CARRY],
     base: [MOVE, CARRY, CARRY, MOVE, CARRY, CARRY],
+    //boosts: ['carry'],
   },
   [WORKER_CLAIMER]: {
     energyLimit: 1950,
@@ -90,7 +87,6 @@ module.exports = {
   WORKER_CLAIMER,
   WORKER_RESERVER,
   WORKER_HAULER,
-  WORKER_HAULER_V3,
   // definitions
   definitions,
 };

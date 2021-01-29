@@ -19,12 +19,16 @@ module.exports.selectHarvestSource = behaviorTree.leafNode(
       return FAILURE
     }
 
-    sources = _.sortBy(sources, (source) => {
+    sources = _.sortByAll(sources, (source) => {
       const numAssigned = _.filter(room.assignedCreeps, (creep) => {
         return creep.memory[MEMORY_SOURCE] === source.id;
       }).length;
+
       const numSpots = numOfSourceSpots(source);
-      return numAssigned / numSpots;
+      return Math.floor(numAssigned / numSpots);
+    }, (source) => {
+      const path = creep.pos.findPathTo(source)
+      return path.length
     });
 
     if (!sources || !sources.length) {

@@ -1,7 +1,8 @@
 class OrgBase {
-  constructor(parent, id) {
+  constructor(parent, id, trace) {
     this.parent = parent;
     this.id = id;
+    this.trace = trace.with(this.constructor.name);
   }
   getID() {
     return this.id;

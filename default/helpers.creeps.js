@@ -37,21 +37,6 @@ module.exports.tick = (kingdom, trace) => {
       return;
     }
 
-    if (creep.memory.role == CREEPS.WORKER_MINER) {
-      roleMiner.run(creep, trace, kingdom);
-      return;
-    }
-
-    if (creep.memory.role == CREEPS.WORKER_HARVESTER) {
-      roleHarvester.run(creep, trace, kingdom);
-      return;
-    }
-
-    if (creep.memory.role == CREEPS.WORKER_DISTRIBUTOR) {
-      roleDistributor.run(creep, trace, kingdom);
-      return;
-    }
-
     if (creep.memory.role == CREEPS.WORKER_DEFENDER) {
       roleDefender.run(creep, trace, kingdom);
       return;
@@ -63,6 +48,21 @@ module.exports.tick = (kingdom, trace) => {
         console.log('skipping', creep.name);
         return;
       }
+    }
+
+    if (creep.memory.role == CREEPS.WORKER_DISTRIBUTOR) {
+      roleDistributor.run(creep, trace, kingdom);
+      return;
+    }
+
+    if (creep.memory.role == CREEPS.WORKER_MINER) {
+      roleMiner.run(creep, trace, kingdom);
+      return;
+    }
+
+    if (creep.memory.role == CREEPS.WORKER_HARVESTER) {
+      roleHarvester.run(creep, trace, kingdom);
+      return;
     }
 
     if (creep.memory.role == CREEPS.WORKER_UPGRADER) {
@@ -80,8 +80,7 @@ module.exports.tick = (kingdom, trace) => {
       return;
     }
 
-    if (creep.memory.role == CREEPS.WORKER_HAULER ||
-      creep.memory.role == CREEPS.WORKER_HAULER_V3) {
+    if (creep.memory.role == CREEPS.WORKER_HAULER) {
       roleHauler.run(creep, trace, kingdom);
       return;
     }
@@ -123,7 +122,12 @@ module.exports.createCreep = (colony, room, spawn, role, memory, energy, energyL
   const parts = getBodyParts(definition, energy);
 
   const name = role + '_' + Game.time;
-  memory[MEMORY_COLONY] = colony;
+
+  // Requests to the kingdom should include the destination colony, don't overwrite it
+  if (!memory[MEMORY_COLONY]) {
+    memory[MEMORY_COLONY] = colony;
+  }
+
   memory[MEMORY_ORIGIN] = room;
   memory[MEMORY_ROLE] = role;
   memory[MEMORY.MEMORY_START_TICK] = Game.time;

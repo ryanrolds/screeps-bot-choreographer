@@ -171,6 +171,34 @@ module.exports.repeatUntilSuccess = (id, node) => {
   };
 };
 
+module.exports.repeatUntilConditionMet = (id, condition, node) => {
+  return {
+    id,
+    node,
+    condition,
+    tick: function(actor, trace, kingdom) {
+      trace = trace.begin(this.id);
+
+      const conditionResult = this.condition(actor, trace, kingdom)
+      if (!conditionResult) {
+        const result = this.node.tick(actor, trace, kingdom);
+
+        trace.log(actor.id, "result", result)
+
+        trace.end();
+
+        if (result === FAILURE) {
+          return FAILURE;
+        }
+
+        return RUNNING;
+      }
+
+      return SUCCESS;
+    }
+  };
+};
+
 module.exports.leafNode = (id, behavior) => {
   return {
     id,

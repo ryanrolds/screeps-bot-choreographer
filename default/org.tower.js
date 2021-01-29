@@ -4,9 +4,13 @@ const MEMORY = require('./constants.memory');
 const TASKS = require('./constants.tasks');
 const TOPICS = require('./constants.topics');
 
+const MIN_ROOM_ENERGY = 5000;
+
 class Tower extends OrgBase {
-  constructor(parent, tower) {
-    super(parent, tower.id);
+  constructor(parent, tower, trace) {
+    super(parent, tower.id, trace);
+
+    const setupTrace = this.trace.begin('constructor');
 
     this.gameObject = tower;
 
@@ -35,6 +39,8 @@ class Tower extends OrgBase {
     if (room.storage && room.storage.store.getUsedCapacity(RESOURCE_ENERGY) < 50000) {
       this.defenseHitsLimit = 10000
     }
+
+    setupTrace.end();
   }
   update() {
     //console.log(this);
@@ -46,7 +52,12 @@ class Tower extends OrgBase {
     const towerTotal = tower.store.getCapacity(RESOURCE_ENERGY)
     const roomEnergy = this.getRoom().getAmountInReserve(RESOURCE_ENERGY)
 
-    if (towerUsed + this.haulerUsedCapacity < 500 && roomEnergy > 5000) {
+    let minEnergy = MIN_ROOM_ENERGY;
+    if (this.getRoom().roomObject.controller.level <= 3) {
+      minEnergy = 1000;
+    }
+
+    if (towerUsed + this.haulerUsedCapacity < 500 && roomEnergy > minEnergy) {
       const pickupId = this.parent.getClosestStoreWithEnergy(tower);
       const amount = towerFree - this.haulerUsedCapacity
 
@@ -80,9 +91,10 @@ class Tower extends OrgBase {
       }
     }
 
-    const damagedCreeps = _.filter(this.getRoom().getCreeps(), (creep) => {
+    const damagedCreeps = _.filter(this.getRoom().getRoomCreeps(), (creep) => {
       return creep.hits < creep.hitsMax;
     });
+
     const creepsByHealth = _.sortBy(damagedCreeps, (creep) => {
       return creep.hits / creep.hitsMax;
     });
