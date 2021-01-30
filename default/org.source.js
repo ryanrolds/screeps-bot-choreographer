@@ -160,13 +160,14 @@ class Source extends OrgBase {
     }
 
     const averageLoad = this.avgHaulerCapacity || 300;
+    const loadSize = _.min([averageLoad, 1000]);
     const storeCapacity = this.container.store.getCapacity();
     const storeUsedCapacity = this.container.store.getUsedCapacity();
     const untaskedUsedCapacity = storeUsedCapacity - this.haulerCapacity;
-    const loadsToHaul = Math.floor(untaskedUsedCapacity / averageLoad);
+    const loadsToHaul = Math.floor(untaskedUsedCapacity / loadSize);
 
     for (let i = 0; i < loadsToHaul; i++) {
-      const loadPriority = (storeUsedCapacity - (i * averageLoad)) / storeCapacity;
+      const loadPriority = (storeUsedCapacity - (i * loadSize)) / storeCapacity;
 
       const details = {
         [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
@@ -174,7 +175,7 @@ class Source extends OrgBase {
         [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
       };
 
-      console.log('load', loadPriority, JSON.stringify(details));
+      console.log("source load", loadPriority, JSON.stringify(details))
 
       this.sendRequest(TOPICS.TOPIC_HAUL_TASK, loadPriority, details);
     }

@@ -291,7 +291,6 @@ module.exports.emptyCreep = behaviorTree.repeatUntilSuccess(
       behaviorTree.leafNode(
         'empty_creep',
         (creep) => {
-          console.log(creep.name, creep.store.getUsedCapacity());
           if (creep.store.getUsedCapacity() === 0) {
             return SUCCESS;
           }

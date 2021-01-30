@@ -73,14 +73,12 @@ class Spawner extends OrgBase {
           minEnergy = 500;
         }
       }
+
       minEnergy = _.min([minEnergy, spawnTopicBackPressure]);
 
-      console.log('energy', this.energy, minEnergy);
       if (this.energy >= minEnergy) {
         let request = this.getNextRequest(TOPICS.TOPIC_SPAWN);
         if (request) {
-          console.log('spawner', JSON.stringify(request));
-
           // Allow request to override energy limit
           if (request.details.energyLimit) {
             energyLimit = request.details.energyLimit;

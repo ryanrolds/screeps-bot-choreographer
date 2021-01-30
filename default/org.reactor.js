@@ -49,7 +49,6 @@ class Reactor extends OrgBase {
 
           const result = this.labs[0].runReaction(this.labs[1], this.labs[2]);
           if (result !== OK) {
-            console.log('reaction failed', this.labs[0].id, result);
             this.room.memory[MEMORY.REACTOR_TASK][MEMORY.TASK_PHASE] = TASK_PHASE_UNLOAD;
           }
 
@@ -114,8 +113,6 @@ class Reactor extends OrgBase {
       currentAmount = lab.store.getUsedCapacity(lab.mineralType);
     }
 
-    console.log(lab.id, lab.mineralType || 'none', currentAmount, resource, desiredAmount);
-
     // Unload the lab if it's not the right mineral
     if (lab.mineralType && lab.mineralType !== resource && lab.store.getUsedCapacity(lab.mineralType) > 0) {
       this.unloadLab(lab);
@@ -141,14 +138,11 @@ class Reactor extends OrgBase {
   requestResource(lab, resource, amount) {
     const terminal = this.getRoom().getTerminal();
     if (!terminal) {
-      console.log('need to get mineral but no terminal');
       return;
     }
 
     const result = this.getKingdom().getTerminalWithResource(resource);
     if (!result) {
-      console.log('requesting purchase', lab.room.name, lab.id, resource, amount);
-
       const details = {
         [MEMORY.TERMINAL_TASK_TYPE]: TASKS.TASK_MARKET_ORDER,
         [MEMORY.MEMORY_ORDER_TYPE]: ORDER_BUY,
@@ -175,8 +169,6 @@ class Reactor extends OrgBase {
       return;
     }
 
-    console.log('requesting transfer to room', lab.room.name, lab.id, resource, amount);
-
     result.terminal.sendRequest(TOPICS.TOPIC_TERMINAL_TASK, PRIORITIES.TERMINAL_TRANSFER, {
       [MEMORY.TERMINAL_TASK_TYPE]: TASKS.TASK_TRANSFER,
       [MEMORY.TRANSFER_RESOURCE]: resource,
@@ -194,8 +186,6 @@ class Reactor extends OrgBase {
     if (numHaulers) {
       return false;
     }
-
-    console.log('requesting load', lab.room.name, lab.id, resource, amount);
 
     this.getColony().sendRequest(TOPICS.TOPIC_HAUL_TASK, PRIORITIES.HAUL_REACTION, {
       [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
@@ -218,8 +208,6 @@ class Reactor extends OrgBase {
 
     const currentAmount = lab.store.getUsedCapacity(lab.mineralType);
     const dropoff = this.getRoom().getReserveStructureWithRoomForResource(lab.mineralType);
-
-    console.log('requesting unload', lab.room.name, lab.id, lab.mineralType, currentAmount);
 
     this.getColony().sendRequest(TOPICS.TOPIC_HAUL_TASK, PRIORITIES.HAUL_REACTION, {
       [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,

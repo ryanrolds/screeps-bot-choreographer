@@ -84,7 +84,8 @@ class Colony extends OrgBase {
 
     if (this.primaryRoom) {
       // PIDS
-      this.haulerSetpoint = this.desiredRooms.length;
+      //this.haulerSetpoint = this.desiredRooms.length;
+      this.haulerSetpoint = 1;
       Pid.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, this.haulerSetpoint, 0.15, 0.00009, 0);
     }
 
@@ -98,8 +99,6 @@ class Colony extends OrgBase {
         return creep.memory[MEMORY_ROLE] == WORKERS.WORKER_RESERVER &&
           creep.memory[MEMORY_ASSIGN_ROOM] === roomID;
       }).length;
-
-      console.log(roomID, 'numReservers', numReservers);
 
       // A reserver is already assigned, don't send more
       if (numReservers) {
@@ -165,9 +164,7 @@ class Colony extends OrgBase {
         // PID approach
         this.pidDesiredHaulers = Pid.update(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS,
           numHaulTasks, Game.time);
-        console.log('num and desired', this.numHaulers, this.pidDesiredHaulers, numHaulTasks, Game.time);
         if (this.numHaulers < this.pidDesiredHaulers) {
-          console.log('requesting hauler');
           this.sendRequest(TOPIC_SPAWN, PRIORITY_HAULER, {
             role: WORKERS.WORKER_HAULER,
             memory: {},

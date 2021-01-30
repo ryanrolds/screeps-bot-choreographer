@@ -57,8 +57,8 @@ class Booster extends OrgBase {
   }
   getAssignedCreeps() {
     const labIds = this.labs.map((creep) => {
-return creep.id;
-});
+      return creep.id;
+    });
 
 
     return this.getRoom().getCreeps().filter((creep) => {
@@ -204,7 +204,7 @@ return creep.id;
 
         console.log('boost unload', PRIORITIES.HAUL_BOOST, JSON.stringify(details));
 
-        // this.sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details);
+        this.sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details);
       }
     } else if (needToLoad.length > 0) {
       const toLoad = needToLoad.pop();
@@ -259,9 +259,9 @@ return creep.id;
           [MEMORY.MEMORY_HAUL_AMOUNT]: 400,
         };
 
-        console.log('boost load', PRIORITIES.HAUL_BOOST, JSON.stringify(details));
+        console.log('boost load material', PRIORITIES.HAUL_BOOST, JSON.stringify(details));
 
-        // this.sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details);
+        this.sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details);
       }
     } else if (preparedNames.length > 0) {
       preparedNames.forEach((effectName) => {
@@ -280,9 +280,9 @@ return creep.id;
             [MEMORY.MEMORY_HAUL_AMOUNT]: 2000 - currentEnergy,
           };
 
-          console.log('boost load', PRIORITIES.HAUL_BOOST, JSON.stringify(details));
+          console.log('boost load energy', PRIORITIES.HAUL_BOOST, JSON.stringify(details));
 
-          // this.sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details);
+          this.sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details);
         }
       });
     }

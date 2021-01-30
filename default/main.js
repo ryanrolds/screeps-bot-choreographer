@@ -27,7 +27,7 @@ let config = {
   'E15S48': {
     id: 'E15S48-Shard3',
     primary: 'E15S48',
-    rooms: ['E15S48'],
+    rooms: ['E15S48', 'E16S48', 'E14S48'],
   },
 };
 

@@ -21,7 +21,7 @@ const definitions = {
     energyLimit: 1500,
     ignoreSpawnEnergyLimit: true,
     parts: [WORK, WORK, WORK, WORK, MOVE],
-    base: [MOVE, CARRY, WORK],
+    base: [MOVE, WORK, WORK],
     boosts: ['harvest'],
   },
   [WORKER_HAULER]: {

@@ -210,18 +210,10 @@ class Room extends OrgBase {
     this.droppedResourcesToHaul = room.find(FIND_DROPPED_RESOURCES, {
       filter: (resource) => {
         const isDispatched = _.filter(this.getColony().getHaulers(), (hauler) => {
-          return hauler.memory[MEMORY.MEMORY_PICKUP] == resource.id;
+          return hauler.memory[MEMORY.MEMORY_PICKUP] === resource.id;
         }).length > 0;
 
-        const isSource = _.filter(this.sources, (source) => {
-          if (source.gameObject instanceof Mineral) {
-            return false;
-          }
-
-          return resource.pos.inRangeTo(source.gameObject, 1);
-        }).length > 0;
-
-        return !isDispatched && !isSource;
+        return !isDispatched;
       },
     });
 
@@ -298,12 +290,14 @@ class Room extends OrgBase {
         [MEMORY.MEMORY_HAUL_PICKUP]: resource.id,
         [MEMORY.MEMORY_HAUL_RESOURCE]: resource.resourceType,
       };
+
+      console.log("dropped resources", loadPriority, resource.amount, JSON.stringify(details))
+
       this.sendRequest(TOPICS.TOPIC_HAUL_TASK, loadPriority, details);
     });
 
     // Upgrader request
     const desiredUpgraders = this.getDesiredUpgraders();
-    console.log(this.id, this.isPrimary, this.upgraders.length, desiredUpgraders);
     if (this.isPrimary && this.upgraders.length < desiredUpgraders) {
       // As we get more upgraders, lower the priority
       const upgraderPriority = PRIORITY_UPGRADER - (this.upgraders.length * 2);
@@ -409,7 +403,7 @@ class Room extends OrgBase {
     }
 
     if (this.booster) {
-      // this.booster.update()
+      this.booster.update()
     }
   }
   process() {
@@ -438,7 +432,7 @@ class Room extends OrgBase {
     }
 
     if (this.booster) {
-      // this.booster.process()
+      this.booster.process()
     }
   }
   toString() {
@@ -610,8 +604,6 @@ class Room extends OrgBase {
   }
   getEnergyFullness() {
     const structures = this.getReserveStructures();
-    console.log(this.id, structures);
-
     if (!structures.length) {
       return 0;
     }
@@ -625,8 +617,6 @@ class Room extends OrgBase {
     if (!stores.capacity) {
       return 0;
     }
-
-    console.log(stores.used, stores.capacity);
 
     return stores.used / stores.capacity;
   }
