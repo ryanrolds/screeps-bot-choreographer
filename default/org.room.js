@@ -7,11 +7,14 @@ const Source = require('./org.source');
 const Booster = require('./org.booster');
 const Reactor = require('./org.reactor');
 
+const CREEPS = require('./constants.creeps')
 const MEMORY = require('./constants.memory');
 const TASKS = require('./constants.tasks');
 const TOPICS = require('./constants.topics');
 const PRIORITIES = require('./constants.priorities');
 const {creepIsFresh} = require('./behavior.commute');
+const featureFlags = require('./lib.feature_flags')
+const {doEvery} = require('./lib.scheduler');
 
 const {MEMORY_ROLE, MEMORY_ASSIGN_ROOM, MEMORY_HARVEST_ROOM} = require('./constants.memory');
 const {TOPIC_SPAWN, TOPIC_DEFENDERS} = require('./constants.topics');
@@ -29,6 +32,14 @@ const MY_USERNAME = 'ENETDOWN';
 const MIN_RESERVATION_TICKS = 4000;
 const RESERVE_BUFFER = 200000;
 
+const REQUEST_HAUL_DROPPED_RESOURCES_TTL = 200;
+const REQUEST_DEFENDERS_TTL = 75;
+const REQUEST_DISTRIBUTOR_TTL = 100;
+const REQUEST_RESERVER_TTL = 200;
+const REQUEST_UPGRADER_TTL = 200;
+const REQUEST_BUILDER_TTL = 200;
+const REQUEST_REPAIRER_TTL = 200;
+
 class Room extends OrgBase {
   constructor(parent, room, trace) {
     super(parent, room.name, trace);
@@ -36,6 +47,7 @@ class Room extends OrgBase {
     const setupTrace = this.trace.begin('constructor');
 
     this.roomObject = room; // preferred
+    this.room = room;
     this.isPrimary = room.name === parent.primaryRoomId;
     this.claimedByMe = room.controller.my || false;
     this.reservedByMe = false;
@@ -43,13 +55,61 @@ class Room extends OrgBase {
       this.reservedByMe = true;
     }
 
-    const roomPropsTrace = setupTrace.begin('room_props');
+    this.doRequestHaulDroppedResources = doEvery(REQUEST_HAUL_DROPPED_RESOURCES_TTL)(() => {
+      this.droppedResourcesToHaul.forEach((resource) => {
+        this.requestHaulDroppedResources(resource);
+      });
+    })
 
-    this.unowned = !room.controller.reservation && !room.controller.owner;
+    this.doRequestDefenders = doEvery(REQUEST_DEFENDERS_TTL)(() => {
+      this.requestDefender()
+    })
+
+    this.doRequestDistributor = doEvery(REQUEST_DISTRIBUTOR_TTL)(() => {
+      this.requestDistributor()
+    })
+
+    this.doRequestReserver = doEvery(REQUEST_RESERVER_TTL)(() => {
+      this.requestReserver()
+    })
+
+    this.doRequestReserverFromKingdom = doEvery(REQUEST_RESERVER_TTL)(() => {
+      this.requestReserverFromKingdom()
+    })
+
+    this.doRequestUpgrader = doEvery(REQUEST_UPGRADER_TTL)((priority, energyLimit) => {
+      this.requestUpgrader(priority, energyLimit)
+    })
+    this.doRequestUpgraderFromKingdom = doEvery(REQUEST_UPGRADER_TTL)((priority, energyLimit) => {
+      this.requestUpgraderFromKingdom(priority, energyLimit)
+    })
+
+    this.doRequestBuilder = doEvery(REQUEST_BUILDER_TTL)(() => {
+      this.requestBuilder()
+    })
+    this.doRequestBuilderFromKingdom = doEvery(REQUEST_BUILDER_TTL)(() => {
+      this.requestBuilderFromKingdom()
+    })
+
+    this.doRequestRepairer = doEvery(REQUEST_REPAIRER_TTL)((priority) => {
+      this.requestRepairer(priority);
+    })
+
+    setupTrace.end();
+  }
+  update() {
+    const updateTrace = this.trace.begin('update');
+
+    // was in constructor
+    const roomPropsTrace = updateTrace.begin('room_props');
+
+    const room = this.room;
+
+    this.unowned = !this.room.controller.reservation && !this.room.controller.owner;
     // Construction sites will help decide how many builders we need
-    this.numConstructionSites = room.find(FIND_CONSTRUCTION_SITES).length;
-    this.myStructures = room.find(FIND_MY_STRUCTURES);
-    this.roomStructures = room.find(FIND_STRUCTURES);
+    this.numConstructionSites = this.room.find(FIND_CONSTRUCTION_SITES).length;
+    this.myStructures = this.room.find(FIND_MY_STRUCTURES);
+    this.roomStructures = this.room.find(FIND_STRUCTURES);
 
     this.hasStorage = this.getReserveStructures().filter((structure) => {
       return structure.structureType != STRUCTURE_SPAWN;
@@ -62,12 +122,13 @@ class Room extends OrgBase {
 
     roomPropsTrace.end();
 
-    const creepPrepTrace = setupTrace.begin('creep_prep');
+    const creepPrepTrace = updateTrace.begin('creep_prep');
 
     this.roomCreeps = Object.values(Game.creeps).filter((creep) => {
       return creep.room.name === room.name;
     });
 
+    const parent = this.parent;
     this.assignedCreeps = _.filter(parent.getCreeps(), (creep) => {
       return creep.memory[MEMORY_ASSIGN_ROOM] === room.name ||
         creep.memory[MEMORY_HARVEST_ROOM] === room.name;
@@ -113,10 +174,9 @@ class Room extends OrgBase {
 
     creepPrepTrace.end();
 
-    const defenseTrace = setupTrace.begin('defenses');
+    const defenseTrace = updateTrace.begin('defenses');
 
     // We want to know if our defenses are being attacked
-
     this.lowHitsDefenses = this.roomStructures.filter((s) => {
       if (s.structureType !== STRUCTURE_WALL && s.structureType !== STRUCTURE_RAMPART) {
         return false;
@@ -149,7 +209,7 @@ class Room extends OrgBase {
 
     defenseTrace.end();
 
-    const orgSetupTrace = setupTrace.begin('org_setup');
+    const orgSetupTrace = updateTrace.begin('org_setup');
 
     const sources = [];
     const roomSources = room.find(FIND_SOURCES);
@@ -197,7 +257,7 @@ class Room extends OrgBase {
 
     orgSetupTrace.end();
 
-    const labsSetupTrace = setupTrace.begin('lab_setup');
+    const labsSetupTrace = updateTrace.begin('lab_setup');
 
     const [reactors, booster] = this.assignLabs(labsSetupTrace);
     this.reactors = reactors;
@@ -205,7 +265,7 @@ class Room extends OrgBase {
 
     labsSetupTrace.end();
 
-    const droppedResourcesTrace = setupTrace.begin('dropped_resources');
+    const droppedResourcesTrace = updateTrace.begin('dropped_resources');
 
     this.droppedResourcesToHaul = room.find(FIND_DROPPED_RESOURCES, {
       filter: (resource) => {
@@ -219,9 +279,8 @@ class Room extends OrgBase {
 
     droppedResourcesTrace.end();
 
-    setupTrace.end();
-  }
-  update() {
+    // was in constructor end
+
     const controller = this.roomObject.controller;
 
     // If hostiles present spawn defenders and/or activate safe mode
@@ -233,12 +292,11 @@ class Room extends OrgBase {
         controller.activateSafeMode();
       } else if (!controller.safeMode || controller.safeModeCooldown < 250) {
         // Request defenders
-        this.sendRequest(TOPIC_DEFENDERS, PRIORITY_DEFENDER, {
-          role: WORKER_DEFENDER,
-          memory: {
-            [MEMORY_ASSIGN_ROOM]: this.id,
-          },
-        });
+        if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+          this.requestDefender();
+        } else {
+          this.doRequestDefenders();
+        }
       }
     }
 
@@ -249,52 +307,38 @@ class Room extends OrgBase {
 
     // Send a request if we are short on distributors
     if (this.hasStorage && this.numDistributors < desiredDistributors) {
-      let distributorPriority = PRIORITY_DISTRIBUTOR;
-      if (this.getAmountInReserve(RESOURCE_ENERGY) === 0) {
-        distributorPriority = PRIORITIES.DISTRIBUTOR_NO_RESERVE;
+      if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+        this.requestDistributor();
+      } else {
+        this.doRequestDistributor();
       }
-
-      this.sendRequest(TOPIC_SPAWN, distributorPriority, {
-        role: WORKER_DISTRIBUTOR,
-        memory: {
-          [MEMORY_ASSIGN_ROOM]: this.id,
-        },
-      });
     }
 
     // If not claimed by me and no claimer assigned and not primary, request a reserver
     if (!this.numReservers && ((!this.reservedByMe && !this.claimedByMe && !this.numHostiles) ||
       (this.reservedByMe && this.reservationTicks < MIN_RESERVATION_TICKS))) {
       if (this.getColony().spawns.length) {
-        this.sendRequest(TOPIC_SPAWN, PRIORITY_RESERVER, {
-          role: WORKER_RESERVER,
-          memory: {
-            [MEMORY_ASSIGN_ROOM]: this.id,
-          },
-        });
+        if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+          this.requestReserver();
+        } else {
+          this.doRequestReserver();
+        }
       } else {
-        this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITY_RESERVER + 1, {
-          role: WORKER_RESERVER,
-          memory: {
-            [MEMORY_ASSIGN_ROOM]: this.id,
-            [MEMORY.MEMORY_COLONY]: this.getColony().id,
-          },
-        });
+        if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+          this.requestReserverFromKingdom();
+        } else {
+          this.doRequestReserverFromKingdom()
+        }
       }
     }
 
-    this.droppedResourcesToHaul.forEach((resource) => {
-      const loadPriority = 0.8;
-      const details = {
-        [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
-        [MEMORY.MEMORY_HAUL_PICKUP]: resource.id,
-        [MEMORY.MEMORY_HAUL_RESOURCE]: resource.resourceType,
-      };
-
-      console.log("dropped resources", loadPriority, resource.amount, JSON.stringify(details))
-
-      this.sendRequest(TOPICS.TOPIC_HAUL_TASK, loadPriority, details);
-    });
+    if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+      this.droppedResourcesToHaul.forEach((resource) => {
+        this.requestHaulDroppedResources(resource);
+      });
+    } else {
+      this.doRequestHaulDroppedResources();
+    }
 
     // Upgrader request
     const desiredUpgraders = this.getDesiredUpgraders();
@@ -316,42 +360,34 @@ class Room extends OrgBase {
       // multiple claims
 
       if (this.getColony().spawns.length) {
-        this.sendRequest(TOPIC_SPAWN, upgraderPriority, {
-          role: WORKER_UPGRADER,
-          energyLimit: energyLimit,
-          memory: {
-            [MEMORY_ASSIGN_ROOM]: this.id,
-          },
-        });
+        if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+          this.requestUpgrader(upgraderPriority, energyLimit);
+        } else {
+          this.doRequestUpgrader(upgraderPriority, energyLimit)
+        }
       } else {
-        this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITY_BOOTSTRAP + upgraderPriority, {
-          role: WORKER_UPGRADER,
-          energyLimit: energyLimit,
-          memory: {
-            [MEMORY_ASSIGN_ROOM]: this.id,
-            [MEMORY.MEMORY_COLONY]: this.getColony().id,
-          },
-        });
+        if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+          this.requestUpgraderFromKingdom(PRIORITY_BOOTSTRAP + upgraderPriority, energyLimit);
+        } else {
+          this.doRequestUpgraderFromKingdom(PRIORITY_BOOTSTRAP + upgraderPriority, energyLimit)
+        }
       }
     }
 
     // Builder requests
     if (this.builders.length < Math.ceil(this.numConstructionSites / 15)) {
       if (this.getColony().spawns.length) {
-        this.sendRequest(TOPIC_SPAWN, PRIORITY_BUILDER - (this.builders.length * 2), {
-          role: WORKER_BUILDER,
-          memory: {
-            [MEMORY_ASSIGN_ROOM]: this.id,
-          },
-        });
+        if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+          this.requestBuilder();
+        } else {
+          this.doRequestBuilder();
+        }
       } else {
-        this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITY_BOOTSTRAP + PRIORITY_BUILDER - this.builders.length, {
-          role: WORKER_BUILDER,
-          memory: {
-            [MEMORY_ASSIGN_ROOM]: this.id,
-            [MEMORY.MEMORY_COLONY]: this.getColony().id,
-          },
-        });
+        if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+          this.requestBuilderFromKingdom();
+        } else {
+          this.doRequestBuilderFromKingdom();
+        }
       }
     }
 
@@ -369,12 +405,11 @@ class Room extends OrgBase {
       }
 
       if (this.numStructures > 0 && this.numRepairers < desiredRepairers) {
-        this.sendRequest(TOPIC_SPAWN, repairerPriority, {
-          role: WORKER_REPAIRER,
-          memory: {
-            [MEMORY_ASSIGN_ROOM]: this.id,
-          },
-        });
+        if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+          this.requestRepairer(repairerPriority);
+        } else {
+          this.doRequestRepairer(repairerPriority);
+        }
       }
     }
 
@@ -405,6 +440,8 @@ class Room extends OrgBase {
     if (this.booster) {
       this.booster.update()
     }
+
+    updateTrace.end();
   }
   process() {
     this.updateStats();
@@ -807,6 +844,100 @@ class Room extends OrgBase {
 
     const stats = this.getStats();
     stats.colonies[this.getColony().id].rooms[this.id] = roomStats;
+  }
+  requestDefender() {
+    this.sendRequest(TOPICS.TOPIC_DEFENDERS, PRIORITIES.PRIORITY_DEFENDER, {
+      role: CREEPS.WORKER_DEFENDER,
+      memory: {
+        [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
+      },
+    });
+  }
+  requestDistributor() {
+    let distributorPriority = PRIORITY_DISTRIBUTOR;
+    if (this.getAmountInReserve(RESOURCE_ENERGY) === 0) {
+      distributorPriority = PRIORITIES.DISTRIBUTOR_NO_RESERVE;
+    }
+
+    this.sendRequest(TOPICS.TOPIC_SPAWN, distributorPriority, {
+      role: CREEPS.WORKER_DISTRIBUTOR,
+      memory: {
+        [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
+      },
+    });
+  }
+  requestReserver() {
+    this.sendRequest(TOPICS.TOPIC_SPAWN, PRIORITIES.PRIORITY_RESERVER, {
+      role: CREEPS.WORKER_RESERVER,
+      memory: {
+        [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
+      },
+    });
+  }
+  requestReserverFromKingdom() {
+    this.getKingdom().sendRequest(TOPICS.TOPIC_SPAWN, PRIORITIES.PRIORITY_RESERVER + 1, {
+      role: CREEPS.WORKER_RESERVER,
+      memory: {
+        [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
+        [MEMORY.MEMORY_COLONY]: this.getColony().id,
+      },
+    });
+  }
+  requestHaulDroppedResources(resource) {
+    const loadPriority = 0.8;
+    const details = {
+      [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
+      [MEMORY.MEMORY_HAUL_PICKUP]: resource.id,
+      [MEMORY.MEMORY_HAUL_RESOURCE]: resource.resourceType,
+    };
+
+    console.log("dropped resources", loadPriority, resource.amount, JSON.stringify(details))
+
+    this.sendRequest(TOPICS.TOPIC_HAUL_TASK, loadPriority, details);
+  }
+  requestUpgrader(priority, energyLimit) {
+    this.sendRequest(TOPIC_SPAWN, priority, {
+      role: WORKER_UPGRADER,
+      energyLimit: energyLimit,
+      memory: {
+        [MEMORY_ASSIGN_ROOM]: this.id,
+      },
+    });
+  }
+  requestUpgradersFromKingdom(priority, energyLimit) {
+    this.getKingdom().sendRequest(TOPIC_SPAWN, priority, {
+      role: WORKER_UPGRADER,
+      energyLimit: energyLimit,
+      memory: {
+        [MEMORY_ASSIGN_ROOM]: this.id,
+        [MEMORY.MEMORY_COLONY]: this.getColony().id,
+      },
+    });
+  }
+  requestBuilder() {
+    this.sendRequest(TOPIC_SPAWN, PRIORITY_BUILDER - (this.builders.length * 2), {
+      role: WORKER_BUILDER,
+      memory: {
+        [MEMORY_ASSIGN_ROOM]: this.id,
+      },
+    });
+  }
+  requestBuilderFromKingdom() {
+    this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITY_BOOTSTRAP + PRIORITY_BUILDER - this.builders.length, {
+      role: WORKER_BUILDER,
+      memory: {
+        [MEMORY_ASSIGN_ROOM]: this.id,
+        [MEMORY.MEMORY_COLONY]: this.getColony().id,
+      },
+    });
+  }
+  requestRepairer(priority) {
+    this.sendRequest(TOPIC_SPAWN, priority, {
+      role: WORKER_REPAIRER,
+      memory: {
+        [MEMORY_ASSIGN_ROOM]: this.id,
+      },
+    });
   }
 }
 

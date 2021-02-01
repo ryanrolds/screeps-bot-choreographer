@@ -4,6 +4,10 @@ const creepHelpers = require('./helpers.creeps');
 const {definitions} = require('./constants.creeps');
 const MEMORY = require('./constants.memory');
 const CREEPS = require('./constants.creeps');
+const featureFlags = require('./lib.feature_flags')
+const {doEvery} = require('./lib.scheduler');
+
+const REQUEST_BOOSTS_TTL = 50;
 
 class Spawner extends OrgBase {
   constructor(parent, spawner, trace) {
@@ -12,17 +16,26 @@ class Spawner extends OrgBase {
     const setupTrace = this.trace.begin('constructor');
 
     this.roomId = spawner.room.name;
+    this.spawner = spawner;
     this.gameObject = spawner;
     spawner.memory['ticksIdle'] = 0;
 
+    this.doBoostRequest = doEvery(REQUEST_BOOSTS_TTL)((boosts, priority) => {
+      this.requestBoosts(boosts, priority)
+    })
+
+    setupTrace.end();
+  }
+  update() {
+    // was constructor
+    const spawner = this.spawner;
     this.isIdle = !spawner.spawning;
     this.energy = spawner.room.energyAvailable;
     this.energyCapacity = spawner.room.energyCapacityAvailable;
     this.energyPercentage = this.energy / this.energyCapacity;
 
-    setupTrace.end();
-  }
-  update() {
+    // was constructor end
+
     console.log(this);
 
     if (!this.isIdle) {
@@ -36,9 +49,11 @@ class Spawner extends OrgBase {
       if (boosts) {
         console.log('sending boost request', JSON.stringify(boosts));
 
-        this.getColony().sendRequest(TOPICS.BOOST_PREP, priority, {
-          [MEMORY.PREPARE_BOOSTS]: boosts,
-        });
+        if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+          this.requestBoosts(boosts, priority)
+        } else {
+          this.doBoostRequest(boosts, priority)
+        }
       }
 
       spawn.room.visual.text(
@@ -51,6 +66,10 @@ class Spawner extends OrgBase {
       spawn.memory['ticksIdle'] = 0;
       return;
     }
+
+    // Spawning a new creep should result in a boost request being sent
+    // resetting the TTL when idle accomplishes this
+    this.doBoostRequest.reset();
   }
   process() {
     this.updateStats();
@@ -131,6 +150,11 @@ class Spawner extends OrgBase {
     };
 
     stats.colonies[this.getColony().id].spawner[this.id] = spawnerStats;
+  }
+  requestBoosts(boosts, priority) {
+    this.getColony().sendRequest(TOPICS.BOOST_PREP, priority, {
+      [MEMORY.PREPARE_BOOSTS]: boosts,
+    }, REQUEST_BOOSTS_TTL);
   }
 }
 

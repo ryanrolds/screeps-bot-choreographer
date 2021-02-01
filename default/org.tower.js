@@ -1,10 +1,12 @@
 const OrgBase = require('./org.base');
-
 const MEMORY = require('./constants.memory');
 const TASKS = require('./constants.tasks');
 const TOPICS = require('./constants.topics');
+const featureFlags = require('./lib.feature_flags')
+const {doEvery} = require('./lib.scheduler');
 
 const MIN_ROOM_ENERGY = 5000;
+const REQUEST_ENERGY_TTL = 50;
 
 class Tower extends OrgBase {
   constructor(parent, tower, trace) {
@@ -12,8 +14,30 @@ class Tower extends OrgBase {
 
     const setupTrace = this.trace.begin('constructor');
 
-    this.gameObject = tower;
+    this.gameObject = tower; // DEPRECATED
+    this.tower = tower;
+    this.towerUsed = 0;
 
+    let minEnergy = MIN_ROOM_ENERGY;
+    if (this.getRoom().roomObject.controller.level <= 3) {
+      minEnergy = 1000;
+    }
+    this.minEnergy = minEnergy;
+
+    // Request energy if tower is low
+    this.checkEnergy = doEvery(REQUEST_ENERGY_TTL)((tower) => {
+      if (this.towerUsed < 500 && this.roomEnergy > this.minEnergy) {
+        this.requestEnergy()
+      }
+    });
+
+    setupTrace.end();
+  }
+  update() {
+    const updateTrace = this.trace.begin('constructor');
+
+    // was constructor
+    const tower = this.gameObject
     this.energy = tower.energy;
 
     const haulers = this.getColony().getHaulers();
@@ -39,40 +63,24 @@ class Tower extends OrgBase {
     if (room.storage && room.storage.store.getUsedCapacity(RESOURCE_ENERGY) < 50000) {
       this.defenseHitsLimit = 10000;
     }
+    // was constructor end
 
-    setupTrace.end();
-  }
-  update() {
+    this.towerUsed = this.tower.store.getUsedCapacity(RESOURCE_ENERGY);
+    this.roomEnergy = this.getRoom().getAmountInReserve(RESOURCE_ENERGY);
+
     // console.log(this);
+
+    updateTrace.end();
   }
   process() {
-    const tower = this.gameObject;
-    const towerUsed = tower.store.getUsedCapacity(RESOURCE_ENERGY);
-    const towerFree = tower.store.getFreeCapacity(RESOURCE_ENERGY);
-    const towerTotal = tower.store.getCapacity(RESOURCE_ENERGY);
-    const roomEnergy = this.getRoom().getAmountInReserve(RESOURCE_ENERGY);
+    const tower = this.tower;
 
-    let minEnergy = MIN_ROOM_ENERGY;
-    if (this.getRoom().roomObject.controller.level <= 3) {
-      minEnergy = 1000;
-    }
-
-    if (towerUsed + this.haulerUsedCapacity < 500 && roomEnergy > minEnergy) {
-      const pickupId = this.parent.getClosestStoreWithEnergy(tower);
-      const amount = towerFree - this.haulerUsedCapacity;
-
-      // The -0.01 is so that we haul full mining containers before fueling towers
-      const priority = 1 - ((towerUsed - 250 + this.haulerUsedCapacity) / towerTotal);
-
-      const details = {
-        [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
-        [MEMORY.MEMORY_HAUL_PICKUP]: pickupId,
-        [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
-        [MEMORY.MEMORY_HAUL_DROPOFF]: tower.id,
-        [MEMORY.MEMORY_HAUL_AMOUNT]: amount,
-      };
-
-      this.sendRequest(TOPICS.TOPIC_HAUL_TASK, priority, details);
+    if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+      if (this.towerUsed + this.haulerUsedCapacity < 500 && this.roomEnergy > this.minEnergy) {
+        this.requestEnergy()
+      }
+    } else {
+      this.checkEnergy(this);
     }
 
     let hostiles = this.getRoom().getHostiles();
@@ -104,7 +112,7 @@ class Tower extends OrgBase {
       return;
     }
 
-    if (tower.energy > 250) {
+    if (this.towerUsed > 250) {
       const closestDamagedStructure = tower.pos.findClosestByRange(FIND_STRUCTURES, {
         filter: (s) => {
           return s.hits < s.hitsMax && (
@@ -151,6 +159,26 @@ class Tower extends OrgBase {
   }
   toString() {
     return `---- Tower - ID: ${this.id}, Energy: ${this.energy}, DefenseHitsLimit: ${this.defenseHitsLimit}`;
+  }
+  requestEnergy() {
+    const towerFree = this.tower.store.getFreeCapacity(RESOURCE_ENERGY);
+    const towerTotal = this.tower.store.getCapacity(RESOURCE_ENERGY);
+
+    const pickupId = this.getParent().getClosestStoreWithEnergy(this.tower);
+    const amount = towerFree - this.haulerUsedCapacity;
+
+    // The -0.01 is so that we haul full mining containers before fueling towers
+    const priority = 1 - ((this.towerUsed - 250 + this.haulerUsedCapacity) / towerTotal);
+
+    const details = {
+      [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
+      [MEMORY.MEMORY_HAUL_PICKUP]: pickupId,
+      [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
+      [MEMORY.MEMORY_HAUL_DROPOFF]: this.tower.id,
+      [MEMORY.MEMORY_HAUL_AMOUNT]: amount,
+    };
+
+    this.sendRequest(TOPICS.TOPIC_HAUL_TASK, priority, details, REQUEST_ENERGY_TTL);
   }
 }
 

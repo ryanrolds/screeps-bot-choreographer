@@ -3,48 +3,61 @@ const Colony = require('./org.colony');
 const WarParty = require('./org.warparty');
 const ResourceGovernor = require('./org.resource_governor');
 const Topics = require('./lib.topics');
+const featureFlags = require('./lib.feature_flags')
+const {doEvery} = require('./lib.scheduler');
 
 const helpersCreeps = require('./helpers.creeps');
 const MEMORY = require('./constants.memory');
 
 class Kingdom extends OrgBase {
-  constructor(colonies, trace) {
+  constructor(config, trace) {
     super(null, 'kingdom', trace);
 
+    const setupTrace = this.trace.begin('constructor');
+
+    this.config = config;
+    this.colonies = {};
+    this.warParties = {};
     this.topics = new Topics();
+
+    this.resourceGovernor = new ResourceGovernor(this, setupTrace);
+
+    setupTrace.end();
+  }
+  update(trace) {
+    const updateTrace = trace.begin('update');
+
+    if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+      this.topics.reset();
+    }
+
+    // was constructor
     this.stats = {
       rooms: {}, // DEPRECATED, use colonies
       colonies: {},
       sources: {},
       spawns: {},
     };
+
     this.creeps = _.values(Game.creeps);
 
-    const setupTrace = this.trace.begin('constructor');
-
     this.colonyIdMap = {};
-    this.colonies = Object.values(colonies).map((colony) => {
-      const orgColony = new Colony(this, colony, setupTrace);
+    this.colonies = Object.values(this.config).map((colony) => {
+      const orgColony = new Colony(this, colony, updateTrace);
       this.colonyIdMap[colony.id] = orgColony;
       return orgColony;
     });
 
     this.warParties = Object.values(Game.flags).reduce((parties, flag) => {
       if (flag.name.startsWith('attack')) {
-        parties[flag.name] = new WarParty(this, flag, setupTrace);
+        parties[flag.name] = new WarParty(this, flag, updateTrace);
       }
 
       return parties;
     }, {});
+    // was constructor end
 
-    this.resourceGovernor = new ResourceGovernor(this, setupTrace);
-
-    setupTrace.end();
-  }
-  update() {
     console.log(this);
-
-    const updateTrace = this.trace.begin('update');
 
     Object.values(this.warParties).forEach((party) => {
       party.update();
@@ -58,8 +71,8 @@ class Kingdom extends OrgBase {
 
     updateTrace.end();
   }
-  process() {
-    const processTrace = this.trace.begin('process');
+  process(trace) {
+    const processTrace = trace.begin('process');
 
     Object.values(this.warParties).forEach((party) => {
       party.process();

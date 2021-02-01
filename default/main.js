@@ -1,4 +1,5 @@
 const tracing = require('./lib.tracing');
+const AI = require('./lib.ai')
 const Kingdom = require('./org.kingdom');
 
 global.TRACING_ACTIVE = false;
@@ -43,17 +44,26 @@ if (Game.shard.name === 'shardSeason') {
   };
 }
 
+const ai = new AI(config);
+
 module.exports.loop = function() {
+  const trace = tracing.startTrace('main');
+
   if (global.TRACING_ACTIVE === true) {
     tracing.setActive();
   } else {
     tracing.setInactive();
   }
 
-  const trace = tracing.startTrace('main');
-
   console.log('======== TICK', Game.time, '========');
 
+  const aiTrace = trace.begin('ai')
+
+  ai.tick(aiTrace);
+
+  aiTrace.end();
+
+  /*
   const kingdomTrace = trace.begin('kingdom');
 
   const kingdom = new Kingdom(config, kingdomTrace);
@@ -61,9 +71,10 @@ module.exports.loop = function() {
   kingdom.process();
 
   kingdomTrace.end();
+  */
+
+  console.log('--------------------------------');
 
   trace.end();
   tracing.report();
-
-  console.log('--------------------------------');
 };

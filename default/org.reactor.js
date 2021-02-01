@@ -4,10 +4,15 @@ const MEMORY = require('./constants.memory');
 const TASKS = require('./constants.tasks');
 const TOPICS = require('./constants.topics');
 const PRIORITIES = require('./constants.priorities');
+const featureFlags = require('./lib.feature_flags')
+const {doEvery} = require('./lib.scheduler');
 
 const TASK_PHASE_LOAD = 'phase_transfer_resources';
 const TASK_PHASE_REACT = 'phase_react';
 const TASK_PHASE_UNLOAD = 'phase_unload';
+
+const REQUEST_RESOURCE_TTL = 100;
+const REQUEST_LOAD_TTL = 50;
 
 class Reactor extends OrgBase {
   constructor(parent, labs, trace) {
@@ -19,6 +24,14 @@ class Reactor extends OrgBase {
     this.room = this.getRoom().getRoomObject();
     this.terminal = this.getRoom().getTerminal();
     this.task = this.getRoom().roomObject.memory[MEMORY.REACTOR_TASK] || null;
+
+    this.doRequestResource = doEvery(REQUEST_RESOURCE_TTL)((lab, resource, missingAmount) => {
+      this.requestResource(lab, resource, missingAmount);
+    })
+
+    this.doLoadLab = doEvery(REQUEST_LOAD_TTL)((lab, pickup, resource, missingAmount) => {
+      this.loadLab(lab, pickup, resource, missingAmount);
+    })
 
     setupTrace.end();
   }
@@ -70,7 +83,7 @@ class Reactor extends OrgBase {
     }
   }
   process() {
-    if (!this.getRoom().roomObject.memory[MEMORY.REACTOR_TASK]) {
+    if (!this.task) {
       const task = this.getKingdom().getNextRequest(TOPICS.TASK_REACTION);
       if (task) {
         this.room.memory[MEMORY.REACTOR_TASK] = task;
@@ -125,9 +138,17 @@ class Reactor extends OrgBase {
       const missingAmount = desiredAmount - currentAmount;
 
       if (!pickup) {
-        this.requestResource(lab, resource, missingAmount);
+        if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+          this.requestResource(lab, resource, missingAmount);
+        } else {
+          this.doRequestResource(lab, resource, missingAmount)
+        }
       } else {
-        this.loadLab(lab, pickup, resource, missingAmount);
+        if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+          this.loadLab(lab, pickup, resource, missingAmount);
+        } else {
+          this.doLoadLab(lab, pickup, resource, missingAmount)
+        }
       }
 
       return false;

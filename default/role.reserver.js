@@ -89,6 +89,7 @@ const behavior = behaviorTree.selectorNode(
 
               if (!room.unowned && !room.claimedByName && !room.reservedByMe) {
                 const result = creep.attackController(creep.room.controller);
+                console.log("attack result", result)
                 if (result != OK) {
                   return behaviorTree.FAILURE;
                 }

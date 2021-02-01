@@ -4,6 +4,12 @@ const MEMORY = require('./constants.memory');
 const TASKS = require('./constants.tasks');
 const TOPICS = require('./constants.topics');
 const PRIORITIES = require('./constants.priorities');
+const featureFlags = require('./lib.feature_flags')
+const {doEvery} = require('./lib.scheduler');
+
+const REQUEST_UNLOAD_TTL = 50;
+const REQUEST_LOAD_TTL = 50;
+const REQUEST_ENERGY__TTL = 50;
 
 class Compound {
   constructor(name, effect, bonus) {
@@ -33,6 +39,18 @@ class Booster extends OrgBase {
     this.resources = this.getLabResources();
     // this.availableEffects = this.getAvailableEffects();
     // this.loadedEffects = this.getLoadedEffects();
+
+    this.doRequestUnloadOfLabs = doEvery(REQUEST_UNLOAD_TTL)((loadedEffects, needToUnload) => {
+      this.requestUnloadOfLabs(loadedEffects, needToUnload);
+    })
+
+    this.doRequestMaterialsForLabs = doEvery(REQUEST_LOAD_TTL)((desiredEffects, needToLoad) => {
+      this.requestMaterialsForLabs(desiredEffects, needToLoad);
+    })
+
+    this.doRequestEnergyForLabs = doEvery(REQUEST_ENERGY__TTL)((loadedEffects, preparedName) => {
+      this.requestEnergyForLabs(loadedEffects, preparedName);
+    })
 
     setupTrace.end();
   }
@@ -177,117 +195,136 @@ class Booster extends OrgBase {
     }
 
     if (needToLoad.length > 0 && needToUnload.length > 0) {
-      const toUnload = needToUnload.pop();
-      if (toUnload) {
-        const effect = loadedEffects[toUnload];
-        const compound = effect.compounds[0];
-
-        const pickup = this.getLabByResource(compound.name);
-        if (!pickup) {
-          console.log('No pickup for already loaded compound', compound.name);
-          return;
-        }
-
-        const dropoff = this.getRoom().getReserveStructureWithRoomForResource(compound.name);
-        if (!dropoff) {
-          console.log('No dropoff for already loaded compound', compound.name);
-          return;
-        }
-
-        const details = {
-          [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
-          [MEMORY.MEMORY_HAUL_PICKUP]: pickup.id,
-          [MEMORY.MEMORY_HAUL_RESOURCE]: compound.name,
-          [MEMORY.MEMORY_HAUL_DROPOFF]: dropoff.id,
-          [MEMORY.MEMORY_HAUL_AMOUNT]: pickup.store.getUsedCapacity(compound.name),
-        };
-
-        console.log('boost unload', PRIORITIES.HAUL_BOOST, JSON.stringify(details));
-
-        this.sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details);
+      if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+        this.requestUnloadOfLabs(loadedEffects, needToUnload)
+      } else {
+        this.doRequestUnloadOfLabs(loadedEffects, needToUnload)
       }
     } else if (needToLoad.length > 0) {
-      const toLoad = needToLoad.pop();
-      if (toLoad) {
-        console.log('toload', toLoad, JSON.stringify(desiredEffects));
-        const effect = desiredEffects[toLoad];
-
-        // Refactor this to a a function that further filters a set of effects
-        const compound = effect.compounds.reduce((selected, compound) => {
-          if (reserveResources[compound.name] > 400) {
-            if (!selected) {
-              selected = compound;
-            }
-
-            if (effect.name != 'damage') {
-              if (selected.bonus < compound.bonus) {
-                selected = compound;
-              }
-            } else {
-              if (selected.bonus > compound.bonus) {
-                selected = compound;
-              }
-            }
-          }
-
-          return selected;
-        }, null);
-
-        if (!compound) {
-          // TODO request terminal transfer
-          console.log('No local compound found', JSON.stringify(effect));
-          return;
-        }
-
-        const emptyLabs = this.getEmptyLabs();
-        if (emptyLabs.length === 0) {
-          console.log('No destination for available compound', compound.name);
-          return;
-        }
-
-        const pickup = this.getRoom().getReserveStructureWithMostOfAResource(compound.name, true);
-        if (!pickup) {
-          console.log('No pickup for available compound', compound.name);
-          return;
-        }
-
-        const details = {
-          [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
-          [MEMORY.MEMORY_HAUL_PICKUP]: pickup.id,
-          [MEMORY.MEMORY_HAUL_RESOURCE]: compound.name,
-          [MEMORY.MEMORY_HAUL_DROPOFF]: emptyLabs[0].id,
-          [MEMORY.MEMORY_HAUL_AMOUNT]: 400,
-        };
-
-        console.log('boost load material', PRIORITIES.HAUL_BOOST, JSON.stringify(details));
-
-        this.sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details);
+      if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+        this.requestMaterialsForLabs(desiredEffects, needToLoad)
+      } else {
+        this.doRequestMaterialsForLabs(desiredEffects, needToLoad)
       }
     } else if (preparedNames.length > 0) {
-      preparedNames.forEach((effectName) => {
-        const effect = loadedEffects[effectName];
-        const compound = effect.compounds[0];
-
-        const pickup = this.getRoom().getReserveStructureWithMostOfAResource(compound.name, true);
-        const lab = this.getLabByResource(compound.name);
-
-        const currentEnergy = lab.store.getUsedCapacity(RESOURCE_ENERGY);
-        if (currentEnergy < 500) {
-          const details = {
-            [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
-            [MEMORY.MEMORY_HAUL_PICKUP]: pickup.id,
-            [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
-            [MEMORY.MEMORY_HAUL_AMOUNT]: 2000 - currentEnergy,
-          };
-
-          console.log('boost load energy', PRIORITIES.HAUL_BOOST, JSON.stringify(details));
-
-          this.sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details);
-        }
-      });
+      if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+        this.requestEnergyForLabs(loadedEffects, preparedNames)
+      } else {
+        this.doRequestEnergyForLabs(loadedEffects, preparedNames)
+      }
     }
 
     this.updateStats(preparedNames, needToUnload, needToLoad);
+  }
+  requestUnloadOfLabs(loadedEffects, needToUnload) {
+    needToUnload.forEach((toUnload) => {
+      const effect = loadedEffects[toUnload];
+      const compound = effect.compounds[0];
+
+      const pickup = this.getLabByResource(compound.name);
+      if (!pickup) {
+        console.log('No pickup for already loaded compound', compound.name);
+        return;
+      }
+
+      const dropoff = this.getRoom().getReserveStructureWithRoomForResource(compound.name);
+      if (!dropoff) {
+        console.log('No dropoff for already loaded compound', compound.name);
+        return;
+      }
+
+      const details = {
+        [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
+        [MEMORY.MEMORY_HAUL_PICKUP]: pickup.id,
+        [MEMORY.MEMORY_HAUL_RESOURCE]: compound.name,
+        [MEMORY.MEMORY_HAUL_DROPOFF]: dropoff.id,
+        [MEMORY.MEMORY_HAUL_AMOUNT]: pickup.store.getUsedCapacity(compound.name),
+      };
+
+      console.log('boost unload', PRIORITIES.HAUL_BOOST, JSON.stringify(details));
+
+      this.sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details, REQUEST_UNLOAD_TTL);
+    });
+  }
+  requestMaterialsForLabs(desiredEffects, needToLoad) {
+    needToLoad.forEach((effect) => {
+      console.log('toload', toLoad, JSON.stringify(desiredEffects));
+      const effect = desiredEffects[toLoad];
+
+      // Refactor this to a a function that further filters a set of effects
+      const compound = effect.compounds.reduce((selected, compound) => {
+        if (reserveResources[compound.name] > 400) {
+          if (!selected) {
+            selected = compound;
+          }
+
+          if (effect.name != 'damage') {
+            if (selected.bonus < compound.bonus) {
+              selected = compound;
+            }
+          } else {
+            if (selected.bonus > compound.bonus) {
+              selected = compound;
+            }
+          }
+        }
+
+        return selected;
+      }, null);
+
+      if (!compound) {
+        // TODO request terminal transfer
+        console.log('No local compound found', JSON.stringify(effect));
+        return;
+      }
+
+      const emptyLabs = this.getEmptyLabs();
+      if (emptyLabs.length === 0) {
+        console.log('No destination for available compound', compound.name);
+        return;
+      }
+
+      const pickup = this.getRoom().getReserveStructureWithMostOfAResource(compound.name, true);
+      if (!pickup) {
+        console.log('No pickup for available compound', compound.name);
+        return;
+      }
+
+      const details = {
+        [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
+        [MEMORY.MEMORY_HAUL_PICKUP]: pickup.id,
+        [MEMORY.MEMORY_HAUL_RESOURCE]: compound.name,
+        [MEMORY.MEMORY_HAUL_DROPOFF]: emptyLabs[0].id,
+        [MEMORY.MEMORY_HAUL_AMOUNT]: 400,
+      };
+
+      console.log('boost load material', PRIORITIES.HAUL_BOOST, JSON.stringify(details));
+
+      this.sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details, REQUEST_LOAD_TTL);
+    })
+  }
+  requestEnergyForLabs(loadedEffects, preparedNames) {
+    preparedNames.forEach((effectName) => {
+      const effect = loadedEffects[effectName];
+      const compound = effect.compounds[0];
+
+      const pickup = this.getRoom().getReserveStructureWithMostOfAResource(compound.name, true);
+      const lab = this.getLabByResource(compound.name);
+
+      const currentEnergy = lab.store.getUsedCapacity(RESOURCE_ENERGY);
+      if (currentEnergy < 500) {
+        const details = {
+          [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
+          [MEMORY.MEMORY_HAUL_PICKUP]: pickup.id,
+          [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
+          [MEMORY.MEMORY_HAUL_AMOUNT]: 2000 - currentEnergy,
+        };
+
+        console.log('boost load energy', PRIORITIES.HAUL_BOOST, JSON.stringify(details));
+
+        this.sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details, REQUEST_ENERGY__TTL);
+      }
+    });
   }
 }
 

@@ -3,9 +3,13 @@ const TOPICS = require('./constants.topics');
 const MEMORY = require('./constants.memory');
 const TASKS = require('./constants.tasks');
 const PRIORITIES = require('./constants.priorities');
+const featureFlags = require('./lib.feature_flags')
+const {doEvery} = require('./lib.scheduler');
 
 const RESERVE_LIMIT = 5000;
 const REACTION_BATCH_SIZE = 1000;
+const REQUEST_REACTION_TTL = 100;
+const REQUEST_SELL_TTL = 100;
 
 class Resources extends OrgBase {
   constructor(parent, trace) {
@@ -13,6 +17,36 @@ class Resources extends OrgBase {
 
     const setupTrace = this.trace.begin('constructor');
 
+    this.doRequestReactions = doEvery(REQUEST_REACTION_TTL)(() => {
+      this.availableReactions.forEach((reaction) => {
+        this.requestReaction(reaction);
+      });
+    })
+
+    this.doRequestSell = doEvery(REQUEST_SELL_TTL)(() => {
+      const colonies = this.getKingdom().getColonies();
+      colonies.forEach((colony) => {
+        const resources = colony.getReserveResources();
+
+        Object.keys(resources).forEach((resource) => {
+          if (resource === RESOURCE_ENERGY) {
+            return;
+          }
+
+          if (resources[resource] > RESERVE_LIMIT) {
+            const amount = resources[resource] - RESERVE_LIMIT
+            this.requestSellResource(colony, resource, amount)
+          }
+        });
+      });
+    });
+
+    setupTrace.end();
+  }
+  update() {
+    const updateTrace = this.trace.begin('constructor');
+
+    // was in contstructor
     this.resources = this.getKingdom().getReserveResources(true);
     this.activeReactions = this.getKingdom().getReactors().filter((reactor) => {
       return !reactor.isIdle();
@@ -20,54 +54,47 @@ class Resources extends OrgBase {
       return reactor.getOutput();
     });
     this.availableReactions = this.getReactions();
+    // win in constructor end
 
-    setupTrace.end();
-  }
-  update() {
-    this.availableReactions.forEach((reaction) => {
-      const priority = PRIORITIES.REACTION_PRIORITIES[reaction['output']];
-      const details = {
-        [MEMORY.REACTOR_TASK_TYPE]: TASKS.REACTION,
-        [MEMORY.REACTOR_INPUT_A]: reaction['inputA'],
-        [MEMORY.REACTOR_INPUT_B]: reaction['inputB'],
-        [MEMORY.REACTOR_OUTPUT]: reaction['output'],
-        [MEMORY.REACTOR_AMOUNT]: REACTION_BATCH_SIZE,
-      };
-      this.getKingdom().sendRequest(TOPICS.TASK_REACTION, priority, details);
-    });
-
-    const colonies = this.getKingdom().getColonies();
-    colonies.forEach((colony) => {
-      const resources = colony.getReserveResources();
-
-      Object.keys(resources).forEach((resource) => {
-        if (resource === RESOURCE_ENERGY) {
-          return;
-        }
-
-        if (resources[resource] > RESERVE_LIMIT) {
-          const details = {
-            [MEMORY.TERMINAL_TASK_TYPE]: TASKS.TASK_MARKET_ORDER,
-            [MEMORY.MEMORY_ORDER_TYPE]: ORDER_SELL,
-            [MEMORY.MEMORY_ORDER_RESOURCE]: resource,
-            [MEMORY.MEMORY_ORDER_AMOUNT]: resources[resource] - RESERVE_LIMIT,
-          };
-
-          colony.sendRequest(TOPICS.TOPIC_TERMINAL_TASK, PRIORITIES.TERMINAL_SELL,
-            details);
-        }
+    if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+      this.availableReactions.forEach((reaction) => {
+        this.requestReaction(reaction);
       });
-    });
+    } else {
+      this.doRequestReactions();
+    }
+
+    if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+      const colonies = this.getKingdom().getColonies();
+      colonies.forEach((colony) => {
+        const resources = colony.getReserveResources();
+
+        Object.keys(resources).forEach((resource) => {
+          if (resource === RESOURCE_ENERGY) {
+            return;
+          }
+
+          if (resources[resource] > RESERVE_LIMIT) {
+            const amount = resources[resource] - RESERVE_LIMIT
+            this.requestSellResource(colony, resource, amount)
+          }
+        });
+      });
+    } else {
+      this.doRequestSellExtraResources()
+    }
 
     console.log(this);
+
+    updateTrace.end();
   }
   process() {
     this.updateStats();
   }
   toString() {
     const reactions = this.availableReactions.map((reaction) => {
-return reaction.output;
-});
+      return reaction.output;
+    });
 
     return `** Resource Gov - Resources: ${JSON.stringify(this.resources)}, ` +
       `NextReactions: ${reactions.join(' ')}, CurrentReactions: ${this.activeReactions}`;
@@ -131,6 +158,28 @@ return reaction.output;
 
       return priority;
     });
+  }
+  requestReaction(reaction) {
+    const priority = PRIORITIES.REACTION_PRIORITIES[reaction['output']];
+    const details = {
+      [MEMORY.REACTOR_TASK_TYPE]: TASKS.REACTION,
+      [MEMORY.REACTOR_INPUT_A]: reaction['inputA'],
+      [MEMORY.REACTOR_INPUT_B]: reaction['inputB'],
+      [MEMORY.REACTOR_OUTPUT]: reaction['output'],
+      [MEMORY.REACTOR_AMOUNT]: REACTION_BATCH_SIZE,
+    };
+    this.getKingdom().sendRequest(TOPICS.TASK_REACTION, priority, details);
+  }
+  requestSellResource(colony, resource, amount) {
+    const details = {
+      [MEMORY.TERMINAL_TASK_TYPE]: TASKS.TASK_MARKET_ORDER,
+      [MEMORY.MEMORY_ORDER_TYPE]: ORDER_SELL,
+      [MEMORY.MEMORY_ORDER_RESOURCE]: resource,
+      [MEMORY.MEMORY_ORDER_AMOUNT]: amount,
+    };
+
+    colony.sendRequest(TOPICS.TOPIC_TERMINAL_TASK, PRIORITIES.TERMINAL_SELL,
+      details, REQUEST_SELL_TTL);
   }
 }
 

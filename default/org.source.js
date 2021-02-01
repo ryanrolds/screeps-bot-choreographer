@@ -6,6 +6,10 @@ const TOPICS = require('./constants.topics');
 const CREEPS = require('./constants.creeps');
 const PRIORITIES = require('./constants.priorities');
 const {creepIsFresh} = require('./behavior.commute');
+const featureFlags = require('./lib.feature_flags')
+const {doEvery} = require('./lib.scheduler');
+
+const REQUEST_WORKER_TTL = 100;
 
 class Source extends OrgBase {
   constructor(parent, source, sourceType, trace) {
@@ -14,9 +18,19 @@ class Source extends OrgBase {
     const setupTrace = this.trace.begin('constructor');
 
     this.sourceType = sourceType;
-    this.gameObject = source;
+    this.gameObject = source; // DEPRECATED
+    this.source = source;
     this.roomID = source.room.name;
 
+    this.container = null;
+    this.containerID = null;
+    this.containerUser = null;
+
+    setupTrace.end();
+  }
+  update() {
+    // was constructor
+    const source = this.source;
     const containers = source.pos.findInRange(FIND_STRUCTURES, 2, {
       filter: (structure) => {
         return structure.structureType === STRUCTURE_CONTAINER;
@@ -24,10 +38,6 @@ class Source extends OrgBase {
     });
 
     const container = source.pos.findClosestByRange(containers);
-
-    this.container = null;
-    this.containerID = null;
-    this.containerUser = null;
 
     if (container) {
       this.container = container;
@@ -62,10 +72,8 @@ class Source extends OrgBase {
     this.haulerCapacity = _.reduce(this.haulersWithTask, (total, hauler) => {
       return total += hauler.store.getFreeCapacity();
     }, 0);
+    // was constructor end
 
-    setupTrace.end();
-  }
-  update() {
     // console.log(this);
 
     const room = this.getColony().getRoomByID(this.roomID);
@@ -95,38 +103,19 @@ class Source extends OrgBase {
     }
 
     if (this.numHarvesters < desiredHarvesters) {
-      // As we get more harvesters, make sure other creeps get a chance to spawn
-      const priority = PRIORITIES.PRIORITY_HARVESTER - (this.numHarvesters * 1.5);
-      this.sendRequest(TOPICS.TOPIC_SPAWN, priority, {
-        role: CREEPS.WORKER_HARVESTER,
-        memory: {
-          [MEMORY.MEMORY_HARVEST]: this.id, // Deprecated
-          [MEMORY.MEMORY_HARVEST_ROOM]: this.roomID, // Deprecated
-          [MEMORY.MEMORY_SOURCE]: this.id,
-          [MEMORY.MEMORY_ASSIGN_ROOM]: this.roomID,
-        },
-      });
+      if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+        this.requestHarvester()
+      } else {
+        this.doRequestHarvester()
+      }
     }
 
     if (this.numMiners < desiredMiners) {
-      const role = CREEPS.WORKER_MINER;
-      let priority = PRIORITIES.PRIORITY_MINER;
-
-      // Energy sources in unowned rooms require half as many parts
-      if (!this.gameObject.room.controller.my) {
-        priority = PRIORITIES.PRIORITY_REMOTE_MINER;
+      if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+        this.requestMiner()
+      } else {
+        this.doRequestMiner()
       }
-
-      this.sendRequest(TOPICS.TOPIC_SPAWN, priority, {
-        role: role,
-        memory: {
-          [MEMORY.MEMORY_HARVEST]: this.id, // Deprecated
-          [MEMORY.MEMORY_HARVEST_CONTAINER]: this.containerID,
-          [MEMORY.MEMORY_HARVEST_ROOM]: this.roomID, // Deprecated
-          [MEMORY.MEMORY_SOURCE]: this.id,
-          [MEMORY.MEMORY_ASSIGN_ROOM]: this.roomID,
-        },
-      });
     }
   }
   process() {
@@ -179,6 +168,39 @@ class Source extends OrgBase {
 
       this.sendRequest(TOPICS.TOPIC_HAUL_TASK, loadPriority, details);
     }
+  }
+  requestHarvester() {
+    // As we get more harvesters, make sure other creeps get a chance to spawn
+    const priority = PRIORITIES.PRIORITY_HARVESTER - (this.numHarvesters * 1.5);
+    this.sendRequest(TOPICS.TOPIC_SPAWN, priority, {
+      role: CREEPS.WORKER_HARVESTER,
+      memory: {
+        [MEMORY.MEMORY_HARVEST]: this.id, // Deprecated
+        [MEMORY.MEMORY_HARVEST_ROOM]: this.roomID, // Deprecated
+        [MEMORY.MEMORY_SOURCE]: this.id,
+        [MEMORY.MEMORY_ASSIGN_ROOM]: this.roomID,
+      },
+    }, REQUEST_WORKER_TTL);
+  }
+  requestMiner() {
+    const role = CREEPS.WORKER_MINER;
+    let priority = PRIORITIES.PRIORITY_MINER;
+
+    // Energy sources in unowned rooms require half as many parts
+    if (!this.gameObject.room.controller.my) {
+      priority = PRIORITIES.PRIORITY_REMOTE_MINER;
+    }
+
+    this.sendRequest(TOPICS.TOPIC_SPAWN, priority, {
+      role: role,
+      memory: {
+        [MEMORY.MEMORY_HARVEST]: this.id, // Deprecated
+        [MEMORY.MEMORY_HARVEST_CONTAINER]: this.containerID,
+        [MEMORY.MEMORY_HARVEST_ROOM]: this.roomID, // Deprecated
+        [MEMORY.MEMORY_SOURCE]: this.id,
+        [MEMORY.MEMORY_ASSIGN_ROOM]: this.roomID,
+      },
+    }, REQUEST_WORKER_TTL);
   }
 }
 

@@ -3,6 +3,8 @@ const Spawner = require('./org.spawner');
 const OrgBase = require('./org.base');
 const Topics = require('./lib.topics');
 const Pid = require('./lib.pid');
+const featureFlags = require('./lib.feature_flags')
+const {doEvery} = require('./lib.scheduler');
 
 const MEMORY = require('./constants.memory');
 const WORKERS = require('./constants.creeps');
@@ -14,6 +16,9 @@ const {WORKER_RESERVER, WORKER_DEFENDER} = require('./constants.creeps');
 const {PRIORITY_CLAIMER, PRIORITY_DEFENDER, PRIORITY_HAULER} = require('./constants.priorities');
 
 const MAX_DEFENDERS = 3;
+const REQUEST_MISSING_ROOMS_TTL = 200;
+const REQUEST_HAULER_TTL = 75;
+const REQUEST_DEFENDER_TTL = 100;
 
 class Colony extends OrgBase {
   constructor(parent, colony, trace) {
@@ -24,15 +29,39 @@ class Colony extends OrgBase {
     this.topics = new Topics();
 
     this.primaryRoomId = colony.primary;
+    this.desiredRooms = colony.rooms;
+
     this.primaryRoom = Game.rooms[this.primaryRoomId];
 
-    this.desiredRooms = colony.rooms;
+    if (this.primaryRoom) {
+      Pid.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, 1, 0.15, 0.00009, 0);
+    }
+
+    this.doRequestReserversForMissingRooms = doEvery(REQUEST_MISSING_ROOMS_TTL)(() => {
+      this.requestReserverForMissingRooms();
+    })
+
+    this.doRequestHaulers = doEvery(REQUEST_HAULER_TTL)(() => {
+      this.requestHaulers();
+    })
+
+    setupTrace.end();
+  }
+  update(trace) {
+    const updateTrace = this.trace.begin('update')
+
+    // was constructor
+    if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+      this.topics.reset();
+    }
+
     this.missingRooms = _.difference(this.desiredRooms, Object.keys(Game.rooms));
     this.colonyRooms = _.difference(this.desiredRooms, this.missingRooms);
 
-    this.assignedCreeps = _.filter(parent.getCreeps(), (creep) => {
+    this.assignedCreeps = _.filter(this.getParent().getCreeps(), (creep) => {
       return creep.memory[MEMORY.MEMORY_COLONY] === this.id;
     });
+    this.numCreeps = this.assignedCreeps.length
 
     this.defenders = _.filter(this.assignedCreeps, (creep) => {
       return creep.memory[MEMORY_ROLE] == WORKER_DEFENDER &&
@@ -45,21 +74,17 @@ class Colony extends OrgBase {
         creepIsFresh(creep);
     });
 
-    this.numCreeps = _.filter(this.assignedCreeps, (creep) => {
-      return creep.memory[MEMORY_COLONY] === this.id;
-    }).length;
-
     this.numHaulers = this.haulers.length;
+
+    // TODO update every X ticks
     this.avgHaulerCapacity = _.reduce(this.haulers, (total, hauler) => {
       return total + hauler.store.getCapacity();
-    }, 0) / this.haulers.length;
-
-    this.builds = [];
+    }, 0) / this.haulers.length;;
 
     this.roomMap = [];
     this.rooms = this.colonyRooms.reduce((rooms, id) => {
       if (Game.rooms[id]) {
-        const room = new Room(this, Game.rooms[id], setupTrace);
+        const room = new Room(this, Game.rooms[id], updateTrace);
         this.roomMap[id] = room;
         rooms.push(room);
       }
@@ -72,7 +97,7 @@ class Colony extends OrgBase {
     this.spawns = this.rooms.reduce((spawns, room) => {
       const roomSpawns = room.getSpawns();
       roomSpawns.forEach((spawn) => {
-        spawns.push(new Spawner(this, spawn, setupTrace));
+        spawns.push(new Spawner(this, spawn, updateTrace));
       });
 
       return spawns;
@@ -81,49 +106,15 @@ class Colony extends OrgBase {
     this.availableSpawns = this.spawns.filter((spawner) => {
       return !spawner.getSpawning();
     });
+    // was constructor end
 
-    if (this.primaryRoom) {
-      // PIDS
-      //this.haulerSetpoint = this.desiredRooms.length;
-      this.haulerSetpoint = 1;
-      Pid.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, this.haulerSetpoint, 0.15, 0.00009, 0);
-    }
-
-    setupTrace.end();
-  }
-  update() {
     console.log(this);
 
-    this.missingRooms.forEach((roomID) => {
-      const numReservers = _.filter(this.assignedCreeps, (creep) => {
-        return creep.memory[MEMORY_ROLE] == WORKERS.WORKER_RESERVER &&
-          creep.memory[MEMORY_ASSIGN_ROOM] === roomID;
-      }).length;
-
-      // A reserver is already assigned, don't send more
-      if (numReservers) {
-        return;
-      }
-
-      if (this.spawns.length) {
-        this.sendRequest(TOPIC_SPAWN, PRIORITY_CLAIMER, {
-          role: WORKER_RESERVER,
-          memory: {
-            [MEMORY_ASSIGN_ROOM]: roomID,
-          },
-        });
-      } else {
-        // Bootstrapping a new colony requires another colony sending
-        // creeps to claim and build a spawner
-        this.getParent().sendRequest(TOPIC_SPAWN, PRIORITY_CLAIMER, {
-          role: WORKER_RESERVER,
-          memory: {
-            [MEMORY_ASSIGN_ROOM]: roomID,
-            [MEMORY.MEMORY_COLONY]: this.id,
-          },
-        });
-      }
-    });
+    if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+      this.requestReserverForMissingRooms();
+    } else {
+      this.doRequestReserversForMissingRooms();
+    }
 
     this.rooms.forEach((room) => {
       room.update();
@@ -136,42 +127,18 @@ class Colony extends OrgBase {
     // Check intra-colony requests for defenders
     const request = this.getNextRequest(TOPIC_DEFENDERS);
     if (request) {
-      console.log('DEFENDER REQUEST', JSON.stringify(request));
-
-      const neededDefenders = MAX_DEFENDERS - this.defenders.length;
-      if (neededDefenders > 0) {
-        // If the colony has spawners and is off sufficient size spawn own defenders,
-        // otherwise ask for help from other colonies
-        if (this.spawns.length && (this.primaryRoom && this.primaryRoom.controller.level > 3)) {
-          this.sendRequest(TOPIC_SPAWN, PRIORITY_DEFENDER, request.details);
-        } else {
-          request.details.memory[MEMORY.MEMORY_COLONY] = this.id;
-          this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITY_DEFENDER, request.details);
-        }
-      }
-
-      // Order existing defenders to the room
-      this.defenders.forEach((defender) => {
-        defender.memory[MEMORY_ASSIGN_ROOM] = request.details.memory[MEMORY_ASSIGN_ROOM];
-      });
+      this.handleDefenderRequest(request)
     }
 
     if (this.primaryOrgRoom.hasStorage) {
-      // Fraction of num haul tasks
-      const numHaulTasks = this.getTopicLength(TOPIC_HAUL_TASK);
-      this.pidDesiredHaulers = 0;
-      if (this.primaryRoom) {
-        // PID approach
-        this.pidDesiredHaulers = Pid.update(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS,
-          numHaulTasks, Game.time);
-        if (this.numHaulers < this.pidDesiredHaulers) {
-          this.sendRequest(TOPIC_SPAWN, PRIORITY_HAULER, {
-            role: WORKERS.WORKER_HAULER,
-            memory: {},
-          });
-        }
+      if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+        this.requestHaulers();
+      } else {
+        this.doRequestHaulers();
       }
     }
+
+    updateTrace.end();
   }
   process() {
     this.updateStats();
@@ -277,6 +244,74 @@ class Colony extends OrgBase {
 
     const stats = this.getStats();
     stats.colonies[this.id] = colonyStats;
+  }
+  handleDefenderRequest(request) {
+    console.log('DEFENDER REQUEST', JSON.stringify(request));
+
+    const neededDefenders = MAX_DEFENDERS - this.defenders.length;
+    if (neededDefenders > 0) {
+      // If the colony has spawners and is off sufficient size spawn own defenders,
+      // otherwise ask for help from other colonies
+      if (this.spawns.length && (this.primaryRoom && this.primaryRoom.controller.level > 3)) {
+        this.sendRequest(TOPIC_SPAWN, PRIORITY_DEFENDER, request.details, REQUEST_DEFENDER_TTL);
+      } else {
+        request.details.memory[MEMORY.MEMORY_COLONY] = this.id;
+        this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITY_DEFENDER, request.details, REQUEST_DEFENDER_TTL);
+      }
+    }
+
+    // Order existing defenders to the room
+    this.defenders.forEach((defender) => {
+      defender.memory[MEMORY_ASSIGN_ROOM] = request.details.memory[MEMORY_ASSIGN_ROOM];
+    });
+  }
+  requestHaulers() {
+    // Fraction of num haul tasks
+    const numHaulTasks = this.getTopicLength(TOPIC_HAUL_TASK);
+    this.pidDesiredHaulers = 0;
+    if (this.primaryRoom) {
+      // PID approach
+      this.pidDesiredHaulers = Pid.update(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS,
+        numHaulTasks, Game.time);
+      if (this.numHaulers < this.pidDesiredHaulers) {
+        this.sendRequest(TOPIC_SPAWN, PRIORITY_HAULER, {
+          role: WORKERS.WORKER_HAULER,
+          memory: {},
+        }, REQUEST_HAULER_TTL);
+      }
+    }
+  }
+  requestReserverForMissingRooms() {
+    this.missingRooms.forEach((roomID) => {
+      const numReservers = _.filter(this.assignedCreeps, (creep) => {
+        return creep.memory[MEMORY_ROLE] == WORKERS.WORKER_RESERVER &&
+          creep.memory[MEMORY_ASSIGN_ROOM] === roomID;
+      }).length;
+
+      // A reserver is already assigned, don't send more
+      if (numReservers) {
+        return;
+      }
+
+      if (this.spawns.length) {
+        this.sendRequest(TOPIC_SPAWN, PRIORITY_CLAIMER, {
+          role: WORKER_RESERVER,
+          memory: {
+            [MEMORY_ASSIGN_ROOM]: roomID,
+          },
+        }, REQUEST_MISSING_ROOMS_TTL);
+      } else {
+        // Bootstrapping a new colony requires another colony sending
+        // creeps to claim and build a spawner
+        this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITY_CLAIMER, {
+          role: WORKER_RESERVER,
+          memory: {
+            [MEMORY_ASSIGN_ROOM]: roomID,
+            [MEMORY.MEMORY_COLONY]: this.id,
+          },
+        }, REQUEST_MISSING_ROOMS_TTL);
+      }
+    });
   }
 }
 

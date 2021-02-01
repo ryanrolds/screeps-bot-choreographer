@@ -1,7 +1,8 @@
 
+const DEFAULT_TTL = 500;
 class Topics {
   constructor() {
-    this.topics = {};
+    this.reset();
   }
   getTopic(topic) {
     if (!this.topics[topic]) {
@@ -17,11 +18,15 @@ class Topics {
 
     this.topics[topic] = value;
   }
+  reset() {
+    console.log('resetting topics')
+    this.topics = {};
+  }
   createTopic(topic) {
     this.topics[topic] = [];
     return this.topics[topic];
   }
-  addRequest(topicID, priority, details) {
+  addRequest(topicID, priority, details, ttl = DEFAULT_TTL) {
     let topic = this.getTopic(topicID);
     if (!topic) {
       topic = this.createTopic(topicID);
@@ -30,6 +35,7 @@ class Topics {
     const request = {
       priority,
       details,
+      ttl: Game.time + ttl,
     };
 
     topic.push(request);
@@ -53,7 +59,14 @@ class Topics {
       return null;
     }
 
-    const request = topic.pop();
+    let request = null;
+    while (request = topic.pop()) {
+      if (request.ttl < Game.time) {
+        continue
+      }
+
+      break;
+    }
 
     this.setTopic(topicID, topic);
 

@@ -3,12 +3,15 @@ const TOPICS = require('./constants.topics');
 const MEMORY = require('./constants.memory');
 const TASKS = require('./constants.tasks');
 const MARKET = require('./constants.market');
-
+const featureFlags = require('./lib.feature_flags')
+const {doEvery} = require('./lib.scheduler');
 
 const TASK_PHASE_HAUL_RESOURCE = 'phase_transfer_resource';
 const TASK_PHASE_TRANSACT = 'phase_transact';
 const TASK_PHASE_TRANSFER = 'phase_transfer';
 const TASK_TTL = 100;
+const REQUEST_HAUL_RESOURCE_TTL = 50;
+const REQUEST_RETURN_ENERGY = 50;
 
 class Terminal extends OrgBase {
   constructor(parent, terminal, trace) {
@@ -19,6 +22,14 @@ class Terminal extends OrgBase {
     this.terminal = terminal;
     this.room = parent.getRoomObject();
     this.task = this.room.memory[MEMORY.TERMINAL_TASK] || null;
+
+    this.doHaulRequest = doEvery(REQUEST_HAUL_RESOURCE_TTL)((resource, amount, priority) => {
+      this.sendHaulRequest(resource, amount, priority)
+    })
+
+    this.doReturnEnergy = doEvery(REQUEST_RETURN_ENERGY)((amount) => {
+      this.sendEnergyToStorage(amount)
+    });
 
     setupTrace.end();
   }
@@ -70,23 +81,16 @@ class Terminal extends OrgBase {
     // If reserve is low then transfer energy back
     const terminalAmount = this.terminal.store.getUsedCapacity(RESOURCE_ENERGY);
     if (this.getRoom().getAmountInReserve(RESOURCE_ENERGY) < 2000 && terminalAmount > 0) {
-      const reserve = this.getRoom().getReserveStructureWithRoomForResource(RESOURCE_ENERGY);
-      if (!reserve) {
-        return;
+      if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+        this.sendEnergyToStorage(terminalAmount)
+      } else {
+        this.doReturnEnergy(terminalAmount)
       }
-
-      const details = {
-        [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
-        [MEMORY.MEMORY_HAUL_PICKUP]: this.terminal.id,
-        [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
-        [MEMORY.MEMORY_HAUL_AMOUNT]: terminalAmount,
-        [MEMORY.MEMORY_HAUL_DROPOFF]: reserve.id,
-      };
-      this.sendRequest(TOPICS.TOPIC_HAUL_TASK, 0.8, details);
     }
   }
+
   process() {
-    if (!this.room.memory[MEMORY.TERMINAL_TASK]) {
+    if (!this.task) {
       const task = this.getNextRequest(TOPICS.TOPIC_TERMINAL_TASK);
       if (task) {
         this.task = task;
@@ -165,6 +169,10 @@ class Terminal extends OrgBase {
     const resource = task[MEMORY.MEMORY_ORDER_RESOURCE];
     const amount = task[MEMORY.MEMORY_ORDER_AMOUNT];
     const phase = task[MEMORY.TASK_PHASE] || TASK_PHASE_HAUL_RESOURCE;
+
+    if (phase != this.prevPhase) {
+      this.doHaulRequest.reset();
+    }
 
     switch (phase) {
       case TASK_PHASE_HAUL_RESOURCE:
@@ -273,6 +281,33 @@ class Terminal extends OrgBase {
       return;
     }
 
+    if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+      this.sendHaulRequest(resource, amount, 0.8)
+    } else {
+      this.doHaulRequest(resource, amount, 0.8)
+    }
+  }
+  haulTransferEnergyToTerminal(amount, destinationRoom) {
+    const energyRequired = Game.market.calcTransactionCost(amount, this.room.name, destinationRoom);
+    if (this.terminal.store.getUsedCapacity(RESOURCE_ENERGY) < energyRequired) {
+      // If we are low on energy don't take any from reserve
+      if (this.getRoom().getAmountInReserve(RESOURCE_ENERGY) > 20000) {
+
+        if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+          this.sendHaulRequest(RESOURCE_ENERGY, energyRequired, 1);
+        } else {
+          this.doHaulRequest(RESOURCE_ENERGY, energyRequired, 1)
+        }
+        return false;
+      }
+
+      console.log(this.getRoom().id, 'does not have energy to send');
+      return false;
+    }
+
+    return true;
+  }
+  sendHaulRequest(resource, amount, priority) {
     const reserve = this.getRoom().getReserveStructureWithMostOfAResource(resource);
     if (!reserve) {
       this.clearTask();
@@ -289,38 +324,22 @@ class Terminal extends OrgBase {
       [MEMORY.MEMORY_HAUL_DROPOFF]: this.terminal.id,
     };
 
-    this.sendRequest(TOPICS.TOPIC_HAUL_TASK, 0.8, details);
+    this.sendRequest(TOPICS.TOPIC_HAUL_TASK, priority, details);
   }
-  haulTransferEnergyToTerminal(amount, destinationRoom) {
-    const energyRequired = Game.market.calcTransactionCost(amount, this.room.name, destinationRoom);
-    if (this.terminal.store.getUsedCapacity(RESOURCE_ENERGY) < energyRequired) {
-      const reserve = this.getRoom().getReserveStructureWithMostOfAResource(RESOURCE_ENERGY);
-      if (!reserve) {
-        return false;
-      }
-
-      // If we are low on energy don't take any from reserve
-      if (this.getRoom().getAmountInReserve(RESOURCE_ENERGY) > 20000) {
-        const details = {
-          [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
-          [MEMORY.MEMORY_HAUL_PICKUP]: reserve.id,
-          [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
-          [MEMORY.MEMORY_HAUL_AMOUNT]: energyRequired,
-          [MEMORY.MEMORY_HAUL_DROPOFF]: this.terminal.id,
-        };
-
-        this.sendRequest(TOPICS.TOPIC_HAUL_TASK, 1, details);
-
-        return false;
-      } else {
-        console.log(this.getRoom().id, 'does not have energy to send');
-        return false;
-      }
-
-      return true;
+  sendEnergyToStorage(amount) {
+    const reserve = this.getRoom().getReserveStructureWithRoomForResource(RESOURCE_ENERGY);
+    if (!reserve) {
+      return;
     }
 
-    return true;
+    const details = {
+      [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
+      [MEMORY.MEMORY_HAUL_PICKUP]: this.terminal.id,
+      [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
+      [MEMORY.MEMORY_HAUL_AMOUNT]: amount,
+      [MEMORY.MEMORY_HAUL_DROPOFF]: reserve.id,
+    };
+    this.sendRequest(TOPICS.TOPIC_HAUL_TASK, 0.8, details);
   }
 }
 

@@ -1,10 +1,13 @@
 const OrgBase = require('./org.base');
 const MEMORY = require('./constants.memory');
-const {TOPIC_SPAWN} = require('./constants.topics');
+const TOPICS = require('./constants.topics');
 const {WORKER_ATTACKER} = require('./constants.creeps');
 const {PRIORITY_ATTACKER} = require('./constants.priorities');
+const featureFlags = require('./lib.feature_flags')
+const {doEvery} = require('./lib.scheduler');
 
 const NUM_ATTACKERS = 4;
+const REQUEST_ATTACKER_TTL = 150;
 
 const FORMATION = [
   {x: -1, y: 1},
@@ -20,6 +23,24 @@ class WarParty extends OrgBase {
     const setupTrace = this.trace.begin('constructor');
 
     this.flag = flag;
+
+    // Check if party needs creeps
+    this.checkAttackers = doEvery(REQUEST_ATTACKER_TTL)((party) => {
+      const neededCreeps = NUM_ATTACKERS - this.creeps.length;
+      for (let i = 0; i < neededCreeps; i++) {
+        this.requestAttacker();
+      }
+    });
+
+    setupTrace.end();
+  }
+  update() {
+    const updateTrace = this.trace.begin('update');
+
+    // was in constructor
+    let flag = this.flag;
+    let parent = this.parent;
+
     this.roomId = flag.room && flag.room.name || 'unknown';
     this.creeps = Object.values(parent.getCreeps()).reduce((creeps, creep) => {
       if (creep.memory[MEMORY.MEMORY_FLAG] === this.id) {
@@ -48,16 +69,23 @@ class WarParty extends OrgBase {
         },
       });
       this.nearbyEnemyStructures = flag.pos.findInRange(FIND_HOSTILE_STRUCTURES, 2);
-      this.nearbyWalls = flag.pos.findInRange(FIND_STRUCTURES, 2, {
+
+      const walls = flag.pos.findInRange(FIND_STRUCTURES, 2, {
         filter: (structure) => {
           return structure.structureType === STRUCTURE_WALL || structure.structureType === STRUCTURE_RAMPART;
         },
+      })
+      this.nearbyWalls = _.sortBy(walls, (structure) => {
+        return structure.hits;
       });
+
+      if (this.nearbyWalls.length) {
+        console.log("walls", this.nearbyWalls[0].id, this.nearbyWalls[0].hits)
+      }
     }
 
-    setupTrace.end();
-  }
-  update() {
+    // was in constructor end
+
     console.log(this);
 
     this.creeps.forEach((creep, idx) => {
@@ -69,8 +97,10 @@ class WarParty extends OrgBase {
       } else if (this.nearbyInvaderCores.length) {
         creep.memory[MEMORY.MEMORY_ATTACK] = this.nearbyInvaderCores[0].id;
       } else if ((!creep.room.controller || !creep.room.controller.my) && this.nearbyWalls.length) {
-        creep.memory[MEMORY.MEMORY_ATTACK] = this.flag.pos.findClosestByRange(this.nearbyWalls).id;
+        creep.memory[MEMORY.MEMORY_ATTACK] = this.nearbyWalls[0].id;
       }
+
+      console.log("warparty", this.flag.name, creep.memory[MEMORY.MEMORY_ATTACK])
 
       if (this.sortedHealth.length) {
         creep.memory[MEMORY.MEMORY_HEAL] = this.sortedHealth[0].id;
@@ -85,21 +115,30 @@ class WarParty extends OrgBase {
       creep.memory[MEMORY.MEMORY_POSITION_ROOM] = this.flag.pos.roomName;
     });
 
-    // Request more creeps
-    if (this.creeps.length < NUM_ATTACKERS) {
-      this.sendRequest(TOPIC_SPAWN, PRIORITY_ATTACKER, {
-        role: WORKER_ATTACKER,
-        memory: {
-          [MEMORY.MEMORY_FLAG]: this.id,
-        },
-      });
+    if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+      // Request more creeps
+      if (this.creeps.length < NUM_ATTACKERS) {
+        this.requestAttacker();
+      }
+    } else {
+      this.checkAttackers(this);
     }
+
+    updateTrace.end();
   }
   process() {
     // TODO consume alarms and respond
   }
   toString() {
     return `---- War Party - ID: ${this.id}, Room: ${this.roomId}, #Creeps: ${this.creeps.length}`;
+  }
+  requestAttacker() {
+    this.sendRequest(TOPICS.TOPIC_SPAWN, PRIORITY_ATTACKER, {
+      role: WORKER_ATTACKER,
+      memory: {
+        [MEMORY.MEMORY_FLAG]: this.id,
+      },
+    }, REQUEST_ATTACKER_TTL);
   }
 }
 
