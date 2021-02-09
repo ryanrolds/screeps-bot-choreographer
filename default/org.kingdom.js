@@ -8,6 +8,11 @@ const {doEvery} = require('./lib.scheduler');
 
 const helpersCreeps = require('./helpers.creeps');
 const MEMORY = require('./constants.memory');
+const TOPICS = require('./constants.topics');
+const PRIORITIES = require('./constants.priorities');
+const TASKS = require('./constants.tasks');
+
+const UPDATE_ORG_TTL = 1;
 
 class Kingdom extends OrgBase {
   constructor(config, trace) {
@@ -20,6 +25,10 @@ class Kingdom extends OrgBase {
     this.warParties = {};
     this.topics = new Topics();
 
+    this.doUpdateOrg = doEvery(UPDATE_ORG_TTL)((trace) => {
+      this.updateOrg(trace)
+    })
+
     this.resourceGovernor = new ResourceGovernor(this, setupTrace);
 
     setupTrace.end();
@@ -27,8 +36,10 @@ class Kingdom extends OrgBase {
   update(trace) {
     const updateTrace = trace.begin('update');
 
-    if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
       this.topics.reset();
+    } else {
+      this.topics.removeStale();
     }
 
     // was constructor
@@ -41,23 +52,16 @@ class Kingdom extends OrgBase {
 
     this.creeps = _.values(Game.creeps);
 
-    this.colonyIdMap = {};
-    this.colonies = Object.values(this.config).map((colony) => {
-      const orgColony = new Colony(this, colony, updateTrace);
-      this.colonyIdMap[colony.id] = orgColony;
-      return orgColony;
-    });
-
-    this.warParties = Object.values(Game.flags).reduce((parties, flag) => {
-      if (flag.name.startsWith('attack')) {
-        parties[flag.name] = new WarParty(this, flag, updateTrace);
-      }
-
-      return parties;
-    }, {});
     // was constructor end
 
+    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
+      this.updateOrg(updateTrace)
+    } else {
+      this.doUpdateOrg(updateTrace)
+    }
+
     console.log(this);
+    //console.log(JSON.stringify(this.topics))
 
     Object.values(this.warParties).forEach((party) => {
       party.update();
@@ -96,11 +100,11 @@ class Kingdom extends OrgBase {
     processTrace.end();
   }
   toString() {
-    return `---- Kingdom - #Colonies: ${this.colonies.length}`;
+    return `---- Kingdom - #Colonies: ${Object.keys(this.colonies).length}`;
   }
   // Request handling
-  sendRequest(topic, priority, request) {
-    this.topics.addRequest(topic, priority, request);
+  sendRequest(topic, priority, request, ttl) {
+    this.topics.addRequest(topic, priority, request, ttl);
   }
   getNextRequest(topic) {
     return this.topics.getNextRequest(topic);
@@ -114,14 +118,17 @@ class Kingdom extends OrgBase {
   getKingdom() {
     return this;
   }
+  getResourceGovernor() {
+    return this.resourceGovernor;
+  }
   getColonies() {
-    return this.colonies;
+    return Object.values(this.colonies);
   }
   getColony() {
     throw new Error('a kingdom is not a colony');
   }
   getColonyById(colonyId) {
-    return this.colonyIdMap[colonyId];
+    return this.colonies[colonyId];
   }
   getRoom() {
     throw new Error('a kingdom is not a room');
@@ -147,7 +154,7 @@ class Kingdom extends OrgBase {
     return this.getColonyById(colonyId);
   }
   getReserveResources(includeTerminal) {
-    return this.colonies.reduce((acc, colony) => {
+    return Object.values(this.colonies).reduce((acc, colony) => {
       // If colony doesn't have a terminal don't include it
       if (!colony.getPrimaryRoom() || !colony.getPrimaryRoom().terminal) {
         return acc;
@@ -163,39 +170,9 @@ class Kingdom extends OrgBase {
     }, {});
   }
   getAmountInReserve(resource) {
-    return this.colonies.reduce((acc, colony) => {
+    return Object.values(this.colonies).reduce((acc, colony) => {
       return acc + colony.getAmountInReserve(resource);
     }, 0);
-    return this.primaryRoom.getAmountInReserve(resource);
-  }
-  getTerminalWithResource(resource) {
-    const terminals = this.getColonies().reduce((acc, colony) => {
-      const room = colony.getPrimaryRoom();
-      // If colony doesn't have a terminal don't include it
-      if (!room.terminal) {
-        return acc;
-      }
-
-      const amount = colony.getAmountInReserve(resource);
-      if (!amount) {
-        return acc;
-      }
-
-      return acc.concat({terminal: room.getTerminal(), amount});
-    }, []);
-
-    return _.sortBy(terminals, 'amount').pop();
-  }
-  getTerminals() {
-    return this.getColonies().reduce((acc, colony) => {
-      const room = colony.getPrimaryRoom();
-      // If colony doesn't have a terminal don't include it
-      if (!room.terminal) {
-        return acc;
-      }
-
-      return acc.concat(room.terminal);
-    }, []);
   }
   getReactors() {
     return this.getColonies().reduce((acc, colony) => {
@@ -205,11 +182,11 @@ class Kingdom extends OrgBase {
       }
 
       // If colony doesn't have a terminal don't include it
-      if (!room.reactors.length) {
+      if (!Object.keys(room.reactorMap).length) {
         return acc;
       }
 
-      return acc.concat(room.reactors);
+      return acc.concat(Object.values(room.reactorMap));
     }, []);
   }
   getStats() {
@@ -239,6 +216,37 @@ class Kingdom extends OrgBase {
     stats.topics = this.topics.getCounts();
 
     stats.resources = this.getReserveResources(true);
+  }
+  updateOrg(trace) {
+    // Colonies
+    const configIds = Object.keys(this.config)
+    const orgIds = Object.keys(this.colonies)
+
+    const missingColonyIds = _.difference(configIds, orgIds)
+    missingColonyIds.forEach((id) => {
+      this.colonies[id] = new Colony(this, this.config[id], trace)
+    })
+
+    const extraColonyIds = _.difference(orgIds, configIds)
+    extraColonyIds.forEach((id) => {
+      delete this.colonies[id]
+    })
+
+    // War parties
+    const flagIds = Object.keys(Game.flags).filter((id) => {
+      return id.startsWith('attack')
+    })
+    const partyIds = Object.keys(this.warParties)
+
+    const missingFlagIds = _.difference(flagIds, partyIds)
+    missingFlagIds.forEach((id) => {
+      this.warParties[id] = new WarParty(this, Game.flags[id], trace)
+    });
+
+    const extraFlagIds = _.difference(partyIds, flagIds)
+    extraFlagIds.forEach((id) => {
+      delete this.warParties[id]
+    });
   }
 }
 

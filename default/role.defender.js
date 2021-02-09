@@ -1,6 +1,7 @@
 const behaviorTree = require('./lib.behaviortree');
 const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
 const behaviorAssign = require('./behavior.assign');
+const behaviorRoom = require('./behavior.room');
 
 const behavior = behaviorTree.sequenceNode(
   'defender_root',
@@ -25,7 +26,6 @@ const behavior = behaviorTree.sequenceNode(
             const hostileStructures = creep.room.find(FIND_STRUCTURES, {
               filter: (structure) => {
                 return structure.structureType === STRUCTURE_SPAWN ||
-                  structure.structureType === STRUCTURE_CONTAINER ||
                   structure.structureType === STRUCTURE_TOWER ||
                   structure.structureType === STRUCTURE_EXTENSION;
               },
@@ -91,6 +91,7 @@ const behavior = behaviorTree.sequenceNode(
         return RUNNING;
       },
     ),
+    behaviorRoom.parkingLot
   ],
 );
 

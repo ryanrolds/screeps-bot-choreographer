@@ -15,13 +15,14 @@ const selectSite = behaviorTree.leafNode(
       switch (site.structureType) {
         case STRUCTURE_SPAWN:
           return 0 - site.progress / site.progressTotal;
-        case STRUCTURE_EXTENSION:
+        case STRUCTURE_TOWER:
           return 1 - site.progress / site.progressTotal;
-        case STRUCTURE_STORAGE:
         case STRUCTURE_CONTAINER:
           return 2 - site.progress / site.progressTotal;
-        case STRUCTURE_TOWER:
+        case STRUCTURE_STORAGE:
           return 3 - site.progress / site.progressTotal;
+        case STRUCTURE_EXTENSION:
+          return 4 - site.progress / site.progressTotal;
         case STRUCTURE_ROAD:
           return 11 - site.progress / site.progressTotal;
         case STRUCTURE_RAMPART:
@@ -31,17 +32,17 @@ const selectSite = behaviorTree.leafNode(
           return 10 - site.progress / site.progressTotal;
       }
     }, (site) => {
-      const colony = kingdom.getCreepColony(creep);
-      if (!colony.spawns.length) {
+      const room = kingdom.getCreepRoom(creep);
+      if (!room.hasSpawns) {
         return 0;
       }
 
-      const spawn = colony.spawns[0].gameObject;
-      if (spawn.room.name != creep.room.name) {
+      if (room.id != creep.room.name) {
         return 0;
       }
 
-      return site.pos.getRangeTo(spawn);
+      const spawn = Object.values(room.spawnMap)[0]
+      return site.pos.getRangeTo(spawn.spawner);
     });
 
     behaviorMovement.setDestination(creep, sites[0].id, sites[0].room.id);

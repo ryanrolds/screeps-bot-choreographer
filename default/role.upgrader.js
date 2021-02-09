@@ -6,6 +6,7 @@ const behaviorHarvest = require('./behavior.harvest');
 const behaviorStorage = require('./behavior.storage');
 const behaviorMovement = require('./behavior.movement');
 const behaviorCommute = require('./behavior.commute');
+const behaviorBoosts = require('./behavior.boosts')
 
 const MEMORY = require('./constants.memory');
 
@@ -66,6 +67,8 @@ const getEnergy = behaviorTree.repeatUntilSuccess(
   ),
 );
 
+
+
 const behavior = behaviorTree.sequenceNode(
   'hauler_root',
   [
@@ -110,5 +113,5 @@ const behavior = behaviorTree.sequenceNode(
 
 
 module.exports = {
-  run: behaviorTree.rootNode('upgrader', behavior),
+  run: behaviorTree.rootNode('upgrader', behaviorBoosts(behavior)),
 };

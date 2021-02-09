@@ -1,5 +1,4 @@
 const Room = require('./org.room');
-const Spawner = require('./org.spawner');
 const OrgBase = require('./org.base');
 const Topics = require('./lib.topics');
 const Pid = require('./lib.pid');
@@ -8,6 +7,8 @@ const {doEvery} = require('./lib.scheduler');
 
 const MEMORY = require('./constants.memory');
 const WORKERS = require('./constants.creeps');
+const TASKS = require('./constants.tasks');
+const TOPICS = require('./constants.topics');
 const {creepIsFresh} = require('./behavior.commute');
 
 const {MEMORY_ASSIGN_ROOM, MEMORY_ROLE, MEMORY_COLONY} = require('./constants.memory');
@@ -19,6 +20,7 @@ const MAX_DEFENDERS = 3;
 const REQUEST_MISSING_ROOMS_TTL = 200;
 const REQUEST_HAULER_TTL = 75;
 const REQUEST_DEFENDER_TTL = 100;
+const UPDATE_ROOM_TTL = 1;
 
 class Colony extends OrgBase {
   constructor(parent, colony, trace) {
@@ -30,12 +32,18 @@ class Colony extends OrgBase {
 
     this.primaryRoomId = colony.primary;
     this.desiredRooms = colony.rooms;
-
     this.primaryRoom = Game.rooms[this.primaryRoomId];
+
+    this.roomMap = {};
+    this.pidDesiredHaulers = 0;
 
     if (this.primaryRoom) {
       Pid.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, 1, 0.15, 0.00009, 0);
     }
+
+    this.doUpdateOrg = doEvery(UPDATE_ROOM_TTL)((trace) => {
+      this.updateOrg(trace);
+    })
 
     this.doRequestReserversForMissingRooms = doEvery(REQUEST_MISSING_ROOMS_TTL)(() => {
       this.requestReserverForMissingRooms();
@@ -50,18 +58,25 @@ class Colony extends OrgBase {
   update(trace) {
     const updateTrace = this.trace.begin('update')
 
-    // was constructor
-    if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
-      this.topics.reset();
-    }
+    this.primaryRoom = Game.rooms[this.primaryRoomId];
 
-    this.missingRooms = _.difference(this.desiredRooms, Object.keys(Game.rooms));
-    this.colonyRooms = _.difference(this.desiredRooms, this.missingRooms);
+    // was constructor
+    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
+      this.topics.reset();
+    } else {
+      this.topics.removeStale();
+    }
 
     this.assignedCreeps = _.filter(this.getParent().getCreeps(), (creep) => {
       return creep.memory[MEMORY.MEMORY_COLONY] === this.id;
     });
     this.numCreeps = this.assignedCreeps.length
+
+    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
+      this.updateOrg(updateTrace);
+    } else {
+      this.doUpdateOrg(updateTrace)
+    }
 
     this.defenders = _.filter(this.assignedCreeps, (creep) => {
       return creep.memory[MEMORY_ROLE] == WORKER_DEFENDER &&
@@ -76,52 +91,34 @@ class Colony extends OrgBase {
 
     this.numHaulers = this.haulers.length;
 
+    this.numActiveHaulers = _.filter(this.haulers, (creep) => {
+      const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
+      return task === TASKS.TASK_HAUL;
+    }).length
+
+    this.idleHaulers = this.numHaulers - this.numActiveHaulers
+
     // TODO update every X ticks
     this.avgHaulerCapacity = _.reduce(this.haulers, (total, hauler) => {
       return total + hauler.store.getCapacity();
     }, 0) / this.haulers.length;;
 
-    this.roomMap = [];
-    this.rooms = this.colonyRooms.reduce((rooms, id) => {
-      if (Game.rooms[id]) {
-        const room = new Room(this, Game.rooms[id], updateTrace);
-        this.roomMap[id] = room;
-        rooms.push(room);
-      }
+    // Fraction of num haul tasks
+    let numHaulTasks = this.getTopicLength(TOPIC_HAUL_TASK);
+    numHaulTasks -= this.idleHaulers;
 
-      return rooms;
-    }, []);
-
-    this.primaryOrgRoom = _.find(this.rooms, {id: this.primaryRoomId});
-
-    this.spawns = this.rooms.reduce((spawns, room) => {
-      const roomSpawns = room.getSpawns();
-      roomSpawns.forEach((spawn) => {
-        spawns.push(new Spawner(this, spawn, updateTrace));
-      });
-
-      return spawns;
-    }, []);
-
-    this.availableSpawns = this.spawns.filter((spawner) => {
-      return !spawner.getSpawning();
-    });
+    this.pidDesiredHaulers = Pid.update(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS,
+      numHaulTasks, Game.time);
     // was constructor end
 
-    console.log(this);
-
-    if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
       this.requestReserverForMissingRooms();
     } else {
       this.doRequestReserversForMissingRooms();
     }
 
-    this.rooms.forEach((room) => {
+    Object.values(this.roomMap).forEach((room) => {
       room.update();
-    });
-
-    this.spawns.forEach((spawn) => {
-      spawn.update();
     });
 
     // Check intra-colony requests for defenders
@@ -131,7 +128,7 @@ class Colony extends OrgBase {
     }
 
     if (this.primaryOrgRoom.hasStorage) {
-      if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+      if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
         this.requestHaulers();
       } else {
         this.doRequestHaulers();
@@ -143,18 +140,16 @@ class Colony extends OrgBase {
   process() {
     this.updateStats();
 
-    this.rooms.forEach((room) => {
+    Object.values(this.roomMap).forEach((room) => {
       room.process();
-    });
-
-    this.spawns.forEach((spawn) => {
-      spawn.process();
     });
   }
   toString() {
-    return `** Colony - ID: ${this.id}, #Rooms: ${this.rooms.length}, #Missing: ${this.missingRooms.length}, ` +
-      `#Haulers: ${this.numHaulers}, #Spawners: ${this.spawns.length}, ` +
-      `#AvailableSpawners: ${this.availableSpawns.length}, #Defenders: ${this.defenders.length}`;
+    return `** Colony - ID: ${this.id}, #Rooms: ${Object.keys(this.roomMap).length}, ` +
+      `#Missing: ${this.missingRooms.length}, ` +
+      `#Haulers: ${this.numHaulers}, ` +
+      `AvgHaulerCapacity: ${this.avgHaulerCapacity}, ` +
+      `#Defenders: ${this.defenders.length}`;
   }
   getColony() {
     return this;
@@ -174,8 +169,8 @@ class Colony extends OrgBase {
   getHaulers() {
     return this.haulers;
   }
-  sendRequest(topic, priority, request) {
-    this.topics.addRequest(topic, priority, request);
+  sendRequest(topic, priority, request, ttl) {
+    this.topics.addRequest(topic, priority, request, ttl);
   }
   getNextRequest(topic) {
     return this.topics.getNextRequest(topic);
@@ -232,15 +227,18 @@ class Colony extends OrgBase {
     return this.avgHaulerCapacity;
   }
   updateStats() {
+    let topicCounts = this.topics.getCounts();
+
     const colonyStats = {
       numHaulers: this.numHaulers,
+      haulTasks: (topicCounts[TOPICS.TOPIC_HAUL_TASK] || 0) - this.idleHaulers,
       haulerSetpoint: this.haulerSetpoint,
       pidDesiredHaulers: this.pidDesiredHaulers,
       rooms: {},
       booster: {},
       spawner: {},
+      topics: topicCounts,
     };
-    colonyStats.topics = this.topics.getCounts();
 
     const stats = this.getStats();
     stats.colonies[this.id] = colonyStats;
@@ -252,7 +250,7 @@ class Colony extends OrgBase {
     if (neededDefenders > 0) {
       // If the colony has spawners and is off sufficient size spawn own defenders,
       // otherwise ask for help from other colonies
-      if (this.spawns.length && (this.primaryRoom && this.primaryRoom.controller.level > 3)) {
+      if (this.primaryOrgRoom && this.primaryOrgRoom.hasSpawns && (this.primaryRoom && this.primaryRoom.controller.level > 3)) {
         this.sendRequest(TOPIC_SPAWN, PRIORITY_DEFENDER, request.details, REQUEST_DEFENDER_TTL);
       } else {
         request.details.memory[MEMORY.MEMORY_COLONY] = this.id;
@@ -266,13 +264,8 @@ class Colony extends OrgBase {
     });
   }
   requestHaulers() {
-    // Fraction of num haul tasks
-    const numHaulTasks = this.getTopicLength(TOPIC_HAUL_TASK);
-    this.pidDesiredHaulers = 0;
     if (this.primaryRoom) {
       // PID approach
-      this.pidDesiredHaulers = Pid.update(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS,
-        numHaulTasks, Game.time);
       if (this.numHaulers < this.pidDesiredHaulers) {
         this.sendRequest(TOPIC_SPAWN, PRIORITY_HAULER, {
           role: WORKERS.WORKER_HAULER,
@@ -293,7 +286,7 @@ class Colony extends OrgBase {
         return;
       }
 
-      if (this.spawns.length) {
+      if (this.primaryOrgRoom && this.primaryOrgRoom.hasSpawns) {
         this.sendRequest(TOPIC_SPAWN, PRIORITY_CLAIMER, {
           role: WORKER_RESERVER,
           memory: {
@@ -312,6 +305,32 @@ class Colony extends OrgBase {
         }, REQUEST_MISSING_ROOMS_TTL);
       }
     });
+  }
+  updateOrg(trace) {
+    this.missingRooms = _.difference(this.desiredRooms, Object.keys(Game.rooms));
+    this.colonyRooms = _.difference(this.desiredRooms, this.missingRooms);
+
+    // Rooms
+    const desiredRoomIds = this.desiredRooms
+    const orgRoomIds = Object.keys(this.roomMap)
+
+    const missingOrgColonyIds = _.difference(desiredRoomIds, orgRoomIds)
+    missingOrgColonyIds.forEach((id) => {
+      const room = Game.rooms[id];
+      if (!room) {
+        return;
+      }
+
+      const orgNode = new Room(this, room, trace)
+      this.roomMap[id] = orgNode;
+    })
+
+    const extraOrgColonyIds = _.difference(orgRoomIds, desiredRoomIds)
+    extraOrgColonyIds.forEach((id) => {
+      delete this.roomMap[id]
+    })
+
+    this.primaryOrgRoom = this.roomMap[this.primaryRoomId];
   }
 }
 

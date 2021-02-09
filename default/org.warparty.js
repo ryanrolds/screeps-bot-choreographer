@@ -7,7 +7,7 @@ const featureFlags = require('./lib.feature_flags')
 const {doEvery} = require('./lib.scheduler');
 
 const NUM_ATTACKERS = 4;
-const REQUEST_ATTACKER_TTL = 150;
+const REQUEST_ATTACKER_TTL = 75;
 
 const FORMATION = [
   {x: -1, y: 1},
@@ -26,16 +26,17 @@ class WarParty extends OrgBase {
 
     // Check if party needs creeps
     this.checkAttackers = doEvery(REQUEST_ATTACKER_TTL)((party) => {
-      const neededCreeps = NUM_ATTACKERS - this.creeps.length;
-      for (let i = 0; i < neededCreeps; i++) {
-        this.requestAttacker();
-      }
+      this.requestAttacker();
     });
 
     setupTrace.end();
   }
   update() {
     const updateTrace = this.trace.begin('update');
+
+    if (Game.flags[this.id]) {
+      this.flag = Game.flags[this.id];
+    }
 
     // was in constructor
     let flag = this.flag;
@@ -62,15 +63,15 @@ class WarParty extends OrgBase {
     this.nearbyWalls = [];
 
     if (flag.room) {
-      this.nearbyHostiles = flag.pos.findInRange(FIND_HOSTILE_CREEPS, 2);
-      this.nearbyInvaderCores = flag.pos.findInRange(FIND_STRUCTURES, 2, {
+      this.nearbyHostiles = flag.pos.findInRange(FIND_HOSTILE_CREEPS, 1);
+      this.nearbyInvaderCores = flag.pos.findInRange(FIND_STRUCTURES, 1, {
         filter: (structure) => {
           return structure.structureType === STRUCTURE_INVADER_CORE;
         },
       });
-      this.nearbyEnemyStructures = flag.pos.findInRange(FIND_HOSTILE_STRUCTURES, 2);
+      this.nearbyEnemyStructures = flag.pos.findInRange(FIND_HOSTILE_STRUCTURES, 1);
 
-      const walls = flag.pos.findInRange(FIND_STRUCTURES, 2, {
+      const walls = flag.pos.findInRange(FIND_STRUCTURES, 1, {
         filter: (structure) => {
           return structure.structureType === STRUCTURE_WALL || structure.structureType === STRUCTURE_RAMPART;
         },
@@ -115,11 +116,9 @@ class WarParty extends OrgBase {
       creep.memory[MEMORY.MEMORY_POSITION_ROOM] = this.flag.pos.roomName;
     });
 
-    if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
       // Request more creeps
-      if (this.creeps.length < NUM_ATTACKERS) {
-        this.requestAttacker();
-      }
+      this.requestAttacker();
     } else {
       this.checkAttackers(this);
     }
@@ -133,6 +132,10 @@ class WarParty extends OrgBase {
     return `---- War Party - ID: ${this.id}, Room: ${this.roomId}, #Creeps: ${this.creeps.length}`;
   }
   requestAttacker() {
+    if (this.creeps.length >= NUM_ATTACKERS) {
+      return;
+    }
+
     this.sendRequest(TOPICS.TOPIC_SPAWN, PRIORITY_ATTACKER, {
       role: WORKER_ATTACKER,
       memory: {

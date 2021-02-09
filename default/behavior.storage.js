@@ -240,7 +240,7 @@ module.exports.fillCreep = behaviorTree.sequenceNode(
   'energy_supply',
   [
     selectEnergyForWithdraw,
-    behaviorMovement.moveToDestination(1),
+    behaviorMovement.moveToDestination(1, false),
     behaviorTree.leafNode(
       'fill_creep',
       (creep) => {
@@ -287,7 +287,7 @@ module.exports.emptyCreep = behaviorTree.repeatUntilSuccess(
     [
       selectRoomDropoff,
       behaviorMovement.moveToDestinationRoom,
-      behaviorMovement.moveToDestination(1),
+      behaviorMovement.moveToDestination(1, false),
       behaviorTree.leafNode(
         'empty_creep',
         (creep) => {

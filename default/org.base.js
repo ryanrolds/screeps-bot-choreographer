@@ -25,13 +25,13 @@ class OrgBase {
   getStats() {
     return this.getParent().getStats();
   }
-  sendRequest(topic, priority, request) {
+  sendRequest(topic, priority, request, ttl) {
     const parent = this.getParent();
     if (!parent) {
       return;
     }
 
-    parent.sendRequest(topic, priority, request);
+    parent.sendRequest(topic, priority, request, ttl);
   }
   peekNextRequest() {
     const parent = this.getParent();

@@ -3,10 +3,15 @@ const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
 
 const behaviorStorage = require('./behavior.storage');
 const behaviorHarvest = require('./behavior.harvest');
+const {TERMINAL_TASK_TYPE} = require('./constants.memory');
 
 const pickupDroppedEnergy = behaviorTree.leafNode(
   'janitor',
   (creep) => {
+    if (creep.store.getFreeCapacity() === 0) {
+      return SUCCESS;
+    }
+
     // Locate dropped resource close to creep
     const resources = creep.pos.findInRange(FIND_DROPPED_RESOURCES, 25, {
       filter: (r) => {
@@ -33,7 +38,7 @@ const pickupDroppedEnergy = behaviorTree.leafNode(
     if (result === ERR_NOT_ENOUGH_RESOURCES) {
       return SUCCESS;
     }
-    if (creep.store.getUsedCapacity() === 0) {
+    if (creep.store.getFreeCapacity() === 0) {
       return SUCCESS;
     }
     if (result != OK) {
@@ -49,8 +54,8 @@ module.exports.getEnergy = behaviorTree.repeatUntilSuccess(
   behaviorTree.selectorNode(
     'containers_dropped_harvest',
     [
-      behaviorStorage.fillCreepFromContainers,
       pickupDroppedEnergy,
+      behaviorStorage.fillCreepFromContainers,
       behaviorTree.sequenceNode(
         'harvest_if_needed',
         [
@@ -61,4 +66,27 @@ module.exports.getEnergy = behaviorTree.repeatUntilSuccess(
       ),
     ],
   ),
+);
+
+module.exports.parkingLot = behaviorTree.leafNode(
+  'parking_lot',
+  (creep, trace, kingdom) => {
+    const room = kingdom.getCreepRoom(creep);
+    if (!room) {
+      return FAILURE;
+    }
+
+    const parkingLot = room.getParkingLot();
+    if (!parkingLot) {
+      return FAILURE;
+    }
+
+    if (creep.pos.inRangeTo(parkingLot, 1)) {
+      return FAILURE;
+    }
+
+    creep.moveTo(parkingLot);
+
+    return FAILURE;
+  },
 );

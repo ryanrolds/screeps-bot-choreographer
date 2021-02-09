@@ -5,39 +5,23 @@ const behaviorMovement = require('./behavior.movement');
 const behaviorStorage = require('./behavior.storage');
 const behaviorNonCombatant = require('./behavior.noncombatant');
 const behaviorHaul = require('./behavior.haul');
+const behaviorRoom = require('./behavior.room');
 
 const MEMORY = require('./constants.memory');
-const TASKS = require('./constants.tasks');
 const TOPICS = require('./constants.topics');
 
 const behavior = behaviorTree.sequenceNode(
   'haul_task',
   [
+    behaviorHaul.clearTask,
     behaviorTree.selectorNode(
       'pick_something',
       [
         behaviorHaul.getTaskFromTopic(TOPICS.TOPIC_HAUL_TASK),
-        behaviorTree.leafNode(
-          'parking_lot',
-          (creep, trace, kingdom) => {
-            const room = kingdom.getCreepRoom(creep);
-            if (!room) {
-              return FAILURE;
-            }
-
-            const parkingLot = room.getParkingLot();
-            if (!parkingLot) {
-              return FAILURE;
-            }
-
-            creep.moveTo(parkingLot);
-
-            return FAILURE;
-          },
-        ),
+        behaviorRoom.parkingLot,
       ],
     ),
-    behaviorMovement.moveToCreepMemory(MEMORY.MEMORY_HAUL_PICKUP),
+    behaviorMovement.moveToCreepMemory(MEMORY.MEMORY_HAUL_PICKUP, 1, false),
     behaviorHaul.loadCreep,
     behaviorStorage.emptyCreep,
   ],

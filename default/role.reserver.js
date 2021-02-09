@@ -14,20 +14,20 @@ const behavior = behaviorTree.selectorNode(
       [
         behaviorTree.leafNode(
           'move_to_room',
-          (creep) => {
-            const room = creep.memory[MEMORY_ASSIGN_ROOM];
-            // If creep doesn't have a harvest room assigned, we are done
+          (creep, trace, kingdom) => {
+            const room = kingdom.getCreepRoom(creep);
             if (!room) {
-              return behaviorTree.SUCCESS;
+              return FAILURE;
             }
 
             // If the creep reaches the room we are done
-            if (creep.room.name === room) {
+            if (creep.room.name === room.id) {
               return behaviorTree.SUCCESS;
             }
 
+            // Move to center of the room or controller
             let destination = new RoomPosition(25, 25, room);
-            const roomObject = Game.rooms[room];
+            const roomObject = room.getRoomObject();
             if (roomObject) {
               destination = roomObject.controller;
             }
@@ -89,7 +89,6 @@ const behavior = behaviorTree.selectorNode(
 
               if (!room.unowned && !room.claimedByName && !room.reservedByMe) {
                 const result = creep.attackController(creep.room.controller);
-                console.log("attack result", result)
                 if (result != OK) {
                   return behaviorTree.FAILURE;
                 }

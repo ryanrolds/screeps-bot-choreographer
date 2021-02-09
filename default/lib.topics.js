@@ -2,7 +2,7 @@
 const DEFAULT_TTL = 500;
 class Topics {
   constructor() {
-    this.reset();
+    this.topics = {};
   }
   getTopic(topic) {
     if (!this.topics[topic]) {
@@ -19,8 +19,14 @@ class Topics {
     this.topics[topic] = value;
   }
   reset() {
-    console.log('resetting topics')
     this.topics = {};
+  }
+  removeStale() {
+    Object.keys(this.topics).forEach((topicId) => {
+      this.topics[topicId] = this.topics[topicId].filter((request) => {
+        return request.ttl > Game.time;
+      })
+    })
   }
   createTopic(topic) {
     this.topics[topic] = [];

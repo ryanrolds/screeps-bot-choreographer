@@ -6,7 +6,7 @@ const featureFlags = require('./lib.feature_flags')
 const {doEvery} = require('./lib.scheduler');
 
 const MIN_ROOM_ENERGY = 5000;
-const REQUEST_ENERGY_TTL = 50;
+const REQUEST_ENERGY_TTL = 25;
 
 class Tower extends OrgBase {
   constructor(parent, tower, trace) {
@@ -14,21 +14,18 @@ class Tower extends OrgBase {
 
     const setupTrace = this.trace.begin('constructor');
 
-    this.gameObject = tower; // DEPRECATED
     this.tower = tower;
     this.towerUsed = 0;
 
     let minEnergy = MIN_ROOM_ENERGY;
-    if (this.getRoom().roomObject.controller.level <= 3) {
+    if (this.getRoom().getRoomObject().controller.level <= 3) {
       minEnergy = 1000;
     }
     this.minEnergy = minEnergy;
 
     // Request energy if tower is low
     this.checkEnergy = doEvery(REQUEST_ENERGY_TTL)((tower) => {
-      if (this.towerUsed < 500 && this.roomEnergy > this.minEnergy) {
-        this.requestEnergy()
-      }
+      this.requestEnergy()
     });
 
     setupTrace.end();
@@ -36,20 +33,18 @@ class Tower extends OrgBase {
   update() {
     const updateTrace = this.trace.begin('constructor');
 
+    this.tower = Game.getObjectById(this.id);
+
     // was constructor
-    const tower = this.gameObject
+    const tower = this.tower;
     this.energy = tower.energy;
 
-    const haulers = this.getColony().getHaulers();
-    this.haulersWithTask = _.filter(haulers, (creep) => {
+    const creeps = this.getRoom().getCreeps();
+    this.haulersWithTask = _.filter(creeps, (creep) => {
       const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
       const dropoff = creep.memory[MEMORY.MEMORY_HAUL_DROPOFF];
       return task === TASKS.TASK_HAUL && dropoff === this.id;
-    });
-
-    this.haulerUsedCapacity = _.reduce(this.haulersWithTask, (total, hauler) => {
-      return total + hauler.store.getUsedCapacity(RESOURCE_ENERGY);
-    }, 0);
+    }).length;
 
     const room = tower.room;
     const rcLevel = room.controller.level.toString();
@@ -75,10 +70,8 @@ class Tower extends OrgBase {
   process() {
     const tower = this.tower;
 
-    if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
-      if (this.towerUsed + this.haulerUsedCapacity < 500 && this.roomEnergy > this.minEnergy) {
-        this.requestEnergy()
-      }
+    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
+      this.requestEnergy();
     } else {
       this.checkEnergy(this);
     }
@@ -161,24 +154,25 @@ class Tower extends OrgBase {
     return `---- Tower - ID: ${this.id}, Energy: ${this.energy}, DefenseHitsLimit: ${this.defenseHitsLimit}`;
   }
   requestEnergy() {
+    if (this.towerUsed > 500 | this.haulersWithTask || this.roomEnergy <= this.minEnergy) {
+      return;
+    }
+
     const towerFree = this.tower.store.getFreeCapacity(RESOURCE_ENERGY);
     const towerTotal = this.tower.store.getCapacity(RESOURCE_ENERGY);
-
     const pickupId = this.getParent().getClosestStoreWithEnergy(this.tower);
-    const amount = towerFree - this.haulerUsedCapacity;
-
-    // The -0.01 is so that we haul full mining containers before fueling towers
     const priority = 1 - ((this.towerUsed - 250 + this.haulerUsedCapacity) / towerTotal);
 
     const details = {
+      [MEMORY.TASK_ID]: `tel-${this.id}-${Game.time}`,
       [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
       [MEMORY.MEMORY_HAUL_PICKUP]: pickupId,
       [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
+      [MEMORY.MEMORY_HAUL_AMOUNT]: towerFree,
       [MEMORY.MEMORY_HAUL_DROPOFF]: this.tower.id,
-      [MEMORY.MEMORY_HAUL_AMOUNT]: amount,
     };
 
-    this.sendRequest(TOPICS.TOPIC_HAUL_TASK, priority, details, REQUEST_ENERGY_TTL);
+    this.sendRequest(TOPICS.HAUL_CORE_TASK, priority, details, REQUEST_ENERGY_TTL);
   }
 }
 

@@ -8,8 +8,8 @@ const {doEvery} = require('./lib.scheduler');
 
 const {TOPIC_ROOM_LINKS} = require('./constants.topics');
 
-const REQUEST_ENERGY_TTL = 20;
-const REQUEST_HAUL_TTL = 50;
+const REQUEST_ENERGY_TTL = 5;
+const REQUEST_HAUL_TTL = 5;
 
 class Link extends OrgBase {
   constructor(parent, link, trace) {
@@ -17,9 +17,9 @@ class Link extends OrgBase {
 
     const setupTrace = this.trace.begin('constructor');
 
-    this.gameObject = link; // DEPRECATED
     this.link = link;
 
+    // Check proximity to static locations
     this.isNearRC = link.pos.findInRange(FIND_MY_STRUCTURES, 5, {
       filter: (structure) => {
         return structure.structureType === STRUCTURE_CONTROLLER;
@@ -32,47 +32,42 @@ class Link extends OrgBase {
       this.requestEnergy();
     })
 
-    this.doRequestHaul = doEvery(REQUEST_HAUL_TTL)((reserver) => {
-      this.requestHaul(reserve);
+    this.doRequestHaul = doEvery(REQUEST_HAUL_TTL)(() => {
+      this.requestHaul()
     })
 
     setupTrace.end();
   }
   update() {
-    const link = this.link;
-
-    // was constructor
+    const link = this.link = Game.getObjectById(this.id)
     this.fullness = link.store.getUsedCapacity(RESOURCE_ENERGY) / link.store.getCapacity(RESOURCE_ENERGY);
 
+    // TODO move this to update org thread
     this.isNearStorage = link.pos.findInRange(FIND_MY_STRUCTURES, 2, {
       filter: (structure) => {
         return structure.structureType === STRUCTURE_STORAGE;
       },
     }).length > 0;
-    // was constructor end
 
-    // console.log(this);
+    const creeps = this.getColony().getCreeps();
+    this.haulersWithTask = _.filter(creeps, (creep) => {
+      const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
+      const dropoff = creep.memory[MEMORY.MEMORY_HAUL_DROPOFF];
+      return task === TASKS.TASK_HAUL && dropoff === this.id;
+    }).length;
 
-    if (this.isNearRC && this.fullness < 0.25) {
-      // Request enough energy to fill
-      if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
-        this.requestEnergy();
-      } else {
-        this.doRequestEnergy();
-      }
+    //console.log(this);
+
+    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
+      this.requestEnergy();
+    } else {
+      this.doRequestEnergy();
     }
 
-    const roomEnergy = this.getRoom().getAmountInReserve(RESOURCE_ENERGY);
-
-    if (this.isNearStorage && this.fullness < 1 && roomEnergy > 5000) {
-      const reserve = this.parent.getRoom().getReserveStructureWithMostOfAResource(RESOURCE_ENERGY);
-      if (reserve) {
-        if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
-          this.requestHaul(reserve);
-        } else {
-          this.doRequestHaul(reserve)
-        }
-      }
+    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
+      this.requestHaul();
+    } else {
+      this.doRequestHaul()
     }
   }
   process() {
@@ -82,23 +77,44 @@ class Link extends OrgBase {
       const request = this.getNextRequest(TOPIC_ROOM_LINKS);
       if (request && request.details.REQUESTER_ID != this.id) {
         const requester = Game.getObjectById(request.details.REQUESTER_ID);
-        this.gameObject.transferEnergy(requester, request.details.AMOUNT);
+        this.link.transferEnergy(requester, request.details.AMOUNT);
       }
     }
   }
   toString() {
     return `---- Link - ID: ${this.id}, NearStorage: ${this.isNearStorage}, ` +
-      `NearSource: ${this.isNearSource}, NearRC: ${this.isNearRC}, Fullness: ${this.fullness}`;
+      `NearSource: ${this.isNearSource}, NearRC: ${this.isNearRC}, Fullness: ${this.fullness}, ` +
+      `CreepsWithTask: ${this.haulersWithTask}`;
   }
   requestEnergy() {
+    if (!this.isNearRC || this.fullness >= 0.25) {
+      return;
+    }
+
+    // Request enough energy to fill
     this.sendRequest(TOPIC_ROOM_LINKS, this.fullness, {
       REQUESTER_ID: this.id,
       REQUESTER_ROOM: this.link.room.id,
       AMOUNT: this.link.store.getFreeCapacity(RESOURCE_ENERGY),
     }, REQUEST_ENERGY_TTL);
   }
-  requestHaul(reserve) {
+  requestHaul() {
+    if (this.haulersWithTask) {
+      return;
+    }
+
+    const roomEnergy = this.getRoom().getAmountInReserve(RESOURCE_ENERGY);
+    if (!this.isNearStorage || this.fullness >= 1 || roomEnergy <= 5000) {
+      return;
+    }
+
+    const reserve = this.parent.getRoom().getReserveStructureWithMostOfAResource(RESOURCE_ENERGY);
+    if (!reserve) {
+      return;
+    }
+
     const details = {
+      [MEMORY.TASK_ID]: `ll-${this.id}-${Game.time}`,
       [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
       [MEMORY.MEMORY_HAUL_PICKUP]: reserve.id,
       [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
@@ -106,7 +122,7 @@ class Link extends OrgBase {
       [MEMORY.MEMORY_HAUL_DROPOFF]: this.id,
     };
 
-    this.sendRequest(TOPICS.TOPIC_HAUL_TASK, 0.9, details, REQUEST_HAUL_TTL);
+    this.sendRequest(TOPICS.HAUL_CORE_TASK, 1, details, REQUEST_HAUL_TTL);
   }
 }
 

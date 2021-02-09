@@ -12,7 +12,7 @@ const TASK_PHASE_REACT = 'phase_react';
 const TASK_PHASE_UNLOAD = 'phase_unload';
 
 const REQUEST_RESOURCE_TTL = 100;
-const REQUEST_LOAD_TTL = 50;
+const REQUEST_LOAD_TTL = 25;
 
 class Reactor extends OrgBase {
   constructor(parent, labs, trace) {
@@ -23,10 +23,10 @@ class Reactor extends OrgBase {
     this.labs = labs;
     this.room = this.getRoom().getRoomObject();
     this.terminal = this.getRoom().getTerminal();
-    this.task = this.getRoom().roomObject.memory[MEMORY.REACTOR_TASK] || null;
+    this.task = this.room.memory[MEMORY.REACTOR_TASK] || null;
 
-    this.doRequestResource = doEvery(REQUEST_RESOURCE_TTL)((lab, resource, missingAmount) => {
-      this.requestResource(lab, resource, missingAmount);
+    this.doRequestResource = doEvery(REQUEST_RESOURCE_TTL)((room, resource, missingAmount, ttl) => {
+      this.getKingdom().getResourceGovernor().requestResource(room, resource, missingAmount, ttl);
     })
 
     this.doLoadLab = doEvery(REQUEST_LOAD_TTL)((lab, pickup, resource, missingAmount) => {
@@ -36,7 +36,15 @@ class Reactor extends OrgBase {
     setupTrace.end();
   }
   update() {
-    console.log(this);
+    this.room = this.getRoom().getRoomObject();
+    this.terminal = this.getRoom().getTerminal();
+    this.task = this.room.memory[MEMORY.REACTOR_TASK] || null;
+
+    this.labs = this.labs.map((lab) => {
+      return Game.getObjectById(lab.id);
+    })
+
+    //console.log(this);
 
     if (this.task) {
       const inputA = this.task.details[MEMORY.REACTOR_INPUT_A];
@@ -132,19 +140,21 @@ class Reactor extends OrgBase {
       return false;
     }
 
+    const room = this.getRoom();
+
     // Load the lab with the right mineral
     if (currentAmount < desiredAmount) {
-      const pickup = this.getRoom().getReserveStructureWithMostOfAResource(resource, true);
+      const pickup = room.getReserveStructureWithMostOfAResource(resource, true);
       const missingAmount = desiredAmount - currentAmount;
 
       if (!pickup) {
-        if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
-          this.requestResource(lab, resource, missingAmount);
+        if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
+          this.getKingdom().getResourceGovernor().requestResource(room, resource, missingAmount, REQUEST_RESOURCE_TTL);
         } else {
-          this.doRequestResource(lab, resource, missingAmount)
+          this.doRequestResource(room, resource, missingAmount, REQUEST_RESOURCE_TTL)
         }
       } else {
-        if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+        if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
           this.loadLab(lab, pickup, resource, missingAmount);
         } else {
           this.doLoadLab(lab, pickup, resource, missingAmount)
@@ -155,47 +165,6 @@ class Reactor extends OrgBase {
     }
 
     return true;
-  }
-  requestResource(lab, resource, amount) {
-    const terminal = this.getRoom().getTerminal();
-    if (!terminal) {
-      return;
-    }
-
-    const result = this.getKingdom().getTerminalWithResource(resource);
-    if (!result) {
-      const details = {
-        [MEMORY.TERMINAL_TASK_TYPE]: TASKS.TASK_MARKET_ORDER,
-        [MEMORY.MEMORY_ORDER_TYPE]: ORDER_BUY,
-        [MEMORY.MEMORY_ORDER_RESOURCE]: resource,
-        [MEMORY.MEMORY_ORDER_AMOUNT]: amount,
-      };
-
-      this.terminal.sendRequest(TOPICS.TOPIC_TERMINAL_TASK, PRIORITIES.TERMINAL_BUY,
-        details);
-      return;
-    }
-
-    const inProgress = this.getKingdom().getTerminals().filter((orgTerminal) => {
-      const task = orgTerminal.getTask();
-      if (!task) {
-        return false;
-      }
-
-      return task.details[MEMORY.TRANSFER_RESOURCE] === resource &&
-        task.details[MEMORY.TRANSFER_ROOM] === lab.room.name;
-    }).length > 0;
-
-    if (inProgress) {
-      return;
-    }
-
-    result.terminal.sendRequest(TOPICS.TOPIC_TERMINAL_TASK, PRIORITIES.TERMINAL_TRANSFER, {
-      [MEMORY.TERMINAL_TASK_TYPE]: TASKS.TASK_TRANSFER,
-      [MEMORY.TRANSFER_RESOURCE]: resource,
-      [MEMORY.TRANSFER_AMOUNT]: amount,
-      [MEMORY.TRANSFER_ROOM]: lab.room.name,
-    });
   }
   loadLab(lab, pickup, resource, amount) {
     const numHaulers = _.filter(this.getRoom().getCreeps(), (creep) => {
@@ -208,13 +177,14 @@ class Reactor extends OrgBase {
       return false;
     }
 
-    this.getColony().sendRequest(TOPICS.TOPIC_HAUL_TASK, PRIORITIES.HAUL_REACTION, {
+    this.getColony().sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_REACTION, {
+      [MEMORY.TASK_ID]: `load-${this.id}-${Game.time}`,
       [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
       [MEMORY.MEMORY_HAUL_PICKUP]: pickup.id,
       [MEMORY.MEMORY_HAUL_RESOURCE]: resource,
       [MEMORY.MEMORY_HAUL_AMOUNT]: amount,
       [MEMORY.MEMORY_HAUL_DROPOFF]: lab.id,
-    });
+    }, REQUEST_LOAD_TTL);
   }
   unloadLab(lab) {
     const numHaulers = _.filter(this.getRoom().getCreeps(), (creep) => {
@@ -230,13 +200,14 @@ class Reactor extends OrgBase {
     const currentAmount = lab.store.getUsedCapacity(lab.mineralType);
     const dropoff = this.getRoom().getReserveStructureWithRoomForResource(lab.mineralType);
 
-    this.getColony().sendRequest(TOPICS.TOPIC_HAUL_TASK, PRIORITIES.HAUL_REACTION, {
+    this.getColony().sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_REACTION, {
+      [MEMORY.TASK_ID]: `unload-${this.id}-${Game.time}`,
       [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
       [MEMORY.MEMORY_HAUL_PICKUP]: lab.id,
       [MEMORY.MEMORY_HAUL_RESOURCE]: lab.mineralType,
       [MEMORY.MEMORY_HAUL_AMOUNT]: currentAmount,
       [MEMORY.MEMORY_HAUL_DROPOFF]: dropoff.id,
-    });
+    }, REQUEST_LOAD_TTL);
   }
 }
 

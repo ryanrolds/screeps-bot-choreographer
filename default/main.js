@@ -5,30 +5,31 @@ const Kingdom = require('./org.kingdom');
 global.TRACING_ACTIVE = false;
 
 let config = {
-  'E18S48': {
+  'E18S48-Shard3': {
     id: 'E18S48-Shard3',
     primary: 'E18S48',
     rooms: ['E18S48'],
   },
-  'E18S47': {
+  'E18S47-Shard3': {
     id: 'E18S47-Shard3',
     primary: 'E18S47',
     rooms: ['E18S47'],
   },
-  'E18S45': {
+  'E18S45-Shard3': {
     id: 'E18S45-Shard3',
     primary: 'E18S45',
     rooms: ['E18S45'],
   },
-  'E17S49': {
+  'E17S49-Shard3': {
     id: 'E17S49-Shard3',
     primary: 'E17S49',
     rooms: ['E17S49'],
   },
-  'E15S48': {
+  'E15S48-Shard3': {
     id: 'E15S48-Shard3',
     primary: 'E15S48',
-    rooms: ['E15S48', 'E16S48', 'E14S48'],
+    rooms: ['E15S48'],
+    //rooms: ['E15S48', 'E16S48', 'E14S48'],
   },
 };
 
@@ -44,6 +45,7 @@ if (Game.shard.name === 'shardSeason') {
   };
 }
 
+console.log("***** setting up ai *****")
 const ai = new AI(config);
 
 module.exports.loop = function() {

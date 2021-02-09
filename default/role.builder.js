@@ -17,7 +17,13 @@ const behavior = behaviorTree.sequenceNode(
       behaviorTree.sequenceNode(
         'build_construction_site',
         [
-          behaviorBuild.selectSite,
+          behaviorTree.selectorNode(
+            'pick_something',
+            [
+              behaviorBuild.selectSite,
+              behaviorRoom.parkingLot,
+            ]
+          ),
           behaviorMovement.moveToDestinationRoom,
           behaviorMovement.moveToDestination(1),
           behaviorBuild.build,

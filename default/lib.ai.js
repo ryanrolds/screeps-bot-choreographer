@@ -13,8 +13,6 @@ class AI {
   }
 
   tick(trace) {
-    console.log("asdfasdf")
-
     trace = trace.begin('tick');
 
     this.kingdom.update(trace)

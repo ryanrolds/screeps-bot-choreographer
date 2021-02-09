@@ -82,8 +82,6 @@ class PathCache {
       this.listCount += 1;
     }
 
-    console.log(this.listCount);
-
     return item.value;
   }
 }

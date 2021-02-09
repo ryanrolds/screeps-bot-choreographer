@@ -14,13 +14,6 @@ module.exports.getTaskFromTopic = function(topic) {
       const colonyId = creep.memory[MEMORY.MEMORY_COLONY];
       const colony = kingdom.getColonyById(colonyId);
 
-      delete creep.memory[MEMORY.MEMORY_TASK_TYPE];
-      delete creep.memory[MEMORY.MEMORY_HAUL_PICKUP];
-      delete creep.memory[MEMORY.MEMORY_HAUL_RESOURCE];
-      delete creep.memory[MEMORY.MEMORY_HAUL_AMOUNT];
-      delete creep.memory[MEMORY.MEMORY_HAUL_DROPOFF];
-      delete creep.memory[MEMORY.MEMORY_DESTINATION];
-
       // get next haul task
       const task = colony.getNextRequest(topic);
       if (!task) {
@@ -28,6 +21,7 @@ module.exports.getTaskFromTopic = function(topic) {
       }
 
       // set task details
+      creep.memory[MEMORY.TASK_ID] = task.details[MEMORY.TASK_ID];
       creep.memory[MEMORY.MEMORY_TASK_TYPE] = TASKS.TASK_HAUL;
       creep.memory[MEMORY.MEMORY_HAUL_PICKUP] = task.details[MEMORY.MEMORY_HAUL_PICKUP];
       creep.memory[MEMORY.MEMORY_HAUL_RESOURCE] = task.details[MEMORY.MEMORY_HAUL_RESOURCE];
@@ -41,10 +35,28 @@ module.exports.getTaskFromTopic = function(topic) {
 
       creep.memory[MEMORY.MEMORY_HAUL_DROPOFF] = task.details[MEMORY.MEMORY_HAUL_DROPOFF];
 
+      const taskId = creep.memory[MEMORY.TASK_ID] || '?'
+      creep.say(taskId);
+      console.log('task', creep.name, taskId)
+
       return SUCCESS;
     },
   );
 };
+
+module.exports.clearTask = behaviorTree.leafNode(
+  'clear_haul_task',
+  (creep, trace, kingdom) => {
+    delete creep.memory[MEMORY.MEMORY_TASK_TYPE];
+    delete creep.memory[MEMORY.MEMORY_HAUL_PICKUP];
+    delete creep.memory[MEMORY.MEMORY_HAUL_RESOURCE];
+    delete creep.memory[MEMORY.MEMORY_HAUL_AMOUNT];
+    delete creep.memory[MEMORY.MEMORY_HAUL_DROPOFF];
+    delete creep.memory[MEMORY.MEMORY_DESTINATION];
+
+    return SUCCESS;
+  },
+);
 
 module.exports.loadCreep = behaviorTree.leafNode(
   'load_resource',
@@ -55,7 +67,7 @@ module.exports.loadCreep = behaviorTree.leafNode(
 
     const pickup = Game.getObjectById(creep.memory[MEMORY.MEMORY_HAUL_PICKUP]);
     if (!pickup) {
-      return FAILURE;
+      return SUCCESS;
     }
 
     let result = null;
@@ -83,6 +95,13 @@ module.exports.loadCreep = behaviorTree.leafNode(
       }
 
       result = creep.withdraw(pickup, resource, amount);
+
+      trace.log(creep.id, "load resource", JSON.stringify({
+        pickup: pickup.id,
+        resource,
+        amount,
+        result,
+      }))
     }
 
     if (result === ERR_INVALID_ARGS) {
@@ -94,13 +113,13 @@ module.exports.loadCreep = behaviorTree.leafNode(
     }
 
     if (result === ERR_NOT_ENOUGH_RESOURCES) {
-      return FAILURE;
+      return SUCCESS;
     }
 
     if (result !== OK) {
       return FAILURE;
     }
 
-    return RUNNING;
+    return SUCCESS;
   },
 );

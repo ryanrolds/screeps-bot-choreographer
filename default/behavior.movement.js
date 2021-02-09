@@ -5,7 +5,7 @@ const {MEMORY_DESTINATION, MEMORY_DESTINATION_ROOM, MEMORY_ORIGIN,
 
 const MEMORY = require('./constants.memory');
 
-const moveToMemory = module.exports.moveToMemory = (creep, memoryId, range) => {
+const moveToMemory = module.exports.moveToMemory = (creep, memoryId, range, ignoreCreeps = false) => {
   const destination = Game.getObjectById(creep.memory[memoryId]);
   if (!destination) {
     return FAILURE;
@@ -25,15 +25,21 @@ const moveToMemory = module.exports.moveToMemory = (creep, memoryId, range) => {
   }
   */
 
-  return moveTo(creep, destination, range);
+  return moveTo(creep, destination, range, ignoreCreeps);
 };
 
-const moveTo = module.exports.moveTo = (creep, destination, range) => {
+const moveTo = module.exports.moveTo = (creep, destination, range, ignoreCreeps = false) => {
   if (creep.pos.inRangeTo(destination, range)) {
     return SUCCESS;
   }
 
-  const result = creep.moveTo(destination, {reusePath: 50, maxOps: 1000});
+  const moveOpts = {
+    reusePath: 50,
+    maxOps: 1000,
+    ignoreCreeps,
+  };
+
+  const result = creep.moveTo(destination, moveOpts);
   if (result === ERR_NO_PATH) {
     // Clear existing path so we build a new one
     delete creep.memory['_move'];
@@ -80,20 +86,20 @@ module.exports.setDestination = (creep, destinationId, roomId = null) => {
   }
 };
 
-module.exports.moveToCreepMemory = (memoryID, range = 1) => {
+module.exports.moveToCreepMemory = (memoryID, range = 1, ignoreCreeps = false) => {
   return behaviorTree.leafNode(
     'bt.movement.moveToCreepMemory',
     (creep) => {
-      return moveToMemory(creep, memoryID, range);
+      return moveToMemory(creep, memoryID, range, ignoreCreeps);
     },
   );
 };
 
-module.exports.moveToDestination = (range = 1) => {
+module.exports.moveToDestination = (range = 1, ignoreCreeps = false) => {
   return behaviorTree.leafNode(
     'bt.movement.moveToDestination',
     (creep) => {
-      return moveToMemory(creep, MEMORY.MEMORY_DESTINATION, range);
+      return moveToMemory(creep, MEMORY.MEMORY_DESTINATION, range, ignoreCreeps);
     },
   );
 };
@@ -108,7 +114,27 @@ module.exports.fillCreepFromDestination = (creep) => {
     return FAILURE;
   }
 
-  const result = creep.withdraw(destination, RESOURCE_ENERGY);
+  const resource = creep.memory[MEMORY.MEMORY_HAUL_RESOURCE] || RESOURCE_ENERGY;
+  let amount = creep.memory[MEMORY.MEMORY_HAUL_AMOUNT] || undefined;
+
+  if (amount > creep.store.getFreeCapacity(resource)) {
+    amount = creep.store.getFreeCapacity(resource);
+  }
+
+  if (amount > destination.store.getUsedCapacity(resource)) {
+    amount = destination.store.getUsedCapacity(resource);
+  }
+
+  if (amount === 0) {
+    return FAILURE;
+  }
+
+  // If we are seeing a specific amount, we are done when we have that amount in the hold
+  if (amount && creep.store.getUsedCapacity(resource) >= amount) {
+    return SUCCESS;
+  }
+
+  result = creep.withdraw(destination, resource, amount);
   if (result === OK) {
     return RUNNING;
   }

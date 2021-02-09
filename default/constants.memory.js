@@ -30,6 +30,7 @@ module.exports.MEMORY_COMMUTE_DURATION = 'commute_duration';
 module.exports.MEMORY_TASK_REQUESTER = 'task_requestor';
 module.exports.MEMORY_TASK_TYPE = 'task_type';
 module.exports.MEMORY_TASK_REASON = 'task_reason';
+module.exports.TASK_ID = 'task_id';
 module.exports.TASK_PHASE = 'task_phase';
 module.exports.TASK_TTL = 'task_ttl';
 
@@ -59,6 +60,7 @@ module.exports.TRANSFER_AMOUNT = 'transfer_amount';
 
 // boosts
 module.exports.PREPARE_BOOSTS = 'prepare_boosts';
+module.exports.DESIRED_BOOSTS = 'desired_boosts';
 
 // Attacker
 module.exports.MEMORY_ATTACK = 'attack';

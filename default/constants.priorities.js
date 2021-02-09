@@ -34,36 +34,36 @@ REACTION_PRIORITIES = {
   OH: 2,
   ZK: 1,
   UL: 1,
-  LH: 3,
-  ZH: 1,
-  GH: 2,
-  KH: 2,
-  UH: 2,
-  LO: 1,
-  ZO: 1,
-  KO: 1,
-  UO: 2,
-  GO: 3,
-  LH2O: 1,
-  KH2O: 9,
-  ZH2O: 1,
-  UH2O: 9,
-  GH2O: 8,
-  LHO2: 10,
-  UHO2: 9,
-  KHO2: 9,
-  ZHO2: 1,
-  GHO2: 10,
-  XLH2O: 1,
-  XKH2O: 9,
-  XZH2O: 1,
-  XUH2O: 9,
-  XGH2O: 8,
-  XLHO2: 10,
-  XUHO2: 9,
-  XKHO2: 9,
-  XZHO2: 1,
-  XGHO2: 10,
+  LH: 1, // repair/build
+  ZH: 1, // dismantle
+  GH: 4, // upgrade controller
+  KH: 2, // carry
+  UH: 3, // attack
+  LO: 3, // heal
+  ZO: 1, // fatigue
+  KO: 3, // ranged attack
+  UO: 1, // harvest
+  GO: 3, // damage
+  LH2O: 1, // repair/build
+  KH2O: 8, // carry
+  ZH2O: 1, // fatigue
+  UH2O: 9, // attack
+  GH2O: 10, // upgrade controller
+  LHO2: 9, // heal
+  UHO2: 1, // harvest
+  KHO2: 9, // ranged attack
+  ZHO2: 1, // fatigue
+  GHO2: 9, // damage
+  XLH2O: 1, // repair/build
+  XKH2O: 8, // carry
+  XZH2O: 1, // dismantle
+  XUH2O: 9, // attack
+  XGH2O: 10, // upgrade controller
+  XLHO2: 9, // heal
+  XUHO2: 1, // harvest
+  XKHO2: 9, // ranged attack
+  XZHO2: 1, // fatigue
+  XGHO2: 9, // damage
 };
 
 module.exports = {

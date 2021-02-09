@@ -7,9 +7,17 @@ const PRIORITIES = require('./constants.priorities');
 const featureFlags = require('./lib.feature_flags')
 const {doEvery} = require('./lib.scheduler');
 
-const REQUEST_UNLOAD_TTL = 50;
-const REQUEST_LOAD_TTL = 50;
-const REQUEST_ENERGY__TTL = 50;
+const MIN_COMPOUND = 500;
+const MAX_COMPOUND = 1500;
+const MIN_ENERGY = 1000;
+const MAX_ENERGY = 1000;
+
+
+const UPDATE_PREPARE_TTL = 5;
+const REQUEST_UNLOAD_TTL = 5;
+const REQUEST_LOAD_TTL = 5;
+const REQUEST_ENERGY_TTL = 10;
+const REQUEST_LOW_LABS_UNLOAD_TTL = 10;
 
 class Compound {
   constructor(name, effect, bonus) {
@@ -34,36 +42,85 @@ class Booster extends OrgBase {
     const setupTrace = this.trace.begin('constructor');
 
     this.labs = labs;
+    this.prepare = {};
 
     // Build list of current resources
     this.resources = this.getLabResources();
-    // this.availableEffects = this.getAvailableEffects();
-    // this.loadedEffects = this.getLoadedEffects();
+    this.availableEffects = this.getAvailableEffects();
+    this.loadedEffects = this.getLoadedEffects();
+    this.creepBoostPosition = null;
 
-    this.doRequestUnloadOfLabs = doEvery(REQUEST_UNLOAD_TTL)((loadedEffects, needToUnload) => {
-      this.requestUnloadOfLabs(loadedEffects, needToUnload);
+    this.doUpdatePrepare = doEvery(UPDATE_PREPARE_TTL)(() => {
+      this.updatePrepare();
+    })
+
+    this.doRequestClearLowLabs = doEvery(REQUEST_LOW_LABS_UNLOAD_TTL)(() => {
+      this.requestClearLowLabs();
+    })
+
+    this.doRequestEnergyForLabs = doEvery(REQUEST_ENERGY_TTL)(() => {
+      this.requestEnergyForLabs();
+    })
+
+    this.doRequestUnloadOfLabs = doEvery(REQUEST_UNLOAD_TTL)((loadedEffects, couldUnload) => {
+      this.requestUnloadOfLabs(loadedEffects, couldUnload);
     })
 
     this.doRequestMaterialsForLabs = doEvery(REQUEST_LOAD_TTL)((desiredEffects, needToLoad) => {
       this.requestMaterialsForLabs(desiredEffects, needToLoad);
     })
 
-    this.doRequestEnergyForLabs = doEvery(REQUEST_ENERGY__TTL)((loadedEffects, preparedName) => {
-      this.requestEnergyForLabs(loadedEffects, preparedName);
-    })
-
     setupTrace.end();
   }
   update() {
+    this.labs = this.labs.map((lab) => {
+      return Game.getObjectById(lab.id);
+    })
+
+    this.resources = this.getLabResources();
+    this.availableEffects = this.getAvailableEffects();
+    this.loadedEffects = this.getLoadedEffects();
+    this.creepBoostPosition = this.getCreepBoostPosition();
+
+    if (this.labs.length !== 3) {
+      return;
+    }
+
+    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
+      this.updatePrepare();
+    } else {
+      this.doUpdatePrepare();
+    }
+
     console.log(this);
   }
   process() {
-    // this.sendHaulRequests()
+    if (this.labs.length !== 3) {
+      return;
+    }
+
+    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
+      this.requestEnergyForLabs()
+    } else {
+      this.doRequestEnergyForLabs()
+    }
+
+    if (Object.keys(this.prepare).length) {
+      this.sendHaulRequests()
+    } else {
+      if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
+        this.requestClearLowLabs()
+      } else {
+        this.doRequestClearLowLabs()
+      }
+    }
   }
   toString() {
-    return `---- Booster: Id: ${this.labs[0].id}, `; // +
-    // `Loaded Effects: ${JSON.stringify(Object.keys(this.loadedEffects))}, ` +
-    // `Avil. Effects: ${JSON.stringify(Object.keys(this.availableEffects))}`;
+    return `---- Booster: Id: ${this.labs[0].id}, ` +
+      `Prepare: ${JSON.stringify(this.prepare)}, ` +
+      `Boost Pos: ${this.creepBoostPosition.x}, ${this.creepBoostPosition.y}, ` +
+      `Loaded Effects: ${JSON.stringify(Object.keys(this.loadedEffects))}, ` +
+      `Avil. Effects: ${JSON.stringify(Object.keys(this.availableEffects))}`;
   }
   updateStats(prepared, toUnLoad, toLoad) {
     const stats = this.getStats();
@@ -73,25 +130,55 @@ class Booster extends OrgBase {
       toLoad: toLoad.length,
     };
   }
-  getAssignedCreeps() {
-    const labIds = this.labs.map((creep) => {
-      return creep.id;
-    });
+  getCreepBoostPosition() {
+    if (!this.labs.length) {
+      return null;
+    }
 
-
-    return this.getRoom().getCreeps().filter((creep) => {
-      const pickup = creep.memory[MEMORY.MEMORY_HAUL_PICKUP];
-      if (labIds.indexOf(pickup) != -1) {
-        return true;
+    const topLeft = this.labs.reduce((acc, lab) => {
+      if (lab.pos.x < acc.x) {
+        acc.x = lab.pos.x;
       }
 
-      const dropoff = creep.memory[MEMORY.MEMORY_HAUL_DROPOFF];
-      if (labIds.indexOf(dropoff) != -1) {
-        return true;
+      if (lab.pos.y < acc.y) {
+        acc.y = lab.pos.y;
       }
 
-      return false;
-    });
+      return acc;
+    }, {x: 50, y: 50})
+
+    let position = null;
+    const roomId = this.getRoom().id;
+
+    position = new RoomPosition(topLeft.x, topLeft.y, roomId)
+    if (position.lookFor(LOOK_STRUCTURES).filter((structure) => {
+      return structure.structureType !== STRUCTURE_ROAD
+    }).length === 0) {
+      return position;
+    }
+
+    position = new RoomPosition(topLeft.x, topLeft.y + 1, roomId)
+    if (position.lookFor(LOOK_STRUCTURES).filter((structure) => {
+      return structure.structureType !== STRUCTURE_ROAD
+    }).length === 0) {
+      return position;
+    }
+
+    position = new RoomPosition(topLeft.x + 1, topLeft.y, roomId)
+    if (position.lookFor(LOOK_STRUCTURES).filter((structure) => {
+      return structure.structureType !== STRUCTURE_ROAD
+    }).length === 0) {
+      return position;
+    }
+
+    position = new RoomPosition(topLeft.x + 1, topLeft.y + 1, roomId)
+    if (position.lookFor(LOOK_STRUCTURES).filter((structure) => {
+      return structure.structureType !== STRUCTURE_ROAD
+    }).length === 0) {
+      return position;
+    }
+
+    return this.labs[0].pos;
   }
   getLabByResource(resource) {
     for (let i = 0; i < this.labs.length; i++) {
@@ -142,7 +229,6 @@ class Booster extends OrgBase {
     return allEffects;
   }
   getLoadedEffects() {
-    console.log('getLoaddedEffects', JSON.stringify(this.resources));
     return this.getEffects(this.resources);
   }
   getAvailableEffects() {
@@ -150,15 +236,11 @@ class Booster extends OrgBase {
     return this.getEffects(availableResources);
   }
   getDesiredEffects() {
-    console.log('getting desired affects');
-
     const desiredEffects = {};
     const allEffects = this.getEffects();
 
     let request = null;
     while (request = this.getNextRequest(TOPICS.BOOST_PREP)) {
-      console.log('request', JSON.stringify(request));
-
       const requestedEffects = request.details[MEMORY.PREPARE_BOOSTS];
       if (!requestedEffects) {
         continue;
@@ -171,59 +253,120 @@ class Booster extends OrgBase {
 
     return desiredEffects;
   }
+  updatePrepare() {
+    this.prepare = this.getDesiredEffects();
+  }
   sendHaulRequests() {
     const loadedEffects = this.getLoadedEffects();
-    const desiredEffects = this.getDesiredEffects();
-    const reserveResources = this.getRoom().getReserveResources(true);
+    const desiredEffects = this.prepare;
 
     const loadedNames = Object.keys(loadedEffects);
     const desiredNames = Object.keys(desiredEffects);
-    const preparedNames = _.intersection(loadedNames, desiredNames);
-    const needToUnload = _.difference(loadedNames, preparedNames);
+    let preparedNames = _.intersection(loadedNames, desiredNames);
+
+    preparedNames = preparedNames.filter((effectName) => {
+      const effect = loadedEffects[effectName];
+      const compound = effect.compounds[0].name
+      const lab = this.getLabByResource(compound)
+      if (lab.store.getUsedCapacity(compound) < MIN_COMPOUND) {
+        return false;
+      }
+
+      return true;
+    })
+
+    const emptyLabs = this.getEmptyLabs();
+    const couldUnload = _.difference(loadedNames, preparedNames);
     const needToLoad = _.difference(desiredNames, preparedNames);
 
-    console.log('booster', JSON.stringify(loadedNames), JSON.stringify(desiredNames),
-      JSON.stringify(preparedNames), JSON.stringify(needToUnload), JSON.stringify(needToLoad),
-      JSON.stringify(desiredEffects), JSON.stringify(loadedEffects));
-    console.log('lab resources', JSON.stringify(this.resources));
-    console.log('room resource', JSON.stringify(reserveResources));
+    //console.log('booster', this.id, JSON.stringify(loadedNames), JSON.stringify(desiredNames),
+    //  JSON.stringify(preparedNames), JSON.stringify(couldUnload), JSON.stringify(needToLoad),
+    //  JSON.stringify(desiredEffects), JSON.stringify(loadedEffects));
 
-    const assignedCreeps = this.getAssignedCreeps();
-    if (assignedCreeps.length) {
-      this.updateStats(preparedNames, needToUnload, needToLoad);
-      return;
-    }
+    console.log('booster', this.getRoom().id, emptyLabs.length)
+    console.log('desired', JSON.stringify(desiredNames));
+    console.log('prepared', JSON.stringify(preparedNames));
+    console.log('couldUnload', JSON.stringify(couldUnload));
+    console.log('...needToLoad', JSON.stringify(needToLoad));
 
-    if (needToLoad.length > 0 && needToUnload.length > 0) {
-      if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
-        this.requestUnloadOfLabs(loadedEffects, needToUnload)
+    //console.log('lab resources', JSON.stringify(this.resources));
+    //console.log('room resource', JSON.stringify(reserveResources));
+
+    const numToLoad = needToLoad.length;
+    const numEmpty = emptyLabs.length;
+
+    if (numToLoad > numEmpty) {
+      const numToUnload = numToLoad - numEmpty;
+      const unload = couldUnload.slice(0, numToUnload);
+
+      if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
+        this.requestUnloadOfLabs(loadedEffects, unload)
       } else {
-        this.doRequestUnloadOfLabs(loadedEffects, needToUnload)
-      }
-    } else if (needToLoad.length > 0) {
-      if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
-        this.requestMaterialsForLabs(desiredEffects, needToLoad)
-      } else {
-        this.doRequestMaterialsForLabs(desiredEffects, needToLoad)
-      }
-    } else if (preparedNames.length > 0) {
-      if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
-        this.requestEnergyForLabs(loadedEffects, preparedNames)
-      } else {
-        this.doRequestEnergyForLabs(loadedEffects, preparedNames)
+        this.doRequestUnloadOfLabs(loadedEffects, unload)
       }
     }
 
-    this.updateStats(preparedNames, needToUnload, needToLoad);
+    if (numEmpty && numToLoad) {
+      const numReadyToLoad = _.min([numEmpty, numToLoad])
+      const load = needToLoad.slice(0, numReadyToLoad);
+
+      if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
+        this.requestMaterialsForLabs(desiredEffects, load)
+      } else {
+        this.doRequestMaterialsForLabs(desiredEffects, load)
+      }
+    }
+
+    this.updateStats(preparedNames, couldUnload, needToLoad);
   }
-  requestUnloadOfLabs(loadedEffects, needToUnload) {
-    needToUnload.forEach((toUnload) => {
+  requestClearLowLabs() {
+    this.labs.forEach((lab) => {
+      if (!lab.mineralType) {
+        return;
+      }
+
+      if (lab.store.getUsedCapacity(lab.mineralType) > MIN_COMPOUND) {
+        return;
+      }
+
+      const dropoff = this.getRoom().getReserveStructureWithRoomForResource(lab.mineralType);
+      if (!dropoff) {
+        console.log('No dropoff for already loaded compound', lab.mineralType);
+        return;
+      }
+
+      const details = {
+        [MEMORY.TASK_ID]: `bmc-${this.id}-${Game.time}`,
+        [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
+        [MEMORY.MEMORY_HAUL_PICKUP]: lab.id,
+        [MEMORY.MEMORY_HAUL_RESOURCE]: lab.mineralType,
+        [MEMORY.MEMORY_HAUL_DROPOFF]: dropoff.id,
+        [MEMORY.MEMORY_HAUL_AMOUNT]: lab.store.getUsedCapacity(lab.mineralType),
+      };
+
+      console.log('boost clear low', PRIORITIES.HAUL_BOOST, JSON.stringify(details));
+
+      this.sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details, REQUEST_LOW_LABS_UNLOAD_TTL);
+    });
+  }
+  requestUnloadOfLabs(loadedEffects, couldUnload) {
+    couldUnload.forEach((toUnload) => {
       const effect = loadedEffects[toUnload];
       const compound = effect.compounds[0];
 
       const pickup = this.getLabByResource(compound.name);
       if (!pickup) {
         console.log('No pickup for already loaded compound', compound.name);
+        return;
+      }
+
+      const assignedCreeps = _.filter(this.getCreeps(), (creep) => {
+        const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
+        const taskPickup = creep.memory[MEMORY.MEMORY_HAUL_PICKUP];
+        const resource = creep.memory[MEMORY.MEMORY_HAUL_RESOURCE];
+        return task === TASKS.HAUL_TASK && taskPickup === pickup.id && resource == compound.name;
+      })
+      if (assignedCreeps.length) {
         return;
       }
 
@@ -234,6 +377,7 @@ class Booster extends OrgBase {
       }
 
       const details = {
+        [MEMORY.TASK_ID]: `bmu-${this.id}-${Game.time}`,
         [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
         [MEMORY.MEMORY_HAUL_PICKUP]: pickup.id,
         [MEMORY.MEMORY_HAUL_RESOURCE]: compound.name,
@@ -247,13 +391,32 @@ class Booster extends OrgBase {
     });
   }
   requestMaterialsForLabs(desiredEffects, needToLoad) {
-    needToLoad.forEach((effect) => {
+    const reserveResources = this.getRoom().getReserveResources(true);
+
+    needToLoad.forEach((toLoad) => {
       console.log('toload', toLoad, JSON.stringify(desiredEffects));
       const effect = desiredEffects[toLoad];
 
+      const emptyLabs = this.getEmptyLabs();
+      if (emptyLabs.length === 0) {
+        console.log('No destination for available compound', compound.name);
+        return;
+      }
+      const emptyLab = emptyLabs[0];
+
+      const assignedCreeps = _.filter(this.getCreeps(), (creep) => {
+        const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
+        const taskDropoff = creep.memory[MEMORY.MEMORY_HAUL_DROPOFF];
+        const resource = creep.memory[MEMORY.MEMORY_HAUL_RESOURCE];
+        return task === TASKS.HAUL_TASK && taskDropoff === emptyLab.id && resource !== RESOURCE_ENERGY;
+      })
+      if (assignedCreeps.length) {
+        return;
+      }
+
       // Refactor this to a a function that further filters a set of effects
       const compound = effect.compounds.reduce((selected, compound) => {
-        if (reserveResources[compound.name] > 400) {
+        if (reserveResources[compound.name] > MIN_COMPOUND) {
           if (!selected) {
             selected = compound;
           }
@@ -273,14 +436,7 @@ class Booster extends OrgBase {
       }, null);
 
       if (!compound) {
-        // TODO request terminal transfer
-        console.log('No local compound found', JSON.stringify(effect));
-        return;
-      }
-
-      const emptyLabs = this.getEmptyLabs();
-      if (emptyLabs.length === 0) {
-        console.log('No destination for available compound', compound.name);
+        console.log("no compound available for", toLoad)
         return;
       }
 
@@ -291,11 +447,12 @@ class Booster extends OrgBase {
       }
 
       const details = {
+        [MEMORY.TASK_ID]: `brl-${this.id}-${Game.time}`,
         [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
         [MEMORY.MEMORY_HAUL_PICKUP]: pickup.id,
         [MEMORY.MEMORY_HAUL_RESOURCE]: compound.name,
-        [MEMORY.MEMORY_HAUL_DROPOFF]: emptyLabs[0].id,
-        [MEMORY.MEMORY_HAUL_AMOUNT]: 400,
+        [MEMORY.MEMORY_HAUL_DROPOFF]: emptyLab.id,
+        [MEMORY.MEMORY_HAUL_AMOUNT]: pickup.store.getUsedCapacity(compound.name),
       };
 
       console.log('boost load material', PRIORITIES.HAUL_BOOST, JSON.stringify(details));
@@ -303,27 +460,27 @@ class Booster extends OrgBase {
       this.sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details, REQUEST_LOAD_TTL);
     })
   }
-  requestEnergyForLabs(loadedEffects, preparedNames) {
-    preparedNames.forEach((effectName) => {
-      const effect = loadedEffects[effectName];
-      const compound = effect.compounds[0];
-
-      const pickup = this.getRoom().getReserveStructureWithMostOfAResource(compound.name, true);
-      const lab = this.getLabByResource(compound.name);
-
-      const currentEnergy = lab.store.getUsedCapacity(RESOURCE_ENERGY);
-      if (currentEnergy < 500) {
-        const details = {
-          [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
-          [MEMORY.MEMORY_HAUL_PICKUP]: pickup.id,
-          [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
-          [MEMORY.MEMORY_HAUL_AMOUNT]: 2000 - currentEnergy,
-        };
-
-        console.log('boost load energy', PRIORITIES.HAUL_BOOST, JSON.stringify(details));
-
-        this.sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details, REQUEST_ENERGY__TTL);
+  requestEnergyForLabs() {
+    this.labs.forEach((lab) => {
+      // Only fill lab if needed
+      if (lab.store.getUsedCapacity(RESOURCE_ENERGY) >= MIN_ENERGY) {
+        return;
       }
+
+      const pickup = this.getRoom().getReserveStructureWithMostOfAResource(RESOURCE_ENERGY, false);
+      const currentEnergy = lab.store.getUsedCapacity(RESOURCE_ENERGY);
+      const details = {
+        [MEMORY.TASK_ID]: `bel-${this.id}-${Game.time}`,
+        [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
+        [MEMORY.MEMORY_HAUL_PICKUP]: pickup.id,
+        [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
+        [MEMORY.MEMORY_HAUL_DROPOFF]: lab.id,
+        [MEMORY.MEMORY_HAUL_AMOUNT]: MAX_ENERGY - currentEnergy,
+      };
+
+      console.log('boost load energy', PRIORITIES.HAUL_BOOST, JSON.stringify(details));
+
+      this.sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details, REQUEST_ENERGY_TTL);
     });
   }
 }

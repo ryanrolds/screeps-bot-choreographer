@@ -9,16 +9,16 @@ const {creepIsFresh} = require('./behavior.commute');
 const featureFlags = require('./lib.feature_flags')
 const {doEvery} = require('./lib.scheduler');
 
-const REQUEST_WORKER_TTL = 100;
+const REQUEST_WORKER_TTL = 25;
+const REQUEST_HARVESTER_TTL = 25;
+const REQUEST_HAULING_TTL = 20;
 
 class Source extends OrgBase {
-  constructor(parent, source, sourceType, trace) {
+  constructor(parent, source, trace) {
     super(parent, source.id, trace);
 
     const setupTrace = this.trace.begin('constructor');
 
-    this.sourceType = sourceType;
-    this.gameObject = source; // DEPRECATED
     this.source = source;
     this.roomID = source.room.name;
 
@@ -26,11 +26,28 @@ class Source extends OrgBase {
     this.containerID = null;
     this.containerUser = null;
 
+    this.doRequestMiner = doEvery(REQUEST_WORKER_TTL)(() => {
+      this.requestMiner();
+    });
+
+    this.doRequestHarvester = doEvery(REQUEST_HARVESTER_TTL)(() => {
+      this.requestHarvester();
+    })
+
+    this.doRequestHauling = doEvery(REQUEST_HAULING_TTL)(() => {
+      console.log("request source hauling")
+      this.sendHaulTasks();
+    })
+
     setupTrace.end();
   }
-  update() {
+  update(trace) {
+
+    const updateTrace = trace.begin('update')
+
     // was constructor
-    const source = this.source;
+    const source = this.source = Game.getObjectById(this.id)
+
     const containers = source.pos.findInRange(FIND_STRUCTURES, 2, {
       filter: (structure) => {
         return structure.structureType === STRUCTURE_CONTAINER;
@@ -74,7 +91,7 @@ class Source extends OrgBase {
     }, 0);
     // was constructor end
 
-    // console.log(this);
+    //console.log(this);
 
     const room = this.getColony().getRoomByID(this.roomID);
     if ((room.numHostiles > 0) && !room.isPrimary) {
@@ -82,40 +99,27 @@ class Source extends OrgBase {
       return;
     }
 
-    this.sendHaulTasks();
+    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
+      this.sendHaulTasks();
+    } else {
+      this.doRequestHauling();
+    }
 
     // Don't send miners or harvesters if room isn't claimed/reserved by me
     if (!room.claimedByMe && !room.reservedByMe) {
       return;
     }
 
-    let desiredHarvesters = 3;
-    let desiredMiners = 0;
-
-    // If there is a container, we want a miner and a hauler
-    if (this.container) {
-      desiredHarvesters = 0;
-      desiredMiners = 1;
+    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
+      this.requestHarvester()
+    } else {
+      this.doRequestHarvester()
     }
 
-    if (this.sourceType !== 'energy') {
-      desiredHarvesters = 1;
-    }
-
-    if (this.numHarvesters < desiredHarvesters) {
-      if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
-        this.requestHarvester()
-      } else {
-        this.doRequestHarvester()
-      }
-    }
-
-    if (this.numMiners < desiredMiners) {
-      if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
-        this.requestMiner()
-      } else {
-        this.doRequestMiner()
-      }
+    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
+      this.requestMiner()
+    } else {
+      this.doRequestMiner()
     }
   }
   process() {
@@ -131,7 +135,7 @@ class Source extends OrgBase {
       `UsedCapacity: ${this.containerUsed}`;
   }
   updateStats() {
-    const source = this.gameObject;
+    const source = this.source;
 
     const stats = this.getStats();
     const sourceStats = {
@@ -155,21 +159,60 @@ class Source extends OrgBase {
     const untaskedUsedCapacity = storeUsedCapacity - this.haulerCapacity;
     const loadsToHaul = Math.floor(untaskedUsedCapacity / loadSize);
 
+    //console.log("... source", this.id, this.haulersWithTask.length, loadSize, loadsToHaul,
+    //  storeUsedCapacity, this.haulerCapacity, untaskedUsedCapacity)
+
     for (let i = 0; i < loadsToHaul; i++) {
       const loadPriority = (storeUsedCapacity - (i * loadSize)) / storeCapacity;
 
       const details = {
+        [MEMORY.TASK_ID]: `sch-${this.id}-${Game.time}`,
         [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
         [MEMORY.MEMORY_HAUL_PICKUP]: this.container.id,
         [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
       };
 
-      console.log("source load", loadPriority, JSON.stringify(details))
+      //console.log("source load", loadPriority, JSON.stringify(details))
 
-      this.sendRequest(TOPICS.TOPIC_HAUL_TASK, loadPriority, details);
+      this.sendRequest(TOPICS.TOPIC_HAUL_TASK, loadPriority, details, REQUEST_HAULING_TTL);
     }
+
+    const resources = Object.keys(this.container.store);
+    resources.forEach((resource) => {
+      if (resource !== RESOURCE_ENERGY) {
+        const details = {
+          [MEMORY.TASK_ID]: `scrh-${this.id}-${Game.time}`,
+          [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
+          [MEMORY.MEMORY_HAUL_PICKUP]: this.container.id,
+          [MEMORY.MEMORY_HAUL_RESOURCE]: resource,
+        };
+
+        //console.log("source load", loadPriority, JSON.stringify(details))
+
+        this.sendRequest(TOPICS.TOPIC_HAUL_TASK, 0.5, details, REQUEST_HAULING_TTL);
+      }
+    });
   }
   requestHarvester() {
+    let desiredHarvesters = 3;
+
+    // If there is a container, we want a miner and a hauler
+    if (this.container) {
+      desiredHarvesters = 0;
+    }
+
+    if (this.source instanceof Mineral) {
+      desiredHarvesters = 1;
+
+      if (!this.source.mineralAmount) {
+        desiredHarvesters = 0;
+      }
+    }
+
+    if (this.numHarvesters >= desiredHarvesters) {
+      return;
+    }
+
     // As we get more harvesters, make sure other creeps get a chance to spawn
     const priority = PRIORITIES.PRIORITY_HARVESTER - (this.numHarvesters * 1.5);
     this.sendRequest(TOPICS.TOPIC_SPAWN, priority, {
@@ -183,16 +226,25 @@ class Source extends OrgBase {
     }, REQUEST_WORKER_TTL);
   }
   requestMiner() {
-    const role = CREEPS.WORKER_MINER;
-    let priority = PRIORITIES.PRIORITY_MINER;
+    let desiredMiners = 0;
 
+    // If there is a container, we want a miner and a hauler
+    if (this.container) {
+      desiredMiners = 1;
+    }
+
+    if (this.numMiners >= desiredMiners) {
+      return;
+    }
+
+    let priority = PRIORITIES.PRIORITY_MINER;
     // Energy sources in unowned rooms require half as many parts
-    if (!this.gameObject.room.controller.my) {
+    if (!this.source.room.controller.my) {
       priority = PRIORITIES.PRIORITY_REMOTE_MINER;
     }
 
     this.sendRequest(TOPICS.TOPIC_SPAWN, priority, {
-      role: role,
+      role: CREEPS.WORKER_MINER,
       memory: {
         [MEMORY.MEMORY_HARVEST]: this.id, // Deprecated
         [MEMORY.MEMORY_HARVEST_CONTAINER]: this.containerID,

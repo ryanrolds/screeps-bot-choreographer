@@ -129,6 +129,7 @@ module.exports.createCreep = (colony, room, spawn, role, memory, energy, energyL
   memory[MEMORY_ORIGIN] = room;
   memory[MEMORY_ROLE] = role;
   memory[MEMORY.MEMORY_START_TICK] = Game.time;
+  memory[MEMORY.DESIRED_BOOSTS] = definition.boosts;
 
   console.log(`==== Creating creep ${colony}, ${room}, ${role}, ${energyLimit}, ${parts}, ${JSON.stringify(memory)}`);
 

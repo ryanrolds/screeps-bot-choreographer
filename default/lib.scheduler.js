@@ -3,7 +3,7 @@ const doEvery = ttl => action => {
   let lastCall = 0;
 
   const tick = function() {
-    if (Game.time > lastCall + ttl) {
+    if (lastCall + ttl <= Game.time) {
       lastCall = Game.time
       return action.apply(null, arguments)
     }

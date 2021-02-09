@@ -7,7 +7,7 @@ const CREEPS = require('./constants.creeps');
 const featureFlags = require('./lib.feature_flags')
 const {doEvery} = require('./lib.scheduler');
 
-const REQUEST_BOOSTS_TTL = 50;
+const REQUEST_BOOSTS_TTL = 5;
 
 class Spawner extends OrgBase {
   constructor(parent, spawner, trace) {
@@ -17,7 +17,6 @@ class Spawner extends OrgBase {
 
     this.roomId = spawner.room.name;
     this.spawner = spawner;
-    this.gameObject = spawner;
     spawner.memory['ticksIdle'] = 0;
 
     this.doBoostRequest = doEvery(REQUEST_BOOSTS_TTL)((boosts, priority) => {
@@ -28,7 +27,8 @@ class Spawner extends OrgBase {
   }
   update() {
     // was constructor
-    const spawner = this.spawner;
+    const spawner = this.spawner = Game.getObjectById(this.id)
+
     this.isIdle = !spawner.spawning;
     this.energy = spawner.room.energyAvailable;
     this.energyCapacity = spawner.room.energyCapacityAvailable;
@@ -36,34 +36,32 @@ class Spawner extends OrgBase {
 
     // was constructor end
 
-    console.log(this);
+    //console.log(this);
 
     if (!this.isIdle) {
-      const spawn = this.gameObject;
-      const priority = 50 / spawn.spawning.remainingTime;
-      const creep = Game.creeps[spawn.spawning.name];
+      const priority = 50 / spawner.spawning.remainingTime;
+      const creep = Game.creeps[spawner.spawning.name];
       const role = creep.memory[MEMORY.MEMORY_ROLE];
       const boosts = CREEPS.definitions[role].boosts;
-      console.log(creep.name, role, JSON.stringify(boosts));
 
       if (boosts) {
-        console.log('sending boost request', JSON.stringify(boosts));
+        console.log('sending boost request', this.getRoom().id, JSON.stringify(boosts));
 
-        if (!featureFlags.getFlag(featureFlags.DO_NOT_RESET_TOPICS_EACH_TICK)) {
+        if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
           this.requestBoosts(boosts, priority)
         } else {
           this.doBoostRequest(boosts, priority)
         }
       }
 
-      spawn.room.visual.text(
-        spawn.spawning.name + '🛠️',
-        spawn.pos.x - 1,
-        spawn.pos.y,
+      spawner.room.visual.text(
+        spawner.spawning.name + '🛠️',
+        spawner.pos.x - 1,
+        spawner.pos.y,
         {align: 'right', opacity: 0.8},
       );
 
-      spawn.memory['ticksIdle'] = 0;
+      spawner.memory['ticksIdle'] = 0;
       return;
     }
 
@@ -125,23 +123,23 @@ class Spawner extends OrgBase {
       }
 
       // Track how long we sit without something to do (no requests or no energy)
-      this.gameObject.memory['ticksIdle']++;
+      this.spawner.memory['ticksIdle']++;
     }
   }
   createCreep(role, memory, energyLimit) {
     const energy = this.energy;
-    return creepHelpers.createCreep(this.getColony().id, this.roomId, this.gameObject,
+    return creepHelpers.createCreep(this.getColony().id, this.roomId, this.spawner,
       role, memory, energy, energyLimit);
   }
   getSpawning() {
-    return this.gameObject.spawning;
+    return this.spawner.spawning;
   }
   toString() {
     return `-- Spawner - ID: ${this.id}, Idle: ${this.isIdle}, Energy: ${this.energy}, ` +
       `%Energy: ${this.energyPercentage.toFixed(2)}`;
   }
   updateStats() {
-    const spawn = this.gameObject;
+    const spawn = this.spawner;
 
     const stats = this.getStats();
     const spawnerStats = {
@@ -153,6 +151,7 @@ class Spawner extends OrgBase {
   }
   requestBoosts(boosts, priority) {
     this.getColony().sendRequest(TOPICS.BOOST_PREP, priority, {
+      [MEMORY.TASK_ID]: `bp-${this.id}-${Game.time}`,
       [MEMORY.PREPARE_BOOSTS]: boosts,
     }, REQUEST_BOOSTS_TTL);
   }

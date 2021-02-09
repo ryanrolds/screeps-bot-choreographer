@@ -14,26 +14,26 @@ const WORKER_HAULER = module.exports.WORKER_HAULER = 'hauler';
 const definitions = {
   [WORKER_HARVESTER]: {
     energyLimit: 600,
-    parts: [CARRY, MOVE, WORK, MOVE],
-    base: [CARRY, MOVE, MOVE, WORK],
+    parts: [MOVE, CARRY, WORK],
+    base: [CARRY, WORK, MOVE],
   },
   [WORKER_MINER]: {
     energyLimit: 1500,
     ignoreSpawnEnergyLimit: true,
-    parts: [WORK, WORK, WORK, WORK, MOVE],
+    parts: [MOVE, WORK, WORK],
     base: [MOVE, WORK, WORK],
-    boosts: ['harvest'],
+    //boosts: ['harvest'],
   },
   [WORKER_HAULER]: {
     ignoreSpawnEnergyLimit: true,
     parts: [MOVE, CARRY, CARRY],
-    base: [MOVE, CARRY, MOVE, CARRY, MOVE, CARRY],
-    boosts: ['capacity'],
+    base: [MOVE, CARRY, CARRY, MOVE, CARRY, CARRY],
+    //boosts: ['capacity'],
   },
   [WORKER_BUILDER]: {
     energyLimit: 1500,
-    parts: [CARRY, MOVE, WORK, MOVE],
-    base: [CARRY, MOVE, WORK, MOVE],
+    parts: [MOVE, CARRY, WORK],
+    base: [MOVE, CARRY, WORK],
   },
   [WORKER_REPAIRER]: {
     energyLimit: 900,
@@ -46,10 +46,10 @@ const definitions = {
     boosts: ['upgradeController'],
   },
   [WORKER_DISTRIBUTOR]: {
-    energyLimit: 1000,
+    energyLimit: 2000,
     parts: [MOVE, CARRY, CARRY],
     base: [MOVE, CARRY, CARRY, MOVE, CARRY, CARRY],
-    // boosts: ['carry'],
+    //boosts: ['capacity'],
   },
   [WORKER_RESERVER]: {
     energyLimit: 2600,

@@ -1,7 +1,7 @@
-const DO_NOT_RESET_TOPICS_EACH_TICK = 'DO_NOT_RESET_TOPICS_EACH_TICK';
+const PERSISTENT_TOPICS = 'PERSISTENT_TOPICS';
 
 const FLAGS = {
-  [DO_NOT_RESET_TOPICS_EACH_TICK]: false,
+  [PERSISTENT_TOPICS]: true,
 };
 
 const getFlag = (key) => {
@@ -13,7 +13,7 @@ const setFlag = (key, value) => {
 };
 
 module.exports = {
-  [DO_NOT_RESET_TOPICS_EACH_TICK]: DO_NOT_RESET_TOPICS_EACH_TICK,
+  [PERSISTENT_TOPICS]: PERSISTENT_TOPICS,
   getFlag,
   setFlag,
 };
