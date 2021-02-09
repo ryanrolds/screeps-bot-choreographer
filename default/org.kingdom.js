@@ -3,14 +3,11 @@ const Colony = require('./org.colony');
 const WarParty = require('./org.warparty');
 const ResourceGovernor = require('./org.resource_governor');
 const Topics = require('./lib.topics');
-const featureFlags = require('./lib.feature_flags')
+
 const {doEvery} = require('./lib.scheduler');
 
 const helpersCreeps = require('./helpers.creeps');
 const MEMORY = require('./constants.memory');
-const TOPICS = require('./constants.topics');
-const PRIORITIES = require('./constants.priorities');
-const TASKS = require('./constants.tasks');
 
 const UPDATE_ORG_TTL = 1;
 
@@ -21,13 +18,15 @@ class Kingdom extends OrgBase {
     const setupTrace = this.trace.begin('constructor');
 
     this.config = config;
-    this.colonies = {};
-    this.warParties = {};
     this.topics = new Topics();
 
+    this.colonies = {};
+    this.creeps = [];
     this.doUpdateOrg = doEvery(UPDATE_ORG_TTL)((trace) => {
       this.updateOrg(trace)
     })
+
+    this.warParties = {};
 
     this.resourceGovernor = new ResourceGovernor(this, setupTrace);
 
@@ -36,57 +35,54 @@ class Kingdom extends OrgBase {
   update(trace) {
     const updateTrace = trace.begin('update');
 
-    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
-      this.topics.reset();
-    } else {
-      this.topics.removeStale();
-    }
+    this.topics.removeStale();
 
-    // was constructor
     this.stats = {
-      rooms: {}, // DEPRECATED, use colonies
       colonies: {},
       sources: {},
       spawns: {},
     };
 
-    this.creeps = _.values(Game.creeps);
-
-    // was constructor end
-
-    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
-      this.updateOrg(updateTrace)
-    } else {
-      this.doUpdateOrg(updateTrace)
-    }
+    this.doUpdateOrg(updateTrace)
 
     console.log(this);
-    //console.log(JSON.stringify(this.topics))
 
+    const partiesTrace = updateTrace.begin('warparty');
     Object.values(this.warParties).forEach((party) => {
-      party.update();
+      party.update(partiesTrace);
     });
+    partiesTrace.end();
 
+    const coloniesTrace = updateTrace.begin('colonies')
     Object.values(this.colonies).forEach((colony) => {
-      colony.update();
+      colony.update(coloniesTrace);
     });
+    coloniesTrace.end();
 
-    this.resourceGovernor.update();
+    const resourceGovTrace = updateTrace.begin('resource_governor')
+    this.resourceGovernor.update(resourceGovTrace);
+    resourceGovTrace.end();
 
     updateTrace.end();
   }
   process(trace) {
     const processTrace = trace.begin('process');
 
+    const partiesTrace = processTrace.begin('warparty');
     Object.values(this.warParties).forEach((party) => {
-      party.process();
+      party.process(partiesTrace);
     });
+    partiesTrace.end();
 
+    const coloniesTrace = processTrace.begin('colonies')
     Object.values(this.colonies).forEach((colony) => {
-      colony.process();
+      colony.process(coloniesTrace);
     });
+    coloniesTrace.end();
 
-    this.resourceGovernor.process();
+    const resourceGovTrace = processTrace.begin('resource_governor')
+    this.resourceGovernor.process(resourceGovTrace);
+    resourceGovTrace.end();
 
     const creepsTrace = processTrace.begin('creeps');
     helpersCreeps.tick(this, creepsTrace);
@@ -102,18 +98,8 @@ class Kingdom extends OrgBase {
   toString() {
     return `---- Kingdom - #Colonies: ${Object.keys(this.colonies).length}`;
   }
-  // Request handling
-  sendRequest(topic, priority, request, ttl) {
-    this.topics.addRequest(topic, priority, request, ttl);
-  }
-  getNextRequest(topic) {
-    return this.topics.getNextRequest(topic);
-  }
-  peekNextRequest(topic) {
-    return this.topics.peekNextRequest(topic);
-  }
-  getTopicLength(topic) {
-    return this.topics.getLength(topic);
+  getParent() {
+    return this;
   }
   getKingdom() {
     return this;
@@ -124,26 +110,17 @@ class Kingdom extends OrgBase {
   getColonies() {
     return Object.values(this.colonies);
   }
-  getColony() {
-    throw new Error('a kingdom is not a colony');
-  }
   getColonyById(colonyId) {
     return this.colonies[colonyId];
+  }
+  getColony() {
+    throw new Error('a kingdom is not a colony');
   }
   getRoom() {
     throw new Error('a kingdom is not a room');
   }
   getCreeps() {
     return this.creeps;
-  }
-  getCreepRoom(creep) {
-    const colony = this.getCreepColony(creep);
-    if (!colony) {
-      return null;
-    }
-
-    const roomId = creep.room.name;
-    return colony.getRoomByID(roomId);
   }
   getCreepColony(creep) {
     const colonyId = creep.memory[MEMORY.MEMORY_COLONY];
@@ -153,41 +130,14 @@ class Kingdom extends OrgBase {
 
     return this.getColonyById(colonyId);
   }
-  getReserveResources(includeTerminal) {
-    return Object.values(this.colonies).reduce((acc, colony) => {
-      // If colony doesn't have a terminal don't include it
-      if (!colony.getPrimaryRoom() || !colony.getPrimaryRoom().terminal) {
-        return acc;
-      }
+  getCreepRoom(creep) {
+    const colony = this.getCreepColony(creep);
+    if (!colony) {
+      return null;
+    }
 
-      const colonyResources = colony.getReserveResources(includeTerminal);
-      Object.keys(colonyResources).forEach((resource) => {
-        const current = acc[resource] || 0;
-        acc[resource] = colonyResources[resource] + current;
-      });
-
-      return acc;
-    }, {});
-  }
-  getAmountInReserve(resource) {
-    return Object.values(this.colonies).reduce((acc, colony) => {
-      return acc + colony.getAmountInReserve(resource);
-    }, 0);
-  }
-  getReactors() {
-    return this.getColonies().reduce((acc, colony) => {
-      const room = colony.getPrimaryRoom();
-      if (!room) {
-        return acc;
-      }
-
-      // If colony doesn't have a terminal don't include it
-      if (!Object.keys(room.reactorMap).length) {
-        return acc;
-      }
-
-      return acc.concat(Object.values(room.reactorMap));
-    }, []);
+    const roomId = creep.room.name;
+    return colony.getRoomByID(roomId);
   }
   getStats() {
     return this.stats;
@@ -214,17 +164,31 @@ class Kingdom extends OrgBase {
     });
 
     stats.topics = this.topics.getCounts();
-
-    stats.resources = this.getReserveResources(true);
+  }
+  sendRequest(topic, priority, request, ttl) {
+    this.topics.addRequest(topic, priority, request, ttl);
+  }
+  getNextRequest(topic) {
+    return this.topics.getNextRequest(topic);
+  }
+  peekNextRequest(topic) {
+    return this.topics.peekNextRequest(topic);
+  }
+  getTopicLength(topic) {
+    return this.topics.getLength(topic);
   }
   updateOrg(trace) {
+    const orgUpdateTrace = trace.begin('update_org')
+
+    this.creeps = _.values(Game.creeps);
+
     // Colonies
     const configIds = Object.keys(this.config)
     const orgIds = Object.keys(this.colonies)
 
     const missingColonyIds = _.difference(configIds, orgIds)
     missingColonyIds.forEach((id) => {
-      this.colonies[id] = new Colony(this, this.config[id], trace)
+      this.colonies[id] = new Colony(this, this.config[id], orgUpdateTrace)
     })
 
     const extraColonyIds = _.difference(orgIds, configIds)
@@ -240,13 +204,15 @@ class Kingdom extends OrgBase {
 
     const missingFlagIds = _.difference(flagIds, partyIds)
     missingFlagIds.forEach((id) => {
-      this.warParties[id] = new WarParty(this, Game.flags[id], trace)
+      this.warParties[id] = new WarParty(this, Game.flags[id], orgUpdateTrace)
     });
 
     const extraFlagIds = _.difference(partyIds, flagIds)
     extraFlagIds.forEach((id) => {
       delete this.warParties[id]
     });
+
+    orgUpdateTrace.end();
   }
 }
 

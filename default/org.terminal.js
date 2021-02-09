@@ -3,7 +3,6 @@ const TOPICS = require('./constants.topics');
 const MEMORY = require('./constants.memory');
 const TASKS = require('./constants.tasks');
 const MARKET = require('./constants.market');
-const featureFlags = require('./lib.feature_flags')
 const {doEvery} = require('./lib.scheduler');
 
 const TASK_PHASE_HAUL_RESOURCE = 'phase_transfer_resource';
@@ -36,9 +35,12 @@ class Terminal extends OrgBase {
 
     setupTrace.end();
   }
-  update() {
+  update(trace) {
+    const updateTrace = trace.begin('update')
+
     this.room = this.parent.getRoomObject();
     if (!this.room) {
+      updateTrace.end();
       return;
     }
 
@@ -86,21 +88,21 @@ class Terminal extends OrgBase {
           this.clearTask();
       }
 
+      updateTrace.end();
       return;
     }
 
     // If reserve is low then transfer energy back
     const terminalAmount = this.terminal.store.getUsedCapacity(RESOURCE_ENERGY);
     if (terminalAmount > MAX_TERMINAL_ENERGY) {
-      if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
-        this.sendEnergyToStorage(terminalAmount - MAX_TERMINAL_ENERGY)
-      } else {
-        this.doReturnEnergy(terminalAmount - MAX_TERMINAL_ENERGY)
-      }
+      this.doReturnEnergy(terminalAmount - MAX_TERMINAL_ENERGY)
     }
-  }
 
-  process() {
+    updateTrace.end();
+  }
+  process(trace) {
+    const processTrace = trace.begin('process')
+
     if (!this.task) {
       const task = this.getNextRequest(TOPICS.TOPIC_TERMINAL_TASK);
       if (task) {
@@ -108,6 +110,8 @@ class Terminal extends OrgBase {
         this.room.memory[MEMORY.TERMINAL_TASK] = task;
       }
     }
+
+    processTrace.end();
   }
   transferResource(task) {
     const resource = task[MEMORY.TRANSFER_RESOURCE];
@@ -276,7 +280,7 @@ class Terminal extends OrgBase {
     return resources;
   }
   haulResourceToTerminal(resource, amount) {
-    const numHaulers = _.filter(this.getRoom().assignedCreeps, (creep) => {
+    const numHaulers = this.getRoom().getCreeps().filter((creep) => {
       return creep.memory[MEMORY.MEMORY_TASK_TYPE] === TASKS.HAUL_TASK &&
         creep.memory[MEMORY.MEMORY_HAUL_RESOURCE] === resource &&
         creep.memory[MEMORY.MEMORY_HAUL_DROPOFF] === this.terminal.id;
@@ -287,23 +291,14 @@ class Terminal extends OrgBase {
       return;
     }
 
-    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
-      this.sendHaulRequest(resource, amount, 0.8)
-    } else {
-      this.doHaulRequest(resource, amount, 0.8)
-    }
+    this.doHaulRequest(resource, amount, 0.8)
   }
   haulTransferEnergyToTerminal(amount, destinationRoom) {
     const energyRequired = Game.market.calcTransactionCost(amount, this.room.name, destinationRoom);
     if (this.terminal.store.getUsedCapacity(RESOURCE_ENERGY) < energyRequired) {
       // If we are low on energy don't take any from reserve
       if (this.getRoom().getAmountInReserve(RESOURCE_ENERGY) > 20000) {
-
-        if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
-          this.sendHaulRequest(RESOURCE_ENERGY, energyRequired, 1);
-        } else {
-          this.doHaulRequest(RESOURCE_ENERGY, energyRequired, 1)
-        }
+        this.doHaulRequest(RESOURCE_ENERGY, energyRequired, 1)
         return false;
       }
 

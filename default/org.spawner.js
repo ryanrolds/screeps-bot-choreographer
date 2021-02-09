@@ -4,7 +4,6 @@ const creepHelpers = require('./helpers.creeps');
 const {definitions} = require('./constants.creeps');
 const MEMORY = require('./constants.memory');
 const CREEPS = require('./constants.creeps');
-const featureFlags = require('./lib.feature_flags')
 const {doEvery} = require('./lib.scheduler');
 
 const REQUEST_BOOSTS_TTL = 5;
@@ -25,7 +24,9 @@ class Spawner extends OrgBase {
 
     setupTrace.end();
   }
-  update() {
+  update(trace) {
+    const updateTrace = trace.begin('update')
+
     // was constructor
     const spawner = this.spawner = Game.getObjectById(this.id)
 
@@ -46,12 +47,7 @@ class Spawner extends OrgBase {
 
       if (boosts) {
         console.log('sending boost request', this.getRoom().id, JSON.stringify(boosts));
-
-        if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
-          this.requestBoosts(boosts, priority)
-        } else {
-          this.doBoostRequest(boosts, priority)
-        }
+        this.doBoostRequest(boosts, priority)
       }
 
       spawner.room.visual.text(
@@ -68,8 +64,12 @@ class Spawner extends OrgBase {
     // Spawning a new creep should result in a boost request being sent
     // resetting the TTL when idle accomplishes this
     this.doBoostRequest.reset();
+
+    updateTrace.end();
   }
-  process() {
+  process(trace) {
+    const processTrace = trace.begin('process')
+
     this.updateStats();
 
     if (this.isIdle) {
@@ -102,6 +102,7 @@ class Spawner extends OrgBase {
           }
 
           this.createCreep(request.details.role, request.details.memory, energyLimit);
+          processTrace.end();
           return;
         }
 
@@ -110,6 +111,7 @@ class Spawner extends OrgBase {
           const role = peek.details.role;
           const definition = definitions[role];
           if (definition.energyMinimum && this.energy < definition.energyMinimum) {
+            processTrace.end();
             return;
           }
         }
@@ -118,6 +120,7 @@ class Spawner extends OrgBase {
         request = this.getKingdom().getNextRequest(TOPICS.TOPIC_SPAWN);
         if (request) {
           this.createCreep(request.details.role, request.details.memory, energyLimit);
+          processTrace.end();
           return;
         }
       }
@@ -125,6 +128,8 @@ class Spawner extends OrgBase {
       // Track how long we sit without something to do (no requests or no energy)
       this.spawner.memory['ticksIdle']++;
     }
+
+    processTrace.end();
   }
   createCreep(role, memory, energyLimit) {
     const energy = this.energy;

@@ -3,7 +3,6 @@ const TOPICS = require('./constants.topics');
 const MEMORY = require('./constants.memory');
 const TASKS = require('./constants.tasks');
 const PRIORITIES = require('./constants.priorities');
-const featureFlags = require('./lib.feature_flags')
 const {doEvery} = require('./lib.scheduler');
 
 const RESERVE_LIMIT = 5000;
@@ -12,6 +11,8 @@ const REQUEST_REACTION_TTL = 100;
 const REQUEST_SELL_TTL = 100;
 const REQUEST_DISTRIBUTE_BOOSTS = 10;
 
+// Try to ensure that all colonies are ready to
+// boost creeps with these effects
 const CRITICAL_EFFECTS = {
   'upgradeController': ['XGH2O', 'GH2O', 'GH'],
   'heal': ['XLHO2', 'LHO2', 'LO'],
@@ -26,7 +27,11 @@ class Resources extends OrgBase {
 
     const setupTrace = this.trace.begin('constructor');
 
+    this.resources = {};
     this.sharedResources = {};
+
+    this.availableReactions = {};
+    this.activeReactions = [];
 
     this.doRequestReactions = doEvery(REQUEST_REACTION_TTL)(() => {
       this.requestReactions();
@@ -42,44 +47,29 @@ class Resources extends OrgBase {
 
     setupTrace.end();
   }
-  update() {
-    const updateTrace = this.trace.begin('constructor');
+  update(trace) {
+    const updateTrace = trace.begin('update');
 
-    // was in contstructor
-    this.resources = this.getKingdom().getReserveResources(true);
-    this.activeReactions = this.getKingdom().getReactors().filter((reactor) => {
-      return !reactor.isIdle();
-    }).map((reactor) => {
-      return reactor.getOutput();
-    });
-    this.availableReactions = this.getReactions();
+    this.resources = this.getReserveResources(true);
     this.sharedResources = this.getSharedResources()
-    // win in constructor end
 
-    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
-      this.requestReactions();
-    } else {
-      this.doRequestReactions();
-    }
+    this.availableReactions = this.getReactions();
+    this.activeReactions = this.getActiveReactions();
 
-    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
-      this.requestSellResource();
-    } else {
-      this.doRequestSellExtraResources()
-    }
-
-    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
-      this.requestDistributeBoosts();
-    } else {
-      this.doDistributeBoosts()
-    }
+    this.doRequestReactions();
+    this.doRequestSellExtraResources()
+    this.doDistributeBoosts()
 
     console.log(this);
 
     updateTrace.end();
   }
-  process() {
+  process(trace) {
+    const processTrace = trace.begin('process')
+
     this.updateStats();
+
+    processTrace.end();
   }
   toString() {
     const reactions = this.availableReactions.map((reaction) => {
@@ -92,59 +82,7 @@ class Resources extends OrgBase {
   }
   updateStats() {
     const stats = this.getStats();
-    stats.resources = this.resource;
-  }
-  requestResource(room, resource, amount, ttl) {
-    // We can't request a transfer if room lacks a terminal
-    const terminal = room.getTerminal();
-    if (!terminal) {
-      return;
-    }
-
-    const result = this.getTerminalWithResource(resource);
-    if (!result) {
-      const details = {
-        [MEMORY.TERMINAL_TASK_TYPE]: TASKS.TASK_MARKET_ORDER,
-        [MEMORY.MEMORY_ORDER_TYPE]: ORDER_BUY,
-        [MEMORY.MEMORY_ORDER_RESOURCE]: resource,
-        [MEMORY.MEMORY_ORDER_AMOUNT]: amount,
-      };
-
-      if (Game.market.credits > 40000) {
-        console.log('requesting purchase', resource, 'for', room.id, amount)
-
-        room.terminal.sendRequest(TOPICS.TOPIC_TERMINAL_TASK, PRIORITIES.TERMINAL_BUY,
-          details, ttl);
-      } else {
-        console.log('not enough credits to purchase', resource, 'for', room.id, amount)
-      }
-      return;
-    }
-
-    const inProgress = this.getTerminals().filter((orgTerminal) => {
-      const task = orgTerminal.getTask();
-      if (!task) {
-        return false;
-      }
-
-      return task.details[MEMORY.TRANSFER_RESOURCE] === resource &&
-        task.details[MEMORY.TRANSFER_ROOM] === room.id;
-    }).length > 0;
-
-    if (inProgress) {
-      return;
-    }
-
-    amount = _.min([terminal.amount, amount])
-
-    console.log('requesting transfer', resource, 'to', room.id, amount)
-
-    result.terminal.sendRequest(TOPICS.TOPIC_TERMINAL_TASK, PRIORITIES.TERMINAL_TRANSFER, {
-      [MEMORY.TERMINAL_TASK_TYPE]: TASKS.TASK_TRANSFER,
-      [MEMORY.TRANSFER_RESOURCE]: resource,
-      [MEMORY.TRANSFER_AMOUNT]: amount,
-      [MEMORY.TRANSFER_ROOM]: room.id,
-    }, ttl);
+    stats.resources = this.resources;
   }
   getTerminalWithResource(resource) {
     const terminals = this.getKingdom().getColonies().reduce((acc, colony) => {
@@ -245,6 +183,42 @@ class Resources extends OrgBase {
 
     return sharedResources;
   }
+  getReserveResources(includeTerminal) {
+    return this.getKingdom().getColonies().reduce((acc, colony) => {
+      // If colony doesn't have a terminal don't include it
+      if (!colony.getPrimaryRoom() || !colony.getPrimaryRoom().terminal) {
+        return acc;
+      }
+
+      const colonyResources = colony.getReserveResources(includeTerminal);
+      Object.keys(colonyResources).forEach((resource) => {
+        const current = acc[resource] || 0;
+        acc[resource] = colonyResources[resource] + current;
+      });
+
+      return acc;
+    }, {});
+  }
+  getAmountInReserve(resource) {
+    return this.getKingdom().getColonies().reduce((acc, colony) => {
+      return acc + colony.getAmountInReserve(resource);
+    }, 0);
+  }
+  getReactors() {
+    return this.getKingdom().getColonies().reduce((acc, colony) => {
+      const room = colony.getPrimaryRoom();
+      if (!room) {
+        return acc;
+      }
+
+      // If colony doesn't have a terminal don't include it
+      if (!Object.keys(room.reactorMap).length) {
+        return acc;
+      }
+
+      return acc.concat(Object.values(room.reactorMap));
+    }, []);
+  }
   getReactions() {
     let availableReactions = {};
     let missingOneInput = {};
@@ -291,7 +265,16 @@ class Resources extends OrgBase {
 
     return availableReactions;
   }
+  getActiveReactions() {
+    return this.getReactors().filter((reactor) => {
+      return !reactor.isIdle();
+    }).map((reactor) => {
+      return reactor.getOutput();
+    });
+  }
   prioritizeReactions(reactions) {
+    // Sorts reactions based on hard coded priorities, if kingdom has more
+    // than reserve limit, reduce priority by 3
     return _.sortBy(Object.values(reactions), (reaction) => {
       let priority = PRIORITIES.REACTION_PRIORITIES[reaction['output']];
       if (this.resources[reaction['output']] >= RESERVE_LIMIT) {
@@ -300,6 +283,85 @@ class Resources extends OrgBase {
 
       return priority;
     });
+  }
+  getDesiredCompound(effect, reserve) {
+    // Returns fist compound (assumes sorted by priority) that has more
+    // than minimum, or the compound with the most available
+    return effect.compounds.reduce((acc, compound) => {
+      const amountAvailable = reserve[compound.name] || 0
+
+      if (!acc) {
+        return {
+          resource: compound.name,
+          amount: amountAvailable
+        }
+      }
+
+      if (acc.amount > MIN_CRITICAL_COMPOUND) {
+        return acc;
+      }
+
+      if (acc.amount < amountAvailable) {
+        return {
+          resource: compound.name,
+          amount: amountAvailable
+        }
+      }
+
+      return acc;
+    }, null)
+  }
+  requestResource(room, resource, amount, ttl) {
+    // We can't request a transfer if room lacks a terminal
+    const terminal = room.getTerminal();
+    if (!terminal) {
+      return;
+    }
+
+    const result = this.getTerminalWithResource(resource);
+    if (!result) {
+      const details = {
+        [MEMORY.TERMINAL_TASK_TYPE]: TASKS.TASK_MARKET_ORDER,
+        [MEMORY.MEMORY_ORDER_TYPE]: ORDER_BUY,
+        [MEMORY.MEMORY_ORDER_RESOURCE]: resource,
+        [MEMORY.MEMORY_ORDER_AMOUNT]: amount,
+      };
+
+      if (Game.market.credits > 40000) {
+        console.log('requesting purchase', resource, 'for', room.id, amount)
+
+        room.terminal.sendRequest(TOPICS.TOPIC_TERMINAL_TASK, PRIORITIES.TERMINAL_BUY,
+          details, ttl);
+      } else {
+        console.log('not enough credits to purchase', resource, 'for', room.id, amount)
+      }
+      return;
+    }
+
+    const inProgress = this.getTerminals().filter((orgTerminal) => {
+      const task = orgTerminal.getTask();
+      if (!task) {
+        return false;
+      }
+
+      return task.details[MEMORY.TRANSFER_RESOURCE] === resource &&
+        task.details[MEMORY.TRANSFER_ROOM] === room.id;
+    }).length > 0;
+
+    if (inProgress) {
+      return;
+    }
+
+    amount = _.min([terminal.amount, amount])
+
+    console.log('requesting transfer', resource, 'to', room.id, amount)
+
+    result.terminal.sendRequest(TOPICS.TOPIC_TERMINAL_TASK, PRIORITIES.TERMINAL_TRANSFER, {
+      [MEMORY.TERMINAL_TASK_TYPE]: TASKS.TASK_TRANSFER,
+      [MEMORY.TRANSFER_RESOURCE]: resource,
+      [MEMORY.TRANSFER_AMOUNT]: amount,
+      [MEMORY.TRANSFER_ROOM]: room.id,
+    }, ttl);
   }
   requestReactions() {
     this.availableReactions.forEach((reaction) => {
@@ -316,8 +378,7 @@ class Resources extends OrgBase {
     });
   }
   requestSellResource() {
-    const colonies = this.getKingdom().getColonies();
-    colonies.forEach((colony) => {
+    this.getKingdom().getColonies().forEach((colony) => {
       const resources = colony.getReserveResources();
 
       Object.keys(resources).forEach((resource) => {
@@ -373,31 +434,6 @@ class Resources extends OrgBase {
         }
       });
     });
-  }
-  getDesiredCompound(effect, reserve) {
-    return effect.compounds.reduce((acc, compound) => {
-      const amountAvailable = reserve[compound.name] || 0
-
-      if (!acc) {
-        return {
-          resource: compound.name,
-          amount: amountAvailable
-        }
-      }
-
-      if (acc.amount > MIN_CRITICAL_COMPOUND) {
-        return acc;
-      }
-
-      if (acc.amount < amountAvailable) {
-        return {
-          resource: compound.name,
-          amount: amountAvailable
-        }
-      }
-
-      return acc;
-    }, null)
   }
 }
 

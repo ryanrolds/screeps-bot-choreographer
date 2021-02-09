@@ -4,7 +4,6 @@ const MEMORY = require('./constants.memory');
 const TASKS = require('./constants.tasks');
 const TOPICS = require('./constants.topics');
 const PRIORITIES = require('./constants.priorities');
-const featureFlags = require('./lib.feature_flags')
 const {doEvery} = require('./lib.scheduler');
 
 const MIN_COMPOUND = 500;
@@ -72,7 +71,9 @@ class Booster extends OrgBase {
 
     setupTrace.end();
   }
-  update() {
+  update(trace) {
+    const updateTrace = trace.begin('update')
+
     this.labs = this.labs.map((lab) => {
       return Game.getObjectById(lab.id);
     })
@@ -86,34 +87,29 @@ class Booster extends OrgBase {
       return;
     }
 
-    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
-      this.updatePrepare();
-    } else {
-      this.doUpdatePrepare();
-    }
+    this.doUpdatePrepare();
 
     console.log(this);
+
+    updateTrace.end();
   }
-  process() {
+  process(trace) {
+    const processTrace = trace.begin('process')
+
     if (this.labs.length !== 3) {
+      processTrace.end();
       return;
     }
 
-    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
-      this.requestEnergyForLabs()
-    } else {
-      this.doRequestEnergyForLabs()
-    }
+    this.doRequestEnergyForLabs()
 
     if (Object.keys(this.prepare).length) {
       this.sendHaulRequests()
     } else {
-      if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
-        this.requestClearLowLabs()
-      } else {
-        this.doRequestClearLowLabs()
-      }
+      this.doRequestClearLowLabs()
     }
+
+    processTrace.end();
   }
   toString() {
     return `---- Booster: Id: ${this.labs[0].id}, ` +
@@ -298,23 +294,13 @@ class Booster extends OrgBase {
     if (numToLoad > numEmpty) {
       const numToUnload = numToLoad - numEmpty;
       const unload = couldUnload.slice(0, numToUnload);
-
-      if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
-        this.requestUnloadOfLabs(loadedEffects, unload)
-      } else {
-        this.doRequestUnloadOfLabs(loadedEffects, unload)
-      }
+      this.doRequestUnloadOfLabs(loadedEffects, unload)
     }
 
     if (numEmpty && numToLoad) {
       const numReadyToLoad = _.min([numEmpty, numToLoad])
       const load = needToLoad.slice(0, numReadyToLoad);
-
-      if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
-        this.requestMaterialsForLabs(desiredEffects, load)
-      } else {
-        this.doRequestMaterialsForLabs(desiredEffects, load)
-      }
+      this.doRequestMaterialsForLabs(desiredEffects, load)
     }
 
     this.updateStats(preparedNames, couldUnload, needToLoad);
@@ -360,7 +346,7 @@ class Booster extends OrgBase {
         return;
       }
 
-      const assignedCreeps = _.filter(this.getCreeps(), (creep) => {
+      const assignedCreeps = this.getCreeps().filter((creep) => {
         const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
         const taskPickup = creep.memory[MEMORY.MEMORY_HAUL_PICKUP];
         const resource = creep.memory[MEMORY.MEMORY_HAUL_RESOURCE];
@@ -404,7 +390,7 @@ class Booster extends OrgBase {
       }
       const emptyLab = emptyLabs[0];
 
-      const assignedCreeps = _.filter(this.getCreeps(), (creep) => {
+      const assignedCreeps = this.getCreeps().filter((creep) => {
         const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
         const taskDropoff = creep.memory[MEMORY.MEMORY_HAUL_DROPOFF];
         const resource = creep.memory[MEMORY.MEMORY_HAUL_RESOURCE];

@@ -14,7 +14,6 @@ const TASKS = require('./constants.tasks');
 const TOPICS = require('./constants.topics');
 const PRIORITIES = require('./constants.priorities');
 const {creepIsFresh} = require('./behavior.commute');
-const featureFlags = require('./lib.feature_flags')
 const {doEvery} = require('./lib.scheduler');
 
 const {MEMORY_ROLE, MEMORY_ASSIGN_ROOM, MEMORY_HARVEST_ROOM} = require('./constants.memory');
@@ -35,7 +34,12 @@ const RESERVE_BUFFER = 200000;
 
 const UPDATE_CREEPS_TTL = 1;
 const UPDATE_ORG_TTL = 1;
-const UPDATE_DEFENSE_STATUS_TTL = 20;
+const UPDATE_DEFENSE_STATUS_TTL = 10;
+const UPDATE_HOSTILE_PRESENCE_TTL = 10;
+const UPDATE_DAMAGED_CREEPS_TTL = 5;
+const UPDATE_DAMAGED_STRUCTURES_TTL = 20;
+const UPDATE_DAMAGED_SECONDARY_TTL = 20;
+const UPDATE_DAMAGED_ROADS_TTL = 20;
 
 const REQUEST_HAUL_DROPPED_RESOURCES_TTL = 200;
 const REQUEST_DEFENDERS_TTL = 20;
@@ -89,6 +93,61 @@ class Room extends OrgBase {
       this.updateDefenseStatus(trace)
     });
 
+    this.damagedCreeps = [];
+    this.updateDamagedCreeps = doEvery(UPDATE_DAMAGED_CREEPS_TTL)(() => {
+      let damagedCreeps = this.getCreeps().filter((creep) => {
+        return creep.hits < creep.hitsMax;
+      });
+      damagedCreeps = _.sortBy(damagedCreeps, (creep) => {
+        return creep.hits / creep.hitsMax;
+      });
+      this.damagedCreeps = _.map(damagedCreeps, 'name');
+    });
+
+    this.damagedStructures = [];
+    this.updateDamagedStructure = doEvery(UPDATE_DAMAGED_STRUCTURES_TTL)(() => {
+      let damagedStructures = this.room.find(FIND_STRUCTURES, {
+        filter: (s) => {
+          return s.hits < s.hitsMax && (
+            s.structureType != STRUCTURE_WALL && s.structureType != STRUCTURE_RAMPART &&
+            s.structureType != STRUCTURE_ROAD);
+        },
+      });
+
+      this.damagedStructures = _.map(damagedStructures, 'id');
+    });
+
+    this.damagedSecondaryStructures = [];
+    this.updateDamagedSecondaryStructures = doEvery(UPDATE_DAMAGED_SECONDARY_TTL)(() => {
+      let damagedSecondaryStructures = this.room.find(FIND_STRUCTURES, {
+        filter: (s) => {
+          return s.hits < s.hitsMax && (
+            s.structureType == STRUCTURE_RAMPART ||
+            s.structureType == STRUCTURE_WALL) &&
+            s.hits < this.defenseHitsLimit;
+        },
+      });
+      damagedSecondaryStructures = _.sortBy(damagedSecondaryStructures, (structure) => {
+        return structure.hits;
+      });
+
+      this.damagedSecondaryStructures = _.map(damagedSecondaryStructures, 'id');
+    });
+
+    this.damagedRoads = [];
+    this.updateDamagedRoads = doEvery(UPDATE_DAMAGED_ROADS_TTL)(() => {
+      let damagedRoads = this.room.find(FIND_STRUCTURES, {
+        filter: (s) => {
+          return s.hits < s.hitsMax && s.structureType == STRUCTURE_ROAD;
+        },
+      });
+      damagedRoads = _.sortBy(damagedRoads, (structure) => {
+        return structure.hits;
+      });
+
+      this.damagedRoads = _.map(damagedRoads, 'id');
+    });
+
     // Request things
     this.doRequestHaulDroppedResources = doEvery(REQUEST_HAUL_DROPPED_RESOURCES_TTL)(() => {
       this.requestHaulDroppedResources();
@@ -120,8 +179,8 @@ class Room extends OrgBase {
 
     setupTrace.end();
   }
-  update() {
-    const updateTrace = this.trace.begin('update');
+  update(trace) {
+    const updateTrace = trace.begin('update');
 
     const room = this.room = Game.rooms[this.id];
     if (!room) {
@@ -159,17 +218,8 @@ class Room extends OrgBase {
 
     roomPropsTrace.end();
 
-    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
-      this.updateCreeps(updateTrace);
-    } else {
-      this.doUpdateCreeps(updateTrace);
-    }
-
-    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
-      this.updateDefenseStatus(updateTrace);
-    } else {
-      this.doUpdateDefenseStatus(updateTrace);
-    }
+    this.doUpdateCreeps(updateTrace);
+    this.doUpdateDefenseStatus(updateTrace);
 
     const droppedResourcesTrace = updateTrace.begin('dropped_resources');
 
@@ -189,60 +239,31 @@ class Room extends OrgBase {
 
     // was in constructor end
 
-    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
-      this.updateOrg(updateTrace)
-    } else {
-      this.doUpdateOrg(updateTrace)
-    }
+    this.doUpdateOrg(updateTrace)
+
+    const towerFocusTrace = updateTrace.begin('tower_focus');
+    this.updateDamagedCreeps();
+    this.updateDamagedStructure();
+    this.updateDamagedSecondaryStructures();
+    this.updateDamagedRoads();
+    towerFocusTrace.end();
 
     const requestTrace = updateTrace.begin('requests');
 
     // Request defenders
-    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
-      this.requestDefender();
-    } else {
-      this.doRequestDefenders();
-    }
-
+    this.doRequestDefenders();
     // Send a request if we are short on distributors
-    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
-      this.requestDistributor();
-    } else {
-      this.doRequestDistributor();
-    }
-
+    this.doRequestDistributor();
     // If not claimed by me and no claimer assigned and not primary, request a reserver
-    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
-      this.requestReserver();
-    } else {
-      this.doRequestReserver();
-    }
-
-    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
-      this.requestHaulDroppedResources();
-    } else {
-      this.doRequestHaulDroppedResources();
-    }
-
+    this.doRequestReserver();
+    // Haul dropped resources (janitorial)
+    this.doRequestHaulDroppedResources();
     // Upgrader request
-    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
-      this.requestUpgrader();
-    } else {
-      this.doRequestUpgrader()
-    }
-
+    this.doRequestUpgrader();
     // Builder requests
-    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
-      this.requestBuilder();
-    } else {
-      this.doRequestBuilder();
-    }
-
-    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
-      this.requestRepairer();
-    } else {
-      this.doRequestRepairer();
-    }
+    this.doRequestBuilder();
+    // Repairer requests
+    this.doRequestRepairer();
 
     console.log(this);
 
@@ -292,40 +313,58 @@ class Room extends OrgBase {
 
     updateTrace.end();
   }
-  process() {
+  process(trace) {
+    const processTrace = trace.begin('process')
+
     if (!this.room) {
       return;
     }
 
     this.updateStats();
 
+    const sourcesTrace = processTrace.begin('sources');
     Object.values(this.sourceMap).forEach((source) => {
-      source.process();
+      source.process(sourcesTrace);
     });
+    sourcesTrace.end();
 
+    const linksTrace = processTrace.begin('links');
     Object.values(this.linkMap).forEach((link) => {
-      link.process();
+      link.process(linksTrace);
     });
+    linksTrace.end();
 
+    const towersTrace = processTrace.begin('towers');
     Object.values(this.towerMap).forEach((tower) => {
-      tower.process();
+      tower.process(towersTrace);
     });
+    towersTrace.end();
 
+    const spawnsTrace = processTrace.begin('spawns');
     Object.values(this.spawnMap).forEach((spawn) => {
-      spawn.process();
+      spawn.process(spawnsTrace);
     });
+    spawnsTrace.end();
 
+    const reactorsTrace = processTrace.begin('reactors');
     Object.values(this.reactorMap).forEach((reactor) => {
-      reactor.process();
+      reactor.process(reactorsTrace);
     });
+    reactorsTrace.end();
 
     if (this.booster) {
-      this.booster.process()
+      const boosterTrace = processTrace.begin('booster');
+      this.booster.process(processTrace)
+      boosterTrace.end();
     }
 
     if (this.terminal) {
-      this.terminal.process();
+      const terminalProcess = processTrace.begin('terminal');
+      this.terminal.process(processTrace);
+      terminalProcess.end();
     }
+
+    processTrace.end();
   }
   toString() {
     return `-- Room - ID: ${this.id}, Primary: ${this.isPrimary}, Claimed: ${this.claimedByMe}, ` +
@@ -336,7 +375,12 @@ class Room extends OrgBase {
       `#Towers: ${Object.keys(this.towerMap).length}, #Sites: ${this.numConstructionSites}, ` +
       `%Hits: ${this.hitsPercentage.toFixed(2)}, #Repairer: ${this.numRepairers}, ` +
       `#Links: ${Object.keys(this.linkMap).length}, ` +
-      `EnergyFullness: ${this.getEnergyFullness()}`;
+      `EnergyFullness: ${this.getEnergyFullness()}, ` +
+      `Hostiles: ${this.hostilesPresent}, ` +
+      `DCreeps: ${this.damagedCreeps.length}, ` +
+      `DStructures: ${this.damagedStructures.length}, ` +
+      `DSecondary: ${this.damagedSecondaryStructures.length}, ` +
+      `DRoads: ${this.damagedRoads.length}`;
   }
   getRoom() {
     return this;

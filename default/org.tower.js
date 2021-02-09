@@ -2,10 +2,10 @@ const OrgBase = require('./org.base');
 const MEMORY = require('./constants.memory');
 const TASKS = require('./constants.tasks');
 const TOPICS = require('./constants.topics');
-const featureFlags = require('./lib.feature_flags')
 const {doEvery} = require('./lib.scheduler');
 
 const MIN_ROOM_ENERGY = 5000;
+
 const REQUEST_ENERGY_TTL = 25;
 
 class Tower extends OrgBase {
@@ -17,6 +17,11 @@ class Tower extends OrgBase {
     this.tower = tower;
     this.towerUsed = 0;
 
+    this.damagedCreep = null;
+    this.damagedStructure = null;
+    this.damagedSecondaryStructure = null;
+    this.damagedRoad = null;
+
     let minEnergy = MIN_ROOM_ENERGY;
     if (this.getRoom().getRoomObject().controller.level <= 3) {
       minEnergy = 1000;
@@ -24,27 +29,20 @@ class Tower extends OrgBase {
     this.minEnergy = minEnergy;
 
     // Request energy if tower is low
-    this.checkEnergy = doEvery(REQUEST_ENERGY_TTL)((tower) => {
+    this.checkEnergy = doEvery(REQUEST_ENERGY_TTL)(() => {
       this.requestEnergy()
     });
 
     setupTrace.end();
   }
-  update() {
-    const updateTrace = this.trace.begin('constructor');
+  update(trace) {
+    const updateTrace = trace.begin('constructor');
 
     this.tower = Game.getObjectById(this.id);
 
     // was constructor
     const tower = this.tower;
     this.energy = tower.energy;
-
-    const creeps = this.getRoom().getCreeps();
-    this.haulersWithTask = _.filter(creeps, (creep) => {
-      const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
-      const dropoff = creep.memory[MEMORY.MEMORY_HAUL_DROPOFF];
-      return task === TASKS.TASK_HAUL && dropoff === this.id;
-    }).length;
 
     const room = tower.room;
     const rcLevel = room.controller.level.toString();
@@ -61,23 +59,20 @@ class Tower extends OrgBase {
     // was constructor end
 
     this.towerUsed = this.tower.store.getUsedCapacity(RESOURCE_ENERGY);
-    this.roomEnergy = this.getRoom().getAmountInReserve(RESOURCE_ENERGY);
 
-    // console.log(this);
+    //console.log(this);
 
     updateTrace.end();
   }
-  process() {
+  process(trace) {
+    const processTrace = trace.begin('process')
+
     const tower = this.tower;
 
-    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
-      this.requestEnergy();
-    } else {
-      this.checkEnergy(this);
-    }
+    this.checkEnergy(this);
 
-    let hostiles = this.getRoom().getHostiles();
-    if (hostiles && hostiles.length) {
+    if (this.getRoom().numHostiles) {
+      let hostiles = this.getRoom().getHostiles();
       hostiles = hostiles.filter((hostile) => {
         return tower.pos.getRangeTo(hostile) <= 15;
       });
@@ -88,73 +83,92 @@ class Tower extends OrgBase {
         }).reverse();
 
         tower.attack(hostiles[0]);
+        processTrace.end();
         return;
       }
     }
 
-    const damagedCreeps = _.filter(this.getRoom().getRoomCreeps(), (creep) => {
-      return creep.hits < creep.hitsMax;
-    });
+    if (!this.damagedCreep && this.getRoom().damagedCreeps.length) {
+      this.damagedCreep = this.getRoom().damagedCreeps.shift()
+    }
 
-    const creepsByHealth = _.sortBy(damagedCreeps, (creep) => {
-      return creep.hits / creep.hitsMax;
-    });
-
-    if (creepsByHealth.length) {
-      tower.heal(creepsByHealth[0]);
-      return;
+    if (this.damagedCreep) {
+      const creep = Game.creeps[this.damagedCreep];
+      if (!creep || creep.hits >= creep.hitsMax) {
+        this.damagedCreep = null;
+      } else {
+        tower.heal(creep);
+        processTrace.end();
+        return;
+      }
     }
 
     if (this.towerUsed > 250) {
-      const closestDamagedStructure = tower.pos.findClosestByRange(FIND_STRUCTURES, {
-        filter: (s) => {
-          return s.hits < s.hitsMax && (
-            s.structureType != STRUCTURE_WALL && s.structureType != STRUCTURE_RAMPART &&
-            s.structureType != STRUCTURE_ROAD);
-        },
-      });
-      if (closestDamagedStructure) {
-        tower.repair(closestDamagedStructure);
-        return;
+      if (!this.damagedStructure && this.getRoom().damagedStructures.length) {
+        this.damagedStructure = this.getRoom().damagedStructures.shift()
+      }
+
+      if (this.damagedStructure) {
+        const structure = Game.getObjectById(this.damagedStructure);
+        if (!structure || structure.hits >= structure.hitsMax) {
+          this.damagedStructure = null;
+        } else {
+          tower.repair(structure);
+          processTrace.end();
+          return;
+        }
       }
 
       if (this.getRoom().getAmountInReserve(RESOURCE_ENERGY) > 4000) {
-        let damagedSecondaryStructures = tower.room.find(FIND_STRUCTURES, {
-          filter: (s) => {
-            return s.hits < s.hitsMax && (
-              s.structureType == STRUCTURE_RAMPART ||
-              s.structureType == STRUCTURE_WALL) &&
-              s.hits < this.defenseHitsLimit;
-          },
-        });
-        damagedSecondaryStructures = _.sortBy(damagedSecondaryStructures, (structure) => {
-          return structure.hits;
-        });
-        if (damagedSecondaryStructures && damagedSecondaryStructures.length) {
-          tower.repair(damagedSecondaryStructures[0]);
-          return;
+        if (!this.damagedSecondaryStructure && this.getRoom().damagedSecondaryStructures.length) {
+          this.damagedSecondaryStructure = this.getRoom().damagedSecondaryStructures.shift();
         }
 
-        let damagedRoads = tower.room.find(FIND_STRUCTURES, {
-          filter: (s) => {
-            return s.hits < s.hitsMax && s.structureType == STRUCTURE_ROAD;
-          },
-        });
-        damagedRoads = _.sortBy(damagedRoads, (structure) => {
-          return structure.hits;
-        });
-        if (damagedRoads && damagedRoads.length) {
-          tower.repair(damagedRoads[0]);
-          return;
+        if (this.damagedSecondaryStructure) {
+          const secondary = Game.getObjectById(this.damagedSecondaryStructure);
+          if (!secondary || secondary.hits >= secondary.hitsMax ||
+            secondary.hits >= this.defenseHitsLimit) {
+            this.damagedSecondaryStructure = null;
+          } else {
+            tower.repair(secondary);
+            processTrace.end();
+            return;
+          }
+        }
+
+        if (!this.damagedRoad && this.getRoom().damagedRoads.length) {
+          this.damagedRoad = this.getRoom().damagedRoads.shift();
+        }
+
+        if (this.damagedRoad) {
+          const road = Game.getObjectById(this.damagedRoad);
+          if (!road || road.hits >= road.hitsMax) {
+            this.damagedRoad = null;
+          } else {
+            tower.repair(road);
+            processTrace.end();
+            return;
+          }
         }
       }
     }
+
+    processTrace.end();
   }
   toString() {
-    return `---- Tower - ID: ${this.id}, Energy: ${this.energy}, DefenseHitsLimit: ${this.defenseHitsLimit}`;
+    return `---- Tower - ID: ${this.id}, Energy: ${this.energy}, ` +
+      `DefenseHitsLimit: ${this.defenseHitsLimit}`;
   }
   requestEnergy() {
-    if (this.towerUsed > 500 | this.haulersWithTask || this.roomEnergy <= this.minEnergy) {
+    const creeps = this.getRoom().getCreeps();
+    const haulersWithTask = creeps.filter((creep) => {
+      const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
+      const dropoff = creep.memory[MEMORY.MEMORY_HAUL_DROPOFF];
+      return task === TASKS.TASK_HAUL && dropoff === this.id;
+    }).length;
+    this.roomEnergy = this.getRoom().getAmountInReserve(RESOURCE_ENERGY);
+
+    if (this.towerUsed > 500 || haulersWithTask || this.roomEnergy <= this.minEnergy) {
       return;
     }
 

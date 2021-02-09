@@ -6,7 +6,6 @@ const TOPICS = require('./constants.topics');
 const CREEPS = require('./constants.creeps');
 const PRIORITIES = require('./constants.priorities');
 const {creepIsFresh} = require('./behavior.commute');
-const featureFlags = require('./lib.feature_flags')
 const {doEvery} = require('./lib.scheduler');
 
 const REQUEST_WORKER_TTL = 25;
@@ -42,10 +41,8 @@ class Source extends OrgBase {
     setupTrace.end();
   }
   update(trace) {
-
     const updateTrace = trace.begin('update')
 
-    // was constructor
     const source = this.source = Game.getObjectById(this.id)
 
     const containers = source.pos.findInRange(FIND_STRUCTURES, 2, {
@@ -63,14 +60,14 @@ class Source extends OrgBase {
     }
 
     const roomCreeps = this.getRoom().getCreeps();
-    this.numHarvesters = _.filter(roomCreeps, (creep) => {
+    this.numHarvesters = roomCreeps.filter((creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
       return role === CREEPS.WORKER_HARVESTER &&
         creep.memory[MEMORY.MEMORY_HARVEST] === this.id &&
         creepIsFresh(creep);
     }).length;
 
-    this.numMiners = _.filter(roomCreeps, (creep) => {
+    this.numMiners = roomCreeps.filter((creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
       return role === CREEPS.WORKER_MINER &&
         creep.memory[MEMORY.MEMORY_HARVEST] === this.id &&
@@ -78,7 +75,7 @@ class Source extends OrgBase {
     }).length;
 
     const haulers = this.getColony().getHaulers();
-    this.haulersWithTask = _.filter(haulers, (creep) => {
+    this.haulersWithTask = haulers.filter((creep) => {
       const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
       const pickup = creep.memory[MEMORY.MEMORY_HAUL_PICKUP];
       return task === TASKS.TASK_HAUL && pickup === this.containerID;
@@ -86,44 +83,38 @@ class Source extends OrgBase {
 
     this.avgHaulerCapacity = this.getColony().getAvgHaulerCapacity();
 
-    this.haulerCapacity = _.reduce(this.haulersWithTask, (total, hauler) => {
+    this.haulerCapacity = this.haulersWithTask.reduce((total, hauler) => {
       return total += hauler.store.getFreeCapacity();
     }, 0);
-    // was constructor end
 
     //console.log(this);
 
     const room = this.getColony().getRoomByID(this.roomID);
     if ((room.numHostiles > 0) && !room.isPrimary) {
       // Do not request hauling or more workers if room has hostiles and is not the main room
+      updateTrace.end();
       return;
     }
 
-    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
-      this.sendHaulTasks();
-    } else {
-      this.doRequestHauling();
-    }
+    this.doRequestHauling();
 
     // Don't send miners or harvesters if room isn't claimed/reserved by me
     if (!room.claimedByMe && !room.reservedByMe) {
+      updateTrace.end();
       return;
     }
 
-    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
-      this.requestHarvester()
-    } else {
-      this.doRequestHarvester()
-    }
+    this.doRequestHarvester();
+    this.doRequestMiner();
 
-    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
-      this.requestMiner()
-    } else {
-      this.doRequestMiner()
-    }
+    updateTrace.end();
   }
-  process() {
+  process(trace) {
+    const processTrace = trace.begin('process')
+
     this.updateStats();
+
+    processTrace.end();
   }
   toString() {
     return `---- Source - ${this.id}, ` +

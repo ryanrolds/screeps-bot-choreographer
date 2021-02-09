@@ -3,7 +3,6 @@ const OrgBase = require('./org.base');
 const MEMORY = require('./constants.memory');
 const TASKS = require('./constants.tasks');
 const TOPICS = require('./constants.topics');
-const featureFlags = require('./lib.feature_flags')
 const {doEvery} = require('./lib.scheduler');
 
 const {TOPIC_ROOM_LINKS} = require('./constants.topics');
@@ -38,7 +37,9 @@ class Link extends OrgBase {
 
     setupTrace.end();
   }
-  update() {
+  update(trace) {
+    const updateTrace = trace.begin('update')
+
     const link = this.link = Game.getObjectById(this.id)
     this.fullness = link.store.getUsedCapacity(RESOURCE_ENERGY) / link.store.getCapacity(RESOURCE_ENERGY);
 
@@ -50,7 +51,7 @@ class Link extends OrgBase {
     }).length > 0;
 
     const creeps = this.getColony().getCreeps();
-    this.haulersWithTask = _.filter(creeps, (creep) => {
+    this.haulersWithTask = creeps.filter((creep) => {
       const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
       const dropoff = creep.memory[MEMORY.MEMORY_HAUL_DROPOFF];
       return task === TASKS.TASK_HAUL && dropoff === this.id;
@@ -58,19 +59,14 @@ class Link extends OrgBase {
 
     //console.log(this);
 
-    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
-      this.requestEnergy();
-    } else {
-      this.doRequestEnergy();
-    }
+    this.doRequestEnergy();
+    this.doRequestHaul()
 
-    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
-      this.requestHaul();
-    } else {
-      this.doRequestHaul()
-    }
+    updateTrace.end();
   }
-  process() {
+  process(trace) {
+    const processTrace = trace.begin('process')
+
     // If near source or storage and has at least 50%
     if (this.isNearStorage && this.fullness > 0.03) {
       // Check requests
@@ -80,6 +76,8 @@ class Link extends OrgBase {
         this.link.transferEnergy(requester, request.details.AMOUNT);
       }
     }
+
+    processTrace.end();
   }
   toString() {
     return `---- Link - ID: ${this.id}, NearStorage: ${this.isNearStorage}, ` +

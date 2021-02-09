@@ -4,7 +4,6 @@ const MEMORY = require('./constants.memory');
 const TASKS = require('./constants.tasks');
 const TOPICS = require('./constants.topics');
 const PRIORITIES = require('./constants.priorities');
-const featureFlags = require('./lib.feature_flags')
 const {doEvery} = require('./lib.scheduler');
 
 const TASK_PHASE_LOAD = 'phase_transfer_resources';
@@ -35,7 +34,9 @@ class Reactor extends OrgBase {
 
     setupTrace.end();
   }
-  update() {
+  update(trace) {
+    const updateTrace = trace.begin('update')
+
     this.room = this.getRoom().getRoomObject();
     this.terminal = this.getRoom().getTerminal();
     this.task = this.room.memory[MEMORY.REACTOR_TASK] || null;
@@ -89,14 +90,20 @@ class Reactor extends OrgBase {
           this.clearTask();
       }
     }
+
+    updateTrace.end();
   }
-  process() {
+  process(trace) {
+    const processTrace = trace.begin('process')
+
     if (!this.task) {
       const task = this.getKingdom().getNextRequest(TOPICS.TASK_REACTION);
       if (task) {
         this.room.memory[MEMORY.REACTOR_TASK] = task;
       }
     }
+
+    processTrace.end();
   }
   toString() {
     let taskSummary = 'None';
@@ -148,17 +155,9 @@ class Reactor extends OrgBase {
       const missingAmount = desiredAmount - currentAmount;
 
       if (!pickup) {
-        if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
-          this.getKingdom().getResourceGovernor().requestResource(room, resource, missingAmount, REQUEST_RESOURCE_TTL);
-        } else {
-          this.doRequestResource(room, resource, missingAmount, REQUEST_RESOURCE_TTL)
-        }
+        this.doRequestResource(room, resource, missingAmount, REQUEST_RESOURCE_TTL)
       } else {
-        if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
-          this.loadLab(lab, pickup, resource, missingAmount);
-        } else {
-          this.doLoadLab(lab, pickup, resource, missingAmount)
-        }
+        this.doLoadLab(lab, pickup, resource, missingAmount)
       }
 
       return false;
@@ -167,7 +166,7 @@ class Reactor extends OrgBase {
     return true;
   }
   loadLab(lab, pickup, resource, amount) {
-    const numHaulers = _.filter(this.getRoom().getCreeps(), (creep) => {
+    const numHaulers = this.getRoom().getCreeps().filter((creep) => {
       return creep.memory[MEMORY.MEMORY_TASK_TYPE] === TASKS.HAUL_TASK &&
         creep.memory[MEMORY.MEMORY_HAUL_RESOURCE] === resource &&
         creep.memory[MEMORY.MEMORY_HAUL_DROPOFF] === lab.id;
@@ -187,7 +186,7 @@ class Reactor extends OrgBase {
     }, REQUEST_LOAD_TTL);
   }
   unloadLab(lab) {
-    const numHaulers = _.filter(this.getRoom().getCreeps(), (creep) => {
+    const numHaulers = this.getRoom().getCreeps().filter((creep) => {
       return creep.memory[MEMORY.MEMORY_TASK_TYPE] === TASKS.HAUL_TASK &&
         creep.memory[MEMORY.MEMORY_HAUL_RESOURCE] === lab.mineralType &&
         creep.memory[MEMORY.MEMORY_HAUL_PICKUP] === lab.id;

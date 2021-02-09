@@ -3,11 +3,10 @@ const MEMORY = require('./constants.memory');
 const TOPICS = require('./constants.topics');
 const {WORKER_ATTACKER} = require('./constants.creeps');
 const {PRIORITY_ATTACKER} = require('./constants.priorities');
-const featureFlags = require('./lib.feature_flags')
 const {doEvery} = require('./lib.scheduler');
 
-const NUM_ATTACKERS = 4;
-const REQUEST_ATTACKER_TTL = 75;
+const DESIRED_NUM_ATTACKERS = 4;
+const REQUEST_ATTACKER_TTL = 55;
 
 const FORMATION = [
   {x: -1, y: 1},
@@ -25,14 +24,14 @@ class WarParty extends OrgBase {
     this.flag = flag;
 
     // Check if party needs creeps
-    this.checkAttackers = doEvery(REQUEST_ATTACKER_TTL)((party) => {
-      this.requestAttacker();
+    this.doRequestAttackers = doEvery(REQUEST_ATTACKER_TTL)((party) => {
+      this.requestAttackers();
     });
 
     setupTrace.end();
   }
-  update() {
-    const updateTrace = this.trace.begin('update');
+  update(trace) {
+    const updateTrace = trace.begin('update');
 
     if (Game.flags[this.id]) {
       this.flag = Game.flags[this.id];
@@ -116,32 +115,31 @@ class WarParty extends OrgBase {
       creep.memory[MEMORY.MEMORY_POSITION_ROOM] = this.flag.pos.roomName;
     });
 
-    if (!featureFlags.getFlag(featureFlags.PERSISTENT_TOPICS)) {
-      // Request more creeps
-      this.requestAttacker();
-    } else {
-      this.checkAttackers(this);
-    }
+    this.doRequestAttackers(this);
 
     updateTrace.end();
   }
-  process() {
-    // TODO consume alarms and respond
+  process(trace) {
+
   }
   toString() {
     return `---- War Party - ID: ${this.id}, Room: ${this.roomId}, #Creeps: ${this.creeps.length}`;
   }
-  requestAttacker() {
-    if (this.creeps.length >= NUM_ATTACKERS) {
+  requestAttackers() {
+    const partySize = this.creeps.length;
+    if (partySize >= DESIRED_NUM_ATTACKERS) {
       return;
     }
 
-    this.sendRequest(TOPICS.TOPIC_SPAWN, PRIORITY_ATTACKER, {
-      role: WORKER_ATTACKER,
-      memory: {
-        [MEMORY.MEMORY_FLAG]: this.id,
-      },
-    }, REQUEST_ATTACKER_TTL);
+    const numToRequest = DESIRED_NUM_ATTACKERS - partySize;
+    for (let i = 0; i < numToRequest; i++) {
+      this.sendRequest(TOPICS.TOPIC_SPAWN, PRIORITY_ATTACKER, {
+        role: WORKER_ATTACKER,
+        memory: {
+          [MEMORY.MEMORY_FLAG]: this.id,
+        },
+      }, REQUEST_ATTACKER_TTL);
+    }
   }
 }
 

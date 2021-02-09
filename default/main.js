@@ -1,6 +1,5 @@
 const tracing = require('./lib.tracing');
 const AI = require('./lib.ai')
-const Kingdom = require('./org.kingdom');
 
 global.TRACING_ACTIVE = false;
 
@@ -64,16 +63,6 @@ module.exports.loop = function() {
   ai.tick(aiTrace);
 
   aiTrace.end();
-
-  /*
-  const kingdomTrace = trace.begin('kingdom');
-
-  const kingdom = new Kingdom(config, kingdomTrace);
-  kingdom.update();
-  kingdom.process();
-
-  kingdomTrace.end();
-  */
 
   console.log('--------------------------------');
 
