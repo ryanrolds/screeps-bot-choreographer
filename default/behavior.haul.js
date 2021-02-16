@@ -6,7 +6,7 @@ const TASKS = require('./constants.tasks');
 
 const pathCache = require('./lib.path_cache');
 
-module.exports.getTaskFromTopic = function(topic) {
+module.exports.getHaulTaskFromTopic = function(topic) {
   return behaviorTree.leafNode(
     'pick_haul_task',
     (creep, trace, kingdom) => {
@@ -20,28 +20,81 @@ module.exports.getTaskFromTopic = function(topic) {
         return FAILURE;
       }
 
-      // set task details
-      creep.memory[MEMORY.TASK_ID] = task.details[MEMORY.TASK_ID];
-      creep.memory[MEMORY.MEMORY_TASK_TYPE] = TASKS.TASK_HAUL;
-      creep.memory[MEMORY.MEMORY_HAUL_PICKUP] = task.details[MEMORY.MEMORY_HAUL_PICKUP];
-      creep.memory[MEMORY.MEMORY_HAUL_RESOURCE] = task.details[MEMORY.MEMORY_HAUL_RESOURCE];
-
-      if (task.details[MEMORY.MEMORY_HAUL_AMOUNT]) {
-        creep.memory[MEMORY.MEMORY_HAUL_AMOUNT] = task.details[MEMORY.MEMORY_HAUL_AMOUNT];
-      } else {
-        // Clear this, "needs energy" task was limiting regular haul tasks
-        delete creep.memory[MEMORY.MEMORY_HAUL_AMOUNT];
-      }
-
-      creep.memory[MEMORY.MEMORY_HAUL_DROPOFF] = task.details[MEMORY.MEMORY_HAUL_DROPOFF];
-
-      const taskId = creep.memory[MEMORY.TASK_ID] || '?'
-      creep.say(taskId);
-      console.log('task', creep.name, taskId)
+      this.storeHaulTask(creep, task);
 
       return SUCCESS;
     },
   );
+};
+
+module.exports.getNearbyHaulTaskFromTopic = function(topic) {
+  return behaviorTree.leafNode(
+    'pick_nearby_haul_task',
+    (creep, trace, kingdom) => {
+      // lookup colony from kingdom
+      const colonyId = creep.memory[MEMORY.MEMORY_COLONY];
+      const colony = kingdom.getColonyById(colonyId);
+
+      // get next haul task
+      const task = colony.getTopics().getMessageOfMyChoice(topic, (messages) => {
+        let selected = null;
+        let selectedDistance = 99999;
+
+        messages.forEach((message) => {
+          console.log(JSON.stringify(message));
+
+          const pickupId = message.details[MEMORY.MEMORY_HAUL_PICKUP];
+          if (pickupId) {
+            return;
+          }
+
+          const pickup = Game.getObjectById(pickId);
+          if (!pickup) {
+            return;
+          }
+
+          if (pickup.room.name !== creep.room.name) {
+            return;
+          }
+
+          const distance = creep.pos.getRangeTo(pickup);
+          if (distance < selectedDistance) {
+            selected = message;
+            selectedDistance = distance;
+          }
+        });
+
+        return selected;
+      });
+      if (!task) {
+        return FAILURE;
+      }
+
+      this.storeHaulTask(creep, task);
+
+      return SUCCESS;
+    },
+  );
+};
+
+module.exports.storeHaulTask = (creep, task) => {
+  // set task details
+  creep.memory[MEMORY.TASK_ID] = task.details[MEMORY.TASK_ID];
+  creep.memory[MEMORY.MEMORY_TASK_TYPE] = TASKS.TASK_HAUL;
+  creep.memory[MEMORY.MEMORY_HAUL_PICKUP] = task.details[MEMORY.MEMORY_HAUL_PICKUP];
+  creep.memory[MEMORY.MEMORY_HAUL_RESOURCE] = task.details[MEMORY.MEMORY_HAUL_RESOURCE];
+
+  if (task.details[MEMORY.MEMORY_HAUL_AMOUNT]) {
+    creep.memory[MEMORY.MEMORY_HAUL_AMOUNT] = task.details[MEMORY.MEMORY_HAUL_AMOUNT];
+  } else {
+    // Clear this, "needs energy" task was limiting regular haul tasks
+    delete creep.memory[MEMORY.MEMORY_HAUL_AMOUNT];
+  }
+
+  creep.memory[MEMORY.MEMORY_HAUL_DROPOFF] = task.details[MEMORY.MEMORY_HAUL_DROPOFF];
+
+  const taskId = creep.memory[MEMORY.TASK_ID] || '?';
+  // creep.say(taskId);
 };
 
 module.exports.clearTask = behaviorTree.leafNode(
@@ -96,12 +149,12 @@ module.exports.loadCreep = behaviorTree.leafNode(
 
       result = creep.withdraw(pickup, resource, amount);
 
-      trace.log(creep.id, "load resource", JSON.stringify({
+      trace.log(creep.id, 'load resource', {
         pickup: pickup.id,
         resource,
         amount,
         result,
-      }))
+      });
     }
 
     if (result === ERR_INVALID_ARGS) {
@@ -120,6 +173,6 @@ module.exports.loadCreep = behaviorTree.leafNode(
       return FAILURE;
     }
 
-    return SUCCESS;
+    return RUNNING;
   },
 );

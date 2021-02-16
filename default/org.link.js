@@ -7,6 +7,8 @@ const {doEvery} = require('./lib.scheduler');
 
 const {TOPIC_ROOM_LINKS} = require('./constants.topics');
 
+const UPDATE_LINK_TTL = 50;
+
 const REQUEST_ENERGY_TTL = 5;
 const REQUEST_HAUL_TTL = 5;
 
@@ -18,54 +20,67 @@ class Link extends OrgBase {
 
     this.link = link;
 
-    // Check proximity to static locations
-    this.isNearRC = link.pos.findInRange(FIND_MY_STRUCTURES, 5, {
-      filter: (structure) => {
-        return structure.structureType === STRUCTURE_CONTROLLER;
-      },
-    }).length > 0;
 
-    this.isNearSource = link.pos.findInRange(FIND_SOURCES, 2).length > 0;
+    this.isNearRC = false;
+    this.isNearSource = false;
+    this.isNearStorage = false;
+    this.fullness = 0;
+    this.updateLink = doEvery(UPDATE_LINK_TTL)(() => {
+      // Check proximity to static locations
+      this.isNearRC = link.pos.findInRange(FIND_MY_STRUCTURES, 5, {
+        filter: (structure) => {
+          return structure.structureType === STRUCTURE_CONTROLLER;
+        },
+      }).length > 0;
+
+      this.isNearSource = link.pos.findInRange(FIND_SOURCES, 2).length > 0;
+
+      this.isNearStorage = link.pos.findInRange(FIND_MY_STRUCTURES, 2, {
+        filter: (structure) => {
+          return structure.structureType === STRUCTURE_STORAGE;
+        },
+      }).length > 0;
+    });
 
     this.doRequestEnergy = doEvery(REQUEST_ENERGY_TTL)(() => {
       this.requestEnergy();
-    })
+    });
 
+    this.haulersWithTask = [];
     this.doRequestHaul = doEvery(REQUEST_HAUL_TTL)(() => {
-      this.requestHaul()
-    })
+      this.requestHaul();
+    });
 
     setupTrace.end();
   }
   update(trace) {
-    const updateTrace = trace.begin('update')
+    const updateTrace = trace.begin('update');
 
-    const link = this.link = Game.getObjectById(this.id)
+    const link = this.link = Game.getObjectById(this.id);
+    if (!link) {
+      console.log(`game object for link ${this.id} not found`);
+      updateTrace.end();
+      return;
+    }
+
     this.fullness = link.store.getUsedCapacity(RESOURCE_ENERGY) / link.store.getCapacity(RESOURCE_ENERGY);
 
-    // TODO move this to update org thread
-    this.isNearStorage = link.pos.findInRange(FIND_MY_STRUCTURES, 2, {
-      filter: (structure) => {
-        return structure.structureType === STRUCTURE_STORAGE;
-      },
-    }).length > 0;
-
-    const creeps = this.getColony().getCreeps();
-    this.haulersWithTask = creeps.filter((creep) => {
-      const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
-      const dropoff = creep.memory[MEMORY.MEMORY_HAUL_DROPOFF];
-      return task === TASKS.TASK_HAUL && dropoff === this.id;
-    }).length;
+    this.updateLink(updateTrace);
 
     //console.log(this);
 
     this.doRequestEnergy();
-    this.doRequestHaul()
+    this.doRequestHaul();
 
     updateTrace.end();
   }
   process(trace) {
-    const processTrace = trace.begin('process')
+    const processTrace = trace.begin('process');
+
+    if (!this.link) {
+      processTrace.end();
+      return;
+    }
 
     // If near source or storage and has at least 50%
     if (this.isNearStorage && this.fullness > 0.03) {
@@ -97,7 +112,14 @@ class Link extends OrgBase {
     }, REQUEST_ENERGY_TTL);
   }
   requestHaul() {
-    if (this.haulersWithTask) {
+    const creeps = this.getColony().getCreeps();
+    this.haulersWithTask = creeps.filter((creep) => {
+      const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
+      const dropoff = creep.memory[MEMORY.MEMORY_HAUL_DROPOFF];
+      return task === TASKS.TASK_HAUL && dropoff === this.id;
+    }).length;
+
+    if (this.haulersWithTask.length) {
       return;
     }
 

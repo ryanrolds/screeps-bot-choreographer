@@ -51,62 +51,66 @@ class Booster extends OrgBase {
 
     this.doUpdatePrepare = doEvery(UPDATE_PREPARE_TTL)(() => {
       this.updatePrepare();
-    })
+    });
 
     this.doRequestClearLowLabs = doEvery(REQUEST_LOW_LABS_UNLOAD_TTL)(() => {
       this.requestClearLowLabs();
-    })
+    });
 
     this.doRequestEnergyForLabs = doEvery(REQUEST_ENERGY_TTL)(() => {
       this.requestEnergyForLabs();
-    })
+    });
 
     this.doRequestUnloadOfLabs = doEvery(REQUEST_UNLOAD_TTL)((loadedEffects, couldUnload) => {
       this.requestUnloadOfLabs(loadedEffects, couldUnload);
-    })
+    });
 
     this.doRequestMaterialsForLabs = doEvery(REQUEST_LOAD_TTL)((desiredEffects, needToLoad) => {
       this.requestMaterialsForLabs(desiredEffects, needToLoad);
-    })
+    });
 
     setupTrace.end();
   }
   update(trace) {
-    const updateTrace = trace.begin('update')
+    const updateTrace = trace.begin('update');
 
     this.labs = this.labs.map((lab) => {
       return Game.getObjectById(lab.id);
-    })
+    }).filter((lab) => {
+      return lab
+    });
+
+    if (this.labs.length !== 3) {
+      console.log(`not enough labs (${this.labs.length}) to form booster`);
+      updateTrace.end();
+      return;
+    }
 
     this.resources = this.getLabResources();
     this.availableEffects = this.getAvailableEffects();
     this.loadedEffects = this.getLoadedEffects();
     this.creepBoostPosition = this.getCreepBoostPosition();
 
-    if (this.labs.length !== 3) {
-      return;
-    }
-
     this.doUpdatePrepare();
 
-    console.log(this);
+    // console.log(this);
 
     updateTrace.end();
   }
   process(trace) {
-    const processTrace = trace.begin('process')
+    const processTrace = trace.begin('process');
 
     if (this.labs.length !== 3) {
       processTrace.end();
       return;
     }
 
-    this.doRequestEnergyForLabs()
+    this.doRequestEnergyForLabs();
 
     if (Object.keys(this.prepare).length) {
-      this.sendHaulRequests()
+      this.sendHaulRequests();
     } else {
-      this.doRequestClearLowLabs()
+      this.doRequestClearLowLabs();
     }
 
     processTrace.end();
@@ -141,35 +145,35 @@ class Booster extends OrgBase {
       }
 
       return acc;
-    }, {x: 50, y: 50})
+    }, {x: 50, y: 50});
 
     let position = null;
     const roomId = this.getRoom().id;
 
-    position = new RoomPosition(topLeft.x, topLeft.y, roomId)
+    position = new RoomPosition(topLeft.x, topLeft.y, roomId);
     if (position.lookFor(LOOK_STRUCTURES).filter((structure) => {
-      return structure.structureType !== STRUCTURE_ROAD
+      return structure.structureType !== STRUCTURE_ROAD;
     }).length === 0) {
       return position;
     }
 
-    position = new RoomPosition(topLeft.x, topLeft.y + 1, roomId)
+    position = new RoomPosition(topLeft.x, topLeft.y + 1, roomId);
     if (position.lookFor(LOOK_STRUCTURES).filter((structure) => {
-      return structure.structureType !== STRUCTURE_ROAD
+      return structure.structureType !== STRUCTURE_ROAD;
     }).length === 0) {
       return position;
     }
 
-    position = new RoomPosition(topLeft.x + 1, topLeft.y, roomId)
+    position = new RoomPosition(topLeft.x + 1, topLeft.y, roomId);
     if (position.lookFor(LOOK_STRUCTURES).filter((structure) => {
-      return structure.structureType !== STRUCTURE_ROAD
+      return structure.structureType !== STRUCTURE_ROAD;
     }).length === 0) {
       return position;
     }
 
-    position = new RoomPosition(topLeft.x + 1, topLeft.y + 1, roomId)
+    position = new RoomPosition(topLeft.x + 1, topLeft.y + 1, roomId);
     if (position.lookFor(LOOK_STRUCTURES).filter((structure) => {
-      return structure.structureType !== STRUCTURE_ROAD
+      return structure.structureType !== STRUCTURE_ROAD;
     }).length === 0) {
       return position;
     }
@@ -262,31 +266,31 @@ class Booster extends OrgBase {
 
     preparedNames = preparedNames.filter((effectName) => {
       const effect = loadedEffects[effectName];
-      const compound = effect.compounds[0].name
-      const lab = this.getLabByResource(compound)
+      const compound = effect.compounds[0].name;
+      const lab = this.getLabByResource(compound);
       if (lab.store.getUsedCapacity(compound) < MIN_COMPOUND) {
         return false;
       }
 
       return true;
-    })
+    });
 
     const emptyLabs = this.getEmptyLabs();
     const couldUnload = _.difference(loadedNames, preparedNames);
     const needToLoad = _.difference(desiredNames, preparedNames);
 
-    //console.log('booster', this.id, JSON.stringify(loadedNames), JSON.stringify(desiredNames),
+    // console.log('booster', this.id, JSON.stringify(loadedNames), JSON.stringify(desiredNames),
     //  JSON.stringify(preparedNames), JSON.stringify(couldUnload), JSON.stringify(needToLoad),
     //  JSON.stringify(desiredEffects), JSON.stringify(loadedEffects));
 
-    console.log('booster', this.getRoom().id, emptyLabs.length)
-    console.log('desired', JSON.stringify(desiredNames));
-    console.log('prepared', JSON.stringify(preparedNames));
-    console.log('couldUnload', JSON.stringify(couldUnload));
-    console.log('...needToLoad', JSON.stringify(needToLoad));
+    // console.log('booster', this.getRoom().id, emptyLabs.length);
+    // console.log('desired', JSON.stringify(desiredNames));
+    // console.log('prepared', JSON.stringify(preparedNames));
+    // console.log('couldUnload', JSON.stringify(couldUnload));
+    // console.log('...needToLoad', JSON.stringify(needToLoad));
 
-    //console.log('lab resources', JSON.stringify(this.resources));
-    //console.log('room resource', JSON.stringify(reserveResources));
+    // console.log('lab resources', JSON.stringify(this.resources));
+    // console.log('room resource', JSON.stringify(reserveResources));
 
     const numToLoad = needToLoad.length;
     const numEmpty = emptyLabs.length;
@@ -294,13 +298,13 @@ class Booster extends OrgBase {
     if (numToLoad > numEmpty) {
       const numToUnload = numToLoad - numEmpty;
       const unload = couldUnload.slice(0, numToUnload);
-      this.doRequestUnloadOfLabs(loadedEffects, unload)
+      this.doRequestUnloadOfLabs(loadedEffects, unload);
     }
 
     if (numEmpty && numToLoad) {
-      const numReadyToLoad = _.min([numEmpty, numToLoad])
+      const numReadyToLoad = _.min([numEmpty, numToLoad]);
       const load = needToLoad.slice(0, numReadyToLoad);
-      this.doRequestMaterialsForLabs(desiredEffects, load)
+      this.doRequestMaterialsForLabs(desiredEffects, load);
     }
 
     this.updateStats(preparedNames, couldUnload, needToLoad);
@@ -351,7 +355,7 @@ class Booster extends OrgBase {
         const taskPickup = creep.memory[MEMORY.MEMORY_HAUL_PICKUP];
         const resource = creep.memory[MEMORY.MEMORY_HAUL_RESOURCE];
         return task === TASKS.HAUL_TASK && taskPickup === pickup.id && resource == compound.name;
-      })
+      });
       if (assignedCreeps.length) {
         return;
       }
@@ -395,7 +399,7 @@ class Booster extends OrgBase {
         const taskDropoff = creep.memory[MEMORY.MEMORY_HAUL_DROPOFF];
         const resource = creep.memory[MEMORY.MEMORY_HAUL_RESOURCE];
         return task === TASKS.HAUL_TASK && taskDropoff === emptyLab.id && resource !== RESOURCE_ENERGY;
-      })
+      });
       if (assignedCreeps.length) {
         return;
       }
@@ -422,7 +426,7 @@ class Booster extends OrgBase {
       }, null);
 
       if (!compound) {
-        console.log("no compound available for", toLoad)
+        console.log('no compound available for', toLoad);
         return;
       }
 
@@ -444,7 +448,7 @@ class Booster extends OrgBase {
       console.log('boost load material', PRIORITIES.HAUL_BOOST, JSON.stringify(details));
 
       this.sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details, REQUEST_LOAD_TTL);
-    })
+    });
   }
   requestEnergyForLabs() {
     this.labs.forEach((lab) => {

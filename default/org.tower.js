@@ -30,7 +30,7 @@ class Tower extends OrgBase {
 
     // Request energy if tower is low
     this.checkEnergy = doEvery(REQUEST_ENERGY_TTL)(() => {
-      this.requestEnergy()
+      this.requestEnergy();
     });
 
     setupTrace.end();
@@ -39,40 +39,46 @@ class Tower extends OrgBase {
     const updateTrace = trace.begin('constructor');
 
     this.tower = Game.getObjectById(this.id);
+    if (!this.tower) {
+      console.log(`game object for tower ${this.id} not found`);
+      updateTrace.end();
+      return;
+    }
 
     // was constructor
     const tower = this.tower;
     this.energy = tower.energy;
 
     const room = tower.room;
-    const rcLevel = room.controller.level.toString();
-    const rcLevelHitsMax = RAMPART_HITS_MAX[rcLevel] || 10000;
-    let energyFullness = 2;
+    let energyFullness = 1;
     if (room.storage) {
       energyFullness = room.storage.store.getUsedCapacity() / room.storage.store.getCapacity() * 10;
-    }
-    this.defenseHitsLimit = rcLevelHitsMax * Math.pow(0.45, (10 - energyFullness));
-
-    if (room.storage && room.storage.store.getUsedCapacity(RESOURCE_ENERGY) < 50000) {
-      this.defenseHitsLimit = 10000;
     }
     // was constructor end
 
     this.towerUsed = this.tower.store.getUsedCapacity(RESOURCE_ENERGY);
 
-    //console.log(this);
+    // console.log(this);
 
     updateTrace.end();
   }
   process(trace) {
-    const processTrace = trace.begin('process')
+    const processTrace = trace.begin('process');
+
+    if (!this.tower) {
+      console.log(`game object for tower ${this.id} not found`);
+      processTrace.end();
+      return;
+    }
 
     const tower = this.tower;
+    const room = this.getRoom();
 
     this.checkEnergy(this);
 
-    if (this.getRoom().numHostiles) {
-      let hostiles = this.getRoom().getHostiles();
+    // Attack hostiles
+    if (room.numHostiles) {
+      let hostiles = room.getHostiles();
       hostiles = hostiles.filter((hostile) => {
         return tower.pos.getRangeTo(hostile) <= 15;
       });
@@ -88,8 +94,9 @@ class Tower extends OrgBase {
       }
     }
 
-    if (!this.damagedCreep && this.getRoom().damagedCreeps.length) {
-      this.damagedCreep = this.getRoom().damagedCreeps.shift()
+    // Heal damaged creeps
+    if (!this.damagedCreep && room.damagedCreeps.length) {
+      this.damagedCreep = room.damagedCreeps.shift();
     }
 
     if (this.damagedCreep) {
@@ -103,14 +110,16 @@ class Tower extends OrgBase {
       }
     }
 
+    // If tower energy
     if (this.towerUsed > 250) {
-      if (!this.damagedStructure && this.getRoom().damagedStructures.length) {
-        this.damagedStructure = this.getRoom().damagedStructures.shift()
+      if (!this.damagedStructure && room.damagedStructures.length) {
+        this.damagedStructure = room.damagedStructures.shift();
+        this.ttl = 10;
       }
 
       if (this.damagedStructure) {
         const structure = Game.getObjectById(this.damagedStructure);
-        if (!structure || structure.hits >= structure.hitsMax) {
+        if (!structure || structure.hits >= structure.hitsMax || this.ttl === 0) {
           this.damagedStructure = null;
         } else {
           tower.repair(structure);
@@ -119,25 +128,27 @@ class Tower extends OrgBase {
         }
       }
 
-      if (this.getRoom().getAmountInReserve(RESOURCE_ENERGY) > 4000) {
-        if (!this.damagedSecondaryStructure && this.getRoom().damagedSecondaryStructures.length) {
-          this.damagedSecondaryStructure = this.getRoom().damagedSecondaryStructures.shift();
+      if (room.resources[RESOURCE_ENERGY] > 10000) {
+        if (!this.damagedSecondaryStructure && room.damagedSecondaryStructures.length) {
+          this.damagedSecondaryStructure = room.damagedSecondaryStructures.shift();
+          this.ttl = 60;
         }
 
         if (this.damagedSecondaryStructure) {
           const secondary = Game.getObjectById(this.damagedSecondaryStructure);
           if (!secondary || secondary.hits >= secondary.hitsMax ||
-            secondary.hits >= this.defenseHitsLimit) {
+            secondary.hits >= room.defenseHitsLimit || this.ttl === 0) {
             this.damagedSecondaryStructure = null;
           } else {
+            this.ttl -= 1;
             tower.repair(secondary);
             processTrace.end();
             return;
           }
         }
 
-        if (!this.damagedRoad && this.getRoom().damagedRoads.length) {
-          this.damagedRoad = this.getRoom().damagedRoads.shift();
+        if (!this.damagedRoad && room.damagedRoads.length) {
+          this.damagedRoad = room.damagedRoads.shift();
         }
 
         if (this.damagedRoad) {
@@ -156,8 +167,7 @@ class Tower extends OrgBase {
     processTrace.end();
   }
   toString() {
-    return `---- Tower - ID: ${this.id}, Energy: ${this.energy}, ` +
-      `DefenseHitsLimit: ${this.defenseHitsLimit}`;
+    return `---- Tower - ID: ${this.id}, Energy: ${this.energy}`;
   }
   requestEnergy() {
     const creeps = this.getRoom().getCreeps();

@@ -8,27 +8,29 @@ const WORKER_REPAIRER = module.exports.WORKER_REPAIRER = 'repairer';
 const WORKER_DISTRIBUTOR = module.exports.WORKER_DISTRIBUTOR = 'distributor';
 const WORKER_RESERVER = module.exports.WORKER_RESERVER = 'reserver';
 const WORKER_HAULER = module.exports.WORKER_HAULER = 'hauler';
+const WORKER_EXPLORER = module.exports.WORKER_EXPLORER = 'explorer';
 
 // The 'base' should at most 300 energy as it will form the base of the creep
 // The 'parts' are additional parts that will be used to fill up to the 'energyLimit'
 const definitions = {
   [WORKER_HARVESTER]: {
-    energyLimit: 600,
+    energyLimit: 3200,
     parts: [MOVE, CARRY, WORK],
     base: [CARRY, WORK, MOVE],
+    boosts: ['harvest']
   },
   [WORKER_MINER]: {
     energyLimit: 1500,
     ignoreSpawnEnergyLimit: true,
     parts: [MOVE, WORK, WORK],
     base: [MOVE, WORK, WORK],
-    //boosts: ['harvest'],
+    // boosts: ['harvest'],
   },
   [WORKER_HAULER]: {
     ignoreSpawnEnergyLimit: true,
     parts: [MOVE, CARRY, CARRY],
     base: [MOVE, CARRY, CARRY, MOVE, CARRY, CARRY],
-    //boosts: ['capacity'],
+    boosts: ['capacity'],
   },
   [WORKER_BUILDER]: {
     energyLimit: 1500,
@@ -49,7 +51,7 @@ const definitions = {
     energyLimit: 2000,
     parts: [MOVE, CARRY, CARRY],
     base: [MOVE, CARRY, CARRY, MOVE, CARRY, CARRY],
-    //boosts: ['capacity'],
+    // boosts: ['capacity'],
   },
   [WORKER_RESERVER]: {
     energyLimit: 2600,
@@ -67,6 +69,11 @@ const definitions = {
     parts: [MOVE, TOUGH, MOVE, ATTACK, MOVE, HEAL],
     base: [MOVE, TOUGH, MOVE, ATTACK],
   },
+  [WORKER_EXPLORER]: {
+    energyLimit: 50,
+    parts: [],
+    base: [MOVE],
+  },
 };
 
 module.exports = {
@@ -80,6 +87,7 @@ module.exports = {
   WORKER_DISTRIBUTOR,
   WORKER_RESERVER,
   WORKER_HAULER,
+  WORKER_EXPLORER,
   // definitions
   definitions,
 };

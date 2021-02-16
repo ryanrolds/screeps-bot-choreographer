@@ -22,6 +22,9 @@ class OrgBase {
   getCreeps() {
     return this.getParent().getCreeps();
   }
+  getTopics() {
+    return this.getParent().getTopics();
+  }
   getStats() {
     return this.getParent().getStats();
   }

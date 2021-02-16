@@ -1,5 +1,5 @@
 const tracing = require('./lib.tracing');
-const AI = require('./lib.ai')
+const AI = require('./lib.ai');
 
 global.TRACING_ACTIVE = false;
 
@@ -12,7 +12,8 @@ let config = {
   'E18S47-Shard3': {
     id: 'E18S47-Shard3',
     primary: 'E18S47',
-    rooms: ['E18S47'],
+    // rooms: ['E18S47'],
+    rooms: ['E18S47', 'E19S46'],
   },
   'E18S45-Shard3': {
     id: 'E18S45-Shard3',
@@ -27,8 +28,8 @@ let config = {
   'E15S48-Shard3': {
     id: 'E15S48-Shard3',
     primary: 'E15S48',
-    rooms: ['E15S48'],
-    //rooms: ['E15S48', 'E16S48', 'E14S48'],
+    // rooms: ['E15S48'],
+    rooms: ['E15S48', 'E16S48', 'E14S48'],
   },
 };
 
@@ -44,7 +45,7 @@ if (Game.shard.name === 'shardSeason') {
   };
 }
 
-console.log("***** setting up ai *****")
+console.log('***** setting up ai *****');
 const ai = new AI(config);
 
 module.exports.loop = function() {
@@ -58,7 +59,7 @@ module.exports.loop = function() {
 
   console.log('======== TICK', Game.time, '========');
 
-  const aiTrace = trace.begin('ai')
+  const aiTrace = trace.begin('ai');
 
   ai.tick(aiTrace);
 

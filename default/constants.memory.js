@@ -42,6 +42,7 @@ module.exports.MEMORY_HAUL_DROPOFF = 'haul_dropoff';
 
 // reactor
 module.exports.REACTOR_TASK = 'ractor_task';
+module.exports.REACTOR_TTL = 'reactor_ttl';
 
 // terminal
 module.exports.TERMINAL_TASK = 'terminal_task';

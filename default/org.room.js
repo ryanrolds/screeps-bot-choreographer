@@ -8,7 +8,7 @@ const Booster = require('./org.booster');
 const Reactor = require('./org.reactor');
 const Spawner = require('./org.spawner');
 
-const CREEPS = require('./constants.creeps')
+const CREEPS = require('./constants.creeps');
 const MEMORY = require('./constants.memory');
 const TASKS = require('./constants.tasks');
 const TOPICS = require('./constants.topics');
@@ -25,6 +25,7 @@ const {WORKER_RESERVER, WORKER_DISTRIBUTOR, WORKER_HAULER} = require('./constant
 const {PRIORITY_DISTRIBUTOR} = require('./constants.priorities');
 
 const MIN_UPGRADERS = 1;
+const MAX_UPGRADERS = 5;
 const MIN_DISTRIBUTORS = 1;
 const WALL_LEVEL = 1000;
 const RAMPART_LEVEL = 1000;
@@ -33,15 +34,17 @@ const MIN_RESERVATION_TICKS = 4000;
 const RESERVE_BUFFER = 200000;
 
 const UPDATE_CREEPS_TTL = 1;
-const UPDATE_ORG_TTL = 1;
-const UPDATE_DEFENSE_STATUS_TTL = 10;
-const UPDATE_HOSTILE_PRESENCE_TTL = 10;
+const UPDATE_ROOM_TTL = 5;
+const UPDATE_ORG_TTL = 5;
+const UPDATE_RESOURCES_TTL = 5;
+
+const UPDATE_DEFENSE_STATUS_TTL = 5;
 const UPDATE_DAMAGED_CREEPS_TTL = 5;
 const UPDATE_DAMAGED_STRUCTURES_TTL = 20;
-const UPDATE_DAMAGED_SECONDARY_TTL = 20;
+const UPDATE_DAMAGED_SECONDARY_TTL = 10;
 const UPDATE_DAMAGED_ROADS_TTL = 20;
 
-const REQUEST_HAUL_DROPPED_RESOURCES_TTL = 200;
+const REQUEST_HAUL_DROPPED_RESOURCES_TTL = 20;
 const REQUEST_DEFENDERS_TTL = 20;
 const REQUEST_DISTRIBUTOR_TTL = 25;
 const REQUEST_RESERVER_TTL = 50;
@@ -58,39 +61,56 @@ class Room extends OrgBase {
     this.room = room;
     this.isPrimary = room.name === parent.primaryRoomId;
 
-    this.linkMap = {};
-    this.towerMap = {};
-    this.sourceMap = {};
-    this.reactorMap = {};
-    this.booster = null;
-    this.terminal = null;
-    this.parkingLot = null;
-
     // Creeps
-    this.roomCreeps = [];
     this.assignedCreeps = [];
-    this.numReservers = 0;
-    this.numRepairers = 0;
-    this.builders = [];
     this.doUpdateCreeps = doEvery(UPDATE_CREEPS_TTL)((trace) => {
       this.updateCreeps(trace);
     });
 
-    // Organization
+    // Common room
+    this.unowned = true;
+    this.claimedByMe = false;
+    this.reservedByMe = false;
+    this.myStructures = [];
+    this.roomStructures = [];
+    this.hostileStructures = [];
+    this.parkingLot = null;
+    this.sourceMap = {};
+    this.doUpdateRoom = doEvery(UPDATE_ROOM_TTL)((trace) => {
+      this.updateRoom(trace);
+    })
+
+    // Primary room
+    this.linkMap = {};
+    this.towerMap = {};
+    this.reactorMap = {};
+    this.booster = null;
+    this.terminal = null;
     this.spawnMap = {};
     this.hasSpawns = false;
-    this.doUpdateOrg = doEvery(UPDATE_ORG_TTL)((trace) => {
-      this.updateOrg(trace)
+    this.doUpdatePrimary = doEvery(UPDATE_ORG_TTL)((trace) => {
+      this.updatePrimary(trace);
+    });
+
+    // Resources / logistics
+    this.resources = {};
+    this.hasStorage = false;
+    this.doUpdateResources = doEvery(UPDATE_RESOURCES_TTL)(() => {
+      // Storage
+      this.hasStorage = this.getReserveStructures().filter((structure) => {
+        return structure.structureType != STRUCTURE_SPAWN;
+      }).length > 0;
+
+      this.resources = this.getReserveResources(true);
     });
 
     // Defense status
+    this.hostileTime = 0;
     this.hostiles = [];
     this.numHostiles = 0;
-    this.hasInvaderCore = false;
-    this.hitsPercentage = 0.0;
-    this.numStructures = 0;
+    this.invaderCores = [];
     this.doUpdateDefenseStatus = doEvery(UPDATE_DEFENSE_STATUS_TTL)((trace) => {
-      this.updateDefenseStatus(trace)
+      this.updateDefenseStatus(trace);
     });
 
     this.damagedCreeps = [];
@@ -106,7 +126,7 @@ class Room extends OrgBase {
 
     this.damagedStructures = [];
     this.updateDamagedStructure = doEvery(UPDATE_DAMAGED_STRUCTURES_TTL)(() => {
-      let damagedStructures = this.room.find(FIND_STRUCTURES, {
+      const damagedStructures = this.room.find(FIND_STRUCTURES, {
         filter: (s) => {
           return s.hits < s.hitsMax && (
             s.structureType != STRUCTURE_WALL && s.structureType != STRUCTURE_RAMPART &&
@@ -117,8 +137,19 @@ class Room extends OrgBase {
       this.damagedStructures = _.map(damagedStructures, 'id');
     });
 
+    this.defenseHitsLimit = 10000;
     this.damagedSecondaryStructures = [];
     this.updateDamagedSecondaryStructures = doEvery(UPDATE_DAMAGED_SECONDARY_TTL)(() => {
+      const rcLevel = room.controller.level.toString();
+      const rcLevelHitsMax = RAMPART_HITS_MAX[rcLevel] || 10000;
+
+      const energyFullness = this.getEnergyFullness() * 10;
+      this.defenseHitsLimit = rcLevelHitsMax * Math.pow(0.45, (10 - energyFullness));
+
+      if (room.storage && room.storage.store.getUsedCapacity(RESOURCE_ENERGY) < 50000) {
+        this.defenseHitsLimit = 10000;
+      }
+
       let damagedSecondaryStructures = this.room.find(FIND_STRUCTURES, {
         filter: (s) => {
           return s.hits < s.hitsMax && (
@@ -154,13 +185,17 @@ class Room extends OrgBase {
     });
 
     this.doRequestDefenders = doEvery(REQUEST_DEFENDERS_TTL)(() => {
-      this.requestDefender();
+      if ((Game.time - this.hostileTime >= 50) || !this.isPrimary) {
+        this.requestDefender();
+      }
     });
 
     this.doRequestDistributor = doEvery(REQUEST_DISTRIBUTOR_TTL)(() => {
       this.requestDistributor();
     });
 
+    this.reservationTicks = 0;
+    this.numReservers = 0;
     this.doRequestReserver = doEvery(REQUEST_RESERVER_TTL)(() => {
       this.requestReserver();
     });
@@ -169,10 +204,15 @@ class Room extends OrgBase {
       this.requestUpgrader();
     });
 
+    this.builders = [];
+    this.numConstructionSites = 0;
     this.doRequestBuilder = doEvery(REQUEST_BUILDER_TTL)(() => {
       this.requestBuilder();
     });
 
+    this.numRepairers = 0;
+    this.hitsPercentage = 0.0;
+    this.numStructures = 0;
     this.doRequestRepairer = doEvery(REQUEST_REPAIRER_TTL)(() => {
       this.requestRepairer();
     });
@@ -184,137 +224,114 @@ class Room extends OrgBase {
 
     const room = this.room = Game.rooms[this.id];
     if (!room) {
-      console.log("XXXXXXXX cannot find room", this.id);
+      if (this.numHostiles) {
+        this.doRequestDefenders();
+      }
+
+      console.log('XXXXXXXX cannot find room', this.id);
+      updateTrace.end();
       return;
     }
 
-    // was in constructor
-    const roomPropsTrace = updateTrace.begin('room_props');
-
-    this.claimedByMe = room.controller.my || false;
-    this.reservedByMe = false;
-    if (room.controller.reservation && room.controller.reservation.username === MY_USERNAME) {
-      this.reservedByMe = true;
-    }
-
-    this.unowned = !this.room.controller.reservation && !this.room.controller.owner;
-    // Construction sites will help decide how many builders we need
-    this.numConstructionSites = this.room.find(FIND_CONSTRUCTION_SITES).length;
-    this.myStructures = this.room.find(FIND_MY_STRUCTURES);
-    this.roomStructures = this.room.find(FIND_STRUCTURES);
-
-    this.hasStorage = this.getReserveStructures().filter((structure) => {
-      return structure.structureType != STRUCTURE_SPAWN;
-    }).length > 0;
-
-    this.reservationTicks = 0;
-    if (room.controller.reservation) {
-      this.reservationTicks = room.controller.reservation.ticksToEnd;
-    }
-
-    this.availableSpawns = Object.values(this.spawnMap).filter((spawner) => {
-      return !spawner.getSpawning();
-    });
-
-    roomPropsTrace.end();
-
     this.doUpdateCreeps(updateTrace);
+
     this.doUpdateDefenseStatus(updateTrace);
 
-    const droppedResourcesTrace = updateTrace.begin('dropped_resources');
+    this.doUpdateRoom(updateTrace);
 
-    this.droppedResourcesToHaul = room.find(FIND_DROPPED_RESOURCES, {
-      filter: (resource) => {
-        const numAssigned = _.filter(this.getColony().getHaulers(), (hauler) => {
-          return hauler.memory[MEMORY.MEMORY_HAUL_PICKUP] === resource.id;
-        }).length;
+    if (this.isPrimary) {
+      this.doUpdatePrimary(updateTrace);
 
-        //console.log("... dropped assigned", resource.id, numAssigned, resource.resourceType, resource.amount)
+      this.doUpdateResources(updateTrace);
 
-        return numAssigned === 0;
-      },
-    });
-
-    droppedResourcesTrace.end();
-
-    // was in constructor end
-
-    this.doUpdateOrg(updateTrace)
-
-    const towerFocusTrace = updateTrace.begin('tower_focus');
-    this.updateDamagedCreeps();
-    this.updateDamagedStructure();
-    this.updateDamagedSecondaryStructures();
-    this.updateDamagedRoads();
-    towerFocusTrace.end();
+      const towerFocusTrace = updateTrace.begin('tower_focus');
+      this.updateDamagedCreeps();
+      this.updateDamagedStructure();
+      this.updateDamagedSecondaryStructures();
+      this.updateDamagedRoads();
+      towerFocusTrace.end();
+    }
 
     const requestTrace = updateTrace.begin('requests');
 
     // Request defenders
     this.doRequestDefenders();
-    // Send a request if we are short on distributors
-    this.doRequestDistributor();
-    // If not claimed by me and no claimer assigned and not primary, request a reserver
-    this.doRequestReserver();
+
+    if (!this.isPrimary) {
+      // If not claimed by me and no claimer assigned and not primary, request a reserver
+      this.doRequestReserver();
+    }
+
     // Haul dropped resources (janitorial)
     this.doRequestHaulDroppedResources();
-    // Upgrader request
-    this.doRequestUpgrader();
     // Builder requests
     this.doRequestBuilder();
     // Repairer requests
     this.doRequestRepairer();
 
-    console.log(this);
+    if (this.isPrimary) {
+      // Send a request if we are short on distributors
+      this.doRequestDistributor();
+      // Upgrader request
+      this.doRequestUpgrader();
+    }
 
     requestTrace.end();
 
-    const sourcesTrace = updateTrace.begin('sources');
+    console.log(this);
+
+    const childrenTrace = updateTrace.begin('children')
+
+    const sourcesTrace = childrenTrace.begin('sources');
     Object.values(this.sourceMap).forEach((source) => {
       source.update(sourcesTrace);
     });
     sourcesTrace.end();
 
-    const linksTrace = updateTrace.begin('links');
-    Object.values(this.linkMap).forEach((link) => {
-      link.update(linksTrace);
-    });
-    linksTrace.end();
+    if (this.isPrimary) {
+      const linksTrace = childrenTrace.begin('links');
+      Object.values(this.linkMap).forEach((link) => {
+        link.update(linksTrace);
+      });
+      linksTrace.end();
 
-    const towersTrace = updateTrace.begin('towers');
-    Object.values(this.towerMap).forEach((tower) => {
-      tower.update(towersTrace);
-    });
-    towersTrace.end();
+      const towersTrace = childrenTrace.begin('towers');
+      Object.values(this.towerMap).forEach((tower) => {
+        tower.update(towersTrace);
+      });
+      towersTrace.end();
 
-    const spawnsTrace = updateTrace.begin('spawns');
-    Object.values(this.spawnMap).forEach((spawn) => {
-      spawn.update(spawnsTrace);
-    });
-    spawnsTrace.end();
+      const spawnsTrace = childrenTrace.begin('spawns');
+      Object.values(this.spawnMap).forEach((spawn) => {
+        spawn.update(spawnsTrace);
+      });
+      spawnsTrace.end();
 
-    const reactorsTrace = updateTrace.begin('reactor');
-    Object.values(this.reactorMap).forEach((reactor) => {
-      reactor.update(reactorsTrace);
-    });
-    reactorsTrace.end();
+      const reactorsTrace = childrenTrace.begin('reactor');
+      Object.values(this.reactorMap).forEach((reactor) => {
+        reactor.update(reactorsTrace);
+      });
+      reactorsTrace.end();
 
-    if (this.booster) {
-      const boosterTrace = updateTrace.begin('booster');
-      this.booster.update(boosterTrace)
-      boosterTrace.end();
+      if (this.booster) {
+        const boosterTrace = childrenTrace.begin('booster');
+        this.booster.update(boosterTrace);
+        boosterTrace.end();
+      }
+
+      if (this.terminal) {
+        const terminalTrace = childrenTrace.begin('terminal');
+        this.terminal.update(terminalTrace);
+        terminalTrace.end();
+      }
     }
 
-    if (this.terminal) {
-      const terminalTrace = updateTrace.begin('terminal');
-      this.terminal.update(terminalTrace);
-      terminalTrace.end();
-    }
+    childrenTrace.end();
 
     updateTrace.end();
   }
   process(trace) {
-    const processTrace = trace.begin('process')
+    const processTrace = trace.begin('process');
 
     if (!this.room) {
       return;
@@ -322,47 +339,53 @@ class Room extends OrgBase {
 
     this.updateStats();
 
-    const sourcesTrace = processTrace.begin('sources');
+    const childrenTrace = processTrace.begin('children')
+
+    const sourcesTrace = childrenTrace.begin('sources');
     Object.values(this.sourceMap).forEach((source) => {
       source.process(sourcesTrace);
     });
     sourcesTrace.end();
 
-    const linksTrace = processTrace.begin('links');
-    Object.values(this.linkMap).forEach((link) => {
-      link.process(linksTrace);
-    });
-    linksTrace.end();
+    if (this.isPrimary) {
+      const linksTrace = childrenTrace.begin('links');
+      Object.values(this.linkMap).forEach((link) => {
+        link.process(linksTrace);
+      });
+      linksTrace.end();
 
-    const towersTrace = processTrace.begin('towers');
-    Object.values(this.towerMap).forEach((tower) => {
-      tower.process(towersTrace);
-    });
-    towersTrace.end();
+      const towersTrace = childrenTrace.begin('towers');
+      Object.values(this.towerMap).forEach((tower) => {
+        tower.process(towersTrace);
+      });
+      towersTrace.end();
 
-    const spawnsTrace = processTrace.begin('spawns');
-    Object.values(this.spawnMap).forEach((spawn) => {
-      spawn.process(spawnsTrace);
-    });
-    spawnsTrace.end();
+      const spawnsTrace = childrenTrace.begin('spawns');
+      Object.values(this.spawnMap).forEach((spawn) => {
+        spawn.process(spawnsTrace);
+      });
+      spawnsTrace.end();
 
-    const reactorsTrace = processTrace.begin('reactors');
-    Object.values(this.reactorMap).forEach((reactor) => {
-      reactor.process(reactorsTrace);
-    });
-    reactorsTrace.end();
+      const reactorsTrace = childrenTrace.begin('reactors');
+      Object.values(this.reactorMap).forEach((reactor) => {
+        reactor.process(reactorsTrace);
+      });
+      reactorsTrace.end();
 
-    if (this.booster) {
-      const boosterTrace = processTrace.begin('booster');
-      this.booster.process(processTrace)
-      boosterTrace.end();
+      if (this.booster) {
+        const boosterTrace = childrenTrace.begin('booster');
+        this.booster.process(processTrace);
+        boosterTrace.end();
+      }
+
+      if (this.terminal) {
+        const terminalProcess = childrenTrace.begin('terminal');
+        this.terminal.process(processTrace);
+        terminalProcess.end();
+      }
     }
 
-    if (this.terminal) {
-      const terminalProcess = processTrace.begin('terminal');
-      this.terminal.process(processTrace);
-      terminalProcess.end();
-    }
+    childrenTrace.end();
 
     processTrace.end();
   }
@@ -371,12 +394,10 @@ class Room extends OrgBase {
       `Reservers: ${this.numReservers}, #Builders: ${this.builders.length}, ` +
       `#Hostiles: ${this.numHostiles}, ` +
       `#Spawners: ${Object.keys(this.spawnMap).length}, ` +
-      `#AvailableSpawners: ${this.availableSpawns.length}, ` +
       `#Towers: ${Object.keys(this.towerMap).length}, #Sites: ${this.numConstructionSites}, ` +
       `%Hits: ${this.hitsPercentage.toFixed(2)}, #Repairer: ${this.numRepairers}, ` +
       `#Links: ${Object.keys(this.linkMap).length}, ` +
       `EnergyFullness: ${this.getEnergyFullness()}, ` +
-      `Hostiles: ${this.hostilesPresent}, ` +
       `DCreeps: ${this.damagedCreeps.length}, ` +
       `DStructures: ${this.damagedStructures.length}, ` +
       `DSecondary: ${this.damagedSecondaryStructures.length}, ` +
@@ -391,14 +412,17 @@ class Room extends OrgBase {
   getCreeps() {
     return this.assignedCreeps;
   }
-  getRoomCreeps() {
-    return this.roomCreeps;
-  }
   getSpawns() {
     return this.room.find(FIND_MY_SPAWNS);
   }
   getHostiles() {
     return this.hostiles;
+  }
+  getInvaderCores() {
+    return this.invaderCores;
+  }
+  getHostileStructures() {
+    return this.hostileStructures;
   }
   getBooster() {
     return this.booster;
@@ -460,48 +484,27 @@ class Room extends OrgBase {
     }
 
     // Update the reactor map (add missing items and remove extra items)
-    const reactorIds = _.pluck(reactors, 'id')
-    const reactorMap = _.indexBy(reactors, 'id')
-    const orgIds = Object.keys(this.reactorMap)
+    const reactorIds = _.pluck(reactors, 'id');
+    const reactorMap = _.indexBy(reactors, 'id');
+    const orgIds = Object.keys(this.reactorMap);
 
-    const missingReactorIds = _.difference(reactorIds, orgIds)
+    const missingReactorIds = _.difference(reactorIds, orgIds);
     missingReactorIds.forEach((id) => {
       this.reactorMap[id] = reactorMap[id];
-    })
+    });
 
-    const extraReactorIds = _.difference(orgIds, reactorIds)
+    const extraReactorIds = _.difference(orgIds, reactorIds);
     extraReactorIds.forEach((id) => {
-      delete this.reactorMap[id]
-    })
+      delete this.reactorMap[id];
+    });
 
     if ((!this.booster && booster) || (this.booster && booster && this.booster.id !== booster.id)) {
-      this.booster = booster
+      this.booster = booster;
     } else if (!booster) {
       this.booster = null;
     }
 
     labsSetupTrace.end();
-  }
-  getDesiredUpgraders() {
-    let desiredUpgraders = 0;
-
-    if (!this.room.controller.my) {
-      desiredUpgraders = 0;
-    } else if (this.room.controller.level === 8) {
-      desiredUpgraders = 0;
-    } else if (this.room.controller.level >= 5) {
-      desiredUpgraders = 1;
-    } else if (!this.hasStorage) {
-      desiredUpgraders = 1;
-    } else {
-      const fullness = this.getEnergyFullness();
-      desiredUpgraders = Math.ceil(fullness / 0.33);
-      if (desiredUpgraders < MIN_UPGRADERS) {
-        desiredUpgraders = MIN_UPGRADERS;
-      }
-    }
-
-    return desiredUpgraders;
   }
   getClosestStoreWithEnergy(creep) {
     if (this.room.storage) {
@@ -634,6 +637,7 @@ class Room extends OrgBase {
     if (!list || !list.length || !listTime || Game.time - listTime > 20) {
       const room = this.room;
 
+      // We will subtract structures already being serviced by a creep
       const assignedDestinations = _.reduce(this.assignedCreeps, (acc, c) => {
         if (c.room.name !== room.name) {
           return acc;
@@ -764,21 +768,25 @@ class Room extends OrgBase {
     roomStats.controllerProgress = room.controller.progress;
     roomStats.controllerProgressTotal = room.controller.progressTotal;
     roomStats.controllerLevel = room.controller.level;
+    roomStats.resources = this.resources;
 
     const stats = this.getStats();
     stats.colonies[this.getColony().id].rooms[this.id] = roomStats;
   }
   requestDefender() {
-    const controller = this.room.controller;
+    let controller = null;
+    if (this.room && this.room.controller) {
+      controller = this.room.controller;
+    }
 
     // If hostiles present spawn defenders and/or activate safe mode
-    if (this.numHostiles || this.hasInvaderCore) {
+    if (this.hostiles.length || this.invaderCores.length) {
       // If there are defenses low on
       if (controller && controller.my && this.lowHitsDefenses && controller.safeModeAvailable &&
         !controller.safeMode && !controller.safeModeCooldown) {
         console.log('ACTIVATING SAFEMODE!!!!!');
         controller.activateSafeMode();
-      } else if (!controller.safeMode || controller.safeModeCooldown < 250) {
+      } else if (!controller || (!controller.safeMode || controller.safeModeCooldown < 250)) {
         // Request defenders
         this.sendRequest(TOPICS.TOPIC_DEFENDERS, PRIORITIES.PRIORITY_DEFENDER, {
           role: CREEPS.WORKER_DEFENDER,
@@ -822,6 +830,17 @@ class Room extends OrgBase {
     }, REQUEST_DISTRIBUTOR_TTL);
   }
   requestReserver() {
+    this.numReservers = _.filter(this.assignedCreeps, (creep) => {
+      const role = creep.memory[MEMORY_ROLE];
+      return (role === WORKER_RESERVER) &&
+        creep.memory[MEMORY_ASSIGN_ROOM] === this.room.name && creepIsFresh(creep);
+    }).length;
+
+    this.reservationTicks = 0;
+    if (this.room.controller.reservation) {
+      this.reservationTicks = this.room.controller.reservation.ticksToEnd;
+    }
+
     if (!this.numReservers && ((!this.reservedByMe && !this.claimedByMe && !this.numHostiles) ||
       (this.reservedByMe && this.reservationTicks < MIN_RESERVATION_TICKS))) {
       this.requestSpawn(PRIORITIES.PRIORITY_RESERVER, {
@@ -834,28 +853,51 @@ class Room extends OrgBase {
     }
   }
   requestUpgrader() {
+    if (!this.isPrimary) {
+      return;
+    }
+
     const numUpgraders = _.filter(this.assignedCreeps, (creep) => {
-      return creep.memory[MEMORY_ROLE] == WORKER_UPGRADER && creepIsFresh(creep);
+      return creep.memory[MEMORY_ROLE] == WORKER_UPGRADER &&
+        creepIsFresh(creep);
     }).length;
 
-    const desiredUpgraders = this.getDesiredUpgraders();
-    if (this.isPrimary && numUpgraders < desiredUpgraders) {
-      // As we get more upgraders, lower the priority
-      const upgraderPriority = PRIORITY_UPGRADER - (numUpgraders * 2);
+    let parts = 1;
+    let desiredUpgraders = MIN_UPGRADERS;
+    let maxParts = 15;
+    let roomCapacity = 300;
 
-      let energyLimit = 500;
-      const reserveEnergy = this.getAmountInReserve(RESOURCE_ENERGY);
-      if (reserveEnergy > RESERVE_BUFFER) {
-        // Determine energy limit by the amount of energy above the dedicated buffer
-        energyLimit = (reserveEnergy - RESERVE_BUFFER) / 1500 * 200;
-        if (energyLimit < 300) {
-          energyLimit = 300;
-        }
+    if (!this.room.controller.my) {
+      desiredUpgraders = 0;
+    } else if (this.room.controller.level === 8) {
+      parts = 15;
+      desiredUpgraders = 1;
+    } else if (this.hasStorage) {
+      roomCapacity = this.room.energyCapacityAvailable;
+      maxParts = (roomCapacity - 300) / 200;
+      if (maxParts > 15) {
+        maxParts = 15;
       }
 
-      // TODO this will need to be expanded to support
-      // multiple claims
+      const reserveEnergy = this.getAmountInReserve(RESOURCE_ENERGY);
+      if (reserveEnergy > RESERVE_BUFFER) {
+        parts = (reserveEnergy - RESERVE_BUFFER) / 1500;
+      }
 
+      desiredUpgraders = Math.ceil(parts / maxParts);
+    }
+
+    const energyLimit = ((parts - 1) * 200) + 300;
+
+    // As we get more upgraders, lower the priority
+    const upgraderPriority = PRIORITY_UPGRADER - (numUpgraders * 2);
+
+    // Don't let it create a ton of upgraders
+    if (desiredUpgraders > MAX_UPGRADERS) {
+      desiredUpgraders = MAX_UPGRADERS;
+    }
+
+    for (let i = 0; i < desiredUpgraders - numUpgraders; i++) {
       this.requestSpawn(upgraderPriority, {
         role: WORKER_UPGRADER,
         energyLimit: energyLimit,
@@ -867,6 +909,12 @@ class Room extends OrgBase {
     }
   }
   requestBuilder() {
+    this.builders = _.filter(this.assignedCreeps, (creep) => {
+      return creep.memory[MEMORY_ROLE] === WORKER_BUILDER && creepIsFresh(creep);
+    });
+
+    this.numConstructionSites = this.room.find(FIND_CONSTRUCTION_SITES).length;
+
     if (this.builders.length >= Math.ceil(this.numConstructionSites / 10)) {
       return;
     }
@@ -880,6 +928,32 @@ class Room extends OrgBase {
     }, REQUEST_BUILDER_TTL);
   }
   requestRepairer() {
+    let maxHits = 0;
+    let hits = 0;
+    let numStructures = 0;
+    this.roomStructures.forEach((s) => {
+      if (s.structureType === STRUCTURE_WALL || s.structureType === STRUCTURE_RAMPART) {
+        return;
+      }
+
+      numStructures++;
+
+      if (s.hitsMax > 0 && s.hits > 0) {
+        maxHits += s.hitsMax;
+        hits += s.hits;
+      }
+    });
+    let hitsPercentage = 1;
+    if (maxHits > 0) {
+      hitsPercentage = hits / maxHits;
+    }
+    this.hitsPercentage = hitsPercentage;
+    this.numStructures = numStructures;
+
+    this.numRepairers = _.filter(this.assignedCreeps, (creep) => {
+      return creep.memory[MEMORY_ROLE] === WORKER_REPAIRER && creepIsFresh(creep);
+    }).length;
+
     // Repairer requests
     let desiredRepairers = 0;
     let repairerPriority = PRIORITY_REPAIRER;
@@ -904,14 +978,24 @@ class Room extends OrgBase {
     }, REQUEST_REPAIRER_TTL);
   }
   requestSpawn(priority, details, ttl) {
-    if (this.hasSpawns) {
+    if (this.getColony().getPrimaryRoom().hasSpawns) {
       this.sendRequest(TOPIC_SPAWN, priority, details, ttl);
     } else {
       this.getKingdom().sendRequest(TOPIC_SPAWN, priority, details, ttl);
     }
   }
   requestHaulDroppedResources() {
-    this.droppedResourcesToHaul.forEach((resource) => {
+    const droppedResourcesToHaul = this.room.find(FIND_DROPPED_RESOURCES, {
+      filter: (resource) => {
+        const numAssigned = _.filter(this.getColony().getHaulers(), (hauler) => {
+          return hauler.memory[MEMORY.MEMORY_HAUL_PICKUP] === resource.id;
+        }).length;
+
+        return numAssigned === 0;
+      },
+    });
+
+    droppedResourcesToHaul.forEach((resource) => {
       const loadPriority = 0.8;
       const details = {
         [MEMORY.TASK_ID]: `pickup-${this.id}-${Game.time}`,
@@ -920,15 +1004,23 @@ class Room extends OrgBase {
         [MEMORY.MEMORY_HAUL_RESOURCE]: resource.resourceType,
       };
 
-      //console.log("dropped resources", loadPriority, resource.amount, JSON.stringify(details))
+      // console.log("dropped resources", loadPriority, resource.amount, JSON.stringify(details))
 
-      this.sendRequest(TOPICS.TOPIC_HAUL_TASK, loadPriority, details);
-    }, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
+      this.sendRequest(TOPICS.TOPIC_HAUL_TASK, loadPriority, details, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
+    });
   }
-  updateOrg(trace) {
-    const orgSetupTrace = trace.begin('org_setup');
+  updateRoom(trace) {
+    trace = trace.begin('common_room');
 
     const room = this.room;
+
+    this.claimedByMe = room.controller.my || false;
+    this.reservedByMe = false;
+    if (room.controller.reservation && room.controller.reservation.username === MY_USERNAME) {
+      this.reservedByMe = true;
+    }
+
+    this.unowned = !this.room.controller.reservation && !this.room.controller.owner;
 
     // Parking lot
     this.parkingLot = null;
@@ -941,97 +1033,89 @@ class Room extends OrgBase {
       this.parkingLot = parkingLots[0];
     }
 
+    this.myStructures = this.room.find(FIND_MY_STRUCTURES);
+    this.roomStructures = this.room.find(FIND_STRUCTURES);
+    this.hostileStructures = this.room.find(FIND_HOSTILE_STRUCTURES);
+
+    // Sources and Minerals
+    let roomSources = room.find(FIND_SOURCES);
+    roomSources = roomSources.concat(this.getMineralsWithExtractor());
+    // console.log("xxxxx room sources", roomSources)
+    this.sourceMap = this.updateOrgMap(roomSources, 'id', this.sourceMap, Source, trace);
+
+    trace.end();
+  }
+  updatePrimary(trace) {
+    trace = trace.begin('primary_room');
+
+    const room = this.room;
+
     // Links
     const roomLinks = this.myStructures.filter((structure) => {
       return structure.structureType === STRUCTURE_LINK;
-    })
-    this.linkMap = this.updateOrgMap(roomLinks, 'id', this.linkMap, Link, orgSetupTrace)
+    });
+    this.linkMap = this.updateOrgMap(roomLinks, 'id', this.linkMap, Link, trace);
 
     // Towers
     const roomTowers = this.myStructures.filter((structure) => {
       return structure.structureType === STRUCTURE_TOWER;
-    })
-    this.towerMap = this.updateOrgMap(roomTowers, 'id', this.towerMap, Tower, orgSetupTrace)
-
-    // Sources and Minerals
-    let roomSources = room.find(FIND_SOURCES);
-    roomSources = roomSources.concat(this.getMineralsWithExtractor())
-    //console.log("xxxxx room sources", roomSources)
-    this.sourceMap = this.updateOrgMap(roomSources, 'id', this.sourceMap, Source, orgSetupTrace)
-
+    });
+    this.towerMap = this.updateOrgMap(roomTowers, 'id', this.towerMap, Tower, trace);
 
     // Spawns
-    const roomSpawns = this.getSpawns()
-    const spawnIds = _.pluck(roomSpawns, 'id')
-    const spawnMap = _.indexBy(roomSpawns, 'id')
-    const orgIds = Object.keys(this.spawnMap)
+    const roomSpawns = this.getSpawns();
+    const spawnIds = _.pluck(roomSpawns, 'id');
+    const spawnMap = _.indexBy(roomSpawns, 'id');
+    const orgIds = Object.keys(this.spawnMap);
 
-    const missingOrgSpawnIds = _.difference(spawnIds, orgIds)
+    const missingOrgSpawnIds = _.difference(spawnIds, orgIds);
     missingOrgSpawnIds.forEach((id) => {
-      const orgNode = new Spawner(this, spawnMap[id], trace)
+      const orgNode = new Spawner(this, spawnMap[id], trace);
       this.spawnMap[id] = orgNode;
-    })
+    });
 
-    const extraOrgSpawnIds = _.difference(orgIds, spawnIds)
+    const extraOrgSpawnIds = _.difference(orgIds, spawnIds);
     extraOrgSpawnIds.forEach((id) => {
-      delete this.spawnMap[id]
-    })
+      delete this.spawnMap[id];
+    });
 
     this.hasSpawns = Object.keys(this.spawnMap).length > 0;
 
     // Booster and Reactors
-    this.updateLabs(orgSetupTrace);
+    this.updateLabs(trace);
 
     // Terminal
     if ((!this.terminal && room.terminal) || (this.terminal && this.terminal.id !== room.terminal.id)) {
-      this.terminal = new Terminal(this, room.terminal, orgSetupTrace);
+      this.terminal = new Terminal(this, room.terminal, trace);
     } else if (!room.terminal) {
       this.terminal = null;
     }
 
-    orgSetupTrace.end();
+    trace.end();
   }
   updateOrgMap(roomStructures, keyName, orgMap, constructor, trace) {
-    const roomIds = _.pluck(roomStructures, keyName)
-    const orgIds = Object.keys(orgMap)
+    const roomIds = _.pluck(roomStructures, keyName);
+    const orgIds = Object.keys(orgMap);
 
-    const missingOrgIds = _.difference(roomIds, orgIds)
+    const missingOrgIds = _.difference(roomIds, orgIds);
     missingOrgIds.forEach((id) => {
-      const orgNode = new constructor(this, Game.getObjectById(id), trace)
+      const orgNode = new constructor(this, Game.getObjectById(id), trace);
       orgMap[id] = orgNode;
-    })
+    });
 
-    const extraOrgIds = _.difference(orgIds, roomIds)
+    const extraOrgIds = _.difference(orgIds, roomIds);
     extraOrgIds.forEach((id) => {
-      delete orgMap[id]
-    })
+      delete orgMap[id];
+    });
 
     return orgMap;
   }
   updateCreeps(trace) {
     const creepPrepTrace = trace.begin('creep_prep');
 
-    this.roomCreeps = Object.values(Game.creeps).filter((creep) => {
-      return creep.room.name === this.room.name;
-    });
-
     this.assignedCreeps = _.filter(this.getParent().getCreeps(), (creep) => {
       return creep.memory[MEMORY_ASSIGN_ROOM] === this.room.name ||
         creep.memory[MEMORY_HARVEST_ROOM] === this.room.name;
-    });
-
-    this.numReservers = _.filter(this.assignedCreeps, (creep) => {
-      const role = creep.memory[MEMORY_ROLE];
-      return (role === WORKER_RESERVER) &&
-        creep.memory[MEMORY_ASSIGN_ROOM] === this.room.name && creepIsFresh(creep);
-    }).length;
-
-    this.numRepairers = _.filter(this.assignedCreeps, (creep) => {
-      return creep.memory[MEMORY_ROLE] === WORKER_REPAIRER && creepIsFresh(creep);
-    }).length;
-
-    this.builders = _.filter(this.assignedCreeps, (creep) => {
-      return creep.memory[MEMORY_ROLE] === WORKER_BUILDER && creepIsFresh(creep);
     });
 
     creepPrepTrace.end();
@@ -1045,12 +1129,16 @@ class Room extends OrgBase {
     this.hostiles = hostiles;
     this.numHostiles = this.hostiles.length;
 
-    this.hasInvaderCore = this.roomStructures.filter((structure) => {
-      return structure.structureType === STRUCTURE_INVADER_CORE;
-    }).length > 0;
+    if (this.numHostiles) {
+      if (!this.hostilesTime) {
+        this.hostileTime = Game.time;
+      }
+    } else {
+      this.hostileTime = 0;
+    }
 
-    this.myDamagedCreeps = this.roomCreeps.filter((creep) => {
-      return creep.hits < creep.hitsMax;
+    this.invaderCores = this.roomStructures.filter((structure) => {
+      return structure.structureType === STRUCTURE_INVADER_CORE;
     });
 
     // We want to know if our defenses are being attacked
@@ -1061,28 +1149,6 @@ class Room extends OrgBase {
 
       return s.hits < 1000;
     }).length;
-
-    let maxHits = 0;
-    let hits = 0;
-    let numStructures = 0;
-    this.roomStructures.forEach((s) => {
-      if (s.structureType == STRUCTURE_WALL || s.structureType == STRUCTURE_RAMPART) {
-        return;
-      }
-
-      numStructures++;
-
-      if (s.hitsMax > 0 && s.hits > 0) {
-        maxHits += s.hitsMax;
-        hits += s.hits;
-      }
-    });
-    let hitsPercentage = 1;
-    if (maxHits > 0) {
-      hitsPercentage = hits / maxHits;
-    }
-    this.hitsPercentage = hitsPercentage;
-    this.numStructures = numStructures;
 
     defenseTrace.end();
   }

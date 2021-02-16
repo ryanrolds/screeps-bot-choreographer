@@ -15,6 +15,7 @@ const PRIORITY_REPAIRER = 6;
 const PRIORITY_BUILDER = 5;
 const PRIORITY_CLAIMER = 4;
 const PRIORITY_RESERVER = 3;
+const EXPLORER = 2;
 
 // Prioritize setting up additional colonies
 const PRIORITY_BOOTSTRAP = 0;
@@ -30,24 +31,24 @@ const HAUL_BOOST = 1;
 
 // Reactions
 REACTION_PRIORITIES = {
-  G: 3,
-  OH: 2,
-  ZK: 1,
-  UL: 1,
+  G: 10,
+  OH: 10,
+  ZK: 10,
+  UL: 10,
   LH: 1, // repair/build
   ZH: 1, // dismantle
-  GH: 4, // upgrade controller
-  KH: 2, // carry
-  UH: 3, // attack
-  LO: 3, // heal
+  GH: 10, // upgrade controller
+  KH: 8, // carry
+  UH: 8, // attack
+  LO: 9, // heal
   ZO: 1, // fatigue
-  KO: 3, // ranged attack
+  KO: 9, // ranged attack
   UO: 1, // harvest
-  GO: 3, // damage
+  GO: 9, // damage
   LH2O: 1, // repair/build
   KH2O: 8, // carry
   ZH2O: 1, // fatigue
-  UH2O: 9, // attack
+  UH2O: 8, // attack
   GH2O: 10, // upgrade controller
   LHO2: 9, // heal
   UHO2: 1, // harvest
@@ -57,7 +58,7 @@ REACTION_PRIORITIES = {
   XLH2O: 1, // repair/build
   XKH2O: 8, // carry
   XZH2O: 1, // dismantle
-  XUH2O: 9, // attack
+  XUH2O: 8, // attack
   XGH2O: 10, // upgrade controller
   XLHO2: 9, // heal
   XUHO2: 1, // harvest
@@ -82,6 +83,7 @@ module.exports = {
   PRIORITY_REPAIRER_URGENT,
   PRIORITY_CLAIMER,
   PRIORITY_RESERVER,
+  EXPLORER,
   PRIORITY_ATTACKER,
   PRIORITY_BOOTSTRAP,
   TERMINAL_SELL,

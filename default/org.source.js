@@ -8,8 +8,9 @@ const PRIORITIES = require('./constants.priorities');
 const {creepIsFresh} = require('./behavior.commute');
 const {doEvery} = require('./lib.scheduler');
 
-const REQUEST_WORKER_TTL = 25;
-const REQUEST_HARVESTER_TTL = 25;
+const UPDATE_CONTAINER_TTL = 20;
+const REQUEST_WORKER_TTL = 20;
+const REQUEST_HARVESTER_TTL = 20;
 const REQUEST_HAULING_TTL = 20;
 
 class Source extends OrgBase {
@@ -24,70 +25,53 @@ class Source extends OrgBase {
     this.container = null;
     this.containerID = null;
     this.containerUser = null;
+    this.updateContainer = doEvery(UPDATE_CONTAINER_TTL)(() => {
+      const source = this.source = Game.getObjectById(this.id);
 
+      const containers = source.pos.findInRange(FIND_STRUCTURES, 2, {
+        filter: (structure) => {
+          return structure.structureType === STRUCTURE_CONTAINER;
+        },
+      });
+
+      const container = source.pos.findClosestByRange(containers);
+
+      if (container) {
+        this.container = container;
+        this.containerID = container.id;
+        this.containerUsed = this.container.store.getUsedCapacity();
+      } else {
+        this.container = null;
+        this.containerID = null;
+        this.containerUsed = null;
+      }
+    })
+
+    this.numMiners = 0;
     this.doRequestMiner = doEvery(REQUEST_WORKER_TTL)(() => {
       this.requestMiner();
     });
 
+    this.numHarvesters = 0;
     this.doRequestHarvester = doEvery(REQUEST_HARVESTER_TTL)(() => {
       this.requestHarvester();
-    })
+    });
 
+    this.haulersWithTask = [];
+    this.avgHaulerCapacity = 0;
+    this.haulerCapacity = 0;
     this.doRequestHauling = doEvery(REQUEST_HAULING_TTL)(() => {
-      console.log("request source hauling")
       this.sendHaulTasks();
-    })
+    });
 
     setupTrace.end();
   }
   update(trace) {
-    const updateTrace = trace.begin('update')
+    const updateTrace = trace.begin('update');
 
-    const source = this.source = Game.getObjectById(this.id)
+    this.updateContainer();
 
-    const containers = source.pos.findInRange(FIND_STRUCTURES, 2, {
-      filter: (structure) => {
-        return structure.structureType === STRUCTURE_CONTAINER;
-      },
-    });
-
-    const container = source.pos.findClosestByRange(containers);
-
-    if (container) {
-      this.container = container;
-      this.containerID = container.id;
-      this.containerUsed = this.container.store.getUsedCapacity();
-    }
-
-    const roomCreeps = this.getRoom().getCreeps();
-    this.numHarvesters = roomCreeps.filter((creep) => {
-      const role = creep.memory[MEMORY.MEMORY_ROLE];
-      return role === CREEPS.WORKER_HARVESTER &&
-        creep.memory[MEMORY.MEMORY_HARVEST] === this.id &&
-        creepIsFresh(creep);
-    }).length;
-
-    this.numMiners = roomCreeps.filter((creep) => {
-      const role = creep.memory[MEMORY.MEMORY_ROLE];
-      return role === CREEPS.WORKER_MINER &&
-        creep.memory[MEMORY.MEMORY_HARVEST] === this.id &&
-        creepIsFresh(creep);
-    }).length;
-
-    const haulers = this.getColony().getHaulers();
-    this.haulersWithTask = haulers.filter((creep) => {
-      const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
-      const pickup = creep.memory[MEMORY.MEMORY_HAUL_PICKUP];
-      return task === TASKS.TASK_HAUL && pickup === this.containerID;
-    });
-
-    this.avgHaulerCapacity = this.getColony().getAvgHaulerCapacity();
-
-    this.haulerCapacity = this.haulersWithTask.reduce((total, hauler) => {
-      return total += hauler.store.getFreeCapacity();
-    }, 0);
-
-    //console.log(this);
+    // console.log(this);
 
     const room = this.getColony().getRoomByID(this.roomID);
     if ((room.numHostiles > 0) && !room.isPrimary) {
@@ -110,7 +94,7 @@ class Source extends OrgBase {
     updateTrace.end();
   }
   process(trace) {
-    const processTrace = trace.begin('process')
+    const processTrace = trace.begin('process');
 
     this.updateStats();
 
@@ -143,15 +127,28 @@ class Source extends OrgBase {
       return;
     }
 
-    const averageLoad = this.avgHaulerCapacity || 300;
+    const haulers = this.getColony().getHaulers();
+    this.haulersWithTask = haulers.filter((creep) => {
+      const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
+      const pickup = creep.memory[MEMORY.MEMORY_HAUL_PICKUP];
+      return task === TASKS.TASK_HAUL && pickup === this.containerID;
+    });
+
+    this.avgHaulerCapacity = this.getColony().getAvgHaulerCapacity();
+
+    this.haulerCapacity = this.haulersWithTask.reduce((total, hauler) => {
+      return total += hauler.store.getFreeCapacity();
+    }, 0);
+
+    const averageLoad = this.avgHaulerCapacity;
     const loadSize = _.min([averageLoad, 1000]);
     const storeCapacity = this.container.store.getCapacity();
     const storeUsedCapacity = this.container.store.getUsedCapacity();
     const untaskedUsedCapacity = storeUsedCapacity - this.haulerCapacity;
     const loadsToHaul = Math.floor(untaskedUsedCapacity / loadSize);
 
-    //console.log("... source", this.id, this.haulersWithTask.length, loadSize, loadsToHaul,
-    //  storeUsedCapacity, this.haulerCapacity, untaskedUsedCapacity)
+    console.log("... source", this.id, this.haulersWithTask.length, loadSize, loadsToHaul,
+      storeUsedCapacity, this.haulerCapacity, untaskedUsedCapacity)
 
     for (let i = 0; i < loadsToHaul; i++) {
       const loadPriority = (storeUsedCapacity - (i * loadSize)) / storeCapacity;
@@ -163,7 +160,7 @@ class Source extends OrgBase {
         [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
       };
 
-      //console.log("source load", loadPriority, JSON.stringify(details))
+      // console.log("source load", loadPriority, JSON.stringify(details))
 
       this.sendRequest(TOPICS.TOPIC_HAUL_TASK, loadPriority, details, REQUEST_HAULING_TTL);
     }
@@ -178,7 +175,7 @@ class Source extends OrgBase {
           [MEMORY.MEMORY_HAUL_RESOURCE]: resource,
         };
 
-        //console.log("source load", loadPriority, JSON.stringify(details))
+        // console.log("source load", loadPriority, JSON.stringify(details))
 
         this.sendRequest(TOPICS.TOPIC_HAUL_TASK, 0.5, details, REQUEST_HAULING_TTL);
       }
@@ -199,6 +196,14 @@ class Source extends OrgBase {
         desiredHarvesters = 0;
       }
     }
+
+    const roomCreeps = this.getRoom().getCreeps();
+    this.numHarvesters = roomCreeps.filter((creep) => {
+      const role = creep.memory[MEMORY.MEMORY_ROLE];
+      return role === CREEPS.WORKER_HARVESTER &&
+        creep.memory[MEMORY.MEMORY_HARVEST] === this.id &&
+        creepIsFresh(creep);
+    }).length;
 
     if (this.numHarvesters >= desiredHarvesters) {
       return;
@@ -223,6 +228,14 @@ class Source extends OrgBase {
     if (this.container) {
       desiredMiners = 1;
     }
+
+    const roomCreeps = this.getRoom().getCreeps();
+    this.numMiners = roomCreeps.filter((creep) => {
+      const role = creep.memory[MEMORY.MEMORY_ROLE];
+      return role === CREEPS.WORKER_MINER &&
+        creep.memory[MEMORY.MEMORY_HARVEST] === this.id &&
+        creepIsFresh(creep);
+    }).length;
 
     if (this.numMiners >= desiredMiners) {
       return;

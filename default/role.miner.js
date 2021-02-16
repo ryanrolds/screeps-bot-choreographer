@@ -47,131 +47,6 @@ const harvest = behaviorTree.leafNode(
   },
 );
 
-const janitor = behaviorTree.leafNode(
-  'janitor',
-  (creep) => {
-    // Locate dropped resource close to creep
-    const resource = creep.pos.findInRange(FIND_DROPPED_RESOURCES, 1);
-    if (!resource) {
-      return FAILURE;
-    }
-
-    const container = Game.getObjectById(creep.memory[MEMORY.MEMORY_HARVEST_CONTAINER]);
-    if (!container) {
-      return FAILURE;
-    }
-
-    if (container.store.getFreeCapacity(RESOURCE_ENERGY) === 0) {
-      return FAILURE;
-    }
-
-    const result = creep.pickup(resource[0]);
-    if (result === ERR_FULL) {
-      // We still have energy to transfer, fail so we find another
-      // place to dump
-      return SUCCESS;
-    }
-    if (result === ERR_NOT_ENOUGH_RESOURCES) {
-      return SUCCESS;
-    }
-    if (creep.store.getUsedCapacity() === 0) {
-      return SUCCESS;
-    }
-    if (result != OK) {
-      return FAILURE;
-    }
-
-    return RUNNING;
-  },
-);
-
-const emptyCreep = behaviorTree.sequenceNode(
-  'empty_creep',
-  [
-    behaviorTree.leafNode(
-      'pick_adjacent_container',
-      (creep, trace, kingdom) => {
-        const targets = creep.pos.findInRange(FIND_STRUCTURES, 1, {
-          filter: (structure) => {
-            return structure.structureType == STRUCTURE_CONTAINER;
-          },
-        });
-
-        if (!targets || !targets.length) {
-          return FAILURE;
-        }
-
-        behaviorMovement.setDestination(creep, targets[0].id);
-        return SUCCESS;
-      },
-    ),
-    behaviorTree.leafNode(
-      'move_to_destination',
-      (creep, trace, kingdom) => {
-        const destination = Game.getObjectById(creep.memory[MEMORY.MEMORY_DESTINATION]);
-        if (!destination) {
-          return FAILURE;
-        }
-
-        if (creep.pos.inRangeTo(destination, 0)) {
-          return SUCCESS;
-        }
-
-        const result = creep.moveTo(destination);
-
-        trace.log(creep.id, 'moveTo', result);
-
-        if (result === ERR_NO_PATH) {
-          return FAILURE;
-        }
-        if (result !== OK && result !== ERR_TIRED) {
-          return FAILURE;
-        }
-
-        if (creep.pos.inRangeTo(destination, 0)) {
-          return SUCCESS;
-        }
-
-        return RUNNING;
-      },
-    ),
-    behaviorTree.leafNode(
-      'transfer_energy',
-      (creep, trace, kingdom) => {
-        const destination = Game.getObjectById(creep.memory[MEMORY.MEMORY_DESTINATION]);
-        if (!destination) {
-          return FAILURE;
-        }
-
-        if (destination.store.getFreeCapacity(RESOURCE_ENERGY) === 0) {
-          return SUCCESS;
-        }
-
-        const result = creep.transfer(destination, RESOURCE_ENERGY);
-
-        trace.log(creep.id, 'transfer', result);
-
-        if (result === ERR_FULL) {
-          // We still have energy to transfer, fail so we find another
-          // place to dump
-          return FAILURE;
-        }
-        if (result === ERR_NOT_ENOUGH_RESOURCES) {
-          return SUCCESS;
-        }
-        if (creep.store.getUsedCapacity() === 0) {
-          return SUCCESS;
-        }
-        if (result != OK) {
-          return FAILURE;
-        }
-
-        return RUNNING;
-      },
-    ),
-  ],
-);
-
 const waitUntilSourceReady = behaviorTree.leafNode(
   'waitUntilReady',
   (creep) => {
@@ -204,11 +79,9 @@ const behavior = behaviorTree.sequenceNode(
             'get_energy',
             [
               harvest,
-              janitor,
               waitUntilSourceReady,
             ],
           ),
-          emptyCreep,
         ],
       ),
     ),

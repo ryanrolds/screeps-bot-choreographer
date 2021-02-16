@@ -1,7 +1,7 @@
-const PERSISTENT_TOPICS = 'PERSISTENT_TOPICS';
+const IGNORE_CREEPS = 'ignore_creeps';
 
 const FLAGS = {
-  [PERSISTENT_TOPICS]: true,
+  [IGNORE_CREEPS]: false,
 };
 
 const getFlag = (key) => {
@@ -13,7 +13,7 @@ const setFlag = (key, value) => {
 };
 
 module.exports = {
-  [PERSISTENT_TOPICS]: PERSISTENT_TOPICS,
+  [IGNORE_CREEPS]: IGNORE_CREEPS,
   getFlag,
   setFlag,
 };

@@ -5,7 +5,12 @@ const {MEMORY_DESTINATION, MEMORY_DESTINATION_ROOM, MEMORY_ORIGIN,
 
 const MEMORY = require('./constants.memory');
 
-const moveToMemory = module.exports.moveToMemory = (creep, memoryId, range, ignoreCreeps = false) => {
+const getMoveOpts = (ignoreCreeps = false, reusePath = 50, maxOps = 1500) => {
+  return {reusePath, maxOps, ignoreCreeps};
+};
+
+const moveToMemory = module.exports.moveToMemory = (creep, memoryId, range, ignoreCreeps,
+  reusePath, maxOps) => {
   const destination = Game.getObjectById(creep.memory[memoryId]);
   if (!destination) {
     return FAILURE;
@@ -25,20 +30,16 @@ const moveToMemory = module.exports.moveToMemory = (creep, memoryId, range, igno
   }
   */
 
-  return moveTo(creep, destination, range, ignoreCreeps);
+  return moveTo(creep, destination, range, ignoreCreeps, reusePath, maxOps);
 };
 
-const moveTo = module.exports.moveTo = (creep, destination, range, ignoreCreeps = false) => {
+const moveTo = module.exports.moveTo = (creep, destination, range, ignoreCreeps,
+  reusePath, maxOps) => {
   if (creep.pos.inRangeTo(destination, range)) {
     return SUCCESS;
   }
 
-  const moveOpts = {
-    reusePath: 50,
-    maxOps: 1000,
-    ignoreCreeps,
-  };
-
+  const moveOpts = getMoveOpts(ignoreCreeps, reusePath, maxOps);
   const result = creep.moveTo(destination, moveOpts);
   if (result === ERR_NO_PATH) {
     // Clear existing path so we build a new one
@@ -53,8 +54,9 @@ const moveTo = module.exports.moveTo = (creep, destination, range, ignoreCreeps 
   return RUNNING;
 };
 
-module.exports.moveToRoom = (creep, room) => {
-  const result = creep.moveTo(new RoomPosition(25, 25, room));
+module.exports.moveToRoom = (creep, room, ignoreCreeps, reusePath, maxOps) => {
+  const opts = getMoveOpts(ignoreCreeps, reusePath, maxOps);
+  const result = creep.moveTo(new RoomPosition(25, 25, room), opts);
   if (result === ERR_NO_PATH) {
     return FAILURE;
   }
@@ -70,8 +72,8 @@ module.exports.setSource = (creep, sourceId) => {
   creep.memory[MEMORY_SOURCE] = sourceId;
 };
 
-module.exports.moveToSource = (creep, range) => {
-  return moveToMemory(creep, MEMORY_SOURCE, range);
+module.exports.moveToSource = (creep, range, ignoreCreeps, reusePath, maxOps) => {
+  return moveToMemory(creep, MEMORY_SOURCE, range, ignoreCreeps, reusePath, maxOps);
 };
 
 module.exports.clearSource = (creep) => {
@@ -86,20 +88,20 @@ module.exports.setDestination = (creep, destinationId, roomId = null) => {
   }
 };
 
-module.exports.moveToCreepMemory = (memoryID, range = 1, ignoreCreeps = false) => {
+module.exports.moveToCreepMemory = (memoryID, range = 1, ignoreCreeps, reusePath, maxOps) => {
   return behaviorTree.leafNode(
     'bt.movement.moveToCreepMemory',
     (creep) => {
-      return moveToMemory(creep, memoryID, range, ignoreCreeps);
+      return moveToMemory(creep, memoryID, range, ignoreCreeps, reusePath, maxOps);
     },
   );
 };
 
-module.exports.moveToDestination = (range = 1, ignoreCreeps = false) => {
+module.exports.moveToDestination = (range = 1, ignoreCreeps, reusePath, maxOps) => {
   return behaviorTree.leafNode(
     'bt.movement.moveToDestination',
     (creep) => {
-      return moveToMemory(creep, MEMORY.MEMORY_DESTINATION, range, ignoreCreeps);
+      return moveToMemory(creep, MEMORY.MEMORY_DESTINATION, range, ignoreCreeps, reusePath, maxOps);
     },
   );
 };
@@ -164,7 +166,8 @@ module.exports.moveToDestinationRoom = behaviorTree.repeatUntilSuccess(
         return SUCCESS;
       }
 
-      const result = creep.moveTo(new RoomPosition(25, 25, room));
+      const opts = getMoveOpts();
+      const result = creep.moveTo(new RoomPosition(25, 25, room), opts);
       if (result === ERR_NO_PATH) {
         return FAILURE;
       }
@@ -194,7 +197,8 @@ module.exports.moveToOriginRoom = behaviorTree.repeatUntilSuccess(
         return SUCCESS;
       }
 
-      const result = creep.moveTo(new RoomPosition(25, 25, room));
+      const opts = getMoveOpts();
+      const result = creep.moveTo(new RoomPosition(25, 25, room), opts);
       if (result === ERR_NO_PATH) {
         return FAILURE;
       }

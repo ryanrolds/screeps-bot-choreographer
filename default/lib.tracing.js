@@ -33,7 +33,7 @@ const startTrace = (name) => {
         return;
       }
 
-      console.log(id, this.name, message, details);
+      console.log(id, this.name, message, JSON.stringify(details));
     },
     end: function() {
       if (!isActive) {
@@ -57,10 +57,14 @@ const report = () => {
       key: timing.key,
       total: 0,
       count: 0,
+      max: 0,
     };
 
     metric.count++;
     metric.total += timing.value;
+    if (timing.value > metric.max) {
+      metric.max = timing.value;
+    }
 
     acc[timing.key] = metric;
     return acc;
@@ -72,15 +76,16 @@ const report = () => {
   }, []);
 
   summary = _.sortBy(summary, (metric) => {
-    return metric.total / metric.count;
+    return metric.total;
+    //return metric.total / metric.count;
   });
 
   console.log('------- CPU Usage report --------');
 
   // slice to 50 so that we don't overflow the console in the game
   summary.reverse().slice(0, 75).forEach((metric) => {
-    console.log(`* ${(metric.total / metric.count).toFixed(2)}, ${metric.count.toFixed(0)},` +
-      ` ${metric.total.toFixed(2)} - ${metric.key}`);
+    console.log(`* ${(metric.total / metric.count).toFixed(2)}, ${metric.count.toFixed(0)}, ` +
+      `${metric.total.toFixed(2)}, ${metric.max.toFixed(2)} - ${metric.key}`);
   });
 };
 

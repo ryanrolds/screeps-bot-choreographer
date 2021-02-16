@@ -22,7 +22,7 @@ const behavior = behaviorTree.sequenceNode(
             [
               behaviorBuild.selectSite,
               behaviorRoom.parkingLot,
-            ]
+            ],
           ),
           behaviorMovement.moveToDestinationRoom,
           behaviorMovement.moveToDestination(1),

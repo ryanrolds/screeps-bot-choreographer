@@ -6,7 +6,7 @@ const behaviorHarvest = require('./behavior.harvest');
 const behaviorStorage = require('./behavior.storage');
 const behaviorMovement = require('./behavior.movement');
 const behaviorCommute = require('./behavior.commute');
-const behaviorBoosts = require('./behavior.boosts')
+const behaviorBoosts = require('./behavior.boosts');
 
 const MEMORY = require('./constants.memory');
 
@@ -68,7 +68,6 @@ const getEnergy = behaviorTree.repeatUntilSuccess(
 );
 
 
-
 const behavior = behaviorTree.sequenceNode(
   'hauler_root',
   [
@@ -81,12 +80,12 @@ const behavior = behaviorTree.sequenceNode(
         return behaviorTree.SUCCESS;
       },
     ),
-    behaviorMovement.moveToDestination(3),
+    behaviorMovement.moveToDestination(3, false, 25, 500),
     behaviorCommute.setCommuteDuration,
     behaviorTree.repeatUntilSuccess(
       'upgrade_until_empty',
       behaviorTree.leafNode(
-        'empty_creep',
+        'upgrade_controller',
         (creep) => {
           const destination = Game.getObjectById(creep.memory.destination);
           if (!destination) {
@@ -97,11 +96,9 @@ const behavior = behaviorTree.sequenceNode(
           if (result == ERR_NOT_ENOUGH_RESOURCES) {
             return behaviorTree.SUCCESS;
           }
+
           if (result != OK) {
             return behaviorTree.FAILURE;
-          }
-          if (creep.store.getUsedCapacity() === 0) {
-            return behaviorTree.SUCCESS;
           }
 
           return behaviorTree.RUNNING;

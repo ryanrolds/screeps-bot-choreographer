@@ -3,6 +3,8 @@ const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
 const behaviorAssign = require('./behavior.assign');
 const behaviorRoom = require('./behavior.room');
 
+const MEMORY = require('./constants.memory')
+
 const behavior = behaviorTree.sequenceNode(
   'defender_root',
   [
@@ -10,44 +12,51 @@ const behavior = behaviorTree.sequenceNode(
     behaviorTree.leafNode(
       'attack_hostiles',
       (creep, trace, kingdom) => {
-        let hostile = creep.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
-        if (!hostile) {
-          const invaderCores = creep.room.find(FIND_STRUCTURES, {
-            filter: (structure) => {
-              return structure.structureType === STRUCTURE_INVADER_CORE;
-            },
-          });
+        const room = kingdom.getCreepRoom(creep);
+        if (!room) {
+          trace.log(creep.id, 'creep has no room', creep.memory);
+          return FAILURE;
+        }
 
-          if (!invaderCores.length) {
-            if (creep.room.controller.my) {
-              return SUCCESS;
-            }
+        let target = null;
 
-            const hostileStructures = creep.room.find(FIND_STRUCTURES, {
-              filter: (structure) => {
-                return structure.structureType === STRUCTURE_SPAWN ||
-                  structure.structureType === STRUCTURE_TOWER ||
-                  structure.structureType === STRUCTURE_EXTENSION;
-              },
-            });
-
-            if (!hostileStructures.length) {
-              return SUCCESS;
-            }
-
-            hostile = hostileStructures[0];
-          } else {
-            hostile = invaderCores[0];
+        const hostiles = room.getHostiles();
+        const invaderCores = room.getInvaderCores();
+        const hostileStructures = room.getHostileStructures();
+        if (hostiles.length) {
+          target = hostiles[0];
+        } else if (invaderCores.length) {
+          target = invaderCores[0];
+        } else if (hostileStructures.length) {
+          target = hostileStructures[0];
+        } else {
+          const colony = kingdom.getCreepColony(creep)
+          if (!colony) {
+            return FAILURE;
           }
+
+          const primaryRoom = colony.getPrimaryRoom();
+          if (!primaryRoom) {
+            return FAILURE;
+          }
+
+          // Send back to primary room
+          creep.memory[MEMORY.MEMORY_ASSIGN_ROOM] = primaryRoom.id;
+
+          return SUCCESS;
         }
 
-        const inRange = creep.pos.getRangeTo(hostile) <= 3;
+        const inRange = creep.pos.getRangeTo(target) <= 3;
         if (inRange) {
-          creep.rangedAttack(hostile);
+          creep.rangedAttack(target);
         }
 
-        const pathToHostile = creep.pos.findPathTo(hostile);
-        const lastRampart = pathToHostile.reduce((lastRampart, pos) => {
+        if (creep.pos.getRangeTo(target) === 1) {
+          return RUNNING;
+        }
+
+        const pathToTarget = creep.pos.findPathTo(target);
+        const lastRampart = pathToTarget.reduce((lastRampart, pos) => {
           pos = creep.room.getPositionAt(pos.x, pos.y);
           const posStructures = pos.lookFor(LOOK_STRUCTURES);
           const hasRampart = _.filter(posStructures, (structure) => {
@@ -77,7 +86,7 @@ const behavior = behaviorTree.sequenceNode(
           return RUNNING;
         }
 
-        result = creep.moveTo(hostile, {visualizePathStyle: {stroke: '#ffffff'}});
+        result = creep.moveTo(target, {visualizePathStyle: {stroke: '#ffffff'}});
         if (result === ERR_NO_BODYPART) {
           return FAILURE;
         }
@@ -91,7 +100,7 @@ const behavior = behaviorTree.sequenceNode(
         return RUNNING;
       },
     ),
-    behaviorRoom.parkingLot
+    behaviorRoom.parkingLot,
   ],
 );
 

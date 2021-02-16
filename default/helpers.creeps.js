@@ -8,6 +8,7 @@ const roleDistributor = require('./role.distributor');
 const roleDefender = require('./role.defender');
 const roleAttacker = require('./role.attacker');
 const roleReserver = require('./role.reserver');
+const roleExplorer = require('./role.explorer');
 
 const CREEPS = require('./constants.creeps');
 const MEMORY = require('./constants.memory');
@@ -86,6 +87,11 @@ module.exports.tick = (kingdom, trace) => {
 
     if (creep.memory.role == CREEPS.WORKER_RESERVER) {
       roleReserver.run(creep, trace, kingdom);
+      return;
+    }
+
+    if (creep.memory.role == CREEPS.WORKER_EXPLORER) {
+      roleExplorer.run(creep, trace, kingdom);
       return;
     }
   });

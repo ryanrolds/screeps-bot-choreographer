@@ -1,23 +1,32 @@
 
-const doEvery = ttl => action => {
+const doEvery = (ttl, memory, key) => (action) => {
   let lastCall = 0;
 
-  const tick = function() {
+  if (memory && key) {
+    lastCall = memory[key] || 0;
+  }
+
+  const tick = function(...args) {
     if (lastCall + ttl <= Game.time) {
-      lastCall = Game.time
-      return action.apply(null, arguments)
+      lastCall = Game.time;
+
+      if (memory && key) {
+        memory[key] = lastCall;
+      }
+
+      return action(...args);
     }
 
-    return null
-  }
+    return null;
+  };
 
   tick.reset = () => {
     lastCall = 0;
   };
 
-  return tick
-}
+  return tick;
+};
 
 module.exports = {
   doEvery,
-}
+};

@@ -19,16 +19,21 @@ class Spawner extends OrgBase {
     spawner.memory['ticksIdle'] = 0;
 
     this.doBoostRequest = doEvery(REQUEST_BOOSTS_TTL)((boosts, priority) => {
-      this.requestBoosts(boosts, priority)
-    })
+      this.requestBoosts(boosts, priority);
+    });
 
     setupTrace.end();
   }
   update(trace) {
-    const updateTrace = trace.begin('update')
+    const updateTrace = trace.begin('update');
 
     // was constructor
-    const spawner = this.spawner = Game.getObjectById(this.id)
+    const spawner = this.spawner = Game.getObjectById(this.id);
+    if (!spawner) {
+      console.log(`game object for spawn ${this.id} not found`);
+      updateTrace.end();
+      return;
+    }
 
     this.isIdle = !spawner.spawning;
     this.energy = spawner.room.energyAvailable;
@@ -37,7 +42,7 @@ class Spawner extends OrgBase {
 
     // was constructor end
 
-    //console.log(this);
+    // console.log(this);
 
     if (!this.isIdle) {
       const priority = 50 / spawner.spawning.remainingTime;
@@ -46,8 +51,7 @@ class Spawner extends OrgBase {
       const boosts = CREEPS.definitions[role].boosts;
 
       if (boosts) {
-        console.log('sending boost request', this.getRoom().id, JSON.stringify(boosts));
-        this.doBoostRequest(boosts, priority)
+        this.doBoostRequest(boosts, priority);
       }
 
       spawner.room.visual.text(
@@ -68,7 +72,13 @@ class Spawner extends OrgBase {
     updateTrace.end();
   }
   process(trace) {
-    const processTrace = trace.begin('process')
+    const processTrace = trace.begin('process');
+
+    if (!this.spawner) {
+      console.log(`game object for spawn ${this.id} not found`);
+      updateTrace.end();
+      return;
+    }
 
     this.updateStats();
 

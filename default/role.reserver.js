@@ -1,10 +1,11 @@
 
 const behaviorTree = require('./lib.behaviortree');
+const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
 const behaviorCommute = require('./behavior.commute');
 const behaviorMovement = require('./behavior.movement');
-const {MEMORY_ASSIGN_ROOM} = require('./constants.memory');
-
 const behaviorNonCombatant = require('./behavior.noncombatant');
+
+const {MEMORY_ASSIGN_ROOM} = require('./constants.memory');
 
 const behavior = behaviorTree.selectorNode(
   'reserver_root',
@@ -15,24 +16,27 @@ const behavior = behaviorTree.selectorNode(
         behaviorTree.leafNode(
           'move_to_room',
           (creep, trace, kingdom) => {
-            const room = kingdom.getCreepRoom(creep);
+            const room = creep.memory[MEMORY_ASSIGN_ROOM];
             if (!room) {
               return FAILURE;
             }
 
             // If the creep reaches the room we are done
-            if (creep.room.name === room.id) {
+            if (creep.room.name === room) {
               return behaviorTree.SUCCESS;
             }
 
             // Move to center of the room or controller
             let destination = new RoomPosition(25, 25, room);
-            const roomObject = room.getRoomObject();
+            const roomObject = Game.rooms[room];
             if (roomObject) {
               destination = roomObject.controller;
             }
 
-            const result = creep.moveTo(destination);
+            const result = creep.moveTo(destination, {
+              reusePath: 50,
+              maxOps: 1500,
+            });
             if (result === ERR_NO_PATH) {
               return behaviorTree.FAILURE;
             }
@@ -60,7 +64,7 @@ const behavior = behaviorTree.selectorNode(
                 return behaviorTree.SUCCESS;
               }
 
-              return behaviorMovement.moveTo(creep, creep.room.controller, 1);
+              return behaviorMovement.moveTo(creep, creep.room.controller, 1, false, 25, 500);
             },
           ),
         ),

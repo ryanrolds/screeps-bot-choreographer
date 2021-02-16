@@ -1,7 +1,7 @@
 const MEMORY = require('./constants.memory');
 
 module.exports.setup = (memory, prefix, setPoint, p, i, d) => {
-  if (!setPoint || !p) {
+  if (!p) {
     throw new Error('set: missing setpoint or p');
   }
 
@@ -17,8 +17,8 @@ module.exports.update = (memory, prefix, value, time) => {
   const i = memory[`${prefix}${MEMORY.PID_SUFFIX_I}`] || 0;
   const d = memory[`${prefix}${MEMORY.PID_SUFFIX_D}`] || 0;
 
-  if (!setPoint || !p) {
-    throw new Error('update: missing setpoint or p');
+  if (!p) {
+    throw new Error('update: missing p');
   }
 
   const err = value - setPoint;

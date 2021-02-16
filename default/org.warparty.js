@@ -38,8 +38,8 @@ class WarParty extends OrgBase {
     }
 
     // was in constructor
-    let flag = this.flag;
-    let parent = this.parent;
+    const flag = this.flag;
+    const parent = this.parent;
 
     this.roomId = flag.room && flag.room.name || 'unknown';
     this.creeps = Object.values(parent.getCreeps()).reduce((creeps, creep) => {
@@ -74,13 +74,13 @@ class WarParty extends OrgBase {
         filter: (structure) => {
           return structure.structureType === STRUCTURE_WALL || structure.structureType === STRUCTURE_RAMPART;
         },
-      })
+      });
       this.nearbyWalls = _.sortBy(walls, (structure) => {
         return structure.hits;
       });
 
       if (this.nearbyWalls.length) {
-        console.log("walls", this.nearbyWalls[0].id, this.nearbyWalls[0].hits)
+        console.log('walls', this.nearbyWalls[0].id, this.nearbyWalls[0].hits);
       }
     }
 
@@ -100,7 +100,7 @@ class WarParty extends OrgBase {
         creep.memory[MEMORY.MEMORY_ATTACK] = this.nearbyWalls[0].id;
       }
 
-      console.log("warparty", this.flag.name, creep.memory[MEMORY.MEMORY_ATTACK])
+      console.log('warparty', this.flag.name, creep.memory[MEMORY.MEMORY_ATTACK]);
 
       if (this.sortedHealth.length) {
         creep.memory[MEMORY.MEMORY_HEAL] = this.sortedHealth[0].id;

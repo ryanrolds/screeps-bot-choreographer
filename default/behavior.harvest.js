@@ -57,7 +57,10 @@ module.exports.moveToHarvestRoom = behaviorTree.repeatUntilSuccess(
         return SUCCESS;
       }
 
-      const result = creep.moveTo(new RoomPosition(25, 25, room));
+      const result = creep.moveTo(new RoomPosition(25, 25, room), {
+        reusePath: 50,
+        maxOps: 1500,
+      });
       if (result === ERR_NO_PATH) {
         return FAILURE;
       }
@@ -73,7 +76,7 @@ module.exports.moveToHarvestRoom = behaviorTree.repeatUntilSuccess(
 module.exports.moveToHarvest = behaviorTree.leafNode(
   'move_to_source',
   (creep) => {
-    return behaviorMovement.moveToSource(creep, 1);
+    return behaviorMovement.moveToSource(creep, 1, false, 50, 500);
   },
 );
 

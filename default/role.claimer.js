@@ -31,7 +31,10 @@ const behavior = behaviorTree.selectorNode(
               destination = roomObject.controller;
             }
 
-            const result = creep.moveTo(roomObject);
+            const result = creep.moveTo(roomObject, {
+              reusePath: 50,
+              maxOps: 1500,
+            });
             if (result === ERR_NO_PATH) {
               return behaviorTree.FAILURE;
             }

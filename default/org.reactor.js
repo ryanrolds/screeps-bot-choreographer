@@ -10,8 +10,10 @@ const TASK_PHASE_LOAD = 'phase_transfer_resources';
 const TASK_PHASE_REACT = 'phase_react';
 const TASK_PHASE_UNLOAD = 'phase_unload';
 
-const REQUEST_RESOURCE_TTL = 100;
-const REQUEST_LOAD_TTL = 25;
+const REQUEST_RESOURCE_TTL = 20;
+const REQUEST_LOAD_TTL = 10;
+const REQUEST_UNLOAD_TTL = 10;
+const TASK_TTL = 300;
 
 class Reactor extends OrgBase {
   constructor(parent, labs, trace) {
@@ -26,26 +28,51 @@ class Reactor extends OrgBase {
 
     this.doRequestResource = doEvery(REQUEST_RESOURCE_TTL)((room, resource, missingAmount, ttl) => {
       this.getKingdom().getResourceGovernor().requestResource(room, resource, missingAmount, ttl);
-    })
+    });
 
     this.doLoadLab = doEvery(REQUEST_LOAD_TTL)((lab, pickup, resource, missingAmount) => {
       this.loadLab(lab, pickup, resource, missingAmount);
-    })
+    });
+
+    this.doUnloadLab = doEvery(REQUEST_UNLOAD_TTL)((lab) => {
+      this.unloadLab(lab);
+    });
 
     setupTrace.end();
   }
   update(trace) {
-    const updateTrace = trace.begin('update')
+    const updateTrace = trace.begin('update');
+
+    this.labs = this.labs.map((lab) => {
+      return Game.getObjectById(lab.id);
+    }).filter((lab) => {
+      return lab
+    });
+
+    if (this.labs.length != 3) {
+      console.log(`not enough labs (${this.labs.length}) to form reactor`);
+      updateTrace.end();
+      return;
+    }
 
     this.room = this.getRoom().getRoomObject();
     this.terminal = this.getRoom().getTerminal();
     this.task = this.room.memory[MEMORY.REACTOR_TASK] || null;
 
-    this.labs = this.labs.map((lab) => {
-      return Game.getObjectById(lab.id);
-    })
+    // console.log(this);
 
-    //console.log(this);
+    updateTrace.end();
+  }
+  process(trace) {
+    const processTrace = trace.begin('process');
+
+    if (!this.task) {
+      const task = this.getKingdom().getNextRequest(TOPICS.TASK_REACTION);
+      if (task) {
+        this.room.memory[MEMORY.REACTOR_TASK] = task;
+        this.task = task;
+      }
+    }
 
     if (this.task) {
       const inputA = this.task.details[MEMORY.REACTOR_INPUT_A];
@@ -55,6 +82,18 @@ class Reactor extends OrgBase {
 
       switch (phase) {
         case TASK_PHASE_LOAD:
+          // Maintain task TTL. We want to abort hard to perform tasks
+          let ttl = this.task[MEMORY.REACTOR_TTL];
+          if (ttl === undefined) {
+            ttl = TASK_TTL;
+          }
+          if (ttl <= 0) {
+            this.clearTask();
+            return;
+          } else {
+            this.room.memory[MEMORY.REACTOR_TASK][MEMORY.REACTOR_TTL] = ttl - 1;
+          }
+
           const readyA = this.prepareInput(this.labs[1], inputA, amount);
           const readyB = this.prepareInput(this.labs[2], inputB, amount);
 
@@ -82,25 +121,19 @@ class Reactor extends OrgBase {
             break;
           }
 
-          this.unloadLab(this.labs[0]);
+          this.doUnloadLab(this.labs[0]);
 
           break;
         default:
           console.log('BROKEN REACTION LOGIC', phase);
           this.clearTask();
       }
-    }
-
-    updateTrace.end();
-  }
-  process(trace) {
-    const processTrace = trace.begin('process')
-
-    if (!this.task) {
-      const task = this.getKingdom().getNextRequest(TOPICS.TASK_REACTION);
-      if (task) {
-        this.room.memory[MEMORY.REACTOR_TASK] = task;
-      }
+    } else {
+      this.labs.forEach((lab) => {
+        if (lab.mineralType) {
+          this.doUnloadLab(lab);
+        }
+      });
     }
 
     processTrace.end();
@@ -113,8 +146,10 @@ class Reactor extends OrgBase {
       const inputA = task.details[MEMORY.REACTOR_INPUT_A];
       const inputB = task.details[MEMORY.REACTOR_INPUT_B];
       const phase = task[MEMORY.TASK_PHASE] || TASK_PHASE_LOAD;
+      const ttl = task[MEMORY.REACTOR_TTL];
 
-      taskSummary = `Output: ${output}, Input A: ${inputA}, Input B: ${inputB}, Phase: ${phase}`;
+      taskSummary = `Output: ${output}, Input A: ${inputA}, Input B: ${inputB}, ` +
+        `Phase: ${phase}, TTL: ${ttl}`;
     }
 
     return `---- Reactor: Id: ${this.labs[0].id}, Task: (${taskSummary})`;
@@ -143,7 +178,7 @@ class Reactor extends OrgBase {
 
     // Unload the lab if it's not the right mineral
     if (lab.mineralType && lab.mineralType !== resource && lab.store.getUsedCapacity(lab.mineralType) > 0) {
-      this.unloadLab(lab);
+      this.doUnloadLab(lab);
       return false;
     }
 
@@ -155,9 +190,10 @@ class Reactor extends OrgBase {
       const missingAmount = desiredAmount - currentAmount;
 
       if (!pickup) {
-        this.doRequestResource(room, resource, missingAmount, REQUEST_RESOURCE_TTL)
+        console.log('requesting', this.room.name, resource, missingAmount);
+        this.doRequestResource(room, resource, missingAmount, REQUEST_RESOURCE_TTL);
       } else {
-        this.doLoadLab(lab, pickup, resource, missingAmount)
+        this.doLoadLab(lab, pickup, resource, missingAmount);
       }
 
       return false;

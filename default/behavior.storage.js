@@ -78,6 +78,7 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.select
           return SUCCESS;
         }
 
+
         return FAILURE;
       },
     ),
@@ -118,7 +119,8 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.select
         const targets = creep.pos.findInRange(FIND_STRUCTURES, 2, {
           filter: (structure) => {
             // TODO things seeking to gain energy should use another function
-            return structure.structureType == STRUCTURE_LINK;
+            return structure.structureType == STRUCTURE_LINK &&
+              structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
           },
         });
 
@@ -132,37 +134,38 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.select
     ),
     behaviorTree.leafNode(
       'pick_storage',
-      (creep) => {
+      (creep, trace, kingdom) => {
         const role = creep.memory[MEMORY_ROLE];
         if (role && role === WORKER_DISTRIBUTOR) {
           return FAILURE;
         }
 
-        const originID = creep.memory[MEMORY_ORIGIN];
-        if (!originID) {
+        const colony = kingdom.getCreepColony(creep);
+        if (!colony) {
+          console.log('creep no colony', creep.name);
           return FAILURE;
         }
 
-        const room = Game.rooms[originID];
+        const room = colony.getPrimaryRoom();
         if (!room) {
+          console.log('creep no primary room', creep.name);
           return FAILURE;
         }
 
-        if (!room.storage) {
+        if (!room.hasStorage) {
+          console.log('creep has no storage', creep.name);
           return FAILURE;
         }
 
-        const distributors = room.find(FIND_MY_CREEPS, {
-          filter: (creep) => {
-            return creep.memory[MEMORY_ROLE] === WORKER_DISTRIBUTOR;
-          },
+        const distributors = _.filter(room.getCreeps(), (creep) => {
+          return creep.memory[MEMORY.MEMORY_ROLE] === WORKER_DISTRIBUTOR;
         });
 
         if (!distributors.length) {
           return FAILURE;
         }
 
-        behaviorMovement.setDestination(creep, room.storage.id);
+        behaviorMovement.setDestination(creep, room.room.storage.id);
         return SUCCESS;
       },
     ),
@@ -280,8 +283,15 @@ module.exports.fillCreepFromContainers = behaviorTree.sequenceNode(
   ],
 );
 
-module.exports.emptyCreep = behaviorTree.repeatUntilSuccess(
+module.exports.emptyCreep = behaviorTree.repeatUntilConditionMet(
   'transfer_until_empty',
+  (creep, trace, kingdom) => {
+    if (creep.store.getUsedCapacity() === 0) {
+      return true;
+    }
+
+    return false;
+  },
   behaviorTree.sequenceNode(
     'dump_energy',
     [
@@ -290,19 +300,24 @@ module.exports.emptyCreep = behaviorTree.repeatUntilSuccess(
       behaviorMovement.moveToDestination(1, false),
       behaviorTree.leafNode(
         'empty_creep',
-        (creep) => {
+        (creep, trace, kingdom) => {
           if (creep.store.getUsedCapacity() === 0) {
             return SUCCESS;
           }
 
           const destination = Game.getObjectById(creep.memory[MEMORY_DESTINATION]);
           if (!destination) {
+            trace.log(creep.id, 'no dump destination');
             return FAILURE;
           }
 
           const resource = Object.keys(creep.store).pop();
 
           const result = creep.transfer(destination, resource);
+          trace.log(creep.id, 'transfer result', {
+            result,
+          });
+
           if (result === ERR_FULL) {
             return SUCCESS;
           }

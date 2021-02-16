@@ -18,7 +18,17 @@ module.exports.moveToFlag = behaviorTree.sequenceNode(
           return FAILURE;
         }
 
-        const result = creep.moveTo(flag);
+        let opts = {
+          reusePath: 50,
+          maxOps: 1500,
+        }
+        if (creep.room.name === flag.room.name) {
+          opts = {
+            reusePath: 5,
+          }
+        }
+
+        const result = creep.moveTo(flag, opts);
         if (result === ERR_NO_PATH) {
           return FAILURE;
         }

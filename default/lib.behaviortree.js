@@ -8,7 +8,7 @@ module.exports.rootNode = (id, behavior) => {
 
     const result = behavior.tick(actor, rootTrace, kingdom);
     if (result == FAILURE) {
-      console.log('ROOT FAILURE:', actor.room.name, actor.id, actor.name);
+      // console.log('ROOT FAILURE:', actor.room.name, actor.id, actor.name);
     }
 
     rootTrace.end();
@@ -193,6 +193,47 @@ module.exports.repeatUntilConditionMet = (id, condition, node) => {
 
         return RUNNING;
       }
+
+      return SUCCESS;
+    },
+  };
+};
+
+module.exports.invert = (id, node) => {
+  return {
+    id,
+    node,
+    tick: function(actor, trace, kingdom) {
+      trace = trace.begin(this.id);
+
+      let result = this.node.tick(actor, trace, kingdom);
+
+      if (result === FAILURE) {
+        result = SUCCESS;
+      } else if (result === SUCCESS) {
+        result = FAILURE;
+      }
+
+      trace.log(actor.id, 'result', result);
+
+      trace.end();
+
+      return result;
+    },
+  };
+};
+
+module.exports.returnSuccess = (id, node) => {
+  return {
+    id,
+    node,
+    tick: function(actor, trace, kingdom) {
+      trace = trace.begin(this.id);
+
+      const result = this.node.tick(actor, trace, kingdom);
+      trace.log(actor.id, 'result', result);
+
+      trace.end();
 
       return SUCCESS;
     },

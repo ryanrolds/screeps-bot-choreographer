@@ -25,8 +25,8 @@ class Topics {
     Object.keys(this.topics).forEach((topicId) => {
       this.topics[topicId] = this.topics[topicId].filter((request) => {
         return request.ttl > Game.time;
-      })
-    })
+      });
+    });
   }
   createTopic(topic) {
     this.topics[topic] = [];
@@ -68,7 +68,7 @@ class Topics {
     let request = null;
     while (request = topic.pop()) {
       if (request.ttl < Game.time) {
-        continue
+        continue;
       }
 
       break;
@@ -77,6 +77,21 @@ class Topics {
     this.setTopic(topicID, topic);
 
     return request;
+  }
+  getMessageOfMyChoice(topicId, chooser) {
+    const messages = this.getTopic(topicId);
+    if (!messages) {
+      return null;
+    }
+
+    const choice = chooser(messages);
+    if (choice) {
+      messages = _.remove(messages, choice);
+    }
+
+    this.setTopic(topicId, messages);
+
+    return choice;
   }
   getLength(topicID) {
     const topic = this.topics[topicID];

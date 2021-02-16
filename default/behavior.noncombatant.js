@@ -9,8 +9,17 @@ module.exports = (behaviorNode) => {
       behaviorTree.leafNode(
         'flee_hostiles',
         (creep, trace, kingdom) => {
-          const room = kingdom.getCreepRoom(creep);
+          const colony = kingdom.getCreepColony(creep);
+          if (!colony) {
+            return SUCCESS;
+          }
+
+          const room = kingdom.getCreepAssignedRoom(creep);
           if (!room) {
+            return SUCCESS;
+          }
+
+          if (colony.primaryRoomId === room.id) {
             return SUCCESS;
           }
 
@@ -20,15 +29,12 @@ module.exports = (behaviorNode) => {
 
           trace.log(creep.id, 'numHostiles', room.numHostiles);
 
-          const colony = kingdom.getCreepColony(creep);
-          if (!colony) {
-            return SUCCESS;
-          }
-          if (colony.primaryRoomId === room.id) {
-            return SUCCESS;
+          const primaryRoom = colony.primaryRoom;
+
+          if (creep.pos.getRangeTo(primaryRoom.controller) <= 3) {
+            return RUNNING;
           }
 
-          const primaryRoom = colony.primaryRoom;
           return behaviorMovement.moveTo(creep, primaryRoom.controller, 3);
         },
       ),

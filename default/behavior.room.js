@@ -25,7 +25,10 @@ const pickupDroppedEnergy = behaviorTree.leafNode(
     const resource = resources[0];
 
     if (!creep.pos.inRangeTo(resource, 1)) {
-      creep.moveTo(resource);
+      creep.moveTo(resource), {
+        reusePath: 25,
+        maxOps: 500,
+      };
       return RUNNING;
     }
 
@@ -71,7 +74,12 @@ module.exports.getEnergy = behaviorTree.repeatUntilSuccess(
 module.exports.parkingLot = behaviorTree.leafNode(
   'parking_lot',
   (creep, trace, kingdom) => {
-    const room = kingdom.getCreepRoom(creep);
+    const colony = kingdom.getCreepColony(creep);
+    if (!colony) {
+      return FAILURE;
+    }
+
+    const room = colony.getPrimaryRoom();
     if (!room) {
       return FAILURE;
     }
@@ -85,7 +93,10 @@ module.exports.parkingLot = behaviorTree.leafNode(
       return FAILURE;
     }
 
-    creep.moveTo(parkingLot);
+    creep.moveTo(parkingLot, {
+      reusePath: 50,
+      maxOps: 1500,
+    });
 
     return FAILURE;
   },

@@ -17,15 +17,19 @@ const selectSite = behaviorTree.leafNode(
           return 0 - site.progress / site.progressTotal;
         case STRUCTURE_TOWER:
           return 1 - site.progress / site.progressTotal;
-        case STRUCTURE_CONTAINER:
+        case STRUCTURE_RAMPART:
           return 2 - site.progress / site.progressTotal;
-        case STRUCTURE_STORAGE:
+        case STRUCTURE_CONTAINER:
           return 3 - site.progress / site.progressTotal;
-        case STRUCTURE_EXTENSION:
+        case STRUCTURE_STORAGE:
           return 4 - site.progress / site.progressTotal;
+        case STRUCTURE_TERMINAL:
+          return 5 - site.progress / site.progressTotal;
+        case STRUCTURE_EXTENSION:
+          return 6 - site.progress / site.progressTotal;
         case STRUCTURE_ROAD:
           return 11 - site.progress / site.progressTotal;
-        case STRUCTURE_RAMPART:
+
         case STRUCTURE_WALL:
           return 12 - site.progress / site.progressTotal;
         default:
@@ -41,7 +45,7 @@ const selectSite = behaviorTree.leafNode(
         return 0;
       }
 
-      const spawn = Object.values(room.spawnMap)[0]
+      const spawn = Object.values(room.spawnMap)[0];
       return site.pos.getRangeTo(spawn.spawner);
     });
 

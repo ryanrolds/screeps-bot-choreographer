@@ -15,7 +15,7 @@ class AI {
   tick(trace) {
     trace = trace.begin('tick');
 
-    this.kingdom.update(trace)
+    this.kingdom.update(trace);
     this.kingdom.process(trace);
 
     trace.end();

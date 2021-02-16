@@ -44,7 +44,7 @@ const selectExtensionToFill = behaviorTree.leafNode(
     creep.memory[MEMORY.MEMORY_HAUL_AMOUNT] = amount;
     creep.memory[MEMORY.MEMORY_HAUL_DROPOFF] = structure.id;
 
-    creep.say(creep.memory[MEMORY.TASK_ID]);
+    // creep.say(creep.memory[MEMORY.TASK_ID]);
 
     return SUCCESS;
   },
@@ -53,10 +53,10 @@ const selectExtensionToFill = behaviorTree.leafNode(
 const selectNextTaskOrPark = behaviorTree.selectorNode(
   'pick_something',
   [
-    behaviorHaul.getTaskFromTopic(TOPICS.HAUL_CORE_TASK),
+    behaviorHaul.getHaulTaskFromTopic(TOPICS.HAUL_CORE_TASK),
     selectExtensionToFill,
     behaviorRoom.parkingLot,
-  ]
+  ],
 );
 
 const emptyCreep = behaviorTree.leafNode(
@@ -76,7 +76,7 @@ const emptyCreep = behaviorTree.leafNode(
       throw new Error('Hauler task missing desired resource');
     }
 
-    const toUnload = _.difference(Object.keys(creep.store), [desiredResource])
+    const toUnload = _.difference(Object.keys(creep.store), [desiredResource]);
     if (!toUnload.length) {
       return SUCCESS;
     }
@@ -85,11 +85,11 @@ const emptyCreep = behaviorTree.leafNode(
 
     const result = creep.transfer(destination, resource);
 
-    trace.log(creep.id, "unload unneeded", JSON.stringify({
+    trace.log(creep.id, 'unload unneeded', {
       destination,
       resource,
-      result
-    }))
+      result,
+    });
 
     if (result === ERR_FULL) {
       return SUCCESS;
@@ -123,37 +123,37 @@ const unloadIfNeeded = behaviorTree.selectorNode(
         }
 
         const loadedResources = Object.keys(creep.store);
-        const toUnload = _.difference(loadedResources, [desiredResource])
+        const toUnload = _.difference(loadedResources, [desiredResource]);
         if (toUnload.length) {
-          const room = kingdom.getCreepRoom(creep)
+          const room = kingdom.getCreepRoom(creep);
           if (!room) {
-            throw new Error('Unable to get room for creep')
+            throw new Error('Unable to get room for creep');
           }
 
-          const reserve = room.getReserveStructureWithRoomForResource(toUnload[0])
+          const reserve = room.getReserveStructureWithRoomForResource(toUnload[0]);
           creep.memory[MEMORY.MEMORY_DESTINATION] = reserve.id;
 
-          trace.log(creep.id, "unloading at", JSON.stringify({
+          trace.log(creep.id, 'unloading at', {
             loaded: JSON.stringify(loadedResources),
             toUnload: JSON.stringify(toUnload),
             desired: JSON.stringify([desiredResource]),
             dropoff: reserve.id,
-          }))
+          });
 
           return FAILURE;
         }
 
         return SUCCESS;
-      }
+      },
     ),
     behaviorTree.sequenceNode(
       'move_and_unload',
       [
-        behaviorMovement.moveToCreepMemory(MEMORY.MEMORY_DESTINATION, 1, false),
-        emptyCreep
-      ]
-    )
-  ]
+        behaviorMovement.moveToCreepMemory(MEMORY.MEMORY_DESTINATION, 1, false, 10, 250),
+        emptyCreep,
+      ],
+    ),
+  ],
 );
 
 const loadIfNeeded = behaviorTree.selectorNode(
@@ -162,13 +162,12 @@ const loadIfNeeded = behaviorTree.selectorNode(
     behaviorTree.leafNode(
       'has_resource',
       (creep, trace, kingdom) => {
-        const dropoffId = creep.memory[MEMORY.MEMORY_HAUL_DROPOFF]
+        const dropoffId = creep.memory[MEMORY.MEMORY_HAUL_DROPOFF];
         if (!dropoffId) {
-          console.log(creep.name, JSON.stringify(creep.memory))
           throw new Error('Hauler task missing dropoff');
         }
 
-        const dropoff = Game.getObjectById(dropoffId)
+        const dropoff = Game.getObjectById(dropoffId);
         if (!dropoff) {
           throw new Error('Hauler task has invalid dropoff');
         }
@@ -185,42 +184,41 @@ const loadIfNeeded = behaviorTree.selectorNode(
         }
 
         if (amount >= creep.store.getFreeCapacity(resource)) {
-          amount = creep.store.getFreeCapacity(resource)
+          amount = creep.store.getFreeCapacity(resource);
           creep.memory[MEMORY.MEMORY_HAUL_AMOUNT] = amount;
         }
 
         if (!amount) {
-          console.log(creep.name, JSON.stringify(creep.memory))
-          const taskId = creep.memory[MEMORY.TASK_ID] || 'unknown task id'
+          const taskId = creep.memory[MEMORY.TASK_ID] || 'unknown task id';
           throw new Error(`Hauler task missing amount: ${taskId}`);
         }
 
-        trace.log(creep.id, "has resource", JSON.stringify({
+        trace.log(creep.id, 'has resource', {
           resource,
           amount,
-          creepAmount: creep.store.getUsedCapacity(resource)
-        }))
+          creepAmount: creep.store.getUsedCapacity(resource),
+        });
 
         if (creep.store.getUsedCapacity(resource) >= amount) {
-          return SUCCESS
+          return SUCCESS;
         }
 
         if (dropoff instanceof StructureExtension) {
           // Update amount to be a full creep so that we can fill multiple extensions
-          creep.memory[MEMORY.MEMORY_HAUL_AMOUNT] = creep.store.getCapacity(RESOURCE_ENERGY)
+          creep.memory[MEMORY.MEMORY_HAUL_AMOUNT] = creep.store.getCapacity(RESOURCE_ENERGY);
         }
 
         return FAILURE;
-      }
+      },
     ),
     behaviorTree.sequenceNode(
       'get_resource',
       [
-        behaviorMovement.moveToCreepMemory(MEMORY.MEMORY_HAUL_PICKUP, 1, false),
+        behaviorMovement.moveToCreepMemory(MEMORY.MEMORY_HAUL_PICKUP, 1, false, 10, 250),
         behaviorHaul.loadCreep,
-      ]
-    )
-  ]
+      ],
+    ),
+  ],
 );
 
 const deliver = behaviorTree.sequenceNode(
@@ -238,7 +236,7 @@ const deliver = behaviorTree.sequenceNode(
         return FAILURE;
       },
     ),
-    behaviorMovement.moveToDestination(1, false),
+    behaviorMovement.moveToDestination(1, false, 10, 250),
     behaviorTree.leafNode(
       'empty_creep',
       (creep) => {
