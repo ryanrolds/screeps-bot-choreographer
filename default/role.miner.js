@@ -24,7 +24,7 @@ const selectSource = behaviorTree.leafNode(
 const harvest = behaviorTree.leafNode(
   'fill_creep',
   (creep) => {
-    const destination = Game.getObjectById(creep.memory.source);
+    const destination = Game.getObjectById(creep.memory[MEMORY.MEMORY_HARVEST]);
     if (!destination) {
       return FAILURE;
     }
@@ -66,9 +66,8 @@ const waitUntilSourceReady = behaviorTree.leafNode(
 const behavior = behaviorTree.sequenceNode(
   'mine_energy',
   [
-    behaviorHarvest.moveToHarvestRoom,
     selectSource,
-    behaviorMovement.moveToDestination(0),
+    behaviorMovement.cachedMoveToMemory(MEMORY.MEMORY_DESTINATION, 0, false, 50, 1500),
     behaviorCommute.setCommuteDuration,
     behaviorTree.repeatUntilFailure(
       'mine_until_failure',

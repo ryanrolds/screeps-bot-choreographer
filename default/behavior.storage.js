@@ -50,12 +50,18 @@ const selectContainerForWithdraw = module.exports.selectContainerForWithdraw = b
   (creep) => {
     const target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
       filter: (structure) => {
-        return (structure.structureType == STRUCTURE_CONTAINER ||
-          structure.structureType == STRUCTURE_STORAGE ||
-          structure.structureType == STRUCTURE_LINK) &&
-          structure.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
+        if (structure.structureType != STRUCTURE_CONTAINER &&
+          structure.structureType != STRUCTURE_STORAGE &&
+          structure.structureType != STRUCTURE_LINK) {
+          return false;
+        }
+
+        //console.log(structure, structure.store.getUsedCapacity(RESOURCE_ENERGY))
+        return structure.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
       },
     });
+
+    //console.log("builder container", creep.name, target)
 
     if (!target) {
       return FAILURE;
@@ -95,7 +101,6 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.select
         const targets = creep.pos.findInRange(FIND_STRUCTURES, 2, {
           filter: (structure) => {
             return structure.structureType == STRUCTURE_CONTAINER &&
-              structure.structureType == STRUCTURE_CONTAINER &&
               structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
           },
         });
@@ -142,18 +147,22 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.select
 
         const colony = kingdom.getCreepColony(creep);
         if (!colony) {
-          console.log('creep no colony', creep.name);
+          //console.log('creep no colony', creep.name);
           return FAILURE;
         }
 
         const room = colony.getPrimaryRoom();
         if (!room) {
-          console.log('creep no primary room', creep.name);
+          //console.log('creep no primary room', creep.name);
           return FAILURE;
         }
 
         if (!room.hasStorage) {
-          console.log('creep has no storage', creep.name);
+          //console.log('creep has no storage', creep.name);
+          return FAILURE;
+        }
+
+        if (!room.room.storage) {
           return FAILURE;
         }
 

@@ -4,8 +4,6 @@ const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
 const MEMORY = require('./constants.memory');
 const TASKS = require('./constants.tasks');
 
-const pathCache = require('./lib.path_cache');
-
 module.exports.getHaulTaskFromTopic = function(topic) {
   return behaviorTree.leafNode(
     'pick_haul_task',
@@ -41,7 +39,7 @@ module.exports.getNearbyHaulTaskFromTopic = function(topic) {
         let selectedDistance = 99999;
 
         messages.forEach((message) => {
-          console.log(JSON.stringify(message));
+          //console.log(JSON.stringify(message));
 
           const pickupId = message.details[MEMORY.MEMORY_HAUL_PICKUP];
           if (pickupId) {
@@ -138,13 +136,13 @@ module.exports.loadCreep = behaviorTree.leafNode(
         amount = pickup.store.getUsedCapacity(resource);
       }
 
-      if (amount === 0) {
-        return FAILURE;
+      // If we are seeing a specific amount, we are done when we have that amount in the hold
+      if (creep.store.getUsedCapacity(resource) >= amount) {
+        return SUCCESS;
       }
 
-      // If we are seeing a specific amount, we are done when we have that amount in the hold
-      if (amount && creep.store.getUsedCapacity(resource) >= amount) {
-        return SUCCESS;
+      if (amount === 0) {
+        return FAILURE;
       }
 
       result = creep.withdraw(pickup, resource, amount);

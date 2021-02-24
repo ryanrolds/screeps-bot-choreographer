@@ -45,7 +45,7 @@ module.exports.tick = (kingdom, trace) => {
     // If we are running low on CPU start skipping 20% of non-essential creeps
     if (Game.cpu.bucket < MIN_BUCKET_THROTTLE) {
       if (skipCount % 5 === 0) {
-        console.log('skipping', creep.name);
+        //console.log('skipping', creep.name);
         return;
       }
     }
@@ -91,7 +91,8 @@ module.exports.tick = (kingdom, trace) => {
     }
 
     if (creep.memory.role == CREEPS.WORKER_EXPLORER) {
-      roleExplorer.run(creep, trace, kingdom);
+      creep.suicide();
+      //roleExplorer.run(creep, trace, kingdom);
       return;
     }
   });
@@ -106,7 +107,7 @@ module.exports.tick = (kingdom, trace) => {
       }
     }
 
-    console.log('Cleaning up creeps', numCleanedUp);
+    //console.log('Cleaning up creeps', numCleanedUp);
   }
 };
 
@@ -137,7 +138,7 @@ module.exports.createCreep = (colony, room, spawn, role, memory, energy, energyL
   memory[MEMORY.MEMORY_START_TICK] = Game.time;
   memory[MEMORY.DESIRED_BOOSTS] = definition.boosts;
 
-  console.log(`==== Creating creep ${colony}, ${room}, ${role}, ${energyLimit}, ${parts}, ${JSON.stringify(memory)}`);
+  //console.log(`==== Creating creep ${colony}, ${room}, ${role}, ${energyLimit}, ${parts}, ${JSON.stringify(memory)}`);
 
   const result = spawn.spawnCreep(parts, name, {memory});
   return result;

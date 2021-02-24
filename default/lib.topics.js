@@ -79,7 +79,7 @@ class Topics {
     return request;
   }
   getMessageOfMyChoice(topicId, chooser) {
-    const messages = this.getTopic(topicId);
+    let messages = this.getTopic(topicId);
     if (!messages) {
       return null;
     }

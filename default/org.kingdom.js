@@ -4,13 +4,16 @@ const WarParty = require('./org.warparty');
 const ResourceGovernor = require('./org.resource_governor');
 const Scribe = require('./org.scribe');
 const Topics = require('./lib.topics');
+const PathCache = require('./lib.path_cache');
 
 const {doEvery} = require('./lib.scheduler');
 
 const helpersCreeps = require('./helpers.creeps');
 const MEMORY = require('./constants.memory');
 
+
 const UPDATE_ORG_TTL = 1;
+const SAVE_PATH_CACHE_TTL = 100;
 
 class Kingdom extends OrgBase {
   constructor(config, trace) {
@@ -30,7 +33,14 @@ class Kingdom extends OrgBase {
     this.warParties = {};
 
     this.resourceGovernor = new ResourceGovernor(this, setupTrace);
+
     this.scribe = new Scribe(this, setupTrace);
+
+    this.pathCache = new PathCache(this, 250);
+    //this.pathCache.loadFromMemory(setupTrace);
+    //this.doStoreSavePathCacheToMemory = doEvery(SAVE_PATH_CACHE_TTL)((trace) => {
+    //  this.pathCache.saveToMemory(trace);
+    //});
 
     setupTrace.end();
   }
@@ -39,12 +49,11 @@ class Kingdom extends OrgBase {
 
     this.topics.removeStale();
 
-    // console.log("topics", this.id, JSON.stringify(this.topics))
-
     this.stats = {
       colonies: {},
       sources: {},
       spawns: {},
+      pathCache: {},
     };
 
     this.doUpdateOrg(updateTrace);
@@ -70,6 +79,8 @@ class Kingdom extends OrgBase {
     const scribeTrace = updateTrace.begin('scribe');
     this.scribe.update(scribeTrace);
     scribeTrace.end();
+
+    //this.doStoreSavePathCacheToMemory(updateTrace);
 
     updateTrace.end();
   }
@@ -121,6 +132,9 @@ class Kingdom extends OrgBase {
   }
   getScribe() {
     return this.scribe;
+  }
+  getPathCache() {
+    return this.pathCache;
   }
   getColonies() {
     return Object.values(this.colonies);
@@ -208,6 +222,8 @@ class Kingdom extends OrgBase {
     });
 
     stats.topics = this.topics.getCounts();
+
+    stats.path_cache = this.getPathCache().getStats();
 
     stats.credits = Game.market.credits;
   }

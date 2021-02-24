@@ -69,7 +69,7 @@ const getEnergy = behaviorTree.repeatUntilSuccess(
 
 
 const behavior = behaviorTree.sequenceNode(
-  'hauler_root',
+  'upgrader_root',
   [
     behaviorAssign.moveToRoom,
     getEnergy,
@@ -80,7 +80,7 @@ const behavior = behaviorTree.sequenceNode(
         return behaviorTree.SUCCESS;
       },
     ),
-    behaviorMovement.moveToDestination(3, false, 25, 500),
+    behaviorMovement.moveToDestination(3, false, 25, 1500),
     behaviorCommute.setCommuteDuration,
     behaviorTree.repeatUntilSuccess(
       'upgrade_until_empty',

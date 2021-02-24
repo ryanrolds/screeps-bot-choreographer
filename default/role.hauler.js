@@ -7,6 +7,7 @@ const behaviorNonCombatant = require('./behavior.noncombatant');
 const behaviorHaul = require('./behavior.haul');
 const behaviorRoom = require('./behavior.room');
 const behaviorBoosts = require('./behavior.boosts');
+const featureFlags = require('./lib.feature_flags');
 
 const MEMORY = require('./constants.memory');
 const TOPICS = require('./constants.topics');
@@ -43,7 +44,12 @@ const behavior = behaviorTree.sequenceNode(
       behaviorTree.sequenceNode(
         'pickup_load',
         [
-          behaviorMovement.moveToCreepMemory(MEMORY.MEMORY_HAUL_PICKUP, 1, false, 50, 1500),
+          behaviorTree.featureFlagBool(
+            'flag_move_by_path',
+            featureFlags.USE_HEAP_PATH_CACHE,
+            behaviorMovement.cachedMoveToMemory(MEMORY.MEMORY_HAUL_PICKUP, 1, false, 50, 1500),
+            behaviorMovement.moveByHeapPath(MEMORY.MEMORY_HAUL_PICKUP, 1, false, 50, 1500),
+          ),
           behaviorHaul.loadCreep,
           behaviorHaul.clearTask,
           behaviorTree.returnSuccess(
@@ -53,8 +59,66 @@ const behavior = behaviorTree.sequenceNode(
         ],
       ),
     ),
-    behaviorStorage.emptyCreep,
-  ],
+    behaviorTree.repeatUntilConditionMet(
+      'transfer_until_empty',
+      (creep, trace, kingdom) => {
+        if (creep.store.getUsedCapacity() === 0) {
+          return true;
+        }
+
+        return false;
+      },
+      behaviorTree.sequenceNode(
+        'dump_energy',
+        [
+          behaviorTree.featureFlagBool(
+            'flag_move_by_path',
+            featureFlags.USE_HEAP_PATH_CACHE,
+            behaviorMovement.cachedMoveToMemory(MEMORY.MEMORY_HAUL_DROPOFF, 1, false, 50, 1500),
+            behaviorMovement.moveByHeapPath(MEMORY.MEMORY_HAUL_DROPOFF, 1, false, 50, 1500),
+          ),
+          behaviorTree.leafNode(
+            'empty_creep',
+            (creep, trace, kingdom) => {
+              if (creep.store.getUsedCapacity() === 0) {
+                return SUCCESS;
+              }
+
+              const destination = Game.getObjectById(creep.memory[MEMORY.MEMORY_HAUL_DROPOFF]);
+              if (!destination) {
+                trace.log(creep.id, 'no dump destination');
+                return FAILURE;
+              }
+
+              const resource = Object.keys(creep.store).pop();
+
+              const result = creep.transfer(destination, resource);
+
+              trace.log(creep.id, 'transfer result', {result});
+
+              if (result === ERR_FULL) {
+                return FAILURE;
+              }
+
+              if (result === ERR_NOT_ENOUGH_RESOURCES) {
+                return FAILURE;
+              }
+
+              if (result === ERR_INVALID_TARGET) {
+                return FAILURE;
+              }
+
+              if (result != OK) {
+                return FAILURE;
+              }
+
+              return RUNNING;
+            }
+          )
+        ]
+      )
+    )
+  ]
 );
 
 module.exports = {

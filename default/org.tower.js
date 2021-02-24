@@ -66,7 +66,7 @@ class Tower extends OrgBase {
     const processTrace = trace.begin('process');
 
     if (!this.tower) {
-      console.log(`game object for tower ${this.id} not found`);
+      //console.log(`game object for tower ${this.id} not found`);
       processTrace.end();
       return;
     }
@@ -99,7 +99,7 @@ class Tower extends OrgBase {
       this.damagedCreep = room.damagedCreeps.shift();
     }
 
-    if (this.damagedCreep) {
+    if (this.damagedCreep && this.towerUsed > 250) {
       const creep = Game.creeps[this.damagedCreep];
       if (!creep || creep.hits >= creep.hitsMax) {
         this.damagedCreep = null;
@@ -178,7 +178,9 @@ class Tower extends OrgBase {
     }).length;
     this.roomEnergy = this.getRoom().getAmountInReserve(RESOURCE_ENERGY);
 
-    if (this.towerUsed > 500 || haulersWithTask || this.roomEnergy <= this.minEnergy) {
+    if (this.towerUsed > 500 || haulersWithTask) {
+      return;
+    } else if (this.towerUsed > 250 && this.roomEnergy <= this.minEnergy) {
       return;
     }
 

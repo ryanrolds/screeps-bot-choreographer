@@ -34,17 +34,17 @@ const MIN_RESERVATION_TICKS = 4000;
 const RESERVE_BUFFER = 200000;
 
 const UPDATE_CREEPS_TTL = 1;
-const UPDATE_ROOM_TTL = 5;
-const UPDATE_ORG_TTL = 5;
+const UPDATE_ROOM_TTL = 10;
+const UPDATE_ORG_TTL = 10;
 const UPDATE_RESOURCES_TTL = 5;
 
-const UPDATE_DEFENSE_STATUS_TTL = 5;
+const UPDATE_DEFENSE_STATUS_TTL = 10;
 const UPDATE_DAMAGED_CREEPS_TTL = 5;
 const UPDATE_DAMAGED_STRUCTURES_TTL = 20;
-const UPDATE_DAMAGED_SECONDARY_TTL = 10;
-const UPDATE_DAMAGED_ROADS_TTL = 20;
+const UPDATE_DAMAGED_SECONDARY_TTL = 15;
+const UPDATE_DAMAGED_ROADS_TTL = 25;
 
-const REQUEST_HAUL_DROPPED_RESOURCES_TTL = 20;
+const REQUEST_HAUL_DROPPED_RESOURCES_TTL = 50;
 const REQUEST_DEFENDERS_TTL = 20;
 const REQUEST_DISTRIBUTOR_TTL = 25;
 const REQUEST_RESERVER_TTL = 50;
@@ -97,10 +97,7 @@ class Room extends OrgBase {
     this.hasStorage = false;
     this.doUpdateResources = doEvery(UPDATE_RESOURCES_TTL)(() => {
       // Storage
-      this.hasStorage = this.getReserveStructures().filter((structure) => {
-        return structure.structureType != STRUCTURE_SPAWN;
-      }).length > 0;
-
+      this.hasStorage = this.getReserveStructures().length > 0;
       this.resources = this.getReserveResources(true);
     });
 
@@ -228,7 +225,7 @@ class Room extends OrgBase {
         this.doRequestDefenders();
       }
 
-      console.log('XXXXXXXX cannot find room', this.id);
+      //console.log('XXXXXXXX cannot find room', this.id);
       updateTrace.end();
       return;
     }
@@ -391,8 +388,11 @@ class Room extends OrgBase {
   }
   toString() {
     return `-- Room - ID: ${this.id}, Primary: ${this.isPrimary}, Claimed: ${this.claimedByMe}, ` +
-      `Reservers: ${this.numReservers}, #Builders: ${this.builders.length}, ` +
+      `Reservers: ${this.numReservers}, ` +
+      `HasStorage: ${this.hasStorage}, ` +
+      `#Builders: ${this.builders.length}, ` +
       `#Hostiles: ${this.numHostiles}, ` +
+      `HostileTime: ${this.hostileTime}, ` +
       `#Spawners: ${Object.keys(this.spawnMap).length}, ` +
       `#Towers: ${Object.keys(this.towerMap).length}, #Sites: ${this.numConstructionSites}, ` +
       `%Hits: ${this.hitsPercentage.toFixed(2)}, #Repairer: ${this.numRepairers}, ` +
@@ -554,8 +554,7 @@ class Room extends OrgBase {
     const stores = _.reduce(spawns, (acc, spawn) => {
       const containers = spawn.pos.findInRange(FIND_STRUCTURES, 9, {
         filter: (structure) => {
-          if (structure.structureType !== STRUCTURE_CONTAINER &&
-            structure.structureType !== STRUCTURE_SPAWN) {
+          if (structure.structureType !== STRUCTURE_CONTAINER) {
             return false;
           }
 
@@ -786,7 +785,7 @@ class Room extends OrgBase {
         !controller.safeMode && !controller.safeModeCooldown) {
         console.log('ACTIVATING SAFEMODE!!!!!');
         controller.activateSafeMode();
-      } else if (!controller || (!controller.safeMode || controller.safeModeCooldown < 250)) {
+      } else if (!controller || (!controller.safeMode || controller.safeMode < 250)) {
         // Request defenders
         this.sendRequest(TOPICS.TOPIC_DEFENDERS, PRIORITIES.PRIORITY_DEFENDER, {
           role: CREEPS.WORKER_DEFENDER,
@@ -867,10 +866,12 @@ class Room extends OrgBase {
     let maxParts = 15;
     let roomCapacity = 300;
 
+    const reserveEnergy = this.getAmountInReserve(RESOURCE_ENERGY);
+
     if (!this.room.controller.my) {
       desiredUpgraders = 0;
     } else if (this.room.controller.level === 8) {
-      parts = 15;
+      parts = (reserveEnergy - RESERVE_BUFFER) / 1500;
       desiredUpgraders = 1;
     } else if (this.hasStorage) {
       roomCapacity = this.room.energyCapacityAvailable;
@@ -879,13 +880,16 @@ class Room extends OrgBase {
         maxParts = 15;
       }
 
-      const reserveEnergy = this.getAmountInReserve(RESOURCE_ENERGY);
-      if (reserveEnergy > RESERVE_BUFFER) {
+      if (this.room.storage && reserveEnergy > RESERVE_BUFFER) {
         parts = (reserveEnergy - RESERVE_BUFFER) / 1500;
+      } else if (!this.room.storage && reserveEnergy > 1000) {
+        parts = reserveEnergy - 1000 / 1500;
       }
 
       desiredUpgraders = Math.ceil(parts / maxParts);
     }
+
+    //console.log("upgraders", this.id, parts, maxParts, desiredUpgraders)
 
     const energyLimit = ((parts - 1) * 200) + 300;
 
@@ -915,7 +919,15 @@ class Room extends OrgBase {
 
     this.numConstructionSites = this.room.find(FIND_CONSTRUCTION_SITES).length;
 
-    if (this.builders.length >= Math.ceil(this.numConstructionSites / 10)) {
+    let desiredBuilders = 0;
+    if ((this.isPrimary && this.claimedByMe && this.room.controller.level <= 2) ||
+      (this.reservedByMe && this.numConstructionSites)) {
+      desiredBuilders = 3;
+    } else if (this.room.controller.level > 2) {
+      desiredBuilders = Math.ceil(this.numConstructionSites / 10);
+    }
+
+    if (this.builders.length >= desiredBuilders) {
       return;
     }
 
@@ -995,12 +1007,20 @@ class Room extends OrgBase {
       },
     });
 
+    const primaryRoom = this.getColony().getPrimaryRoom();
+
     droppedResourcesToHaul.forEach((resource) => {
+      const dropoff = primaryRoom.getReserveStructureWithRoomForResource(resource.resourceType);
+      if (!dropoff) {
+        return;
+      }
+
       const loadPriority = 0.8;
       const details = {
         [MEMORY.TASK_ID]: `pickup-${this.id}-${Game.time}`,
         [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
         [MEMORY.MEMORY_HAUL_PICKUP]: resource.id,
+        [MEMORY.MEMORY_HAUL_DROPOFF]: dropoff.id,
         [MEMORY.MEMORY_HAUL_RESOURCE]: resource.resourceType,
       };
 
@@ -1114,8 +1134,9 @@ class Room extends OrgBase {
     const creepPrepTrace = trace.begin('creep_prep');
 
     this.assignedCreeps = _.filter(this.getParent().getCreeps(), (creep) => {
-      return creep.memory[MEMORY_ASSIGN_ROOM] === this.room.name ||
-        creep.memory[MEMORY_HARVEST_ROOM] === this.room.name;
+      return (creep.memory[MEMORY_ASSIGN_ROOM] === this.room.name ||
+        creep.memory[MEMORY_HARVEST_ROOM] === this.room.name) || (
+          creep.memory[MEMORY_ROLE] === WORKER_HAULER && creep.room.name === this.room.name);
     });
 
     creepPrepTrace.end();
@@ -1130,7 +1151,7 @@ class Room extends OrgBase {
     this.numHostiles = this.hostiles.length;
 
     if (this.numHostiles) {
-      if (!this.hostilesTime) {
+      if (!this.hostileTime) {
         this.hostileTime = Game.time;
       }
     } else {

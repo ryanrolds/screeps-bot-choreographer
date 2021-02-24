@@ -76,8 +76,8 @@ const report = () => {
   }, []);
 
   summary = _.sortBy(summary, (metric) => {
-    return metric.total;
-    //return metric.total / metric.count;
+    //return metric.total;
+    return metric.total / metric.count;
   });
 
   console.log('------- CPU Usage report --------');

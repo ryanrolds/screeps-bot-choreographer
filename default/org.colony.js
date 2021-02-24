@@ -2,6 +2,7 @@ const Room = require('./org.room');
 const OrgBase = require('./org.base');
 const Topics = require('./lib.topics');
 const Pid = require('./lib.pid');
+const Observer = require('./org.observer');
 const {doEvery} = require('./lib.scheduler');
 
 const MEMORY = require('./constants.memory');
@@ -17,6 +18,7 @@ const {WORKER_RESERVER, WORKER_DEFENDER} = require('./constants.creeps');
 const {PRIORITY_CLAIMER, PRIORITY_DEFENDER, PRIORITY_HAULER} = require('./constants.priorities');
 
 
+
 const MAX_DEFENDERS = 3;
 const MAX_EXPLORERS = 1;
 
@@ -24,11 +26,10 @@ const UPDATE_ROOM_TTL = 1;
 const UPDATE_CREEPS_TTL = 1;
 const UPDATE_HAULERS_TTL = 5;
 
-const REQUEST_MISSING_ROOMS_TTL = 200;
-const REQUEST_HAULER_TTL = 75;
+const REQUEST_MISSING_ROOMS_TTL = 50;
+const REQUEST_HAULER_TTL = 20;
 const REQUEST_DEFENDER_TTL = 25;
 const REQUEST_EXPLORER_TTL = 3000;
-
 
 class Colony extends OrgBase {
   constructor(parent, colony, trace) {
@@ -42,13 +43,16 @@ class Colony extends OrgBase {
     this.desiredRooms = colony.rooms;
     this.primaryRoom = Game.rooms[this.primaryRoomId];
 
-    this.roomMap = {};
+
     this.pidDesiredHaulers = 0;
 
     if (this.primaryRoom) {
       Pid.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, 1, 0.15, 0.00005, 0);
     }
 
+    this.roomMap = {};
+    this.primaryOrgRoom = null;
+    this.observer = null;
     this.doUpdateOrg = doEvery(UPDATE_ROOM_TTL)((trace) => {
       this.updateOrg(trace);
     });
@@ -115,13 +119,9 @@ class Colony extends OrgBase {
     });
 
     this.doRequestHaulers = doEvery(REQUEST_HAULER_TTL)(() => {
+      //console.log("do hauler request", this.id)
       this.requestHaulers();
     });
-
-    this.doRequestExplorer = doEvery(REQUEST_EXPLORER_TTL,
-      this.primaryRoom.memory, 'request_explorer')(() => {
-        this.requestExplorer();
-      });
 
     setupTrace.end();
   }
@@ -130,29 +130,26 @@ class Colony extends OrgBase {
 
     this.topics.removeStale();
 
-    console.log(JSON.stringify(this.topics));
+    //console.log(JSON.stringify(this.topics));
 
     // console.log("topics", this.id, JSON.stringify(this.topics))
 
     this.primaryRoom = Game.rooms[this.primaryRoomId];
 
     this.doUpdateOrg(updateTrace);
-
     this.doUpdateCreeps();
-
     this.doUpdateHaulers();
 
     // Fraction of num haul tasks
     let numHaulTasks = this.getTopicLength(TOPIC_HAUL_TASK);
     numHaulTasks -= this.idleHaulers;
 
-    this.pidDesiredHaulers = Pid.update(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS,
-      numHaulTasks, Game.time);
+    if (this.primaryRoom) {
+      this.pidDesiredHaulers = Pid.update(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS,
+        numHaulTasks, Game.time);
+    }
 
     console.log(this);
-
-
-    this.doRequestReserversForMissingRooms();
 
     const roomTrace = updateTrace.begin('rooms');
     Object.values(this.roomMap).forEach((room) => {
@@ -160,13 +157,20 @@ class Colony extends OrgBase {
     });
     roomTrace.end();
 
+    if (this.observer) {
+      //this.observer.update(updateTrace);
+    }
+
+    this.doRequestReserversForMissingRooms();
     this.doHandleDefenderRequest();
 
-    if (this.primaryOrgRoom.hasStorage) {
+    if (this.primaryOrgRoom && this.primaryOrgRoom.hasStorage) {
       this.doRequestHaulers();
     }
 
-    this.doRequestExplorer();
+    //if (this.doRequestExplorer) {
+    //  this.doRequestExplorer();
+    //}
 
     updateTrace.end();
   }
@@ -180,6 +184,10 @@ class Colony extends OrgBase {
       room.process(roomTrace);
     });
     roomTrace.end();
+
+    if (this.observer) {
+      //this.observer.process(processTrace);
+    }
 
     processTrace.end();
   }
@@ -398,6 +406,25 @@ class Colony extends OrgBase {
     });
 
     this.primaryOrgRoom = this.roomMap[this.primaryRoomId];
+
+    if (this.primaryRoom && this.primaryRoom.controller.level === 8) {
+      //if (!this.observer) {
+      //  const observerStructures = this.primaryRoom.find(FIND_MY_STRUCTURES, {
+      //    filter: (structure) => {
+      //      return structure.structureType === STRUCTURE_OBSERVER;
+      //    }
+      //  })
+
+      //  if (observerStructures.length) {
+      //    this.observer = new Observer(this, observerStructures[0], trace);
+      //  }
+      //}
+    } else if (this.primaryRoom) {
+      //this.doRequestExplorer = doEvery(REQUEST_EXPLORER_TTL,
+      //  this.primaryRoom.memory, 'request_explorer')(() => {
+      //    this.requestExplorer();
+      //  });
+    }
 
     updateOrgTrace.end();
   }

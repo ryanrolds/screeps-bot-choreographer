@@ -30,7 +30,7 @@ module.exports = (behaviorNode) => {
           switch (phase) {
             case BOOST_PHASE_START:
               if (!booster) {
-                console.log('no booster in room for', creep.name, room.id);
+                //console.log('no booster in room for', creep.name, room.id);
                 creep.memory[BOOST_PHASE] = BOOST_PHASE_DONE;
                 return SUCCESS;
               }
@@ -41,14 +41,14 @@ module.exports = (behaviorNode) => {
                 return SUCCESS;
               }
 
-              console.log('request boosts', creep.name, desiredBoosts);
+              //console.log('request boosts', creep.name, desiredBoosts);
 
               creep.memory[BOOST_PHASE] = BOOST_PHASE_MOVE;
             case BOOST_PHASE_MOVE:
               // Move to booster location
               const destination = booster.getCreepBoostPosition();
 
-              console.log('moving to booster', creep.name, destination);
+              //console.log('moving to booster', creep.name, destination);
 
               const result = behaviorMovement.moveTo(creep, destination, 0);
               if (result === SUCCESS) {
@@ -59,10 +59,10 @@ module.exports = (behaviorNode) => {
               return result;
             case BOOST_PHASE_READY:
               // Request boosts
-              console.log('getting boosts', creep.name, desiredBoosts);
+              //console.log('getting boosts', creep.name, desiredBoosts);
               const loadedEffects = booster.getLoadedEffects();
 
-              console.log('loaded', JSON.stringify(loadedEffects));
+              //console.log('loaded', JSON.stringify(loadedEffects));
 
               desiredBoosts.forEach((desiredEffect) => {
                 const effect = loadedEffects[desiredEffect];

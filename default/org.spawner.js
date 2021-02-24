@@ -30,7 +30,7 @@ class Spawner extends OrgBase {
     // was constructor
     const spawner = this.spawner = Game.getObjectById(this.id);
     if (!spawner) {
-      console.log(`game object for spawn ${this.id} not found`);
+      //console.log(`game object for spawn ${this.id} not found`);
       updateTrace.end();
       return;
     }
@@ -42,7 +42,7 @@ class Spawner extends OrgBase {
 
     // was constructor end
 
-    // console.log(this);
+    console.log(this);
 
     if (!this.isIdle) {
       const priority = 50 / spawner.spawning.remainingTime;
@@ -75,7 +75,7 @@ class Spawner extends OrgBase {
     const processTrace = trace.begin('process');
 
     if (!this.spawner) {
-      console.log(`game object for spawn ${this.id} not found`);
+      //console.log(`game object for spawn ${this.id} not found`);
       updateTrace.end();
       return;
     }
@@ -101,7 +101,9 @@ class Spawner extends OrgBase {
         }
       }
 
-      minEnergy = _.min([minEnergy, spawnTopicBackPressure]);
+      minEnergy = _.max([300, minEnergy]);
+
+      //console.log("spawn", energyLimit, minEnergy, this.energy, spawnTopicBackPressure)
 
       if (this.energy >= minEnergy) {
         let request = this.getNextRequest(TOPICS.TOPIC_SPAWN);
@@ -127,7 +129,27 @@ class Spawner extends OrgBase {
         }
 
         // Check inter-colony requests if the colony has spawns
-        request = this.getKingdom().getNextRequest(TOPICS.TOPIC_SPAWN);
+        request = this.getKingdom().getTopics().getMessageOfMyChoice(TOPICS.TOPIC_SPAWN, (messages) => {
+          let selected = messages.filter((message) => {
+            const assignedRoom = message.details.memory[MEMORY.MEMORY_ASSIGN_ROOM];
+            if (!assignedRoom) {
+              return false;
+            }
+
+            const distance = Game.map.getRoomLinearDistance(this.getRoom().id, assignedRoom);
+            if (distance > 5) {
+              return false;
+            }
+
+            return true;
+          });
+
+          if (!selected.length) {
+            return null;
+          }
+
+          return selected[0]
+        });
         if (request) {
           this.createCreep(request.details.role, request.details.memory, energyLimit);
           processTrace.end();

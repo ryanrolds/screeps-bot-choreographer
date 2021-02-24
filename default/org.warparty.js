@@ -80,7 +80,7 @@ class WarParty extends OrgBase {
       });
 
       if (this.nearbyWalls.length) {
-        console.log('walls', this.nearbyWalls[0].id, this.nearbyWalls[0].hits);
+        //console.log('walls', this.nearbyWalls[0].id, this.nearbyWalls[0].hits);
       }
     }
 
@@ -100,7 +100,7 @@ class WarParty extends OrgBase {
         creep.memory[MEMORY.MEMORY_ATTACK] = this.nearbyWalls[0].id;
       }
 
-      console.log('warparty', this.flag.name, creep.memory[MEMORY.MEMORY_ATTACK]);
+      //console.log('warparty', this.flag.name, creep.memory[MEMORY.MEMORY_ATTACK]);
 
       if (this.sortedHealth.length) {
         creep.memory[MEMORY.MEMORY_HEAL] = this.sortedHealth[0].id;

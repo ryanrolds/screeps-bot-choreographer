@@ -20,6 +20,9 @@ class AI {
 
     trace.end();
   }
+  getKingdom() {
+    return this.kingdom;
+  }
 }
 
 module.exports = AI;

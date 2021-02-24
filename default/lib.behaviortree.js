@@ -1,3 +1,5 @@
+const featureFlags = require('./lib.feature_flags');
+
 const RUNNING = module.exports.RUNNING = 'running';
 const SUCCESS = module.exports.SUCCESS = 'success';
 const FAILURE = module.exports.FAILURE = 'failure';
@@ -251,6 +253,31 @@ module.exports.leafNode = (id, behavior) => {
       trace = trace.begin(this.id);
 
       const result = this.tickNode(actor, trace, kingdom);
+
+      trace.log(actor.id, 'result', result);
+
+      trace.end();
+
+      return result;
+    },
+  };
+};
+
+module.exports.featureFlagBool = (id, flag, defaultBehavior, enabledBehavior) => {
+  return {
+    id,
+    flag,
+    defaultBehavior,
+    enabledBehavior,
+    tick: function(actor, trace, kingdom) {
+      trace = trace.begin(this.id);
+
+      let result = null;
+      if (featureFlags.getFlag(this.flag)) {
+        result = this.enabledBehavior.tick(actor, trace, kingdom)
+      } else {
+        result = this.defaultBehavior.tick(actor, trace, kingdom)
+      }
 
       trace.log(actor.id, 'result', result);
 

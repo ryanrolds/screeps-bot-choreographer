@@ -58,7 +58,7 @@ class Link extends OrgBase {
 
     const link = this.link = Game.getObjectById(this.id);
     if (!link) {
-      console.log(`game object for link ${this.id} not found`);
+      //console.log(`game object for link ${this.id} not found`);
       updateTrace.end();
       return;
     }
@@ -116,7 +116,7 @@ class Link extends OrgBase {
     this.haulersWithTask = creeps.filter((creep) => {
       const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
       const dropoff = creep.memory[MEMORY.MEMORY_HAUL_DROPOFF];
-      return task === TASKS.TASK_HAUL && dropoff === this.id;
+      return task === TASKS.HAUL_CORE_TASK && dropoff === this.id;
     }).length;
 
     if (this.haulersWithTask.length) {

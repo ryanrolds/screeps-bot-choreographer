@@ -50,7 +50,7 @@ class Reactor extends OrgBase {
     });
 
     if (this.labs.length != 3) {
-      console.log(`not enough labs (${this.labs.length}) to form reactor`);
+      //console.log(`not enough labs (${this.labs.length}) to form reactor`);
       updateTrace.end();
       return;
     }
@@ -59,12 +59,14 @@ class Reactor extends OrgBase {
     this.terminal = this.getRoom().getTerminal();
     this.task = this.room.memory[MEMORY.REACTOR_TASK] || null;
 
-    // console.log(this);
+    console.log(this);
 
     updateTrace.end();
   }
   process(trace) {
     const processTrace = trace.begin('process');
+
+    processTrace.log(this.id, 'processing reactor', {task: this.task})
 
     if (!this.task) {
       const task = this.getKingdom().getNextRequest(TOPICS.TASK_REACTION);
@@ -190,7 +192,7 @@ class Reactor extends OrgBase {
       const missingAmount = desiredAmount - currentAmount;
 
       if (!pickup) {
-        console.log('requesting', this.room.name, resource, missingAmount);
+        //console.log('requesting', this.room.name, resource, missingAmount);
         this.doRequestResource(room, resource, missingAmount, REQUEST_RESOURCE_TTL);
       } else {
         this.doLoadLab(lab, pickup, resource, missingAmount);

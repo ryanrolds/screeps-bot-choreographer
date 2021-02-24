@@ -22,6 +22,7 @@ class Source extends OrgBase {
     this.source = source;
     this.roomID = source.room.name;
 
+    this.dropoff = null;
     this.container = null;
     this.containerID = null;
     this.containerUser = null;
@@ -45,6 +46,10 @@ class Source extends OrgBase {
         this.containerID = null;
         this.containerUsed = null;
       }
+
+      const colony = this.getColony();
+      const primaryRoom = colony.getPrimaryRoom();
+      this.dropoff = primaryRoom.getReserveStructureWithRoomForResource(RESOURCE_ENERGY)
     })
 
     this.numMiners = 0;
@@ -157,6 +162,7 @@ class Source extends OrgBase {
         [MEMORY.TASK_ID]: `sch-${this.id}-${Game.time}`,
         [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
         [MEMORY.MEMORY_HAUL_PICKUP]: this.container.id,
+        [MEMORY.MEMORY_HAUL_DROPOFF]: this.dropoff.id,
         [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
       };
 
@@ -172,6 +178,7 @@ class Source extends OrgBase {
           [MEMORY.TASK_ID]: `scrh-${this.id}-${Game.time}`,
           [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
           [MEMORY.MEMORY_HAUL_PICKUP]: this.container.id,
+          [MEMORY.MEMORY_HAUL_DROPOFF]: this.dropoff.id,
           [MEMORY.MEMORY_HAUL_RESOURCE]: resource,
         };
 

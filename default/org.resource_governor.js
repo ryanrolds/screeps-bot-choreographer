@@ -8,10 +8,11 @@ const MARKET = require('./constants.market');
 const {doEvery} = require('./lib.scheduler');
 const {returnSuccess} = require('./lib.behaviortree');
 
-const RESERVE_LIMIT = 5000;
+const RESERVE_LIMIT = 10000;
 const REACTION_BATCH_SIZE = 1000;
 const MIN_CREDITS = 10000;
 const MIN_SELL_ORDER_SIZE = 1000;
+const MAX_SELL_AMOUNT = 25000;
 
 const REQUEST_REACTION_TTL = 100;
 const REQUEST_SELL_TTL = 60;
@@ -25,7 +26,7 @@ const CRITICAL_EFFECTS = {
   'rangedAttack': ['XKHO2', 'KHO2', 'KO'],
   'damage': ['XGHO2', 'GHO2', 'GO'],
 };
-const MIN_CRITICAL_COMPOUND = 1000;
+const MIN_CRITICAL_COMPOUND = 2500;
 
 class Resources extends OrgBase {
   constructor(parent, trace) {
@@ -95,7 +96,7 @@ class Resources extends OrgBase {
     const terminals = this.getKingdom().getColonies().reduce((acc, colony) => {
       const room = colony.getPrimaryRoom();
       if (!room) {
-        console.log('no primary room for', colony.id);
+        //console.log('no primary room for', colony.id);
         return acc;
       }
 
@@ -338,7 +339,7 @@ class Resources extends OrgBase {
     // We can't request a transfer if room lacks a terminal
     const terminal = room.getTerminal();
     if (!terminal) {
-      console.log(`xxxxx Can't request resource for room without terminal: ${room.id}, ${resource}`);
+      //console.log(`xxxxx Can't request resource for room without terminal: ${room.id}, ${resource}`);
       return;
     }
 
@@ -367,12 +368,12 @@ class Resources extends OrgBase {
       };
 
       if (Game.market.credits > MIN_CREDITS) {
-        console.log('requesting purchase', resource, 'for', room.id, amount);
+        //console.log('requesting purchase', resource, 'for', room.id, amount);
 
         room.terminal.sendRequest(TOPICS.TOPIC_TERMINAL_TASK, PRIORITIES.TERMINAL_BUY,
           details, ttl);
       } else {
-        console.log('not enough credits to purchase', resource, 'for', room.id, amount);
+        //console.log('not enough credits to purchase', resource, 'for', room.id, amount);
       }
 
       return;
@@ -380,7 +381,7 @@ class Resources extends OrgBase {
 
     amount = _.min([terminal.amount, amount]);
 
-    console.log('requesting transfer', resource, 'to', room.id, amount);
+    //console.log('requesting transfer', resource, 'to', room.id, amount);
 
     result.terminal.sendRequest(TOPICS.TOPIC_TERMINAL_TASK, PRIORITIES.TERMINAL_TRANSFER, {
       [MEMORY.TERMINAL_TASK_TYPE]: TASKS.TASK_TRANSFER,
@@ -392,7 +393,7 @@ class Resources extends OrgBase {
   createBuyOrder(room, resource, amount) {
     const terminal = room.getTerminal();
     if (!terminal) {
-      console.log(`xxxxx Can't create buy order for room without terminal ${room.id} ${resource}`);
+      //console.log(`xxxxx Can't create buy order for room without terminal ${room.id} ${resource}`);
       return;
     }
 
@@ -402,18 +403,18 @@ class Resources extends OrgBase {
         order.resourceType === resource;
     });
     if (duplicateBuyOrders.length) {
-      console.log(`already have buy order for ${amount}x ${resource}: ${JSON.stringify(duplicateBuyOrders)}`)
+      //console.log(`already have buy order for ${amount}x ${resource}: ${JSON.stringify(duplicateBuyOrders)}`)
       return;
     }
 
     if (!MARKET.PRICES[resource]) {
-      console.log(`no price set for ${resource}`);
+      //console.log(`no price set for ${resource}`);
       return;
     }
 
     const price = MARKET.PRICES[resource].buy;
 
-    console.log(`creating buy order for ${amount}x ${resource} at ${price}`);
+    //console.log(`creating buy order for ${amount}x ${resource} at ${price}`);
 
     // Create buy order
     const order = {
@@ -425,7 +426,7 @@ class Resources extends OrgBase {
     }
     const result = Game.market.createOrder(order)
     if (result != OK) {
-      console.log(`problem creating buy order ${result}: ${JSON.stringify(order)}`)
+      //console.log(`problem creating buy order ${result}: ${JSON.stringify(order)}`)
     }
   }
   requestReactions() {
@@ -457,18 +458,18 @@ class Resources extends OrgBase {
       const duplicateOrders = Object.values(Game.market.orders).filter((order) => {
         return order.type === ORDER_SELL && order.resourceType === resource;
       });
-      if (duplicateOrders.length) {
-        console.log(`already have sell order for ${amount}x ${resource}: ${JSON.stringify(duplicateOrders)}`)
+      if (duplicateOrders.length && Game.market.credits > MIN_CREDITS) {
+        //console.log(`already have sell order for ${amount}x ${resource}: ${JSON.stringify(duplicateOrders)}`)
         return;
       }
 
       const source = this.getTerminalWithResource(resource);
       if (!source) {
-        console.log(`SHOULD NOT HAPPEN: no terminals with resource: ${resource} ${excess}`);
+        //console.log(`SHOULD NOT HAPPEN: no terminals with resource: ${resource} ${excess}`);
         return;
       }
 
-      const sellAmount = _.min([source.amount, excess]);
+      const sellAmount = _.min([source.amount, excess, MAX_SELL_AMOUNT]);
 
       const details = {
         [MEMORY.TERMINAL_TASK_TYPE]: TASKS.TASK_MARKET_ORDER,
@@ -477,7 +478,7 @@ class Resources extends OrgBase {
         [MEMORY.MEMORY_ORDER_AMOUNT]: sellAmount,
       };
 
-      console.log(`sell ${sellAmount} of ${resource} from ${source.terminal.getRoom().id}`);
+      //console.log(`sell ${sellAmount} of ${resource} from ${source.terminal.getRoom().id}`);
 
       source.terminal.sendRequest(TOPICS.TOPIC_TERMINAL_TASK, PRIORITIES.TERMINAL_SELL,
         details, REQUEST_SELL_TTL);

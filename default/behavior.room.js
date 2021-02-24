@@ -57,8 +57,8 @@ module.exports.getEnergy = behaviorTree.repeatUntilSuccess(
   behaviorTree.selectorNode(
     'containers_dropped_harvest',
     [
-      pickupDroppedEnergy,
       behaviorStorage.fillCreepFromContainers,
+      pickupDroppedEnergy,
       behaviorTree.sequenceNode(
         'harvest_if_needed',
         [

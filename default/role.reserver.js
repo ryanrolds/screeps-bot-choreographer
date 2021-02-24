@@ -37,6 +37,9 @@ const behavior = behaviorTree.selectorNode(
               reusePath: 50,
               maxOps: 1500,
             });
+
+            //console.log(creep.name, "moveTo result", result)
+
             if (result === ERR_NO_PATH) {
               return behaviorTree.FAILURE;
             }
@@ -72,7 +75,7 @@ const behavior = behaviorTree.selectorNode(
         behaviorTree.repeatUntilSuccess(
           'reserve',
           behaviorTree.leafNode(
-            'move',
+            'claim',
             (creep, trace, kingdom) => {
               const roomId = creep.memory[MEMORY_ASSIGN_ROOM];
               // If creep doesn't have a harvest room assigned, we are done
@@ -87,23 +90,25 @@ const behavior = behaviorTree.selectorNode(
 
               const room = kingdom.getCreepRoom(creep);
               if (!room) {
-                // creep.suicide()
                 return behaviorTree.FAILURE;
               }
 
-              if (!room.unowned && !room.claimedByName && !room.reservedByMe) {
+              if (!room.unowned && !room.claimedByMe && !room.reservedByMe) {
                 const result = creep.attackController(creep.room.controller);
+                //console.log(creep.name, "attack", result)
                 if (result != OK) {
                   return behaviorTree.FAILURE;
                 }
               } else {
                 if (room.isPrimary) {
                   const result = creep.claimController(creep.room.controller);
+                  //console.log(creep.name, "claimController", result)
                   if (result != OK) {
                     return behaviorTree.FAILURE;
                   }
                 } else {
                   const result = creep.reserveController(creep.room.controller);
+                  //console.log(creep.name, "reserveController", result)
                   if (result != OK) {
                     return behaviorTree.FAILURE;
                   }

@@ -81,7 +81,7 @@ class Booster extends OrgBase {
     });
 
     if (this.labs.length !== 3) {
-      console.log(`not enough labs (${this.labs.length}) to form booster`);
+      //console.log(`not enough labs (${this.labs.length}) to form booster`);
       updateTrace.end();
       return;
     }
@@ -321,7 +321,7 @@ class Booster extends OrgBase {
 
       const dropoff = this.getRoom().getReserveStructureWithRoomForResource(lab.mineralType);
       if (!dropoff) {
-        console.log('No dropoff for already loaded compound', lab.mineralType);
+        //console.log('No dropoff for already loaded compound', lab.mineralType);
         return;
       }
 
@@ -334,7 +334,7 @@ class Booster extends OrgBase {
         [MEMORY.MEMORY_HAUL_AMOUNT]: lab.store.getUsedCapacity(lab.mineralType),
       };
 
-      console.log('boost clear low', PRIORITIES.HAUL_BOOST, JSON.stringify(details));
+      //console.log('boost clear low', PRIORITIES.HAUL_BOOST, JSON.stringify(details));
 
       this.sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details, REQUEST_LOW_LABS_UNLOAD_TTL);
     });
@@ -346,7 +346,7 @@ class Booster extends OrgBase {
 
       const pickup = this.getLabByResource(compound.name);
       if (!pickup) {
-        console.log('No pickup for already loaded compound', compound.name);
+        //console.log('No pickup for already loaded compound', compound.name);
         return;
       }
 
@@ -362,7 +362,7 @@ class Booster extends OrgBase {
 
       const dropoff = this.getRoom().getReserveStructureWithRoomForResource(compound.name);
       if (!dropoff) {
-        console.log('No dropoff for already loaded compound', compound.name);
+        //console.log('No dropoff for already loaded compound', compound.name);
         return;
       }
 
@@ -375,7 +375,7 @@ class Booster extends OrgBase {
         [MEMORY.MEMORY_HAUL_AMOUNT]: pickup.store.getUsedCapacity(compound.name),
       };
 
-      console.log('boost unload', PRIORITIES.HAUL_BOOST, JSON.stringify(details));
+      //console.log('boost unload', PRIORITIES.HAUL_BOOST, JSON.stringify(details));
 
       this.sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details, REQUEST_UNLOAD_TTL);
     });
@@ -384,12 +384,12 @@ class Booster extends OrgBase {
     const reserveResources = this.getRoom().getReserveResources(true);
 
     needToLoad.forEach((toLoad) => {
-      console.log('toload', toLoad, JSON.stringify(desiredEffects));
+      //console.log('toload', toLoad, JSON.stringify(desiredEffects));
       const effect = desiredEffects[toLoad];
 
       const emptyLabs = this.getEmptyLabs();
       if (emptyLabs.length === 0) {
-        console.log('No destination for available compound', compound.name);
+        //console.log('No destination for available compound', compound.name);
         return;
       }
       const emptyLab = emptyLabs[0];
@@ -426,13 +426,13 @@ class Booster extends OrgBase {
       }, null);
 
       if (!compound) {
-        console.log('no compound available for', toLoad);
+        //console.log('no compound available for', toLoad);
         return;
       }
 
       const pickup = this.getRoom().getReserveStructureWithMostOfAResource(compound.name, true);
       if (!pickup) {
-        console.log('No pickup for available compound', compound.name);
+        //console.log('No pickup for available compound', compound.name);
         return;
       }
 
@@ -445,7 +445,7 @@ class Booster extends OrgBase {
         [MEMORY.MEMORY_HAUL_AMOUNT]: pickup.store.getUsedCapacity(compound.name),
       };
 
-      console.log('boost load material', PRIORITIES.HAUL_BOOST, JSON.stringify(details));
+      //console.log('boost load material', PRIORITIES.HAUL_BOOST, JSON.stringify(details));
 
       this.sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details, REQUEST_LOAD_TTL);
     });
@@ -468,7 +468,7 @@ class Booster extends OrgBase {
         [MEMORY.MEMORY_HAUL_AMOUNT]: MAX_ENERGY - currentEnergy,
       };
 
-      console.log('boost load energy', PRIORITIES.HAUL_BOOST, JSON.stringify(details));
+      //console.log('boost load energy', PRIORITIES.HAUL_BOOST, JSON.stringify(details));
 
       this.sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details, REQUEST_ENERGY_TTL);
     });
