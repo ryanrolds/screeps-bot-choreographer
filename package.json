@@ -6,8 +6,8 @@
   "type": "commonjs",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "lint": "eslint default/*",
-    "lint-fix": "eslint default/* --fix",
+    "lint": "eslint src/*",
+    "lint-fix": "eslint src/* --fix",
     "build": "webpack"
   },
   "repository": {
@@ -21,8 +21,20 @@
   },
   "homepage": "https://github.com/ryanrolds/screeps#readme",
   "devDependencies": {
+    "@types/screeps": "^3.2.1",
     "eslint": "^7.16.0",
     "eslint-config-google": "^0.14.0",
-    "eslint-plugin-screeps": "^2.1.0"
-  }
+    "eslint-plugin-screeps": "^2.1.0",
+    "grunt": "~0.4.5",
+    "grunt-cli": "^1.3.2",
+    "grunt-contrib-jshint": "~0.10.0",
+    "grunt-contrib-nodeunit": "~0.4.1",
+    "grunt-contrib-uglify": "~0.5.0",
+    "grunt-eslint": "^23.0.0",
+    "grunt-screeps": "^1.5.0",
+    "grunt-ts": "^6.0.0-beta.22",
+    "ts-loader": "^8.0.17",
+    "typescript": "^4.2.2"
+  },
+  "dependencies": {}
 }

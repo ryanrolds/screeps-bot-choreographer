@@ -96,7 +96,7 @@ class Resources extends OrgBase {
     const terminals = this.getKingdom().getColonies().reduce((acc, colony) => {
       const room = colony.getPrimaryRoom();
       if (!room) {
-        //console.log('no primary room for', colony.id);
+        // console.log('no primary room for', colony.id);
         return acc;
       }
 
@@ -244,7 +244,7 @@ class Resources extends OrgBase {
   getReactions() {
     let availableReactions = {};
     let missingOneInput = {};
-    //let overReserve = {};
+    // let overReserve = {};
 
     const firstInputs = Object.keys(REACTIONS);
     firstInputs.forEach((inputA) => {
@@ -273,7 +273,7 @@ class Resources extends OrgBase {
 
         // Check if we need more of the output
         if (this.sharedResources[output] > RESERVE_LIMIT) {
-          //overReserve[output] = {inputA, inputB, output};
+          // overReserve[output] = {inputA, inputB, output};
 
           return;
         }
@@ -286,13 +286,13 @@ class Resources extends OrgBase {
 
     missingOneInput = this.prioritizeReactions(missingOneInput);
     availableReactions = this.prioritizeReactions(availableReactions);
-    //overReserve = this.prioritizeReactions(overReserve);
+    // overReserve = this.prioritizeReactions(overReserve);
 
     if (missingOneInput.length && Game.market.credits > MIN_CREDITS) {
       availableReactions.push(missingOneInput.pop());
     }
 
-    //availableReactions = availableReactions.concat(overReserve.reverse());
+    // availableReactions = availableReactions.concat(overReserve.reverse());
 
     return availableReactions;
   }
@@ -339,7 +339,7 @@ class Resources extends OrgBase {
     // We can't request a transfer if room lacks a terminal
     const terminal = room.getTerminal();
     if (!terminal) {
-      //console.log(`xxxxx Can't request resource for room without terminal: ${room.id}, ${resource}`);
+      // console.log(`xxxxx Can't request resource for room without terminal: ${room.id}, ${resource}`);
       return;
     }
 
@@ -368,12 +368,12 @@ class Resources extends OrgBase {
       };
 
       if (Game.market.credits > MIN_CREDITS) {
-        //console.log('requesting purchase', resource, 'for', room.id, amount);
+        // console.log('requesting purchase', resource, 'for', room.id, amount);
 
         room.terminal.sendRequest(TOPICS.TOPIC_TERMINAL_TASK, PRIORITIES.TERMINAL_BUY,
           details, ttl);
       } else {
-        //console.log('not enough credits to purchase', resource, 'for', room.id, amount);
+        // console.log('not enough credits to purchase', resource, 'for', room.id, amount);
       }
 
       return;
@@ -381,7 +381,7 @@ class Resources extends OrgBase {
 
     amount = _.min([terminal.amount, amount]);
 
-    //console.log('requesting transfer', resource, 'to', room.id, amount);
+    // console.log('requesting transfer', resource, 'to', room.id, amount);
 
     result.terminal.sendRequest(TOPICS.TOPIC_TERMINAL_TASK, PRIORITIES.TERMINAL_TRANSFER, {
       [MEMORY.TERMINAL_TASK_TYPE]: TASKS.TASK_TRANSFER,
@@ -393,7 +393,7 @@ class Resources extends OrgBase {
   createBuyOrder(room, resource, amount) {
     const terminal = room.getTerminal();
     if (!terminal) {
-      //console.log(`xxxxx Can't create buy order for room without terminal ${room.id} ${resource}`);
+      // console.log(`xxxxx Can't create buy order for room without terminal ${room.id} ${resource}`);
       return;
     }
 
@@ -403,18 +403,18 @@ class Resources extends OrgBase {
         order.resourceType === resource;
     });
     if (duplicateBuyOrders.length) {
-      //console.log(`already have buy order for ${amount}x ${resource}: ${JSON.stringify(duplicateBuyOrders)}`)
+      // console.log(`already have buy order for ${amount}x ${resource}: ${JSON.stringify(duplicateBuyOrders)}`)
       return;
     }
 
     if (!MARKET.PRICES[resource]) {
-      //console.log(`no price set for ${resource}`);
+      // console.log(`no price set for ${resource}`);
       return;
     }
 
     const price = MARKET.PRICES[resource].buy;
 
-    //console.log(`creating buy order for ${amount}x ${resource} at ${price}`);
+    // console.log(`creating buy order for ${amount}x ${resource} at ${price}`);
 
     // Create buy order
     const order = {
@@ -423,10 +423,10 @@ class Resources extends OrgBase {
       price: price,
       totalAmount: amount,
       roomName: room.id,
-    }
-    const result = Game.market.createOrder(order)
+    };
+    const result = Game.market.createOrder(order);
     if (result != OK) {
-      //console.log(`problem creating buy order ${result}: ${JSON.stringify(order)}`)
+      // console.log(`problem creating buy order ${result}: ${JSON.stringify(order)}`)
     }
   }
   requestReactions() {
@@ -459,13 +459,13 @@ class Resources extends OrgBase {
         return order.type === ORDER_SELL && order.resourceType === resource;
       });
       if (duplicateOrders.length && Game.market.credits > MIN_CREDITS) {
-        //console.log(`already have sell order for ${amount}x ${resource}: ${JSON.stringify(duplicateOrders)}`)
+        // console.log(`already have sell order for ${amount}x ${resource}: ${JSON.stringify(duplicateOrders)}`)
         return;
       }
 
       const source = this.getTerminalWithResource(resource);
       if (!source) {
-        //console.log(`SHOULD NOT HAPPEN: no terminals with resource: ${resource} ${excess}`);
+        // console.log(`SHOULD NOT HAPPEN: no terminals with resource: ${resource} ${excess}`);
         return;
       }
 
@@ -478,7 +478,7 @@ class Resources extends OrgBase {
         [MEMORY.MEMORY_ORDER_AMOUNT]: sellAmount,
       };
 
-      //console.log(`sell ${sellAmount} of ${resource} from ${source.terminal.getRoom().id}`);
+      // console.log(`sell ${sellAmount} of ${resource} from ${source.terminal.getRoom().id}`);
 
       source.terminal.sendRequest(TOPICS.TOPIC_TERMINAL_TASK, PRIORITIES.TERMINAL_SELL,
         details, REQUEST_SELL_TTL);
@@ -517,7 +517,7 @@ class Resources extends OrgBase {
         const roomReserve = primaryRoom.getReserveResources(true);
         desiredCompound = this.getDesiredCompound(effect, roomReserve);
         if (desiredCompound.amount < MIN_CRITICAL_COMPOUND) {
-          this.createBuyOrder(primaryRoom, desiredCompound.resource, MIN_CRITICAL_COMPOUND)
+          this.createBuyOrder(primaryRoom, desiredCompound.resource, MIN_CRITICAL_COMPOUND);
           return;
         }
       });
