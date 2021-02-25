@@ -2,7 +2,6 @@ const Room = require('./org.room');
 const OrgBase = require('./org.base');
 const Topics = require('./lib.topics');
 const Pid = require('./lib.pid');
-const Observer = require('./org.observer');
 const {doEvery} = require('./lib.scheduler');
 
 const MEMORY = require('./constants.memory');

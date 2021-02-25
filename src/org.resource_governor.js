@@ -4,9 +4,7 @@ const MEMORY = require('./constants.memory');
 const TASKS = require('./constants.tasks');
 const PRIORITIES = require('./constants.priorities');
 const MARKET = require('./constants.market');
-
 const {doEvery} = require('./lib.scheduler');
-const {returnSuccess} = require('./lib.behaviortree');
 
 const RESERVE_LIMIT = 10000;
 const REACTION_BATCH_SIZE = 1000;

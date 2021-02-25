@@ -1,8 +1,6 @@
 
 const behaviorTree = require('./lib.behaviortree');
-const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
-const behaviorCommute = require('./behavior.commute');
-const behaviorMovement = require('./behavior.movement');
+const {SUCCESS} = require('./lib.behaviortree');
 const behaviorAssign = require('./behavior.assign');
 const {MEMORY_ASSIGN_ROOM} = require('./constants.memory');
 

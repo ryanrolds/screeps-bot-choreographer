@@ -45,17 +45,8 @@ class Tower extends OrgBase {
       return;
     }
 
-    // was constructor
     const tower = this.tower;
     this.energy = tower.energy;
-
-    const room = tower.room;
-    let energyFullness = 1;
-    if (room.storage) {
-      energyFullness = room.storage.store.getUsedCapacity() / room.storage.store.getCapacity() * 10;
-    }
-    // was constructor end
-
     this.towerUsed = this.tower.store.getUsedCapacity(RESOURCE_ENERGY);
 
     // console.log(this);

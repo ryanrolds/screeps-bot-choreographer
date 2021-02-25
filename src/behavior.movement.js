@@ -300,7 +300,7 @@ module.exports.cachedMoveToMemory = (memoryId, range = 1, ignoreCreeps, reusePat
         }
 
         if (useSerializedPath) {
-          if (this.didMove) {
+          if (didMove) {
             path = path.slice(1);
             creep.memory[MEMORY.PATH_CACHE] = path;
           }

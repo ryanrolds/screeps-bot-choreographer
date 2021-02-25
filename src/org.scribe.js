@@ -1,11 +1,4 @@
 const OrgBase = require('./org.base');
-const TOPICS = require('./constants.topics');
-const MEMORY = require('./constants.memory');
-const TASKS = require('./constants.tasks');
-const PRIORITIES = require('./constants.priorities');
-const {doEvery} = require('./lib.scheduler');
-
-const MEMORY_JOURNAL = 'scribe_journal';
 
 class Scribe extends OrgBase {
   constructor(parent, trace) {

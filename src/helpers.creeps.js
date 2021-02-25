@@ -8,7 +8,6 @@ const roleDistributor = require('./role.distributor');
 const roleDefender = require('./role.defender');
 const roleAttacker = require('./role.attacker');
 const roleReserver = require('./role.reserver');
-const roleExplorer = require('./role.explorer');
 
 const CREEPS = require('./constants.creeps');
 const MEMORY = require('./constants.memory');
@@ -99,15 +98,11 @@ module.exports.tick = (kingdom, trace) => {
 
   if (Game.time % 100 === 0) {
     // Cleanup old creep memory
-    let numCleanedUp = 0;
     for (const i in Memory.creeps) {
       if (!Game.creeps[i]) {
         delete Memory.creeps[i];
-        numCleanedUp++;
       }
     }
-
-    // console.log('Cleaning up creeps', numCleanedUp);
   }
 };
 
@@ -138,7 +133,8 @@ module.exports.createCreep = (colony, room, spawn, role, memory, energy, energyL
   memory[MEMORY.MEMORY_START_TICK] = Game.time;
   memory[MEMORY.DESIRED_BOOSTS] = definition.boosts;
 
-  // console.log(`==== Creating creep ${colony}, ${room}, ${role}, ${energyLimit}, ${parts}, ${JSON.stringify(memory)}`);
+  // console.log(`==== Creating creep ${colony}, ${room}, ${role}, ${energyLimit}, ` +
+  //   `${parts}, ${JSON.stringify(memory)}`);
 
   const result = spawn.spawnCreep(parts, name, {memory});
   return result;

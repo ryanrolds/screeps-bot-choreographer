@@ -1,7 +1,6 @@
 const behaviorTree = require('./lib.behaviortree');
 const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
 const behaviorMovement = require('./behavior.movement');
-const behaviorStorage = require('./behavior.storage');
 const behaviorHaul = require('./behavior.haul');
 const behaviorRoom = require('./behavior.room');
 const behaviorBoosts = require('./behavior.boosts');

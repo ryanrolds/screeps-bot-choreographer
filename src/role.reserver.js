@@ -1,6 +1,6 @@
 
 const behaviorTree = require('./lib.behaviortree');
-const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
+const {FAILURE} = require('./lib.behaviortree');
 const behaviorCommute = require('./behavior.commute');
 const behaviorMovement = require('./behavior.movement');
 const behaviorNonCombatant = require('./behavior.noncombatant');

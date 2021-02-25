@@ -25,12 +25,7 @@ const behavior = behaviorTree.selectorNode(
               return behaviorTree.SUCCESS;
             }
 
-            let destination = new RoomPosition(25, 25, room);
             const roomObject = Game.rooms[room];
-            if (roomObject) {
-              destination = roomObject.controller;
-            }
-
             const result = creep.moveTo(roomObject, {
               reusePath: 50,
               maxOps: 1500,

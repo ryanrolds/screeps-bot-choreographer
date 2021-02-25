@@ -91,7 +91,7 @@ module.exports.storeHaulTask = (creep, task) => {
 
   creep.memory[MEMORY.MEMORY_HAUL_DROPOFF] = task.details[MEMORY.MEMORY_HAUL_DROPOFF];
 
-  const taskId = creep.memory[MEMORY.TASK_ID] || '?';
+  // const taskId = creep.memory[MEMORY.TASK_ID] || '?';
   // creep.say(taskId);
 };
 

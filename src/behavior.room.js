@@ -3,7 +3,6 @@ const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
 
 const behaviorStorage = require('./behavior.storage');
 const behaviorHarvest = require('./behavior.harvest');
-const {TERMINAL_TASK_TYPE} = require('./constants.memory');
 
 const pickupDroppedEnergy = behaviorTree.leafNode(
   'janitor',

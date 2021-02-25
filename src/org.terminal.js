@@ -4,7 +4,6 @@ const MEMORY = require('./constants.memory');
 const TASKS = require('./constants.tasks');
 const MARKET = require('./constants.market');
 const {doEvery} = require('./lib.scheduler');
-const {returnSuccess} = require('./lib.behaviortree');
 
 const TASK_PHASE_HAUL_RESOURCE = 'phase_transfer_resource';
 const TASK_PHASE_TRANSACT = 'phase_transact';
@@ -236,7 +235,7 @@ class Terminal extends OrgBase {
       return;
     }
 
-    const result = Game.market.deal(order.id, dealAmount, this.room.name);
+    Game.market.deal(order.id, dealAmount, this.room.name);
   }
   sell(task) {
     const resource = task[MEMORY.MEMORY_ORDER_RESOURCE];
@@ -382,7 +381,7 @@ class Terminal extends OrgBase {
       }
 
       if (order.price !== price) {
-        const result = Game.market.changeOrderPrice(order.id, price);
+        Game.market.changeOrderPrice(order.id, price);
         trace.log(this.id, 'updating order price', {
           orderId: order.id,
           previousPrice: order.price, newPrice: price, resource: order.resource,

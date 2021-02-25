@@ -5,7 +5,7 @@ module.exports = function(grunt) {
       options: {
         configFile: '.eslintrc.yml',
       },
-      target: ['src/*']
+      target: ['src/**/*.js']
     },
     ts: {
       default: {
@@ -29,6 +29,6 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks("grunt-ts");
   grunt.loadNpmTasks("grunt-eslint");
 
-  grunt.registerTask("default", ["ts"]);
+  grunt.registerTask("default", ["eslint", "ts"]);
   grunt.registerTask("screeps", ["default", "screeps"]);
 }

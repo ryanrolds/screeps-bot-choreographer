@@ -7,7 +7,6 @@ const PRIORITIES = require('./constants.priorities');
 const {doEvery} = require('./lib.scheduler');
 
 const MIN_COMPOUND = 500;
-const MAX_COMPOUND = 1500;
 const MIN_ENERGY = 1000;
 const MAX_ENERGY = 1000;
 

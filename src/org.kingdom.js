@@ -11,9 +11,7 @@ const {doEvery} = require('./lib.scheduler');
 const helpersCreeps = require('./helpers.creeps');
 const MEMORY = require('./constants.memory');
 
-
 const UPDATE_ORG_TTL = 1;
-const SAVE_PATH_CACHE_TTL = 100;
 
 class Kingdom extends OrgBase {
   constructor(config, trace) {
