@@ -4,9 +4,17 @@
     "allowJs": true,
     "target": "es5",
     "rootDir": "./src",
-    "sourceMap": false
+    "sourceMap": false,
+    "esModuleInterop": true,
+    "types": [
+      "node",
+      "screeps"
+    ]
   },
   "include": [
     "./src/**/*"
+  ],
+  "files": [
+    "src/global.d.ts"
   ]
 }

@@ -1,5 +1,6 @@
 const Room = require('./org.room');
 const OrgBase = require('./org.base');
+const Observer = require('./org.observer');
 const Topics = require('./lib.topics');
 const Pid = require('./lib.pid');
 const {doEvery} = require('./lib.scheduler');
@@ -156,7 +157,7 @@ class Colony extends OrgBase {
     roomTrace.end();
 
     if (this.observer) {
-      // this.observer.update(updateTrace);
+      this.observer.update(updateTrace);
     }
 
     this.doRequestReserversForMissingRooms();
@@ -184,7 +185,7 @@ class Colony extends OrgBase {
     roomTrace.end();
 
     if (this.observer) {
-      // this.observer.process(processTrace);
+      this.observer.process(processTrace);
     }
 
     processTrace.end();
@@ -406,17 +407,17 @@ class Colony extends OrgBase {
     this.primaryOrgRoom = this.roomMap[this.primaryRoomId];
 
     if (this.primaryRoom && this.primaryRoom.controller.level === 8) {
-      // if (!this.observer) {
-      //  const observerStructures = this.primaryRoom.find(FIND_MY_STRUCTURES, {
-      //    filter: (structure) => {
-      //      return structure.structureType === STRUCTURE_OBSERVER;
-      //    }
-      //  })
+      if (!this.observer) {
+        const observerStructures = this.primaryRoom.find(FIND_MY_STRUCTURES, {
+          filter: (structure) => {
+            return structure.structureType === STRUCTURE_OBSERVER;
+          },
+        });
 
-      //  if (observerStructures.length) {
-      //    this.observer = new Observer(this, observerStructures[0], trace);
-      //  }
-      // }
+        if (observerStructures.length) {
+          this.observer = new Observer(this, observerStructures[0], trace);
+        }
+      }
     } else if (this.primaryRoom) {
       // this.doRequestExplorer = doEvery(REQUEST_EXPLORER_TTL,
       //  this.primaryRoom.memory, 'request_explorer')(() => {

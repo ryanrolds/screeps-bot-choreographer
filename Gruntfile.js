@@ -7,6 +7,15 @@ module.exports = function(grunt) {
       },
       target: ['src/**/*.js']
     },
+    mochaTest: {
+      test: {
+        options: {
+          reporter: 'spec',
+          require: 'ts-node/register'
+        },
+        src: ['src/**/*.test.ts']
+      }
+    },
     ts: {
       default: {
         tsconfig: './tsconfig.json'
@@ -28,7 +37,8 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks('grunt-screeps');
   grunt.loadNpmTasks("grunt-ts");
   grunt.loadNpmTasks("grunt-eslint");
+  grunt.loadNpmTasks('grunt-mocha-test');
 
-  grunt.registerTask("default", ["eslint", "ts"]);
-  grunt.registerTask("screeps", ["default", "screeps"]);
+  grunt.registerTask("default", ["eslint", "mochaTest", "ts"]);
+  grunt.registerTask("upload", ["default", "screeps"]);
 }

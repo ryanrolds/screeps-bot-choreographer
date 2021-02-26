@@ -1,18 +1,8 @@
 import * as tracing from './lib.tracing';
 import {AI} from './lib.ai';
+import {KingdomConfig} from './config'
 
-const globalAny: any = global;
-globalAny.TRACING_ACTIVE = false;
-
-interface ColonyConfig {
-  id: String;
-  primary: String;
-  rooms: String[];
-}
-
-interface KingdomConfig {
-  [key: string]: ColonyConfig;
-}
+global.TRACING_ACTIVE = false;
 
 let config: KingdomConfig = {
   'E18S48-Shard3': {
@@ -64,12 +54,13 @@ if (Game.shard.name === 'shardSeason') {
 
 console.log('***** setting up ai *****');
 const ai = new AI(config);
-globalAny.ai = ai; // So we can access it from the console
+
+global.AI = ai; // So we can access it from the console
 
 export const loop = function () {
   const trace = tracing.startTrace('main');
 
-  if (globalAny.TRACING_ACTIVE === true) {
+  if (global.TRACING_ACTIVE === true) {
     tracing.setActive();
   } else {
     tracing.setInactive();

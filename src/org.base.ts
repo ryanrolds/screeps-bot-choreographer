@@ -1,5 +1,9 @@
-class OrgBase {
-  constructor(parent, id, trace) {
+export class OrgBase {
+  parent: OrgBase;
+  id: string;
+  trace: any;
+
+  constructor(parent: OrgBase, id: string, trace) {
     this.parent = parent;
     this.id = id;
     this.trace = trace.with(this.constructor.name);
@@ -36,7 +40,7 @@ class OrgBase {
 
     parent.sendRequest(topic, priority, request, ttl);
   }
-  peekNextRequest() {
+  peekNextRequest(topic: string) {
     const parent = this.getParent();
     if (!parent) {
       return null;
@@ -44,7 +48,7 @@ class OrgBase {
 
     return parent.peekNextRequest(topic);
   }
-  getNextRequest(topic) {
+  getNextRequest(topic: string) {
     const parent = this.getParent();
     if (!parent) {
       return null;
@@ -52,7 +56,7 @@ class OrgBase {
 
     return parent.getNextRequest(topic);
   }
-  getTopicLength(topic) {
+  getTopicLength(topic: string) {
     const parent = this.getParent();
     if (!parent) {
       return null;

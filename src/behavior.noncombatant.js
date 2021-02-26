@@ -19,6 +19,16 @@ module.exports = (behaviorNode) => {
             return SUCCESS;
           }
 
+          if (creep.room.name !== room.id) {
+            const colony = kingdom.getCreepColony(creep);
+            if (colony) {
+              const creepRoom = colony.getRoomByID(creep.room.name);
+              if (creepRoom) {
+                room = creepRoom;
+              }
+            }
+          }
+
           if (colony.primaryRoomId === room.id) {
             return SUCCESS;
           }

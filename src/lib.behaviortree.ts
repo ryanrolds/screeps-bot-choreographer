@@ -1,11 +1,24 @@
-const featureFlags = require('./lib.feature_flags');
+import * as featureFlags from './lib.feature_flags';
+import {Actor} from './actor';
+import {Tracer} from './lib.tracing';
+import Kingdom from './org.kingdom';
 
-const RUNNING = module.exports.RUNNING = 'running';
-const SUCCESS = module.exports.SUCCESS = 'success';
-const FAILURE = module.exports.FAILURE = 'failure';
+export const RUNNING = 'running';
+export const SUCCESS = 'success';
+export const FAILURE = 'failure';
+export type NodeTickResult = 'running' | 'success' | 'failure';
 
-module.exports.rootNode = (id, behavior) => {
-  return function(actor, trace, kingdom) {
+interface TickFunc {
+  (actor: Actor, trace: Tracer, kingdom: Kingdom): NodeTickResult;
+}
+
+interface TreeNode {
+  id: string;
+  tick: TickFunc
+}
+
+export const rootNode = (id: string, behavior: TreeNode) => {
+  return function (actor: Actor, trace: Tracer, kingdom: Kingdom): void {
     const rootTrace = trace.begin(id);
 
     const result = behavior.tick(actor, rootTrace, kingdom);
@@ -17,11 +30,11 @@ module.exports.rootNode = (id, behavior) => {
   };
 };
 
-module.exports.selectorNode = (id, children) => {
+export const selectorNode = (id: string, children: TreeNode[]): TreeNode => {
   return {
     id,
     children,
-    tickChildren: function(actor, trace, kingdom) {
+    tickChildren: function (actor, trace, kingdom) {
       let i = getState(actor, this.id);
       for (; i < children.length; i++) {
         const child = children[i];
@@ -39,7 +52,7 @@ module.exports.selectorNode = (id, children) => {
 
       return FAILURE;
     },
-    tick: function(actor, trace, kingdom) {
+    tick: function (actor, trace, kingdom): NodeTickResult {
       trace = trace.begin(this.id);
 
       const result = this.tickChildren(actor, trace, kingdom);
@@ -50,14 +63,14 @@ module.exports.selectorNode = (id, children) => {
 
       return result;
     },
-  };
+  } as TreeNode;
 };
 
-module.exports.sequenceNode = (id, children) => {
+export const sequenceNode = (id: string, children: TreeNode[]): TreeNode => {
   return {
     id, // used track state in memory
     children,
-    tickChildren: function(actor, trace, kingdom) {
+    tickChildren: function (actor, trace, kingdom) {
       let i = getState(actor, this.id);
       for (; i < children.length; i++) {
         const result = children[i].tick(actor, trace, kingdom);
@@ -74,7 +87,7 @@ module.exports.sequenceNode = (id, children) => {
 
       return SUCCESS;
     },
-    tick: function(actor, trace, kingdom) {
+    tick: function (actor, trace, kingdom) {
       trace = trace.begin(this.id);
 
       const result = this.tickChildren(actor, trace, kingdom);
@@ -85,14 +98,14 @@ module.exports.sequenceNode = (id, children) => {
 
       return result;
     },
-  };
+  } as TreeNode;
 };
 
-module.exports.sequenceAlwaysNode = (id, children) => {
+export const sequenceAlwaysNode = (id: string, children: TreeNode[]): TreeNode => {
   return {
     id, // used track state in memory
     children,
-    tickChildren: function(actor, trace, kingdom) {
+    tickChildren: function (actor, trace, kingdom) {
       for (let i = 0; i < children.length; i++) {
         const result = children[i].tick(actor, trace, kingdom);
         switch (result) {
@@ -107,7 +120,7 @@ module.exports.sequenceAlwaysNode = (id, children) => {
 
       return SUCCESS;
     },
-    tick: function(actor, trace, kingdom) {
+    tick: function (actor, trace, kingdom) {
       trace = trace.begin(this.id);
 
       const result = this.tickChildren(actor, trace, kingdom);
@@ -118,67 +131,62 @@ module.exports.sequenceAlwaysNode = (id, children) => {
 
       return result;
     },
-  };
+  } as TreeNode;
 };
 
-module.exports.repeatUntilFailure = (id, node) => {
+export const repeatUntilFailure = (id: string, node: TreeNode): TreeNode => {
   return {
     id,
     node,
-    tickNode: function(actor, trace, kingdom) {
+    tick: function (actor, trace, kingdom) {
+      trace = trace.begin(this.id);
+
       const result = this.node.tick(actor, trace, kingdom);
+
+      trace.log(actor.id, 'result', result);
+      trace.end();
+
       if (result === FAILURE) {
         return FAILURE;
       }
 
       return RUNNING;
     },
-    tick: function(actor, trace, kingdom) {
-      trace = trace.begin(this.id);
-
-      const result = this.tickNode(actor, trace, kingdom);
-
-      trace.log(actor.id, 'result', result);
-
-      trace.end();
-
-      return result;
-    },
-  };
+  } as TreeNode;
 };
 
-module.exports.repeatUntilSuccess = (id, node) => {
+export const repeatUntilSuccess = (id: string, node: TreeNode): TreeNode => {
   return {
     id,
     node,
-    tickNode: function(actor, trace, kingdom) {
+    tick: function (actor, trace, kingdom) {
+      trace = trace.begin(this.id);
+
       const result = this.node.tick(actor, trace, kingdom);
+
+      trace.log(actor.id, 'result', result);
+      trace.end();
+
       if (result === SUCCESS) {
         return SUCCESS;
       }
 
       return RUNNING;
     },
-    tick: function(actor, trace, kingdom) {
-      trace = trace.begin(this.id);
-
-      const result = this.tickNode(actor, trace, kingdom);
-
-      trace.log(actor.id, 'result', result);
-
-      trace.end();
-
-      return result;
-    },
-  };
+  } as TreeNode;
 };
 
-module.exports.repeatUntilConditionMet = (id, condition, node) => {
+interface ConditionFunc {
+  (actor: Actor, trace: Tracer, kingdom: Kingdom): boolean
+}
+
+export const repeatUntilConditionMet = (id: string, condition: ConditionFunc,
+  node: TreeNode): TreeNode => {
   return {
     id,
     node,
     condition,
-    tick: function(actor, trace, kingdom) {
+    tick: function (actor, trace, kingdom) {
       trace = trace.begin(this.id);
 
       const conditionResult = this.condition(actor, trace, kingdom);
@@ -198,14 +206,14 @@ module.exports.repeatUntilConditionMet = (id, condition, node) => {
 
       return SUCCESS;
     },
-  };
+  } as TreeNode;
 };
 
-module.exports.invert = (id, node) => {
+export const invert = (id: string, node: TreeNode): TreeNode => {
   return {
     id,
     node,
-    tick: function(actor, trace, kingdom) {
+    tick: function (actor, trace, kingdom) {
       trace = trace.begin(this.id);
 
       let result = this.node.tick(actor, trace, kingdom);
@@ -222,14 +230,14 @@ module.exports.invert = (id, node) => {
 
       return result;
     },
-  };
+  } as TreeNode;
 };
 
-module.exports.returnSuccess = (id, node) => {
+export const returnSuccess = (id: string, node: TreeNode): TreeNode => {
   return {
     id,
     node,
-    tick: function(actor, trace, kingdom) {
+    tick: function (actor, trace, kingdom) {
       trace = trace.begin(this.id);
 
       const result = this.node.tick(actor, trace, kingdom);
@@ -239,20 +247,17 @@ module.exports.returnSuccess = (id, node) => {
 
       return SUCCESS;
     },
-  };
+  } as TreeNode;
 };
 
-module.exports.leafNode = (id, behavior) => {
+export const leafNode = (id: string, behavior: TickFunc): TreeNode => {
   return {
     id,
     behavior,
-    tickNode: function(actor, trace, kingdom) {
-      return this.behavior(actor, trace, kingdom);
-    },
-    tick: function(actor, trace, kingdom) {
+    tick: function (actor, trace, kingdom) {
       trace = trace.begin(this.id);
 
-      const result = this.tickNode(actor, trace, kingdom);
+      const result = this.behavior(actor, trace, kingdom);
 
       trace.log(actor.id, 'result', result);
 
@@ -260,16 +265,17 @@ module.exports.leafNode = (id, behavior) => {
 
       return result;
     },
-  };
+  } as TreeNode;
 };
 
-module.exports.featureFlagBool = (id, flag, defaultBehavior, enabledBehavior) => {
+export const featureFlagBool = (id: string, flag: string, defaultBehavior: TreeNode,
+  enabledBehavior: TreeNode): TreeNode => {
   return {
     id,
     flag,
     defaultBehavior,
     enabledBehavior,
-    tick: function(actor, trace, kingdom) {
+    tick: function (actor: Actor, trace: Tracer, kingdom: Kingdom) {
       trace = trace.begin(this.id);
 
       let result = null;
@@ -285,10 +291,10 @@ module.exports.featureFlagBool = (id, flag, defaultBehavior, enabledBehavior) =>
 
       return result;
     },
-  };
+  } as TreeNode;
 };
 
-function getState(actor, id) {
+function getState(actor: Actor, id: string): number {
   let i = 0;
 
   if (actor.memory[id]) {
@@ -300,6 +306,6 @@ function getState(actor, id) {
   return i;
 }
 
-function setState(actor, id, value) {
+function setState(actor: Actor, id: string, value: any): void {
   actor.memory[id] = value;
 }
