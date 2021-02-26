@@ -5,9 +5,7 @@ const ResourceGovernor = require('./org.resource_governor');
 const Scribe = require('./org.scribe');
 const Topics = require('./lib.topics');
 const PathCache = require('./lib.path_cache');
-
 const {doEvery} = require('./lib.scheduler');
-
 const helpersCreeps = require('./helpers.creeps');
 const MEMORY = require('./constants.memory');
 

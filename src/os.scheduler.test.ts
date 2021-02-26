@@ -1,4 +1,5 @@
-import {Process, Scheduler, RunnableResult, running} from './lib.scheduler';
+import {Scheduler} from './os.scheduler';
+import {Process, RunnableResult, running} from './os.process';
 import {Tracer} from './lib.tracing';
 
 import 'mocha';
@@ -113,5 +114,13 @@ describe('Scheduler', () => {
 
     expect(process.lastRun).to.equal(1);
     expect(processTwo.lastRun).to.equal(2);
+  })
+
+  it('should allow checking if process present', () => {
+    const scheduler = new Scheduler();
+    scheduler.registerProcess(process);
+
+    expect(scheduler.hasProcess('processId')).to.be.true;
+    expect(scheduler.hasProcess('shouldnotexist')).to.be.false;
   })
 });

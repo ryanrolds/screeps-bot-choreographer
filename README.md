@@ -1,4 +1,4 @@
-# Screeps
+# Screeps AI
 
 An AI for [Screeps](screeps.com).
 
@@ -8,13 +8,14 @@ An AI for [Screeps](screeps.com).
 #### Key Features:
 
 * Creep logic implemented using Behavior Trees (BT)
-* Tracing w/ report plumbed through BTs
-* Flag directed building (`build*`), creep manager staffs flags
-* Remote harvesting
+* Tracing (metrics, logging) and Feature Flag logic to aid development/debugging
+* Remote harvesting/mining
 * Miners w/ container and haulers
 * Buy/sell minerals
 * React and distribute compounds with a focus on "upgrade" boost
 * Explore rooms and store notes in memory
+* Haulers managed by PID controller
+* Message bus w/ topics for IPC
 
 #### Roadmap:
 
@@ -38,6 +39,9 @@ An AI for [Screeps](screeps.com).
 - [x] Auto return-to-home and defense of remote harvesters
 - [x] Don't require Build flags, staff rooms w/ construction sites, use flags to prioritize nearby sites
 - [x] Refactor role and spawn logic to support easy addition of creep roles
+- [ ] Implement Scheduler, Process, and other OS components
+- [ ] Move Creeps to scheduler
+- [ ] Move Org/Kingdom work to scheduler
 - [ ] Auto-construction of roads to remote sources
 - [ ] Improved defenders that hide in ramparts
 - [ ] Auto attack of weaker Overmind players
@@ -77,6 +81,11 @@ Uploading of built TS+JS can be done by running `grunt upload`.
 ## Operation
 
 The AI will focus on establishing an economy, build, repair, and defend the colonies. The build manager will spawn at least one Upgrader and will add more if there is energy above the defense reserve.
+
+There are a couple of helpful global variables:
+
+* `LOG_WHEN_ID='<game id>'` - `trace.log(id, ...)` calls will be output to the console
+* `TRACING_ACTIVE=true` - Will output tracing metric data to the console
 ### Creeps
 
 * Harvester - Harvests and brings energy back to Spawner/Origin
@@ -137,12 +146,16 @@ When an Attack Flag (`attack*`) is four attackers will be spawned to form a squa
 
 > The entire section, including subheadings, are a work in progress.
 
+The Kingdom model work was completed, greatly improving the structure of the business logic. Since completing that work the next major hurdle has been CPU usage. The addition of the Tracing library and plumbing it through the business logic and creeps logic has greatly aided improving CPU usage. As the project approaches the theoretical work limit (100 creeps at ~0.2 cpu/tick - one intent per tick) the need to move to a scheduler has become strongly needed. It's too easy to expand and exhaust the CPU reserver/bucket.
+
+Implementing a scheduler and deferring lower priority work to the next tick is needed. At this time I'm in process of implementing a schedule, process, and additional OS components to manage the increasing CPU demands of the AI/system.
+
 ### Structure
 
 1. Kingdom
 2. Colony, War Party, Scribe
-3. Rooms, Spawns, Sources, Storage (WIP)
-4. Creeps, Towers
+3. Rooms, Spawns, Sources, Storage (WIP), Towers, Labs
+4. Creeps
 5. Behavior Trees
 6. Behaviors
 

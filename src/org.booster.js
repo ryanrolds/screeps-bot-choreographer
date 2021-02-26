@@ -10,7 +10,6 @@ const MIN_COMPOUND = 500;
 const MIN_ENERGY = 1000;
 const MAX_ENERGY = 1000;
 
-
 const UPDATE_PREPARE_TTL = 5;
 const REQUEST_UNLOAD_TTL = 5;
 const REQUEST_LOAD_TTL = 5;
