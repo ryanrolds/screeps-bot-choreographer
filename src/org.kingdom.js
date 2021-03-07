@@ -8,6 +8,7 @@ const PathCache = require('./lib.path_cache');
 const {doEvery} = require('./lib.scheduler');
 const helpersCreeps = require('./helpers.creeps');
 const MEMORY = require('./constants.memory');
+const featureFlags = require('./lib.feature_flags');
 
 const UPDATE_ORG_TTL = 1;
 
@@ -19,6 +20,14 @@ class Kingdom extends OrgBase {
 
     this.config = config;
     this.topics = new Topics();
+
+    this.stats = {
+      colonies: {},
+      sources: {},
+      spawns: {},
+      pathCache: {},
+      scheduler: {},
+    };
 
     this.colonies = {};
     this.creeps = [];
@@ -50,6 +59,7 @@ class Kingdom extends OrgBase {
       sources: {},
       spawns: {},
       pathCache: {},
+      scheduler: {},
     };
 
     this.doUpdateOrg(updateTrace);
@@ -103,14 +113,12 @@ class Kingdom extends OrgBase {
     this.scribe.process(scribeTrace);
     scribeTrace.end();
 
-    const creepsTrace = processTrace.begin('creeps');
-    helpersCreeps.tick(this, creepsTrace);
-    creepsTrace.end();
-
-    this.updateStats();
-
-    // Set stats in memory for pulling and display in Grafana
-    Memory.stats = this.getStats();
+    const useCreepManager = featureFlags.getFlag(featureFlags.CREEPS_USE_MANAGER);
+    if (!useCreepManager) {
+      const creepsTrace = processTrace.begin('creeps');
+      helpersCreeps.tick(this, creepsTrace);
+      creepsTrace.end();
+    }
 
     processTrace.end();
   }

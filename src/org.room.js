@@ -451,7 +451,9 @@ class Room extends OrgBase {
     const primaryBooster = _.sortBy(spawns[0].pos.findInRange(labs, 2), 'id').shift();
     if (primaryBooster) {
       boosterLabs = _.sortBy(primaryBooster.pos.findInRange(labs, 1), 'id');
-      booster = new Booster(this, boosterLabs, trace);
+      if (boosterLabs.length >= 3) {
+        booster = new Booster(this, boosterLabs, trace);
+      }
     }
 
     // Subtract booster labs from list

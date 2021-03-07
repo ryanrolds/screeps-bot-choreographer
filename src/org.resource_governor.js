@@ -20,7 +20,9 @@ const REQUEST_DISTRIBUTE_BOOSTS = 30;
 // boost creeps with these effects
 const CRITICAL_EFFECTS = {
   'upgradeController': ['XGH2O', 'GH2O', 'GH'],
+  'capacity': ['XKH2O', 'KH2O', 'KH'],
   'heal': ['XLHO2', 'LHO2', 'LO'],
+  'attack': ['XUH2O', 'UH2O', 'UH'],
   'rangedAttack': ['XKHO2', 'KHO2', 'KO'],
   'damage': ['XGHO2', 'GHO2', 'GO'],
 };

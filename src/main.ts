@@ -1,10 +1,6 @@
 import * as tracing from './lib.tracing';
 import {AI} from './lib.ai';
 import {KingdomConfig} from './config'
-import {Scheduler} from './os.scheduler';
-import * as helpersCreeps from './helpers.creeps';
-import {Process} from './os.process';
-import {CreepManager} from './manager.creeps';
 
 global.TRACING_ACTIVE = false;
 
@@ -56,12 +52,6 @@ if (Game.shard.name === 'shardSeason') {
   };
 }
 
-console.log('***** creating scheduler *****')
-const scheduler = new Scheduler();
-
-const creepManager = new CreepManager(scheduler)
-scheduler.registerProcess(new Process('creeps_manager', 0, creepManager));
-
 console.log('***** setting up ai *****');
 const ai = new AI(config);
 global.AI = ai; // So we can access it from the console
@@ -80,11 +70,6 @@ export const loop = function () {
   const aiTrace = trace.begin('ai');
   ai.tick(aiTrace);
   aiTrace.end();
-
-  // Run the scheduler
-  const schedulerTrace = trace.begin('scheduler');
-  scheduler.tick(schedulerTrace);
-  schedulerTrace.end();
 
   console.log('--------------------------------');
 

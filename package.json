@@ -5,7 +5,7 @@
   "private": true,
   "type": "commonjs",
   "scripts": {
-    "test": "mocha -r ts-node/register 'src/**/*.test.ts'",
+    "test": "mocha --preserve-symlinks",
     "lint": "eslint src/**/*.js",
     "lint-fix": "eslint src/**/*.js --fix"
   },
@@ -21,6 +21,7 @@
   "homepage": "https://github.com/ryanrolds/screeps#readme",
   "devDependencies": {
     "@types/chai": "^4.2.15",
+    "@types/expect": "^24.3.0",
     "@types/lodash": "3.10.2",
     "@types/mocha": "^8.2.1",
     "@types/node": "^14.14.31",
@@ -40,11 +41,13 @@
     "grunt-screeps": "^1.5.0",
     "grunt-ts": "^6.0.0-beta.22",
     "lodash": "^3.10.1",
-    "mocha": "^8.3.0",
+    "mocha": "^8.0.0",
     "screeps-server-mockup": "^1.5.1",
+    "screeps-test-helper": "0.0.2",
     "sinon": "^9.2.4",
     "ts-loader": "^8.0.17",
     "ts-node": "^9.1.1",
+    "ts-sinon": "^2.0.1",
     "typescript": "^4.2.2"
   },
   "dependencies": {}

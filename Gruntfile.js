@@ -11,7 +11,10 @@ module.exports = function(grunt) {
       test: {
         options: {
           reporter: 'spec',
-          require: 'ts-node/register'
+          require: [
+            'ts-node/register',
+            './src/test_globals.ts'
+          ]
         },
         src: ['src/**/*.test.ts']
       }

@@ -18,7 +18,7 @@ module.exports = (behaviorNode) => {
         'get_boosted',
         (creep, trace, kingdom) => {
           const desiredBoosts = creep.memory[MEMORY.DESIRED_BOOSTS] || [];
-          const phase = creep.memory[BOOST_PHASE] || BOOST_PHASE_START;
+          const phase = creep.memory[BOOST_PHASE] || BOOST_PHASE_MOVE;
 
           const room = kingdom.getCreepRoom(creep);
           if (!room) {
@@ -27,22 +27,20 @@ module.exports = (behaviorNode) => {
 
           const booster = room.booster;
 
+          if (!booster) {
+            // console.log('no booster in room for', creep.name, room.id);
+            creep.memory[BOOST_PHASE] = BOOST_PHASE_DONE;
+            return SUCCESS;
+          }
+
+          // Mark done of no requested boosts
+          if (!desiredBoosts.length) {
+            creep.memory[BOOST_PHASE] = BOOST_PHASE_DONE;
+            return SUCCESS;
+          }
+
           switch (phase) {
             case BOOST_PHASE_START:
-              if (!booster) {
-                // console.log('no booster in room for', creep.name, room.id);
-                creep.memory[BOOST_PHASE] = BOOST_PHASE_DONE;
-                return SUCCESS;
-              }
-
-              // Mark done of no requested boosts
-              if (!desiredBoosts.length) {
-                creep.memory[BOOST_PHASE] = BOOST_PHASE_DONE;
-                return SUCCESS;
-              }
-
-              // console.log('request boosts', creep.name, desiredBoosts);
-
               creep.memory[BOOST_PHASE] = BOOST_PHASE_MOVE;
             case BOOST_PHASE_MOVE:
               // Move to booster location

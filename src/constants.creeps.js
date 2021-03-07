@@ -18,6 +18,7 @@ const definitions = {
     parts: [MOVE, CARRY, WORK],
     base: [CARRY, WORK, MOVE],
     boosts: ['harvest'],
+    processPriority: 2,
   },
   [WORKER_MINER]: {
     energyLimit: 1500,
@@ -25,54 +26,64 @@ const definitions = {
     parts: [MOVE, WORK, WORK],
     base: [MOVE, WORK, WORK],
     // boosts: ['harvest'],
+    processPriority: 2,
   },
   [WORKER_HAULER]: {
     ignoreSpawnEnergyLimit: true,
     parts: [MOVE, CARRY, CARRY],
     base: [MOVE, CARRY, CARRY, MOVE, CARRY, CARRY],
     boosts: ['capacity'],
+    processPriority: 3,
   },
   [WORKER_BUILDER]: {
     energyLimit: 1500,
     parts: [MOVE, CARRY, WORK],
     base: [MOVE, CARRY, WORK],
+    processPriority: 4,
   },
   [WORKER_REPAIRER]: {
     energyLimit: 900,
     parts: [CARRY, MOVE, WORK, MOVE],
     base: [CARRY, MOVE, WORK, MOVE],
+    processPriority: 4,
   },
   [WORKER_UPGRADER]: {
     parts: [MOVE, CARRY, WORK],
     base: [CARRY, MOVE, CARRY, MOVE, WORK],
     boosts: ['upgradeController'],
+    processPriority: 3,
   },
   [WORKER_DISTRIBUTOR]: {
     energyLimit: 2000,
     parts: [MOVE, CARRY, CARRY],
     base: [MOVE, CARRY, CARRY, MOVE, CARRY, CARRY],
     // boosts: ['capacity'],
+    processPriority: 2,
   },
   [WORKER_RESERVER]: {
     energyLimit: 2600,
     parts: [CLAIM, MOVE],
     base: [MOVE, CLAIM],
+    processPriority: 4,
   },
   [WORKER_DEFENDER]: {
     energyLimit: null,
     parts: [MOVE, TOUGH, TOUGH, MOVE, RANGED_ATTACK, RANGED_ATTACK],
     base: [MOVE, TOUGH, TOUGH, MOVE, RANGED_ATTACK, TOUGH],
+    processPriority: 1,
   },
   [WORKER_ATTACKER]: {
     energyLimit: null,
     energyMinimum: 4000,
     parts: [MOVE, TOUGH, MOVE, ATTACK, MOVE, HEAL],
     base: [MOVE, TOUGH, MOVE, ATTACK],
+    processPriority: 2,
   },
   [WORKER_EXPLORER]: {
     energyLimit: 50,
     parts: [],
     base: [MOVE],
+    processPriority: 5,
   },
 };
 

@@ -1,8 +1,9 @@
 import {Tracer} from './lib.tracing';
+import Kingdom from './org.kingdom';
 import * as _ from 'lodash';
 
-interface Runnable {
-  run(trace: Tracer): RunnableResult;
+export interface Runnable {
+  run(kingdom: Kingdom, trace: Tracer): RunnableResult;
 }
 
 export interface RunnableResult {
@@ -18,6 +19,10 @@ const STATUS_TERMINATED = 'terminated';
 
 export const running = (): RunnableResult => {
   return {status: STATUS_RUNNING};
+}
+
+export const terminate = (): RunnableResult => {
+  return {status: STATUS_TERMINATED};
 }
 
 export class Process {
@@ -72,9 +77,9 @@ export class Process {
     this.status = STATUS_TERMINATED;
   }
 
-  run(trace: Tracer) {
+  run(kingdom: Kingdom, trace: Tracer) {
     this.lastRun = Game.time;
-    const result = this.runnable.run(trace);
+    const result = this.runnable.run(kingdom, trace);
 
     switch (result.status) {
       case STATUS_RUNNING:

@@ -1,12 +1,16 @@
 import {Scheduler} from './os.scheduler';
 import {Process, RunnableResult, running} from './os.process';
 import {Tracer} from './lib.tracing';
+import {mockGlobal} from "screeps-test-helper";
 
 import 'mocha';
 import {expect} from 'chai';
 import * as sinon from 'sinon';
+import Kingdom from './org.kingdom';
 
 describe('Scheduler', () => {
+  let trace = null;
+  let kingdom = null;
   let sandbox = null;
   let runnable = null;
   let runSpy = null;
@@ -16,19 +20,20 @@ describe('Scheduler', () => {
   beforeEach(() => {
     sandbox = sinon.createSandbox();
 
-    global.Game = {
+    mockGlobal<Game>('Game', {
       time: 1,
       cpu: {
         limit: 20,
-        tickLimit: 20,
+        tickLimit: 50,
         bucket: 10000,
-        getUsed: (): number => {
+        getUsed: () => {
           return 0;
         }
       }
-    } as Game;
-    // @ts-ignore : allow adding Memory to global
-    global.Memory = {} as Memory;
+    })
+
+    trace = new Tracer('scheduler_test');
+    kingdom = new Kingdom({}, trace);
 
     runnable = {
       run: (trace: Tracer): RunnableResult => {
@@ -60,22 +65,23 @@ describe('Scheduler', () => {
   it('should run the process', () => {
     const scheduler = new Scheduler();
     scheduler.registerProcess(process);
-    scheduler.tick(new Tracer('test'));
+    scheduler.tick(kingdom, trace);
 
     expect(runSpy.calledOnce).to.be.true;
   });
 
   it('should skip process if nearing tick limit', () => {
-    // Set the used time to 99%, so that do not run any more processes
+    // Set the used time to 110%, so that do not run any more processes
     Game.cpu.getUsed = (): number => {
-      return Game.cpu.tickLimit * 0.99;
+      return Game.cpu.limit * 1.1;
     };
 
     const scheduler = new Scheduler();
     scheduler.registerProcess(process);
-    scheduler.tick(new Tracer('test'));
+    scheduler.tick(kingdom, trace);
 
     expect(runSpy.calledOnce).to.be.false;
+    expect(scheduler.ranOutOfTime).to.equal(1);
   })
 
   it('should execute skipped processes next tick', () => {
@@ -84,7 +90,7 @@ describe('Scheduler', () => {
     // Set the used time to 99%, so that do not run any more processes
     const stub = sandbox.stub(Game.cpu, 'getUsed')
     stub.onCall(0).returns(0);
-    stub.onCall(1).returns(Game.cpu.tickLimit * 0.99);
+    stub.onCall(1).returns(Game.cpu.limit * 1.1);
 
     const scheduler = new Scheduler();
     scheduler.registerProcess(process);
@@ -94,7 +100,7 @@ describe('Scheduler', () => {
 
     scheduler.registerProcess(processTwo);
 
-    scheduler.tick(tracer);
+    scheduler.tick(kingdom, trace);
 
     expect(processSpy.calledOnce).to.be.true;
     expect(processTwoSpy.calledOnce).to.be.false;
@@ -107,14 +113,14 @@ describe('Scheduler', () => {
 
     // Increment game time
     Game.time += 1;
-    scheduler.tick(tracer);
+    scheduler.tick(kingdom, trace);
 
     expect(processSpy.calledOnce).to.be.false;
     expect(processTwoSpy.calledOnce).to.be.true;
 
     expect(process.lastRun).to.equal(1);
     expect(processTwo.lastRun).to.equal(2);
-  })
+  });
 
   it('should allow checking if process present', () => {
     const scheduler = new Scheduler();
@@ -122,5 +128,25 @@ describe('Scheduler', () => {
 
     expect(scheduler.hasProcess('processId')).to.be.true;
     expect(scheduler.hasProcess('shouldnotexist')).to.be.false;
-  })
+  });
+
+  it("should remove and not run terminated processes", () => {
+    const scheduler = new Scheduler();
+    scheduler.registerProcess(process);
+
+    expect(scheduler.hasProcess('processId')).to.be.true;
+    expect(processSpy.calledOnce).to.be.false;
+
+    scheduler.tick(kingdom, trace);
+    expect(processSpy.calledOnce).to.be.true;
+    expect(processSpy.calledTwice).to.be.false;
+
+    process.setTerminated();
+    expect(scheduler.processTable.length).to.equal(1);
+
+    scheduler.tick(kingdom, trace);
+    expect(processSpy.calledOnce).to.be.true;
+    expect(processSpy.calledTwice).to.be.false;
+    expect(scheduler.processTable.length).to.equal(0);
+  });
 });

@@ -6,9 +6,12 @@
     "rootDir": "./src",
     "sourceMap": false,
     "esModuleInterop": true,
+    "moduleResolution": "node",
+    "module": "commonjs",
     "types": [
       "node",
-      "screeps"
+      "screeps",
+      "mocha"
     ]
   },
   "include": [
