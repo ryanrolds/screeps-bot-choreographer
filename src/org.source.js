@@ -52,6 +52,23 @@ class Source extends OrgBase {
       this.dropoff = primaryRoom.getReserveStructureWithRoomForResource(RESOURCE_ENERGY);
     });
 
+    this.updateLink = doEvery(UPDATE_CONTAINER_TTL)(() => {
+      const source = this.source = Game.getObjectById(this.id);
+
+      const links = source.pos.findInRange(FIND_STRUCTURES, 2, {
+        filter: (structure) => {
+          return structure.structureType === STRUCTURE_LINK;
+        },
+      });
+
+      const link = source.pos.findClosestByRange(links);
+      if (link) {
+        this.linkID = link.id;
+      } else {
+        this.linkID = null;
+      }
+    });
+
     this.numMiners = 0;
     this.doRequestMiner = doEvery(REQUEST_WORKER_TTL)(() => {
       this.requestMiner();
@@ -75,6 +92,7 @@ class Source extends OrgBase {
     const updateTrace = trace.begin('update');
 
     this.updateContainer();
+    this.updateLink();
 
     // console.log(this);
 

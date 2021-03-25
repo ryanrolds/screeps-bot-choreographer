@@ -21,10 +21,10 @@ const definitions = {
     processPriority: 2,
   },
   [WORKER_MINER]: {
-    energyLimit: 1500,
+    energyLimit: 1750,
     ignoreSpawnEnergyLimit: true,
-    parts: [MOVE, WORK, WORK],
-    base: [MOVE, WORK, WORK],
+    parts: [MOVE, CARRY, WORK, WORK],
+    base: [MOVE, CARRY, WORK, WORK],
     // boosts: ['harvest'],
     processPriority: 2,
   },

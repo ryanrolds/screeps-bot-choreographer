@@ -61,14 +61,17 @@ const selectContainerForWithdraw = module.exports.selectContainerForWithdraw = b
       },
     });
 
-    // console.log("builder container", creep.name, target)
-
-    if (!target) {
-      return FAILURE;
+    if (target) {
+      behaviorMovement.setDestination(creep, target.id);
+      return SUCCESS;
     }
 
-    behaviorMovement.setDestination(creep, target.id);
-    return SUCCESS;
+    if (creep.room.storage && creep.room.storage.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
+      behaviorMovement.setDestination(creep, creep.room.storage.id);
+      return SUCCESS;
+    }
+
+    return FAILURE;
   },
 );
 

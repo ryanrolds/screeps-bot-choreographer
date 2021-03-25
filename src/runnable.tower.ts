@@ -1,0 +1,183 @@
+import {Process, Runnable, RunnableResult, running, sleeping, terminate} from "./os.process";
+import {Tracer} from './lib.tracing';
+import Kingdom from "./org.kingdom";
+import OrgRoom from "./org.room";
+import * as MEMORY from "./constants.memory"
+import * as TASKS from "./constants.tasks"
+import * as TOPICS from "./constants.topics"
+
+const REQUEST_ENERGY_TTL = 25;
+const REQUEST_ENERGY_THRESHOLD = 500;
+const EMERGENCY_RESERVE = 250;
+
+interface Point {
+  x: number;
+  y: number;
+}
+
+export default class TowerRunnable {
+  orgRoom: OrgRoom;
+  towerId: Id<StructureTower>;
+
+  damagedCreep: Id<Creep>;
+  repairTarget: Id<AnyStructure>;
+
+  haulTTL: number;
+  repairTTL: number;
+  prevTime: number;
+
+  constructor(room: OrgRoom, tower: StructureTower) {
+    this.orgRoom = room;
+
+    this.towerId = tower.id;
+    this.haulTTL = 0;
+    this.repairTTL = 0;
+    this.prevTime = Game.time;
+  }
+
+  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+    const ticks = Game.time - this.prevTime;
+    this.prevTime = Game.time;
+
+    trace.log(this.towerId, "tower runnable", {
+      room: this.orgRoom.getRoomObject().name,
+      id: this.towerId,
+      haulTTL: this.haulTTL,
+      repairTTL: this.repairTarget,
+    })
+
+    const tower = Game.getObjectById(this.towerId);
+    if (!tower) {
+      return terminate();
+    }
+
+    // Request energy
+    this.haulTTL -= ticks;
+    const towerUsed = tower.store.getUsedCapacity(RESOURCE_ENERGY);
+    if (towerUsed < REQUEST_ENERGY_THRESHOLD && this.haulTTL < 0) {
+      this.haulTTL = REQUEST_ENERGY_TTL;
+      trace.log(this.towerId, 'requesting energy', {});
+      this.requestEnergy(this.orgRoom, tower, REQUEST_ENERGY_TTL);
+    }
+
+    // Attack hostiles
+    let hostiles: Creep[] = this.orgRoom.getHostiles();
+    hostiles = hostiles.filter((hostile) => {
+      return tower.pos.getRangeTo(hostile) <= 15;
+    });
+
+    if (hostiles.length) {
+      hostiles = _.sortBy(hostiles, (hostile) => {
+        return hostile.getActiveBodyparts(HEAL);
+      }).reverse();
+
+      const result = tower.attack(hostiles[0]);
+      trace.log(this.towerId, 'attacking', {target: hostiles[0].id, result})
+      return running();
+    }
+
+    // Heal damaged creeps
+    if (!this.damagedCreep && this.orgRoom.damagedCreeps.length) {
+      this.damagedCreep = this.orgRoom.damagedCreeps.shift();
+    }
+
+    if (this.damagedCreep) {
+      const creep = Game.creeps[this.damagedCreep];
+      if (!creep || creep.hits >= creep.hitsMax) {
+        this.damagedCreep = null;
+      } else {
+        const result = tower.heal(creep);
+        trace.log(this.towerId, 'healing', {target: creep.id, result})
+        return running();
+      }
+    }
+
+    // Not above attack/heal reserve, skip repair logic
+    if (towerUsed < EMERGENCY_RESERVE) {
+      trace.log(this.towerId, 'skipping repairs low energy', {towerUsed});
+      return running();
+    }
+
+    // Repair focus TTL that spreads repairs out
+    this.repairTTL -= ticks;
+    if (this.repairTarget && this.repairTTL < 0) {
+      trace.log(this.towerId, 'repair target ttl hit', {});
+      this.repairTarget = null;
+      this.repairTTL = 0;
+    }
+
+    // If target is repaired, picking another target
+    if (this.repairTarget) {
+      const target = Game.getObjectById(this.repairTarget);
+      if (!target || target.hits >= target.hitsMax) {
+        trace.log(this.towerId, 'repair target done/missing', {target});
+        this.repairTarget = null;
+        this.repairTTL = 0;
+      }
+    }
+
+    // Repair damaged structure
+    if (!this.repairTarget && this.orgRoom.damagedStructures.length) {
+      this.repairTarget = this.orgRoom.damagedStructures.shift();
+      this.repairTTL = 10;
+    }
+
+    // Do not repair secondary structures or roads if room is low on energy
+    if (this.orgRoom.resources[RESOURCE_ENERGY] < 10000) {
+      this.repairTarget = null;
+      this.repairTTL = 0;
+      return running();
+    }
+
+    // Repair damaged secondary structures
+    if (!this.repairTarget && this.orgRoom.damagedSecondaryStructures.length) {
+      this.repairTarget = this.orgRoom.damagedSecondaryStructures.shift();
+      this.repairTTL = 10;
+    }
+
+    // Repair damaged roads
+    if (!this.repairTarget && this.orgRoom.damagedRoads.length) {
+      this.repairTarget = this.orgRoom.damagedRoads.shift();
+      this.repairTTL = 0;
+    }
+
+    // If no repair target sleep for a bit
+    if (!this.repairTarget) {
+      trace.log(this.towerId, 'no repair repair', {});
+      return sleeping(5);
+    }
+
+    const target = Game.getObjectById(this.repairTarget);
+    if (!target) {
+      trace.log(this.towerId, 'repair target missing', {target});
+      this.repairTarget = null;
+      this.repairTTL = 0;
+      return running();
+    }
+
+    const result = tower.repair(target);
+    trace.log(this.towerId, 'repair', {target, result, ttl: this.repairTTL});
+
+    return running();
+  }
+
+  private requestEnergy(room: OrgRoom, tower: StructureTower, ttl: number) {
+    const towerUsed = tower.store.getUsedCapacity(RESOURCE_ENERGY);
+    const towerFree = tower.store.getFreeCapacity(RESOURCE_ENERGY);
+    const towerTotal = tower.store.getCapacity(RESOURCE_ENERGY);
+
+    const pickupId = this.orgRoom.getClosestStoreWithEnergy(tower);
+    const priority = 1 - (towerUsed - EMERGENCY_RESERVE / towerTotal);
+
+    const details = {
+      [MEMORY.TASK_ID]: `tel-${tower.id}-${Game.time}`,
+      [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
+      [MEMORY.MEMORY_HAUL_PICKUP]: pickupId,
+      [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
+      [MEMORY.MEMORY_HAUL_AMOUNT]: towerFree,
+      [MEMORY.MEMORY_HAUL_DROPOFF]: tower.id,
+    };
+
+    (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, priority, details, ttl);
+  }
+}

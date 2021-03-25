@@ -21,12 +21,17 @@ export const running = (): RunnableResult => {
   return {status: STATUS_RUNNING};
 }
 
+export const sleeping = (sleepFor: number): RunnableResult => {
+  return {status: STATUS_SLEEPING, sleepFor};
+}
+
 export const terminate = (): RunnableResult => {
   return {status: STATUS_TERMINATED};
 }
 
 export class Process {
   id: string;
+  type: string;
   priority: number;
   runnable: Runnable;
 
@@ -34,8 +39,9 @@ export class Process {
   lastRun: number;
   nextRun: number;
 
-  constructor(id: string, priority: number, runnable: Runnable) {
+  constructor(id: string, type: string, priority: number, runnable: Runnable) {
     this.id = id;
+    this.type = type;
     this.priority = priority;
     this.runnable = runnable;
 
@@ -70,6 +76,7 @@ export class Process {
   }
 
   setSleeping(duration: number) {
+    this.status = STATUS_SLEEPING;
     this.nextRun = Game.time + duration;
   }
 

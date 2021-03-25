@@ -22,7 +22,29 @@ const selectSource = behaviorTree.leafNode(
 
 const harvest = behaviorTree.leafNode(
   'fill_creep',
-  (creep) => {
+  (creep, trace, kingdom) => {
+    if (!creep.store.getFreeCapacity(RESOURCE_ENERGY)) {
+      const link = creep.pos.findInRange(FIND_MY_STRUCTURES, 1, {
+        filter: (structure) => {
+          return structure.structureType === STRUCTURE_LINK;
+        },
+      })[0];
+
+      if (link) {
+        const amount = _.min(
+          [
+            link.store.getFreeCapacity(RESOURCE_ENERGY),
+            creep.store.getUsedCapacity(RESOURCE_ENERGY),
+          ],
+        );
+        if (amount) {
+          const result = creep.transfer(link, RESOURCE_ENERGY, amount);
+          trace.log(creep.id, 'creep transfer to link', {result});
+          return RUNNING;
+        }
+      }
+    }
+
     const destination = Game.getObjectById(creep.memory[MEMORY.MEMORY_HARVEST]);
     if (!destination) {
       return FAILURE;
@@ -77,6 +99,7 @@ const behavior = behaviorTree.sequenceNode(
             'get_energy',
             [
               harvest,
+              // TODO dump energy in link
               waitUntilSourceReady,
             ],
           ),

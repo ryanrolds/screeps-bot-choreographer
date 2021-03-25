@@ -1,12 +1,11 @@
 
 const OrgBase = require('./org.base');
-const Link = require('./org.link');
-const Tower = require('./org.tower');
+
 const Terminal = require('./org.terminal');
-const Source = require('./org.source');
+// const Source = require('./org.source');
 const Booster = require('./org.booster');
 const Reactor = require('./org.reactor');
-const Spawner = require('./org.spawner');
+// const Spawner = require('./org.spawner');
 
 const CREEPS = require('./constants.creeps');
 const MEMORY = require('./constants.memory');
@@ -31,7 +30,7 @@ const WALL_LEVEL = 1000;
 const RAMPART_LEVEL = 1000;
 const MY_USERNAME = 'ENETDOWN';
 const MIN_RESERVATION_TICKS = 4000;
-const RESERVE_BUFFER = 300000;
+const RESERVE_BUFFER = 400000;
 
 const UPDATE_CREEPS_TTL = 1;
 const UPDATE_ROOM_TTL = 10;
@@ -75,18 +74,14 @@ class Room extends OrgBase {
     this.roomStructures = [];
     this.hostileStructures = [];
     this.parkingLot = null;
-    this.sourceMap = {};
     this.doUpdateRoom = doEvery(UPDATE_ROOM_TTL)((trace) => {
       this.updateRoom(trace);
     });
 
     // Primary room
-    this.linkMap = {};
-    this.towerMap = {};
     this.reactorMap = {};
     this.booster = null;
     this.terminal = null;
-    this.spawnMap = {};
     this.hasSpawns = false;
     this.doUpdatePrimary = doEvery(UPDATE_ORG_TTL)((trace) => {
       this.updatePrimary(trace);
@@ -279,30 +274,18 @@ class Room extends OrgBase {
 
     const childrenTrace = updateTrace.begin('children');
 
-    const sourcesTrace = childrenTrace.begin('sources');
-    Object.values(this.sourceMap).forEach((source) => {
-      source.update(sourcesTrace);
-    });
-    sourcesTrace.end();
+    // const sourcesTrace = childrenTrace.begin('sources');
+    // Object.values(this.sourceMap).forEach((source) => {
+    //   source.update(sourcesTrace);
+    // });
+    // sourcesTrace.end();
 
     if (this.isPrimary) {
-      const linksTrace = childrenTrace.begin('links');
-      Object.values(this.linkMap).forEach((link) => {
-        link.update(linksTrace);
-      });
-      linksTrace.end();
-
-      const towersTrace = childrenTrace.begin('towers');
-      Object.values(this.towerMap).forEach((tower) => {
-        tower.update(towersTrace);
-      });
-      towersTrace.end();
-
-      const spawnsTrace = childrenTrace.begin('spawns');
-      Object.values(this.spawnMap).forEach((spawn) => {
-        spawn.update(spawnsTrace);
-      });
-      spawnsTrace.end();
+      // const spawnsTrace = childrenTrace.begin('spawns');
+      // Object.values(this.spawnMap).forEach((spawn) => {
+      //   spawn.update(spawnsTrace);
+      // });
+      // spawnsTrace.end();
 
       const reactorsTrace = childrenTrace.begin('reactor');
       Object.values(this.reactorMap).forEach((reactor) => {
@@ -338,30 +321,18 @@ class Room extends OrgBase {
 
     const childrenTrace = processTrace.begin('children');
 
-    const sourcesTrace = childrenTrace.begin('sources');
-    Object.values(this.sourceMap).forEach((source) => {
-      source.process(sourcesTrace);
-    });
-    sourcesTrace.end();
+    // const sourcesTrace = childrenTrace.begin('sources');
+    // Object.values(this.sourceMap).forEach((source) => {
+    //   source.process(sourcesTrace);
+    // });
+    // sourcesTrace.end();
 
     if (this.isPrimary) {
-      const linksTrace = childrenTrace.begin('links');
-      Object.values(this.linkMap).forEach((link) => {
-        link.process(linksTrace);
-      });
-      linksTrace.end();
-
-      const towersTrace = childrenTrace.begin('towers');
-      Object.values(this.towerMap).forEach((tower) => {
-        tower.process(towersTrace);
-      });
-      towersTrace.end();
-
-      const spawnsTrace = childrenTrace.begin('spawns');
-      Object.values(this.spawnMap).forEach((spawn) => {
-        spawn.process(spawnsTrace);
-      });
-      spawnsTrace.end();
+      // const spawnsTrace = childrenTrace.begin('spawns');
+      // Object.values(this.spawnMap).forEach((spawn) => {
+      //   spawn.process(spawnsTrace);
+      // });
+      // spawnsTrace.end();
 
       const reactorsTrace = childrenTrace.begin('reactors');
       Object.values(this.reactorMap).forEach((reactor) => {
@@ -393,10 +364,8 @@ class Room extends OrgBase {
       `#Builders: ${this.builders.length}, ` +
       `#Hostiles: ${this.numHostiles}, ` +
       `HostileTime: ${this.hostileTime}, ` +
-      `#Spawners: ${Object.keys(this.spawnMap).length}, ` +
-      `#Towers: ${Object.keys(this.towerMap).length}, #Sites: ${this.numConstructionSites}, ` +
+      `#Sites: ${this.numConstructionSites}, ` +
       `%Hits: ${this.hitsPercentage.toFixed(2)}, #Repairer: ${this.numRepairers}, ` +
-      `#Links: ${Object.keys(this.linkMap).length}, ` +
       `EnergyFullness: ${this.getEnergyFullness()}, ` +
       `DCreeps: ${this.damagedCreeps.length}, ` +
       `DStructures: ${this.damagedStructures.length}, ` +
@@ -1060,10 +1029,10 @@ class Room extends OrgBase {
     this.hostileStructures = this.room.find(FIND_HOSTILE_STRUCTURES);
 
     // Sources and Minerals
-    let roomSources = room.find(FIND_SOURCES);
-    roomSources = roomSources.concat(this.getMineralsWithExtractor());
+    // let roomSources = room.find(FIND_SOURCES);
+    // roomSources = roomSources.concat(this.getMineralsWithExtractor());
     // console.log("xxxxx room sources", roomSources)
-    this.sourceMap = this.updateOrgMap(roomSources, 'id', this.sourceMap, Source, trace);
+    // this.sourceMap = this.updateOrgMap(roomSources, 'id', this.sourceMap, Source, trace);
 
     trace.end();
   }
@@ -1072,36 +1041,23 @@ class Room extends OrgBase {
 
     const room = this.room;
 
-    // Links
-    const roomLinks = this.myStructures.filter((structure) => {
-      return structure.structureType === STRUCTURE_LINK;
-    });
-    this.linkMap = this.updateOrgMap(roomLinks, 'id', this.linkMap, Link, trace);
-
-    // Towers
-    const roomTowers = this.myStructures.filter((structure) => {
-      return structure.structureType === STRUCTURE_TOWER;
-    });
-    this.towerMap = this.updateOrgMap(roomTowers, 'id', this.towerMap, Tower, trace);
-
     // Spawns
     const roomSpawns = this.getSpawns();
-    const spawnIds = _.pluck(roomSpawns, 'id');
-    const spawnMap = _.indexBy(roomSpawns, 'id');
-    const orgIds = Object.keys(this.spawnMap);
+    // const spawnIds = _.pluck(roomSpawns, 'id');
+    // const spawnMap = _.indexBy(roomSpawns, 'id');
+    // const orgIds = Object.keys(this.spawnMap);
 
-    const missingOrgSpawnIds = _.difference(spawnIds, orgIds);
-    missingOrgSpawnIds.forEach((id) => {
-      const orgNode = new Spawner(this, spawnMap[id], trace);
-      this.spawnMap[id] = orgNode;
-    });
+    // const missingOrgSpawnIds = _.difference(spawnIds, orgIds);
+    // missingOrgSpawnIds.forEach((id) => {
+    //   const orgNode = new Spawner(this, spawnMap[id], trace);
+    //   this.spawnMap[id] = orgNode;
+    // });
 
-    const extraOrgSpawnIds = _.difference(orgIds, spawnIds);
-    extraOrgSpawnIds.forEach((id) => {
-      delete this.spawnMap[id];
-    });
-
-    this.hasSpawns = Object.keys(this.spawnMap).length > 0;
+    // const extraOrgSpawnIds = _.difference(orgIds, spawnIds);
+    // extraOrgSpawnIds.forEach((id) => {
+    //   delete this.spawnMap[id];
+    // });
+    this.hasSpawns = roomSpawns.length > 0;
 
     // Booster and Reactors
     this.updateLabs(trace);

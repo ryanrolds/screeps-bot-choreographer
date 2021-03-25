@@ -397,11 +397,13 @@ class Colony extends OrgBase {
 
       const orgNode = new Room(this, room, trace);
       this.roomMap[id] = orgNode;
+      this.getKingdom().roomNameToOrgRoom[id] = orgNode;
     });
 
     const extraOrgColonyIds = _.difference(orgRoomIds, desiredRoomIds);
     extraOrgColonyIds.forEach((id) => {
       delete this.roomMap[id];
+      delete this.getKingdom().roomNameToOrgRoom[id];
     });
 
     this.primaryOrgRoom = this.roomMap[this.primaryRoomId];

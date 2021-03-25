@@ -13,12 +13,13 @@ const featureFlags = require('./lib.feature_flags');
 const UPDATE_ORG_TTL = 1;
 
 class Kingdom extends OrgBase {
-  constructor(config, trace) {
+  constructor(config, scheduler, trace) {
     super(null, 'kingdom', trace);
 
     const setupTrace = this.trace.begin('constructor');
 
     this.config = config;
+    this.scheduler = scheduler;
     this.topics = new Topics();
 
     this.stats = {
@@ -30,7 +31,9 @@ class Kingdom extends OrgBase {
     };
 
     this.colonies = {};
+    this.roomNameToOrgRoom = {};
     this.creeps = [];
+
     this.doUpdateOrg = doEvery(UPDATE_ORG_TTL)((trace) => {
       this.updateOrg(trace);
     });
@@ -152,6 +155,9 @@ class Kingdom extends OrgBase {
   getRoom() {
     throw new Error('a kingdom is not a room');
   }
+  getRoomByName(name) {
+    return this.roomNameToOrgRoom[name] || null;
+  }
   getCreeps() {
     return this.creeps;
   }
@@ -200,6 +206,9 @@ class Kingdom extends OrgBase {
     }
 
     return room;
+  }
+  getScheduler() {
+    return this.scheduler;
   }
   getStats() {
     return this.stats;

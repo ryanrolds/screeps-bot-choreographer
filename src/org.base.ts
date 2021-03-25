@@ -32,6 +32,9 @@ export class OrgBase {
   getStats() {
     return this.getParent().getStats();
   }
+  getScheduler() {
+    return this.getParent().getScheduler();
+  }
   sendRequest(topic, priority, request, ttl) {
     const parent = this.getParent();
     if (!parent) {

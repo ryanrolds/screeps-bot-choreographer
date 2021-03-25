@@ -34,7 +34,7 @@ export class CreepManager {
     // Create processes for any creeps that do not have a process
     // registered with the scheduler
 
-    // TODO, make this more efficient. Currently n^2
+    // TODO, make this more efficient.
     Object.entries(Game.creeps).forEach(([id, creep]) => {
       const hasProcess = this.scheduler.hasProcess(id);
       if (hasProcess) {
@@ -44,6 +44,15 @@ export class CreepManager {
       const process = this.getCreepProcess(id, creep);
       this.scheduler.registerProcess(process);
     });
+
+    if (Game.time % 100 === 0) {
+      // Cleanup old creep memory
+      for (const i in Memory.creeps) {
+        if (!Game.creeps[i]) {
+          delete Memory.creeps[i];
+        }
+      }
+    }
 
     return running();
   }
@@ -66,7 +75,7 @@ export class CreepManager {
       throw new Error(`Creep ${id} has ${role} which does not have behavior defined`);
     }
 
-    return new Process(id, priority, behavior)
+    return new Process(id, role, priority, behavior)
   }
 
   private getCreepBehavior(id: string, role: string): Runnable {

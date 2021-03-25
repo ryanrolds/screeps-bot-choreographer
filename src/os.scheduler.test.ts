@@ -33,7 +33,6 @@ describe('Scheduler', () => {
     })
 
     trace = new Tracer('scheduler_test');
-    kingdom = new Kingdom({}, trace);
 
     runnable = {
       run: (trace: Tracer): RunnableResult => {
@@ -42,7 +41,7 @@ describe('Scheduler', () => {
     };
 
     runSpy = sandbox.spy(runnable, 'run');
-    process = new Process('processId', 0, runnable);
+    process = new Process('processId', 'processType', 0, runnable);
     processSpy = sandbox.spy(process, 'run');
   });
 
@@ -64,6 +63,8 @@ describe('Scheduler', () => {
 
   it('should run the process', () => {
     const scheduler = new Scheduler();
+    const kingdom = new Kingdom({}, scheduler, trace);
+
     scheduler.registerProcess(process);
     scheduler.tick(kingdom, trace);
 
@@ -77,6 +78,8 @@ describe('Scheduler', () => {
     };
 
     const scheduler = new Scheduler();
+    const kingdom = new Kingdom({}, scheduler, trace);
+
     scheduler.registerProcess(process);
     scheduler.tick(kingdom, trace);
 
@@ -87,15 +90,16 @@ describe('Scheduler', () => {
   it('should execute skipped processes next tick', () => {
     const tracer = new Tracer('test');
 
-    // Set the used time to 99%, so that do not run any more processes
-    const stub = sandbox.stub(Game.cpu, 'getUsed')
-    stub.onCall(0).returns(0);
-    stub.onCall(1).returns(Game.cpu.limit * 1.1);
-
     const scheduler = new Scheduler();
+    const kingdom = new Kingdom({}, scheduler, trace);
+
     scheduler.registerProcess(process);
 
-    const processTwo = new Process('processTwo', 0, runnable)
+    const stub = sandbox.stub(scheduler, 'isOutOfTime')
+    stub.onCall(0).returns(false);
+    stub.onCall(1).returns(true);
+
+    const processTwo = new Process('processTwo', 'processType', 0, runnable)
     const processTwoSpy = sandbox.spy(processTwo, 'run');
 
     scheduler.registerProcess(processTwo);
@@ -132,6 +136,8 @@ describe('Scheduler', () => {
 
   it("should remove and not run terminated processes", () => {
     const scheduler = new Scheduler();
+    const kingdom = new Kingdom({}, scheduler, trace);
+
     scheduler.registerProcess(process);
 
     expect(scheduler.hasProcess('processId')).to.be.true;

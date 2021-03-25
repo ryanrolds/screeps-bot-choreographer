@@ -49,9 +49,51 @@ const selectExtensionToFill = behaviorTree.leafNode(
   },
 );
 
+const emergencyExtensionFill = behaviorTree.leafNode(
+  'emergency_extension_fill',
+  (creep, trace, kingdom) => {
+    const room = kingdom.getCreepRoom(creep);
+    if (!room) {
+      return FAILURE;
+    }
+
+    if (room.energyCapacityAvailable > 1000 && room.energyAvailable > room.energyCapacityAvailable * 0.3) {
+      return FAILURE;
+    }
+
+    const structure = room.getNextEnergyStructure(creep);
+    if (!structure) {
+      return FAILURE;
+    }
+
+    const amount = structure.store.getFreeCapacity(RESOURCE_ENERGY);
+    if (!amount) {
+      return FAILURE;
+    }
+
+    const pickup = room.getReserveStructureWithMostOfAResource(RESOURCE_ENERGY, false);
+    if (!pickup) {
+      return FAILURE;
+    }
+
+    creep.memory[MEMORY.TASK_ID] = `el-${structure.id}-${Game.time}`;
+    creep.memory[MEMORY.MEMORY_TASK_TYPE] = TASKS.TASK_HAUL;
+    creep.memory[MEMORY.MEMORY_HAUL_PICKUP] = pickup.id;
+    creep.memory[MEMORY.MEMORY_HAUL_RESOURCE] = RESOURCE_ENERGY;
+    creep.memory[MEMORY.MEMORY_HAUL_AMOUNT] = amount;
+    creep.memory[MEMORY.MEMORY_HAUL_DROPOFF] = structure.id;
+
+    // creep.say(creep.memory[MEMORY.TASK_ID]);
+
+    return SUCCESS;
+  },
+);
+
+
 const selectNextTaskOrPark = behaviorTree.selectorNode(
   'pick_something',
   [
+    emergencyExtensionFill,
     behaviorHaul.getHaulTaskFromTopic(TOPICS.HAUL_CORE_TASK),
     selectExtensionToFill,
     behaviorRoom.parkingLot,
