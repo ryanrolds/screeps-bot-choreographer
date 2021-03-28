@@ -15,6 +15,7 @@ An AI for [Screeps](screeps.com).
 * React and distribute compounds with a focus on "upgrade" boost
 * Explore rooms and store notes in memory
 * Haulers managed by PID controller
+* Scheduler & Processes
 * Message bus w/ topics for IPC
 
 #### Roadmap:
@@ -39,15 +40,15 @@ An AI for [Screeps](screeps.com).
 - [x] Auto return-to-home and defense of remote harvesters
 - [x] Don't require Build flags, staff rooms w/ construction sites, use flags to prioritize nearby sites
 - [x] Refactor role and spawn logic to support easy addition of creep roles
-- [ ] Implement Scheduler, Process, and other OS components
-- [ ] Move Creeps to scheduler
+- [x] Implement Scheduler, Process, and other OS components
+- [x] Move Creeps to scheduler
 - [ ] Move Org/Kingdom work to scheduler
 - [ ] Auto-construction of roads to remote sources
 - [ ] Improved defenders that hide in ramparts
 - [ ] Auto attack of weaker Overmind players
 - [ ] Intra-shared movement and claiming
 - [ ] Collect Power
-- [ ] Create Power Creeps
+- [ ] Create & drive Power Creeps
 - [ ] Harvest commodities
 
 #### Considering

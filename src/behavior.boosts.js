@@ -44,7 +44,7 @@ module.exports = (behaviorNode) => {
               creep.memory[BOOST_PHASE] = BOOST_PHASE_MOVE;
             case BOOST_PHASE_MOVE:
               // Move to booster location
-              const destination = booster.getCreepBoostPosition();
+              const destination = booster.getBoostPosition();
 
               // console.log('moving to booster', creep.name, destination);
 
@@ -59,6 +59,7 @@ module.exports = (behaviorNode) => {
               // Request boosts
               // console.log('getting boosts', creep.name, desiredBoosts);
               const loadedEffects = booster.getLoadedEffects();
+              console.log('loaded', JSON.stringify(loadedEffects));
 
               // console.log('loaded', JSON.stringify(loadedEffects));
 
@@ -69,6 +70,8 @@ module.exports = (behaviorNode) => {
                 }
 
                 const compound = effect.compounds[0];
+                console.log('effect compound', desiredEffect, JSON.stringify(compound));
+
                 const lab = booster.getLabByResource(compound.name);
                 const result = lab.boostCreep(creep);
                 trace.log(creep.id, 'boosted', {

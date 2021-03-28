@@ -356,7 +356,7 @@ class Terminal extends OrgBase {
         return;
       }
 
-      const missingAmount = order.amount < order.remainingAmount;
+      const missingAmount = order.amount - order.remainingAmount;
       if (missingAmount > 0) {
         const pickup = this.getRoom().getReserveStructureWithMostOfAResource(order.resourceType, false);
         if (!pickup) {

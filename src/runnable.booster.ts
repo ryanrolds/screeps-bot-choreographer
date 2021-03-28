@@ -1,22 +1,27 @@
-const OrgBase = require('./org.base');
-
-const MEMORY = require('./constants.memory');
-const TASKS = require('./constants.tasks');
-const TOPICS = require('./constants.topics');
-const PRIORITIES = require('./constants.priorities');
-const {doEvery} = require('./lib.scheduler');
+import {Process, Runnable, RunnableResult, running, sleeping, terminate} from "./os.process";
+import {Tracer} from './lib.tracing';
+import Kingdom from "./org.kingdom";
+import OrgRoom from "./org.room";
+import * as MEMORY from "./constants.memory"
+import * as TASKS from "./constants.tasks"
+import * as TOPICS from "./constants.topics"
+import * as CREEPS from "./constants.creeps"
+import * as PRIORITIES from "./constants.priorities"
 
 const MIN_COMPOUND = 500;
 const MIN_ENERGY = 1000;
 const MAX_ENERGY = 1000;
 
-const UPDATE_PREPARE_TTL = 5;
 const REQUEST_UNLOAD_TTL = 5;
 const REQUEST_LOAD_TTL = 5;
 const REQUEST_ENERGY_TTL = 10;
 const REQUEST_LOW_LABS_UNLOAD_TTL = 10;
 
 class Compound {
+  name: string;
+  effect: any;
+  bonus: number;
+
   constructor(name, effect, bonus) {
     this.name = name;
     this.effect = effect;
@@ -25,115 +30,95 @@ class Compound {
 }
 
 class Effect {
-  constructor(name, part, compounds = [], bonus) {
+  name: string;
+  part: string;
+  compounds: Compound[];
+
+  constructor(name: string, part: string, compounds: Compound[] = []) {
     this.name = name;
     this.part = part;
     this.compounds = compounds;
   }
 }
 
-class Booster extends OrgBase {
-  constructor(parent, labs, trace) {
-    super(parent, labs[0].id, trace);
+export default class BoosterRunnable {
+  id: string;
+  orgRoom: OrgRoom;
+  labIds: Id<StructureLab>[];
+  boostPosition: RoomPosition;
 
-    const setupTrace = this.trace.begin('constructor');
+  prevTime: number;
 
-    this.labs = labs;
-    this.prepare = {};
+  constructor(id: string, orgRoom: OrgRoom, labIds: Id<StructureLab>[]) {
+    this.id = id;
+    this.orgRoom = orgRoom;
+    this.labIds = labIds;
 
-    // Build list of current resources
-    this.resources = this.getLabResources();
-    this.availableEffects = this.getAvailableEffects();
-    this.loadedEffects = this.getLoadedEffects();
-    this.creepBoostPosition = null;
+    this.prevTime = Game.time;
 
-    this.doUpdatePrepare = doEvery(UPDATE_PREPARE_TTL)(() => {
-      this.updatePrepare();
-    });
-
-    this.doRequestClearLowLabs = doEvery(REQUEST_LOW_LABS_UNLOAD_TTL)(() => {
-      this.requestClearLowLabs();
-    });
-
-    this.doRequestEnergyForLabs = doEvery(REQUEST_ENERGY_TTL)(() => {
-      this.requestEnergyForLabs();
-    });
-
-    this.doRequestUnloadOfLabs = doEvery(REQUEST_UNLOAD_TTL)((loadedEffects, couldUnload) => {
-      this.requestUnloadOfLabs(loadedEffects, couldUnload);
-    });
-
-    this.doRequestMaterialsForLabs = doEvery(REQUEST_LOAD_TTL)((desiredEffects, needToLoad) => {
-      this.requestMaterialsForLabs(desiredEffects, needToLoad);
-    });
-
-    setupTrace.end();
+    const labs = labIds.map(labId => Game.getObjectById(labId));
+    this.boostPosition = this.getCreepBoostPosition(labs);
   }
-  update(trace) {
-    const updateTrace = trace.begin('update');
 
-    this.labs = this.labs.map((lab) => {
-      return Game.getObjectById(lab.id);
-    }).filter((lab) => {
-      return lab;
-    });
+  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+    const ticks = Game.time - this.prevTime;
+    this.prevTime = Game.time;
 
-    if (this.labs.length !== 3) {
-      // console.log(`not enough labs (${this.labs.length}) to form booster`);
-      updateTrace.end();
-      return;
+    let labs = this.labIds.map(labId => Game.getObjectById(labId));
+    if (_.filter(labs, lab => !lab).length) {
+      trace.log(this.id, 'lab missing - terminating', {})
+      return terminate();
     }
 
-    this.resources = this.getLabResources();
-    this.availableEffects = this.getAvailableEffects();
-    this.loadedEffects = this.getLoadedEffects();
-    this.creepBoostPosition = this.getCreepBoostPosition();
-
-    this.doUpdatePrepare();
-
-    // console.log(this);
-
-    updateTrace.end();
-  }
-  process(trace) {
-    const processTrace = trace.begin('process');
-
-    if (this.labs.length !== 3) {
-      processTrace.end();
-      return;
+    if (labs.length !== 3) {
+      trace.log(this.id, 'not right number of labs - terminating', {num: labs.length})
+      return terminate();
     }
 
-    this.doRequestEnergyForLabs();
+    const availableEffects = this.getAvailableEffects();
+    const loadedEffects = this.getLoadedEffects();
+    const desiredEffects = this.getDesiredEffects();
 
-    if (Object.keys(this.prepare).length) {
-      this.sendHaulRequests();
+    trace.log(this.id, 'booster run', {
+      labIds: this.labIds,
+      loaded: loadedEffects,
+      desired: desiredEffects,
+      availableEffects: availableEffects,
+    });
+
+    let sleepFor = REQUEST_ENERGY_TTL;
+    this.requestEnergyForLabs();
+
+    if (Object.keys(desiredEffects).length) {
+      sleepFor = REQUEST_LOAD_TTL;
+      this.sendHaulRequests(desiredEffects);
     } else {
-      this.doRequestClearLowLabs();
+      sleepFor = REQUEST_UNLOAD_TTL;
+      this.requestClearLowLabs();
     }
 
-    processTrace.end();
+    return sleeping(sleepFor);
   }
-  toString() {
-    return `---- Booster: Id: ${this.labs[0].id}, ` +
-      `Prepare: ${JSON.stringify(this.prepare)}, ` +
-      `Boost Pos: ${this.creepBoostPosition.x}, ${this.creepBoostPosition.y}, ` +
-      `Loaded Effects: ${JSON.stringify(Object.keys(this.loadedEffects))}, ` +
-      `Avil. Effects: ${JSON.stringify(Object.keys(this.availableEffects))}`;
-  }
+
   updateStats(prepared, toUnLoad, toLoad) {
-    const stats = this.orgRoom.getStats();
-    stats.colonies[this.getColony().id].booster = {
+    const stats = (this.orgRoom as any).getStats();
+    stats.colonies[(this.orgRoom as any).getColony().id].booster = {
       prepared: prepared.length,
       toUnload: toUnLoad.length,
       toLoad: toLoad.length,
     };
   }
-  getCreepBoostPosition() {
-    if (!this.labs.length) {
+
+  getBoostPosition() {
+    return this.boostPosition;
+  }
+
+  private getCreepBoostPosition(labs: StructureLab[]) {
+    if (!labs.length) {
       return null;
     }
 
-    const topLeft = this.labs.reduce((acc, lab) => {
+    const topLeft = labs.reduce((acc, lab) => {
       if (lab.pos.x < acc.x) {
         acc.x = lab.pos.x;
       }
@@ -146,7 +131,7 @@ class Booster extends OrgBase {
     }, {x: 50, y: 50});
 
     let position = null;
-    const roomId = this.getRoom().id;
+    const roomId = (this.orgRoom as any).id;
 
     position = new RoomPosition(topLeft.x, topLeft.y, roomId);
     if (position.lookFor(LOOK_STRUCTURES).filter((structure) => {
@@ -176,19 +161,26 @@ class Booster extends OrgBase {
       return position;
     }
 
-    return this.labs[0].pos;
+    return labs[0].pos;
   }
+
   getLabByResource(resource) {
-    for (let i = 0; i < this.labs.length; i++) {
-      if (this.labs[i].mineralType === resource) {
-        return this.labs[i];
+    console.log(resource);
+    const labs = this.labIds.map(labId => Game.getObjectById(labId));
+    console.log(labs)
+
+    for (let i = 0; i < labs.length; i++) {
+      if (labs[i].mineralType === resource) {
+        console.log(labs[i].mineralType, resource)
+        return labs[i];
       }
     }
 
     return null;
   }
   getLabResources() {
-    return this.labs.reduce((acc, lab) => {
+    const labs = this.labIds.map(labId => Game.getObjectById(labId));
+    return labs.reduce((acc, lab) => {
       if (lab.mineralType) {
         acc[lab.mineralType] = lab.store.getUsedCapacity(lab.mineralType);
       }
@@ -197,7 +189,8 @@ class Booster extends OrgBase {
     }, {});
   }
   getEmptyLabs() {
-    return this.labs.filter((lab) => {
+    const labs = this.labIds.map(labId => Game.getObjectById(labId));
+    return labs.filter((lab) => {
       return !lab.mineralType;
     });
   }
@@ -227,10 +220,11 @@ class Booster extends OrgBase {
     return allEffects;
   }
   getLoadedEffects() {
-    return this.getEffects(this.resources);
+    const resources = this.getLabResources();
+    return this.getEffects(resources);
   }
   getAvailableEffects() {
-    const availableResources = this.getRoom().getReserveResources(true);
+    const availableResources = this.orgRoom.getReserveResources(true);
     return this.getEffects(availableResources);
   }
   getDesiredEffects() {
@@ -238,7 +232,7 @@ class Booster extends OrgBase {
     const allEffects = this.getEffects();
 
     let request = null;
-    while (request = this.getNextRequest(TOPICS.BOOST_PREP)) {
+    while (request = (this.orgRoom as any).getNextRequest(TOPICS.BOOST_PREP)) {
       const requestedEffects = request.details[MEMORY.PREPARE_BOOSTS];
       if (!requestedEffects) {
         continue;
@@ -251,12 +245,8 @@ class Booster extends OrgBase {
 
     return desiredEffects;
   }
-  updatePrepare() {
-    this.prepare = this.getDesiredEffects();
-  }
-  sendHaulRequests() {
+  sendHaulRequests(desiredEffects) {
     const loadedEffects = this.getLoadedEffects();
-    const desiredEffects = this.prepare;
 
     const loadedNames = Object.keys(loadedEffects);
     const desiredNames = Object.keys(desiredEffects);
@@ -296,19 +286,20 @@ class Booster extends OrgBase {
     if (numToLoad > numEmpty) {
       const numToUnload = numToLoad - numEmpty;
       const unload = couldUnload.slice(0, numToUnload);
-      this.doRequestUnloadOfLabs(loadedEffects, unload);
+      this.requestUnloadOfLabs(loadedEffects, unload);
     }
 
     if (numEmpty && numToLoad) {
       const numReadyToLoad = _.min([numEmpty, numToLoad]);
       const load = needToLoad.slice(0, numReadyToLoad);
-      this.doRequestMaterialsForLabs(desiredEffects, load);
+      this.requestMaterialsForLabs(desiredEffects, load);
     }
 
     this.updateStats(preparedNames, couldUnload, needToLoad);
   }
   requestClearLowLabs() {
-    this.labs.forEach((lab) => {
+    const labs = this.labIds.map(labId => Game.getObjectById(labId));
+    labs.forEach((lab) => {
       if (!lab.mineralType) {
         return;
       }
@@ -317,7 +308,7 @@ class Booster extends OrgBase {
         return;
       }
 
-      const dropoff = this.getRoom().getReserveStructureWithRoomForResource(lab.mineralType);
+      const dropoff = this.orgRoom.getReserveStructureWithRoomForResource(lab.mineralType);
       if (!dropoff) {
         // console.log('No dropoff for already loaded compound', lab.mineralType);
         return;
@@ -334,10 +325,11 @@ class Booster extends OrgBase {
 
       // console.log('boost clear low', PRIORITIES.HAUL_BOOST, JSON.stringify(details));
 
-      this.sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details, REQUEST_LOW_LABS_UNLOAD_TTL);
+      (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details, REQUEST_LOW_LABS_UNLOAD_TTL);
     });
   }
   requestUnloadOfLabs(loadedEffects, couldUnload) {
+    const labs = this.labIds.map(labId => Game.getObjectById(labId));
     couldUnload.forEach((toUnload) => {
       const effect = loadedEffects[toUnload];
       const compound = effect.compounds[0];
@@ -348,7 +340,7 @@ class Booster extends OrgBase {
         return;
       }
 
-      const assignedCreeps = this.getCreeps().filter((creep) => {
+      const assignedCreeps = this.orgRoom.getCreeps().filter((creep) => {
         const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
         const taskPickup = creep.memory[MEMORY.MEMORY_HAUL_PICKUP];
         const resource = creep.memory[MEMORY.MEMORY_HAUL_RESOURCE];
@@ -358,7 +350,7 @@ class Booster extends OrgBase {
         return;
       }
 
-      const dropoff = this.getRoom().getReserveStructureWithRoomForResource(compound.name);
+      const dropoff = this.orgRoom.getReserveStructureWithRoomForResource(compound.name);
       if (!dropoff) {
         // console.log('No dropoff for already loaded compound', compound.name);
         return;
@@ -375,11 +367,11 @@ class Booster extends OrgBase {
 
       // console.log('boost unload', PRIORITIES.HAUL_BOOST, JSON.stringify(details));
 
-      this.sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details, REQUEST_UNLOAD_TTL);
+      (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details, REQUEST_UNLOAD_TTL);
     });
   }
   requestMaterialsForLabs(desiredEffects, needToLoad) {
-    const reserveResources = this.getRoom().getReserveResources(true);
+    const reserveResources = this.orgRoom.getReserveResources(true);
 
     needToLoad.forEach((toLoad) => {
       // console.log('toload', toLoad, JSON.stringify(desiredEffects));
@@ -392,7 +384,7 @@ class Booster extends OrgBase {
       }
       const emptyLab = emptyLabs[0];
 
-      const assignedCreeps = this.getCreeps().filter((creep) => {
+      const assignedCreeps = this.orgRoom.getCreeps().filter((creep) => {
         const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
         const taskDropoff = creep.memory[MEMORY.MEMORY_HAUL_DROPOFF];
         const resource = creep.memory[MEMORY.MEMORY_HAUL_RESOURCE];
@@ -428,7 +420,7 @@ class Booster extends OrgBase {
         return;
       }
 
-      const pickup = this.getRoom().getReserveStructureWithMostOfAResource(compound.name, true);
+      const pickup = this.orgRoom.getReserveStructureWithMostOfAResource(compound.name, true);
       if (!pickup) {
         // console.log('No pickup for available compound', compound.name);
         return;
@@ -445,17 +437,18 @@ class Booster extends OrgBase {
 
       // console.log('boost load material', PRIORITIES.HAUL_BOOST, JSON.stringify(details));
 
-      this.sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details, REQUEST_LOAD_TTL);
+      (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details, REQUEST_LOAD_TTL);
     });
   }
   requestEnergyForLabs() {
-    this.labs.forEach((lab) => {
+    const labs = this.labIds.map(labId => Game.getObjectById(labId));
+    labs.forEach((lab) => {
       // Only fill lab if needed
       if (lab.store.getUsedCapacity(RESOURCE_ENERGY) >= MIN_ENERGY) {
         return;
       }
 
-      const pickup = this.getRoom().getReserveStructureWithMostOfAResource(RESOURCE_ENERGY, false);
+      const pickup = this.orgRoom.getReserveStructureWithMostOfAResource(RESOURCE_ENERGY, false);
       const currentEnergy = lab.store.getUsedCapacity(RESOURCE_ENERGY);
       const details = {
         [MEMORY.TASK_ID]: `bel-${this.id}-${Game.time}`,
@@ -468,9 +461,7 @@ class Booster extends OrgBase {
 
       // console.log('boost load energy', PRIORITIES.HAUL_BOOST, JSON.stringify(details));
 
-      this.sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details, REQUEST_ENERGY_TTL);
+      (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details, REQUEST_ENERGY_TTL);
     });
   }
 }
-
-module.exports = Booster;

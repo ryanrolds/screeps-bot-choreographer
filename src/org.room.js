@@ -1,10 +1,10 @@
 
 const OrgBase = require('./org.base');
 
-const Terminal = require('./org.terminal');
+// const Terminal = require('./org.terminal');
 // const Source = require('./org.source');
-const Booster = require('./org.booster');
-const Reactor = require('./org.reactor');
+// const Booster = require('./org.booster');
+// const Reactor = require('./org.reactor');
 // const Spawner = require('./org.spawner');
 
 const CREEPS = require('./constants.creeps');
@@ -20,7 +20,7 @@ const {TOPIC_SPAWN} = require('./constants.topics');
 const {WORKER_UPGRADER, WORKER_REPAIRER, WORKER_BUILDER} = require('./constants.creeps');
 const {PRIORITY_UPGRADER, PRIORITY_BUILDER, PRIORITY_REPAIRER,
   PRIORITY_REPAIRER_URGENT} = require('./constants.priorities');
-const {WORKER_RESERVER, WORKER_DISTRIBUTOR, WORKER_HAULER} = require('./constants.creeps');
+const {WORKER_DISTRIBUTOR, WORKER_HAULER} = require('./constants.creeps');
 const {PRIORITY_DISTRIBUTOR} = require('./constants.priorities');
 
 const MIN_UPGRADERS = 1;
@@ -79,9 +79,9 @@ class Room extends OrgBase {
     });
 
     // Primary room
-    this.reactorMap = {};
-    this.booster = null;
-    this.terminal = null;
+    // this.reactorMap = {};
+    // this.booster = null;
+    // this.terminal = null;
     this.hasSpawns = false;
     this.doUpdatePrimary = doEvery(UPDATE_ORG_TTL)((trace) => {
       this.updatePrimary(trace);
@@ -287,23 +287,23 @@ class Room extends OrgBase {
       // });
       // spawnsTrace.end();
 
-      const reactorsTrace = childrenTrace.begin('reactor');
-      Object.values(this.reactorMap).forEach((reactor) => {
-        reactor.update(reactorsTrace);
-      });
-      reactorsTrace.end();
+      // const reactorsTrace = childrenTrace.begin('reactor');
+      // Object.values(this.reactorMap).forEach((reactor) => {
+      //   reactor.update(reactorsTrace);
+      // });
+      // reactorsTrace.end();
 
-      if (this.booster) {
-        const boosterTrace = childrenTrace.begin('booster');
-        this.booster.update(boosterTrace);
-        boosterTrace.end();
-      }
+      // if (this.booster) {
+      //   const boosterTrace = childrenTrace.begin('booster');
+      //   this.booster.update(boosterTrace);
+      //   boosterTrace.end();
+      // }
 
-      if (this.terminal) {
-        const terminalTrace = childrenTrace.begin('terminal');
-        this.terminal.update(terminalTrace);
-        terminalTrace.end();
-      }
+      // if (this.terminal) {
+      //   const terminalTrace = childrenTrace.begin('terminal');
+      //   this.terminal.update(terminalTrace);
+      //   terminalTrace.end();
+      // }
     }
 
     childrenTrace.end();
@@ -334,23 +334,23 @@ class Room extends OrgBase {
       // });
       // spawnsTrace.end();
 
-      const reactorsTrace = childrenTrace.begin('reactors');
-      Object.values(this.reactorMap).forEach((reactor) => {
-        reactor.process(reactorsTrace);
-      });
-      reactorsTrace.end();
+      // const reactorsTrace = childrenTrace.begin('reactors');
+      // Object.values(this.reactorMap).forEach((reactor) => {
+      //   reactor.process(reactorsTrace);
+      // });
+      // reactorsTrace.end();
 
-      if (this.booster) {
-        const boosterTrace = childrenTrace.begin('booster');
-        this.booster.process(processTrace);
-        boosterTrace.end();
-      }
+      // if (this.booster) {
+      //   const boosterTrace = childrenTrace.begin('booster');
+      //   this.booster.process(processTrace);
+      //   boosterTrace.end();
+      // }
 
-      if (this.terminal) {
-        const terminalProcess = childrenTrace.begin('terminal');
-        this.terminal.process(processTrace);
-        terminalProcess.end();
-      }
+      // if (this.terminal) {
+      //   const terminalProcess = childrenTrace.begin('terminal');
+      //   this.terminal.process(processTrace);
+      //   terminalProcess.end();
+      // }
     }
 
     childrenTrace.end();
@@ -393,43 +393,44 @@ class Room extends OrgBase {
   getHostileStructures() {
     return this.hostileStructures;
   }
-  getBooster() {
-    return this.booster;
-  }
+  // getBooster() {
+  //   return this.booster;
+  // }
   getLabs() {
     return this.myStructures.filter((structure) => {
       return structure.structureType === STRUCTURE_LAB;
     });
   }
   updateLabs(trace) {
-    const labsSetupTrace = trace.begin('lab_setup');
+    // const labsSetupTrace = trace.begin('lab_setup');
 
-    const reactors = [];
-    let booster = null;
+    // const reactors = [];
+    // let booster = null;
 
     // Get list of labs in rooms
-    let labs = this.getLabs();
+    // let labs = this.getLabs();
 
     // Find lab closest to spawn
-    const spawns = this.getSpawns();
-    if (!spawns.length) {
-      return [reactors, booster];
-    }
+    // const spawns = this.getSpawns();
+    // if (!spawns.length) {
+    //   return [reactors, booster];
+    // }
 
-    let boosterLabs = [];
-    const primaryBooster = _.sortBy(spawns[0].pos.findInRange(labs, 2), 'id').shift();
-    if (primaryBooster) {
-      boosterLabs = _.sortBy(primaryBooster.pos.findInRange(labs, 1), 'id');
-      if (boosterLabs.length >= 3) {
-        booster = new Booster(this, boosterLabs, trace);
-      }
-    }
+    // let boosterLabs = [];
+    // const primaryBooster = _.sortBy(spawns[0].pos.findInRange(labs, 2), 'id').shift();
+    // if (primaryBooster) {
+    //   boosterLabs = _.sortBy(primaryBooster.pos.findInRange(labs, 1), 'id');
+    //   if (boosterLabs.length >= 3) {
+    //     booster = new Booster(this, boosterLabs, trace);
+    //   }
+    // }
 
     // Subtract booster labs from list
-    labs = labs.filter((lab) => {
-      return _.findIndex(boosterLabs, {id: lab.id}) === -1;
-    });
+    // labs = labs.filter((lab) => {
+    //   return _.findIndex(boosterLabs, {id: lab.id}) === -1;
+    // });
 
+    /*
     if (this.room.storage) {
       // While we have at least 3 labs, create a reactor
       while (labs.length >= 3) {
@@ -453,29 +454,30 @@ class Room extends OrgBase {
         });
       }
     }
+    */
 
     // Update the reactor map (add missing items and remove extra items)
-    const reactorIds = _.pluck(reactors, 'id');
-    const reactorMap = _.indexBy(reactors, 'id');
-    const orgIds = Object.keys(this.reactorMap);
+    // const reactorIds = _.pluck(reactors, 'id');
+    // const reactorMap = _.indexBy(reactors, 'id');
+    // const orgIds = Object.keys(this.reactorMap);
 
-    const missingReactorIds = _.difference(reactorIds, orgIds);
-    missingReactorIds.forEach((id) => {
-      this.reactorMap[id] = reactorMap[id];
-    });
+    // const missingReactorIds = _.difference(reactorIds, orgIds);
+    // missingReactorIds.forEach((id) => {
+    //   this.reactorMap[id] = reactorMap[id];
+    // });
 
-    const extraReactorIds = _.difference(orgIds, reactorIds);
-    extraReactorIds.forEach((id) => {
-      delete this.reactorMap[id];
-    });
+    // const extraReactorIds = _.difference(orgIds, reactorIds);
+    // extraReactorIds.forEach((id) => {
+    //   delete this.reactorMap[id];
+    // });
 
-    if ((!this.booster && booster) || (this.booster && booster && this.booster.id !== booster.id)) {
-      this.booster = booster;
-    } else if (!booster) {
-      this.booster = null;
-    }
+    // if ((!this.booster && booster) || (this.booster && booster && this.booster.id !== booster.id)) {
+    //   this.booster = booster;
+    // } else if (!booster) {
+    //   this.booster = null;
+    // }
 
-    labsSetupTrace.end();
+    // labsSetupTrace.end();
   }
   getClosestStoreWithEnergy(creep) {
     if (this.room.storage) {
@@ -711,8 +713,12 @@ class Room extends OrgBase {
   getParkingLot() {
     return this.parkingLot;
   }
-  getTerminal() {
-    return this.terminal;
+  hasTerminal() {
+    if (!this.room) {
+      return false;
+    }
+
+    return !!this.room.terminal;
   }
   getMineralsWithExtractor() {
     const extractors = this.roomStructures.filter((structure) => {
@@ -800,10 +806,10 @@ class Room extends OrgBase {
     }, REQUEST_DISTRIBUTOR_TTL);
   }
   requestReserver() {
-    this.numReservers = _.filter(this.assignedCreeps, (creep) => {
+    this.numReservers = _.filter(Game.creeps, (creep) => {
       const role = creep.memory[MEMORY_ROLE];
-      return (role === WORKER_RESERVER) &&
-        creep.memory[MEMORY_ASSIGN_ROOM] === this.room.name && creepIsFresh(creep);
+      return (role === CREEPS.WORKER_RESERVER) &&
+        creep.memory[MEMORY.MEMORY_ASSIGN_ROOM] === this.id && creepIsFresh(creep);
     }).length;
 
     this.reservationTicks = 0;
@@ -1039,7 +1045,7 @@ class Room extends OrgBase {
   updatePrimary(trace) {
     trace = trace.begin('primary_room');
 
-    const room = this.room;
+    // const room = this.room;
 
     // Spawns
     const roomSpawns = this.getSpawns();
@@ -1060,14 +1066,14 @@ class Room extends OrgBase {
     this.hasSpawns = roomSpawns.length > 0;
 
     // Booster and Reactors
-    this.updateLabs(trace);
+    // this.updateLabs(trace);
 
     // Terminal
-    if ((!this.terminal && room.terminal) || (this.terminal && this.terminal.id !== room.terminal.id)) {
-      this.terminal = new Terminal(this, room.terminal, trace);
-    } else if (!room.terminal) {
-      this.terminal = null;
-    }
+    // if ((!this.terminal && room.terminal) || (this.terminal && this.terminal.id !== room.terminal.id)) {
+    //   this.terminal = new Terminal(this, room.terminal, trace);
+    // } else if (!room.terminal) {
+    //   this.terminal = null;
+    // }
 
     trace.end();
   }
@@ -1091,7 +1097,7 @@ class Room extends OrgBase {
   updateCreeps(trace) {
     const creepPrepTrace = trace.begin('creep_prep');
 
-    this.assignedCreeps = _.filter(this.getParent().getCreeps(), (creep) => {
+    this.assignedCreeps = _.filter(Game.creeps, (creep) => {
       return (creep.memory[MEMORY_ASSIGN_ROOM] === this.room.name ||
         creep.memory[MEMORY_HARVEST_ROOM] === this.room.name) || (
           creep.memory[MEMORY_ROLE] === WORKER_HAULER && creep.room.name === this.room.name);

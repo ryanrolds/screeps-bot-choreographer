@@ -64,6 +64,9 @@ export default class SourceRunnable {
       this.desiredMiners = 1;
     } else if (source instanceof Mineral) {
       this.desiredHarvesters = 1;
+      if (!source.mineralAmount) {
+        this.desiredHarvesters = 0;
+      }
     } else {
       this.desiredHarvesters = 3;
     }
@@ -75,6 +78,11 @@ export default class SourceRunnable {
 
     trace.log(this.sourceId, 'Source run', {});
 
+    const room = this.orgRoom.getRoomObject();
+    if (!room) {
+      return terminate();
+    }
+
     this.ttl -= ticks;
     this.workerTTL -= ticks;
     this.haulingTTL -= ticks;
@@ -84,9 +92,9 @@ export default class SourceRunnable {
 
       // Check miners and harvesters
       if (this.desiredMiners) {
-        this.requestMiner();
+        this.requestMiner(room);
       } else if (this.desiredHarvesters) {
-        this.requestHarvester();
+        this.requestHarvester(room);
       }
     }
 
@@ -102,9 +110,7 @@ export default class SourceRunnable {
     return running();
   }
 
-  requestMiner() {
-    const room = this.orgRoom.getRoomObject();
-
+  requestMiner(room: Room) {
     const roomCreeps = this.orgRoom.getCreeps();
     const numMiners = roomCreeps.filter((creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
@@ -133,9 +139,7 @@ export default class SourceRunnable {
     }
   }
 
-  requestHarvester() {
-    const room = this.orgRoom.getRoomObject();
-
+  requestHarvester(room: Room) {
     const roomCreeps = this.orgRoom.getCreeps();
     const numHarvesters = roomCreeps.filter((creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];

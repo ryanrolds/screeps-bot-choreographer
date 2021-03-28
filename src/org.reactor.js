@@ -13,7 +13,7 @@ const TASK_PHASE_UNLOAD = 'phase_unload';
 const REQUEST_RESOURCE_TTL = 20;
 const REQUEST_LOAD_TTL = 10;
 const REQUEST_UNLOAD_TTL = 10;
-const TASK_TTL = 300;
+
 
 class Reactor extends OrgBase {
   constructor(parent, labs, trace) {
@@ -22,9 +22,13 @@ class Reactor extends OrgBase {
     const setupTrace = this.trace.begin('constructor');
 
     this.labs = labs;
-    this.room = this.getRoom().getRoomObject();
-    this.terminal = this.getRoom().getTerminal();
-    this.task = this.room.memory[MEMORY.REACTOR_TASK] || null;
+
+    const room = this.getRoom().getRoomObject();
+    if (!room) {
+      throw new Error('cannot create a reactor when room does not exist');
+    }
+
+    this.task = this.getTask();
 
     this.doRequestResource = doEvery(REQUEST_RESOURCE_TTL)((room, resource, missingAmount, ttl) => {
       this.getKingdom().getResourceGovernor().requestResource(room, resource, missingAmount, ttl);
@@ -55,9 +59,13 @@ class Reactor extends OrgBase {
       return;
     }
 
-    this.room = this.getRoom().getRoomObject();
-    this.terminal = this.getRoom().getTerminal();
-    this.task = this.room.memory[MEMORY.REACTOR_TASK] || null;
+    const room = this.getRoom().getRoomObject();
+    if (!room) {
+      updateTrace.end();
+      return;
+    }
+
+    this.task = room.memory[this.getTaskMemoryId()] || null;
 
     console.log(this);
 
@@ -66,12 +74,18 @@ class Reactor extends OrgBase {
   process(trace) {
     const processTrace = trace.begin('process');
 
+    const room = this.getRoom().getRoomObject();
+    if (!room) {
+      processTrace.end();
+      return;
+    }
+
     processTrace.log(this.id, 'processing reactor', {task: this.task});
 
     if (!this.task) {
       const task = this.getKingdom().getNextRequest(TOPICS.TASK_REACTION);
       if (task) {
-        this.room.memory[MEMORY.REACTOR_TASK] = task;
+        room.memory[this.getTaskMemoryId()] = task;
         this.task = task;
       }
     }
@@ -93,14 +107,14 @@ class Reactor extends OrgBase {
             this.clearTask();
             return;
           } else {
-            this.room.memory[MEMORY.REACTOR_TASK][MEMORY.REACTOR_TTL] = ttl - 1;
+            room.memory[this.getTaskMemoryId()][MEMORY.REACTOR_TTL] = ttl - 1;
           }
 
           const readyA = this.prepareInput(this.labs[1], inputA, amount);
           const readyB = this.prepareInput(this.labs[2], inputB, amount);
 
           if (readyA && readyB) {
-            this.room.memory[MEMORY.REACTOR_TASK][MEMORY.TASK_PHASE] = TASK_PHASE_REACT;
+            room.memory[this.getTaskMemoryId()][MEMORY.TASK_PHASE] = TASK_PHASE_REACT;
             break;
           }
 
@@ -112,7 +126,7 @@ class Reactor extends OrgBase {
 
           const result = this.labs[0].runReaction(this.labs[1], this.labs[2]);
           if (result !== OK) {
-            this.room.memory[MEMORY.REACTOR_TASK][MEMORY.TASK_PHASE] = TASK_PHASE_UNLOAD;
+            room.memory[this.getTaskMemoryId()][MEMORY.TASK_PHASE] = TASK_PHASE_UNLOAD;
           }
 
           break;
@@ -163,14 +177,27 @@ class Reactor extends OrgBase {
 
     return this.getTask().details[MEMORY.REACTOR_OUTPUT];
   }
+  getTaskMemoryId() {
+    return `${MEMORY.REACTOR_TASK}_${this.labs[0].id}`;
+  }
   getTask() {
-    return this.room.memory[MEMORY.REACTOR_TASK] || null;
+    const room = this.getRoom().getRoomObject();
+    if (!room) {
+      return null;
+    }
+
+    return room.memory[this.getTaskMemoryId()] || null;
   }
   isIdle() {
     return !this.getTask();
   }
   clearTask() {
-    delete this.room.memory[MEMORY.REACTOR_TASK];
+    const room = this.getRoom().getRoomObject();
+    if (!room) {
+      return;
+    }
+
+    delete room.memory[this.getTaskMemoryId()];
   }
   prepareInput(lab, resource, desiredAmount) {
     let currentAmount = 0;
@@ -192,7 +219,6 @@ class Reactor extends OrgBase {
       const missingAmount = desiredAmount - currentAmount;
 
       if (!pickup) {
-        // console.log('requesting', this.room.name, resource, missingAmount);
         this.doRequestResource(room, resource, missingAmount, REQUEST_RESOURCE_TTL);
       } else {
         this.doLoadLab(lab, pickup, resource, missingAmount);

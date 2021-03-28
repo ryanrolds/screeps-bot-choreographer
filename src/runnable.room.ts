@@ -7,6 +7,7 @@ import TowerRunnable from "./runnable.tower"
 import SourceRunnable from "./runnable.source";
 import SpawnManager from "./manager.spawns";
 import TerminalRunnable from "./runnable.terminal";
+import {LabsManager} from "./manager.labs";
 
 export default class RoomRunnable {
   id: string;
@@ -56,7 +57,7 @@ export default class RoomRunnable {
       // Spawn Manager
       const spawnManagerId = `spawns_${this.id}`
       if (!this.scheduler.hasProcess(spawnManagerId)) {
-        this.scheduler.registerProcess(new Process(spawnManagerId, 'links', Priorities.DEFENCE,
+        this.scheduler.registerProcess(new Process(spawnManagerId, 'spawns', Priorities.DEFENCE,
           new SpawnManager(orgRoom, spawnManagerId)));
       }
 
@@ -69,30 +70,34 @@ export default class RoomRunnable {
           this.scheduler.registerProcess(new Process(towerId, 'towers', Priorities.DEFENCE,
             new TowerRunnable(orgRoom, tower)));
         }
-      })
+      });
 
       // Link Manager
       const linkManagerId = `links_${this.id}`
       if (!this.scheduler.hasProcess(linkManagerId)) {
         this.scheduler.registerProcess(new Process(linkManagerId, 'links', Priorities.LOGISTICS,
-          new LinkManager(orgRoom)));
+          new LinkManager(linkManagerId, orgRoom)));
       }
 
       // Labs Manager
+      const labsManagerId = `labs_${this.id}`;
+      if (!this.scheduler.hasProcess(labsManagerId)) {
+        this.scheduler.registerProcess(new Process(labsManagerId, 'labs', Priorities.LOGISTICS,
+          new LabsManager(labsManagerId, orgRoom, this.scheduler)));
+      }
 
       // Terminal runnable
       if (room.terminal) {
         const terminalId = room.terminal.id;
         if (!this.scheduler.hasProcess(terminalId)) {
           this.scheduler.registerProcess(new Process(terminalId, 'terminals', Priorities.LOGISTICS,
-            new TerminalRunnable(orgRoom, room.terminal)))
+            new TerminalRunnable(orgRoom, room.terminal)));
         }
       }
 
       // Observer runnable
-
     }
 
-    return running();
+    return sleeping(10);
   }
 }

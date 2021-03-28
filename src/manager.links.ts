@@ -5,6 +5,7 @@ import OrgRoom from "./org.room";
 import * as MEMORY from "./constants.memory"
 import * as TASKS from "./constants.tasks"
 import * as TOPICS from "./constants.topics"
+import {exception} from "node:console";
 
 const TICK_STEP = 5;
 const PROCESS_TTL = 250;
@@ -21,12 +22,15 @@ export default class LinkManager {
   haulTTL: number;
   prevTime: number;
 
-  constructor(room: OrgRoom) {
-    this.orgRoom = room;
+  constructor(id: string, orgRoom: OrgRoom) {
+    this.id = id;
+    this.orgRoom = orgRoom;
 
-    const roomObject = room.getRoomObject() as Room;
+    const roomObject = orgRoom.getRoomObject() as Room;
+    if (!roomObject) {
+      throw new Error('cannot create a link manager when room does not exist');
+    }
 
-    this.id = `links_${roomObject.name}`;
     this.terminal = roomObject.terminal?.id;
     this.storageLink = null;
     this.sourceLinks = [];
@@ -68,6 +72,13 @@ export default class LinkManager {
     const ticks = Game.time - this.prevTime;
     this.prevTime = Game.time;
 
+    this.haulTTL -= ticks;
+
+    const room = this.orgRoom.getRoomObject();
+    if (!room) {
+      return terminate();
+    }
+
     trace.log(this.id, 'running', {
       terminal: this.terminal,
       storageLink: this.storageLink,
@@ -79,13 +90,13 @@ export default class LinkManager {
 
     const storageLink = Game.getObjectById<StructureLink>(this.storageLink);
     if (!this.terminal || !storageLink) {
-      trace.log(this.orgRoom.getRoomObject().name, "exiting due to missing terminal or storage link", {});
+      trace.log(room.name, "exiting due to missing terminal or storage link", {});
       return terminate();
     }
 
     // If our link Ids are old we should terminate
     let shouldTerminate = false;
-    this.ttl = this.ttl - ticks;
+    this.ttl -= ticks;
     if (this.ttl < 0) {
       shouldTerminate = true;
     }
@@ -146,7 +157,7 @@ export default class LinkManager {
       }
     }
 
-    this.haulTTL = this.haulTTL - ticks;
+    trace.log(this.id, 'has energy', {hasEnergy, haulTTL: this.haulTTL})
 
     // If we have 2 links of energy ready, empty storage link to make room
     if (hasEnergy.length >= 2 && hasEnergy.indexOf(storageLink) != -1 && this.haulTTL < 0) {
@@ -160,7 +171,6 @@ export default class LinkManager {
         return running();
       }
 
-
       this.haulTTL = HAUL_TTL;
 
       const details = {
@@ -172,7 +182,7 @@ export default class LinkManager {
         [MEMORY.MEMORY_HAUL_DROPOFF]: reserve.id,
       };
 
-      (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, 1, details, HAUL_TTL);
+      (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, 2, details, HAUL_TTL);
       trace.log(this.id, 'haul energy from storage link', {
         request: details,
       });

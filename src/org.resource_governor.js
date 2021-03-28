@@ -8,7 +8,8 @@ const {doEvery} = require('./lib.scheduler');
 
 const RESERVE_LIMIT = 10000;
 const REACTION_BATCH_SIZE = 1000;
-const MIN_CREDITS = 10000;
+const MIN_CREDITS = 5000;
+const MIN_CREDITS_FOR_BOOSTS = 15000;
 const MIN_SELL_ORDER_SIZE = 1000;
 const MAX_SELL_AMOUNT = 25000;
 
@@ -38,7 +39,6 @@ class Resources extends OrgBase {
     this.sharedResources = {};
 
     this.availableReactions = {};
-    this.activeReactions = [];
 
     this.doRequestReactions = doEvery(REQUEST_REACTION_TTL)(() => {
       this.requestReactions();
@@ -60,7 +60,6 @@ class Resources extends OrgBase {
     this.resources = this.getReserveResources(true);
     this.sharedResources = this.getSharedResources();
 
-    this.activeReactions = this.getActiveReactions();
     this.availableReactions = this.getReactions();
 
     this.doRequestReactions();
@@ -84,15 +83,14 @@ class Resources extends OrgBase {
     });
 
     return `* Resource Gov - ` +
-      `NextReactions: ${JSON.stringify(reactions)}, ` +
-      `CurrentReactions: ${JSON.stringify(this.activeReactions)}`;
+      `NextReactions: ${JSON.stringify(reactions)}`;
     // `SharedResources: ${JSON.stringify(this.sharedResources)}`;
   }
   updateStats() {
     const stats = this.getStats();
     stats.resources = this.resources;
   }
-  getTerminalWithResource(resource) {
+  getRoomWithTerminalWithResource(resource) {
     const terminals = this.getKingdom().getColonies().reduce((acc, colony) => {
       const room = colony.getPrimaryRoom();
       if (!room) {
@@ -101,7 +99,7 @@ class Resources extends OrgBase {
       }
 
       // If colony doesn't have a terminal don't include it
-      if (!room.terminal) {
+      if (!room.hasTerminal()) {
         return acc;
       }
 
@@ -127,7 +125,7 @@ class Resources extends OrgBase {
         return acc;
       }
 
-      return acc.concat({terminal: room.getTerminal(), amount});
+      return acc.concat({room: room, amount});
     }, []);
 
     return _.sortBy(terminals, 'amount').shift();
@@ -157,7 +155,7 @@ class Resources extends OrgBase {
       }
 
       // If colony doesn't have a terminal don't include it
-      if (!room.terminal) {
+      if (!room.hasTerminal()) {
         return;
       }
 
@@ -198,7 +196,7 @@ class Resources extends OrgBase {
   getReserveResources(includeTerminal) {
     return this.getKingdom().getColonies().reduce((acc, colony) => {
       // If colony doesn't have a terminal don't include it
-      if (!colony.getPrimaryRoom() || !colony.getPrimaryRoom().terminal) {
+      if (!colony.getPrimaryRoom() || !colony.getPrimaryRoom().hasTerminal()) {
         return acc;
       }
 
@@ -216,35 +214,10 @@ class Resources extends OrgBase {
       return acc + colony.getAmountInReserve(resource);
     }, 0);
   }
-  getReactors() {
-    return this.getKingdom().getColonies().reduce((acc, colony) => {
-      const room = colony.getPrimaryRoom();
-      if (!room) {
-        return acc;
-      }
-
-      // If colony doesn't have a terminal don't include it
-      if (!Object.keys(room.reactorMap).length) {
-        return acc;
-      }
-
-      return acc.concat(Object.values(room.reactorMap));
-    }, []);
-  }
-  getActiveReactions() {
-    return this.getReactors().filter((reactor) => {
-      return !reactor.isIdle();
-    }).map((reactor) => {
-      return {
-        room: reactor.getRoom().id,
-        output: reactor.getOutput(),
-      };
-    });
-  }
   getReactions() {
     let availableReactions = {};
     let missingOneInput = {};
-    // let overReserve = {};
+    const overReserve = {};
 
     const firstInputs = Object.keys(REACTIONS);
     firstInputs.forEach((inputA) => {
@@ -257,11 +230,6 @@ class Resources extends OrgBase {
       secondInputs.forEach((inputB) => {
         const output = REACTIONS[inputA][inputB];
 
-        const alreadyRunning = _.filter(this.activeReactions, {output}).length > 0;
-        if (alreadyRunning) {
-          return;
-        }
-
         // If we don't have a full batch if input mark missing one and go to next
         if (!this.sharedResources[inputB] || this.sharedResources[inputB] < REACTION_BATCH_SIZE) {
           if (!missingOneInput[output]) {
@@ -272,12 +240,12 @@ class Resources extends OrgBase {
         }
 
         // Check if we need more of the output
-        if (this.sharedResources[output] > RESERVE_LIMIT) {
+        if (this.sharedResources[output] > RESERVE_LIMIT && !overReserve[output]) {
           // overReserve[output] = {inputA, inputB, output};
-
           return;
         }
 
+        // If reaction isn't already present add it
         if (!availableReactions[output]) {
           availableReactions[output] = {inputA, inputB, output};
         }
@@ -337,8 +305,7 @@ class Resources extends OrgBase {
   }
   requestResource(room, resource, amount, ttl) {
     // We can't request a transfer if room lacks a terminal
-    const terminal = room.getTerminal();
-    if (!terminal) {
+    if (!room.hasTerminal()) {
       // console.log(`xxxxx Can't request resource for room without terminal: ${room.id}, ${resource}`);
       return;
     }
@@ -358,7 +325,7 @@ class Resources extends OrgBase {
       return;
     }
 
-    const result = this.getTerminalWithResource(resource);
+    const result = this.getRoomWithTerminalWithResource(resource);
     if (!result) {
       const details = {
         [MEMORY.TERMINAL_TASK_TYPE]: TASKS.TASK_MARKET_ORDER,
@@ -370,7 +337,7 @@ class Resources extends OrgBase {
       if (Game.market.credits > MIN_CREDITS) {
         // console.log('requesting purchase', resource, 'for', room.id, amount);
 
-        room.terminal.sendRequest(TOPICS.TOPIC_TERMINAL_TASK, PRIORITIES.TERMINAL_BUY,
+        room.sendRequest(TOPICS.TOPIC_TERMINAL_TASK, PRIORITIES.TERMINAL_BUY,
           details, ttl);
       } else {
         // console.log('not enough credits to purchase', resource, 'for', room.id, amount);
@@ -379,11 +346,11 @@ class Resources extends OrgBase {
       return;
     }
 
-    amount = _.min([terminal.amount, amount]);
+    amount = _.min([result.amount, amount]);
 
     // console.log('requesting transfer', resource, 'to', room.id, amount);
 
-    result.terminal.sendRequest(TOPICS.TOPIC_TERMINAL_TASK, PRIORITIES.TERMINAL_TRANSFER, {
+    result.room.sendRequest(TOPICS.TOPIC_TERMINAL_TASK, PRIORITIES.TERMINAL_TRANSFER, {
       [MEMORY.TERMINAL_TASK_TYPE]: TASKS.TASK_TRANSFER,
       [MEMORY.TRANSFER_RESOURCE]: resource,
       [MEMORY.TRANSFER_AMOUNT]: amount,
@@ -391,8 +358,7 @@ class Resources extends OrgBase {
     }, ttl);
   }
   createBuyOrder(room, resource, amount) {
-    const terminal = room.getTerminal();
-    if (!terminal) {
+    if (!room.hasTerminal()) {
       // console.log(`xxxxx Can't create buy order for room without terminal ${room.id} ${resource}`);
       return;
     }
@@ -463,13 +429,12 @@ class Resources extends OrgBase {
         return;
       }
 
-      const source = this.getTerminalWithResource(resource);
-      if (!source) {
-        // console.log(`SHOULD NOT HAPPEN: no terminals with resource: ${resource} ${excess}`);
+      const result = this.getRoomWithTerminalWithResource(resource);
+      if (!result) {
         return;
       }
 
-      const sellAmount = _.min([source.amount, excess, MAX_SELL_AMOUNT]);
+      const sellAmount = _.min([result.amount, excess, MAX_SELL_AMOUNT]);
 
       const details = {
         [MEMORY.TERMINAL_TASK_TYPE]: TASKS.TASK_MARKET_ORDER,
@@ -478,9 +443,7 @@ class Resources extends OrgBase {
         [MEMORY.MEMORY_ORDER_AMOUNT]: sellAmount,
       };
 
-      // console.log(`sell ${sellAmount} of ${resource} from ${source.terminal.getRoom().id}`);
-
-      source.terminal.sendRequest(TOPICS.TOPIC_TERMINAL_TASK, PRIORITIES.TERMINAL_SELL,
+      result.room.sendRequest(TOPICS.TOPIC_TERMINAL_TASK, PRIORITIES.TERMINAL_SELL,
         details, REQUEST_SELL_TTL);
     });
   }
@@ -491,10 +454,19 @@ class Resources extends OrgBase {
         return;
       }
 
-      const booster = primaryRoom.getBooster();
+      const room = primaryRoom.getRoomObject();
+      if (!room.terminal || !room.storage) {
+        return;
+      }
+
+      const booster = primaryRoom.booster;
       if (!booster) {
         return;
       }
+
+      // PREDICTION not checking that the labs are still valid because of the hack
+      // in runnable.labs that sets orgRoom.booster when creating the process
+      // will bite me, you're welcome future Ryan
 
       const allEffects = booster.getEffects();
       const availableEffects = booster.getAvailableEffects();
@@ -516,7 +488,7 @@ class Resources extends OrgBase {
 
         const roomReserve = primaryRoom.getReserveResources(true);
         desiredCompound = this.getDesiredCompound(effect, roomReserve);
-        if (desiredCompound.amount < MIN_CRITICAL_COMPOUND) {
+        if (desiredCompound.amount < MIN_CRITICAL_COMPOUND && Game.market.credits > MIN_CREDITS_FOR_BOOSTS) {
           this.createBuyOrder(primaryRoom, desiredCompound.resource, MIN_CRITICAL_COMPOUND);
           return;
         }

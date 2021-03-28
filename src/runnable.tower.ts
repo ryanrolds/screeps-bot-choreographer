@@ -39,8 +39,13 @@ export default class TowerRunnable {
     const ticks = Game.time - this.prevTime;
     this.prevTime = Game.time;
 
+    const room = this.orgRoom.getRoomObject()
+    if (!room) {
+      return terminate();
+    }
+
     trace.log(this.towerId, "tower runnable", {
-      room: this.orgRoom.getRoomObject().name,
+      room: room.name,
       id: this.towerId,
       haulTTL: this.haulTTL,
       repairTTL: this.repairTarget,

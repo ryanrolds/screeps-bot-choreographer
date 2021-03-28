@@ -44,7 +44,6 @@ class Colony extends OrgBase {
 
 
     this.pidDesiredHaulers = 0;
-
     if (this.primaryRoom) {
       Pid.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, 1, 0.15, 0.00005, 0);
     }

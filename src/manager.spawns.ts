@@ -28,6 +28,9 @@ export default class SpawnManager {
     this.boostTTL = 0;
 
     const roomObject: Room = this.orgRoom.getRoomObject()
+    if (!roomObject) {
+      throw new Error('cannot create a spawn manager when room does not exist');
+    }
 
     this.spawnIds = roomObject.find<StructureSpawn>(FIND_MY_STRUCTURES, {
       filter: structure => structure.structureType === STRUCTURE_SPAWN,
@@ -42,6 +45,9 @@ export default class SpawnManager {
     this.boostTTL -= ticks;
 
     const roomObject: Room = this.orgRoom.getRoomObject()
+    if (!roomObject) {
+      return terminate();
+    }
 
     trace.log(this.id, 'Spawn manager run', {});
 
