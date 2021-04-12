@@ -41,6 +41,24 @@ export class CreepManager {
         return;
       }
 
+      // Check if creep has role, if not then check if near portal and get stored memory
+      if (!creep.memory[MEMORY_ROLE]) {
+        creep.pos.findInRange<StructurePortal>(FIND_STRUCTURES, 10, {
+          filter: (structure) => {
+            return structure.structureType === STRUCTURE_PORTAL;
+          }
+        }).forEach((portal) => {
+          const destination: any = portal.destination
+
+          if (destination.shard) {
+            const backup = kingdom.getScribe().getCreepBackup(destination.shard, creep.name)
+            if (backup) {
+              creep.memory = backup.memory;
+            }
+          }
+        })
+      }
+
       const process = this.getCreepProcess(id, creep);
       this.scheduler.registerProcess(process);
     });

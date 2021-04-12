@@ -1,17 +1,17 @@
-const MEMORY = require('./constants.memory');
+import * as MEMORY from './constants.memory';
 
-module.exports.setup = (memory, prefix, setPoint, p, i, d) => {
+export const setup = (memory: RoomMemory, prefix: string, setPoint: number, p: number, i: number, d: number) => {
   if (!p) {
-    throw new Error('set: missing setpoint or p');
+    throw new Error('missing p');
   }
 
   memory[`${prefix}${MEMORY.PID_SUFFIX_SETPOINT}`] = setPoint;
   memory[`${prefix}${MEMORY.PID_SUFFIX_P}`] = p;
   memory[`${prefix}${MEMORY.PID_SUFFIX_I}`] = i || 0;
   memory[`${prefix}${MEMORY.PID_SUFFIX_D}`] = d || 0;
-};
+}
 
-module.exports.update = (memory, prefix, value, time) => {
+export const update = (memory: RoomMemory, prefix: string, value: number, time: number) => {
   const setPoint = memory[`${prefix}${MEMORY.PID_SUFFIX_SETPOINT}`];
   const p = memory[`${prefix}${MEMORY.PID_SUFFIX_P}`];
   const i = memory[`${prefix}${MEMORY.PID_SUFFIX_I}`] || 0;
@@ -41,6 +41,4 @@ module.exports.update = (memory, prefix, value, time) => {
   memory[`${prefix}${MEMORY.PID_SUFFIX_INTEGRAL}`] = integral;
 
   return p * err + integral + d * det;
-};
-
-
+}

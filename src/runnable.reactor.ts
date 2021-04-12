@@ -35,6 +35,7 @@ export default class ReactorRunnable {
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
     const ticks = Game.time - this.prevTime;
+    this.prevTime = Game.time;
 
     const room = this.orgRoom.getRoomObject();
     if (!room) {
@@ -63,7 +64,7 @@ export default class ReactorRunnable {
     });
 
     if (task) {
-      const sleepFor = this.processTask(room, labs, task)
+      const sleepFor = this.processTask(room, labs, task, ticks, trace)
       if (sleepFor) {
         return sleeping(sleepFor);
       }
@@ -102,7 +103,8 @@ export default class ReactorRunnable {
     delete room.memory[this.getTaskMemoryId()];
   }
 
-  processTask(room: Room, labs: StructureLab[], task): number {
+  // TODO create type for task
+  processTask(room: Room, labs: StructureLab[], task: any, ticks: number, trace: Tracer): number {
     const inputA = task.details[MEMORY.REACTOR_INPUT_A];
     const amount = task.details[MEMORY.REACTOR_AMOUNT];
     const inputB = task.details[MEMORY.REACTOR_INPUT_B];
@@ -115,17 +117,21 @@ export default class ReactorRunnable {
         if (ttl === undefined) {
           ttl = TASK_TTL;
         }
+
         if (ttl <= 0) {
+          trace.log(this.id, 'ttl exceeded, clearing task', {});
           this.clearTask();
           return NO_SLEEP;
         } else {
-          room.memory[this.getTaskMemoryId()][MEMORY.REACTOR_TTL] = ttl - 1;
+          room.memory[this.getTaskMemoryId()][MEMORY.TASK_PHASE] = TASK_PHASE_LOAD;
+          room.memory[this.getTaskMemoryId()][MEMORY.REACTOR_TTL] = ttl - ticks;
         }
 
-        const readyA = this.prepareInput(labs[1], inputA, amount);
-        const readyB = this.prepareInput(labs[2], inputB, amount);
+        const readyA = this.prepareInput(labs[1], inputA, amount, trace);
+        const readyB = this.prepareInput(labs[2], inputB, amount, trace);
 
         if (readyA && readyB) {
+          trace.log(this.id, 'loaded, moving to react phase', {});
           room.memory[this.getTaskMemoryId()][MEMORY.TASK_PHASE] = TASK_PHASE_REACT;
           return NO_SLEEP;
         }
@@ -133,23 +139,27 @@ export default class ReactorRunnable {
         return REQUEST_LOAD_TTL;
       case TASK_PHASE_REACT:
         if (labs[0].cooldown) {
+          trace.log(this.id, 'reacting cooldown', {cooldown: labs[0].cooldown});
           return labs[0].cooldown;
         }
 
         const result = labs[0].runReaction(labs[1], labs[2]);
         if (result !== OK) {
+          trace.log(this.id, 'reacted, moving to unload phase', {});
           room.memory[this.getTaskMemoryId()][MEMORY.TASK_PHASE] = TASK_PHASE_UNLOAD;
+          return NO_SLEEP;
         }
 
         return REACTION_TTL;
       case TASK_PHASE_UNLOAD:
         const lab = labs[0];
         if (!lab.mineralType || lab.store.getUsedCapacity(lab.mineralType) === 0) {
+          trace.log(this.id, 'unloaded, task complete', {});
           this.clearTask();
-          break;
+          return NO_SLEEP;
         }
 
-        this.unloadLab(labs[0]);
+        this.unloadLab(labs[0], trace);
 
         return REQUEST_UNLOAD_TTL;
       default:
@@ -159,15 +169,15 @@ export default class ReactorRunnable {
     }
   }
 
-  unloadLabs(labs: StructureLab[]) {
+  unloadLabs(labs: StructureLab[], trace: Tracer) {
     labs.forEach((lab) => {
       if (lab.mineralType) {
-        this.unloadLab(lab);
+        this.unloadLab(lab, trace);
       }
     });
   }
 
-  prepareInput(lab: StructureLab, resource, desiredAmount: number) {
+  prepareInput(lab: StructureLab, resource, desiredAmount: number, trace: Tracer) {
     let currentAmount = 0;
     if (lab.mineralType) {
       currentAmount = lab.store.getUsedCapacity(lab.mineralType);
@@ -175,7 +185,7 @@ export default class ReactorRunnable {
 
     // Unload the lab if it's not the right mineral
     if (lab.mineralType && lab.mineralType !== resource && lab.store.getUsedCapacity(lab.mineralType) > 0) {
-      this.unloadLab(lab);
+      this.unloadLab(lab, trace);
       return false;
     }
 
@@ -186,10 +196,11 @@ export default class ReactorRunnable {
 
       if (!pickup) {
         // TODO this really should use topics/IPC
+        trace.log(this.id, 'requesting resource from governor', {resource, desiredAmount, currentAmount});
         (this.orgRoom as any).getKingdom().getResourceGovernor()
           .requestResource(this.orgRoom, resource, missingAmount, REQUEST_LOAD_TTL);
       } else {
-        this.loadLab(lab, pickup, resource, missingAmount);
+        this.loadLab(lab, pickup, resource, missingAmount, trace);
       }
 
       return false;
@@ -198,7 +209,15 @@ export default class ReactorRunnable {
     return true;
   }
 
-  loadLab(lab: StructureLab, pickup: AnyStoreStructure, resource: ResourceConstant, amount: number) {
+  loadLab(lab: StructureLab, pickup: AnyStoreStructure, resource: ResourceConstant, amount: number, trace: Tracer) {
+    trace.log(this.id, 'requesting load', {
+      lab: lab.id,
+      resource: resource,
+      amount: amount,
+      pickup: pickup.id,
+      ttl: REQUEST_LOAD_TTL,
+    });
+
     (this.orgRoom as any).getColony().sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_REACTION, {
       [MEMORY.TASK_ID]: `load-${this.id}-${Game.time}`,
       [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
@@ -209,9 +228,17 @@ export default class ReactorRunnable {
     }, REQUEST_LOAD_TTL);
   }
 
-  unloadLab(lab) {
+  unloadLab(lab, trace: Tracer) {
     const currentAmount = lab.store.getUsedCapacity(lab.mineralType);
     const dropoff = this.orgRoom.getReserveStructureWithRoomForResource(lab.mineralType);
+
+    trace.log(this.id, 'requesting unload', {
+      lab: lab.id,
+      resource: lab.mineralType,
+      amount: currentAmount,
+      dropoff: dropoff.id,
+      ttl: REQUEST_LOAD_TTL,
+    });
 
     (this.orgRoom as any).getColony().sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_REACTION, {
       [MEMORY.TASK_ID]: `unload-${this.id}-${Game.time}`,

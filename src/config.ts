@@ -1,10 +1,14 @@
 
+export interface ShardConfig {
+  [key: string]: ColonyConfig;
+}
+
 export interface ColonyConfig {
-  id: String;
-  primary: String;
-  rooms: String[];
+  id: string;
+  primary: string;
+  rooms: string[];
 }
 
 export interface KingdomConfig {
-  [key: string]: ColonyConfig;
+  [key: string]: ShardConfig;
 }

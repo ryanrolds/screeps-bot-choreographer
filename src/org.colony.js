@@ -2,7 +2,7 @@ const Room = require('./org.room');
 const OrgBase = require('./org.base');
 const Observer = require('./org.observer');
 const Topics = require('./lib.topics');
-const Pid = require('./lib.pid');
+const PID = require('./lib.pid');
 const {doEvery} = require('./lib.scheduler');
 
 const MEMORY = require('./constants.memory');
@@ -45,7 +45,7 @@ class Colony extends OrgBase {
 
     this.pidDesiredHaulers = 0;
     if (this.primaryRoom) {
-      Pid.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, 1, 0.15, 0.00005, 0);
+      PID.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, 0, 0.4, 0.0005, 0);
     }
 
     this.roomMap = {};
@@ -143,7 +143,7 @@ class Colony extends OrgBase {
     numHaulTasks -= this.idleHaulers;
 
     if (this.primaryRoom) {
-      this.pidDesiredHaulers = Pid.update(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS,
+      this.pidDesiredHaulers = PID.update(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS,
         numHaulTasks, Game.time);
     }
 

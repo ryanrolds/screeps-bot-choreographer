@@ -22,6 +22,9 @@ describe('Scheduler', () => {
 
     mockGlobal<Game>('Game', {
       time: 1,
+      shard: {
+        name: 'shard0',
+      },
       cpu: {
         limit: 20,
         tickLimit: 50,

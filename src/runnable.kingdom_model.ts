@@ -2,7 +2,7 @@ import {Process, Runnable, RunnableResult, running, sleeping, terminate} from ".
 import {Tracer} from './lib.tracing';
 import Kingdom from "./org.kingdom";
 
-export default class KingdomRunnable {
+export default class KingdomModelRunnable {
   constructor() { }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {

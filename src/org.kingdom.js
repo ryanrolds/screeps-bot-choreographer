@@ -134,6 +134,9 @@ class Kingdom extends OrgBase {
   getKingdom() {
     return this;
   }
+  getConfig(shardName) {
+    return this.config[shardName] || null;
+  }
   getResourceGovernor() {
     return this.resourceGovernor;
   }
@@ -260,13 +263,18 @@ class Kingdom extends OrgBase {
 
     this.creeps = _.values(Game.creeps);
 
+    const shardConfig = this.getConfig(Game.shard.name);
+    if (!shardConfig) {
+      return;
+    }
+
     // Colonies
-    const configIds = Object.keys(this.config);
+    const configIds = Object.keys(shardConfig);
     const orgIds = Object.keys(this.colonies);
 
     const missingColonyIds = _.difference(configIds, orgIds);
     missingColonyIds.forEach((id) => {
-      this.colonies[id] = new Colony(this, this.config[id], orgUpdateTrace);
+      this.colonies[id] = new Colony(this, shardConfig[id], orgUpdateTrace);
     });
 
     const extraColonyIds = _.difference(orgIds, configIds);

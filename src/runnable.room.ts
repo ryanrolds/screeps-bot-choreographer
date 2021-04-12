@@ -21,13 +21,17 @@ export default class RoomRunnable {
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
     const room = Game.rooms[this.id];
     if (!room) {
+      trace.log(this.id, 'cannot find room in game', {});
       return terminate();
     }
 
     const orgRoom = kingdom.getRoomByName(this.id);
     if (!orgRoom) {
+      trace.log(this.id, 'cannot find room in kingdom', {});
       return terminate();
     }
+
+    trace.log(this.id, 'room run', {});
 
     // Sources
     room.find<FIND_SOURCES>(FIND_SOURCES).forEach((source) => {

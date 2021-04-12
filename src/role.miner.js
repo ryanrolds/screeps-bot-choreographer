@@ -37,32 +37,51 @@ const harvest = behaviorTree.leafNode(
             creep.store.getUsedCapacity(RESOURCE_ENERGY),
           ],
         );
+
         if (amount) {
           const result = creep.transfer(link, RESOURCE_ENERGY, amount);
-          trace.log(creep.id, 'creep transfer to link', {result});
+          trace.log(creep.id, 'creep transfer to link', {result, amount});
           return RUNNING;
         }
       }
     }
 
-    const destination = Game.getObjectById(creep.memory[MEMORY.MEMORY_HARVEST]);
+    const destinationId = creep.memory[MEMORY.MEMORY_HARVEST];
+    const destination = Game.getObjectById(destinationId);
     if (!destination) {
+      trace.log(creep.id, 'destination not found', {destinationId});
       return FAILURE;
     }
 
     const result = creep.harvest(destination);
-    if (result === ERR_FULL) {
-      return SUCCESS;
-    }
-    if (creep.store.getFreeCapacity() === 0) {
-      return SUCCESS;
-    }
-    if (result === ERR_NOT_ENOUGH_RESOURCES) {
+    trace.log(creep.id, 'harvest result', {result});
+
+    if (result === ERR_NOT_IN_RANGE) {
+      trace.log(creep.id, 'not in range result', {result, destinationId});
       return FAILURE;
     }
+
+    if (result === ERR_FULL) {
+      trace.log(creep.id, 'full result', {result});
+      return SUCCESS;
+    }
+
+    if (creep.store.getFreeCapacity() === 0) {
+      trace.log(creep.id, 'creep has no free capacity', {});
+      return SUCCESS;
+    }
+
+    if (result === ERR_NOT_ENOUGH_RESOURCES) {
+      trace.log(creep.id, 'not enough resources', {result});
+      return FAILURE;
+    }
+
     if (result === OK) {
+      trace.log(creep.id, 'ok result', {result});
       return RUNNING;
     }
+
+    trace.log(creep.id, 'harvest no ok', {result});
 
     return FAILURE;
   },
@@ -73,6 +92,10 @@ const waitUntilSourceReady = behaviorTree.leafNode(
   (creep) => {
     const source = Game.getObjectById(creep.memory[MEMORY.MEMORY_HARVEST]);
     if (!source) {
+      return FAILURE;
+    }
+
+    if (creep.pos.getRangeTo(source) > 1) {
       return FAILURE;
     }
 
@@ -88,7 +111,7 @@ const behavior = behaviorTree.sequenceNode(
   'mine_energy',
   [
     selectSource,
-    behaviorMovement.cachedMoveToMemory(MEMORY.MEMORY_DESTINATION, 0, false, 50, 1500),
+    behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 0, false, 50, 1500),
     behaviorCommute.setCommuteDuration,
     behaviorTree.repeatUntilFailure(
       'mine_until_failure',

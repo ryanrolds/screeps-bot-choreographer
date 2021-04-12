@@ -32,7 +32,7 @@ const HAUL_BOOST = 1;
 // Reactions
 REACTION_PRIORITIES = {
   G: 10,
-  OH: 10,
+  OH: 11,
   ZK: 10,
   UL: 10,
   LH: 1, // repair/build

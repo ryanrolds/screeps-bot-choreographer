@@ -39,6 +39,9 @@ describe('Creeps Manager', () => {
 
     mockGlobal<Game>('Game', {
       time: 1,
+      shard: {
+        name: 'shard0',
+      },
       cpu: {
         limit: 20,
         tickLimit: 50,

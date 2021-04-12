@@ -8,7 +8,9 @@ module.exports.MEMORY_SOURCE_ROOM = 'source';
 // General movement memory IDs (use this for nearly all movement)
 module.exports.MEMORY_DESTINATION = 'destination';
 module.exports.MEMORY_DESTINATION_ROOM = 'destination_room';
+module.exports.MEMORY_DESTINATION_SHARD = 'destination_shard';
 module.exports.PATH_CACHE = 'path_cache';
+module.exports.MEMORY_DESTINATION_POS = 'destination_pos';
 
 // Long term memory IDs
 module.exports.MEMORY_HARVEST = 'harvest';
@@ -19,12 +21,16 @@ module.exports.MEMORY_WITHDRAW_ROOM = 'withdraw_room';
 module.exports.MEMORY_DROPOFF = 'transfer';
 module.exports.MEMORY_CLAIM = 'claim';
 module.exports.MEMORY_RESERVE = 'reserve';
+module.exports.MEMORY_ORIGIN_SHARD = 'shard';
 module.exports.MEMORY_ORIGIN = 'origin';
 module.exports.MEMORY_FLAG = 'flag';
-module.exports.MEMORY_ASSIGN_ROOM = 'assignment_room';
 module.exports.MEMORY_COLONY = 'colony';
 module.exports.MEMORY_START_TICK = 'start_tick';
 module.exports.MEMORY_COMMUTE_DURATION = 'commute_duration';
+
+// Assign
+module.exports.MEMORY_ASSIGN_SHARD = 'assignment_shard';
+module.exports.MEMORY_ASSIGN_ROOM = 'assignment_room';
 
 // base task
 module.exports.MEMORY_TASK_REQUESTER = 'task_requestor';

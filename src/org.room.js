@@ -43,7 +43,7 @@ const UPDATE_DAMAGED_STRUCTURES_TTL = 20;
 const UPDATE_DAMAGED_SECONDARY_TTL = 15;
 const UPDATE_DAMAGED_ROADS_TTL = 25;
 
-const REQUEST_HAUL_DROPPED_RESOURCES_TTL = 50;
+const REQUEST_HAUL_DROPPED_RESOURCES_TTL = 15;
 const REQUEST_DEFENDERS_TTL = 20;
 const REQUEST_DISTRIBUTOR_TTL = 25;
 const REQUEST_RESERVER_TTL = 50;
@@ -781,7 +781,7 @@ class Room extends OrgBase {
 
     let desiredDistributors = MIN_DISTRIBUTORS;
     if (this.room.controller.level >= 3) {
-      desiredDistributors = 2;
+      desiredDistributors = 1;
     }
 
     if (!this.hasStorage || numDistributors >= desiredDistributors) {
@@ -828,6 +828,17 @@ class Room extends OrgBase {
       }, REQUEST_RESERVER_TTL);
     }
   }
+  getReserveBuffer() {
+    if (!this.room.controller.my) {
+      return RESERVE_BUFFER;
+    }
+
+    if (this.room.controller.level < 4) {
+      return 2000;
+    }
+
+    return (this.room.controller.level - 3) * 100000;
+  }
   requestUpgrader() {
     if (!this.isPrimary) {
       return;
@@ -844,11 +855,12 @@ class Room extends OrgBase {
     let roomCapacity = 300;
 
     const reserveEnergy = this.getAmountInReserve(RESOURCE_ENERGY);
+    const reserveBuffer = this.getReserveBuffer();
 
     if (!this.room.controller.my) {
       desiredUpgraders = 0;
     } else if (this.room.controller.level === 8) {
-      parts = (reserveEnergy - RESERVE_BUFFER) / 1500;
+      parts = (reserveEnergy - reserveBuffer) / 1500;
       desiredUpgraders = 1;
     } else if (this.hasStorage) {
       roomCapacity = this.room.energyCapacityAvailable;
@@ -857,8 +869,8 @@ class Room extends OrgBase {
         maxParts = 15;
       }
 
-      if (this.room.storage && reserveEnergy > RESERVE_BUFFER) {
-        parts = (reserveEnergy - RESERVE_BUFFER) / 1500;
+      if (this.room.storage && reserveEnergy > reserveBuffer) {
+        parts = (reserveEnergy - reserveBuffer) / 1500;
       } else if (!this.room.storage && reserveEnergy > 1000) {
         parts = reserveEnergy - 1000 / 1500;
       }
@@ -883,15 +895,20 @@ class Room extends OrgBase {
         role: WORKER_UPGRADER,
         energyLimit: energyLimit,
         memory: {
-          [MEMORY_ASSIGN_ROOM]: this.id,
+          [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
           [MEMORY.MEMORY_COLONY]: this.getColony().id,
         },
       }, REQUEST_UPGRADER_TTL);
     }
   }
   requestBuilder() {
+    if (!Object.values(Game.spawns).length) {
+      // We have no spawns in this shard
+      return;
+    }
+
     this.builders = _.filter(this.assignedCreeps, (creep) => {
-      return creep.memory[MEMORY_ROLE] === WORKER_BUILDER && creepIsFresh(creep);
+      return creep.memory[MEMORY.MEMORY_ROLE] === WORKER_BUILDER && creepIsFresh(creep);
     });
 
     this.numConstructionSites = this.room.find(FIND_CONSTRUCTION_SITES).length;
@@ -911,7 +928,8 @@ class Room extends OrgBase {
     this.requestSpawn(PRIORITY_BUILDER - (this.builders.length * 2), {
       role: WORKER_BUILDER,
       memory: {
-        [MEMORY_ASSIGN_ROOM]: this.id,
+        [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
+        [MEMORY.MEMORY_ASSIGN_SHARD]: Game.shard.name,
         [MEMORY.MEMORY_COLONY]: this.getColony().id,
       },
     }, REQUEST_BUILDER_TTL);
@@ -1077,6 +1095,7 @@ class Room extends OrgBase {
 
     trace.end();
   }
+  /*
   updateOrgMap(roomStructures, keyName, orgMap, constructor, trace) {
     const roomIds = _.pluck(roomStructures, keyName);
     const orgIds = Object.keys(orgMap);
@@ -1094,6 +1113,7 @@ class Room extends OrgBase {
 
     return orgMap;
   }
+  */
   updateCreeps(trace) {
     const creepPrepTrace = trace.begin('creep_prep');
 

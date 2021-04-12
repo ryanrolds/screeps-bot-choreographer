@@ -127,12 +127,29 @@ export default class SpawnManager {
           request = (this.orgRoom as any).getKingdom().getTopics()
             .getMessageOfMyChoice(TOPICS.TOPIC_SPAWN, (messages) => {
               const selected = messages.filter((message) => {
+                const assignedShard = message.details.memory[MEMORY.MEMORY_ASSIGN_SHARD] || null;
+                if (assignedShard && assignedShard != Game.shard.name) {
+                  let portals: any[] = (this.orgRoom as any).getKingdom().getScribe()
+                    .getPortals(assignedShard).filter((portal) => {
+                      const distance = Game.map.getRoomLinearDistance((this.orgRoom as any).id,
+                        portal.pos.roomName);
+                      return distance < 2;
+                    });
+
+                  if (!portals.length) {
+                    return false;
+                  }
+
+                  return true;
+                }
+
                 const assignedRoom = message.details.memory[MEMORY.MEMORY_ASSIGN_ROOM];
                 if (!assignedRoom) {
                   return false;
                 }
 
-                const distance = Game.map.getRoomLinearDistance((this.orgRoom as any).id, assignedRoom);
+                const distance = Game.map.getRoomLinearDistance((this.orgRoom as any).id,
+                  assignedRoom);
                 if (distance > 5) {
                   return false;
                 }
@@ -146,6 +163,7 @@ export default class SpawnManager {
 
               return selected[0];
             });
+
           if (request) {
             this.createCreep(spawn, request.details.role, request.details.memory, energy, energyLimit);
             return;

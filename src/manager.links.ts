@@ -14,7 +14,7 @@ const HAUL_TTL = 10;
 export default class LinkManager {
   orgRoom: OrgRoom;
   id: string;
-  terminal: Id<StructureTerminal>;
+  storage: Id<StructureStorage>;
   storageLink: Id<StructureLink>;
   sourceLinks: Id<StructureLink>[];
   sinkLinks: Id<StructureLink>[];
@@ -31,7 +31,7 @@ export default class LinkManager {
       throw new Error('cannot create a link manager when room does not exist');
     }
 
-    this.terminal = roomObject.terminal?.id;
+    this.storage = roomObject.storage?.id;
     this.storageLink = null;
     this.sourceLinks = [];
     this.sinkLinks = null;
@@ -39,8 +39,8 @@ export default class LinkManager {
     this.haulTTL = 0;
     this.prevTime = Game.time;
 
-    if (roomObject.terminal) {
-      this.storageLink = roomObject.terminal.pos.findInRange<StructureLink>(FIND_STRUCTURES, 3, {
+    if (roomObject.storage) {
+      this.storageLink = roomObject.storage.pos.findInRange<StructureLink>(FIND_STRUCTURES, 3, {
         filter: (structure) => {
           return structure.structureType === STRUCTURE_LINK;
         }
@@ -80,7 +80,7 @@ export default class LinkManager {
     }
 
     trace.log(this.id, 'running', {
-      terminal: this.terminal,
+      storage: this.storage,
       storageLink: this.storageLink,
       sourceLinks: this.sourceLinks,
       sinkLinks: this.sinkLinks,
@@ -89,8 +89,8 @@ export default class LinkManager {
     })
 
     const storageLink = Game.getObjectById<StructureLink>(this.storageLink);
-    if (!this.terminal || !storageLink) {
-      trace.log(room.name, "exiting due to missing terminal or storage link", {});
+    if (!this.storage || !storageLink) {
+      trace.log(room.name, "exiting due to missing storage or storage link", {});
       return terminate();
     }
 
@@ -217,7 +217,7 @@ export default class LinkManager {
     }
 
     // Check if we need to terminate due to being stale
-    // TODO change in links or terminal should cause termination; then remove ttl
+    // TODO change in links or storage should cause termination; then remove ttl
     if (shouldTerminate) {
       trace.log(this.id, 'terminating link process', {});
       return terminate();

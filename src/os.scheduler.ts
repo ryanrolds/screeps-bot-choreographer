@@ -36,14 +36,12 @@ export class Scheduler {
 
   registerProcess(process) {
     this.created++;
-    console.log("registering", process.id);
     this.processTable.push(process);
     this.updateProcessMap();
   };
 
   unregisterProcess(process) {
     this.terminated++;
-    console.log("unregistering", process.id);
     this.processTable = _.pull(this.processTable, process);
     this.updateProcessMap();
   }
@@ -66,6 +64,11 @@ export class Scheduler {
   }
 
   private updateTimeLimit() {
+    if (Game.shard.name === 'shard3') {
+      this.timeLimit = 20 * TIME_LIMIT_FACTOR;
+      return;
+    }
+
     this.timeLimit = Game.cpu.limit * TIME_LIMIT_FACTOR;
   }
 

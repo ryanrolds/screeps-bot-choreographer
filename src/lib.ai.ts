@@ -1,6 +1,6 @@
 import Kingdom from './org.kingdom';
 import * as tracing from './lib.tracing';
-import {KingdomConfig} from './config'
+import {KingdomConfig, ShardConfig} from './config'
 import {Tracer} from './lib.tracing';
 import {Scheduler, Priorities} from './os.scheduler';
 import * as featureFlags from './lib.feature_flags'
@@ -8,7 +8,8 @@ import {Process} from './os.process';
 import {CreepManager} from './manager.creeps';
 import WarManager from './manager.war';
 import {RoomManager} from './manager.rooms';
-import KingdomRunnable from './runnable.kingdom';
+import KingdomModelRunnable from './runnable.kingdom_model';
+import KingdomGovernorRunnable from './runnable.kingdom_governor'
 
 export class AI {
   config: KingdomConfig;
@@ -25,7 +26,11 @@ export class AI {
     // Kingdom Model & Messaging process
     // Pump messages through kingdom, colonies, room, ect...
     this.scheduler.registerProcess(new Process('kingdom_model', 'kingdom_model',
-      Priorities.CRITICAL, new KingdomRunnable()));
+      Priorities.CRITICAL, new KingdomModelRunnable()));
+
+    // Kingdom Governor
+    this.scheduler.registerProcess(new Process('kingdom_governor', 'kingdom_governor',
+      Priorities.CRITICAL, new KingdomGovernorRunnable('kingdom_governor')));
 
     // War manager
     const warManager = new WarManager(this.scheduler);

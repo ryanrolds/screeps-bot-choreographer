@@ -74,12 +74,18 @@ module.exports.clearSource = (creep) => {
   delete creep.memory[MEMORY_SOURCE];
 };
 
-module.exports.setDestination = (creep, destinationId, roomId = null) => {
+module.exports.setDestination = (creep, destinationId, roomId = null, shardName = null) => {
   creep.memory[MEMORY.MEMORY_DESTINATION] = destinationId;
 
   if (roomId) {
     creep.memory[MEMORY.MEMORY_DESTINATION_ROOM] = roomId;
   }
+
+  if (!shardName) {
+    shardName = Game.shard.name;
+  }
+
+  creep.memory[MEMORY.MEMORY_DESTINATION_SHARD] = shardName;
 };
 
 const isStuck = (creep) => {
@@ -227,9 +233,35 @@ const moveByHeapPath = (memoryId, range = 1, ignoreCreeps, reusePath, maxOps) =>
 };
 module.exports.moveByHeapPath = moveByHeapPath;
 
-module.exports.cachedMoveToMemory = (memoryId, range = 1, ignoreCreeps, reusePath, maxOps) => {
+const cachedMoveToMemoryPos = (memoryId, range = 1, ignoreCreeps, reusePath, maxOps) => {
   return behaviorTree.leafNode(
-    'cached_move_to_memory',
+    'cached_move_to_position',
+    (creep, trace, kingdom) => {
+      const positionString = creep.memory[memoryId];
+      if (!positionString) {
+        return FAILURE;
+      }
+
+      const posArray = positionString.split(',');
+
+      if (!posArray || posArray.length !== 3) {
+        return FAILURE;
+      }
+
+      const destination = {
+        pos: new RoomPosition(posArray[0], posArray[1], posArray[2]),
+      };
+
+      return cachedMoveToPosition(kingdom, creep, destination, range, ignoreCreeps,
+        reusePath, maxOps, trace);
+    },
+  );
+};
+module.exports.cachedMoveToMemoryPos = cachedMoveToMemoryPos;
+
+const cachedMoveToMemoryObjectId = (memoryId, range = 1, ignoreCreeps, reusePath, maxOps) => {
+  return behaviorTree.leafNode(
+    'cached_move_to_object_id',
     (creep, trace, kingdom) => {
       const destination = Game.getObjectById(creep.memory[memoryId]);
       if (!destination) {
@@ -239,119 +271,126 @@ module.exports.cachedMoveToMemory = (memoryId, range = 1, ignoreCreeps, reusePat
         return FAILURE;
       }
 
-      // Check if crepe has arrived
-      if (creep.pos.inRangeTo(destination, range)) {
-        delete creep.memory['_move'];
-        delete creep.memory[MEMORY.PATH_CACHE];
-        trace.log(creep.id, 'reached destination', {id: destination.id, range});
-        return SUCCESS;
-      }
-
-      ignoreCreeps = true;
-
-      // Get last position
-      let prevPos = creep.memory[MEMORY_MOVE_PREV_POS] || null;
-      if (prevPos != null) {
-        prevPos = new RoomPosition(prevPos.x, prevPos.y, prevPos.roomName);
-      }
-
-      // Compare current and last and increase stuck ttl
-      let didMove = false;
-      if (prevPos && creep.pos.isEqualTo(prevPos)) {
-        if (!creep.memory[MEMORY_MOVE_POS_TTL]) {
-          creep.memory[MEMORY_MOVE_POS_TTL] = 0;
-        }
-
-        creep.memory[MEMORY_MOVE_POS_TTL] += 1;
-
-        // Creep is stuck, clear cached path, and get new path factoring in creeps
-        if (creep.memory[MEMORY_MOVE_POS_TTL] > MAX_POSITION_TTL) {
-          trace.log(creep.id, 'creep stuck');
-          delete creep.memory['_move'];
-          delete creep.memory[MEMORY.PATH_CACHE];
-          ignoreCreeps = false;
-        }
-      } else {
-        // Creep is not stuck, update previous position and clear ttl
-        creep.memory[MEMORY_MOVE_PREV_POS] = creep.pos;
-        creep.memory[MEMORY_MOVE_POS_TTL] = 0;
-        didMove = true;
-      }
-
-      let result = null;
-
-      const useSerializedPath = featureFlags.getFlag(featureFlags.USE_SERIALIZED_PATH);
-      const usePathCache = featureFlags.getFlag(featureFlags.USE_PATH_CACHE);
-      if (usePathCache && ignoreCreeps) {
-        let path = creep.memory[MEMORY.PATH_CACHE];
-        if (!path) {
-          trace.log(creep.id, 'path cache miss');
-          path = kingdom.getPathCache().getPath(creep.pos, destination.pos, range, ignoreCreeps);
-
-          if (useSerializedPath) {
-            creep.memory[MEMORY.PATH_CACHE] = path.serializedPath;
-            path = path.serializedPath;
-          } else {
-            path = path.path;
-            creep.memory[MEMORY.PATH_CACHE] = path;
-          }
-        } else {
-          trace.log(creep.id, 'path cache hit');
-        }
-
-        if (useSerializedPath) {
-          if (didMove) {
-            path = path.slice(1);
-            creep.memory[MEMORY.PATH_CACHE] = path;
-          }
-
-          const direction = parseInt(path[0], 10);
-          result = creep.move(direction);
-        } else {
-          path = deserializePath(path);
-          result = creep.moveByPath(path);
-        }
-
-        trace.log(creep.id, 'move by path result', {result, usePathCache, path});
-
-        if (result === ERR_NOT_FOUND) {
-          delete creep.memory['_move'];
-          delete creep.memory[MEMORY.PATH_CACHE];
-
-          return RUNNING;
-        }
-      } else {
-        const moveOpts = getMoveOpts(ignoreCreeps, reusePath, maxOps);
-        result = creep.moveTo(destination, moveOpts);
-        trace.log(creep.id, 'move result', {result});
-      }
-
-      if (result === ERR_NO_PATH) {
-        // Clear existing path so we build a new one
-        delete creep.memory['_move'];
-        delete creep.memory[MEMORY.PATH_CACHE];
-
-        trace.log(creep.id, 'move by result no path', {result});
-
-        return RUNNING;
-      }
-
-      if (result !== OK && result !== ERR_TIRED) {
-        delete creep.memory['_move'];
-        delete creep.memory[MEMORY.PATH_CACHE];
-
-        trace.log(creep.id, 'move by result not OK', {result});
-
-        return FAILURE;
-      }
-
-      if (result === ERR_TIRED) {
-        creep.memory[MEMORY_MOVE_POS_TTL] -= 1;
-      }
-
-      return RUNNING;
+      return cachedMoveToPosition(kingdom, creep, destination, range, ignoreCreeps,
+        reusePath, maxOps, trace);
     },
   );
+};
+module.exports.cachedMoveToMemoryObjectId = cachedMoveToMemoryObjectId;
+
+const cachedMoveToPosition = (kingdom, creep, destination, range = 1, ignoreCreeps,
+  reusePath, maxOps, trace) => {
+  // Check if crepe has arrived
+  if (creep.pos.inRangeTo(destination, range)) {
+    delete creep.memory['_move'];
+    delete creep.memory[MEMORY.PATH_CACHE];
+    trace.log(creep.id, 'reached destination', {id: destination.id, range});
+    return SUCCESS;
+  }
+
+  ignoreCreeps = true;
+
+  // Get last position
+  let prevPos = creep.memory[MEMORY_MOVE_PREV_POS] || null;
+  if (prevPos != null) {
+    prevPos = new RoomPosition(prevPos.x, prevPos.y, prevPos.roomName);
+  }
+
+  // Compare current and last and increase stuck ttl
+  let didMove = false;
+  if (prevPos && creep.pos.isEqualTo(prevPos)) {
+    if (!creep.memory[MEMORY_MOVE_POS_TTL]) {
+      creep.memory[MEMORY_MOVE_POS_TTL] = 0;
+    }
+
+    creep.memory[MEMORY_MOVE_POS_TTL] += 1;
+
+    // Creep is stuck, clear cached path, and get new path factoring in creeps
+    if (creep.memory[MEMORY_MOVE_POS_TTL] > MAX_POSITION_TTL) {
+      trace.log(creep.id, 'creep stuck');
+      delete creep.memory['_move'];
+      delete creep.memory[MEMORY.PATH_CACHE];
+      ignoreCreeps = false;
+    }
+  } else {
+    // Creep is not stuck, update previous position and clear ttl
+    creep.memory[MEMORY_MOVE_PREV_POS] = creep.pos;
+    creep.memory[MEMORY_MOVE_POS_TTL] = 0;
+    didMove = true;
+  }
+
+  let result = null;
+
+  const useSerializedPath = featureFlags.getFlag(featureFlags.USE_SERIALIZED_PATH);
+  const usePathCache = featureFlags.getFlag(featureFlags.USE_PATH_CACHE);
+  if (usePathCache && ignoreCreeps) {
+    let path = creep.memory[MEMORY.PATH_CACHE];
+    if (!path) {
+      trace.log(creep.id, 'path cache miss');
+      path = kingdom.getPathCache().getPath(creep.pos, destination.pos, range, ignoreCreeps);
+
+      if (useSerializedPath) {
+        creep.memory[MEMORY.PATH_CACHE] = path.serializedPath;
+        path = path.serializedPath;
+      } else {
+        path = path.path;
+        creep.memory[MEMORY.PATH_CACHE] = path;
+      }
+    } else {
+      trace.log(creep.id, 'path cache hit');
+    }
+
+    if (useSerializedPath) {
+      if (didMove) {
+        path = path.slice(1);
+        creep.memory[MEMORY.PATH_CACHE] = path;
+      }
+
+      const direction = parseInt(path[0], 10);
+      result = creep.move(direction);
+    } else {
+      path = deserializePath(path);
+      result = creep.moveByPath(path);
+    }
+
+    trace.log(creep.id, 'move by path result', {result, usePathCache, path});
+
+    if (result === ERR_NOT_FOUND) {
+      delete creep.memory['_move'];
+      delete creep.memory[MEMORY.PATH_CACHE];
+
+      return RUNNING;
+    }
+  } else {
+    const moveOpts = getMoveOpts(ignoreCreeps, reusePath, maxOps);
+    result = creep.moveTo(destination, moveOpts);
+    trace.log(creep.id, 'move result', {result});
+  }
+
+  if (result === ERR_NO_PATH) {
+    // Clear existing path so we build a new one
+    delete creep.memory['_move'];
+    delete creep.memory[MEMORY.PATH_CACHE];
+
+    trace.log(creep.id, 'move by result no path', {result});
+
+    return RUNNING;
+  }
+
+  if (result !== OK && result !== ERR_TIRED) {
+    delete creep.memory['_move'];
+    delete creep.memory[MEMORY.PATH_CACHE];
+
+    trace.log(creep.id, 'move by result not OK', {result});
+
+    return FAILURE;
+  }
+
+  if (result === ERR_TIRED) {
+    creep.memory[MEMORY_MOVE_POS_TTL] -= 1;
+  }
+
+  return RUNNING;
 };
 
 const deserializePath = (path) => {
@@ -380,6 +419,9 @@ module.exports.moveToDestination = (range = 1, ignoreCreeps, reusePath, maxOps) 
 
 module.exports.clearDestination = (creep) => {
   delete creep.memory[MEMORY.MEMORY_DESTINATION];
+  delete creep.memory[MEMORY.MEMORY_DESTINATION_POS];
+  delete creep.memory[MEMORY.MEMORY_DESTINATION_ROOM];
+  delete creep.memory[MEMORY.MEMORY_DESTINATION_SHARD];
 };
 
 module.exports.fillCreepFromDestination = (creep) => {
@@ -420,6 +462,61 @@ module.exports.fillCreepFromDestination = (creep) => {
   }
 
   return FAILURE;
+};
+
+module.exports.moveToShard = (shardMemoryKey) => {
+  return behaviorTree.repeatUntilConditionMet(
+    'moveToShard',
+    (creep, trace, kingdom) => {
+      const destinationShardName = creep.memory[shardMemoryKey];
+      // If creep doesn't have a harvest room assigned, we are done
+      if (!destinationShardName) {
+        return true;
+      }
+
+      // If the creep reaches the room we are done
+      if (Game.shard.name === destinationShardName) {
+        return true;
+      }
+
+      return false;
+    },
+    behaviorTree.sequenceNode(
+      'select_and_enter_portal',
+      [
+        behaviorTree.leafNode(
+          'select_portal',
+          (creep, trace, kingdom) => {
+            const destinationShardName = creep.memory[shardMemoryKey];
+
+            // Lookup closest portal, use path cache
+            let portals = kingdom.getScribe().getPortals(destinationShardName);
+            if (!portals || !portals.length) {
+              trace.log(creep.id, 'unable to find portal', {shardName: destinationShardName});
+              return FAILURE;
+            }
+
+            portals = _.filter(portals, (portal) => {
+              return Game.map.getRoomLinearDistance(portal.pos.roomName, creep.room.name) < 4;
+            });
+
+            const portal = portals[0] || null;
+            if (!portal) {
+              trace.log(creep.id, 'unable to find nearby portal', {shardName: destinationShardName});
+              return FAILURE;
+            }
+
+            // Store creep and set portal as destination
+            kingdom.getScribe().setCreepBackup(creep);
+            creep.memory[MEMORY.MEMORY_DESTINATION_POS] = [portal.pos.x, portal.pos.y, portal.pos.roomName].join(',');
+
+            return SUCCESS;
+          },
+        ),
+        cachedMoveToMemoryPos(MEMORY.MEMORY_DESTINATION_POS, 0, true, 50, 2500),
+      ],
+    ),
+  );
 };
 
 module.exports.moveToDestinationRoom = behaviorTree.repeatUntilSuccess(

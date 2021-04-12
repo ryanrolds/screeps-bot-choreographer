@@ -44,21 +44,27 @@ export default class TowerRunnable {
       return terminate();
     }
 
-    trace.log(this.towerId, "tower runnable", {
-      room: room.name,
-      id: this.towerId,
-      haulTTL: this.haulTTL,
-      repairTTL: this.repairTarget,
-    })
 
     const tower = Game.getObjectById(this.towerId);
     if (!tower) {
       return terminate();
     }
 
-    // Request energy
     this.haulTTL -= ticks;
+    this.repairTTL -= ticks;
+
     const towerUsed = tower.store.getUsedCapacity(RESOURCE_ENERGY);
+
+    trace.log(this.towerId, "tower runnable", {
+      room: room.name,
+      id: this.towerId,
+      haulTTL: this.haulTTL,
+      repairTTL: this.repairTTL,
+      repairTarget: this.repairTarget,
+      energy: towerUsed,
+    });
+
+    // Request energy
     if (towerUsed < REQUEST_ENERGY_THRESHOLD && this.haulTTL < 0) {
       this.haulTTL = REQUEST_ENERGY_TTL;
       trace.log(this.towerId, 'requesting energy', {});
@@ -104,7 +110,6 @@ export default class TowerRunnable {
     }
 
     // Repair focus TTL that spreads repairs out
-    this.repairTTL -= ticks;
     if (this.repairTarget && this.repairTTL < 0) {
       trace.log(this.towerId, 'repair target ttl hit', {});
       this.repairTarget = null;
@@ -128,7 +133,8 @@ export default class TowerRunnable {
     }
 
     // Do not repair secondary structures or roads if room is low on energy
-    if (this.orgRoom.resources[RESOURCE_ENERGY] < 10000) {
+    const minRepairEnergy = room.storage ? 10000 : 2000;
+    if (this.orgRoom.resources[RESOURCE_ENERGY] < minRepairEnergy) {
       this.repairTarget = null;
       this.repairTTL = 0;
       return running();

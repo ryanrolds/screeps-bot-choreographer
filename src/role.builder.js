@@ -5,10 +5,12 @@ const behaviorBuild = require('./behavior.build');
 const behaviorAssign = require('./behavior.assign');
 const behaviorRoom = require('./behavior.room');
 const behaviorNonCombatant = require('./behavior.noncombatant');
+const MEMORY = require('./constants.memory');
 
 const behavior = behaviorTree.sequenceNode(
   'builder_root',
   [
+    behaviorMovement.moveToShard(MEMORY.MEMORY_ASSIGN_SHARD),
     behaviorAssign.moveToRoom,
     behaviorCommute.setCommuteDuration,
     behaviorRoom.getEnergy,

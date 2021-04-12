@@ -136,6 +136,7 @@ class WarParty extends OrgBase {
       this.sendRequest(TOPICS.TOPIC_SPAWN, PRIORITY_ATTACKER, {
         role: WORKER_ATTACKER,
         memory: {
+          [MEMORY.MEMORY_ASSIGN_ROOM]: this.flag.room.name,
           [MEMORY.MEMORY_FLAG]: this.id,
         },
       }, REQUEST_ATTACKER_TTL);
