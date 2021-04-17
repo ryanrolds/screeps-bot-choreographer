@@ -25,7 +25,7 @@ const behavior = behaviorTree.sequenceNode(
     behaviorTree.repeatUntilConditionMet(
       'pickup_loads_until_full_or_no_tasks',
       (creep, trace, kingdom) => {
-        trace.log(creep.id, 'done_if_full_or_no_tasks', {
+        trace.log('done_if_full_or_no_tasks', {
           free: creep.store.getFreeCapacity(),
           taskType: creep.memory[MEMORY.MEMORY_TASK_TYPE],
         });
@@ -85,7 +85,7 @@ const behavior = behaviorTree.sequenceNode(
 
               const destination = Game.getObjectById(creep.memory[MEMORY.MEMORY_HAUL_DROPOFF]);
               if (!destination) {
-                trace.log(creep.id, 'no dump destination');
+                trace.log('no dump destination');
                 return FAILURE;
               }
 
@@ -93,7 +93,7 @@ const behavior = behaviorTree.sequenceNode(
 
               const result = creep.transfer(destination, resource);
 
-              trace.log(creep.id, 'transfer result', {result});
+              trace.log('transfer result', {result});
 
               if (result === ERR_FULL) {
                 return FAILURE;

@@ -74,7 +74,7 @@ module.exports = (behaviorNode) => {
 
                 const lab = booster.getLabByResource(compound.name);
                 const result = lab.boostCreep(creep);
-                trace.log(creep.id, 'boosted', {
+                trace.log('boosted', {
                   labId: lab.id,
                   compound: compound.name,
                   result,

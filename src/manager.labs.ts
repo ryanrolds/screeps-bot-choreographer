@@ -29,7 +29,7 @@ export class LabsManager {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    trace.log(this.id, 'labs manager run', {
+    trace.log('labs manager run', {
       labIds: this.labIds,
       reactorsIds: this.reactorsIds,
       boosterIds: this.boosterIds,
@@ -38,7 +38,7 @@ export class LabsManager {
     // Compare labs in current tick to labs that went into assignment
     const labIds: Id<StructureLab>[] = this.orgRoom.getLabs().map(lab => lab.id);
     if (!_.isEqual(_.sortBy(this.labIds), _.sortBy(labIds))) {
-      trace.log(this.id, 'labs changed - terminating', {});
+      trace.log('labs changed - terminating', {});
       return terminate();
     }
 

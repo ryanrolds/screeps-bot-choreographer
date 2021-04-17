@@ -44,7 +44,7 @@ export default class LinkManager {
         filter: (structure) => {
           return structure.structureType === STRUCTURE_LINK;
         }
-      })[0].id;
+      })[0]?.id;
     }
 
     const sources = roomObject.find(FIND_SOURCES);
@@ -79,7 +79,7 @@ export default class LinkManager {
       return terminate();
     }
 
-    trace.log(this.id, 'running', {
+    trace.log('running', {
       storage: this.storage,
       storageLink: this.storageLink,
       sourceLinks: this.sourceLinks,
@@ -90,7 +90,7 @@ export default class LinkManager {
 
     const storageLink = Game.getObjectById<StructureLink>(this.storageLink);
     if (!this.storage || !storageLink) {
-      trace.log(room.name, "exiting due to missing storage or storage link", {});
+      trace.log("exiting due to missing storage or storage link", {});
       return terminate();
     }
 
@@ -137,7 +137,7 @@ export default class LinkManager {
       }
 
       const result = source.transferEnergy(link);
-      trace.log(this.id, 'transfer energy', {
+      trace.log('transfer energy', {
         source: source.id,
         sink: link.id,
         result,
@@ -149,7 +149,7 @@ export default class LinkManager {
       const source = hasEnergy.pop();
       if (source) {
         const result = source.transferEnergy(storageLink);
-        trace.log(this.id, 'transfer energy', {
+        trace.log('transfer energy', {
           source: source.id,
           sink: storageLink.id,
           result,
@@ -157,7 +157,7 @@ export default class LinkManager {
       }
     }
 
-    trace.log(this.id, 'has energy', {hasEnergy, haulTTL: this.haulTTL})
+    trace.log('has energy', {hasEnergy, haulTTL: this.haulTTL})
 
     // If we have 2 links of energy ready, empty storage link to make room
     if (hasEnergy.length >= 2 && hasEnergy.indexOf(storageLink) != -1 && this.haulTTL < 0) {
@@ -183,7 +183,7 @@ export default class LinkManager {
       };
 
       (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, 2, details, HAUL_TTL);
-      trace.log(this.id, 'haul energy from storage link', {
+      trace.log('haul energy from storage link', {
         request: details,
       });
 
@@ -211,7 +211,7 @@ export default class LinkManager {
       };
 
       (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, 1, details, HAUL_TTL);
-      trace.log(this.id, 'haul energy to storage link', {
+      trace.log('haul energy to storage link', {
         request: details,
       });
     }
@@ -219,7 +219,7 @@ export default class LinkManager {
     // Check if we need to terminate due to being stale
     // TODO change in links or storage should cause termination; then remove ttl
     if (shouldTerminate) {
-      trace.log(this.id, 'terminating link process', {});
+      trace.log('terminating link process', {});
       return terminate();
     }
 

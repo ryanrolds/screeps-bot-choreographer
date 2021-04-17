@@ -68,7 +68,7 @@ class Terminal extends OrgBase {
     const processTrace = trace.begin('process');
 
     if (!this.terminal) {
-      processTrace.log(this.id, 'terminal not found', {});
+      processtrace.log('terminal not found', {});
       processTrace.end();
       return;
     }
@@ -76,7 +76,7 @@ class Terminal extends OrgBase {
     if (!this.task) {
       const task = this.getNextRequest(TOPICS.TOPIC_TERMINAL_TASK);
       if (task) {
-        processTrace.log(this.id, 'got new task', {task});
+        processtrace.log('got new task', {task});
         this.task = task;
         this.room.memory[MEMORY.TERMINAL_TASK] = task;
       }
@@ -97,7 +97,7 @@ class Terminal extends OrgBase {
     processTrace.end();
   }
   processTask(trace) {
-    trace.log(this.id, 'processing task', {task: this.task});
+    trace.log('processing task', {task: this.task});
 
     const details = this.task.details;
     const taskType = details[MEMORY.TERMINAL_TASK_TYPE];
@@ -143,14 +143,14 @@ class Terminal extends OrgBase {
     const roomId = task[MEMORY.TRANSFER_ROOM];
     const phase = task[MEMORY.TASK_PHASE] || TASK_PHASE_HAUL_RESOURCE;
 
-    trace.log(this.id, 'transfer resource', {resource, amount, roomId, phase});
+    trace.log('transfer resource', {resource, amount, roomId, phase});
 
     switch (phase) {
       case TASK_PHASE_HAUL_RESOURCE:
         // Check if we should move to next phase
         const terminalAmount = this.terminal.store.getUsedCapacity(resource);
         if (terminalAmount >= amount) {
-          trace.log(this.id, 'terminal amount gte desired amount', {terminalAmount, amount});
+          trace.log('terminal amount gte desired amount', {terminalAmount, amount});
           this.room.memory[MEMORY.TERMINAL_TASK].details[MEMORY.TASK_PHASE] = TASK_PHASE_TRANSFER;
           break;
         }
@@ -158,33 +158,33 @@ class Terminal extends OrgBase {
         const pickup = this.getRoom().getReserveStructureWithMostOfAResource(resource, false);
         if (!pickup) {
           if (!terminalAmount) {
-            trace.log(this.id, 'no pickup and no resources in terminal', {});
+            trace.log('no pickup and no resources in terminal', {});
 
             this.clearTask();
             break;
           }
 
-          trace.log(this.id, 'no pickup, but resources in terminal', {terminalAmount});
+          trace.log('no pickup, but resources in terminal', {terminalAmount});
 
           this.room.memory[MEMORY.TERMINAL_TASK].details[MEMORY.TASK_PHASE] = TASK_PHASE_TRANSFER;
           this.room.memory[MEMORY.TERMINAL_TASK].details[MEMORY.TRANSFER_AMOUNT] = terminalAmount;
           break;
         }
 
-        trace.log(this.id, 'requesting resource transfer to terminal', {pickup: pickup.id, resource, amount});
+        trace.log('requesting resource transfer to terminal', {pickup: pickup.id, resource, amount});
 
         this.haulResourceToTerminal(pickup, resource, amount);
         break;
       case TASK_PHASE_TRANSFER:
         const energyReady = this.haulTransferEnergyToTerminal(amount, roomId);
         if (!energyReady) {
-          trace.log(this.id, 'energy not ready', {amount, roomId});
+          trace.log('energy not ready', {amount, roomId});
           break;
         }
 
         const result = this.terminal.send(resource, amount, roomId);
 
-        trace.log(this.id, 'sending', {resource, amount, roomId, result});
+        trace.log('sending', {resource, amount, roomId, result});
 
         if (result !== OK) {
           // console.log("problem sending resource", this.id, resource, amount, roomId, result)
@@ -351,7 +351,7 @@ class Terminal extends OrgBase {
       return order.roomName === this.room.name;
     }).forEach((order) => {
       if (order.remainingAmount === 0) {
-        trace.log(this.id, 'order is complete; cancelling', {orderId: order.id});
+        trace.log('order is complete; cancelling', {orderId: order.id});
         Game.market.cancelOrder(order.id);
         return;
       }
@@ -360,18 +360,18 @@ class Terminal extends OrgBase {
       if (missingAmount > 0) {
         const pickup = this.getRoom().getReserveStructureWithMostOfAResource(order.resourceType, false);
         if (!pickup) {
-          trace.log(this.id, 'order missing resource and no pickup; cancelling',
+          trace.log('order missing resource and no pickup; cancelling',
             {orderId: order.id, missingAmount, resource: order.resourceType});
           Game.market.cancelOrder(order.id);
         } else {
-          trace.log(this.id, 'requesting hauling of missing resource',
+          trace.log('requesting hauling of missing resource',
             {orderId: order.id, missingAmount, resource: order.resourceType});
           this.haulResourceToTerminal(pickup, order.resourceType, order.remainingAmount - order.amount);
         }
       }
 
       if (!MARKET.PRICES[order.resourceType]) {
-        trace.log(this.id, `no price set for resource`, {resource: order.resourceType, orderId: order.id});
+        trace.log(`no price set for resource`, {resource: order.resourceType, orderId: order.id});
         return;
       }
 
@@ -382,7 +382,7 @@ class Terminal extends OrgBase {
 
       if (order.price !== price) {
         Game.market.changeOrderPrice(order.id, price);
-        trace.log(this.id, 'updating order price', {
+        trace.log('updating order price', {
           orderId: order.id,
           previousPrice: order.price, newPrice: price, resource: order.resource,
         });

@@ -14,7 +14,7 @@ const behavior = behaviorTree.sequenceNode(
       (creep, trace, kingdom) => {
         const room = kingdom.getCreepRoom(creep);
         if (!room) {
-          trace.log(creep.id, 'creep has no room', creep.memory);
+          trace.log('creep has no room', creep.memory);
           return FAILURE;
         }
 

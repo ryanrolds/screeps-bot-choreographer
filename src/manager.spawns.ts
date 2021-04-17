@@ -49,7 +49,7 @@ export default class SpawnManager {
       return terminate();
     }
 
-    trace.log(this.id, 'Spawn manager run', {});
+    trace.log('Spawn manager run', {});
 
     this.spawnIds.forEach((id) => {
       const spawn = Game.getObjectById(id);

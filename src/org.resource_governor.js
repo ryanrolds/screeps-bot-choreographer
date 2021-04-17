@@ -48,8 +48,8 @@ class Resources extends OrgBase {
       this.requestSellResource();
     });
 
-    this.doDistributeBoosts = doEvery(REQUEST_DISTRIBUTE_BOOSTS)(() => {
-      this.requestDistributeBoosts();
+    this.doDistributeBoosts = doEvery(REQUEST_DISTRIBUTE_BOOSTS)((trace) => {
+      this.requestDistributeBoosts(trace);
     });
 
     setupTrace.end();
@@ -64,7 +64,7 @@ class Resources extends OrgBase {
 
     this.doRequestReactions();
     this.doRequestSellExtraResources();
-    this.doDistributeBoosts();
+    this.doDistributeBoosts(trace);
 
     console.log(this);
 
@@ -241,7 +241,7 @@ class Resources extends OrgBase {
 
         // Check if we need more of the output
         if (this.sharedResources[output] > RESERVE_LIMIT && !overReserve[output]) {
-          // overReserve[output] = {inputA, inputB, output};
+          overReserve[output] = {inputA, inputB, output};
           return;
         }
 
@@ -254,13 +254,13 @@ class Resources extends OrgBase {
 
     missingOneInput = this.prioritizeReactions(missingOneInput);
     availableReactions = this.prioritizeReactions(availableReactions);
-    // overReserve = this.prioritizeReactions(overReserve);
+    overReserve = this.prioritizeReactions(overReserve);
 
     if (missingOneInput.length && Game.market.credits > MIN_CREDITS) {
       availableReactions.push(missingOneInput.pop());
     }
 
-    // availableReactions = availableReactions.concat(overReserve.reverse());
+    availableReactions = availableReactions.concat(overReserve.reverse());
 
     return availableReactions;
   }
@@ -303,10 +303,12 @@ class Resources extends OrgBase {
       return acc;
     }, null);
   }
-  requestResource(room, resource, amount, ttl) {
+  requestResource(room, resource, amount, ttl, trace) {
+    trace.log('requesting resource', {room: room.id, resource, amount, ttl});
+
     // We can't request a transfer if room lacks a terminal
     if (!room.hasTerminal()) {
-      // console.log(`xxxxx Can't request resource for room without terminal: ${room.id}, ${resource}`);
+      trace.log('room does not have a terminal', {room: room.id});
       return;
     }
 
@@ -322,6 +324,7 @@ class Resources extends OrgBase {
     }).length > 0;
 
     if (inProgress) {
+      trace.log('task already in progress', {room: room.id, resource, amount, ttl});
       return;
     }
 
@@ -334,21 +337,20 @@ class Resources extends OrgBase {
         [MEMORY.MEMORY_ORDER_AMOUNT]: amount,
       };
 
-      if (Game.market.credits > MIN_CREDITS) {
-        // console.log('requesting purchase', resource, 'for', room.id, amount);
-
-        room.sendRequest(TOPICS.TOPIC_TERMINAL_TASK, PRIORITIES.TERMINAL_BUY,
-          details, ttl);
-      } else {
-        // console.log('not enough credits to purchase', resource, 'for', room.id, amount);
+      if (Game.market.credits < MIN_CREDITS) {
+        trace.log('below reserve, not purchasing resource', {resource, amount});
+        return;
       }
 
+      trace.log('purchase resource', {room: room.id, resource, amount});
+      room.sendRequest(TOPICS.TOPIC_TERMINAL_TASK, PRIORITIES.TERMINAL_BUY,
+        details, ttl);
       return;
     }
 
     amount = _.min([result.amount, amount]);
 
-    // console.log('requesting transfer', resource, 'to', room.id, amount);
+    trace.log('requesting resource from other room', {room: result.room.id, resource, amount});
 
     result.room.sendRequest(TOPICS.TOPIC_TERMINAL_TASK, PRIORITIES.TERMINAL_TRANSFER, {
       [MEMORY.TERMINAL_TASK_TYPE]: TASKS.TASK_TRANSFER,
@@ -447,7 +449,7 @@ class Resources extends OrgBase {
         details, REQUEST_SELL_TTL);
     });
   }
-  requestDistributeBoosts() {
+  requestDistributeBoosts(trace) {
     this.getKingdom().getColonies().forEach((colony) => {
       const primaryRoom = colony.getPrimaryRoom();
       if (!primaryRoom) {
@@ -481,7 +483,7 @@ class Resources extends OrgBase {
 
           // If the resource is available request transfer to room
           if (desiredCompound.amount < MIN_CRITICAL_COMPOUND) {
-            this.requestResource(primaryRoom, desiredCompound.resource, MIN_CRITICAL_COMPOUND);
+            this.requestResource(primaryRoom, desiredCompound.resource, MIN_CRITICAL_COMPOUND, trace);
             return;
           }
         }

@@ -57,7 +57,7 @@ const definitions = {
     energyLimit: 2000,
     parts: [MOVE, CARRY, CARRY],
     base: [MOVE, CARRY, CARRY, MOVE, CARRY, CARRY],
-    // boosts: ['capacity'],
+    boosts: ['capacity'],
     processPriority: 2,
   },
   [WORKER_RESERVER]: {
@@ -77,6 +77,7 @@ const definitions = {
     energyMinimum: 4000,
     parts: [MOVE, TOUGH, MOVE, ATTACK, MOVE, HEAL],
     base: [MOVE, TOUGH, MOVE, ATTACK],
+    boosts: ['heal', 'damage', 'attack'],
     processPriority: 2,
   },
   [WORKER_EXPLORER]: {

@@ -17,7 +17,7 @@ export class AI {
   kingdom: Kingdom;
 
   constructor(config: KingdomConfig) {
-    const trace = tracing.startTrace('ai_constructor');
+    const trace = new Tracer('ai', 'ai_constructor');
 
     this.config = config;
     this.scheduler = new Scheduler();

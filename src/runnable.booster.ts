@@ -61,17 +61,19 @@ export default class BoosterRunnable {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+    trace = trace.asId(this.id);
+
     const ticks = Game.time - this.prevTime;
     this.prevTime = Game.time;
 
     let labs = this.labIds.map(labId => Game.getObjectById(labId));
     if (_.filter(labs, lab => !lab).length) {
-      trace.log(this.id, 'lab missing - terminating', {})
+      trace.log('lab missing - terminating', {})
       return terminate();
     }
 
     if (labs.length !== 3) {
-      trace.log(this.id, 'not right number of labs - terminating', {num: labs.length})
+      trace.log('not right number of labs - terminating', {num: labs.length})
       return terminate();
     }
 
@@ -79,7 +81,7 @@ export default class BoosterRunnable {
     const loadedEffects = this.getLoadedEffects();
     const desiredEffects = this.getDesiredEffects();
 
-    trace.log(this.id, 'booster run', {
+    trace.log('booster run', {
       labIds: this.labIds,
       loaded: loadedEffects,
       desired: desiredEffects,

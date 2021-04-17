@@ -147,7 +147,7 @@ module.exports.loadCreep = behaviorTree.leafNode(
 
       result = creep.withdraw(pickup, resource, amount);
 
-      trace.log(creep.id, 'load resource', {
+      trace.log('load resource', {
         pickup: pickup.id,
         resource,
         amount,

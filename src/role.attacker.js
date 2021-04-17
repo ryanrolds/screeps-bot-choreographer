@@ -1,5 +1,6 @@
 const behaviorTree = require('./lib.behaviortree');
 const {SUCCESS} = require('./lib.behaviortree');
+const behaviorBoosts = require('./behavior.boosts');
 
 const MEMORY = require('./constants.memory');
 
@@ -23,9 +24,10 @@ const behavior = behaviorTree.sequenceNode(
         }
 
         if (creep.room.name != roomId) {
-          creep.moveTo(position, {reusePath: 20});
+          creep.moveTo(position, {reusePath: 50});
+        } else {
+          creep.moveTo(position, {reusePath: 5, ignoreCreeps: false});
         }
-        creep.moveTo(position, {reusePath: 5, ignoreCreeps: false});
 
         return SUCCESS;
       },
@@ -70,5 +72,5 @@ const behavior = behaviorTree.sequenceNode(
 );
 
 module.exports = {
-  run: behaviorTree.rootNode('attacker', behavior),
+  run: behaviorTree.rootNode('attacker', behaviorBoosts(behavior)),
 };

@@ -9,10 +9,10 @@ const DESIRED_NUM_ATTACKERS = 4;
 const REQUEST_ATTACKER_TTL = 55;
 
 const FORMATION = [
-  {x: -1, y: 1},
-  {x: 0, y: 1},
-  {x: -1, y: 0},
   {x: 0, y: 0},
+  {x: -1, y: 0},
+  {x: 0, y: 1},
+  {x: -1, y: 1},
 ];
 
 class WarParty extends OrgBase {
@@ -108,8 +108,8 @@ class WarParty extends OrgBase {
         creep.memory[MEMORY.MEMORY_HEAL] = null;
       }
 
-      const x = this.flag.pos.x + FORMATION[idx].x;
-      const y = this.flag.pos.y + FORMATION[idx].y;
+      const x = this.flag.pos.x + FORMATION[idx % FORMATION.length].x;
+      const y = this.flag.pos.y + FORMATION[idx % FORMATION.length].y;
       creep.memory[MEMORY.MEMORY_POSITION_X] = x;
       creep.memory[MEMORY.MEMORY_POSITION_Y] = y;
       creep.memory[MEMORY.MEMORY_POSITION_ROOM] = this.flag.pos.roomName;
@@ -126,7 +126,9 @@ class WarParty extends OrgBase {
     return `---- War Party - ID: ${this.id}, Room: ${this.roomId}, #Creeps: ${this.creeps.length}`;
   }
   requestAttackers() {
-    const partySize = this.creeps.length;
+    const partySize = this.creeps.filter((creep) => {
+      return creep.ticksToLive > 150;
+    }).length;
     if (partySize >= DESIRED_NUM_ATTACKERS) {
       return;
     }

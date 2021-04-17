@@ -103,9 +103,11 @@ export class CreepManager {
       run: (kingdom: Kingdom, trace: Tracer): RunnableResult => {
         const creep = Game.creeps[id];
         if (!creep) {
-          trace.log(id, "creep not found; terminating process", {})
+          trace.log("creep not found; terminating process", {})
           return terminate();
         }
+
+        trace = trace.asId(creep.id)
 
         if (creep.spawning) {
           // TODO sleep for whoever mich longer it will take to spawn

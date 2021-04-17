@@ -57,7 +57,7 @@ export const selectorNode = (id: string, children: TreeNode[]): TreeNode => {
 
       const result = this.tickChildren(actor, trace, kingdom);
 
-      trace.log(actor.id, 'result', result);
+      trace.log('result', result);
 
       trace.end();
 
@@ -92,7 +92,7 @@ export const sequenceNode = (id: string, children: TreeNode[]): TreeNode => {
 
       const result = this.tickChildren(actor, trace, kingdom);
 
-      trace.log(actor.id, 'result', result);
+      trace.log('result', result);
 
       trace.end();
 
@@ -125,7 +125,7 @@ export const sequenceAlwaysNode = (id: string, children: TreeNode[]): TreeNode =
 
       const result = this.tickChildren(actor, trace, kingdom);
 
-      trace.log(actor.id, 'result', result);
+      trace.log('result', result);
 
       trace.end();
 
@@ -143,7 +143,7 @@ export const repeatUntilFailure = (id: string, node: TreeNode): TreeNode => {
 
       const result = this.node.tick(actor, trace, kingdom);
 
-      trace.log(actor.id, 'result', result);
+      trace.log('result', result);
       trace.end();
 
       if (result === FAILURE) {
@@ -164,7 +164,7 @@ export const repeatUntilSuccess = (id: string, node: TreeNode): TreeNode => {
 
       const result = this.node.tick(actor, trace, kingdom);
 
-      trace.log(actor.id, 'result', result);
+      trace.log('result', result);
       trace.end();
 
       if (result === SUCCESS) {
@@ -193,7 +193,7 @@ export const repeatUntilConditionMet = (id: string, condition: ConditionFunc,
       if (!conditionResult) {
         const result = this.node.tick(actor, trace, kingdom);
 
-        trace.log(actor.id, 'result', result);
+        trace.log('result', result);
 
         trace.end();
 
@@ -224,7 +224,7 @@ export const invert = (id: string, node: TreeNode): TreeNode => {
         result = FAILURE;
       }
 
-      trace.log(actor.id, 'result', result);
+      trace.log('result', result);
 
       trace.end();
 
@@ -241,7 +241,7 @@ export const returnSuccess = (id: string, node: TreeNode): TreeNode => {
       trace = trace.begin(this.id);
 
       const result = this.node.tick(actor, trace, kingdom);
-      trace.log(actor.id, 'result', result);
+      trace.log('result', result);
 
       trace.end();
 
@@ -259,7 +259,7 @@ export const leafNode = (id: string, behavior: TickFunc): TreeNode => {
 
       const result = this.behavior(actor, trace, kingdom);
 
-      trace.log(actor.id, 'result', result);
+      trace.log('result', result);
 
       trace.end();
 
@@ -285,7 +285,7 @@ export const featureFlagBool = (id: string, flag: string, defaultBehavior: TreeN
         result = this.defaultBehavior.tick(actor, trace, kingdom);
       }
 
-      trace.log(actor.id, 'result', result);
+      trace.log('result', result);
 
       trace.end();
 

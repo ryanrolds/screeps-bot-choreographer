@@ -24,16 +24,16 @@ class Observer extends OrgBase {
       this.scribe.updateRoom(Game.rooms[this.justObserved]);
     }
 
-    trace.log(this.id, 'in range rooms', {inRange: this.inRangeRooms});
+    trace.log('in range rooms', {inRange: this.inRangeRooms});
 
     const nextRoom = this.scribe.getOldestRoomInList(this.inRangeRooms);
 
-    trace.log(this.id, 'next room', {nextRoom});
+    trace.log('next room', {nextRoom});
 
     if (nextRoom) {
       const result = this.observer.observeRoom(nextRoom);
 
-      trace.log(this.id, 'observe room result', {nextRoom, result});
+      trace.log('observe room result', {nextRoom, result});
 
       if (result === OK) {
         this.justObserved = nextRoom;

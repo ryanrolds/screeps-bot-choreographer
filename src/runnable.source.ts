@@ -15,6 +15,7 @@ const REQUEST_WORKER_TTL = 50;
 const REQUEST_HAULING_TTL = 20;
 
 export default class SourceRunnable {
+  id: string;
   orgRoom: OrgRoom;
   sourceId: Id<Source>;
   prevTime: number;
@@ -73,10 +74,12 @@ export default class SourceRunnable {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+    trace = trace.asId(this.sourceId);
+
     const ticks = Game.time - this.prevTime;
     this.prevTime = Game.time;
 
-    trace.log(this.sourceId, 'Source run', {});
+    trace.log('source run', {});
 
     const room = this.orgRoom.getRoomObject();
     if (!room) {

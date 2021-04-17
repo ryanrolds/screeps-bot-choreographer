@@ -319,14 +319,14 @@ module.exports.emptyCreep = behaviorTree.repeatUntilConditionMet(
 
           const destination = Game.getObjectById(creep.memory[MEMORY_DESTINATION]);
           if (!destination) {
-            trace.log(creep.id, 'no dump destination');
+            trace.log('no dump destination', {});
             return FAILURE;
           }
 
           const resource = Object.keys(creep.store).pop();
 
           const result = creep.transfer(destination, resource);
-          trace.log(creep.id, 'transfer result', {
+          trace.log('transfer result', {
             result,
           });
 

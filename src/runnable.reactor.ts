@@ -17,6 +17,7 @@ const REQUEST_LOAD_TTL = 20;
 const REQUEST_UNLOAD_TTL = 20;
 const REACTION_TTL = 0;
 const NO_SLEEP = 0;
+const NEW_TASK_SLEEP = 10;
 
 export default class ReactorRunnable {
   id: string;
@@ -34,30 +35,40 @@ export default class ReactorRunnable {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+    trace = trace.asId(this.id);
+
     const ticks = Game.time - this.prevTime;
     this.prevTime = Game.time;
 
     const room = this.orgRoom.getRoomObject();
     if (!room) {
-      trace.log(this.id, "room not found - terminating", {});
+      trace.log("room not found - terminating", {});
       return terminate();
     }
 
     let labs = this.labIds.map(labId => Game.getObjectById(labId));
     if (_.filter(labs, lab => !lab).length) {
-      trace.log(this.id, 'lab missing - terminating', {labIds: this.labIds})
+      trace.log('lab missing - terminating', {labIds: this.labIds})
       return terminate();
     }
 
     let task = room.memory[this.getTaskMemoryId()] || null;
     if (!task) {
+      trace.log('no current task', {})
+
       const task = (this.orgRoom as any).getKingdom().getNextRequest(TOPICS.TASK_REACTION);
-      if (task) {
-        room.memory[this.getTaskMemoryId()] = task;
+      if (!task) {
+        trace.log('no available tasks', {})
+        return sleeping(NEW_TASK_SLEEP);
       }
+
+      task[MEMORY.REACTOR_TTL] = TASK_TTL;
+      room.memory[this.getTaskMemoryId()] = task;
+
+      trace.log('got new task', {task})
     }
 
-    trace.log(this.id, 'reactor run', {
+    trace.log('reactor run', {
       labIds: this.labIds,
       ticks,
       task,
@@ -114,12 +125,8 @@ export default class ReactorRunnable {
       case TASK_PHASE_LOAD:
         // Maintain task TTL. We want to abort hard to perform tasks
         let ttl = task[MEMORY.REACTOR_TTL];
-        if (ttl === undefined) {
-          ttl = TASK_TTL;
-        }
-
         if (ttl <= 0) {
-          trace.log(this.id, 'ttl exceeded, clearing task', {});
+          trace.log('ttl exceeded, clearing task', {});
           this.clearTask();
           return NO_SLEEP;
         } else {
@@ -131,7 +138,7 @@ export default class ReactorRunnable {
         const readyB = this.prepareInput(labs[2], inputB, amount, trace);
 
         if (readyA && readyB) {
-          trace.log(this.id, 'loaded, moving to react phase', {});
+          trace.log('loaded, moving to react phase', {});
           room.memory[this.getTaskMemoryId()][MEMORY.TASK_PHASE] = TASK_PHASE_REACT;
           return NO_SLEEP;
         }
@@ -139,13 +146,13 @@ export default class ReactorRunnable {
         return REQUEST_LOAD_TTL;
       case TASK_PHASE_REACT:
         if (labs[0].cooldown) {
-          trace.log(this.id, 'reacting cooldown', {cooldown: labs[0].cooldown});
+          trace.log('reacting cooldown', {cooldown: labs[0].cooldown});
           return labs[0].cooldown;
         }
 
         const result = labs[0].runReaction(labs[1], labs[2]);
         if (result !== OK) {
-          trace.log(this.id, 'reacted, moving to unload phase', {});
+          trace.log('reacted, moving to unload phase', {});
           room.memory[this.getTaskMemoryId()][MEMORY.TASK_PHASE] = TASK_PHASE_UNLOAD;
           return NO_SLEEP;
         }
@@ -154,7 +161,7 @@ export default class ReactorRunnable {
       case TASK_PHASE_UNLOAD:
         const lab = labs[0];
         if (!lab.mineralType || lab.store.getUsedCapacity(lab.mineralType) === 0) {
-          trace.log(this.id, 'unloaded, task complete', {});
+          trace.log('unloaded, task complete', {});
           this.clearTask();
           return NO_SLEEP;
         }
@@ -195,10 +202,7 @@ export default class ReactorRunnable {
       const missingAmount = desiredAmount - currentAmount;
 
       if (!pickup) {
-        // TODO this really should use topics/IPC
-        trace.log(this.id, 'requesting resource from governor', {resource, desiredAmount, currentAmount});
-        (this.orgRoom as any).getKingdom().getResourceGovernor()
-          .requestResource(this.orgRoom, resource, missingAmount, REQUEST_LOAD_TTL);
+        this.requestRequest(resource, missingAmount, trace);
       } else {
         this.loadLab(lab, pickup, resource, missingAmount, trace);
       }
@@ -209,8 +213,15 @@ export default class ReactorRunnable {
     return true;
   }
 
+  requestRequest(resource: ResourceConstant, amount: number, trace: Tracer) {
+    // TODO this really should use topics/IPC
+    trace.log('requesting resource from governor', {resource, amount});
+    (this.orgRoom as any).getKingdom().getResourceGovernor().requestResource(this.orgRoom,
+      resource, amount, REQUEST_LOAD_TTL, trace);
+  }
+
   loadLab(lab: StructureLab, pickup: AnyStoreStructure, resource: ResourceConstant, amount: number, trace: Tracer) {
-    trace.log(this.id, 'requesting load', {
+    trace.log('requesting load', {
       lab: lab.id,
       resource: resource,
       amount: amount,
@@ -232,7 +243,7 @@ export default class ReactorRunnable {
     const currentAmount = lab.store.getUsedCapacity(lab.mineralType);
     const dropoff = this.orgRoom.getReserveStructureWithRoomForResource(lab.mineralType);
 
-    trace.log(this.id, 'requesting unload', {
+    trace.log('requesting unload', {
       lab: lab.id,
       resource: lab.mineralType,
       amount: currentAmount,

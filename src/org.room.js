@@ -780,8 +780,10 @@ class Room extends OrgBase {
     }).length;
 
     let desiredDistributors = MIN_DISTRIBUTORS;
-    if (this.room.controller.level >= 3) {
+    if (this.room.controller.level < 3) {
       desiredDistributors = 1;
+    } else if (this.room.energyAvailable / this.room.energyCapacityAvailable < 0.5) {
+      desiredDistributors = 2;
     }
 
     if (!this.hasStorage || numDistributors >= desiredDistributors) {

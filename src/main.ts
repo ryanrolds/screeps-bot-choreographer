@@ -11,6 +11,7 @@ let config: KingdomConfig = {
     'E21S48-Shard2': {
       id: 'E21S48-Shard2',
       primary: 'E21S48',
+      //rooms: ['E21S48'],
       rooms: ['E21S48', 'E21S49'],
     },
   },
@@ -61,7 +62,7 @@ const ai = new AI(config);
 global.AI = ai; // So we can access it from the console
 
 export const loop = function () {
-  const trace = tracing.startTrace('loop');
+  const trace = new tracing.Tracer('loop', 'loop');
 
   if (global.TRACING_ACTIVE === true) {
     tracing.setActive();

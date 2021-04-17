@@ -87,26 +87,26 @@ const behavior = behaviorTree.sequenceNode(
 
           const room = kingdom.getCreepRoom(creep);
           if (!room) {
-            trace.log(creep.id, 'unable to get creep room', {result});
+            trace.log('unable to get creep room', {result});
             return behaviorTree.FAILURE;
           }
 
           if (!room.unowned && !room.claimedByMe && !room.reservedByMe) {
             const result = creep.attackController(creep.room.controller);
-            trace.log(creep.id, 'attackController', {result});
+            trace.log('attackController', {result});
             if (result != OK) {
               return behaviorTree.FAILURE;
             }
           } else {
             if (room.isPrimary) {
               const result = creep.claimController(creep.room.controller);
-              trace.log(creep.id, 'claimController', {result});
+              trace.log('claimController', {result});
               if (result != OK) {
                 return behaviorTree.FAILURE;
               }
             } else {
               const result = creep.reserveController(creep.room.controller);
-              trace.log(creep.id, 'reserveController', {result});
+              trace.log('reserveController', {result});
               if (result != OK) {
                 return behaviorTree.FAILURE;
               }

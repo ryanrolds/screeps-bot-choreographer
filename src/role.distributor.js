@@ -126,7 +126,7 @@ const emptyCreep = behaviorTree.leafNode(
 
     const result = creep.transfer(destination, resource);
 
-    trace.log(creep.id, 'unload unneeded', {
+    trace.log('unload unneeded', {
       destination,
       resource,
       result,
@@ -174,7 +174,7 @@ const unloadIfNeeded = behaviorTree.selectorNode(
           const reserve = room.getReserveStructureWithRoomForResource(toUnload[0]);
           creep.memory[MEMORY.MEMORY_DESTINATION] = reserve.id;
 
-          trace.log(creep.id, 'unloading at', {
+          trace.log('unloading at', {
             loaded: JSON.stringify(loadedResources),
             toUnload: JSON.stringify(toUnload),
             desired: JSON.stringify([desiredResource]),
@@ -234,7 +234,7 @@ const loadIfNeeded = behaviorTree.selectorNode(
           throw new Error(`Hauler task missing amount: ${taskId}`);
         }
 
-        trace.log(creep.id, 'has resource', {
+        trace.log('has resource', {
           resource,
           amount,
           creepAmount: creep.store.getUsedCapacity(resource),

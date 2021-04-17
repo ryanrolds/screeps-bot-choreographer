@@ -36,6 +36,8 @@ export default class TowerRunnable {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+    trace = trace.asId(this.towerId);
+
     const ticks = Game.time - this.prevTime;
     this.prevTime = Game.time;
 
@@ -55,7 +57,7 @@ export default class TowerRunnable {
 
     const towerUsed = tower.store.getUsedCapacity(RESOURCE_ENERGY);
 
-    trace.log(this.towerId, "tower runnable", {
+    trace.log("tower runnable", {
       room: room.name,
       id: this.towerId,
       haulTTL: this.haulTTL,
@@ -67,7 +69,7 @@ export default class TowerRunnable {
     // Request energy
     if (towerUsed < REQUEST_ENERGY_THRESHOLD && this.haulTTL < 0) {
       this.haulTTL = REQUEST_ENERGY_TTL;
-      trace.log(this.towerId, 'requesting energy', {});
+      trace.log('requesting energy', {});
       this.requestEnergy(this.orgRoom, tower, REQUEST_ENERGY_TTL);
     }
 
@@ -83,7 +85,7 @@ export default class TowerRunnable {
       }).reverse();
 
       const result = tower.attack(hostiles[0]);
-      trace.log(this.towerId, 'attacking', {target: hostiles[0].id, result})
+      trace.log('attacking', {target: hostiles[0].id, result})
       return running();
     }
 
@@ -98,20 +100,20 @@ export default class TowerRunnable {
         this.damagedCreep = null;
       } else {
         const result = tower.heal(creep);
-        trace.log(this.towerId, 'healing', {target: creep.id, result})
+        trace.log('healing', {target: creep.id, result})
         return running();
       }
     }
 
     // Not above attack/heal reserve, skip repair logic
     if (towerUsed < EMERGENCY_RESERVE) {
-      trace.log(this.towerId, 'skipping repairs low energy', {towerUsed});
+      trace.log('skipping repairs low energy', {towerUsed});
       return running();
     }
 
     // Repair focus TTL that spreads repairs out
     if (this.repairTarget && this.repairTTL < 0) {
-      trace.log(this.towerId, 'repair target ttl hit', {});
+      trace.log('repair target ttl hit', {});
       this.repairTarget = null;
       this.repairTTL = 0;
     }
@@ -120,7 +122,7 @@ export default class TowerRunnable {
     if (this.repairTarget) {
       const target = Game.getObjectById(this.repairTarget);
       if (!target || target.hits >= target.hitsMax) {
-        trace.log(this.towerId, 'repair target done/missing', {target});
+        trace.log('repair target done/missing', {target});
         this.repairTarget = null;
         this.repairTTL = 0;
       }
@@ -154,20 +156,20 @@ export default class TowerRunnable {
 
     // If no repair target sleep for a bit
     if (!this.repairTarget) {
-      trace.log(this.towerId, 'no repair repair', {});
+      trace.log('no repair repair', {});
       return sleeping(5);
     }
 
     const target = Game.getObjectById(this.repairTarget);
     if (!target) {
-      trace.log(this.towerId, 'repair target missing', {target});
+      trace.log('repair target missing', {target});
       this.repairTarget = null;
       this.repairTTL = 0;
       return running();
     }
 
     const result = tower.repair(target);
-    trace.log(this.towerId, 'repair', {target, result, ttl: this.repairTTL});
+    trace.log('repair', {target, result, ttl: this.repairTTL});
 
     return running();
   }

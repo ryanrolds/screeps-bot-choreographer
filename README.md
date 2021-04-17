@@ -85,7 +85,7 @@ The AI will focus on establishing an economy, build, repair, and defend the colo
 
 There are a couple of helpful global variables:
 
-* `LOG_WHEN_ID='<game id>'` - `trace.log(id, ...)` calls will be output to the console
+* `LOG_WHEN_ID='<game id>'` - `trace.asId(<game id>).log(...)` calls will be output to the console
 * `TRACING_ACTIVE=true` - Will output tracing metric data to the console
 ### Creeps
 

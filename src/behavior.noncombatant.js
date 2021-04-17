@@ -37,7 +37,7 @@ module.exports = (behaviorNode) => {
             return SUCCESS;
           }
 
-          trace.log(creep.id, 'numHostiles', room.numHostiles);
+          trace.log('numHostiles', room.numHostiles);
 
           const primaryRoom = colony.primaryRoom;
 

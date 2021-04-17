@@ -19,28 +19,35 @@ let isActive: boolean = false;
 let metrics: Metric[] = [];
 
 export class Tracer {
+  id: string;
   name: string;
   start: number;
 
-  constructor(name: string) {
+  constructor(id: string, name: string) {
+    this.id = id;
     this.name = name;
     this.start = Game.cpu.getUsed();
   }
 
-  with(name: string) {
-    return startTrace(`${this.name}.${name}`);
+  asId(id: string) {
+    return startTrace(id, this.name);
   }
+
+  with(name: string) {
+    return startTrace(this.id, `${this.name}.${name}`);
+  }
+
   begin(name: string) {
-    const trace = startTrace(`${this.name}.${name}`);
+    const trace = startTrace(this.id, `${this.name}.${name}`);
     trace.start = Game.cpu.getUsed();
     return trace;
   }
-  log(id: string, message: string, details: Object): void {
-    if (id !== globalAny.LOG_WHEN_ID) {
+  log(message: string, details: Object): void {
+    if (this.id !== globalAny.LOG_WHEN_ID) {
       return;
     }
 
-    console.log(id, this.name, message, JSON.stringify(details));
+    console.log(this.id, this.name, message, JSON.stringify(details));
   }
   end() {
     if (!isActive) {
@@ -66,8 +73,8 @@ export const setInactive = () => {
   reset();
 };
 
-export const startTrace = (name: string): Tracer => {
-  return new Tracer(name);
+export const startTrace = (id: string, name: string): Tracer => {
+  return new Tracer(id, name);
 };
 
 export const report = () => {

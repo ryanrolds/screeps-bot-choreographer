@@ -41,7 +41,7 @@ const behavior = behaviorTree.sequenceNode(
 
         creep.memory[MEMORY_ASSIGN_ROOM] = entries[0].id;
 
-        trace.log(creep.id, 'next room', {next: entries[0].id});
+        trace.log('next room', {next: entries[0].id});
 
         return SUCCESS;
       },

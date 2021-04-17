@@ -32,7 +32,7 @@ const moveToRoom = behaviorTree.repeatUntilSuccess(
         maxOps: 1500,
       });
 
-      trace.log(creep.id, 'move to exit result', {
+      trace.log('move to exit result', {
         result,
       });
 
