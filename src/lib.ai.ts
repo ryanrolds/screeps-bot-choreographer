@@ -5,9 +5,9 @@ import {Tracer} from './lib.tracing';
 import {Scheduler, Priorities} from './os.scheduler';
 import * as featureFlags from './lib.feature_flags'
 import {Process} from './os.process';
-import {CreepManager} from './manager.creeps';
-import WarManager from './manager.war';
-import {RoomManager} from './manager.rooms';
+import {CreepManager} from './runnable.manager.creeps';
+import WarManager from './runnable.manager.war';
+import {RoomManager} from './runnable.manager.rooms';
 import KingdomModelRunnable from './runnable.kingdom_model';
 import KingdomGovernorRunnable from './runnable.kingdom_governor'
 

@@ -20,10 +20,15 @@ const behavior = behaviorTree.sequenceNode(
 
         let target = null;
 
+        // TODO check this one at a time
         const hostiles = room.getHostiles();
         const invaderCores = room.getInvaderCores();
         const hostileStructures = room.getHostileStructures();
         if (hostiles.length) {
+          hostiles = _.sortBy(hostiles, (hostile) => {
+            return creep.pos.getRangeTo(hostile);
+          });
+
           target = hostiles[0];
         } else if (invaderCores.length) {
           target = invaderCores[0];
@@ -42,13 +47,14 @@ const behavior = behaviorTree.sequenceNode(
 
           // Send back to primary room
           creep.memory[MEMORY.MEMORY_ASSIGN_ROOM] = primaryRoom.id;
+          delete creep.memory[MEMORY.MEMORY_ASSIGN_ROOM_POS];
 
           return SUCCESS;
         }
 
-        const inRange = creep.pos.getRangeTo(target) <= 3;
-        if (inRange) {
-          creep.rangedAttack(target);
+        if (creep.pos.getRangeTo(target) <= 3) {
+          const result = creep.rangedAttack(target);
+          trace.log('ranged attack result', {result});
         }
 
         if (creep.pos.getRangeTo(target) === 1) {

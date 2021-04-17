@@ -7,7 +7,7 @@ import {setup, mockGlobal, mockInstanceOf} from "screeps-test-helper";
 
 import {Scheduler} from './os.scheduler';
 import {Process, terminate} from './os.process';
-import {CreepManager} from './manager.creeps';
+import {CreepManager} from './runnable.manager.creeps';
 import {Tracer} from './lib.tracing';
 import * as MEMORY from './constants.memory';
 import * as CREEPS from './constants.creeps';

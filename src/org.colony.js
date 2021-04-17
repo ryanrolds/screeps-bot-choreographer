@@ -313,7 +313,8 @@ class Colony extends OrgBase {
 
     // Order existing defenders to the room
     this.defenders.forEach((defender) => {
-      defender.memory[MEMORY_ASSIGN_ROOM] = request.details.memory[MEMORY_ASSIGN_ROOM];
+      defender.memory[MEMORY.MEMORY_ASSIGN_ROOM] = request.details.memory[MEMORY.MEMORY_ASSIGN_ROOM];
+      defender.memory[MEMORY.MEMORY_ASSIGN_ROOM_POS] = request.details.memory[MEMORY.MEMORY_ASSIGN_ROOM_POS];
     });
   }
   requestHaulers() {

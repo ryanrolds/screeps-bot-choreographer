@@ -1,10 +1,10 @@
 const PRICES = {
   H: {sell: 5, buy: 0.09},
-  O: {sell: 0.5, buy: 0.05},
+  O: {sell: 0.5, buy: 0.06},
   Z: {sell: 0.5, buy: 0.08},
-  K: {sell: 0.187, buy: 0.08},
+  K: {sell: 0.3, buy: 0.08},
   U: {sell: 0.5, buy: 0.15},
-  L: {sell: 0.2, buy: 0.09},
+  L: {sell: 0.3, buy: 0.09},
   G: {sell: 11.0, buy: 0.5},
   X: {sell: 5, buy: 0.85},
   OH: {sell: 2, buy: 0.3},

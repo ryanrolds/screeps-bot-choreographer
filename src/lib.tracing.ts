@@ -42,7 +42,7 @@ export class Tracer {
     trace.start = Game.cpu.getUsed();
     return trace;
   }
-  log(message: string, details: Object): void {
+  log(message: string, details: Object = {}): void {
     if (this.id !== globalAny.LOG_WHEN_ID) {
       return;
     }

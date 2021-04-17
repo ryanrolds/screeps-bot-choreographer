@@ -66,7 +66,6 @@ const behavior = behaviorTree.sequenceNode(
         ),
       ],
     ),
-
   ],
 );
 

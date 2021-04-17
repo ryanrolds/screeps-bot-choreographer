@@ -2,12 +2,12 @@ import {Process, Runnable, RunnableResult, running, sleeping, terminate} from ".
 import {Tracer} from './lib.tracing';
 import Kingdom from "./org.kingdom";
 import {Priorities, Scheduler} from "./os.scheduler";
-import LinkManager from "./manager.links"
+import LinkManager from "./runnable.manager.links"
 import TowerRunnable from "./runnable.tower"
 import SourceRunnable from "./runnable.source";
-import SpawnManager from "./manager.spawns";
+import SpawnManager from "./runnable.manager.spawns";
 import TerminalRunnable from "./runnable.terminal";
-import {LabsManager} from "./manager.labs";
+import {LabsManager} from "./runnable.manager.labs";
 
 export default class RoomRunnable {
   id: string;

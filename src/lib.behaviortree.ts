@@ -101,6 +101,23 @@ export const sequenceNode = (id: string, children: TreeNode[]): TreeNode => {
   } as TreeNode;
 };
 
+export const alwaysNode = (id: string, node: TreeNode): TreeNode => {
+  return {
+    id, // used track state in memory
+    node,
+    tick: function (actor, trace, kingdom) {
+      trace = trace.begin(this.id);
+
+      const result = this.node.tick(actor, trace, kingdom);
+      trace.log('result', result);
+
+      trace.end();
+
+      return result;
+    },
+  } as TreeNode;
+}
+
 export const sequenceAlwaysNode = (id: string, children: TreeNode[]): TreeNode => {
   return {
     id, // used track state in memory

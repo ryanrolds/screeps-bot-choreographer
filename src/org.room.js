@@ -764,10 +764,13 @@ class Room extends OrgBase {
         controller.activateSafeMode();
       } else if (!controller || (!controller.safeMode || controller.safeMode < 250)) {
         // Request defenders
+        const hostile = this.hostiles[0];
+        const hostileLocation = [hostile.pos.x, hostile.pos.y, hostile.pos.roomName].join(',');
         this.sendRequest(TOPICS.TOPIC_DEFENDERS, PRIORITIES.PRIORITY_DEFENDER, {
           role: CREEPS.WORKER_DEFENDER,
           memory: {
             [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
+            [MEMORY.MEMORY_ASSIGN_ROOM_POS]: hostileLocation,
           },
         }, REQUEST_DEFENDERS_TTL);
       }

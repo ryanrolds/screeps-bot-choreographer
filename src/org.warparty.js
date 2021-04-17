@@ -5,15 +5,15 @@ const {WORKER_ATTACKER} = require('./constants.creeps');
 const {PRIORITY_ATTACKER} = require('./constants.priorities');
 const {doEvery} = require('./lib.scheduler');
 
-const DESIRED_NUM_ATTACKERS = 4;
-const REQUEST_ATTACKER_TTL = 55;
-
 const FORMATION = [
   {x: 0, y: 0},
   {x: -1, y: 0},
   {x: 0, y: 1},
   {x: -1, y: 1},
 ];
+
+const DESIRED_NUM_ATTACKERS = 4;
+const REQUEST_ATTACKER_TTL = 55;
 
 class WarParty extends OrgBase {
   constructor(parent, flag, trace) {

@@ -31,6 +31,8 @@ module.exports.MEMORY_COMMUTE_DURATION = 'commute_duration';
 // Assign
 module.exports.MEMORY_ASSIGN_SHARD = 'assignment_shard';
 module.exports.MEMORY_ASSIGN_ROOM = 'assignment_room';
+module.exports.MEMORY_ASSIGN_SHARD = 'assignment_shard';
+module.exports.MEMORY_ASSIGN_ROOM_POS = 'assignment_room_pos';
 
 // base task
 module.exports.MEMORY_TASK_REQUESTER = 'task_requestor';
