@@ -19,12 +19,14 @@ interface WarMemory {
 }
 
 export default class WarManager {
+  id: string;
   scheduler: Scheduler;
   memory: WarMemory;
   warParties: WarPartyRunnable[];
   targetRoom: string;
 
-  constructor(scheduler: Scheduler) {
+  constructor(id: string, scheduler: Scheduler) {
+    this.id = id;
     this.scheduler = scheduler;
     this.restoreFromMemory();
   }
@@ -64,6 +66,8 @@ export default class WarManager {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+    trace = trace.asId(this.id);
+
     this.warParties = this.warParties.filter((party) => {
       return this.scheduler.hasProcess(party.id);
     });

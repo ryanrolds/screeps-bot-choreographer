@@ -35,7 +35,7 @@ const behavior = behaviorTree.sequenceNode(
           maxOps: 1500,
         });
 
-        // console.log(creep.name, "moveTo result", result)
+
 
         if (result === ERR_NO_PATH) {
           return behaviorTree.FAILURE;

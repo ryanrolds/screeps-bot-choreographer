@@ -8,13 +8,17 @@ import Kingdom from './org.kingdom';
 import RoomRunnable from './runnable.room';
 
 export class RoomManager {
+  id: string;
   scheduler: Scheduler;
 
-  constructor(scheduler: Scheduler) {
+  constructor(id: string, scheduler: Scheduler) {
+    this.id = id;
     this.scheduler = scheduler;
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+    trace = trace.asId(this.id);
+
     Object.entries(Game.rooms).forEach(([name, room]) => {
       const hasProcess = this.scheduler.hasProcess(name);
       if (hasProcess) {

@@ -220,7 +220,7 @@ class Room extends OrgBase {
         this.doRequestDefenders();
       }
 
-      // console.log('XXXXXXXX cannot find room', this.id);
+
       updateTrace.end();
       return;
     }
@@ -269,8 +269,6 @@ class Room extends OrgBase {
     }
 
     requestTrace.end();
-
-    console.log(this);
 
     const childrenTrace = updateTrace.begin('children');
 
@@ -883,7 +881,7 @@ class Room extends OrgBase {
       desiredUpgraders = Math.ceil(parts / maxParts);
     }
 
-    // console.log("upgraders", this.id, parts, maxParts, desiredUpgraders)
+
 
     const energyLimit = ((parts - 1) * 200) + 300;
 
@@ -1024,7 +1022,7 @@ class Room extends OrgBase {
         [MEMORY.MEMORY_HAUL_RESOURCE]: resource.resourceType,
       };
 
-      // console.log("dropped resources", loadPriority, resource.amount, JSON.stringify(details))
+
 
       this.sendRequest(TOPICS.TOPIC_HAUL_TASK, loadPriority, details, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
     });
@@ -1060,7 +1058,7 @@ class Room extends OrgBase {
     // Sources and Minerals
     // let roomSources = room.find(FIND_SOURCES);
     // roomSources = roomSources.concat(this.getMineralsWithExtractor());
-    // console.log("xxxxx room sources", roomSources)
+
     // this.sourceMap = this.updateOrgMap(roomSources, 'id', this.sourceMap, Source, trace);
 
     trace.end();

@@ -219,7 +219,7 @@ class PathCache {
         };
 
         const result = PathFinder.search(origin, {pos: goal, range}, opts);
-        // console.log("pathfinder", originId, goalId, result.ops, result.cost, result.incomplete, result.path.length)
+
 
         // TODO if incompletely try cutting some off the path to avoid getting stuck
 

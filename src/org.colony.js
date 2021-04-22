@@ -117,7 +117,7 @@ class Colony extends OrgBase {
     });
 
     this.doRequestHaulers = doEvery(REQUEST_HAULER_TTL)(() => {
-      // console.log("do hauler request", this.id)
+
       this.requestHaulers();
     });
 
@@ -126,28 +126,32 @@ class Colony extends OrgBase {
   update(trace) {
     const updateTrace = trace.begin('update');
 
+    const removeStale = updateTrace.begin('remove_stale');
     this.topics.removeStale();
-
-    // console.log(JSON.stringify(this.topics));
-
-    // console.log("topics", this.id, JSON.stringify(this.topics))
+    removeStale.end();
 
     this.primaryRoom = Game.rooms[this.primaryRoomId];
 
     this.doUpdateOrg(updateTrace);
+
+    const updateCreeps = updateTrace.begin('update_creeps');
     this.doUpdateCreeps();
+    updateCreeps.end();
+
+    const updateHaulers = updateTrace.begin('update_haulers');
     this.doUpdateHaulers();
+    updateHaulers.end();
 
     // Fraction of num haul tasks
     let numHaulTasks = this.getTopicLength(TOPIC_HAUL_TASK);
     numHaulTasks -= this.idleHaulers;
 
     if (this.primaryRoom) {
+      const updateHaulerPID = updateTrace.begin('update_hauler_pid');
       this.pidDesiredHaulers = PID.update(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS,
         numHaulTasks, Game.time);
+      updateHaulerPID.end();
     }
-
-    console.log(this);
 
     const roomTrace = updateTrace.begin('rooms');
     Object.values(this.roomMap).forEach((room) => {
@@ -156,15 +160,19 @@ class Colony extends OrgBase {
     roomTrace.end();
 
     if (this.observer) {
-      this.observer.update(updateTrace);
+      const observerTrace = updateTrace.begin('observer');
+      this.observer.update(observerTrace);
+      observerTrace.end();
     }
 
+    const handleRequests = updateTrace.begin('handle_requests');
     this.doRequestReserversForMissingRooms();
     this.doHandleDefenderRequest();
 
     if (this.primaryOrgRoom && this.primaryOrgRoom.hasStorage) {
       this.doRequestHaulers();
     }
+    handleRequests.end();
 
     // if (this.doRequestExplorer) {
     //  this.doRequestExplorer();

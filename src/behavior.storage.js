@@ -56,7 +56,6 @@ const selectContainerForWithdraw = module.exports.selectContainerForWithdraw = b
           return false;
         }
 
-        // console.log(structure, structure.store.getUsedCapacity(RESOURCE_ENERGY))
         return structure.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
       },
     });
@@ -150,18 +149,15 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.select
 
         const colony = kingdom.getCreepColony(creep);
         if (!colony) {
-          // console.log('creep no colony', creep.name);
           return FAILURE;
         }
 
         const room = colony.getPrimaryRoom();
         if (!room) {
-          // console.log('creep no primary room', creep.name);
           return FAILURE;
         }
 
         if (!room.hasStorage) {
-          // console.log('creep has no storage', creep.name);
           return FAILURE;
         }
 

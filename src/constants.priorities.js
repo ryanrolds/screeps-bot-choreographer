@@ -27,7 +27,9 @@ const TERMINAL_TRANSFER = 3;
 
 // Hauling
 const HAUL_REACTION = 0.9;
-const HAUL_BOOST = 1;
+const HAUL_BOOST = 1.2;
+const UNLOAD_BOOST = 1.3;
+
 
 // Reactions
 REACTION_PRIORITIES = {
@@ -91,5 +93,6 @@ module.exports = {
   TERMINAL_TRANSFER,
   HAUL_REACTION,
   HAUL_BOOST,
+  UNLOAD_BOOST,
   REACTION_PRIORITIES,
 };

@@ -69,6 +69,8 @@ export default class LinkManager {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+    trace = trace.asId(this.id);
+
     const ticks = Game.time - this.prevTime;
     this.prevTime = Game.time;
 
@@ -210,7 +212,7 @@ export default class LinkManager {
         [MEMORY.MEMORY_HAUL_DROPOFF]: storageLink.id,
       };
 
-      (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, 1, details, HAUL_TTL);
+      (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, 0.9, details, HAUL_TTL);
       trace.log('haul energy to storage link', {
         request: details,
       });

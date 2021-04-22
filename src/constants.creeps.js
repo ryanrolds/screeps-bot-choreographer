@@ -25,7 +25,7 @@ const definitions = {
     ignoreSpawnEnergyLimit: true,
     parts: [MOVE, CARRY, WORK, WORK],
     base: [MOVE, CARRY, WORK, WORK],
-    // boosts: ['harvest'],
+    boosts: ['harvest'],
     processPriority: 2,
   },
   [WORKER_HAULER]: {
@@ -39,12 +39,14 @@ const definitions = {
     energyLimit: 1500,
     parts: [MOVE, CARRY, WORK],
     base: [MOVE, CARRY, WORK],
+    boosts: ['build'],
     processPriority: 4,
   },
   [WORKER_REPAIRER]: {
     energyLimit: 900,
     parts: [CARRY, MOVE, WORK, MOVE],
     base: [CARRY, MOVE, WORK, MOVE],
+    boosts: ['repair'],
     processPriority: 4,
   },
   [WORKER_UPGRADER]: {
@@ -64,12 +66,14 @@ const definitions = {
     energyLimit: 2600,
     parts: [CLAIM, MOVE],
     base: [MOVE, CLAIM],
+    boosts: ['upgradeController'],
     processPriority: 4,
   },
   [WORKER_DEFENDER]: {
     energyLimit: null,
     parts: [MOVE, TOUGH, TOUGH, MOVE, RANGED_ATTACK, RANGED_ATTACK],
     base: [MOVE, TOUGH, TOUGH, MOVE, RANGED_ATTACK, TOUGH],
+    boosts: ['damage', 'rangedAttack'],
     processPriority: 1,
   },
   [WORKER_ATTACKER]: {

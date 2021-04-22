@@ -25,29 +25,33 @@ export class AI {
 
     // Kingdom Model & Messaging process
     // Pump messages through kingdom, colonies, room, ect...
-    this.scheduler.registerProcess(new Process('kingdom_model', 'kingdom_model',
-      Priorities.CRITICAL, new KingdomModelRunnable()));
+    const kingdomModelId = 'kingdom_model';
+    this.scheduler.registerProcess(new Process(kingdomModelId, 'kingdom_model',
+      Priorities.CRITICAL, new KingdomModelRunnable(kingdomModelId)));
 
     // Kingdom Governor
     this.scheduler.registerProcess(new Process('kingdom_governor', 'kingdom_governor',
       Priorities.CRITICAL, new KingdomGovernorRunnable('kingdom_governor')));
 
     // War manager
-    const warManager = new WarManager(this.scheduler);
-    this.scheduler.registerProcess(new Process('war_manager', 'war_manager',
+    const warManagerId = 'war_manager';
+    const warManager = new WarManager(warManagerId, this.scheduler);
+    this.scheduler.registerProcess(new Process(warManagerId, 'war_manager',
       Priorities.OFFENSE, warManager));
 
     // Room Processes
-    const roomManager = new RoomManager(this.scheduler);
-    this.scheduler.registerProcess(new Process('room_manager', 'room_manager',
+    const roomManagerId = 'room_manager';
+    const roomManager = new RoomManager(roomManagerId, this.scheduler);
+    this.scheduler.registerProcess(new Process(roomManagerId, 'room_manager',
       Priorities.CRITICAL, roomManager));
 
     // Creep processes
     const useCreepManager = featureFlags.getFlag(featureFlags.CREEPS_USE_MANAGER);
     if (useCreepManager) {
       // Setup creep manager
-      const creepManager = new CreepManager(this.scheduler)
-      this.scheduler.registerProcess(new Process('creeps_manager', 'creeps_manager',
+      const creepManagerId = 'creeps_manager';
+      const creepManager = new CreepManager(creepManagerId, this.scheduler)
+      this.scheduler.registerProcess(new Process(creepManagerId, 'creeps_manager',
         Priorities.CRITICAL, creepManager));
     }
 

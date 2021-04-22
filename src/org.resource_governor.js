@@ -55,22 +55,24 @@ class Resources extends OrgBase {
     setupTrace.end();
   }
   update(trace) {
+    trace = trace.asId(this.id);
+    console.log(trace.id);
+
     const updateTrace = trace.begin('update');
 
     this.resources = this.getReserveResources(true);
     this.sharedResources = this.getSharedResources();
-
-    this.availableReactions = this.getReactions();
+    this.availableReactions = this.getReactions(trace);
 
     this.doRequestReactions();
     this.doRequestSellExtraResources();
     this.doDistributeBoosts(trace);
 
-    console.log(this);
-
     updateTrace.end();
   }
   process(trace) {
+    trace = trace.asId(this.id);
+
     const processTrace = trace.begin('process');
 
     this.updateStats();
@@ -90,11 +92,16 @@ class Resources extends OrgBase {
     const stats = this.getStats();
     stats.resources = this.resources;
   }
-  getRoomWithTerminalWithResource(resource) {
+  getRoomWithTerminalWithResource(resource, notRoomName = null) {
     const terminals = this.getKingdom().getColonies().reduce((acc, colony) => {
       const room = colony.getPrimaryRoom();
       if (!room) {
-        // console.log('no primary room for', colony.id);
+
+        return acc;
+      }
+
+      // Don't return the room needing the resources
+      if (notRoomName && room.id === notRoomName) {
         return acc;
       }
 
@@ -214,7 +221,7 @@ class Resources extends OrgBase {
       return acc + colony.getAmountInReserve(resource);
     }, 0);
   }
-  getReactions() {
+  getReactions(trace) {
     let availableReactions = {};
     let missingOneInput = {};
     const overReserve = {};
@@ -223,6 +230,12 @@ class Resources extends OrgBase {
     firstInputs.forEach((inputA) => {
       // If we don't have a full batch, move onto next
       if (!this.sharedResources[inputA] || this.sharedResources[inputA] < REACTION_BATCH_SIZE) {
+        trace.log('dont have enough of first resource', {
+          inputA,
+          amountA: this.sharedResources[inputA] || 0,
+          REACTION_BATCH_SIZE,
+        });
+
         return;
       }
 
@@ -233,6 +246,15 @@ class Resources extends OrgBase {
         // If we don't have a full batch if input mark missing one and go to next
         if (!this.sharedResources[inputB] || this.sharedResources[inputB] < REACTION_BATCH_SIZE) {
           if (!missingOneInput[output]) {
+            trace.log('dont have enough of second resource', {
+              inputA,
+              inputB,
+              amountA: this.sharedResources[inputA] || 0,
+              amountB: this.sharedResources[inputB] || 0,
+              output,
+              REACTION_BATCH_SIZE,
+            });
+
             missingOneInput[output] = {inputA, inputB, output};
           }
 
@@ -241,28 +263,38 @@ class Resources extends OrgBase {
 
         // Check if we need more of the output
         if (this.sharedResources[output] > RESERVE_LIMIT && !overReserve[output]) {
-          overReserve[output] = {inputA, inputB, output};
+          // overReserve[output] = {inputA, inputB, output};
           return;
         }
 
         // If reaction isn't already present add it
         if (!availableReactions[output]) {
+          trace.log('adding available reaction', {
+            inputA,
+            inputB,
+            amountA: this.sharedResources[inputA] || 0,
+            amountB: this.sharedResources[inputB] || 0,
+            output,
+          });
+
           availableReactions[output] = {inputA, inputB, output};
         }
       });
     });
 
-    missingOneInput = this.prioritizeReactions(missingOneInput);
     availableReactions = this.prioritizeReactions(availableReactions);
-    overReserve = this.prioritizeReactions(overReserve);
+    missingOneInput = this.prioritizeReactions(missingOneInput);
+    // overReserve = this.prioritizeReactions(overReserve);
 
+    const nextReactions = [].concat(availableReactions);
     if (missingOneInput.length && Game.market.credits > MIN_CREDITS) {
-      availableReactions.push(missingOneInput.pop());
+      nextReactions = nextReactions.concat(missingOneInput);
     }
+    // nextReactions = nextReactions.concat(overReserve.reverse());
 
-    availableReactions = availableReactions.concat(overReserve.reverse());
+    trace.log('available reactions', {nextReactions, availableReactions, missingOneInput, overReserve});
 
-    return availableReactions;
+    return nextReactions;
   }
   prioritizeReactions(reactions) {
     // Sorts reactions based on hard coded priorities, if kingdom has more
@@ -328,7 +360,7 @@ class Resources extends OrgBase {
       return;
     }
 
-    const result = this.getRoomWithTerminalWithResource(resource);
+    const result = this.getRoomWithTerminalWithResource(resource, room.id);
     if (!result) {
       const details = {
         [MEMORY.TERMINAL_TASK_TYPE]: TASKS.TASK_MARKET_ORDER,
@@ -361,7 +393,7 @@ class Resources extends OrgBase {
   }
   createBuyOrder(room, resource, amount) {
     if (!room.hasTerminal()) {
-      // console.log(`xxxxx Can't create buy order for room without terminal ${room.id} ${resource}`);
+
       return;
     }
 
@@ -371,18 +403,18 @@ class Resources extends OrgBase {
         order.resourceType === resource;
     });
     if (duplicateBuyOrders.length) {
-      // console.log(`already have buy order for ${amount}x ${resource}: ${JSON.stringify(duplicateBuyOrders)}`)
+
       return;
     }
 
     if (!MARKET.PRICES[resource]) {
-      // console.log(`no price set for ${resource}`);
+
       return;
     }
 
     const price = MARKET.PRICES[resource].buy;
 
-    // console.log(`creating buy order for ${amount}x ${resource} at ${price}`);
+
 
     // Create buy order
     const order = {
@@ -394,7 +426,7 @@ class Resources extends OrgBase {
     };
     const result = Game.market.createOrder(order);
     if (result != OK) {
-      // console.log(`problem creating buy order ${result}: ${JSON.stringify(order)}`)
+
     }
   }
   requestReactions() {
@@ -427,7 +459,7 @@ class Resources extends OrgBase {
         return order.type === ORDER_SELL && order.resourceType === resource;
       });
       if (duplicateOrders.length && Game.market.credits > MIN_CREDITS) {
-        // console.log(`already have sell order for ${amount}x ${resource}: ${JSON.stringify(duplicateOrders)}`)
+
         return;
       }
 

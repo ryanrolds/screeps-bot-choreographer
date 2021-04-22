@@ -62,14 +62,14 @@ describe('Creeps Manager', () => {
   });
 
   it("should create a process for each creep", () => {
-    const creepManager = new CreepManager(scheduler);
+    const creepManager = new CreepManager('creep_manager', scheduler);
     creepManager.run(kingdom, tracer);
 
     expect(scheduler.registerProcess.callCount).to.equal(3);
   });
 
   it("should allow adding new creeps in later ticks", () => {
-    const creepManager = new CreepManager(scheduler);
+    const creepManager = new CreepManager('creep_manager', scheduler);
     creepManager.run(kingdom, tracer);
 
     expect(scheduler.registerProcess.callCount).to.equal(3)
@@ -86,7 +86,7 @@ describe('Creeps Manager', () => {
   });
 
   it("should terminate process when creep is no longer around", () => {
-    const creepManager = new CreepManager(scheduler);
+    const creepManager = new CreepManager('creep_manager', scheduler);
     creepManager.run(kingdom, tracer);
 
     expect(scheduler.registerProcess.callCount).to.equal(3);

@@ -23,7 +23,7 @@ export const rootNode = (id: string, behavior: TreeNode) => {
 
     const result = behavior.tick(actor, rootTrace, kingdom);
     if (result == FAILURE) {
-      // console.log('ROOT FAILURE:', actor.room.name, actor.id, actor.name);
+
     }
 
     rootTrace.end();

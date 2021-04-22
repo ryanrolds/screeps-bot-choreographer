@@ -104,7 +104,7 @@ export class Scheduler {
       } else if (process.isTerminated()) {
         toRemove.push(process);
       } else {
-        // console.log("bad status", result.status)
+
       }
 
       if (!processCpu[process.type]) {

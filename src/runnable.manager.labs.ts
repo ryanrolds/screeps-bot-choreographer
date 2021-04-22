@@ -17,7 +17,7 @@ export class LabsManager {
   reactorsIds: Id<StructureLab>[][];
   boosterIds: Id<StructureLab>[];
 
-  constructor(id: string, orgRoom: Room, scheduler: Scheduler) {
+  constructor(id: string, orgRoom: Room, scheduler: Scheduler, trace: Tracer) {
     this.id = id;
     this.orgRoom = orgRoom;
     this.scheduler = scheduler;
@@ -25,15 +25,17 @@ export class LabsManager {
     this.labIds = [];
     this.reactorsIds = [];
     this.boosterIds = [];
-    this.assignLabs(orgRoom);
+    this.assignLabs(orgRoom, trace.asId(this.id));
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+    trace = trace.asId(this.id);
+
     trace.log('labs manager run', {
       labIds: this.labIds,
       reactorsIds: this.reactorsIds,
       boosterIds: this.boosterIds,
-    })
+    });
 
     // Compare labs in current tick to labs that went into assignment
     const labIds: Id<StructureLab>[] = this.orgRoom.getLabs().map(lab => lab.id);
@@ -68,7 +70,7 @@ export class LabsManager {
     return sleeping(50);
   }
 
-  assignLabs(orgRoom: Room) {
+  assignLabs(orgRoom: Room, trace: Tracer) {
     const room = orgRoom.getRoomObject();
     if (!room) {
       return;
@@ -78,9 +80,12 @@ export class LabsManager {
     let unassignedLabs = this.orgRoom.getLabs();
     this.labIds = unassignedLabs.map(lab => lab.id);
 
+    trace.log('unassigned labs', {labIds: this.labIds});
+
     // Find lab closest to spawn
     const spawns = this.orgRoom.getSpawns();
     if (!spawns.length) {
+      trace.log('no spawns');
       return;
     }
 
@@ -88,9 +93,10 @@ export class LabsManager {
     const primaryBooster: any = _.sortBy(spawns[0].pos.findInRange(unassignedLabs, 2), 'id').shift();
     if (primaryBooster) {
       // TODO change range to 2 to support having more than 3 labs in a booster
-      let boosterLabs: StructureLab[] = _.sortBy(primaryBooster.pos.findInRange(unassignedLabs, 1), 'id');
+      let boosterLabs: StructureLab[] = _.sortBy(primaryBooster.pos.findInRange(unassignedLabs, 2), 'id');
       if (boosterLabs.length >= 3) {
         this.boosterIds = boosterLabs.map(lab => lab.id);
+        trace.log('booster labs', {boosterIds: this.boosterIds});
       }
 
       // Remove booster labs from unassigned labs
@@ -114,7 +120,9 @@ export class LabsManager {
         unassignedLabs = _.difference(unassignedLabs, reactorLabs);
 
         if (reactorLabs.length) {
-          this.reactorsIds.push(reactorLabs.map(lab => lab.id));
+          const labIds = reactorLabs.map(lab => lab.id);
+          trace.log('forming reactor', {labIds});
+          this.reactorsIds.push(labIds);
         }
       }
     }

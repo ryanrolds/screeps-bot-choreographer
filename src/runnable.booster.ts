@@ -14,8 +14,8 @@ const MAX_ENERGY = 1000;
 
 const REQUEST_UNLOAD_TTL = 5;
 const REQUEST_LOAD_TTL = 5;
-const REQUEST_ENERGY_TTL = 10;
-const REQUEST_LOW_LABS_UNLOAD_TTL = 10;
+const REQUEST_ENERGY_TTL = 5;
+const REQUEST_LOW_LABS_UNLOAD_TTL = 5;
 
 class Compound {
   name: string;
@@ -89,14 +89,14 @@ export default class BoosterRunnable {
     });
 
     let sleepFor = REQUEST_ENERGY_TTL;
-    this.requestEnergyForLabs();
+    this.requestEnergyForLabs(trace);
 
     if (Object.keys(desiredEffects).length) {
       sleepFor = REQUEST_LOAD_TTL;
-      this.sendHaulRequests(desiredEffects);
+      this.sendHaulRequests(desiredEffects, trace);
     } else {
       sleepFor = REQUEST_UNLOAD_TTL;
-      this.requestClearLowLabs();
+      this.requestClearLowLabs(trace);
     }
 
     return sleeping(sleepFor);
@@ -247,9 +247,8 @@ export default class BoosterRunnable {
 
     return desiredEffects;
   }
-  sendHaulRequests(desiredEffects) {
+  sendHaulRequests(desiredEffects, trace: Tracer) {
     const loadedEffects = this.getLoadedEffects();
-
     const loadedNames = Object.keys(loadedEffects);
     const desiredNames = Object.keys(desiredEffects);
     let preparedNames = _.intersection(loadedNames, desiredNames);
@@ -269,50 +268,39 @@ export default class BoosterRunnable {
     const couldUnload = _.difference(loadedNames, preparedNames);
     const needToLoad = _.difference(desiredNames, preparedNames);
 
-    // console.log('booster', this.id, JSON.stringify(loadedNames), JSON.stringify(desiredNames),
-    //  JSON.stringify(preparedNames), JSON.stringify(couldUnload), JSON.stringify(needToLoad),
-    //  JSON.stringify(desiredEffects), JSON.stringify(loadedEffects));
-
-    // console.log('booster', this.getRoom().id, emptyLabs.length);
-    // console.log('desired', JSON.stringify(desiredNames));
-    // console.log('prepared', JSON.stringify(preparedNames));
-    // console.log('couldUnload', JSON.stringify(couldUnload));
-    // console.log('...needToLoad', JSON.stringify(needToLoad));
-
-    // console.log('lab resources', JSON.stringify(this.resources));
-    // console.log('room resource', JSON.stringify(reserveResources));
-
     const numToLoad = needToLoad.length;
     const numEmpty = emptyLabs.length;
 
     if (numToLoad > numEmpty) {
       const numToUnload = numToLoad - numEmpty;
       const unload = couldUnload.slice(0, numToUnload);
-      this.requestUnloadOfLabs(loadedEffects, unload);
+      this.requestUnloadOfLabs(loadedEffects, unload, trace);
     }
 
     if (numEmpty && numToLoad) {
       const numReadyToLoad = _.min([numEmpty, numToLoad]);
       const load = needToLoad.slice(0, numReadyToLoad);
-      this.requestMaterialsForLabs(desiredEffects, load);
+      this.requestMaterialsForLabs(desiredEffects, load, trace);
     }
 
     this.updateStats(preparedNames, couldUnload, needToLoad);
   }
-  requestClearLowLabs() {
+  requestClearLowLabs(trace: Tracer) {
     const labs = this.labIds.map(labId => Game.getObjectById(labId));
     labs.forEach((lab) => {
       if (!lab.mineralType) {
+        trace.log('lab has no mineral loaded', {labId: lab.id});
         return;
       }
 
       if (lab.store.getUsedCapacity(lab.mineralType) > MIN_COMPOUND) {
+        trace.log('lab is not below min', {labId: lab.id, resource: lab.mineralType});
         return;
       }
 
       const dropoff = this.orgRoom.getReserveStructureWithRoomForResource(lab.mineralType);
       if (!dropoff) {
-        // console.log('No dropoff for already loaded compound', lab.mineralType);
+        trace.log('no dropoff for already loaded compound', {resource: lab.mineralType});
         return;
       }
 
@@ -325,12 +313,13 @@ export default class BoosterRunnable {
         [MEMORY.MEMORY_HAUL_AMOUNT]: lab.store.getUsedCapacity(lab.mineralType),
       };
 
-      // console.log('boost clear low', PRIORITIES.HAUL_BOOST, JSON.stringify(details));
+      trace.log('boost clear low', {priority: PRIORITIES.HAUL_BOOST, details});
 
-      (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details, REQUEST_LOW_LABS_UNLOAD_TTL);
+      (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST,
+        details, REQUEST_LOW_LABS_UNLOAD_TTL);
     });
   }
-  requestUnloadOfLabs(loadedEffects, couldUnload) {
+  requestUnloadOfLabs(loadedEffects, couldUnload, trace: Tracer) {
     const labs = this.labIds.map(labId => Game.getObjectById(labId));
     couldUnload.forEach((toUnload) => {
       const effect = loadedEffects[toUnload];
@@ -338,7 +327,7 @@ export default class BoosterRunnable {
 
       const pickup = this.getLabByResource(compound.name);
       if (!pickup) {
-        // console.log('No pickup for already loaded compound', compound.name);
+        trace.log('no pickup for already loaded compound', {resource: compound.name});
         return;
       }
 
@@ -349,12 +338,13 @@ export default class BoosterRunnable {
         return task === TASKS.HAUL_TASK && taskPickup === pickup.id && resource == compound.name;
       });
       if (assignedCreeps.length) {
+        trace.log('creep already unloading', {resource: compound.name});
         return;
       }
 
       const dropoff = this.orgRoom.getReserveStructureWithRoomForResource(compound.name);
       if (!dropoff) {
-        // console.log('No dropoff for already loaded compound', compound.name);
+        trace.log('no dropoff for already loaded compound', {resource: compound.name});
         return;
       }
 
@@ -367,21 +357,22 @@ export default class BoosterRunnable {
         [MEMORY.MEMORY_HAUL_AMOUNT]: pickup.store.getUsedCapacity(compound.name),
       };
 
-      // console.log('boost unload', PRIORITIES.HAUL_BOOST, JSON.stringify(details));
+      trace.log('boost unload', {priority: PRIORITIES.HAUL_BOOST, details});
 
-      (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details, REQUEST_UNLOAD_TTL);
+      (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.UNLOAD_BOOST,
+        details, REQUEST_UNLOAD_TTL);
     });
   }
-  requestMaterialsForLabs(desiredEffects, needToLoad) {
+  requestMaterialsForLabs(desiredEffects, needToLoad, trace: Tracer) {
     const reserveResources = this.orgRoom.getReserveResources(true);
 
     needToLoad.forEach((toLoad) => {
-      // console.log('toload', toLoad, JSON.stringify(desiredEffects));
+      trace.log('need to load', {toLoad})
       const effect = desiredEffects[toLoad];
 
       const emptyLabs = this.getEmptyLabs();
       if (emptyLabs.length === 0) {
-        // console.log('No destination for available compound', compound.name);
+        trace.log('no destination for available compound', {toLoad});
         return;
       }
       const emptyLab = emptyLabs[0];
@@ -393,6 +384,7 @@ export default class BoosterRunnable {
         return task === TASKS.HAUL_TASK && taskDropoff === emptyLab.id && resource !== RESOURCE_ENERGY;
       });
       if (assignedCreeps.length) {
+        trace.log('creep already loading', {toLoad});
         return;
       }
 
@@ -418,13 +410,13 @@ export default class BoosterRunnable {
       }, null);
 
       if (!compound) {
-        // console.log('no compound available for', toLoad);
+        trace.log('no compound available for', {toLoad});
         return;
       }
 
       const pickup = this.orgRoom.getReserveStructureWithMostOfAResource(compound.name, true);
       if (!pickup) {
-        // console.log('No pickup for available compound', compound.name);
+        trace.log('no pickup for available compound', {resource: compound.name});
         return;
       }
 
@@ -437,16 +429,17 @@ export default class BoosterRunnable {
         [MEMORY.MEMORY_HAUL_AMOUNT]: pickup.store.getUsedCapacity(compound.name),
       };
 
-      // console.log('boost load material', PRIORITIES.HAUL_BOOST, JSON.stringify(details));
+      trace.log('boost load material', {priority: PRIORITIES.HAUL_BOOST, details});
 
       (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details, REQUEST_LOAD_TTL);
     });
   }
-  requestEnergyForLabs() {
+  requestEnergyForLabs(trace: Tracer) {
     const labs = this.labIds.map(labId => Game.getObjectById(labId));
     labs.forEach((lab) => {
       // Only fill lab if needed
       if (lab.store.getUsedCapacity(RESOURCE_ENERGY) >= MIN_ENERGY) {
+        trace.log('lab has energy', {labId: lab.id});
         return;
       }
 
@@ -461,7 +454,7 @@ export default class BoosterRunnable {
         [MEMORY.MEMORY_HAUL_AMOUNT]: MAX_ENERGY - currentEnergy,
       };
 
-      // console.log('boost load energy', PRIORITIES.HAUL_BOOST, JSON.stringify(details));
+      trace.log('boost load energy', {labId: lab.id, priority: PRIORITIES.HAUL_BOOST, details});
 
       (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details, REQUEST_ENERGY_TTL);
     });

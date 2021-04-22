@@ -67,8 +67,6 @@ class Kingdom extends OrgBase {
 
     this.doUpdateOrg(updateTrace);
 
-    console.log(this);
-
     const partiesTrace = updateTrace.begin('warparty');
     Object.values(this.warParties).forEach((party) => {
       party.update(partiesTrace);

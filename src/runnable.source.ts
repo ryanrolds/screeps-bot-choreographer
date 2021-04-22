@@ -86,6 +86,8 @@ export default class SourceRunnable {
       return terminate();
     }
 
+    this.updateStats(kingdom);
+
     this.ttl -= ticks;
     this.workerTTL -= ticks;
     this.haulingTTL -= ticks;
@@ -111,6 +113,27 @@ export default class SourceRunnable {
     }
 
     return running();
+  }
+
+  updateStats(kingdom: Kingdom) {
+    const source = Game.getObjectById(this.sourceId);
+    if (!source) {
+      return;
+    }
+
+    const container = Game.getObjectById(this.containerId);
+
+    const stats = kingdom.getStats();
+    const sourceStats = {
+      energy: source.energy,
+      capacity: source.energyCapacity,
+      regen: source.ticksToRegeneration,
+      containerFree: (container != null) ? container.store.getFreeCapacity() : null,
+    };
+
+    const conlonyId = (this.orgRoom as any).getColony().id;
+    const roomId = (this.orgRoom as any).id;
+    stats.colonies[conlonyId].rooms[roomId].sources[this.sourceId] = sourceStats;
   }
 
   requestMiner(room: Room) {

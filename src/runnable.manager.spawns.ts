@@ -10,22 +10,20 @@ import {createCreep} from "./helpers.creeps"
 import {definitions} from './constants.creeps'
 
 const PROCESS_TTL = 500;
-const REQUEST_BOOSTS_TTL = 5;
+const REQUEST_BOOSTS_TTL = 1;
 
 export default class SpawnManager {
   orgRoom: OrgRoom;
   id: string;
   prevTime: number;
   ttl: number;
-  boostTTL: number;
   spawnIds: Id<StructureSpawn>[];
 
-  constructor(room: OrgRoom, id: string) {
-    this.orgRoom = room;
+  constructor(id: string, room: OrgRoom) {
     this.id = id;
+    this.orgRoom = room;
     this.prevTime = Game.time;
     this.ttl = PROCESS_TTL;
-    this.boostTTL = 0;
 
     const roomObject: Room = this.orgRoom.getRoomObject()
     if (!roomObject) {
@@ -38,11 +36,12 @@ export default class SpawnManager {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+    trace = trace.asId(this.id);
+
     const ticks = Game.time - this.prevTime;
     this.prevTime = Game.time;
 
     this.ttl -= ticks;
-    this.boostTTL -= ticks;
 
     const roomObject: Room = this.orgRoom.getRoomObject()
     if (!roomObject) {
@@ -64,12 +63,12 @@ export default class SpawnManager {
       const energyPercentage = energy / energyCapacity;
 
       if (!isIdle) {
-        const priority = 50 / spawn.spawning.remainingTime;
         const creep = Game.creeps[spawn.spawning.name];
         const role = creep.memory[MEMORY.MEMORY_ROLE];
         const boosts = CREEPS.definitions[role].boosts;
+        const priority = CREEPS.definitions[role].processPriority;
 
-        if (boosts && this.boostTTL < 0) {
+        if (boosts) {
           this.requestBoosts(spawn, boosts, priority);
         }
 
@@ -100,7 +99,7 @@ export default class SpawnManager {
 
         minEnergy = _.max([300, minEnergy]);
 
-        // console.log("spawn", energyLimit, minEnergy, this.energy, spawnTopicBackPressure)
+
 
         if (energy >= minEnergy) {
           let request = (this.orgRoom as any).getNextRequest(TOPICS.TOPIC_SPAWN);

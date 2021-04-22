@@ -39,8 +39,6 @@ module.exports.getNearbyHaulTaskFromTopic = function(topic) {
         let selectedDistance = 99999;
 
         messages.forEach((message) => {
-          // console.log(JSON.stringify(message));
-
           const pickupId = message.details[MEMORY.MEMORY_HAUL_PICKUP];
           if (pickupId) {
             return;

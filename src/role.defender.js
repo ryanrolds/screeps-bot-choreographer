@@ -29,7 +29,7 @@ const behavior = behaviorTree.sequenceNode(
             return creep.pos.getRangeTo(hostile);
           });
 
-          target = hostiles[0];
+          target = Game.getObjectById(hostiles[0].id);
         } else if (invaderCores.length) {
           target = invaderCores[0];
         } else if (hostileStructures.length) {

@@ -28,7 +28,6 @@ module.exports = (behaviorNode) => {
           const booster = room.booster;
 
           if (!booster) {
-            // console.log('no booster in room for', creep.name, room.id);
             creep.memory[BOOST_PHASE] = BOOST_PHASE_DONE;
             return SUCCESS;
           }
@@ -46,8 +45,6 @@ module.exports = (behaviorNode) => {
               // Move to booster location
               const destination = booster.getBoostPosition();
 
-              // console.log('moving to booster', creep.name, destination);
-
               const result = behaviorMovement.moveTo(creep, destination, 0);
               if (result === SUCCESS) {
                 creep.memory[BOOST_PHASE] = BOOST_PHASE_READY;
@@ -57,12 +54,7 @@ module.exports = (behaviorNode) => {
               return result;
             case BOOST_PHASE_READY:
               // Request boosts
-              // console.log('getting boosts', creep.name, desiredBoosts);
               const loadedEffects = booster.getLoadedEffects();
-              console.log('loaded', JSON.stringify(loadedEffects));
-
-              // console.log('loaded', JSON.stringify(loadedEffects));
-
               desiredBoosts.forEach((desiredEffect) => {
                 const effect = loadedEffects[desiredEffect];
                 if (!effect) {
@@ -70,8 +62,6 @@ module.exports = (behaviorNode) => {
                 }
 
                 const compound = effect.compounds[0];
-                console.log('effect compound', desiredEffect, JSON.stringify(compound));
-
                 const lab = booster.getLabByResource(compound.name);
                 const result = lab.boostCreep(creep);
                 trace.log('boosted', {

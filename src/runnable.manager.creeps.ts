@@ -24,13 +24,17 @@ import roleExplorer from './role.explorer';
 
 
 export class CreepManager {
+  id: string;
   scheduler: Scheduler;
 
-  constructor(scheduler: Scheduler) {
+  constructor(id: string, scheduler: Scheduler) {
+    this.id = id;
     this.scheduler = scheduler;
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+    trace = trace.asId(this.id);
+
     // Create processes for any creeps that do not have a process
     // registered with the scheduler
 

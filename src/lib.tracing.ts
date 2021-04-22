@@ -2,6 +2,7 @@ import * as _ from "lodash"
 
 const globalAny: any = global;
 globalAny.LOG_WHEN_ID = null;
+globalAny.TRACING_FILTER = null;
 
 interface Metric {
   key: string;
@@ -37,11 +38,6 @@ export class Tracer {
     return startTrace(this.id, `${this.name}.${name}`);
   }
 
-  begin(name: string) {
-    const trace = startTrace(this.id, `${this.name}.${name}`);
-    trace.start = Game.cpu.getUsed();
-    return trace;
-  }
   log(message: string, details: Object = {}): void {
     if (this.id !== globalAny.LOG_WHEN_ID) {
       return;
@@ -49,6 +45,13 @@ export class Tracer {
 
     console.log(this.id, this.name, message, JSON.stringify(details));
   }
+
+  begin(name: string) {
+    const trace = startTrace(this.id, `${this.name}.${name}`);
+    trace.start = Game.cpu.getUsed();
+    return trace;
+  }
+
   end() {
     if (!isActive) {
       return;
@@ -114,6 +117,10 @@ export const report = () => {
 
   // slice to 50 so that we don't overflow the console in the game
   summaryArray.reverse().slice(0, 75).forEach((metric) => {
+    if (globalAny.TRACING_FILTER && !metric.key.startsWith(globalAny.TRACING_FILTER)) {
+      return;
+    }
+
     console.log(`* ${(metric.total / metric.count).toFixed(2)}, ${metric.count.toFixed(0)}, ` +
       `${metric.total.toFixed(2)}, ${metric.max.toFixed(2)} - ${metric.key}`);
   });

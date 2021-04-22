@@ -180,7 +180,7 @@ export default class TowerRunnable {
     const towerTotal = tower.store.getCapacity(RESOURCE_ENERGY);
 
     const pickupId = this.orgRoom.getClosestStoreWithEnergy(tower);
-    const priority = 1 - (towerUsed - EMERGENCY_RESERVE / towerTotal);
+    const priority = 2 - (towerUsed - EMERGENCY_RESERVE / towerTotal);
 
     const details = {
       [MEMORY.TASK_ID]: `tel-${tower.id}-${Game.time}`,

@@ -49,6 +49,7 @@ const selectExtensionToFill = behaviorTree.leafNode(
   },
 );
 
+/*
 const emergencyExtensionFill = behaviorTree.leafNode(
   'emergency_extension_fill',
   (creep, trace, kingdom) => {
@@ -88,12 +89,11 @@ const emergencyExtensionFill = behaviorTree.leafNode(
     return SUCCESS;
   },
 );
-
+*/
 
 const selectNextTaskOrPark = behaviorTree.selectorNode(
   'pick_something',
   [
-    emergencyExtensionFill,
     behaviorHaul.getHaulTaskFromTopic(TOPICS.HAUL_CORE_TASK),
     selectExtensionToFill,
     behaviorRoom.parkingLot,

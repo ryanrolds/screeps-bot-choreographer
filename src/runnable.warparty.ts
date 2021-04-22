@@ -40,6 +40,8 @@ export default class WarPartyRunnable {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+    trace = trace.asId(this.id);
+
     console.log(`WarParty: ${this.id}, ${this.phase}, ${this.creeps.length}`);
 
     if (this.rallyPoint === null) {

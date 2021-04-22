@@ -9,17 +9,33 @@ import SpawnManager from "./runnable.manager.spawns";
 import TerminalRunnable from "./runnable.terminal";
 import {LabsManager} from "./runnable.manager.labs";
 
+const MIN_ENERGY = 10000;
+const ENERGY_REQUEST_TTL = 50;
+
 export default class RoomRunnable {
   id: string;
   scheduler: Scheduler;
+  requestEnergyTTL: number;
+  prevTime: number;
 
   constructor(id: string, scheduler: Scheduler) {
     this.id = id;
     this.scheduler = scheduler;
+    this.requestEnergyTTL = ENERGY_REQUEST_TTL;
+    this.prevTime = Game.time;
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
     trace = trace.asId(this.id);
+
+    const ticks = Game.time - this.prevTime;
+    this.prevTime = Game.time;
+
+    this.requestEnergyTTL -= ticks;
+
+    trace.log('room run', {
+      id: this.id,
+    });
 
     const room = Game.rooms[this.id];
     if (!room) {
@@ -64,7 +80,7 @@ export default class RoomRunnable {
       const spawnManagerId = `spawns_${this.id}`
       if (!this.scheduler.hasProcess(spawnManagerId)) {
         this.scheduler.registerProcess(new Process(spawnManagerId, 'spawns', Priorities.DEFENCE,
-          new SpawnManager(orgRoom, spawnManagerId)));
+          new SpawnManager(spawnManagerId, orgRoom)));
       }
 
       // Towers
@@ -89,15 +105,32 @@ export default class RoomRunnable {
       const labsManagerId = `labs_${this.id}`;
       if (!this.scheduler.hasProcess(labsManagerId)) {
         this.scheduler.registerProcess(new Process(labsManagerId, 'labs', Priorities.LOGISTICS,
-          new LabsManager(labsManagerId, orgRoom, this.scheduler)));
+          new LabsManager(labsManagerId, orgRoom, this.scheduler, trace)));
       }
 
-      // Terminal runnable
+
       if (room.terminal) {
+        // Terminal runnable
         const terminalId = room.terminal.id;
         if (!this.scheduler.hasProcess(terminalId)) {
           this.scheduler.registerProcess(new Process(terminalId, 'terminals', Priorities.LOGISTICS,
             new TerminalRunnable(orgRoom, room.terminal)));
+        }
+
+        const terminalEnergy = room.terminal?.store.getUsedCapacity(RESOURCE_ENERGY) || 0;
+        const storageEnergy = room.storage?.store.getUsedCapacity(RESOURCE_ENERGY) || 0;
+
+        trace.log('room energy', {
+          requestEnergyTTL: this.requestEnergyTTL,
+          terminalEnergy,
+          storageEnergy,
+        });
+
+        if (storageEnergy + terminalEnergy < MIN_ENERGY && this.requestEnergyTTL < 0) {
+          this.requestEnergyTTL = ENERGY_REQUEST_TTL;
+          trace.log('requesting energy from governor', {amount: 1000, resource: RESOURCE_ENERGY});
+          (orgRoom as any).getKingdom().getResourceGovernor().requestResource(orgRoom,
+            RESOURCE_ENERGY, 1000, ENERGY_REQUEST_TTL, trace);
         }
       }
 

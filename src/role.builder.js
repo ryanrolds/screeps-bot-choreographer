@@ -14,23 +14,20 @@ const behavior = behaviorTree.sequenceNode(
     behaviorAssign.moveToRoom,
     behaviorCommute.setCommuteDuration,
     behaviorRoom.getEnergy,
-    behaviorTree.repeatUntilSuccess(
-      'build_until_empty',
-      behaviorTree.sequenceNode(
-        'build_construction_site',
-        [
-          behaviorTree.selectorNode(
-            'pick_something',
-            [
-              behaviorBuild.selectSite,
-              behaviorRoom.parkingLot,
-            ],
-          ),
-          behaviorMovement.moveToDestinationRoom,
-          behaviorMovement.moveToDestination(1),
-          behaviorBuild.build,
-        ],
-      ),
+    behaviorTree.sequenceNode(
+      'build_construction_site',
+      [
+        behaviorTree.selectorNode(
+          'pick_something',
+          [
+            behaviorBuild.selectSite,
+            behaviorRoom.parkingLot,
+          ],
+        ),
+        behaviorMovement.moveToDestinationRoom,
+        behaviorMovement.moveToDestination(1),
+        behaviorBuild.build,
+      ],
     ),
   ],
 );

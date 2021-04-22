@@ -25,13 +25,12 @@ class Scribe extends OrgBase {
 
     // Memory[MEMORY_JOURNAL] = this.journal;
 
-    console.log(this);
-
     updateTrace.end();
   }
   process(trace) {
     const processTrace = trace.begin('process');
 
+    // TODO add stats
     this.updateStats();
 
     processTrace.end();
