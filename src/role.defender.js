@@ -1,7 +1,7 @@
 const behaviorTree = require('./lib.behaviortree');
 const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
 const behaviorAssign = require('./behavior.assign');
-const behaviorRoom = require('./behavior.room');
+const behaviorBoosts = require('./behavior.boosts');
 
 const MEMORY = require('./constants.memory');
 
@@ -35,21 +35,32 @@ const behavior = behaviorTree.sequenceNode(
         } else if (hostileStructures.length) {
           target = hostileStructures[0];
         } else {
-          const colony = kingdom.getCreepColony(creep);
-          if (!colony) {
+          const positionString = creep.memory[MEMORY.MEMORY_ASSIGN_ROOM_POS] || null;
+          if (!positionString) {
+            trace.log('failed to get position string');
             return FAILURE;
           }
 
-          const primaryRoom = colony.getPrimaryRoom();
-          if (!primaryRoom) {
+          const position = null;
+          const posArray = positionString.split(',');
+          if (posArray && posArray.length === 3) {
+            position = new RoomPosition(posArray[0], posArray[1], posArray[2]);
+          }
+
+          if (!position) {
+            trace.log('no or invalid position string', {positionString, posArray});
             return FAILURE;
           }
 
-          // Send back to primary room
-          creep.memory[MEMORY.MEMORY_ASSIGN_ROOM] = primaryRoom.id;
-          delete creep.memory[MEMORY.MEMORY_ASSIGN_ROOM_POS];
+          if (creep.pos.getRangeTo(position) < 3) {
+            trace.log('reached last known position, waiting...');
+            return SUCCESS;
+          }
 
-          return SUCCESS;
+          const result = move(creep, position);
+          trace.log('move to last known hostile position', {result, position});
+
+          return RUNNING;
         }
 
         if (creep.pos.getRangeTo(target) <= 3) {
@@ -92,24 +103,30 @@ const behavior = behaviorTree.sequenceNode(
           return RUNNING;
         }
 
-        result = creep.moveTo(target, {visualizePathStyle: {stroke: '#ffffff'}});
-        if (result === ERR_NO_BODYPART) {
-          return FAILURE;
-        }
-        if (result === ERR_INVALID_TARGET) {
-          return FAILURE;
-        }
-        if (result === ERR_NOT_IN_RANGE) {
-          return FAILURE;
-        }
+        const result = move(creep, target);
+        trace.log('move to target', {result});
 
         return RUNNING;
       },
     ),
-    behaviorRoom.parkingLot,
   ],
 );
 
+const move = (creep, target) => {
+  result = creep.moveTo(target, {visualizePathStyle: {stroke: '#ffffff'}, range: 3});
+  if (result === ERR_NO_BODYPART) {
+    return FAILURE;
+  }
+  if (result === ERR_INVALID_TARGET) {
+    return FAILURE;
+  }
+  if (result === ERR_NOT_IN_RANGE) {
+    return FAILURE;
+  }
+
+  return SUCCESS;
+};
+
 module.exports = {
-  run: behaviorTree.rootNode('defender', behavior),
+  run: behaviorTree.rootNode('defender', behaviorBoosts(behavior)),
 };

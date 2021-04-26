@@ -115,6 +115,7 @@ const isStuck = (creep) => {
 
   return false;
 };
+module.exports.isStuck = isStuck;
 
 const getDestination = (creep, memoryId) => {
   const destId = creep.memory[memoryId];

@@ -1,12 +1,6 @@
 
 const OrgBase = require('./org.base');
 
-// const Terminal = require('./org.terminal');
-// const Source = require('./org.source');
-// const Booster = require('./org.booster');
-// const Reactor = require('./org.reactor');
-// const Spawner = require('./org.spawner');
-
 const CREEPS = require('./constants.creeps');
 const MEMORY = require('./constants.memory');
 const TASKS = require('./constants.tasks');
@@ -62,6 +56,7 @@ class Room extends OrgBase {
 
     // Creeps
     this.assignedCreeps = [];
+    this.defenderIds = [];
     this.doUpdateCreeps = doEvery(UPDATE_CREEPS_TTL)((trace) => {
       this.updateCreeps(trace);
     });
@@ -100,9 +95,10 @@ class Room extends OrgBase {
     this.hostileTime = 0;
     this.hostiles = [];
     this.numHostiles = 0;
+    this.defendersLost = 0;
     this.invaderCores = [];
-    this.doUpdateDefenseStatus = doEvery(UPDATE_DEFENSE_STATUS_TTL)((trace) => {
-      this.updateDefenseStatus(trace);
+    this.doUpdateDefenseStatus = doEvery(UPDATE_DEFENSE_STATUS_TTL)((room, trace) => {
+      this.updateDefenseStatus(room, trace);
     });
 
     this.damagedCreeps = [];
@@ -188,8 +184,8 @@ class Room extends OrgBase {
 
     this.reservationTicks = 0;
     this.numReservers = 0;
-    this.doRequestReserver = doEvery(REQUEST_RESERVER_TTL)(() => {
-      this.requestReserver();
+    this.doRequestReserver = doEvery(REQUEST_RESERVER_TTL)((trace) => {
+      this.requestReserver(trace);
     });
 
     this.doRequestUpgrader = doEvery(REQUEST_UPGRADER_TTL)(() => {
@@ -212,7 +208,10 @@ class Room extends OrgBase {
     setupTrace.end();
   }
   update(trace) {
+    trace = trace.asId(this.id);
     const updateTrace = trace.begin('update');
+
+    updateTrace.log('room update', {roomId: this.id});
 
     const room = this.room = Game.rooms[this.id];
     if (!room) {
@@ -220,14 +219,23 @@ class Room extends OrgBase {
         this.doRequestDefenders();
       }
 
-
       updateTrace.end();
       return;
     }
 
+    updateTrace.log('reading events', {roomId: room.name});
+    room.getEventLog().forEach((msg) => {
+      if (msg.event === EVENT_OBJECT_DESTROYED && msg.data.type === 'creep') {
+        if (this.defenderIds.indexOf(msg.objectId) > -1) {
+          trace.log('lost a defender', {defenderId: msg.objectId});
+          this.defendersLost += 1;
+        }
+      }
+    });
+
     this.doUpdateCreeps(updateTrace);
 
-    this.doUpdateDefenseStatus(updateTrace);
+    this.doUpdateDefenseStatus(room, updateTrace);
 
     this.doUpdateRoom(updateTrace);
 
@@ -251,7 +259,7 @@ class Room extends OrgBase {
 
     if (!this.isPrimary) {
       // If not claimed by me and no claimer assigned and not primary, request a reserver
-      this.doRequestReserver();
+      this.doRequestReserver(trace);
     }
 
     // Haul dropped resources (janitorial)
@@ -270,88 +278,19 @@ class Room extends OrgBase {
 
     requestTrace.end();
 
-    const childrenTrace = updateTrace.begin('children');
-
-    // const sourcesTrace = childrenTrace.begin('sources');
-    // Object.values(this.sourceMap).forEach((source) => {
-    //   source.update(sourcesTrace);
-    // });
-    // sourcesTrace.end();
-
-    if (this.isPrimary) {
-      // const spawnsTrace = childrenTrace.begin('spawns');
-      // Object.values(this.spawnMap).forEach((spawn) => {
-      //   spawn.update(spawnsTrace);
-      // });
-      // spawnsTrace.end();
-
-      // const reactorsTrace = childrenTrace.begin('reactor');
-      // Object.values(this.reactorMap).forEach((reactor) => {
-      //   reactor.update(reactorsTrace);
-      // });
-      // reactorsTrace.end();
-
-      // if (this.booster) {
-      //   const boosterTrace = childrenTrace.begin('booster');
-      //   this.booster.update(boosterTrace);
-      //   boosterTrace.end();
-      // }
-
-      // if (this.terminal) {
-      //   const terminalTrace = childrenTrace.begin('terminal');
-      //   this.terminal.update(terminalTrace);
-      //   terminalTrace.end();
-      // }
-    }
-
-    childrenTrace.end();
-
     updateTrace.end();
   }
   process(trace) {
+    trace = trace.asId(this.id);
     const processTrace = trace.begin('process');
+
+    processTrace.log('room process', {roomId: this.id});
 
     if (!this.room) {
       return;
     }
 
     this.updateStats();
-
-    const childrenTrace = processTrace.begin('children');
-
-    // const sourcesTrace = childrenTrace.begin('sources');
-    // Object.values(this.sourceMap).forEach((source) => {
-    //   source.process(sourcesTrace);
-    // });
-    // sourcesTrace.end();
-
-    if (this.isPrimary) {
-      // const spawnsTrace = childrenTrace.begin('spawns');
-      // Object.values(this.spawnMap).forEach((spawn) => {
-      //   spawn.process(spawnsTrace);
-      // });
-      // spawnsTrace.end();
-
-      // const reactorsTrace = childrenTrace.begin('reactors');
-      // Object.values(this.reactorMap).forEach((reactor) => {
-      //   reactor.process(reactorsTrace);
-      // });
-      // reactorsTrace.end();
-
-      // if (this.booster) {
-      //   const boosterTrace = childrenTrace.begin('booster');
-      //   this.booster.process(processTrace);
-      //   boosterTrace.end();
-      // }
-
-      // if (this.terminal) {
-      //   const terminalProcess = childrenTrace.begin('terminal');
-      //   this.terminal.process(processTrace);
-      //   terminalProcess.end();
-      // }
-    }
-
-    childrenTrace.end();
 
     processTrace.end();
   }
@@ -391,91 +330,10 @@ class Room extends OrgBase {
   getHostileStructures() {
     return this.hostileStructures;
   }
-  // getBooster() {
-  //   return this.booster;
-  // }
   getLabs() {
     return this.myStructures.filter((structure) => {
       return structure.structureType === STRUCTURE_LAB;
     });
-  }
-  updateLabs(trace) {
-    // const labsSetupTrace = trace.begin('lab_setup');
-
-    // const reactors = [];
-    // let booster = null;
-
-    // Get list of labs in rooms
-    // let labs = this.getLabs();
-
-    // Find lab closest to spawn
-    // const spawns = this.getSpawns();
-    // if (!spawns.length) {
-    //   return [reactors, booster];
-    // }
-
-    // let boosterLabs = [];
-    // const primaryBooster = _.sortBy(spawns[0].pos.findInRange(labs, 2), 'id').shift();
-    // if (primaryBooster) {
-    //   boosterLabs = _.sortBy(primaryBooster.pos.findInRange(labs, 1), 'id');
-    //   if (boosterLabs.length >= 3) {
-    //     booster = new Booster(this, boosterLabs, trace);
-    //   }
-    // }
-
-    // Subtract booster labs from list
-    // labs = labs.filter((lab) => {
-    //   return _.findIndex(boosterLabs, {id: lab.id}) === -1;
-    // });
-
-    /*
-    if (this.room.storage) {
-      // While we have at least 3 labs, create a reactor
-      while (labs.length >= 3) {
-        // Find labs within 3 of spawns and make booster
-        let reactorLabs = [];
-        const primaryReactor = _.sortBy(this.room.storage.pos.findInRange(labs, 3), 'id').shift();
-        if (!primaryReactor) {
-          break;
-        }
-
-        reactorLabs = _.sortBy(primaryReactor.pos.findInRange(labs, 1), 'id');
-        if (reactorLabs.length >= 3) {
-          reactorLabs = reactorLabs.slice(0, 3);
-          // Make reactor
-          reactors.push(new Reactor(this, reactorLabs, trace));
-        }
-
-        // Subtract reactor labs from list
-        labs = labs.filter((lab) => {
-          return _.findIndex(reactorLabs, {id: lab.id}) === -1;
-        });
-      }
-    }
-    */
-
-    // Update the reactor map (add missing items and remove extra items)
-    // const reactorIds = _.pluck(reactors, 'id');
-    // const reactorMap = _.indexBy(reactors, 'id');
-    // const orgIds = Object.keys(this.reactorMap);
-
-    // const missingReactorIds = _.difference(reactorIds, orgIds);
-    // missingReactorIds.forEach((id) => {
-    //   this.reactorMap[id] = reactorMap[id];
-    // });
-
-    // const extraReactorIds = _.difference(orgIds, reactorIds);
-    // extraReactorIds.forEach((id) => {
-    //   delete this.reactorMap[id];
-    // });
-
-    // if ((!this.booster && booster) || (this.booster && booster && this.booster.id !== booster.id)) {
-    //   this.booster = booster;
-    // } else if (!booster) {
-    //   this.booster = null;
-    // }
-
-    // labsSetupTrace.end();
   }
   getClosestStoreWithEnergy(creep) {
     if (this.room.storage) {
@@ -758,19 +616,20 @@ class Room extends OrgBase {
       // If there are defenses low on
       if (controller && controller.my && this.lowHitsDefenses && controller.safeModeAvailable &&
         !controller.safeMode && !controller.safeModeCooldown) {
-        console.log('ACTIVATING SAFEMODE!!!!!');
         controller.activateSafeMode();
       } else if (!controller || (!controller.safeMode || controller.safeMode < 250)) {
-        // Request defenders
-        const hostile = this.hostiles[0];
-        const hostileLocation = [hostile.pos.x, hostile.pos.y, hostile.pos.roomName].join(',');
-        this.sendRequest(TOPICS.TOPIC_DEFENDERS, PRIORITIES.PRIORITY_DEFENDER, {
-          role: CREEPS.WORKER_DEFENDER,
-          memory: {
-            [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
-            [MEMORY.MEMORY_ASSIGN_ROOM_POS]: hostileLocation,
-          },
-        }, REQUEST_DEFENDERS_TTL);
+        // Request defenders if we have not lost more than 3 this attack
+        if (this.defendersLost <= 3) {
+          const hostile = this.hostiles[0];
+          const hostileLocation = [hostile.pos.x, hostile.pos.y, hostile.pos.roomName].join(',');
+          this.sendRequest(TOPICS.TOPIC_DEFENDERS, PRIORITIES.PRIORITY_DEFENDER, {
+            role: CREEPS.WORKER_DEFENDER,
+            memory: {
+              [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
+              [MEMORY.MEMORY_ASSIGN_ROOM_POS]: hostileLocation,
+            },
+          }, REQUEST_DEFENDERS_TTL);
+        }
       }
     }
   }
@@ -808,7 +667,7 @@ class Room extends OrgBase {
       },
     }, REQUEST_DISTRIBUTOR_TTL);
   }
-  requestReserver() {
+  requestReserver(trace) {
     this.numReservers = _.filter(Game.creeps, (creep) => {
       const role = creep.memory[MEMORY_ROLE];
       return (role === CREEPS.WORKER_RESERVER) &&
@@ -820,8 +679,18 @@ class Room extends OrgBase {
       this.reservationTicks = this.room.controller.reservation.ticksToEnd;
     }
 
+    trace.log('deciding to request reserver', {
+      numReservers: this.numReservers,
+      ownedByMe: (this.reservedByMe || this.claimedByMe),
+      numHostiles: this.numHostiles,
+      reservationTicks: (this.reservedByMe && this.reservationTicks) ?
+        this.reservationTicks < MIN_RESERVATION_TICKS : false,
+    });
+
     if (!this.numReservers && ((!this.reservedByMe && !this.claimedByMe && !this.numHostiles) ||
       (this.reservedByMe && this.reservationTicks < MIN_RESERVATION_TICKS))) {
+      trace.log('sending reserve request');
+
       this.requestSpawn(PRIORITIES.PRIORITY_RESERVER, {
         role: CREEPS.WORKER_RESERVER,
         memory: {
@@ -880,8 +749,6 @@ class Room extends OrgBase {
 
       desiredUpgraders = Math.ceil(parts / maxParts);
     }
-
-
 
     const energyLimit = ((parts - 1) * 200) + 300;
 
@@ -995,6 +862,10 @@ class Room extends OrgBase {
     }
   }
   requestHaulDroppedResources() {
+    if (this.numHostiles) {
+      return;
+    }
+
     const droppedResourcesToHaul = this.room.find(FIND_DROPPED_RESOURCES, {
       filter: (resource) => {
         const numAssigned = _.filter(this.getColony().getHaulers(), (hauler) => {
@@ -1021,8 +892,6 @@ class Room extends OrgBase {
         [MEMORY.MEMORY_HAUL_DROPOFF]: dropoff.id,
         [MEMORY.MEMORY_HAUL_RESOURCE]: resource.resourceType,
       };
-
-
 
       this.sendRequest(TOPICS.TOPIC_HAUL_TASK, loadPriority, details, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
     });
@@ -1055,70 +924,19 @@ class Room extends OrgBase {
     this.roomStructures = this.room.find(FIND_STRUCTURES);
     this.hostileStructures = this.room.find(FIND_HOSTILE_STRUCTURES);
 
-    // Sources and Minerals
-    // let roomSources = room.find(FIND_SOURCES);
-    // roomSources = roomSources.concat(this.getMineralsWithExtractor());
-
-    // this.sourceMap = this.updateOrgMap(roomSources, 'id', this.sourceMap, Source, trace);
-
     trace.end();
   }
   updatePrimary(trace) {
     trace = trace.begin('primary_room');
 
-    // const room = this.room;
-
     // Spawns
     const roomSpawns = this.getSpawns();
-    // const spawnIds = _.pluck(roomSpawns, 'id');
-    // const spawnMap = _.indexBy(roomSpawns, 'id');
-    // const orgIds = Object.keys(this.spawnMap);
-
-    // const missingOrgSpawnIds = _.difference(spawnIds, orgIds);
-    // missingOrgSpawnIds.forEach((id) => {
-    //   const orgNode = new Spawner(this, spawnMap[id], trace);
-    //   this.spawnMap[id] = orgNode;
-    // });
-
-    // const extraOrgSpawnIds = _.difference(orgIds, spawnIds);
-    // extraOrgSpawnIds.forEach((id) => {
-    //   delete this.spawnMap[id];
-    // });
     this.hasSpawns = roomSpawns.length > 0;
-
-    // Booster and Reactors
-    // this.updateLabs(trace);
-
-    // Terminal
-    // if ((!this.terminal && room.terminal) || (this.terminal && this.terminal.id !== room.terminal.id)) {
-    //   this.terminal = new Terminal(this, room.terminal, trace);
-    // } else if (!room.terminal) {
-    //   this.terminal = null;
-    // }
 
     trace.end();
   }
-  /*
-  updateOrgMap(roomStructures, keyName, orgMap, constructor, trace) {
-    const roomIds = _.pluck(roomStructures, keyName);
-    const orgIds = Object.keys(orgMap);
-
-    const missingOrgIds = _.difference(roomIds, orgIds);
-    missingOrgIds.forEach((id) => {
-      const orgNode = new constructor(this, Game.getObjectById(id), trace);
-      orgMap[id] = orgNode;
-    });
-
-    const extraOrgIds = _.difference(orgIds, roomIds);
-    extraOrgIds.forEach((id) => {
-      delete orgMap[id];
-    });
-
-    return orgMap;
-  }
-  */
   updateCreeps(trace) {
-    const creepPrepTrace = trace.begin('creep_prep');
+    const updateCreepsTrace = trace.begin('update_creeps');
 
     this.assignedCreeps = _.filter(Game.creeps, (creep) => {
       return (creep.memory[MEMORY_ASSIGN_ROOM] === this.room.name ||
@@ -1126,9 +944,15 @@ class Room extends OrgBase {
           creep.memory[MEMORY_ROLE] === WORKER_HAULER && creep.room.name === this.room.name);
     });
 
-    creepPrepTrace.end();
+    this.defenderIds = this.assignedCreeps.filter((creep) => {
+      return creep.memory[MEMORY_ROLE] === CREEPS.WORKER_DEFENDER;
+    }).map((defender) => {
+      return defender.id;
+    });
+
+    updateCreepsTrace.end();
   }
-  updateDefenseStatus(trace) {
+  updateDefenseStatus(room, trace) {
     const defenseTrace = trace.begin('defenses');
 
     // We want to know if the room has hostiles, request defenders or put room in safe mode
@@ -1143,6 +967,7 @@ class Room extends OrgBase {
       }
     } else {
       this.hostileTime = 0;
+      this.defendersLost = 0;
     }
 
     this.invaderCores = this.roomStructures.filter((structure) => {

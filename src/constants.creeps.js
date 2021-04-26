@@ -71,8 +71,8 @@ const definitions = {
   },
   [WORKER_DEFENDER]: {
     energyLimit: null,
-    parts: [MOVE, TOUGH, TOUGH, MOVE, RANGED_ATTACK, RANGED_ATTACK],
-    base: [MOVE, TOUGH, TOUGH, MOVE, RANGED_ATTACK, TOUGH],
+    parts: [MOVE, TOUGH, MOVE, RANGED_ATTACK],
+    base: [MOVE, RANGED_ATTACK],
     boosts: ['damage', 'rangedAttack'],
     processPriority: 1,
   },

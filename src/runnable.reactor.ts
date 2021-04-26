@@ -170,7 +170,7 @@ export default class ReactorRunnable {
 
         return REQUEST_UNLOAD_TTL;
       default:
-        console.log('BROKEN REACTION LOGIC', phase);
+        trace.error('BROKEN REACTION LOGIC', phase);
         this.clearTask();
         return NO_SLEEP;
     }

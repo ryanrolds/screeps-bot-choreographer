@@ -98,8 +98,6 @@ class WarParty extends OrgBase {
         creep.memory[MEMORY.MEMORY_ATTACK] = this.nearbyWalls[0].id;
       }
 
-
-
       if (this.sortedHealth.length) {
         creep.memory[MEMORY.MEMORY_HEAL] = this.sortedHealth[0].id;
       } else {

@@ -7,13 +7,13 @@ import * as TASKS from "./constants.tasks"
 import * as TOPICS from "./constants.topics"
 import {exception} from "node:console";
 
-const TICK_STEP = 5;
+const TICK_STEP = 2;
 const PROCESS_TTL = 250;
-const HAUL_TTL = 10;
+const HAUL_TTL = 15;
 
 export default class LinkManager {
-  orgRoom: OrgRoom;
   id: string;
+  orgRoom: OrgRoom;
   storage: Id<StructureStorage>;
   storageLink: Id<StructureLink>;
   sourceLinks: Id<StructureLink>[];
@@ -90,6 +90,8 @@ export default class LinkManager {
       ttl: this.ttl,
     })
 
+    let performedTransfer = false;
+
     const storageLink = Game.getObjectById<StructureLink>(this.storageLink);
     if (!this.storage || !storageLink) {
       trace.log("exiting due to missing storage or storage link", {});
@@ -103,7 +105,7 @@ export default class LinkManager {
       shouldTerminate = true;
     }
 
-    // Create list of links with energyu
+    // Create list of links with energy
     const hasEnergy = this.sourceLinks.map((linkId) => {
       const link = Game.getObjectById<StructureLink>(linkId);
       if (!link) {
@@ -115,7 +117,7 @@ export default class LinkManager {
     }).filter(link => canTransfer(link));
 
     // Include storage link if it has energy and it isn't being hauled
-    if (canTransfer(storageLink) && this.haulTTL <= 0) {
+    if (notEmpty(storageLink) && this.haulTTL <= 0) {
       hasEnergy.push(storageLink);
     }
 
@@ -128,8 +130,8 @@ export default class LinkManager {
       }
 
       return link;
-    }).forEach((link) => {
-      if (!canReceive(link)) {
+    }).forEach((sink) => {
+      if (!canReceive(sink)) {
         return;
       }
 
@@ -138,84 +140,48 @@ export default class LinkManager {
         return;
       }
 
-      const result = source.transferEnergy(link);
-      trace.log('transfer energy', {
-        source: source.id,
-        sink: link.id,
-        result,
-      });
+      performedTransfer = true;
+
+      transferEnergy(source, sink, trace);
     });
 
     // If storage link needs energy try to get some from a source
     if (canReceive(storageLink)) {
-      const source = hasEnergy.pop();
+      let source = hasEnergy.pop();
+      // Don't transfer to itself
+      if (source && source.id === storageLink.id) {
+        source = hasEnergy.pop();
+      }
+
       if (source) {
-        const result = source.transferEnergy(storageLink);
-        trace.log('transfer energy', {
-          source: source.id,
-          sink: storageLink.id,
-          result,
-        });
+        performedTransfer = true;
+        transferEnergy(source, storageLink, trace);
       }
     }
 
-    trace.log('has energy', {hasEnergy, haulTTL: this.haulTTL})
+    trace.log('has energy', {hasEnergy, haulTTL: this.haulTTL, performedTransfer})
 
-    // If we have 2 links of energy ready, empty storage link to make room
-    if (hasEnergy.length >= 2 && hasEnergy.indexOf(storageLink) != -1 && this.haulTTL < 0) {
-      const reserve = this.orgRoom.getReserveStructureWithRoomForResource(RESOURCE_ENERGY);
-      if (!reserve) {
-        return running();
+    if (!performedTransfer && this.haulTTL < 0) {
+      // If source links out number sinks, keep the hub empty
+
+      if (this.sourceLinks.length >= this.sinkLinks.length) {
+        const amount = storageLink.store.getUsedCapacity(RESOURCE_ENERGY);
+        if (amount) {
+          const dropoff = this.orgRoom.getReserveStructureWithRoomForResource(RESOURCE_ENERGY);
+          if (dropoff) {
+            this.emptyLink(storageLink, dropoff, amount, trace);
+          }
+        }
+        // If as many or more sink links, keep the hub full of energy
+      } else if (this.sourceLinks.length < this.sinkLinks.length && !hasEnergy.length) {
+        const amount = storageLink.store.getFreeCapacity(RESOURCE_ENERGY);
+        if (!amount) {
+          const pickup = this.orgRoom.getReserveStructureWithMostOfAResource(RESOURCE_ENERGY, true);
+          if (pickup) {
+            this.fillLink(storageLink, pickup, amount, trace);
+          }
+        }
       }
-
-      const amount = storageLink.store.getUsedCapacity(RESOURCE_ENERGY);
-      if (!amount) {
-        return running();
-      }
-
-      this.haulTTL = HAUL_TTL;
-
-      const details = {
-        [MEMORY.TASK_ID]: `lu-${storageLink.id}-${Game.time}`,
-        [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
-        [MEMORY.MEMORY_HAUL_PICKUP]: storageLink.id,
-        [MEMORY.MEMORY_HAUL_AMOUNT]: amount,
-        [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
-        [MEMORY.MEMORY_HAUL_DROPOFF]: reserve.id,
-      };
-
-      (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, 2, details, HAUL_TTL);
-      trace.log('haul energy from storage link', {
-        request: details,
-      });
-
-      // If we have no links of energy ready, get energy from reserve
-    } else if (!hasEnergy.length && this.haulTTL < 0) {
-      const reserve = this.orgRoom.getReserveStructureWithMostOfAResource(RESOURCE_ENERGY, true);
-      if (!reserve) {
-        return running();;
-      }
-
-      const amount = storageLink.store.getFreeCapacity(RESOURCE_ENERGY);
-      if (!amount) {
-        return running();;
-      }
-
-      this.haulTTL = HAUL_TTL;
-
-      const details = {
-        [MEMORY.TASK_ID]: `ll-${storageLink.id}-${Game.time}`,
-        [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
-        [MEMORY.MEMORY_HAUL_PICKUP]: reserve.id,
-        [MEMORY.MEMORY_HAUL_AMOUNT]: amount,
-        [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
-        [MEMORY.MEMORY_HAUL_DROPOFF]: storageLink.id,
-      };
-
-      (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, 0.9, details, HAUL_TTL);
-      trace.log('haul energy to storage link', {
-        request: details,
-      });
     }
 
     // Check if we need to terminate due to being stale
@@ -227,12 +193,67 @@ export default class LinkManager {
 
     return sleeping(TICK_STEP);
   }
+
+  emptyLink(link: StructureLink, dropoff: AnyStoreStructure, amount: number, trace: Tracer) {
+    this.haulTTL = HAUL_TTL;
+
+    const details = {
+      [MEMORY.TASK_ID]: `lu-${link.id}-${Game.time}`,
+      [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
+      [MEMORY.MEMORY_HAUL_PICKUP]: link.id,
+      [MEMORY.MEMORY_HAUL_AMOUNT]: amount,
+      [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
+      [MEMORY.MEMORY_HAUL_DROPOFF]: dropoff.id,
+    };
+
+    (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, 2, details, HAUL_TTL);
+    trace.log('haul energy from storage link', {
+      request: details,
+    });
+  }
+
+  fillLink(link: StructureLink, pickup: AnyStoreStructure, amount: number, trace: Tracer) {
+
+    this.haulTTL = HAUL_TTL;
+
+    const details = {
+      [MEMORY.TASK_ID]: `ll-${link.id}-${Game.time}`,
+      [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
+      [MEMORY.MEMORY_HAUL_PICKUP]: pickup.id,
+      [MEMORY.MEMORY_HAUL_AMOUNT]: amount,
+      [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
+      [MEMORY.MEMORY_HAUL_DROPOFF]: link.id,
+    };
+
+    (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, 0.9, details, HAUL_TTL);
+    trace.log('haul energy to storage link', {
+      request: details,
+    });
+  }
+}
+
+const transferEnergy = (source: StructureLink, sink: StructureLink, trace: Tracer) => {
+  const amount = _.min([
+    source.store.getUsedCapacity(RESOURCE_ENERGY),
+    sink.store.getFreeCapacity(RESOURCE_ENERGY)
+  ]);
+
+  const result = source.transferEnergy(sink, amount);
+  trace.log('transfer energy', {
+    source: source.id,
+    sink: sink.id,
+    result,
+  });
 }
 
 const canTransfer = (link: StructureLink): boolean => {
-  return link?.store.getUsedCapacity(RESOURCE_ENERGY) >= 400 && link.cooldown < 1
-}
+  return link?.store.getUsedCapacity(RESOURCE_ENERGY) >= 300 && link.cooldown < 1
+};
 
 const canReceive = (link: StructureLink): boolean => {
-  return link?.store.getFreeCapacity(RESOURCE_ENERGY) > 400
+  return link?.store.getFreeCapacity(RESOURCE_ENERGY) > 300;
+};
+
+const notEmpty = (link: StructureLink): boolean => {
+  return link?.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
 }

@@ -56,7 +56,6 @@ class Resources extends OrgBase {
   }
   update(trace) {
     trace = trace.asId(this.id);
-    console.log(trace.id);
 
     const updateTrace = trace.begin('update');
 
@@ -96,7 +95,6 @@ class Resources extends OrgBase {
     const terminals = this.getKingdom().getColonies().reduce((acc, colony) => {
       const room = colony.getPrimaryRoom();
       if (!room) {
-
         return acc;
       }
 
@@ -391,9 +389,8 @@ class Resources extends OrgBase {
       [MEMORY.TRANSFER_ROOM]: room.id,
     }, ttl);
   }
-  createBuyOrder(room, resource, amount) {
+  createBuyOrder(room, resource, amount, trace) {
     if (!room.hasTerminal()) {
-
       return;
     }
 
@@ -403,18 +400,14 @@ class Resources extends OrgBase {
         order.resourceType === resource;
     });
     if (duplicateBuyOrders.length) {
-
       return;
     }
 
     if (!MARKET.PRICES[resource]) {
-
       return;
     }
 
     const price = MARKET.PRICES[resource].buy;
-
-
 
     // Create buy order
     const order = {
@@ -426,7 +419,7 @@ class Resources extends OrgBase {
     };
     const result = Game.market.createOrder(order);
     if (result != OK) {
-
+      trace.log('failed to create buy order', {order, result});
     }
   }
   requestReactions() {
@@ -459,7 +452,6 @@ class Resources extends OrgBase {
         return order.type === ORDER_SELL && order.resourceType === resource;
       });
       if (duplicateOrders.length && Game.market.credits > MIN_CREDITS) {
-
         return;
       }
 
@@ -523,7 +515,7 @@ class Resources extends OrgBase {
         const roomReserve = primaryRoom.getReserveResources(true);
         desiredCompound = this.getDesiredCompound(effect, roomReserve);
         if (desiredCompound.amount < MIN_CRITICAL_COMPOUND && Game.market.credits > MIN_CREDITS_FOR_BOOSTS) {
-          this.createBuyOrder(primaryRoom, desiredCompound.resource, MIN_CRITICAL_COMPOUND);
+          this.createBuyOrder(primaryRoom, desiredCompound.resource, MIN_CRITICAL_COMPOUND, trace);
           return;
         }
       });

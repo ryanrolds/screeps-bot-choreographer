@@ -46,6 +46,10 @@ export class Tracer {
     console.log(this.id, this.name, message, JSON.stringify(details));
   }
 
+  error(message: string, details: Object = {}): void {
+    console.log(`ERROR`, this.id, this.name, message, JSON.stringify(details));
+  }
+
   begin(name: string) {
     const trace = startTrace(this.id, `${this.name}.${name}`);
     trace.start = Game.cpu.getUsed();

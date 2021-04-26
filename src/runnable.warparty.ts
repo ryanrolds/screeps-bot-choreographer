@@ -42,10 +42,10 @@ export default class WarPartyRunnable {
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
     trace = trace.asId(this.id);
 
-    console.log(`WarParty: ${this.id}, ${this.phase}, ${this.creeps.length}`);
+    trace.log('WarParty', {id: this.id, phase: this.phase, creeps: this.creeps.length});
 
     if (this.rallyPoint === null) {
-      console.log("No rally point defined, terminating war party");
+      trace.log("No rally point defined, terminating war party");
       return terminate();
     }
 
@@ -64,7 +64,7 @@ export default class WarPartyRunnable {
     } else if (this.phase === PHASE_ATTACK) {
       this.engageEnemy();
     } else {
-      console.log(`invalid war party phase: ${this.phase}`);
+      trace.log('invalid war party phase', {phase: this.phase});
       return terminate();
     }
 

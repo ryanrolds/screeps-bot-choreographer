@@ -62,12 +62,12 @@ class Colony extends OrgBase {
       this.assignedCreeps = this.getParent().getCreeps().filter((creep) => {
         return creep.memory[MEMORY.MEMORY_COLONY] === this.id;
       });
-      this.numCreeps = this.assignedCreeps.length;
 
       this.defenders = this.assignedCreeps.filter((creep) => {
-        return creep.memory[MEMORY_ROLE] == WORKER_DEFENDER &&
-          creep.memory[MEMORY_COLONY] === this.id;
+        return creep.memory[MEMORY.MEMORY_ROLE] == WORKER_DEFENDER;
       });
+
+      this.numCreeps = this.assignedCreeps.length;
     });
 
     this.haulers = [];
@@ -117,7 +117,6 @@ class Colony extends OrgBase {
     });
 
     this.doRequestHaulers = doEvery(REQUEST_HAULER_TTL)(() => {
-
       this.requestHaulers();
     });
 
@@ -304,8 +303,6 @@ class Colony extends OrgBase {
     stats.colonies[this.id] = colonyStats;
   }
   handleDefenderRequest(request) {
-    console.log('DEFENDER REQUEST', JSON.stringify(request));
-
     const neededDefenders = MAX_DEFENDERS - this.defenders.length;
     if (neededDefenders > 0) {
       // If the colony has spawners and is of sufficient size spawn own defenders,

@@ -44,7 +44,6 @@ module.exports.tick = (kingdom, trace) => {
     // If we are running low on CPU start skipping 20% of non-essential creeps
     if (Game.cpu.bucket < MIN_BUCKET_THROTTLE) {
       if (skipCount % 5 === 0) {
-
         return;
       }
     }

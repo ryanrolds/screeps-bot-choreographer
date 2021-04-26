@@ -74,7 +74,7 @@ export default class WarManager {
 
     if (this.warParties.length < 1) {
       const partyId = `party_${this.targetRoom}_${Game.time}`;
-      console.log("creating war party", this.targetRoom, partyId);
+      trace.log("creating war party", {target: this.targetRoom, partyId});
       this.warParties.push(this.createAndScheduleWarParty(partyId, this.targetRoom));
     }
 
@@ -89,7 +89,7 @@ export default class WarManager {
       })
     };
 
-    console.log("WarManager run");
+    trace.log("WarManager run");
 
     return sleeping(20);
   }

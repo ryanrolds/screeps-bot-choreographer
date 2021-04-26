@@ -167,13 +167,9 @@ export default class BoosterRunnable {
   }
 
   getLabByResource(resource) {
-    console.log(resource);
     const labs = this.labIds.map(labId => Game.getObjectById(labId));
-    console.log(labs)
-
     for (let i = 0; i < labs.length; i++) {
       if (labs[i].mineralType === resource) {
-        console.log(labs[i].mineralType, resource)
         return labs[i];
       }
     }

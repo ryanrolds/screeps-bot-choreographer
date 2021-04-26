@@ -351,7 +351,7 @@ export default class TerminalRunnable {
 
         break;
       default:
-        console.log('BROKEN MARKET LOGIC', phase);
+        trace.error('BROKEN MARKET LOGIC', phase);
         this.clearTask();
     }
   }

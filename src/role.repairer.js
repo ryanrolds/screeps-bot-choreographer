@@ -6,6 +6,7 @@ const behaviorCommute = require('./behavior.commute');
 const behaviorAssign = require('./behavior.assign');
 const behaviorRoom = require('./behavior.room');
 const behaviorNonCombatant = require('./behavior.noncombatant');
+const behaviorBoosts = require('./behavior.boosts');
 
 const {MEMORY_DESTINATION} = require('./constants.memory');
 
@@ -78,5 +79,5 @@ const behavior = behaviorTree.sequenceNode(
 );
 
 module.exports = {
-  run: behaviorTree.rootNode('repairer', behaviorNonCombatant(behavior)),
+  run: behaviorTree.rootNode('repairer', behaviorBoosts(behaviorNonCombatant(behavior))),
 };

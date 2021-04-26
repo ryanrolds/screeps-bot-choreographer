@@ -179,7 +179,6 @@ export default class SpawnManager {
   }
 
   createCreep(spawner, role, memory, energy, energyLimit) {
-    console.log(spawner, role, memory, energy, energyLimit)
     return createCreep((this.orgRoom as any).getColony().id, (this.orgRoom as any).id, spawner,
       role, memory, energy, energyLimit);
   }

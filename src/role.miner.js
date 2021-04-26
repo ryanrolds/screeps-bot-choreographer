@@ -1,13 +1,14 @@
 const behaviorTree = require('./lib.behaviortree');
 const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
 const behaviorNonCombatant = require('./behavior.noncombatant');
+const behaviorBoosts = require('./behavior.boosts');
 const behaviorMovement = require('./behavior.movement');
 const behaviorCommute = require('./behavior.commute');
 const MEMORY = require('./constants.memory');
 
 const selectSource = behaviorTree.leafNode(
   'selectSource',
-  (creep) => {
+  (creep, trace, kingdom) => {
     const source = Game.getObjectById(creep.memory[MEMORY.MEMORY_HARVEST]);
     const container = Game.getObjectById(creep.memory[MEMORY.MEMORY_HARVEST_CONTAINER]);
     if (source && container) {
@@ -87,8 +88,61 @@ const harvest = behaviorTree.leafNode(
   },
 );
 
+const moveEnergyToLink = behaviorTree.leafNode(
+  'move_energy_to_link',
+  (creep, trace, kingdom) => {
+    const link = creep.pos.findInRange(FIND_MY_STRUCTURES, 1, {
+      filter: (structure) => {
+        return structure.structureType === STRUCTURE_LINK;
+      },
+    })[0];
+
+    if (!link) {
+      trace.log('no link');
+      return FAILURE;
+    }
+
+    const freeCapacity = creep.store.getFreeCapacity(RESOURCE_ENERGY);
+    trace.log('creep free capacity', {freeCapacity});
+    if (freeCapacity > 0) {
+      const target = creep.pos.findInRange(FIND_STRUCTURES, 1, {
+        filter: (structure) => {
+          return structure.structureType === STRUCTURE_CONTAINER &&
+            structure.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
+        },
+      })[0];
+      if (target) {
+        const result = creep.withdraw(target, RESOURCE_ENERGY);
+        trace.log('withdraw energy', {result, targetId: target.id});
+        return RUNNING;
+      }
+
+      target = creep.pos.findInRange(FIND_DROPPED_RESOURCES, 1, {
+        filter: (resource) => {
+          return resource.resourceType === RESOURCE_ENERGY;
+        },
+      })[0];
+      if (target) {
+        const result = creep.pickup(target);
+        trace.log('pickup energy', {result, targetId: target.id});
+        return RUNNING;
+      }
+
+      trace.log('found no energy to pickup');
+      return FAILURE;
+    }
+
+    if (link.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+      const result = creep.transfer(link, RESOURCE_ENERGY);
+      trace.log('transfer energy to link', {result});
+    }
+
+    return RUNNING;
+  },
+);
+
 const waitUntilSourceReady = behaviorTree.leafNode(
-  'waitUntilReady',
+  'wait_until_ready',
   (creep) => {
     const source = Game.getObjectById(creep.memory[MEMORY.MEMORY_HARVEST]);
     if (!source) {
@@ -122,7 +176,7 @@ const behavior = behaviorTree.sequenceNode(
             'get_energy',
             [
               harvest,
-              // TODO dump energy in link
+              moveEnergyToLink,
               waitUntilSourceReady,
             ],
           ),
@@ -133,5 +187,5 @@ const behavior = behaviorTree.sequenceNode(
 );
 
 module.exports = {
-  run: behaviorTree.rootNode('miner', behaviorNonCombatant(behavior)),
+  run: behaviorTree.rootNode('miner', behaviorBoosts(behaviorNonCombatant(behavior))),
 };

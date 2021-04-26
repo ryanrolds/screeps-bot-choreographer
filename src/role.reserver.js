@@ -4,6 +4,7 @@ const {FAILURE} = require('./lib.behaviortree');
 const behaviorCommute = require('./behavior.commute');
 const behaviorMovement = require('./behavior.movement');
 const behaviorNonCombatant = require('./behavior.noncombatant');
+const behaviorBoosts = require('./behavior.boosts');
 const MEMORY = require('./constants.memory');
 
 const behavior = behaviorTree.sequenceNode(
@@ -34,8 +35,6 @@ const behavior = behaviorTree.sequenceNode(
           reusePath: 50,
           maxOps: 1500,
         });
-
-
 
         if (result === ERR_NO_PATH) {
           return behaviorTree.FAILURE;
@@ -121,5 +120,5 @@ const behavior = behaviorTree.sequenceNode(
 );
 
 module.exports = {
-  run: behaviorTree.rootNode('reserver', behaviorNonCombatant(behavior)),
+  run: behaviorTree.rootNode('reserver', behaviorBoosts(behaviorNonCombatant(behavior))),
 };
