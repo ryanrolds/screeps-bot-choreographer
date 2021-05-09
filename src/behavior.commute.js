@@ -23,5 +23,5 @@ module.exports.creepIsFresh = (creep) => {
   }
 
   // return creep.ticksToLive > (creep.memory[MEMORY.MEMORY_COMMUTE_DURATION] || 100);
-  return creep.ticksToLive > 100;
+  return creep.ticksToLive > 150;
 };

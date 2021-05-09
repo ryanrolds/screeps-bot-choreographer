@@ -16,6 +16,7 @@ const behavior = behaviorTree.sequenceNode(
       (creep, trace, kingdom) => {
         const room = creep.memory[MEMORY.MEMORY_ASSIGN_ROOM];
         if (!room) {
+          trace.log('no room in memory');
           return FAILURE;
         }
 
@@ -33,14 +34,16 @@ const behavior = behaviorTree.sequenceNode(
 
         const result = creep.moveTo(destination, {
           reusePath: 50,
-          maxOps: 1500,
+          maxOps: 2500,
         });
 
         if (result === ERR_NO_PATH) {
+          trace.log('no path to room');
           return behaviorTree.FAILURE;
         }
 
         if (result === ERR_INVALID_ARGS) {
+          trace.log('invalid args');
           return behaviorTree.FAILURE;
         }
 
@@ -87,6 +90,11 @@ const behavior = behaviorTree.sequenceNode(
           const room = kingdom.getCreepRoom(creep);
           if (!room) {
             trace.log('unable to get creep room', {result});
+            return behaviorTree.FAILURE;
+          }
+
+          if (room.controller && room.controller.upgradeBlocked) {
+            trace.log('upgrade/attack blocked', {ttl: room.controller.upgradeBlocked});
             return behaviorTree.FAILURE;
           }
 

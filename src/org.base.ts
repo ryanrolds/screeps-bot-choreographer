@@ -67,6 +67,14 @@ export class OrgBase {
 
     return parent.getTopicLength(topic);
   }
+  getFilteredRequests(topicId: string, filter: (arg: any) => boolean): any[] {
+    const parent = this.getParent();
+    if (!parent) {
+      return [];
+    }
+
+    return parent.getFilteredRequests(topicId, filter);
+  }
 }
 
 module.exports = OrgBase;

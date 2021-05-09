@@ -24,14 +24,17 @@ class WarParty extends OrgBase {
     this.flag = flag;
 
     // Check if party needs creeps
-    this.doRequestAttackers = doEvery(REQUEST_ATTACKER_TTL)((party) => {
-      this.requestAttackers();
+    this.doRequestAttackers = doEvery(REQUEST_ATTACKER_TTL)((trace) => {
+      this.requestAttackers(trace);
     });
 
     setupTrace.end();
   }
   update(trace) {
+    trace = trace.asId(this.id);
     const updateTrace = trace.begin('update');
+
+    trace.log('war party run', {id: this.id});
 
     if (Game.flags[this.id]) {
       this.flag = Game.flags[this.id];
@@ -49,6 +52,11 @@ class WarParty extends OrgBase {
 
       return creeps;
     }, []);
+
+    trace.log('war party', {
+      flagId: this.flag.name,
+      size: this.creeps.length,
+    });
 
     this.sortedHealth = _.sortBy(this.creeps.filter((creep) => {
       return creep.hits < creep.hitsMax;
@@ -78,10 +86,6 @@ class WarParty extends OrgBase {
       this.nearbyWalls = _.sortBy(walls, (structure) => {
         return structure.hits;
       });
-
-      if (this.nearbyWalls.length) {
-
-      }
     }
 
     // was in constructor end
@@ -111,17 +115,12 @@ class WarParty extends OrgBase {
       creep.memory[MEMORY.MEMORY_POSITION_ROOM] = this.flag.pos.roomName;
     });
 
-    this.doRequestAttackers(this);
+    this.doRequestAttackers(trace);
 
     updateTrace.end();
   }
-  process(trace) {
-
-  }
-  toString() {
-    return `---- War Party - ID: ${this.id}, Room: ${this.roomId}, #Creeps: ${this.creeps.length}`;
-  }
-  requestAttackers() {
+  process(trace) { }
+  requestAttackers(trace) {
     const partySize = this.creeps.filter((creep) => {
       return creep.ticksToLive > 150;
     }).length;
@@ -130,6 +129,7 @@ class WarParty extends OrgBase {
     }
 
     const numToRequest = DESIRED_NUM_ATTACKERS - partySize;
+    trace.log('requesting attackers', {numToRequest});
     for (let i = 0; i < numToRequest; i++) {
       this.sendRequest(TOPICS.TOPIC_SPAWN, PRIORITY_ATTACKER, {
         role: WORKER_ATTACKER,

@@ -6,7 +6,7 @@ const {MEMORY_FLAG} = require('./constants.memory');
 const selectSite = behaviorTree.leafNode(
   'selectSite',
   (creep, trace, kingdom) => {
-    let sites = creep.room.find(FIND_CONSTRUCTION_SITES);
+    let sites = creep.room.find(FIND_MY_CONSTRUCTION_SITES);
     if (!sites || !sites.length) {
       return behaviorTree.FAILURE;
     }

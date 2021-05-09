@@ -6,6 +6,7 @@ const roleHauler = require('./role.hauler');
 const roleMiner = require('./role.miner');
 const roleDistributor = require('./role.distributor');
 const roleDefender = require('./role.defender');
+const roleDefenderDrone = require('./role.defender_drone');
 const roleAttacker = require('./role.attacker');
 const roleReserver = require('./role.reserver');
 
@@ -38,6 +39,11 @@ module.exports.tick = (kingdom, trace) => {
 
     if (creep.memory.role == CREEPS.WORKER_DEFENDER) {
       roleDefender.run(creep, trace, kingdom);
+      return;
+    }
+
+    if (creep.memory.role == CREEPS.WORKER_DEFENDER_DRONE) {
+      roleDefenderDrone.run(creep, trace, kingdom);
       return;
     }
 
@@ -132,7 +138,6 @@ module.exports.createCreep = (colony, room, spawn, role, memory, energy, energyL
   memory[MEMORY_ROLE] = role;
   memory[MEMORY.MEMORY_START_TICK] = Game.time;
   memory[MEMORY.DESIRED_BOOSTS] = definition.boosts;
-
 
   //   `${parts}, ${JSON.stringify(memory)}`);
 

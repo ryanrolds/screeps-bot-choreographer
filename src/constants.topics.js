@@ -7,4 +7,5 @@ module.exports = {
   TOPIC_TERMINAL_TASK: 'task_terminal',
   TASK_REACTION: 'task_reaction',
   BOOST_PREP: 'boost_prep',
+  PRIORITY_TARGETS: 'priority_targets',
 };

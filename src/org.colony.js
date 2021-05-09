@@ -17,8 +17,6 @@ const {TOPIC_SPAWN, TOPIC_DEFENDERS, TOPIC_HAUL_TASK} = require('./constants.top
 const {WORKER_RESERVER, WORKER_DEFENDER} = require('./constants.creeps');
 const {PRIORITY_CLAIMER, PRIORITY_DEFENDER, PRIORITY_HAULER} = require('./constants.priorities');
 
-
-const MAX_DEFENDERS = 3;
 const MAX_EXPLORERS = 1;
 
 const UPDATE_ROOM_TTL = 1;
@@ -104,11 +102,11 @@ class Colony extends OrgBase {
       }
     });
 
-    this.doHandleDefenderRequest = doEvery(REQUEST_DEFENDER_TTL)(() => {
+    this.doHandleDefenderRequest = doEvery(REQUEST_DEFENDER_TTL)((trace) => {
       // Check intra-colony requests for defenders
       const request = this.getNextRequest(TOPIC_DEFENDERS);
       if (request) {
-        this.handleDefenderRequest(request);
+        this.handleDefenderRequest(request, trace);
       }
     });
 
@@ -166,7 +164,7 @@ class Colony extends OrgBase {
 
     const handleRequests = updateTrace.begin('handle_requests');
     this.doRequestReserversForMissingRooms();
-    this.doHandleDefenderRequest();
+    this.doHandleDefenderRequest(handleRequests);
 
     if (this.primaryOrgRoom && this.primaryOrgRoom.hasStorage) {
       this.doRequestHaulers();
@@ -240,6 +238,9 @@ class Colony extends OrgBase {
   getTopics() {
     return this.topics;
   }
+  getFilteredRequests(topicId, filter) {
+    return this.topics.getFilteredRequests(topicId, filter);
+  }
   getReserveStructures() {
     if (!this.primaryRoom) {
       return [];
@@ -302,19 +303,18 @@ class Colony extends OrgBase {
     const stats = this.getStats();
     stats.colonies[this.id] = colonyStats;
   }
-  handleDefenderRequest(request) {
-    const neededDefenders = MAX_DEFENDERS - this.defenders.length;
-    if (neededDefenders > 0) {
-      // If the colony has spawners and is of sufficient size spawn own defenders,
-      // otherwise ask for help from other colonies
-      if (this.primaryOrgRoom && this.primaryOrgRoom.hasSpawns &&
-        (this.primaryRoom && this.primaryRoom.controller.level > 3)) {
-        this.sendRequest(TOPIC_SPAWN, PRIORITY_DEFENDER, request.details, REQUEST_DEFENDER_TTL);
-      } else {
-        request.details.memory[MEMORY.MEMORY_COLONY] = this.id;
-        this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITY_DEFENDER, request.details, REQUEST_DEFENDER_TTL);
-      }
+  handleDefenderRequest(request, trace) {
+    // If the colony has spawners and is of sufficient size spawn own defenders,
+    // otherwise ask for help from other colonies
+    if (this.primaryOrgRoom && this.primaryOrgRoom.hasSpawns &&
+      (this.primaryRoom && this.primaryRoom.controller.level > 3)) {
+      this.sendRequest(TOPIC_SPAWN, PRIORITY_DEFENDER, request.details, REQUEST_DEFENDER_TTL);
+    } else {
+      request.details.memory[MEMORY.MEMORY_COLONY] = this.id;
+      this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITY_DEFENDER, request.details, REQUEST_DEFENDER_TTL);
     }
+
+    trace.log('requesting defense response', {memory: request.details.memory});
 
     // Order existing defenders to the room
     this.defenders.forEach((defender) => {

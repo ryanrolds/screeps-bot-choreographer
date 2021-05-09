@@ -36,6 +36,8 @@ const selectExtensionToFill = behaviorTree.leafNode(
       return FAILURE;
     }
 
+    trace.log('picking regular extension fill');
+
     creep.memory[MEMORY.TASK_ID] = `el-${structure.id}-${Game.time}`;
     creep.memory[MEMORY.MEMORY_TASK_TYPE] = TASKS.TASK_HAUL;
     creep.memory[MEMORY.MEMORY_HAUL_PICKUP] = pickup.id;
@@ -49,7 +51,6 @@ const selectExtensionToFill = behaviorTree.leafNode(
   },
 );
 
-/*
 const emergencyExtensionFill = behaviorTree.leafNode(
   'emergency_extension_fill',
   (creep, trace, kingdom) => {
@@ -77,6 +78,8 @@ const emergencyExtensionFill = behaviorTree.leafNode(
       return FAILURE;
     }
 
+    trace.log('picking emergency extension fill');
+
     creep.memory[MEMORY.TASK_ID] = `el-${structure.id}-${Game.time}`;
     creep.memory[MEMORY.MEMORY_TASK_TYPE] = TASKS.TASK_HAUL;
     creep.memory[MEMORY.MEMORY_HAUL_PICKUP] = pickup.id;
@@ -89,11 +92,11 @@ const emergencyExtensionFill = behaviorTree.leafNode(
     return SUCCESS;
   },
 );
-*/
 
 const selectNextTaskOrPark = behaviorTree.selectorNode(
   'pick_something',
   [
+    emergencyExtensionFill,
     behaviorHaul.getHaulTaskFromTopic(TOPICS.HAUL_CORE_TASK),
     selectExtensionToFill,
     behaviorRoom.parkingLot,
@@ -165,6 +168,7 @@ const unloadIfNeeded = behaviorTree.selectorNode(
 
         const loadedResources = Object.keys(creep.store);
         const toUnload = _.difference(loadedResources, [desiredResource]);
+        trace.log('to unload', {loadedResources, desiredResource, toUnload});
         if (toUnload.length) {
           const room = kingdom.getCreepRoom(creep);
           if (!room) {

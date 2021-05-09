@@ -14,7 +14,7 @@ const TASK_TTL = 100;
 
 const MAX_TERMINAL_ENERGY = 1000;
 
-const PROCESS_TASK_TTL = 20;
+const PROCESS_TASK_TTL = 10;
 const REQUEST_RETURN_ENERGY_TTL = 10;
 const ORDER_MGMT_TTL = 55;
 
@@ -99,7 +99,8 @@ export default class TerminalRunnable {
   getTask() {
     return this.orgRoom.getRoomObject()?.memory[MEMORY.TERMINAL_TASK] || null;
   }
-  clearTask() {
+  clearTask(trace) {
+    trace.log('clearing task');
     delete this.orgRoom.getRoomObject()?.memory[MEMORY.TERMINAL_TASK];
   }
 
@@ -114,7 +115,7 @@ export default class TerminalRunnable {
     }
 
     if (ttl < 0) {
-      this.clearTask();
+      this.clearTask(trace);
       return;
     } else {
       terminal.room.memory[MEMORY.TERMINAL_TASK].details[MEMORY.TASK_TTL] = ttl - ticks;
@@ -134,19 +135,19 @@ export default class TerminalRunnable {
         } else if (orderType === ORDER_BUY) {
           this.buy(terminal, details, trace);
         } else {
-          this.clearTask();
+          this.clearTask(trace);
         }
 
         break;
       default:
-        this.clearTask();
+        this.clearTask(trace);
     }
     return;
   }
 
   transferResource(terminal: StructureTerminal, task, trace: Tracer) {
     const resource = task[MEMORY.TRANSFER_RESOURCE];
-    const amount = task[MEMORY.TRANSFER_AMOUNT];
+    let amount = task[MEMORY.TRANSFER_AMOUNT];
     const roomId = task[MEMORY.TRANSFER_ROOM];
     const phase = task[MEMORY.TASK_PHASE] || TASK_PHASE_HAUL_RESOURCE;
 
@@ -167,7 +168,7 @@ export default class TerminalRunnable {
           if (!terminalAmount) {
             trace.log('no pickup and no resources in terminal', {});
 
-            this.clearTask();
+            this.clearTask(trace);
             break;
           }
 
@@ -183,67 +184,96 @@ export default class TerminalRunnable {
         this.haulResourceToTerminal(terminal, pickup, resource, amount);
         break;
       case TASK_PHASE_TRANSFER:
-        const energyReady = this.haulTransferEnergyToTerminal(terminal, resource, amount, roomId, trace);
+        let haulAmount = amount;
+
+        const energyRequired = Game.market.calcTransactionCost(amount, terminal.room.name, roomId);
+        // If we are transfering energy we need energy in addition to what we want to transfer
+        if (resource === RESOURCE_ENERGY) {
+          haulAmount += energyRequired;
+          trace.log('padded energy', {amount, added: energyRequired});
+        }
+
+        const energyReady = this.haulTransferEnergyToTerminal(terminal, resource, haulAmount, roomId, trace);
         if (!energyReady) {
           trace.log('energy not ready', {amount, roomId});
           break;
         }
 
         const result = terminal.send(resource, amount, roomId);
-
-        trace.log('sending', {resource, amount, roomId, result});
-
+        trace.log('sending result', {resource, amount, roomId, result});
         if (result !== OK) {
 
         }
 
-        this.clearTask();
+        this.clearTask(trace);
 
         break;
       default:
 
-        this.clearTask();
+        this.clearTask(trace);
     }
   }
 
   buy(terminal: StructureTerminal, task, trace: Tracer) {
-    const resource = task[MEMORY.MEMORY_ORDER_RESOURCE];
-    const amount = task[MEMORY.MEMORY_ORDER_AMOUNT];
+    const resource = task[MEMORY.MEMORY_ORDER_RESOURCE] as ResourceConstant;
+    const amount = task[MEMORY.MEMORY_ORDER_AMOUNT] as number;
     const currentAmount = terminal.store.getUsedCapacity(resource);
-    const missingAmount = amount - currentAmount;
+    let missingAmount = amount - currentAmount;
+
+    trace.log('buy order', {
+      resource,
+      amount,
+      currentAmount,
+      missingAmount,
+    });
+
+    // Buy in at least blocks of 1000, to avoid stupid small orders
+    missingAmount = Math.max(1000, missingAmount);
 
     if (currentAmount >= amount) {
-      this.clearTask();
+      trace.log('buy order satisfied');
+      this.clearTask(trace);
+      return;
+    }
+
+    if (terminal.cooldown) {
+      trace.log('buy order failed: cooling down');
       return;
     }
 
     let orders = Game.market.getAllOrders({type: ORDER_SELL, resourceType: resource});
     if (!orders.length) {
-      this.clearTask();
+      trace.log('buy order failed: no energy for sale');
+      this.clearTask(trace);
       return;
     }
 
-    orders = _.sortBy(orders, 'price');
-
-    const order = orders[0];
-
+    const order = _.sortBy(orders, 'price')[0];
     if (order.price > MARKET.PRICES[resource].buy) {
-
-      this.clearTask();
+      trace.log('buy order failed: costs to much');
+      this.clearTask(trace);
       return;
     }
 
-    const dealAmount = Math.min(missingAmount, order.remainingAmount);
-    const energyReady = this.haulTransferEnergyToTerminal(terminal, resource, dealAmount, order.roomName, trace);
+    let dealAmount = Math.min(missingAmount, order.remainingAmount);
+    let haulAmount = dealAmount;
+    trace.log('deal amount', {dealAmount, resource});
+
+    const energyRequired = Game.market.calcTransactionCost(missingAmount, terminal.room.name, order.roomName);
+    // If we are transfering energy we need energy in addition to what we want to transfer
+    if (resource === RESOURCE_ENERGY) {
+      haulAmount += energyRequired;
+      trace.log('padded haul amount', {haulAmount, added: energyRequired});
+    }
+
+    const energyReady = this.haulTransferEnergyToTerminal(terminal, resource, haulAmount, order.roomName, trace);
     if (!energyReady) {
+      trace.log('deal energy not ready')
       return;
     }
 
-    if (terminal.cooldown) {
-      return;
-    }
-
-    Game.market.deal(order.id, dealAmount, terminal.room.name);
+    const result = Game.market.deal(order.id, dealAmount, terminal.room.name);
+    trace.log('deal result', {orderId: order.id, missingAmount, dealAmount, destRoom: terminal.room.name, energyRequired, result});
   }
 
   sell(terminal: StructureTerminal, task, trace: Tracer) {
@@ -264,7 +294,7 @@ export default class TerminalRunnable {
         if (!pickup) {
           if (!terminalAmount) {
 
-            this.clearTask();
+            this.clearTask(trace);
             break;
           }
 
@@ -279,7 +309,7 @@ export default class TerminalRunnable {
       case TASK_PHASE_TRANSACT:
         // Check if we are done selling
         if (terminal.store.getUsedCapacity(resource) === 0 || amount < 1) {
-          this.clearTask();
+          this.clearTask(trace);
           break;
         }
 
@@ -301,19 +331,17 @@ export default class TerminalRunnable {
           if (duplicateBuyOrders.length) {
 
             //  `${JSON.stringify(duplicateBuyOrders)}`)
-            this.clearTask();
+            this.clearTask(trace);
             return;
           }
 
           if (!MARKET.PRICES[resource]) {
 
-            this.clearTask();
+            this.clearTask(trace);
             return;
           }
 
           const price = MARKET.PRICES[resource].sell;
-
-
 
           // Create buy order
           const order = {
@@ -328,7 +356,7 @@ export default class TerminalRunnable {
 
           }
 
-          this.clearTask();
+          this.clearTask(trace);
           return;
         }
 
@@ -352,7 +380,7 @@ export default class TerminalRunnable {
         break;
       default:
         trace.error('BROKEN MARKET LOGIC', phase);
-        this.clearTask();
+        this.clearTask(trace);
     }
   }
 
@@ -418,15 +446,8 @@ export default class TerminalRunnable {
 
   haulTransferEnergyToTerminal(terminal: StructureTerminal, resource: ResourceConstant,
     amount: number, destinationRoom: string, trace: Tracer) {
-    let energyRequired = Game.market.calcTransactionCost(amount, terminal.room.name, destinationRoom);
     const currentEnergy = terminal.store.getUsedCapacity(RESOURCE_ENERGY);
-
-    // If we are transfering energy we need energy in addition to what we want to transfer
-    if (resource === RESOURCE_ENERGY) {
-      energyRequired += amount
-    }
-
-    if (currentEnergy < energyRequired) {
+    if (currentEnergy < amount) {
       // If we are low on energy don't take any from reserve
       if (this.orgRoom.getAmountInReserve(RESOURCE_ENERGY) > 20000) {
         const pickup = this.orgRoom.getReserveStructureWithMostOfAResource(RESOURCE_ENERGY, false);
@@ -434,7 +455,9 @@ export default class TerminalRunnable {
           return false;
         }
 
-        this.sendHaulRequest(terminal, pickup, RESOURCE_ENERGY, energyRequired - currentEnergy, 1);
+        const requestAmount = amount - currentEnergy;
+        trace.log('requesting', {resource, amount: requestAmount});
+        this.sendHaulRequest(terminal, pickup, RESOURCE_ENERGY, requestAmount, 1);
         return false;
       }
 

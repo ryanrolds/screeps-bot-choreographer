@@ -47,29 +47,43 @@ const selectEnergyForWithdraw = module.exports.selectEnergyForWithdraw = behavio
 
 const selectContainerForWithdraw = module.exports.selectContainerForWithdraw = behaviorTree.leafNode(
   'selectContainerForWithdraw',
-  (creep) => {
-    const target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
+  (creep, trace, kingdom) => {
+    let target = null;
+    const creepFreeSpace = creep.store.getFreeCapacity(RESOURCE_ENERGY);
+
+    // Favor near by stores
+    let nearByStores = creep.pos.findInRange(FIND_STRUCTURES, 3, {
       filter: (structure) => {
-        if (structure.structureType != STRUCTURE_CONTAINER &&
-          structure.structureType != STRUCTURE_STORAGE &&
-          structure.structureType != STRUCTURE_LINK) {
+        if (structure.structureType != STRUCTURE_LINK &&
+          structure.structureType != STRUCTURE_CONTAINER) {
           return false;
         }
 
         return structure.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
       },
     });
+    nearByStores = _.sortBy(nearByStores, (structure) => {
+      return creep.pos.getRangeTo(structure);
+    });
+
+    if (nearByStores.length) {
+      trace.log('selecting nearby store');
+      target = nearByStores[0];
+    } else {
+      // If nothing nearby, then go to storage
+      const storage = creep.room.storage;
+      if (storage && storage.store.getUsedCapacity(RESOURCE_ENERGY) >= creepFreeSpace) {
+        trace.log('selecting storage');
+        target = storage;
+      }
+    }
 
     if (target) {
       behaviorMovement.setDestination(creep, target.id);
       return SUCCESS;
     }
 
-    if (creep.room.storage && creep.room.storage.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
-      behaviorMovement.setDestination(creep, creep.room.storage.id);
-      return SUCCESS;
-    }
-
+    trace.log('did not find an energy source');
     return FAILURE;
   },
 );
@@ -206,6 +220,11 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.select
         }
 
         const colony = kingdom.getCreepColony(creep);
+        if (!colony) {
+          console.log(creep.name);
+          return FAILURE;
+        }
+
         const target = colony.getReserveStructureWithRoomForResource(RESOURCE_ENERGY);
         if (!target) {
           return FAILURE;

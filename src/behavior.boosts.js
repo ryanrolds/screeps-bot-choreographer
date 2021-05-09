@@ -22,7 +22,7 @@ module.exports = (behaviorNode) => {
 
           const room = kingdom.getCreepRoom(creep);
           if (!room) {
-            throw new Error(`could not get creep room: ${creep.name} ${creep.room.name}`);
+            return SUCCESS;
           }
 
           const booster = room.booster;

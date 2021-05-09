@@ -6,6 +6,7 @@ import {Process, Runnable, RunnableResult, running, terminate} from "./os.proces
 import {Tracer} from './lib.tracing';
 import Kingdom from './org.kingdom';
 import RoomRunnable from './runnable.room';
+import {ColonyConfig} from './config';
 
 export class RoomManager {
   id: string;
@@ -18,6 +19,7 @@ export class RoomManager {
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
     trace = trace.asId(this.id);
+    trace.log('room manager run');
 
     Object.entries(Game.rooms).forEach(([name, room]) => {
       const hasProcess = this.scheduler.hasProcess(name);
@@ -25,8 +27,24 @@ export class RoomManager {
         return;
       }
 
+      trace.log('missing room', {name})
+
       this.scheduler.registerProcess(new Process(name, 'room', Priorities.RESOURCES,
         new RoomRunnable(name, this.scheduler)));
+    });
+
+    // If any defined colonies don't exist, run it
+    const colonies = kingdom.getConfig(Game.shard.name);
+    Object.values<ColonyConfig>(colonies).forEach((colony) => {
+      const hasProcess = this.scheduler.hasProcess(colony.primary);
+      if (hasProcess) {
+        return;
+      }
+
+      trace.log('missing colony', {colony})
+
+      this.scheduler.registerProcess(new Process(colony.primary, 'room', Priorities.RESOURCES,
+        new RoomRunnable(colony.primary, this.scheduler)));
     });
 
     return running();

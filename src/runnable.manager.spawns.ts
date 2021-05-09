@@ -99,8 +99,6 @@ export default class SpawnManager {
 
         minEnergy = _.max([300, minEnergy]);
 
-
-
         if (energy >= minEnergy) {
           let request = (this.orgRoom as any).getNextRequest(TOPICS.TOPIC_SPAWN);
           if (request) {
@@ -117,7 +115,8 @@ export default class SpawnManager {
           if (peek) {
             const role = peek.details.role;
             const definition = definitions[role];
-            if (definition.energyMinimum && energy < definition.energyMinimum) {
+            const numColonies = (this.orgRoom as any).getKingdom().getColonies().length;
+            if (definition.energyMinimum && energy < definition.energyMinimum && numColonies > 3) {
               return;
             }
           }

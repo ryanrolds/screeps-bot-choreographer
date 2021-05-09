@@ -43,7 +43,7 @@ const moveToRoom = behaviorTree.repeatUntilSuccess(
 
       const result = creep.moveTo(position, {
         reusePath: 50,
-        maxOps: 1500,
+        maxOps: 2500,
       });
 
       trace.log('move to exit result', {

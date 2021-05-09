@@ -1,22 +1,29 @@
-
 const DEFAULT_TTL = 500;
+
+type TopicKey = string;
+type Topic = Array<any>;
+
 class Topics {
+  topics: Record<TopicKey, Topic>;
+
   constructor() {
     this.topics = {};
   }
-  getTopic(topic) {
-    if (!this.topics[topic]) {
+
+  getTopic(key: TopicKey) {
+    if (!this.topics[key]) {
       return null;
     }
 
-    return this.topics[topic];
+    return this.topics[key];
   }
-  setTopic(topic, value) {
-    if (!this.topics[topic]) {
+
+  setTopic(key: TopicKey, value) {
+    if (!this.topics[key]) {
       return null;
     }
 
-    this.topics[topic] = value;
+    this.topics[key] = value;
   }
   reset() {
     this.topics = {};
@@ -28,14 +35,14 @@ class Topics {
       });
     });
   }
-  createTopic(topic) {
-    this.topics[topic] = [];
-    return this.topics[topic];
+  createTopic(key: TopicKey) {
+    this.topics[key] = [];
+    return this.topics[key];
   }
-  addRequest(topicID, priority, details, ttl = DEFAULT_TTL) {
-    let topic = this.getTopic(topicID);
+  addRequest(key: TopicKey, priority, details, ttl = DEFAULT_TTL) {
+    let topic = this.getTopic(key);
     if (!topic) {
-      topic = this.createTopic(topicID);
+      topic = this.createTopic(key);
     }
 
     const request = {
@@ -45,10 +52,10 @@ class Topics {
     };
 
     topic.push(request);
-    this.topics[topicID] = _.sortBy(topic, 'priority');
+    this.topics[key] = _.sortBy(topic, 'priority');
   }
-  peekNextRequest(topicID) {
-    const topic = this.getTopic(topicID);
+  peekNextRequest(key: TopicKey) {
+    const topic = this.getTopic(key);
     if (!topic) {
       return null;
     }
@@ -59,8 +66,8 @@ class Topics {
 
     return topic[topic.length - 1];
   }
-  getNextRequest(topicID) {
-    const topic = this.getTopic(topicID);
+  getNextRequest(key: TopicKey) {
+    const topic = this.getTopic(key);
     if (!topic) {
       return null;
     }
@@ -74,12 +81,20 @@ class Topics {
       break;
     }
 
-    this.setTopic(topicID, topic);
+    this.setTopic(key, topic);
 
     return request;
   }
-  getMessageOfMyChoice(topicId, chooser) {
-    const messages = this.getTopic(topicId);
+  getFilteredRequests(key: TopicKey, filter) {
+    const requests = this.getTopic(key);
+    if (!requests) {
+      return [];
+    }
+
+    return requests.filter(filter);
+  }
+  getMessageOfMyChoice(key: TopicKey, chooser) {
+    const messages = this.getTopic(key);
     if (!messages) {
       return null;
     }
@@ -89,12 +104,12 @@ class Topics {
       _.remove(messages, choice);
     }
 
-    this.setTopic(topicId, messages);
+    this.setTopic(key, messages);
 
     return choice;
   }
-  getLength(topicID) {
-    const topic = this.topics[topicID];
+  getLength(key: TopicKey) {
+    const topic = this.topics[key];
     if (!topic) {
       return 0;
     }

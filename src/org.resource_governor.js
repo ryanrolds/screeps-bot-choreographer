@@ -133,7 +133,7 @@ class Resources extends OrgBase {
       return acc.concat({room: room, amount});
     }, []);
 
-    return _.sortBy(terminals, 'amount').shift();
+    return _.sortBy(terminals, 'amount').reverse().shift();
   }
   getTerminals() {
     return this.getKingdom().getColonies().reduce((acc, colony) => {
@@ -481,7 +481,7 @@ class Resources extends OrgBase {
       }
 
       const room = primaryRoom.getRoomObject();
-      if (!room.terminal || !room.storage) {
+      if (!room || !room.terminal || !room.storage) {
         return;
       }
 

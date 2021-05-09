@@ -10,6 +10,7 @@ import WarManager from './runnable.manager.war';
 import {RoomManager} from './runnable.manager.rooms';
 import KingdomModelRunnable from './runnable.kingdom_model';
 import KingdomGovernorRunnable from './runnable.kingdom_governor'
+import DefenseManager from './runnable.manager.defense';
 
 export class AI {
   config: KingdomConfig;
@@ -33,11 +34,17 @@ export class AI {
     this.scheduler.registerProcess(new Process('kingdom_governor', 'kingdom_governor',
       Priorities.CRITICAL, new KingdomGovernorRunnable('kingdom_governor')));
 
+    // Defense manager
+    const defenseManagerId = 'defense_manager';
+    const defenseManager = new DefenseManager(defenseManagerId, this.scheduler, trace);
+    this.scheduler.registerProcess(new Process(defenseManagerId, 'defense_manager',
+      Priorities.CRITICAL, defenseManager));
+
     // War manager
     const warManagerId = 'war_manager';
     const warManager = new WarManager(warManagerId, this.scheduler);
     this.scheduler.registerProcess(new Process(warManagerId, 'war_manager',
-      Priorities.OFFENSE, warManager));
+      Priorities.CRITICAL, warManager));
 
     // Room Processes
     const roomManagerId = 'room_manager';

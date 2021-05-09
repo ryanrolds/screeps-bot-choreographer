@@ -102,3 +102,7 @@ module.exports.REACTOR_INPUT_A = 'reactor_input_a';
 module.exports.REACTOR_INPUT_B = 'reactor_input_b';
 module.exports.REACTOR_OUTPUT = 'reactor_output';
 module.exports.REACTOR_AMOUNT = 'reactor_amount';
+
+// Defense parties
+module.exports.MEMORY_DEFENSE_IN_POSITION = 'defense_in_position';
+module.exports.MEMORY_DEFENSE_PARTY = 'defense_party';

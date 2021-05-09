@@ -79,7 +79,10 @@ export default class SourceRunnable {
     const ticks = Game.time - this.prevTime;
     this.prevTime = Game.time;
 
-    trace.log('source run', {});
+    trace.log('source run', {
+      workerTTL: this.workerTTL,
+      haulingTTL: this.haulingTTL,
+    });
 
     const room = this.orgRoom.getRoomObject();
     if (!room) {
@@ -92,20 +95,20 @@ export default class SourceRunnable {
     this.workerTTL -= ticks;
     this.haulingTTL -= ticks;
 
-    if (this.workerTTL <= 0) {
+    if (this.workerTTL < 0) {
       this.workerTTL = REQUEST_WORKER_TTL;
 
       // Check miners and harvesters
       if (this.desiredMiners) {
-        this.requestMiner(room);
+        this.requestMiner(room, trace);
       } else if (this.desiredHarvesters) {
-        this.requestHarvester(room);
+        this.requestHarvester(room, trace);
       }
     }
 
     if (this.haulingTTL <= 0 && this.containerId) {
       this.haulingTTL = REQUEST_HAULING_TTL;
-      this.requestHauling();
+      this.requestHauling(trace);
     }
 
     if (this.ttl < 0) {
@@ -136,7 +139,7 @@ export default class SourceRunnable {
     stats.colonies[conlonyId].rooms[roomId].sources[this.sourceId] = sourceStats;
   }
 
-  requestMiner(room: Room) {
+  requestMiner(room: Room, trace: Tracer) {
     const roomCreeps = this.orgRoom.getCreeps();
     const numMiners = roomCreeps.filter((creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
@@ -152,6 +155,8 @@ export default class SourceRunnable {
         priority = PRIORITIES.PRIORITY_REMOTE_MINER;
       }
 
+      trace.log('requesting miner', {sourceId: this.sourceId});
+
       (this.orgRoom as any).sendRequest(TOPICS.TOPIC_SPAWN, priority, {
         role: CREEPS.WORKER_MINER,
         memory: {
@@ -165,7 +170,7 @@ export default class SourceRunnable {
     }
   }
 
-  requestHarvester(room: Room) {
+  requestHarvester(room: Room, trace: Tracer) {
     const roomCreeps = this.orgRoom.getCreeps();
     const numHarvesters = roomCreeps.filter((creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
@@ -175,6 +180,8 @@ export default class SourceRunnable {
     }).length;
 
     if (this.desiredHarvesters > numHarvesters) {
+      trace.log('requesting miner', {sourceId: this.sourceId});
+
       // As we get more harvesters, make sure other creeps get a chance to spawn
       const priority = PRIORITIES.PRIORITY_HARVESTER - (numHarvesters * 1.5);
       (this.orgRoom as any).sendRequest(TOPICS.TOPIC_SPAWN, priority, {
@@ -189,7 +196,7 @@ export default class SourceRunnable {
     }
   }
 
-  requestHauling() {
+  requestHauling(trace: Tracer) {
     const haulers = (this.orgRoom as any).getColony().getHaulers();
     const haulersWithTask = haulers.filter((creep) => {
       const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
@@ -226,6 +233,8 @@ export default class SourceRunnable {
         [MEMORY.MEMORY_HAUL_DROPOFF]: this.dropoffId,
         [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
       };
+
+      trace.log('requesting miner', {sourceId: this.sourceId});
 
       (this.orgRoom as any).sendRequest(TOPICS.TOPIC_HAUL_TASK, loadPriority, details, REQUEST_HAULING_TTL);
     }

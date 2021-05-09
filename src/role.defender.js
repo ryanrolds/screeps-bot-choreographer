@@ -20,21 +20,47 @@ const behavior = behaviorTree.sequenceNode(
 
         let target = null;
 
+        if (creep.hits < creep.hitsMax) {
+          const result = creep.heal(creep);
+          trace.log('healing self', {result});
+        }
+
         // TODO check this one at a time
         const hostiles = room.getHostiles();
-        const invaderCores = room.getInvaderCores();
-        const hostileStructures = room.getHostileStructures();
+        trace.log('hostiles', {numHostiles: hostiles.length});
         if (hostiles.length) {
+          hostiles = hostiles.map((hostile) => {
+            return Game.getObjectById(hostile.id);
+          }).filter((creep) => {
+            return creep;
+          });
+
           hostiles = _.sortBy(hostiles, (hostile) => {
             return creep.pos.getRangeTo(hostile);
           });
 
-          target = Game.getObjectById(hostiles[0].id);
-        } else if (invaderCores.length) {
-          target = invaderCores[0];
-        } else if (hostileStructures.length) {
-          target = hostileStructures[0];
-        } else {
+          target = hostiles[0];
+        }
+
+        if (!target) {
+          const invaderCores = room.getInvaderCores();
+          trace.log('invader cores', {invaderCores: invaderCores.length});
+          if (invaderCores.length) {
+            target = invaderCores[0];
+          }
+        }
+
+        if (!target) {
+          const hostileStructures = room.getHostileStructures();
+          trace.log('hostile structures', {hostileStructures: hostileStructures.length});
+          if (hostileStructures.length) {
+            target = hostileStructures[0];
+          }
+        }
+
+        trace.log('target', {target});
+
+        if (!target) {
           const positionString = creep.memory[MEMORY.MEMORY_ASSIGN_ROOM_POS] || null;
           if (!positionString) {
             trace.log('failed to get position string');
@@ -57,18 +83,20 @@ const behavior = behaviorTree.sequenceNode(
             return SUCCESS;
           }
 
-          const result = move(creep, position);
+          const result = move(creep, position, 1);
           trace.log('move to last known hostile position', {result, position});
 
           return RUNNING;
         }
+
 
         if (creep.pos.getRangeTo(target) <= 3) {
           const result = creep.rangedAttack(target);
           trace.log('ranged attack result', {result});
         }
 
-        if (creep.pos.getRangeTo(target) === 1) {
+        if (creep.pos.getRangeTo(target) < 2) {
+          trace.log('target in range');
           return RUNNING;
         }
 
@@ -103,8 +131,8 @@ const behavior = behaviorTree.sequenceNode(
           return RUNNING;
         }
 
-        const result = move(creep, target);
-        trace.log('move to target', {result});
+        const result = move(creep, target, 3);
+        trace.log('move to target', {result, target});
 
         return RUNNING;
       },
@@ -112,8 +140,8 @@ const behavior = behaviorTree.sequenceNode(
   ],
 );
 
-const move = (creep, target) => {
-  result = creep.moveTo(target, {visualizePathStyle: {stroke: '#ffffff'}, range: 3});
+const move = (creep, target, range = 3) => {
+  result = creep.moveTo(target, {visualizePathStyle: {stroke: '#ffffff'}, range});
   if (result === ERR_NO_BODYPART) {
     return FAILURE;
   }

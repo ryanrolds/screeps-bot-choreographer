@@ -3,6 +3,7 @@ const WORKER_HARVESTER = module.exports.WORKER_HARVESTER = 'harvester';
 const WORKER_MINER = module.exports.WORKER_MINER = 'miner';
 const WORKER_UPGRADER = module.exports.WORKER_UPGRADER = 'upgrader';
 const WORKER_DEFENDER = module.exports.WORKER_DEFENDER = 'defender';
+const WORKER_DEFENDER_DRONE = module.exports.WORKER_DEFENDER_DRONE = 'defender_drone';
 const WORKER_ATTACKER = module.exports.WORKER_ATTACKER = 'attacker';
 const WORKER_REPAIRER = module.exports.WORKER_REPAIRER = 'repairer';
 const WORKER_DISTRIBUTOR = module.exports.WORKER_DISTRIBUTOR = 'distributor';
@@ -71,7 +72,14 @@ const definitions = {
   },
   [WORKER_DEFENDER]: {
     energyLimit: null,
-    parts: [MOVE, TOUGH, MOVE, RANGED_ATTACK],
+    parts: [MOVE, HEAL, MOVE, TOUGH, MOVE, RANGED_ATTACK, MOVE, TOUGH, MOVE, RANGED_ATTACK],
+    base: [MOVE, RANGED_ATTACK],
+    boosts: ['damage', 'rangedAttack'],
+    processPriority: 1,
+  },
+  [WORKER_DEFENDER_DRONE]: {
+    energyLimit: null,
+    parts: [MOVE, HEAL, MOVE, TOUGH, MOVE, RANGED_ATTACK, MOVE, TOUGH, MOVE, RANGED_ATTACK],
     base: [MOVE, RANGED_ATTACK],
     boosts: ['damage', 'rangedAttack'],
     processPriority: 1,
@@ -98,6 +106,7 @@ module.exports = {
   WORKER_MINER,
   WORKER_UPGRADER,
   WORKER_DEFENDER,
+  WORKER_DEFENDER_DRONE,
   WORKER_ATTACKER,
   WORKER_REPAIRER,
   WORKER_DISTRIBUTOR,

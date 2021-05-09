@@ -3,7 +3,6 @@ const OrgBase = require('./org.base');
 
 const CREEPS = require('./constants.creeps');
 const MEMORY = require('./constants.memory');
-const TASKS = require('./constants.tasks');
 const TOPICS = require('./constants.topics');
 const PRIORITIES = require('./constants.priorities');
 const {creepIsFresh} = require('./behavior.commute');
@@ -11,20 +10,17 @@ const {doEvery} = require('./lib.scheduler');
 
 const {MEMORY_ROLE, MEMORY_ASSIGN_ROOM, MEMORY_HARVEST_ROOM} = require('./constants.memory');
 const {TOPIC_SPAWN} = require('./constants.topics');
-const {WORKER_UPGRADER, WORKER_REPAIRER, WORKER_BUILDER} = require('./constants.creeps');
-const {PRIORITY_UPGRADER, PRIORITY_BUILDER, PRIORITY_REPAIRER,
-  PRIORITY_REPAIRER_URGENT} = require('./constants.priorities');
 const {WORKER_DISTRIBUTOR, WORKER_HAULER} = require('./constants.creeps');
-const {PRIORITY_DISTRIBUTOR} = require('./constants.priorities');
 
-const MIN_UPGRADERS = 1;
-const MAX_UPGRADERS = 5;
-const MIN_DISTRIBUTORS = 1;
+const MEMORY_HOSTILE_TIME = 'hostile_time';
+const MEMORY_HOSTILE_POS = 'hostile_pos';
+
+const MAX_DEFENDERS = 4;
+
 const WALL_LEVEL = 1000;
 const RAMPART_LEVEL = 1000;
 const MY_USERNAME = 'ENETDOWN';
-const MIN_RESERVATION_TICKS = 4000;
-const RESERVE_BUFFER = 400000;
+const PER_LEVEL_ENERGY = 75000;
 
 const UPDATE_CREEPS_TTL = 1;
 const UPDATE_ROOM_TTL = 10;
@@ -37,13 +33,9 @@ const UPDATE_DAMAGED_STRUCTURES_TTL = 20;
 const UPDATE_DAMAGED_SECONDARY_TTL = 15;
 const UPDATE_DAMAGED_ROADS_TTL = 25;
 
-const REQUEST_HAUL_DROPPED_RESOURCES_TTL = 15;
 const REQUEST_DEFENDERS_TTL = 20;
-const REQUEST_DISTRIBUTOR_TTL = 25;
-const REQUEST_RESERVER_TTL = 50;
-const REQUEST_UPGRADER_TTL = 25;
-const REQUEST_BUILDER_TTL = 50;
-const REQUEST_REPAIRER_TTL = 50;
+const REQUEST_DEFENDERS_DELAY = 20;
+const HOSTILE_PRESENCE_TTL = 200;
 
 class Room extends OrgBase {
   constructor(parent, room, trace) {
@@ -92,9 +84,12 @@ class Room extends OrgBase {
     });
 
     // Defense status
-    this.hostileTime = 0;
+    this.hostileTime = room.memory[MEMORY_HOSTILE_TIME] || 0;
+    this.hostileTimes = {};
+    this.lastHostilePosition = room.memory[MEMORY_HOSTILE_POS] || null;
     this.hostiles = [];
     this.numHostiles = 0;
+    this.numDefenders = 0;
     this.defendersLost = 0;
     this.invaderCores = [];
     this.doUpdateDefenseStatus = doEvery(UPDATE_DEFENSE_STATUS_TTL)((room, trace) => {
@@ -167,42 +162,70 @@ class Room extends OrgBase {
       this.damagedRoads = _.map(damagedRoads, 'id');
     });
 
-    // Request things
-    this.doRequestHaulDroppedResources = doEvery(REQUEST_HAUL_DROPPED_RESOURCES_TTL)(() => {
-      this.requestHaulDroppedResources();
-    });
+    this.doRequestDefenders = doEvery(REQUEST_DEFENDERS_TTL)((trace) => {
+      const freshDefenders = this.getColony().defenders.filter((defender) => {
+        return creepIsFresh(defender);
+      });
 
-    this.doRequestDefenders = doEvery(REQUEST_DEFENDERS_TTL)(() => {
-      if ((Game.time - this.hostileTime >= 50) || !this.isPrimary) {
-        this.requestDefender();
+      const neededDefenders = MAX_DEFENDERS - freshDefenders.length;
+      if (neededDefenders === 0) {
+        return;
       }
-    });
 
-    this.doRequestDistributor = doEvery(REQUEST_DISTRIBUTOR_TTL)(() => {
-      this.requestDistributor();
-    });
+      if (this.stationFlags.length) {
+        const flag = this.stationFlags[0];
+        const position = [flag.pos.x, flag.pos.y, flag.pos.roomName].join(',');
+        this.requestDefender(position, trace);
+        return;
+      }
 
-    this.reservationTicks = 0;
-    this.numReservers = 0;
-    this.doRequestReserver = doEvery(REQUEST_RESERVER_TTL)((trace) => {
-      this.requestReserver(trace);
-    });
+      const enemyPresent = this.hostiles.length || this.invaderCores.length;
+      const enemyPresentRecently = Game.time - this.hostileTime < HOSTILE_PRESENCE_TTL;
+      if (!enemyPresent || !enemyPresentRecently) {
+        trace.log('do not request defender: room is quiet');
+        return;
+      }
 
-    this.doRequestUpgrader = doEvery(REQUEST_UPGRADER_TTL)(() => {
-      this.requestUpgrader();
-    });
+      trace.log('checking if we need defenders to handle hostile presence', {
+        enemyPresent,
+        enemyPresentRecently,
+        hostileTime: this.hostileTime,
+        defendersLost: this.defendersLost,
+      });
 
-    this.builders = [];
-    this.numConstructionSites = 0;
-    this.doRequestBuilder = doEvery(REQUEST_BUILDER_TTL)(() => {
-      this.requestBuilder();
-    });
+      let controller = null;
+      if (this.room && this.room.controller) {
+        controller = this.room.controller;
+      }
 
-    this.numRepairers = 0;
-    this.hitsPercentage = 0.0;
-    this.numStructures = 0;
-    this.doRequestRepairer = doEvery(REQUEST_REPAIRER_TTL)(() => {
-      this.requestRepairer();
+      if (controller && (controller.safeMode && controller.safeMode > 250)) {
+        trace.log('do not request defenders: in safe mode', {safeMode: controller.safeMode});
+        return;
+      }
+
+      // If hostiles present spawn defenders and/or activate safe mode
+      if (this.lowHitsDefenses && controller && controller.my && controller.safeModeAvailable &&
+        !controller.safeMode && !controller.safeModeCooldown) {
+        controller.activateSafeMode();
+        trace.log('do not request defenders: activating safe mode');
+        return;
+      }
+
+      if (!this.primaryRoom && this.defendersLost >= 3) {
+        trace.log('do not request defender: we have lost too many defenders');
+      }
+
+      const pastDelay = Game.time - this.hostileTime >= REQUEST_DEFENDERS_DELAY;
+      if (!pastDelay) {
+        trace.log('do not request defender: waiting to see if they leave', {
+          pastDelay,
+          age: Game.time - this.hostileTime,
+          REQUEST_DEFENDERS_DELAY,
+        });
+        return;
+      }
+
+      this.requestDefender(this.lastHostilePosition, trace);
     });
 
     setupTrace.end();
@@ -215,9 +238,14 @@ class Room extends OrgBase {
 
     const room = this.room = Game.rooms[this.id];
     if (!room) {
-      if (this.numHostiles) {
-        this.doRequestDefenders();
+      if (Game.time - this.hostileTime > HOSTILE_PRESENCE_TTL) {
+        trace.log('past hostile presence ttl, clearing hostiles');
+        this.hostile = [];
+        this.numHostiles = 0;
+        this.defendersLost = 0;
       }
+
+      this.doRequestDefenders(trace);
 
       updateTrace.end();
       return;
@@ -234,14 +262,11 @@ class Room extends OrgBase {
     });
 
     this.doUpdateCreeps(updateTrace);
-
     this.doUpdateDefenseStatus(room, updateTrace);
-
     this.doUpdateRoom(updateTrace);
 
     if (this.isPrimary) {
       this.doUpdatePrimary(updateTrace);
-
       this.doUpdateResources(updateTrace);
 
       const towerFocusTrace = updateTrace.begin('tower_focus');
@@ -255,26 +280,7 @@ class Room extends OrgBase {
     const requestTrace = updateTrace.begin('requests');
 
     // Request defenders
-    this.doRequestDefenders();
-
-    if (!this.isPrimary) {
-      // If not claimed by me and no claimer assigned and not primary, request a reserver
-      this.doRequestReserver(trace);
-    }
-
-    // Haul dropped resources (janitorial)
-    this.doRequestHaulDroppedResources();
-    // Builder requests
-    this.doRequestBuilder();
-    // Repairer requests
-    this.doRequestRepairer();
-
-    if (this.isPrimary) {
-      // Send a request if we are short on distributors
-      this.doRequestDistributor();
-      // Upgrader request
-      this.doRequestUpgrader();
-    }
+    this.doRequestDefenders(trace);
 
     requestTrace.end();
 
@@ -293,21 +299,6 @@ class Room extends OrgBase {
     this.updateStats();
 
     processTrace.end();
-  }
-  toString() {
-    return `-- Room - ID: ${this.id}, Primary: ${this.isPrimary}, Claimed: ${this.claimedByMe}, ` +
-      `Reservers: ${this.numReservers}, ` +
-      `HasStorage: ${this.hasStorage}, ` +
-      `#Builders: ${this.builders.length}, ` +
-      `#Hostiles: ${this.numHostiles}, ` +
-      `HostileTime: ${this.hostileTime}, ` +
-      `#Sites: ${this.numConstructionSites}, ` +
-      `%Hits: ${this.hitsPercentage.toFixed(2)}, #Repairer: ${this.numRepairers}, ` +
-      `EnergyFullness: ${this.getEnergyFullness()}, ` +
-      `DCreeps: ${this.damagedCreeps.length}, ` +
-      `DStructures: ${this.damagedStructures.length}, ` +
-      `DSecondary: ${this.damagedSecondaryStructures.length}, ` +
-      `DRoads: ${this.damagedRoads.length}`;
   }
   getRoom() {
     return this;
@@ -329,6 +320,24 @@ class Room extends OrgBase {
   }
   getHostileStructures() {
     return this.hostileStructures;
+  }
+  isHostile(trace) {
+    const quite = this.numHostiles || Game.time - this.hostileTime < HOSTILE_PRESENCE_TTL;
+
+    trace.log('checking for hostiles', {
+      numHostiles: this.numHostiles,
+      numDefenders: this.numDefenders,
+      hostileTime: this.hostileTime,
+      HOSTILE_PRESENCE_TTL,
+      lastPresence: Game.time - this.hostileTime,
+      quite,
+    });
+
+    if (this.numDefenders) {
+      return false;
+    }
+
+    return quite;
   }
   getLabs() {
     return this.myStructures.filter((structure) => {
@@ -586,6 +595,7 @@ class Room extends OrgBase {
       return minerals[0];
     });
   }
+
   updateStats() {
     const room = this.room;
 
@@ -605,254 +615,41 @@ class Room extends OrgBase {
     const stats = this.getStats();
     stats.colonies[this.getColony().id].rooms[this.id] = roomStats;
   }
-  requestDefender() {
-    let controller = null;
-    if (this.room && this.room.controller) {
-      controller = this.room.controller;
-    }
 
-    // If hostiles present spawn defenders and/or activate safe mode
-    if (this.hostiles.length || this.invaderCores.length) {
-      // If there are defenses low on
-      if (controller && controller.my && this.lowHitsDefenses && controller.safeModeAvailable &&
-        !controller.safeMode && !controller.safeModeCooldown) {
-        controller.activateSafeMode();
-      } else if (!controller || (!controller.safeMode || controller.safeMode < 250)) {
-        // Request defenders if we have not lost more than 3 this attack
-        if (this.defendersLost <= 3) {
-          const hostile = this.hostiles[0];
-          const hostileLocation = [hostile.pos.x, hostile.pos.y, hostile.pos.roomName].join(',');
-          this.sendRequest(TOPICS.TOPIC_DEFENDERS, PRIORITIES.PRIORITY_DEFENDER, {
-            role: CREEPS.WORKER_DEFENDER,
-            memory: {
-              [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
-              [MEMORY.MEMORY_ASSIGN_ROOM_POS]: hostileLocation,
-            },
-          }, REQUEST_DEFENDERS_TTL);
-        }
-      }
-    }
-  }
-  requestDistributor() {
-    const numDistributors = _.filter(this.getCreeps(), (creep) => {
-      return creep.memory[MEMORY_ROLE] === WORKER_DISTRIBUTOR &&
-        creep.memory[MEMORY_ASSIGN_ROOM] === this.id && creepIsFresh(creep);
-    }).length;
+  requestDefender(position, trace) {
+    trace.log('requesting defender', {position: position});
 
-    let desiredDistributors = MIN_DISTRIBUTORS;
-    if (this.room.controller.level < 3) {
-      desiredDistributors = 1;
-    } else if (this.room.energyAvailable / this.room.energyCapacityAvailable < 0.5) {
-      desiredDistributors = 2;
-    }
-
-    if (!this.hasStorage || numDistributors >= desiredDistributors) {
-      return;
-    }
-
-    let distributorPriority = PRIORITY_DISTRIBUTOR;
-    if (this.getAmountInReserve(RESOURCE_ENERGY) === 0) {
-      distributorPriority = PRIORITIES.DISTRIBUTOR_NO_RESERVE;
-    }
-
-    if (this.getAmountInReserve(RESOURCE_ENERGY) > 25000) {
-      distributorPriority += 3;
-    }
-
-    this.requestSpawn(distributorPriority, {
-      role: CREEPS.WORKER_DISTRIBUTOR,
+    this.sendRequest(TOPICS.TOPIC_DEFENDERS, PRIORITIES.PRIORITY_DEFENDER, {
+      role: CREEPS.WORKER_DEFENDER,
       memory: {
         [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
-        [MEMORY.MEMORY_COLONY]: this.getColony().id,
+        [MEMORY.MEMORY_ASSIGN_ROOM_POS]: position,
       },
-    }, REQUEST_DISTRIBUTOR_TTL);
-  }
-  requestReserver(trace) {
-    this.numReservers = _.filter(Game.creeps, (creep) => {
-      const role = creep.memory[MEMORY_ROLE];
-      return (role === CREEPS.WORKER_RESERVER) &&
-        creep.memory[MEMORY.MEMORY_ASSIGN_ROOM] === this.id && creepIsFresh(creep);
-    }).length;
-
-    this.reservationTicks = 0;
-    if (this.room.controller.reservation) {
-      this.reservationTicks = this.room.controller.reservation.ticksToEnd;
-    }
-
-    trace.log('deciding to request reserver', {
-      numReservers: this.numReservers,
-      ownedByMe: (this.reservedByMe || this.claimedByMe),
-      numHostiles: this.numHostiles,
-      reservationTicks: (this.reservedByMe && this.reservationTicks) ?
-        this.reservationTicks < MIN_RESERVATION_TICKS : false,
-    });
-
-    if (!this.numReservers && ((!this.reservedByMe && !this.claimedByMe && !this.numHostiles) ||
-      (this.reservedByMe && this.reservationTicks < MIN_RESERVATION_TICKS))) {
-      trace.log('sending reserve request');
-
-      this.requestSpawn(PRIORITIES.PRIORITY_RESERVER, {
-        role: CREEPS.WORKER_RESERVER,
-        memory: {
-          [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
-          [MEMORY.MEMORY_COLONY]: this.getColony().id,
-        },
-      }, REQUEST_RESERVER_TTL);
-    }
+    }, REQUEST_DEFENDERS_TTL);
   }
   getReserveBuffer() {
     if (!this.room.controller.my) {
-      return RESERVE_BUFFER;
+      return 0;
     }
 
-    if (this.room.controller.level < 4) {
+    const roomLevel = this.getRoomLevel();
+
+    if (roomLevel < 4) {
       return 2000;
     }
 
-    return (this.room.controller.level - 3) * 100000;
+    return (roomLevel - 3) * PER_LEVEL_ENERGY;
   }
-  requestUpgrader() {
-    if (!this.isPrimary) {
-      return;
+  getRoomLevel() {
+    if (!this.room) {
+      return 0;
     }
-
-    const numUpgraders = _.filter(this.assignedCreeps, (creep) => {
-      return creep.memory[MEMORY_ROLE] == WORKER_UPGRADER &&
-        creepIsFresh(creep);
-    }).length;
-
-    let parts = 1;
-    let desiredUpgraders = MIN_UPGRADERS;
-    let maxParts = 15;
-    let roomCapacity = 300;
-
-    const reserveEnergy = this.getAmountInReserve(RESOURCE_ENERGY);
-    const reserveBuffer = this.getReserveBuffer();
 
     if (!this.room.controller.my) {
-      desiredUpgraders = 0;
-    } else if (this.room.controller.level === 8) {
-      parts = (reserveEnergy - reserveBuffer) / 1500;
-      desiredUpgraders = 1;
-    } else if (this.hasStorage) {
-      roomCapacity = this.room.energyCapacityAvailable;
-      maxParts = (roomCapacity - 300) / 200;
-      if (maxParts > 15) {
-        maxParts = 15;
-      }
-
-      if (this.room.storage && reserveEnergy > reserveBuffer) {
-        parts = (reserveEnergy - reserveBuffer) / 1500;
-      } else if (!this.room.storage && reserveEnergy > 1000) {
-        parts = reserveEnergy - 1000 / 1500;
-      }
-
-      desiredUpgraders = Math.ceil(parts / maxParts);
+      return 0;
     }
 
-    const energyLimit = ((parts - 1) * 200) + 300;
-
-    // As we get more upgraders, lower the priority
-    const upgraderPriority = PRIORITY_UPGRADER - (numUpgraders * 2);
-
-    // Don't let it create a ton of upgraders
-    if (desiredUpgraders > MAX_UPGRADERS) {
-      desiredUpgraders = MAX_UPGRADERS;
-    }
-
-    for (let i = 0; i < desiredUpgraders - numUpgraders; i++) {
-      this.requestSpawn(upgraderPriority, {
-        role: WORKER_UPGRADER,
-        energyLimit: energyLimit,
-        memory: {
-          [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
-          [MEMORY.MEMORY_COLONY]: this.getColony().id,
-        },
-      }, REQUEST_UPGRADER_TTL);
-    }
-  }
-  requestBuilder() {
-    if (!Object.values(Game.spawns).length) {
-      // We have no spawns in this shard
-      return;
-    }
-
-    this.builders = _.filter(this.assignedCreeps, (creep) => {
-      return creep.memory[MEMORY.MEMORY_ROLE] === WORKER_BUILDER && creepIsFresh(creep);
-    });
-
-    this.numConstructionSites = this.room.find(FIND_CONSTRUCTION_SITES).length;
-
-    let desiredBuilders = 0;
-    if ((this.isPrimary && this.claimedByMe && this.room.controller.level <= 2) ||
-      (this.reservedByMe && this.numConstructionSites)) {
-      desiredBuilders = 3;
-    } else if (this.room.controller.level > 2) {
-      desiredBuilders = Math.ceil(this.numConstructionSites / 10);
-    }
-
-    if (this.builders.length >= desiredBuilders) {
-      return;
-    }
-
-    this.requestSpawn(PRIORITY_BUILDER - (this.builders.length * 2), {
-      role: WORKER_BUILDER,
-      memory: {
-        [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
-        [MEMORY.MEMORY_ASSIGN_SHARD]: Game.shard.name,
-        [MEMORY.MEMORY_COLONY]: this.getColony().id,
-      },
-    }, REQUEST_BUILDER_TTL);
-  }
-  requestRepairer() {
-    let maxHits = 0;
-    let hits = 0;
-    let numStructures = 0;
-    this.roomStructures.forEach((s) => {
-      if (s.structureType === STRUCTURE_WALL || s.structureType === STRUCTURE_RAMPART) {
-        return;
-      }
-
-      numStructures++;
-
-      if (s.hitsMax > 0 && s.hits > 0) {
-        maxHits += s.hitsMax;
-        hits += s.hits;
-      }
-    });
-    let hitsPercentage = 1;
-    if (maxHits > 0) {
-      hitsPercentage = hits / maxHits;
-    }
-    this.hitsPercentage = hitsPercentage;
-    this.numStructures = numStructures;
-
-    this.numRepairers = _.filter(this.assignedCreeps, (creep) => {
-      return creep.memory[MEMORY_ROLE] === WORKER_REPAIRER && creepIsFresh(creep);
-    }).length;
-
-    // Repairer requests
-    let desiredRepairers = 0;
-    let repairerPriority = PRIORITY_REPAIRER;
-    if (this.hitsPercentage < 0.8) {
-      desiredRepairers = 1;
-    }
-
-    if (this.hitsPercentage < 0.6) {
-      desiredRepairers = 2;
-      repairerPriority = PRIORITY_REPAIRER_URGENT;
-    }
-
-    if (this.numRepairers >= desiredRepairers) {
-      return;
-    }
-
-    this.requestSpawn(repairerPriority, {
-      role: WORKER_REPAIRER,
-      memory: {
-        [MEMORY_ASSIGN_ROOM]: this.id,
-      },
-    }, REQUEST_REPAIRER_TTL);
+    return this.room.controller.level;
   }
   requestSpawn(priority, details, ttl) {
     if (this.getColony().getPrimaryRoom().hasSpawns) {
@@ -860,41 +657,6 @@ class Room extends OrgBase {
     } else {
       this.getKingdom().sendRequest(TOPIC_SPAWN, priority, details, ttl);
     }
-  }
-  requestHaulDroppedResources() {
-    if (this.numHostiles) {
-      return;
-    }
-
-    const droppedResourcesToHaul = this.room.find(FIND_DROPPED_RESOURCES, {
-      filter: (resource) => {
-        const numAssigned = _.filter(this.getColony().getHaulers(), (hauler) => {
-          return hauler.memory[MEMORY.MEMORY_HAUL_PICKUP] === resource.id;
-        }).length;
-
-        return numAssigned === 0;
-      },
-    });
-
-    const primaryRoom = this.getColony().getPrimaryRoom();
-
-    droppedResourcesToHaul.forEach((resource) => {
-      const dropoff = primaryRoom.getReserveStructureWithRoomForResource(resource.resourceType);
-      if (!dropoff) {
-        return;
-      }
-
-      const loadPriority = 0.8;
-      const details = {
-        [MEMORY.TASK_ID]: `pickup-${this.id}-${Game.time}`,
-        [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
-        [MEMORY.MEMORY_HAUL_PICKUP]: resource.id,
-        [MEMORY.MEMORY_HAUL_DROPOFF]: dropoff.id,
-        [MEMORY.MEMORY_HAUL_RESOURCE]: resource.resourceType,
-      };
-
-      this.sendRequest(TOPICS.TOPIC_HAUL_TASK, loadPriority, details, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
-    });
   }
   updateRoom(trace) {
     trace = trace.begin('common_room');
@@ -920,9 +682,25 @@ class Room extends OrgBase {
       this.parkingLot = parkingLots[0];
     }
 
+    // Defense
+    this.stationFlags = [];
+    const stationFlags = room.find(FIND_FLAGS, {
+      filter: (flag) => {
+        return flag.name.startsWith('station');
+      },
+    });
+    trace.log('stationed defenders', {stationFlags});
+    if (stationFlags.length) {
+      this.stationFlags = stationFlags;
+    }
+
     this.myStructures = this.room.find(FIND_MY_STRUCTURES);
     this.roomStructures = this.room.find(FIND_STRUCTURES);
-    this.hostileStructures = this.room.find(FIND_HOSTILE_STRUCTURES);
+    this.hostileStructures = this.room.find(FIND_HOSTILE_STRUCTURES, {
+      filter: (structure) => {
+        return structure.structureType !== STRUCTURE_CONTROLLER;
+      },
+    });
 
     trace.end();
   }
@@ -961,13 +739,46 @@ class Room extends OrgBase {
     this.hostiles = hostiles;
     this.numHostiles = this.hostiles.length;
 
+    this.numDefenders = this.room.find(FIND_MY_CREEPS, {
+      filter: (creep) => {
+        return creep.memory[MEMORY.MEMORY_ROLE] === CREEPS.WORKER_DEFENDER;
+      },
+    }).length;
+
+    trace.log('hostile presence', {
+      numHostiles: this.numHostiles,
+      numDefenders: this.numDefenders,
+      hostileTime: this.hostileTime,
+      defendersLost: this.defendersLost,
+    });
+
+    if (!this.numHostiles) {
+      this.hostileTimes = {};
+    }
+
     if (this.numHostiles) {
-      if (!this.hostileTime) {
-        this.hostileTime = Game.time;
-      }
-    } else {
-      this.hostileTime = 0;
+      this.hostileTimes = this.hostiles.reduce((times, hostile) => {
+        if (!times[hostile.id]) {
+          times[hostile.id] = Game.time;
+        }
+
+        return times;
+      }, this.hostileTimes);
+
+      this.hostileTime = Math.min(...Object.values(this.hostileTimes));
+      room.memory[MEMORY_HOSTILE_TIME] = this.hostileTime;
+
+      trace.log('set hostile time', {
+        hostileTime: this.hostileTime,
+      });
+
+      // Update where we want defenders to go
+      const hostile = this.hostiles[0];
+      this.lastHostilePosition = [hostile.pos.x, hostile.pos.y, hostile.pos.roomName].join(',');
+      room.memory[MEMORY_HOSTILE_POS] = this.lastHostilePosition;
+    } else if (!this.isHostile(trace)) {
       this.defendersLost = 0;
+      trace.log('clear hostile time');
     }
 
     this.invaderCores = this.roomStructures.filter((structure) => {

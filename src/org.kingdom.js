@@ -256,6 +256,9 @@ class Kingdom extends OrgBase {
   getTopics() {
     return this.topics;
   }
+  getFilteredRequests(topicId, filter) {
+    return this.topics.getFilteredRequests(topicId, filter);
+  }
   updateOrg(trace) {
     const orgUpdateTrace = trace.begin('update_org');
 

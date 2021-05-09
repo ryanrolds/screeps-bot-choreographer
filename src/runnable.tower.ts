@@ -5,6 +5,7 @@ import OrgRoom from "./org.room";
 import * as MEMORY from "./constants.memory"
 import * as TASKS from "./constants.tasks"
 import * as TOPICS from "./constants.topics"
+import {trace} from "node:console";
 
 const REQUEST_ENERGY_TTL = 25;
 const REQUEST_ENERGY_THRESHOLD = 500;
@@ -76,7 +77,7 @@ export default class TowerRunnable {
     // Attack hostiles
     let hostiles: Creep[] = this.orgRoom.getHostiles();
     hostiles = hostiles.filter((hostile) => {
-      return tower.pos.getRangeTo(hostile) <= 15;
+      return tower.pos.getRangeTo(hostile) <= 25;
     });
 
     if (hostiles.length) {
@@ -180,7 +181,7 @@ export default class TowerRunnable {
     const towerTotal = tower.store.getCapacity(RESOURCE_ENERGY);
 
     const pickupId = this.orgRoom.getClosestStoreWithEnergy(tower);
-    const priority = 2 - (towerUsed - EMERGENCY_RESERVE / towerTotal);
+    const priority = ((room.numHostiles) ? 2 : 1) - (towerUsed - EMERGENCY_RESERVE / towerTotal);
 
     const details = {
       [MEMORY.TASK_ID]: `tel-${tower.id}-${Game.time}`,

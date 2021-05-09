@@ -18,6 +18,7 @@ import roleHauler from './role.hauler';
 import roleMiner from './role.miner';
 import roleDistributor from './role.distributor';
 import roleDefender from './role.defender';
+import roleDefenderDrone from './role.defender_drone';
 import roleAttacker from './role.attacker';
 import roleReserver from './role.reserver';
 import roleExplorer from './role.explorer';
@@ -128,6 +129,7 @@ export class CreepManager {
   private roleToCreepLogic = {
     [CREEPS.WORKER_ATTACKER]: roleAttacker,
     [CREEPS.WORKER_DEFENDER]: roleDefender,
+    [CREEPS.WORKER_DEFENDER_DRONE]: roleDefenderDrone,
     [CREEPS.WORKER_DISTRIBUTOR]: roleDistributor,
     [CREEPS.WORKER_MINER]: roleMiner,
     [CREEPS.WORKER_HARVESTER]: roleHarvester,

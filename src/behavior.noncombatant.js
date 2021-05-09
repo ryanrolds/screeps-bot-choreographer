@@ -29,8 +29,8 @@ module.exports = (behaviorNode) => {
                 return SUCCESS;
               }
 
-              if (!room.numHostiles) {
-                trace.log('no hostiles in assigned room');
+              if (!room.isHostile(trace)) {
+                trace.log('room is quiet');
                 return SUCCESS;
               }
 

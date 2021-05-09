@@ -67,6 +67,7 @@ export default class WarManager {
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
     trace = trace.asId(this.id);
+    trace.log("war manager run");
 
     this.warParties = this.warParties.filter((party) => {
       return this.scheduler.hasProcess(party.id);
@@ -88,8 +89,6 @@ export default class WarManager {
         };
       })
     };
-
-    trace.log("WarManager run");
 
     return sleeping(20);
   }

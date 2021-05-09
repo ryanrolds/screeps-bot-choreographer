@@ -15,10 +15,11 @@ module.exports.getHaulTaskFromTopic = function(topic) {
       // get next haul task
       const task = colony.getNextRequest(topic);
       if (!task) {
+        trace.log('no haul task');
         return FAILURE;
       }
 
-      this.storeHaulTask(creep, task);
+      this.storeHaulTask(creep, task, trace);
 
       return SUCCESS;
     },
@@ -66,14 +67,16 @@ module.exports.getNearbyHaulTaskFromTopic = function(topic) {
         return FAILURE;
       }
 
-      this.storeHaulTask(creep, task);
+      this.storeHaulTask(creep, task, trace);
 
       return SUCCESS;
     },
   );
 };
 
-module.exports.storeHaulTask = (creep, task) => {
+module.exports.storeHaulTask = (creep, task, trace) => {
+  trace.log('store haul task', {task});
+
   // set task details
   creep.memory[MEMORY.TASK_ID] = task.details[MEMORY.TASK_ID];
   creep.memory[MEMORY.MEMORY_TASK_TYPE] = TASKS.TASK_HAUL;
