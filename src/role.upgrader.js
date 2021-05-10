@@ -67,7 +67,6 @@ const getEnergy = behaviorTree.repeatUntilSuccess(
   ),
 );
 
-
 const behavior = behaviorTree.sequenceNode(
   'upgrader_root',
   [

@@ -25,7 +25,7 @@ const UPDATE_HAULERS_TTL = 5;
 
 const REQUEST_MISSING_ROOMS_TTL = 50;
 const REQUEST_HAULER_TTL = 20;
-const REQUEST_DEFENDER_TTL = 25;
+const REQUEST_DEFENDER_TTL = 5;
 const REQUEST_EXPLORER_TTL = 3000;
 
 class Colony extends OrgBase {
@@ -43,7 +43,7 @@ class Colony extends OrgBase {
 
     this.pidDesiredHaulers = 0;
     if (this.primaryRoom) {
-      PID.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, 0, 0.4, 0.0005, 0);
+      PID.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, 0, 0.4, 0.00005, 0);
     }
 
     this.roomMap = {};
@@ -62,7 +62,7 @@ class Colony extends OrgBase {
       });
 
       this.defenders = this.assignedCreeps.filter((creep) => {
-        return creep.memory[MEMORY.MEMORY_ROLE] == WORKER_DEFENDER;
+        return creep.memory[MEMORY.MEMORY_ROLE] === WORKER_DEFENDER;
       });
 
       this.numCreeps = this.assignedCreeps.length;
@@ -304,14 +304,16 @@ class Colony extends OrgBase {
     stats.colonies[this.id] = colonyStats;
   }
   handleDefenderRequest(request, trace) {
-    // If the colony has spawners and is of sufficient size spawn own defenders,
-    // otherwise ask for help from other colonies
-    if (this.primaryOrgRoom && this.primaryOrgRoom.hasSpawns &&
-      (this.primaryRoom && this.primaryRoom.controller.level > 3)) {
-      this.sendRequest(TOPIC_SPAWN, PRIORITY_DEFENDER, request.details, REQUEST_DEFENDER_TTL);
-    } else {
-      request.details.memory[MEMORY.MEMORY_COLONY] = this.id;
-      this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITY_DEFENDER, request.details, REQUEST_DEFENDER_TTL);
+    if (request.details.spawn) {
+      // If the colony has spawners and is of sufficient size spawn own defenders,
+      // otherwise ask for help from other colonies
+      if (this.primaryOrgRoom && this.primaryOrgRoom.hasSpawns &&
+        (this.primaryRoom && this.primaryRoom.controller.level > 3)) {
+        this.sendRequest(TOPIC_SPAWN, PRIORITY_DEFENDER, request.details, REQUEST_DEFENDER_TTL);
+      } else {
+        request.details.memory[MEMORY.MEMORY_COLONY] = this.id;
+        this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITY_DEFENDER, request.details, REQUEST_DEFENDER_TTL);
+      }
     }
 
     trace.log('requesting defense response', {memory: request.details.memory});

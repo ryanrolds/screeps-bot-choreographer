@@ -61,12 +61,7 @@ const behavior = behaviorTree.sequenceNode(
             return behaviorTree.SUCCESS;
           }
 
-          // If the creep reaches the room we are done
-          if (creep.room.name !== room) {
-            return behaviorTree.SUCCESS;
-          }
-
-          return behaviorMovement.moveTo(creep, creep.room.controller, 1, false, 25, 1000);
+          return behaviorMovement.moveTo(creep, creep.room.controller, 1, false, 25, 1500);
         },
       ),
     ),
@@ -82,7 +77,7 @@ const behavior = behaviorTree.sequenceNode(
             return behaviorTree.SUCCESS;
           }
 
-          // If the creep reaches the room we are done
+          // If the creep is not in the right room we are done
           if (creep.room.name !== roomId) {
             return behaviorTree.SUCCESS;
           }

@@ -22,6 +22,7 @@ import TOPICS from './constants.topics';
 import TASKS from './constants.tasks';
 
 const MIN_ENERGY = 10000;
+const CREDIT_RESERVE = 100000;
 const ENERGY_REQUEST_TTL = 50;
 const UPGRADER_ENERGY = 25000;
 const REQUEST_REPAIRER_TTL = 50;
@@ -190,7 +191,8 @@ export default class RoomRunnable {
         }
 
         // If not level 8, request more energy then buffer for upgrades
-        if (orgRoom.getRoomLevel() < 8 && storageEnergy < orgRoom.getReserveBuffer() + UPGRADER_ENERGY) {
+        if (Game.market.credits > CREDIT_RESERVE && orgRoom.getRoomLevel() < 8 &&
+          storageEnergy < orgRoom.getReserveBuffer() + UPGRADER_ENERGY) {
           requestEnergy = true;
         }
 
@@ -338,8 +340,6 @@ export default class RoomRunnable {
       return (role === CREEPS.WORKER_RESERVER) &&
         creep.memory[MEMORY.MEMORY_ASSIGN_ROOM] === this.id && creepIsFresh(creep);
     }).length;
-
-
 
     let reservationTicks = 0;
     if (room?.controller?.reservation) {

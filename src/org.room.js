@@ -27,7 +27,7 @@ const UPDATE_ROOM_TTL = 10;
 const UPDATE_ORG_TTL = 10;
 const UPDATE_RESOURCES_TTL = 5;
 
-const UPDATE_DEFENSE_STATUS_TTL = 10;
+const UPDATE_DEFENSE_STATUS_TTL = 5;
 const UPDATE_DAMAGED_CREEPS_TTL = 5;
 const UPDATE_DAMAGED_STRUCTURES_TTL = 20;
 const UPDATE_DAMAGED_SECONDARY_TTL = 15;
@@ -167,15 +167,19 @@ class Room extends OrgBase {
         return creepIsFresh(defender);
       });
 
+      trace.log('existing defenders', {freshDefenders: freshDefenders.length, MAX_DEFENDERS});
+
       const neededDefenders = MAX_DEFENDERS - freshDefenders.length;
-      if (neededDefenders === 0) {
+      if (neededDefenders <= 0) {
+        trace.log('do not need defenders: full');
         return;
       }
 
       if (this.stationFlags.length) {
         const flag = this.stationFlags[0];
         const position = [flag.pos.x, flag.pos.y, flag.pos.roomName].join(',');
-        this.requestDefender(position, trace);
+        trace.log('request defenders to flag');
+        this.requestDefender(position, true, trace);
         return;
       }
 
@@ -225,7 +229,7 @@ class Room extends OrgBase {
         return;
       }
 
-      this.requestDefender(this.lastHostilePosition, trace);
+      this.requestDefender(this.lastHostilePosition, true, trace);
     });
 
     setupTrace.end();
@@ -616,11 +620,12 @@ class Room extends OrgBase {
     stats.colonies[this.getColony().id].rooms[this.id] = roomStats;
   }
 
-  requestDefender(position, trace) {
-    trace.log('requesting defender', {position: position});
+  requestDefender(position, spawn, trace) {
+    trace.log('requesting defender', {position, spawn});
 
     this.sendRequest(TOPICS.TOPIC_DEFENDERS, PRIORITIES.PRIORITY_DEFENDER, {
       role: CREEPS.WORKER_DEFENDER,
+      spawn,
       memory: {
         [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
         [MEMORY.MEMORY_ASSIGN_ROOM_POS]: position,

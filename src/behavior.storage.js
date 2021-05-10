@@ -70,11 +70,13 @@ const selectContainerForWithdraw = module.exports.selectContainerForWithdraw = b
       trace.log('selecting nearby store');
       target = nearByStores[0];
     } else {
-      // If nothing nearby, then go to storage
-      const storage = creep.room.storage;
-      if (storage && storage.store.getUsedCapacity(RESOURCE_ENERGY) >= creepFreeSpace) {
-        trace.log('selecting storage');
-        target = storage;
+      const room = kingdom.getRoomByName(creep.room.name);
+      if (room) {
+        const energyReserve = room.getReserveStructureWithMostOfAResource(RESOURCE_ENERGY, false);
+        if (energyReserve && energyReserve.store.getUsedCapacity(RESOURCE_ENERGY) >= creepFreeSpace) {
+          trace.log('selecting storage');
+          target = energyReserve;
+        }
       }
     }
 

@@ -76,7 +76,7 @@ module.exports.moveToHarvestRoom = behaviorTree.repeatUntilSuccess(
 module.exports.moveToHarvest = behaviorTree.leafNode(
   'move_to_source',
   (creep) => {
-    return behaviorMovement.moveToSource(creep, 1, false, 50, 500);
+    return behaviorMovement.moveToSource(creep, 1, false, 50, 1500);
   },
 );
 
