@@ -8,4 +8,5 @@ module.exports = {
   TASK_REACTION: 'task_reaction',
   BOOST_PREP: 'boost_prep',
   PRIORITY_TARGETS: 'priority_targets',
+  NUKER_TARGETS: 'nuker_targets',
 };

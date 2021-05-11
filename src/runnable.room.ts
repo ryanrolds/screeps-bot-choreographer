@@ -8,7 +8,8 @@ import OrgRoom from "./org.room";
 import {Priorities, Scheduler} from "./os.scheduler";
 
 import LinkManager from "./runnable.manager.links"
-import TowerRunnable from "./runnable.tower"
+import TowerRunnable from "./runnable.tower";
+import NukerRunnable from "./runnable.nuker";
 import SourceRunnable from "./runnable.source";
 import SpawnManager from "./runnable.manager.spawns";
 import TerminalRunnable from "./runnable.terminal";
@@ -146,6 +147,16 @@ export default class RoomRunnable {
         if (!this.scheduler.hasProcess(towerId)) {
           this.scheduler.registerProcess(new Process(towerId, 'towers', Priorities.DEFENCE,
             new TowerRunnable(orgRoom, tower)));
+        }
+      });
+
+      room.find<StructureNuker>(FIND_MY_STRUCTURES, {
+        filter: structure => structure.structureType === STRUCTURE_NUKER,
+      }).forEach((nuker) => {
+        const nukeId = `${nuker.id}`
+        if (!this.scheduler.hasProcess(nukeId)) {
+          this.scheduler.registerProcess(new Process(nukeId, 'nukes', Priorities.DEFENCE,
+            new NukerRunnable(orgRoom, nuker)));
         }
       });
 

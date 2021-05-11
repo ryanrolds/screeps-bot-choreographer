@@ -26,6 +26,7 @@ const TERMINAL_BUY = 2;
 const TERMINAL_TRANSFER = 3;
 
 // Hauling
+const HAUL_NUKER = 0.8;
 const HAUL_REACTION = 0.9;
 const HAUL_BOOST = 1.2;
 const UNLOAD_BOOST = 1.3;
@@ -94,5 +95,6 @@ module.exports = {
   HAUL_REACTION,
   HAUL_BOOST,
   UNLOAD_BOOST,
+  HAUL_NUKER,
   REACTION_PRIORITIES,
 };
