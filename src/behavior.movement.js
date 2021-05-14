@@ -438,6 +438,23 @@ module.exports.fillCreepFromDestination = (creep) => {
     amount = creep.store.getFreeCapacity(resource);
   }
 
+  // TODO address
+  /*
+  [7:09:13 PM][shard3]TypeError: Cannot read property 'getUsedCapacity' of undefined
+    at Object.module.exports.fillCreepFromDestination (behavior.movement:341:36)
+    at Object.behavior (behavior.room:100:37)
+    at Object.tick (lib.behaviortree:244:31)
+    at Object.tickChildren (lib.behaviortree:79:42)
+    at Object.tick (lib.behaviortree:94:31)
+    at Object.tickChildren (lib.behaviortree:46:36)
+    at Object.tick (lib.behaviortree:64:31)
+    at Object.tick (lib.behaviortree:189:40)
+    at Object.tickChildren (lib.behaviortree:79:42)
+    */
+  if (!destination.store) {
+    return FAILURE;
+  }
+
   if (amount > destination.store.getUsedCapacity(resource)) {
     amount = destination.store.getUsedCapacity(resource);
   }

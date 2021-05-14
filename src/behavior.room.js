@@ -1,8 +1,7 @@
 const behaviorTree = require('./lib.behaviortree');
 const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
-
-const behaviorStorage = require('./behavior.storage');
 const behaviorHarvest = require('./behavior.harvest');
+const behaviorMovement = require('./behavior.movement');
 
 const pickupDroppedEnergy = behaviorTree.leafNode(
   'janitor',
@@ -51,21 +50,130 @@ const pickupDroppedEnergy = behaviorTree.leafNode(
   },
 );
 
-module.exports.getEnergy = behaviorTree.repeatUntilSuccess(
-  'get_energy_until_success',
-  behaviorTree.selectorNode(
-    'containers_dropped_harvest',
+const selectNearbyLink = behaviorTree.leafNode(
+  'select_nearby_link',
+  (creep, trace, kingdom) => {
+    // Favor near by stores
+    let nearByLinks = creep.pos.findInRange(FIND_STRUCTURES, 8, {
+      filter: (structure) => {
+        if (structure.structureType !== STRUCTURE_LINK) {
+          return false;
+        }
+
+        return structure.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
+      },
+    });
+    nearByLinks = _.sortBy(nearByLinks, (structure) => {
+      return creep.pos.getRangeTo(structure);
+    });
+
+    // If we have a target set the destination
+    if (nearByLinks.length) {
+      trace.log('selecting nearby link', {linkId: nearByLinks[0].id});
+      behaviorMovement.setDestination(creep, nearByLinks[0].id);
+      return SUCCESS;
+    }
+
+    behaviorMovement.setDestination(creep, null);
+
+    trace.log('did not find a nearby link');
+    return FAILURE;
+  },
+);
+
+const selectStorage = behaviorTree.leafNode(
+  'select_storage',
+  (creep, trace, kingdom) => {
+    const room = kingdom.getRoomByName(creep.room.name);
+    if (!room) {
+      trace.log('unable to get creep org room', {roomName: creep.room.name});
+      return FAILURE;
+    }
+
+    const energyReserve = room.getReserveStructureWithMostOfAResource(RESOURCE_ENERGY, false);
+    if (energyReserve && energyReserve.store.getUsedCapacity(RESOURCE_ENERGY) >= 0) {
+      trace.log('selecting reserve', {id: energyReserve.id});
+      behaviorMovement.setDestination(creep, energyReserve.id);
+      return SUCCESS;
+    }
+
+    behaviorMovement.setDestination(creep, null);
+
+    trace.log('did not find reserver with energy');
+    return FAILURE;
+  },
+);
+
+const selectContainer = behaviorTree.leafNode(
+  'select_container',
+  (creep, trace, kingdom) => {
+    // If no nearby stores or the room lacks storage, try to get energy from the nearest container
+    const containerInRoom = creep.pos.findClosestByRange(FIND_STRUCTURES, {
+      filter: (structure) => {
+        if (structure.structureType !== STRUCTURE_CONTAINER) {
+          return false;
+        }
+
+        return structure.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
+      },
+    });
+    if (containerInRoom) {
+      trace.log('selecting container in room', {id: containerInRoom.id});
+      behaviorMovement.setDestination(creep, containerInRoom.id);
+      return SUCCESS;
+    }
+
+    behaviorMovement.setDestination(creep, null);
+
+    trace.log('did not find an energy source');
+    return FAILURE;
+  },
+);
+
+const selectMoveFill = (selector) => {
+  return behaviorTree.sequenceNode(
+    'fill_from_selector',
     [
-      behaviorStorage.fillCreepFromContainers,
-      pickupDroppedEnergy,
-      behaviorTree.sequenceNode(
-        'harvest_if_needed',
-        [
-          behaviorHarvest.selectHarvestSource,
-          behaviorHarvest.moveToHarvest,
-          behaviorHarvest.harvest,
-        ],
+      selector,
+      behaviorMovement.moveToDestination(1),
+      behaviorTree.leafNode(
+        'fill_creep',
+        (creep) => {
+          return behaviorMovement.fillCreepFromDestination(creep);
+        },
       ),
+    ],
+  );
+};
+
+const fillCreepFromSource = behaviorTree.sequenceNode(
+  'fill_from_source',
+  [
+    behaviorHarvest.selectHarvestSource,
+    behaviorHarvest.moveToHarvest,
+    behaviorHarvest.harvest,
+  ],
+);
+
+module.exports.getEnergy = behaviorTree.repeatUntilConditionMet(
+  'get_energy_until_success',
+  (creep, trace, kingdom) => {
+    const freeCapacity = creep.store.getFreeCapacity(RESOURCE_ENERGY);
+    trace.log('creep free capacity', {freeCapacity});
+    return creep.store.getFreeCapacity(RESOURCE_ENERGY) < 1;
+  },
+  behaviorTree.selectorNode(
+    'select_and_fill_with_energy',
+    [
+      behaviorTree.leafNode('probe', (creep, trace) => {
+        trace.log('probe');
+        return FAILURE;
+      }),
+      selectMoveFill(selectNearbyLink),
+      selectMoveFill(selectStorage),
+      selectMoveFill(selectContainer),
+      pickupDroppedEnergy,
+      fillCreepFromSource,
     ],
   ),
 );

@@ -45,51 +45,6 @@ const selectEnergyForWithdraw = module.exports.selectEnergyForWithdraw = behavio
   },
 );
 
-const selectContainerForWithdraw = module.exports.selectContainerForWithdraw = behaviorTree.leafNode(
-  'selectContainerForWithdraw',
-  (creep, trace, kingdom) => {
-    let target = null;
-    const creepFreeSpace = creep.store.getFreeCapacity(RESOURCE_ENERGY);
-
-    // Favor near by stores
-    let nearByStores = creep.pos.findInRange(FIND_STRUCTURES, 3, {
-      filter: (structure) => {
-        if (structure.structureType != STRUCTURE_LINK &&
-          structure.structureType != STRUCTURE_CONTAINER) {
-          return false;
-        }
-
-        return structure.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
-      },
-    });
-    nearByStores = _.sortBy(nearByStores, (structure) => {
-      return creep.pos.getRangeTo(structure);
-    });
-
-    if (nearByStores.length) {
-      trace.log('selecting nearby store');
-      target = nearByStores[0];
-    } else {
-      const room = kingdom.getRoomByName(creep.room.name);
-      if (room) {
-        const energyReserve = room.getReserveStructureWithMostOfAResource(RESOURCE_ENERGY, false);
-        if (energyReserve && energyReserve.store.getUsedCapacity(RESOURCE_ENERGY) >= creepFreeSpace) {
-          trace.log('selecting storage');
-          target = energyReserve;
-        }
-      }
-    }
-
-    if (target) {
-      behaviorMovement.setDestination(creep, target.id);
-      return SUCCESS;
-    }
-
-    trace.log('did not find an energy source');
-    return FAILURE;
-  },
-);
-
 const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.selectorNode(
   'selectRoomDropoff',
   [
@@ -223,7 +178,6 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.select
 
         const colony = kingdom.getCreepColony(creep);
         if (!colony) {
-          console.log(creep.name);
           return FAILURE;
         }
 
@@ -297,20 +251,6 @@ module.exports.fillCreepFrom = (from) => {
     ],
   );
 };
-
-module.exports.fillCreepFromContainers = behaviorTree.sequenceNode(
-  'energy_supply_containers',
-  [
-    selectContainerForWithdraw,
-    behaviorMovement.moveToDestination(1),
-    behaviorTree.leafNode(
-      'fill_creep',
-      (creep) => {
-        return behaviorMovement.fillCreepFromDestination(creep);
-      },
-    ),
-  ],
-);
 
 module.exports.emptyCreep = behaviorTree.repeatUntilConditionMet(
   'transfer_until_empty',

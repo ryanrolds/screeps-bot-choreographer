@@ -27,11 +27,8 @@ const selectSite = behaviorTree.leafNode(
           return 5 - site.progress / site.progressTotal;
         case STRUCTURE_EXTENSION:
           return 6 - site.progress / site.progressTotal;
-        case STRUCTURE_EXTENSION:
-          return 7 - site.progress / site.progressTotal;
         case STRUCTURE_ROAD:
           return 11 - site.progress / site.progressTotal;
-
         case STRUCTURE_WALL:
           return 12 - site.progress / site.progressTotal;
         default:

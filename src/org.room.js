@@ -234,6 +234,7 @@ class Room extends OrgBase {
 
     setupTrace.end();
   }
+
   update(trace) {
     trace = trace.asId(this.id);
     const updateTrace = trace.begin('update');
@@ -757,11 +758,11 @@ class Room extends OrgBase {
       defendersLost: this.defendersLost,
     });
 
-    if (!this.numHostiles) {
+    if (!this.hostiles.length) {
       this.hostileTimes = {};
     }
 
-    if (this.numHostiles) {
+    if (this.hostiles.length) {
       this.hostileTimes = this.hostiles.reduce((times, hostile) => {
         if (!times[hostile.id]) {
           times[hostile.id] = Game.time;

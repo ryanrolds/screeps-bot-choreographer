@@ -43,7 +43,7 @@ class Colony extends OrgBase {
 
     this.pidDesiredHaulers = 0;
     if (this.primaryRoom) {
-      PID.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, 0, 0.4, 0.00005, 0);
+      PID.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, 0, 0.4, 0.0001, 0);
     }
 
     this.roomMap = {};
@@ -106,6 +106,7 @@ class Colony extends OrgBase {
       // Check intra-colony requests for defenders
       const request = this.getNextRequest(TOPIC_DEFENDERS);
       if (request) {
+        trace.log('got defender request', {request});
         this.handleDefenderRequest(request, trace);
       }
     });
@@ -121,6 +122,7 @@ class Colony extends OrgBase {
     setupTrace.end();
   }
   update(trace) {
+    trace = trace.asId(this.id);
     const updateTrace = trace.begin('update');
 
     const removeStale = updateTrace.begin('remove_stale');
@@ -178,6 +180,7 @@ class Colony extends OrgBase {
     updateTrace.end();
   }
   process(trace) {
+    trace = trace.asId(this.id);
     const processTrace = trace.begin('process');
 
     this.updateStats();
@@ -304,14 +307,22 @@ class Colony extends OrgBase {
     stats.colonies[this.id] = colonyStats;
   }
   handleDefenderRequest(request, trace) {
+    trace.log('request details', {
+      hasSpawns: this.primaryOrgRoom ? this.primaryOrgRoom.hasSpawns : null,
+      controllerLevel: this.primaryRoom.controller ? this.primaryRoom.controller : null,
+      request,
+    });
+
     if (request.details.spawn) {
       // If the colony has spawners and is of sufficient size spawn own defenders,
       // otherwise ask for help from other colonies
       if (this.primaryOrgRoom && this.primaryOrgRoom.hasSpawns &&
         (this.primaryRoom && this.primaryRoom.controller.level > 3)) {
+        trace.log('requesting from colony');
         this.sendRequest(TOPIC_SPAWN, PRIORITY_DEFENDER, request.details, REQUEST_DEFENDER_TTL);
       } else {
         request.details.memory[MEMORY.MEMORY_COLONY] = this.id;
+        console.log('requesting from kingdom');
         this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITY_DEFENDER, request.details, REQUEST_DEFENDER_TTL);
       }
     }

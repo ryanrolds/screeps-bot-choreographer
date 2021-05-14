@@ -14,7 +14,7 @@ export const setup = (memory: RoomMemory, prefix: string, setPoint: number, p: n
 export const update = (memory: RoomMemory, prefix: string, value: number, time: number) => {
   const setPoint = memory[`${prefix}${MEMORY.PID_SUFFIX_SETPOINT}`];
   const p = memory[`${prefix}${MEMORY.PID_SUFFIX_P}`] || 0.4;
-  const i = memory[`${prefix}${MEMORY.PID_SUFFIX_I}`] || 0.00005;
+  const i = memory[`${prefix}${MEMORY.PID_SUFFIX_I}`] || 0.0001;
   const d = memory[`${prefix}${MEMORY.PID_SUFFIX_D}`] || 0;
 
   if (!p) {

@@ -17,7 +17,7 @@ let config: KingdomConfig = {
     'E22S48-Shard2': {
       id: 'E22S48-Shard2',
       primary: 'E22S48',
-      rooms: ['E22S48', 'E22S47', 'E21S47', 'E21S46'],
+      rooms: ['E22S48', 'E22S47', 'E21S47', 'E21S46', 'E22S46'],
     },
   },
   'shard3': {

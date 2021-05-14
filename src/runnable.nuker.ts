@@ -48,7 +48,7 @@ export default class NuckerRunnable {
       return terminate();
     }
 
-    let readyToFire = true;
+    let readyToFire = !nuker.cooldown;
 
     const neededEnergy = nuker.store.getFreeCapacity(RESOURCE_ENERGY);
     if (neededEnergy > 0) {
@@ -65,13 +65,13 @@ export default class NuckerRunnable {
     }
 
     if (readyToFire) {
-      trace.log('do you want to play a game of thermonuclear war?');
-      
+      trace.log('lets play global thermonuclear war');
+
       const request = (kingdom as any).getNextRequest(TOPICS.NUKER_TARGETS);
       if (request) {
         const positionStr = request.details.position;
         const posArray = positionStr.split(',');
-        
+
         let position: RoomPosition = null;
         if (posArray && posArray.length === 3) {
           position = new RoomPosition(posArray[0], posArray[1], posArray[2]);
@@ -80,6 +80,7 @@ export default class NuckerRunnable {
         }
 
         if (position !== null) {
+          trace.log('would nuke', {position});
           const result = nuker.launchNuke(position);
           trace.log('nuker launch result', {result, position});
         }
@@ -91,6 +92,14 @@ export default class NuckerRunnable {
 
   requestResource(resource: ResourceConstant, amount: number, trace: Tracer) {
     const pickup = this.orgRoom.getReserveStructureWithMostOfAResource(resource, true);
+    if (!pickup) {
+      trace.log('unable to get resource from reserve', {resource, amount});
+
+      trace.log('requesting resource from governor', {resource, amount});
+      (this.orgRoom as any).getKingdom().getResourceGovernor().requestResource(this.orgRoom,
+        resource, amount, REQUEST_RESOURCES_TTL, trace);
+      return;
+    }
 
     trace.log('requesting load', {
       nuker: this.id,

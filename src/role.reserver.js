@@ -3,7 +3,6 @@ const behaviorTree = require('./lib.behaviortree');
 const {FAILURE} = require('./lib.behaviortree');
 const behaviorCommute = require('./behavior.commute');
 const behaviorMovement = require('./behavior.movement');
-const behaviorNonCombatant = require('./behavior.noncombatant');
 const behaviorBoosts = require('./behavior.boosts');
 const MEMORY = require('./constants.memory');
 
@@ -123,5 +122,5 @@ const behavior = behaviorTree.sequenceNode(
 );
 
 module.exports = {
-  run: behaviorTree.rootNode('reserver', behaviorBoosts(behaviorNonCombatant(behavior))),
+  run: behaviorTree.rootNode('reserver', behaviorBoosts(behavior)),
 };
