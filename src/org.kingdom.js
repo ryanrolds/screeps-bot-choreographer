@@ -5,7 +5,7 @@ const ResourceGovernor = require('./org.resource_governor');
 const Scribe = require('./org.scribe');
 const Topics = require('./lib.topics');
 const PathCache = require('./lib.path_cache');
-const {doEvery} = require('./lib.scheduler');
+const {thread} = require('./os.thread');
 const helpersCreeps = require('./helpers.creeps');
 const MEMORY = require('./constants.memory');
 const featureFlags = require('./lib.feature_flags');
@@ -34,7 +34,7 @@ class Kingdom extends OrgBase {
     this.roomNameToOrgRoom = {};
     this.creeps = [];
 
-    this.doUpdateOrg = doEvery(UPDATE_ORG_TTL)((trace) => {
+    this.threadUpdateOrg = thread(UPDATE_ORG_TTL)((trace) => {
       this.updateOrg(trace);
     });
 
@@ -46,7 +46,7 @@ class Kingdom extends OrgBase {
 
     this.pathCache = new PathCache(this, 250);
     // this.pathCache.loadFromMemory(setupTrace);
-    // this.doStoreSavePathCacheToMemory = doEvery(SAVE_PATH_CACHE_TTL)((trace) => {
+    // this.threadStoreSavePathCacheToMemory = thread(SAVE_PATH_CACHE_TTL)((trace) => {
     //  this.pathCache.saveToMemory(trace);
     // });
 
@@ -65,7 +65,7 @@ class Kingdom extends OrgBase {
       scheduler: {},
     };
 
-    this.doUpdateOrg(updateTrace);
+    this.threadUpdateOrg(updateTrace);
 
     const partiesTrace = updateTrace.begin('warparty');
     Object.values(this.warParties).forEach((party) => {
@@ -87,7 +87,7 @@ class Kingdom extends OrgBase {
     this.scribe.update(scribeTrace);
     scribeTrace.end();
 
-    // this.doStoreSavePathCacheToMemory(updateTrace);
+    // this.threadStoreSavePathCacheToMemory(updateTrace);
 
     updateTrace.end();
   }
@@ -155,6 +155,11 @@ class Kingdom extends OrgBase {
   }
   getRoom() {
     throw new Error('a kingdom is not a room');
+  }
+  getRoomColony(roomName) {
+    return _.find(this.colonies, (colony) => {
+      return colony.desiredRooms.indexOf(roomName) > -1;
+    });
   }
   getRoomByName(name) {
     return this.roomNameToOrgRoom[name] || null;

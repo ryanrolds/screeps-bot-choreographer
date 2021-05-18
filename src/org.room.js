@@ -6,7 +6,7 @@ const MEMORY = require('./constants.memory');
 const TOPICS = require('./constants.topics');
 const PRIORITIES = require('./constants.priorities');
 const {creepIsFresh} = require('./behavior.commute');
-const {doEvery} = require('./lib.scheduler');
+const {thread} = require('./os.thread');
 
 const {MEMORY_ROLE, MEMORY_ASSIGN_ROOM, MEMORY_HARVEST_ROOM} = require('./constants.memory');
 const {TOPIC_SPAWN} = require('./constants.topics');
@@ -20,7 +20,7 @@ const MAX_DEFENDERS = 4;
 const WALL_LEVEL = 1000;
 const RAMPART_LEVEL = 1000;
 const MY_USERNAME = 'ENETDOWN';
-const PER_LEVEL_ENERGY = 75000;
+const PER_LEVEL_ENERGY = 125000;
 
 const UPDATE_CREEPS_TTL = 1;
 const UPDATE_ROOM_TTL = 10;
@@ -49,7 +49,7 @@ class Room extends OrgBase {
     // Creeps
     this.assignedCreeps = [];
     this.defenderIds = [];
-    this.doUpdateCreeps = doEvery(UPDATE_CREEPS_TTL)((trace) => {
+    this.threadUpdateCreeps = thread(UPDATE_CREEPS_TTL)((trace) => {
       this.updateCreeps(trace);
     });
 
@@ -61,7 +61,7 @@ class Room extends OrgBase {
     this.roomStructures = [];
     this.hostileStructures = [];
     this.parkingLot = null;
-    this.doUpdateRoom = doEvery(UPDATE_ROOM_TTL)((trace) => {
+    this.threadUpdateRoom = thread(UPDATE_ROOM_TTL)((trace) => {
       this.updateRoom(trace);
     });
 
@@ -70,14 +70,14 @@ class Room extends OrgBase {
     // this.booster = null;
     // this.terminal = null;
     this.hasSpawns = false;
-    this.doUpdatePrimary = doEvery(UPDATE_ORG_TTL)((trace) => {
+    this.threadUpdatePrimary = thread(UPDATE_ORG_TTL)((trace) => {
       this.updatePrimary(trace);
     });
 
     // Resources / logistics
     this.resources = {};
     this.hasStorage = false;
-    this.doUpdateResources = doEvery(UPDATE_RESOURCES_TTL)(() => {
+    this.threadUpdateResources = thread(UPDATE_RESOURCES_TTL)(() => {
       // Storage
       this.hasStorage = this.getReserveStructures().length > 0;
       this.resources = this.getReserveResources(true);
@@ -92,12 +92,12 @@ class Room extends OrgBase {
     this.numDefenders = 0;
     this.defendersLost = 0;
     this.invaderCores = [];
-    this.doUpdateDefenseStatus = doEvery(UPDATE_DEFENSE_STATUS_TTL)((room, trace) => {
+    this.threadUpdateDefenseStatus = thread(UPDATE_DEFENSE_STATUS_TTL)((room, trace) => {
       this.updateDefenseStatus(room, trace);
     });
 
     this.damagedCreeps = [];
-    this.updateDamagedCreeps = doEvery(UPDATE_DAMAGED_CREEPS_TTL)(() => {
+    this.updateDamagedCreeps = thread(UPDATE_DAMAGED_CREEPS_TTL)(() => {
       let damagedCreeps = this.getCreeps().filter((creep) => {
         return creep.hits < creep.hitsMax;
       });
@@ -108,7 +108,7 @@ class Room extends OrgBase {
     });
 
     this.damagedStructures = [];
-    this.updateDamagedStructure = doEvery(UPDATE_DAMAGED_STRUCTURES_TTL)(() => {
+    this.updateDamagedStructure = thread(UPDATE_DAMAGED_STRUCTURES_TTL)(() => {
       const damagedStructures = this.room.find(FIND_STRUCTURES, {
         filter: (s) => {
           return s.hits < s.hitsMax && (
@@ -122,7 +122,7 @@ class Room extends OrgBase {
 
     this.defenseHitsLimit = 10000;
     this.damagedSecondaryStructures = [];
-    this.updateDamagedSecondaryStructures = doEvery(UPDATE_DAMAGED_SECONDARY_TTL)(() => {
+    this.updateDamagedSecondaryStructures = thread(UPDATE_DAMAGED_SECONDARY_TTL)(() => {
       const rcLevel = room.controller.level.toString();
       const rcLevelHitsMax = RAMPART_HITS_MAX[rcLevel] || 10000;
 
@@ -149,7 +149,7 @@ class Room extends OrgBase {
     });
 
     this.damagedRoads = [];
-    this.updateDamagedRoads = doEvery(UPDATE_DAMAGED_ROADS_TTL)(() => {
+    this.updateDamagedRoads = thread(UPDATE_DAMAGED_ROADS_TTL)(() => {
       let damagedRoads = this.room.find(FIND_STRUCTURES, {
         filter: (s) => {
           return s.hits < s.hitsMax && s.structureType == STRUCTURE_ROAD;
@@ -162,7 +162,7 @@ class Room extends OrgBase {
       this.damagedRoads = _.map(damagedRoads, 'id');
     });
 
-    this.doRequestDefenders = doEvery(REQUEST_DEFENDERS_TTL)((trace) => {
+    this.threadRequestDefenders = thread(REQUEST_DEFENDERS_TTL)((trace) => {
       const freshDefenders = this.getColony().defenders.filter((defender) => {
         return creepIsFresh(defender);
       });
@@ -207,14 +207,6 @@ class Room extends OrgBase {
         return;
       }
 
-      // If hostiles present spawn defenders and/or activate safe mode
-      if (this.lowHitsDefenses && controller && controller.my && controller.safeModeAvailable &&
-        !controller.safeMode && !controller.safeModeCooldown) {
-        controller.activateSafeMode();
-        trace.log('do not request defenders: activating safe mode');
-        return;
-      }
-
       if (!this.primaryRoom && this.defendersLost >= 3) {
         trace.log('do not request defender: we have lost too many defenders');
       }
@@ -250,7 +242,7 @@ class Room extends OrgBase {
         this.defendersLost = 0;
       }
 
-      this.doRequestDefenders(trace);
+      this.threadRequestDefenders(trace);
 
       updateTrace.end();
       return;
@@ -266,13 +258,13 @@ class Room extends OrgBase {
       }
     });
 
-    this.doUpdateCreeps(updateTrace);
-    this.doUpdateDefenseStatus(room, updateTrace);
-    this.doUpdateRoom(updateTrace);
+    this.threadUpdateCreeps(updateTrace);
+    this.threadUpdateDefenseStatus(room, updateTrace);
+    this.threadUpdateRoom(updateTrace);
 
     if (this.isPrimary) {
-      this.doUpdatePrimary(updateTrace);
-      this.doUpdateResources(updateTrace);
+      this.threadUpdatePrimary(updateTrace);
+      this.threadUpdateResources(updateTrace);
 
       const towerFocusTrace = updateTrace.begin('tower_focus');
       this.updateDamagedCreeps();
@@ -285,7 +277,7 @@ class Room extends OrgBase {
     const requestTrace = updateTrace.begin('requests');
 
     // Request defenders
-    this.doRequestDefenders(trace);
+    this.threadRequestDefenders(trace);
 
     requestTrace.end();
 
@@ -327,7 +319,8 @@ class Room extends OrgBase {
     return this.hostileStructures;
   }
   isHostile(trace) {
-    const quite = this.numHostiles || Game.time - this.hostileTime < HOSTILE_PRESENCE_TTL;
+    const notQuite = this.numHostiles ||
+      (this.hostileTime !== 0 && Game.time - this.hostileTime < HOSTILE_PRESENCE_TTL);
 
     trace.log('checking for hostiles', {
       numHostiles: this.numHostiles,
@@ -335,14 +328,14 @@ class Room extends OrgBase {
       hostileTime: this.hostileTime,
       HOSTILE_PRESENCE_TTL,
       lastPresence: Game.time - this.hostileTime,
-      quite,
+      notQuite,
     });
 
     if (this.numDefenders) {
       return false;
     }
 
-    return quite;
+    return notQuite;
   }
   getLabs() {
     return this.myStructures.filter((structure) => {

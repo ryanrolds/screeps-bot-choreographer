@@ -7,98 +7,49 @@ const behaviorBoosts = require('./behavior.boosts');
 
 const MEMORY = require('./constants.memory');
 const TOPICS = require('./constants.topics');
-const TASKS = require('./constants.tasks');
-
-// The goal is to not tell two distributors to go to the same structure needing
-// energy. So, we lookup all the currently assigned destinations and subtract those
-// from the list of structures needing energy. Then we find the closest structure
-// needing energy
-const selectExtensionToFill = behaviorTree.leafNode(
-  'select_distributor_transfer',
-  (creep, trace, kingdom) => {
-    const room = kingdom.getCreepRoom(creep);
-    if (!room) {
-      return FAILURE;
-    }
-
-    const structure = room.getNextEnergyStructure(creep);
-    if (!structure) {
-      return FAILURE;
-    }
-
-    const amount = structure.store.getFreeCapacity(RESOURCE_ENERGY);
-    if (!amount) {
-      return FAILURE;
-    }
-
-    const pickup = room.getReserveStructureWithMostOfAResource(RESOURCE_ENERGY, false);
-    if (!pickup) {
-      return FAILURE;
-    }
-
-    trace.log('picking regular extension fill');
-
-    creep.memory[MEMORY.TASK_ID] = `el-${structure.id}-${Game.time}`;
-    creep.memory[MEMORY.MEMORY_TASK_TYPE] = TASKS.TASK_HAUL;
-    creep.memory[MEMORY.MEMORY_HAUL_PICKUP] = pickup.id;
-    creep.memory[MEMORY.MEMORY_HAUL_RESOURCE] = RESOURCE_ENERGY;
-    creep.memory[MEMORY.MEMORY_HAUL_AMOUNT] = amount;
-    creep.memory[MEMORY.MEMORY_HAUL_DROPOFF] = structure.id;
-
-    // creep.say(creep.memory[MEMORY.TASK_ID]);
-
-    return SUCCESS;
-  },
-);
-
-const emergencyExtensionFill = behaviorTree.leafNode(
-  'emergency_extension_fill',
-  (creep, trace, kingdom) => {
-    const room = kingdom.getCreepRoom(creep);
-    if (!room) {
-      return FAILURE;
-    }
-
-    if (room.energyCapacityAvailable > 1000 && room.energyAvailable > room.energyCapacityAvailable * 0.3) {
-      return FAILURE;
-    }
-
-    const structure = room.getNextEnergyStructure(creep);
-    if (!structure) {
-      return FAILURE;
-    }
-
-    const amount = structure.store.getFreeCapacity(RESOURCE_ENERGY);
-    if (!amount) {
-      return FAILURE;
-    }
-
-    const pickup = room.getReserveStructureWithMostOfAResource(RESOURCE_ENERGY, false);
-    if (!pickup) {
-      return FAILURE;
-    }
-
-    trace.log('picking emergency extension fill');
-
-    creep.memory[MEMORY.TASK_ID] = `el-${structure.id}-${Game.time}`;
-    creep.memory[MEMORY.MEMORY_TASK_TYPE] = TASKS.TASK_HAUL;
-    creep.memory[MEMORY.MEMORY_HAUL_PICKUP] = pickup.id;
-    creep.memory[MEMORY.MEMORY_HAUL_RESOURCE] = RESOURCE_ENERGY;
-    creep.memory[MEMORY.MEMORY_HAUL_AMOUNT] = amount;
-    creep.memory[MEMORY.MEMORY_HAUL_DROPOFF] = structure.id;
-
-    // creep.say(creep.memory[MEMORY.TASK_ID]);
-
-    return SUCCESS;
-  },
-);
 
 const selectNextTaskOrPark = behaviorTree.selectorNode(
   'pick_something',
   [
-    emergencyExtensionFill,
-    behaviorHaul.getHaulTaskFromTopic(TOPICS.HAUL_CORE_TASK),
-    selectExtensionToFill,
+    behaviorTree.leafNode(
+      'pick_haul_task',
+      (creep, trace, kingdom) => {
+        // lookup colony from kingdom
+        const colonyId = creep.memory[MEMORY.MEMORY_COLONY];
+        const colony = kingdom.getColonyById(colonyId);
+
+        // get next haul task
+        const task = colony.getMessageOfMyChoice(TOPICS.HAUL_CORE_TASK, (messages) => {
+          const sorted = _.sortByOrder(messages, [
+            'priority',
+            (message) => {
+              const dropoff = Game.getObjectById(message.details[MEMORY.MEMORY_HAUL_DROPOFF]);
+              if (!dropoff) {
+                return -1;
+              }
+
+              return creep.pos.getRangeTo(dropoff);
+            },
+          ], ['desc', 'asc']);
+
+          trace.log('sorted core haul tasks', {sorted});
+
+          if (sorted.length) {
+            return sorted[0];
+          }
+
+          return null;
+        });
+        if (!task) {
+          trace.log('no haul task');
+          return FAILURE;
+        }
+
+        behaviorHaul.storeHaulTask(creep, task, trace);
+
+        return SUCCESS;
+      },
+    ),
     behaviorRoom.parkingLot,
   ],
 );

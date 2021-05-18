@@ -4,7 +4,7 @@ const MEMORY = require('./constants.memory');
 const TASKS = require('./constants.tasks');
 const PRIORITIES = require('./constants.priorities');
 const MARKET = require('./constants.market');
-const {doEvery} = require('./lib.scheduler');
+const {thread} = require('./os.thread');
 
 const RESERVE_LIMIT = 10000;
 const REACTION_BATCH_SIZE = 1000;
@@ -40,15 +40,15 @@ class Resources extends OrgBase {
 
     this.availableReactions = {};
 
-    this.doRequestReactions = doEvery(REQUEST_REACTION_TTL)(() => {
+    this.threadRequestReactions = thread(REQUEST_REACTION_TTL)(() => {
       this.requestReactions();
     });
 
-    this.doRequestSellExtraResources = doEvery(REQUEST_SELL_TTL)(() => {
+    this.threadRequestSellExtraResources = thread(REQUEST_SELL_TTL)(() => {
       this.requestSellResource();
     });
 
-    this.doDistributeBoosts = doEvery(REQUEST_DISTRIBUTE_BOOSTS)((trace) => {
+    this.threadDistributeBoosts = thread(REQUEST_DISTRIBUTE_BOOSTS)((trace) => {
       this.requestDistributeBoosts(trace);
     });
 
@@ -63,9 +63,9 @@ class Resources extends OrgBase {
     this.sharedResources = this.getSharedResources();
     this.availableReactions = this.getReactions(trace);
 
-    this.doRequestReactions();
-    this.doRequestSellExtraResources();
-    this.doDistributeBoosts(trace);
+    this.threadRequestReactions();
+    this.threadRequestSellExtraResources();
+    this.threadDistributeBoosts(trace);
 
     updateTrace.end();
   }

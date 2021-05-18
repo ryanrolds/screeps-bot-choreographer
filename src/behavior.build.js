@@ -15,18 +15,20 @@ const selectSite = behaviorTree.leafNode(
       switch (site.structureType) {
         case STRUCTURE_SPAWN:
           return 0 - site.progress / site.progressTotal;
-        case STRUCTURE_TOWER:
-          return 1 - site.progress / site.progressTotal;
-        case STRUCTURE_RAMPART:
-          return 2 - site.progress / site.progressTotal;
-        case STRUCTURE_CONTAINER:
-          return 3 - site.progress / site.progressTotal;
         case STRUCTURE_STORAGE:
-          return 4 - site.progress / site.progressTotal;
+          return 1 - site.progress / site.progressTotal;
+        case STRUCTURE_LINK:
+          return 2 - site.progress / site.progressTotal;
         case STRUCTURE_TERMINAL:
+          return 3 - site.progress / site.progressTotal;
+        case STRUCTURE_TOWER:
+          return 4 - site.progress / site.progressTotal;
+        case STRUCTURE_RAMPART:
           return 5 - site.progress / site.progressTotal;
-        case STRUCTURE_EXTENSION:
+        case STRUCTURE_CONTAINER:
           return 6 - site.progress / site.progressTotal;
+        case STRUCTURE_EXTENSION:
+          return 7 - site.progress / site.progressTotal;
         case STRUCTURE_ROAD:
           return 11 - site.progress / site.progressTotal;
         case STRUCTURE_WALL:

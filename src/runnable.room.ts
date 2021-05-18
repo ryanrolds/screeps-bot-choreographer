@@ -1,6 +1,6 @@
 import {Process, Runnable, RunnableResult, running, sleeping, terminate} from "./os.process";
 import {Tracer} from './lib.tracing';
-import {doEvery} from './lib.scheduler';
+import {thread} from './os.thread';
 
 import Kingdom from "./org.kingdom";
 import OrgRoom from "./org.room";
@@ -26,28 +26,39 @@ const MIN_ENERGY = 10000;
 const CREDIT_RESERVE = 100000;
 const ENERGY_REQUEST_TTL = 50;
 const UPGRADER_ENERGY = 25000;
-const REQUEST_REPAIRER_TTL = 50;
-const REQUEST_BUILDER_TTL = 50;
+const REQUEST_REPAIRER_TTL = 30;
+const REQUEST_BUILDER_TTL = 30;
 const MIN_DISTRIBUTORS = 1;
-const REQUEST_DISTRIBUTOR_TTL = 25;
+const REQUEST_DISTRIBUTOR_TTL = 15;
 const MIN_RESERVATION_TICKS = 4000;
 const REQUEST_RESERVER_TTL = 5;
 const MIN_UPGRADERS = 1;
 const MAX_UPGRADERS = 5;
 const REQUEST_UPGRADER_TTL = 25;
 const REQUEST_HAUL_DROPPED_RESOURCES_TTL = 15;
+const CHECK_SAFE_MODE_TTL = 5;
+const HAUL_EXTENSION_TTL = 10;
+
+const importantStructures = [
+  STRUCTURE_SPAWN,
+  STRUCTURE_STORAGE,
+  STRUCTURE_TERMINAL,
+  STRUCTURE_TOWER,
+];
 
 export default class RoomRunnable {
   id: string;
   scheduler: Scheduler;
   requestEnergyTTL: number;
   prevTime: number;
-  doRequestRepairer: any;
-  doRequestBuilder: any;
-  doRequestDistributor: any;
-  doRequestReserver: any;
-  doRequestUpgrader: any;
-  doRequestHaulDroppedResources: any;
+  threadRequestRepairer: any;
+  threadRequestBuilder: any;
+  threadRequestDistributor: any;
+  threadRequestReserver: any;
+  threadRequestUpgrader: any;
+  threadRequestHaulDroppedResources: any;
+  threadCheckSafeMode: any;
+  threadRequestExtensionFilling: any;
 
   constructor(id: string, scheduler: Scheduler) {
     this.id = id;
@@ -55,13 +66,15 @@ export default class RoomRunnable {
     this.requestEnergyTTL = ENERGY_REQUEST_TTL;
     this.prevTime = Game.time;
 
-    // Tasks
-    this.doRequestRepairer = doEvery(REQUEST_REPAIRER_TTL, null, null)(this.requestRepairer.bind(this));
-    this.doRequestBuilder = doEvery(REQUEST_BUILDER_TTL, null, null)(this.requestBuilder.bind(this));
-    this.doRequestDistributor = doEvery(REQUEST_DISTRIBUTOR_TTL, null, null)(this.requestDistributor.bind(this));
-    this.doRequestReserver = doEvery(REQUEST_RESERVER_TTL, null, null)(this.requestReserver.bind(this));
-    this.doRequestUpgrader = doEvery(REQUEST_UPGRADER_TTL, null, null)(this.requestUpgrader.bind(this));
-    this.doRequestHaulDroppedResources = doEvery(REQUEST_HAUL_DROPPED_RESOURCES_TTL, null, null)(this.requestHaulDroppedResources.bind(this));
+    // Threads
+    this.threadRequestRepairer = thread(REQUEST_REPAIRER_TTL, null, null)(this.requestRepairer.bind(this));
+    this.threadRequestBuilder = thread(REQUEST_BUILDER_TTL, null, null)(this.requestBuilder.bind(this));
+    this.threadRequestDistributor = thread(REQUEST_DISTRIBUTOR_TTL, null, null)(this.requestDistributor.bind(this));
+    this.threadRequestReserver = thread(REQUEST_RESERVER_TTL, null, null)(this.requestReserver.bind(this));
+    this.threadRequestUpgrader = thread(REQUEST_UPGRADER_TTL, null, null)(this.requestUpgrader.bind(this));
+    this.threadRequestHaulDroppedResources = thread(REQUEST_HAUL_DROPPED_RESOURCES_TTL, null, null)(this.requestHaulDroppedResources.bind(this));
+    this.threadCheckSafeMode = thread(CHECK_SAFE_MODE_TTL, null, null)(this.checkSafeMode.bind(this));
+    this.threadRequestExtensionFilling = thread(HAUL_EXTENSION_TTL, null, null)(this.requestExtensionFilling.bind(this));
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
@@ -91,14 +104,14 @@ export default class RoomRunnable {
     trace.log('room run', {});
 
     if (!orgRoom.isPrimary) {
-      this.doRequestReserver(kingdom, orgRoom, room, trace);
+      this.threadRequestReserver(kingdom, orgRoom, room, trace);
     }
 
     if (orgRoom.isPrimary) {
       // Send a request if we are short on distributors
-      this.doRequestDistributor(orgRoom, room, trace);
+      this.threadRequestDistributor(orgRoom, room, trace);
       // Upgrader request
-      this.doRequestUpgrader(orgRoom, room, trace);
+      this.threadRequestUpgrader(orgRoom, room, trace);
     }
 
     if (room.controller?.my || !room.controller?.owner?.username) {
@@ -127,8 +140,8 @@ export default class RoomRunnable {
       }
 
       // TODO don't request builders or repairers
-      this.doRequestBuilder(orgRoom, room, trace);
-      this.doRequestRepairer(orgRoom, room, trace);
+      this.threadRequestBuilder(orgRoom, room, trace);
+      this.threadRequestRepairer(orgRoom, room, trace);
     }
 
     if (orgRoom.isPrimary) {
@@ -216,6 +229,9 @@ export default class RoomRunnable {
         }
       }
 
+      this.threadRequestExtensionFilling(orgRoom, room, trace);
+      this.threadCheckSafeMode(room, trace);
+
       // Observer runnable
     }
 
@@ -282,6 +298,7 @@ export default class RoomRunnable {
     });
 
     const numConstructionSites = room.find(FIND_MY_CONSTRUCTION_SITES).length;
+    trace.log('num constructions sites', {numConstructionSites})
 
     let desiredBuilders = 0;
     if ((orgRoom.isPrimary && orgRoom.claimedByMe && room.controller.level <= 2) ||
@@ -314,7 +331,9 @@ export default class RoomRunnable {
     let desiredDistributors = MIN_DISTRIBUTORS;
     if (room.controller.level < 3) {
       desiredDistributors = 1;
-    } else if (room.energyAvailable / room.energyCapacityAvailable < 0.5) {
+    }
+
+    if (room.controller.level >= 3 && room.energyAvailable / room.energyCapacityAvailable < 0.5) {
       desiredDistributors = 2;
       // We are less CPU constrained on other shards
       if (Game.shard.name !== 'shard3') {
@@ -322,7 +341,23 @@ export default class RoomRunnable {
       }
     }
 
+    if (orgRoom.numHostiles) {
+      const numTowers = room.find(FIND_MY_STRUCTURES, {
+        filter: (structure) => {
+          return structure.structureType === STRUCTURE_TOWER;
+        }
+      }).length;
+
+      trace.log('hostiles in room and we need more distributors', {numTowers, desiredDistributors});
+      desiredDistributors = Math.ceil(numTowers / 2) + desiredDistributors;
+    }
+
     if (!orgRoom.hasStorage || numDistributors >= desiredDistributors) {
+      trace.log('do not request distributors', {
+        hasStorage: orgRoom.hasStorage,
+        numDistributors,
+        desiredDistributors,
+      });
       return;
     }
 
@@ -334,6 +369,8 @@ export default class RoomRunnable {
     if (orgRoom.getAmountInReserve(RESOURCE_ENERGY) > 25000) {
       distributorPriority += 3;
     }
+
+    trace.log('request distributor', {desiredDistributors});
 
     (orgRoom as any).requestSpawn(distributorPriority, {
       role: CREEPS.WORKER_DISTRIBUTOR,
@@ -446,6 +483,36 @@ export default class RoomRunnable {
     }
   }
 
+  requestExtensionFilling(orgRoom: OrgRoom, room: Room, trace: Tracer) {
+    const pickup = orgRoom.getReserveStructureWithMostOfAResource(RESOURCE_ENERGY, true);
+    if (!pickup) {
+      trace.log('no energy available for extensions', {resource: RESOURCE_ENERGY});
+      return;
+    }
+
+    const nonFullExtensions = room.find<StructureExtension>(FIND_STRUCTURES, {
+      filter: (structure) => {
+        return structure.structureType === STRUCTURE_EXTENSION &&
+          structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0
+      }
+    });
+
+    nonFullExtensions.forEach((extension) => {
+      const details = {
+        [MEMORY.TASK_ID]: `ext-${this.id}-${Game.time}`,
+        [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
+        [MEMORY.MEMORY_HAUL_PICKUP]: pickup.id,
+        [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
+        [MEMORY.MEMORY_HAUL_DROPOFF]: extension.id,
+        [MEMORY.MEMORY_HAUL_AMOUNT]: extension.store.getFreeCapacity(RESOURCE_ENERGY),
+      };
+
+      (orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_EXTENSION, details, HAUL_EXTENSION_TTL);
+    });
+
+    trace.log('haul extensions', {numHaulTasks: nonFullExtensions.length});
+  }
+
   requestHaulDroppedResources(orgRoom: OrgRoom, room: Room, trace: Tracer) {
     if (orgRoom.numHostiles) {
       return;
@@ -480,5 +547,47 @@ export default class RoomRunnable {
 
       (orgRoom as any).sendRequest(TOPICS.TOPIC_HAUL_TASK, loadPriority, details, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
     });
+  }
+
+  checkSafeMode(room: Room, trace: Tracer) {
+    const controller = room.controller;
+    if (!controller) {
+      trace.log('controller not found');
+      return;
+    }
+
+    let enableSafeMode = false;
+
+    const hostiles = room.find(FIND_HOSTILE_CREEPS);
+    if (hostiles) {
+      const infrastructure = room.find(FIND_MY_STRUCTURES, {
+        filter: (structure) => {
+          return _.find(importantStructures, structure.structureType);
+        }
+      });
+
+      for (const structure of infrastructure) {
+        if (structure.pos.findInRange(hostiles, 3).length > 3) {
+          enableSafeMode = true;
+          break;
+        }
+      }
+    }
+
+    if (enableSafeMode) {
+      if (controller.safeMode) {
+        trace.log('safe mode already active');
+        return;
+      }
+
+      // If hostiles present spawn defenders and/or activate safe mode
+      if (controller.safeModeAvailable && !controller.safeMode && !controller.safeModeCooldown) {
+        controller.activateSafeMode();
+        trace.log('activating safe mode');
+        return;
+      }
+    } else {
+      trace.log('do not enable safe mode');
+    }
   }
 }

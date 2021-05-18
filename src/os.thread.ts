@@ -2,7 +2,7 @@ interface ActionFunc {
   (...args: any[]): any;
 };
 
-export const doEvery = (ttl: number, memory: Object, key: string) => (action: ActionFunc): any => {
+export const thread = (ttl: number, memory: Object, key: string) => (action: ActionFunc): any => {
   let lastCall = 0;
 
   if (memory && key) {

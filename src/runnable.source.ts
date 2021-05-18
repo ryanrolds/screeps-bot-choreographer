@@ -180,7 +180,7 @@ export default class SourceRunnable {
     }).length;
 
     if (this.desiredHarvesters > numHarvesters) {
-      trace.log('requesting miner', {sourceId: this.sourceId});
+      trace.log('requesting harvester', {sourceId: this.sourceId});
 
       // As we get more harvesters, make sure other creeps get a chance to spawn
       const priority = PRIORITIES.PRIORITY_HARVESTER - (numHarvesters * 1.5);
@@ -234,7 +234,7 @@ export default class SourceRunnable {
         [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
       };
 
-      trace.log('requesting miner', {sourceId: this.sourceId});
+      trace.log('requesting hauling', {sourceId: this.sourceId});
 
       (this.orgRoom as any).sendRequest(TOPICS.TOPIC_HAUL_TASK, loadPriority, details, REQUEST_HAULING_TTL);
     }

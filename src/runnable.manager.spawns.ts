@@ -8,9 +8,11 @@ import * as TOPICS from "./constants.topics"
 import * as CREEPS from "./constants.creeps"
 import {createCreep} from "./helpers.creeps"
 import {definitions} from './constants.creeps'
+import {thread} from "./os.thread";
 
 const PROCESS_TTL = 500;
 const REQUEST_BOOSTS_TTL = 1;
+const UPDATE_SPAWN_LIST_TTL = 20;
 
 export default class SpawnManager {
   orgRoom: OrgRoom;
@@ -18,6 +20,7 @@ export default class SpawnManager {
   prevTime: number;
   ttl: number;
   spawnIds: Id<StructureSpawn>[];
+  threadUpdateSpawnList: any;
 
   constructor(id: string, room: OrgRoom) {
     this.id = id;
@@ -30,9 +33,12 @@ export default class SpawnManager {
       throw new Error('cannot create a spawn manager when room does not exist');
     }
 
-    this.spawnIds = roomObject.find<StructureSpawn>(FIND_MY_STRUCTURES, {
-      filter: structure => structure.structureType === STRUCTURE_SPAWN,
-    }).map(spawn => spawn.id);
+    this.threadUpdateSpawnList = thread(UPDATE_SPAWN_LIST_TTL, null, null)((trace) => {
+      trace.log('updating spawn list');
+      this.spawnIds = roomObject.find<StructureSpawn>(FIND_MY_STRUCTURES, {
+        filter: structure => structure.structureType === STRUCTURE_SPAWN,
+      }).map(spawn => spawn.id);
+    })
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
@@ -48,7 +54,9 @@ export default class SpawnManager {
       return terminate();
     }
 
-    trace.log('Spawn manager run', {});
+    trace.log('Spawn manager run', {spawnIds: this.spawnIds});
+
+    this.threadUpdateSpawnList(trace);
 
     this.spawnIds.forEach((id) => {
       const spawn = Game.getObjectById(id);
@@ -62,11 +70,15 @@ export default class SpawnManager {
       const energyCapacity = spawn.room.energyCapacityAvailable;
       const energyPercentage = energy / energyCapacity;
 
+      trace.log('spawn status', {id, isIdle, energy, energyCapacity, energyPercentage})
+
       if (!isIdle) {
         const creep = Game.creeps[spawn.spawning.name];
         const role = creep.memory[MEMORY.MEMORY_ROLE];
         const boosts = CREEPS.definitions[role].boosts;
         const priority = CREEPS.definitions[role].processPriority;
+
+        trace.log('spawning', {creepName: creep.name, role, boosts, priority});
 
         if (boosts) {
           this.requestBoosts(spawn, boosts, priority);
@@ -85,19 +97,23 @@ export default class SpawnManager {
 
         let minEnergy = 300;
         const numCreeps = (this.orgRoom as any).getColony().numCreeps;
+        /*
         if (energyCapacity > 800) {
           if (numCreeps > 50) {
             minEnergy = energyCapacity * 0.90;
           } else if (numCreeps > 30) {
-            minEnergy = energyCapacity * 0.80;
+            minEnergy = energyCapacity * 0.50;
           } else if (numCreeps > 20) {
-            minEnergy = energyCapacity * 0.60;
+            minEnergy = energyCapacity * 0.40;
           } else if (numCreeps > 10) {
             minEnergy = 500;
           }
         }
+        */
 
         minEnergy = _.max([300, minEnergy]);
+
+        trace.log('spawn idle', {spawnTopicSize, numCreeps, energy, minEnergy, spawnTopicBackPressure});
 
         if (energy >= minEnergy) {
           let request = (this.orgRoom as any).getNextRequest(TOPICS.TOPIC_SPAWN);

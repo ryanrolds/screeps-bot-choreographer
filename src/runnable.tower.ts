@@ -5,9 +5,10 @@ import OrgRoom from "./org.room";
 import * as MEMORY from "./constants.memory"
 import * as TASKS from "./constants.tasks"
 import * as TOPICS from "./constants.topics"
+import * as PRIORITIES from "./constants.priorities";
 import {trace} from "node:console";
 
-const REQUEST_ENERGY_TTL = 25;
+const REQUEST_ENERGY_TTL = 10;
 const REQUEST_ENERGY_THRESHOLD = 500;
 const EMERGENCY_RESERVE = 250;
 
@@ -71,22 +72,21 @@ export default class TowerRunnable {
     if (towerUsed < REQUEST_ENERGY_THRESHOLD && this.haulTTL < 0) {
       this.haulTTL = REQUEST_ENERGY_TTL;
       trace.log('requesting energy', {});
-      this.requestEnergy(this.orgRoom, tower, REQUEST_ENERGY_TTL);
+      this.requestEnergy(this.orgRoom, tower, REQUEST_ENERGY_TTL, trace);
     }
 
     // Attack hostiles
-    let hostiles: Creep[] = this.orgRoom.getHostiles();
-    hostiles = hostiles.filter((hostile) => {
-      return tower.pos.getRangeTo(hostile) <= 25;
-    });
+    const roomId = (this.orgRoom as any).id;
+    const targets = (this.orgRoom as any).getColony().getFilteredRequests(TOPICS.PRIORITY_TARGETS,
+      (target) => {
+        trace.log('finding target', {target, roomId});
+        return target.details.roomName === roomId;
+      }
+    ).reverse();
 
-    if (hostiles.length) {
-      hostiles = _.sortBy(hostiles, (hostile) => {
-        return hostile.getActiveBodyparts(HEAL);
-      }).reverse();
-
-      const result = tower.attack(hostiles[0]);
-      trace.log('attacking', {target: hostiles[0].id, result})
+    if (targets.length) {
+      const result = tower.attack(Game.getObjectById(targets[0].details.id));
+      trace.log('attacking', {target: targets[0].id, result})
       return running();
     }
 
@@ -175,13 +175,14 @@ export default class TowerRunnable {
     return running();
   }
 
-  private requestEnergy(room: OrgRoom, tower: StructureTower, ttl: number) {
+  private requestEnergy(room: OrgRoom, tower: StructureTower, ttl: number, trace: Tracer) {
     const towerUsed = tower.store.getUsedCapacity(RESOURCE_ENERGY);
     const towerFree = tower.store.getFreeCapacity(RESOURCE_ENERGY);
     const towerTotal = tower.store.getCapacity(RESOURCE_ENERGY);
 
     const pickupId = this.orgRoom.getClosestStoreWithEnergy(tower);
-    const priority = ((room.numHostiles) ? 2 : 1) - (towerUsed - EMERGENCY_RESERVE / towerTotal);
+    const priority = ((room.numHostiles) ?
+      PRIORITIES.HAUL_TOWER_HOSTILES : PRIORITIES.HAUL_TOWER) - (towerUsed / towerTotal);
 
     const details = {
       [MEMORY.TASK_ID]: `tel-${tower.id}-${Game.time}`,
@@ -193,5 +194,7 @@ export default class TowerRunnable {
     };
 
     (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, priority, details, ttl);
+
+    trace.log('request energy', {priority, details, towerUsed, towerTotal});
   }
 }

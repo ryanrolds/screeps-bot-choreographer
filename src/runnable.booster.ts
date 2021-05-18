@@ -46,7 +46,6 @@ export default class BoosterRunnable {
   orgRoom: OrgRoom;
   labIds: Id<StructureLab>[];
   boostPosition: RoomPosition;
-
   prevTime: number;
 
   constructor(id: string, orgRoom: OrgRoom, labIds: Id<StructureLab>[]) {
@@ -55,9 +54,7 @@ export default class BoosterRunnable {
     this.labIds = labIds;
 
     this.prevTime = Game.time;
-
-    const labs = labIds.map(labId => Game.getObjectById(labId));
-    this.boostPosition = this.getCreepBoostPosition(labs);
+    this.boostPosition = this.getCreepBoostPosition();
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
@@ -66,12 +63,7 @@ export default class BoosterRunnable {
     const ticks = Game.time - this.prevTime;
     this.prevTime = Game.time;
 
-    let labs = this.labIds.map(labId => Game.getObjectById(labId));
-    if (_.filter(labs, lab => !lab).length) {
-      trace.log('lab missing - terminating', {})
-      return terminate();
-    }
-
+    let labs = this.getLabs();
     if (labs.length !== 3) {
       trace.log('not right number of labs - terminating', {num: labs.length})
       return terminate();
@@ -102,6 +94,10 @@ export default class BoosterRunnable {
     return sleeping(sleepFor);
   }
 
+  getLabs() {
+    return this.labIds.map(labId => Game.getObjectById(labId)).filter((lab => lab));
+  }
+
   updateStats(prepared, toUnLoad, toLoad) {
     const stats = (this.orgRoom as any).getStats();
     stats.colonies[(this.orgRoom as any).getColony().id].booster = {
@@ -115,7 +111,8 @@ export default class BoosterRunnable {
     return this.boostPosition;
   }
 
-  private getCreepBoostPosition(labs: StructureLab[]) {
+  private getCreepBoostPosition() {
+    const labs = this.getLabs();
     if (!labs.length) {
       return null;
     }
@@ -167,7 +164,7 @@ export default class BoosterRunnable {
   }
 
   getLabByResource(resource) {
-    const labs = this.labIds.map(labId => Game.getObjectById(labId));
+    const labs = this.getLabs();
     for (let i = 0; i < labs.length; i++) {
       if (labs[i].mineralType === resource) {
         return labs[i];
@@ -177,7 +174,7 @@ export default class BoosterRunnable {
     return null;
   }
   getLabResources() {
-    const labs = this.labIds.map(labId => Game.getObjectById(labId));
+    const labs = this.getLabs();
     return labs.reduce((acc, lab) => {
       if (lab.mineralType) {
         acc[lab.mineralType] = lab.store.getUsedCapacity(lab.mineralType);
@@ -187,7 +184,7 @@ export default class BoosterRunnable {
     }, {});
   }
   getEmptyLabs() {
-    const labs = this.labIds.map(labId => Game.getObjectById(labId));
+    const labs = this.getLabs();
     return labs.filter((lab) => {
       return !lab.mineralType;
     });
@@ -282,7 +279,7 @@ export default class BoosterRunnable {
     this.updateStats(preparedNames, couldUnload, needToLoad);
   }
   requestClearLowLabs(trace: Tracer) {
-    const labs = this.labIds.map(labId => Game.getObjectById(labId));
+    const labs = this.getLabs();
     labs.forEach((lab) => {
       if (!lab.mineralType) {
         trace.log('lab has no mineral loaded', {labId: lab.id});
@@ -316,7 +313,6 @@ export default class BoosterRunnable {
     });
   }
   requestUnloadOfLabs(loadedEffects, couldUnload, trace: Tracer) {
-    const labs = this.labIds.map(labId => Game.getObjectById(labId));
     couldUnload.forEach((toUnload) => {
       const effect = loadedEffects[toUnload];
       const compound = effect.compounds[0];
@@ -431,7 +427,7 @@ export default class BoosterRunnable {
     });
   }
   requestEnergyForLabs(trace: Tracer) {
-    const labs = this.labIds.map(labId => Game.getObjectById(labId));
+    const labs = this.getLabs();
     labs.forEach((lab) => {
       // Only fill lab if needed
       if (lab.store.getUsedCapacity(RESOURCE_ENERGY) >= MIN_ENERGY) {

@@ -4,6 +4,7 @@ const behaviorAssign = require('./behavior.assign');
 const behaviorBoosts = require('./behavior.boosts');
 
 const MEMORY = require('./constants.memory');
+const TOPICS = require('./constants.topics');
 
 const behavior = behaviorTree.sequenceNode(
   'defender_root',
@@ -18,89 +19,58 @@ const behavior = behaviorTree.sequenceNode(
           return FAILURE;
         }
 
-        let target = null;
-
         if (creep.hits < creep.hitsMax) {
           const result = creep.heal(creep);
           trace.log('healing self', {result});
         }
 
-        // TODO check this one at a time
-        const hostiles = room.getHostiles();
-        trace.log('hostiles', {numHostiles: hostiles.length});
-        if (hostiles.length) {
-          hostiles = hostiles.map((hostile) => {
-            return Game.getObjectById(hostile.id);
-          }).filter((creep) => {
-            return creep;
+        // Get targets in the room
+        const roomId = room.id;
+        const targets = room.getColony().getFilteredRequests(TOPICS.PRIORITY_TARGETS,
+          (target) => {
+            return target.details.roomName === roomId;
+          },
+        ).reverse();
+
+        trace.log('room targets', {targets});
+
+        // We move to the room target and attack the highest priority target in range,
+        // which could also be the room target or a target of opportunity
+        let moveTarget = null;
+        let attackTarget = null;
+
+        if (targets.length) {
+          moveTarget = Game.getObjectById(targets[0].details.id);
+
+          const inRangeHostiles = _.find(targets, (target) => {
+            const hostile = Game.getObjectById(target.details.id);
+            return hostile && creep.pos.inRangeTo(hostile, 3);
           });
-
-          hostiles = _.sortBy(hostiles, (hostile) => {
-            return creep.pos.getRangeTo(hostile);
-          });
-
-          target = hostiles[0];
-        }
-
-        if (!target) {
-          const invaderCores = room.getInvaderCores();
-          trace.log('invader cores', {invaderCores: invaderCores.length});
-          if (invaderCores.length) {
-            target = invaderCores[0];
+          if (inRangeHostiles) {
+            attackTarget = Game.getObjectById(inRangeHostiles.details.id);
           }
         }
 
-        if (!target) {
-          const hostileStructures = room.getHostileStructures();
-          trace.log('hostile structures', {hostileStructures: hostileStructures.length});
-          if (hostileStructures.length) {
-            target = hostileStructures[0];
-          }
+        trace.log('target', {moveTarget, attackTarget});
+
+        if (attackTarget) {
+          const result = creep.rangedAttack(attackTarget);
+          trace.log('ranged attack result', {result, targetId: attackTarget.id});
         }
 
-        trace.log('target', {target});
+        // TODO defender should keep distance unless in rampart
+        // TODO defender should flee and heal if low on hits
 
-        if (!target) {
-          const positionString = creep.memory[MEMORY.MEMORY_ASSIGN_ROOM_POS] || null;
-          if (!positionString) {
-            trace.log('failed to get position string');
-            return FAILURE;
-          }
-
-          const position = null;
-          const posArray = positionString.split(',');
-          if (posArray && posArray.length === 3) {
-            position = new RoomPosition(posArray[0], posArray[1], posArray[2]);
-          }
-
-          if (!position) {
-            trace.log('no or invalid position string', {positionString, posArray});
-            return FAILURE;
-          }
-
-          if (creep.pos.getRangeTo(position) < 3) {
-            trace.log('reached last known position, waiting...');
-            return SUCCESS;
-          }
-
-          const result = move(creep, position, 1);
-          trace.log('move to last known hostile position', {result, position});
-
-          return RUNNING;
+        if (!moveTarget) {
+          return moveToAssignedPosition(creep, trace);
         }
 
-
-        if (creep.pos.getRangeTo(target) <= 3) {
-          const result = creep.rangedAttack(target);
-          trace.log('ranged attack result', {result});
-        }
-
-        if (creep.pos.getRangeTo(target) < 2) {
+        if (creep.pos.getRangeTo(moveTarget) <= 2) {
           trace.log('target in range');
           return RUNNING;
         }
 
-        const pathToTarget = creep.pos.findPathTo(target);
+        const pathToTarget = creep.pos.findPathTo(moveTarget);
         const lastRampart = pathToTarget.reduce((lastRampart, pos) => {
           pos = creep.room.getPositionAt(pos.x, pos.y);
           const posStructures = pos.lookFor(LOOK_STRUCTURES);
@@ -131,14 +101,43 @@ const behavior = behaviorTree.sequenceNode(
           return RUNNING;
         }
 
-        const result = move(creep, target, 3);
-        trace.log('move to target', {result, target});
+        const result = move(creep, moveTarget, 3);
+        trace.log('move to target', {result, moveTarget});
 
         return RUNNING;
       },
     ),
   ],
 );
+
+const moveToAssignedPosition = (creep, trace) => {
+  const positionString = creep.memory[MEMORY.MEMORY_ASSIGN_ROOM_POS] || null;
+  if (!positionString) {
+    trace.log('failed to get position string');
+    return FAILURE;
+  }
+
+  const position = null;
+  const posArray = positionString.split(',');
+  if (posArray && posArray.length === 3) {
+    position = new RoomPosition(posArray[0], posArray[1], posArray[2]);
+  }
+
+  if (!position) {
+    trace.log('no or invalid position string', {positionString, posArray});
+    return FAILURE;
+  }
+
+  if (creep.pos.getRangeTo(position) < 3) {
+    trace.log('reached last known position, waiting...');
+    return SUCCESS;
+  }
+
+  const result = move(creep, position, 1);
+  trace.log('move to last known hostile position', {result, position});
+
+  return RUNNING;
+};
 
 const move = (creep, target, range = 3) => {
   result = creep.moveTo(target, {visualizePathStyle: {stroke: '#ffffff'}, range});

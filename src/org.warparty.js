@@ -3,7 +3,7 @@ const MEMORY = require('./constants.memory');
 const TOPICS = require('./constants.topics');
 const {WORKER_ATTACKER} = require('./constants.creeps');
 const {PRIORITY_ATTACKER} = require('./constants.priorities');
-const {doEvery} = require('./lib.scheduler');
+const {thread} = require('./os.thread');
 
 const FORMATION = [
   {x: 0, y: 0},
@@ -24,7 +24,7 @@ class WarParty extends OrgBase {
     this.flag = flag;
 
     // Check if party needs creeps
-    this.doRequestAttackers = doEvery(REQUEST_ATTACKER_TTL)((trace) => {
+    this.threadRequestAttackers = thread(REQUEST_ATTACKER_TTL)((trace) => {
       this.requestAttackers(trace);
     });
 
@@ -115,7 +115,7 @@ class WarParty extends OrgBase {
       creep.memory[MEMORY.MEMORY_POSITION_ROOM] = this.flag.pos.roomName;
     });
 
-    this.doRequestAttackers(trace);
+    this.threadRequestAttackers(trace);
 
     updateTrace.end();
   }
@@ -134,7 +134,7 @@ class WarParty extends OrgBase {
       this.sendRequest(TOPICS.TOPIC_SPAWN, PRIORITY_ATTACKER, {
         role: WORKER_ATTACKER,
         memory: {
-          [MEMORY.MEMORY_ASSIGN_ROOM]: this.flag.room.name,
+          [MEMORY.MEMORY_ASSIGN_ROOM]: this.flag.pos.name,
           [MEMORY.MEMORY_FLAG]: this.id,
         },
       }, REQUEST_ATTACKER_TTL);

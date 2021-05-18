@@ -3,7 +3,7 @@ const OrgBase = require('./org.base');
 const Observer = require('./org.observer');
 const Topics = require('./lib.topics');
 const PID = require('./lib.pid');
-const {doEvery} = require('./lib.scheduler');
+const {thread} = require('./os.thread');
 
 const MEMORY = require('./constants.memory');
 const WORKERS = require('./constants.creeps');
@@ -23,7 +23,7 @@ const UPDATE_ROOM_TTL = 1;
 const UPDATE_CREEPS_TTL = 1;
 const UPDATE_HAULERS_TTL = 5;
 
-const REQUEST_MISSING_ROOMS_TTL = 50;
+const REQUEST_MISSING_ROOMS_TTL = 25;
 const REQUEST_HAULER_TTL = 20;
 const REQUEST_DEFENDER_TTL = 5;
 const REQUEST_EXPLORER_TTL = 3000;
@@ -49,14 +49,14 @@ class Colony extends OrgBase {
     this.roomMap = {};
     this.primaryOrgRoom = null;
     this.observer = null;
-    this.doUpdateOrg = doEvery(UPDATE_ROOM_TTL)((trace) => {
+    this.threadUpdateOrg = thread(UPDATE_ROOM_TTL)((trace) => {
       this.updateOrg(trace);
     });
 
     this.assignedCreeps = [];
     this.defenders = [];
     this.numCreeps = 0;
-    this.doUpdateCreeps = doEvery(UPDATE_CREEPS_TTL)(() => {
+    this.threadUpdateCreeps = thread(UPDATE_CREEPS_TTL)(() => {
       this.assignedCreeps = this.getParent().getCreeps().filter((creep) => {
         return creep.memory[MEMORY.MEMORY_COLONY] === this.id;
       });
@@ -73,7 +73,7 @@ class Colony extends OrgBase {
     this.numActiveHaulers = 0;
     this.idleHaulers = 0;
     this.avgHaulerCapacity = 300;
-    this.doUpdateHaulers = doEvery(UPDATE_HAULERS_TTL)(() => {
+    this.threadUpdateHaulers = thread(UPDATE_HAULERS_TTL)(() => {
       this.haulers = this.assignedCreeps.filter((creep) => {
         return creep.memory[MEMORY_ROLE] === WORKERS.WORKER_HAULER &&
           creep.memory[MEMORY_COLONY] === this.id &&
@@ -102,7 +102,7 @@ class Colony extends OrgBase {
       }
     });
 
-    this.doHandleDefenderRequest = doEvery(REQUEST_DEFENDER_TTL)((trace) => {
+    this.threadHandleDefenderRequest = thread(REQUEST_DEFENDER_TTL)((trace) => {
       // Check intra-colony requests for defenders
       const request = this.getNextRequest(TOPIC_DEFENDERS);
       if (request) {
@@ -111,11 +111,11 @@ class Colony extends OrgBase {
       }
     });
 
-    this.doRequestReserversForMissingRooms = doEvery(REQUEST_MISSING_ROOMS_TTL)(() => {
+    this.threadRequestReserversForMissingRooms = thread(REQUEST_MISSING_ROOMS_TTL)(() => {
       this.requestReserverForMissingRooms();
     });
 
-    this.doRequestHaulers = doEvery(REQUEST_HAULER_TTL)(() => {
+    this.threadRequestHaulers = thread(REQUEST_HAULER_TTL)(() => {
       this.requestHaulers();
     });
 
@@ -131,14 +131,14 @@ class Colony extends OrgBase {
 
     this.primaryRoom = Game.rooms[this.primaryRoomId];
 
-    this.doUpdateOrg(updateTrace);
+    this.threadUpdateOrg(updateTrace);
 
     const updateCreeps = updateTrace.begin('update_creeps');
-    this.doUpdateCreeps();
+    this.threadUpdateCreeps();
     updateCreeps.end();
 
     const updateHaulers = updateTrace.begin('update_haulers');
-    this.doUpdateHaulers();
+    this.threadUpdateHaulers();
     updateHaulers.end();
 
     // Fraction of num haul tasks
@@ -165,16 +165,16 @@ class Colony extends OrgBase {
     }
 
     const handleRequests = updateTrace.begin('handle_requests');
-    this.doRequestReserversForMissingRooms();
-    this.doHandleDefenderRequest(handleRequests);
+    this.threadRequestReserversForMissingRooms();
+    this.threadHandleDefenderRequest(handleRequests);
 
     if (this.primaryOrgRoom && this.primaryOrgRoom.hasStorage) {
-      this.doRequestHaulers();
+      this.threadRequestHaulers();
     }
     handleRequests.end();
 
-    // if (this.doRequestExplorer) {
-    //  this.doRequestExplorer();
+    // if (this.threadRequestExplorer) {
+    //  this.threadRequestExplorer();
     // }
 
     updateTrace.end();
@@ -243,6 +243,9 @@ class Colony extends OrgBase {
   }
   getFilteredRequests(topicId, filter) {
     return this.topics.getFilteredRequests(topicId, filter);
+  }
+  getMessageOfMyChoice(topicId, chooser) {
+    return this.topics.getMessageOfMyChoice(topicId, chooser);
   }
   getReserveStructures() {
     if (!this.primaryRoom) {
@@ -439,7 +442,7 @@ class Colony extends OrgBase {
         }
       }
     } else if (this.primaryRoom) {
-      // this.doRequestExplorer = doEvery(REQUEST_EXPLORER_TTL,
+      // this.threadRequestExplorer = thread(REQUEST_EXPLORER_TTL,
       //  this.primaryRoom.memory, 'request_explorer')(() => {
       //    this.requestExplorer();
       //  });

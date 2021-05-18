@@ -22,7 +22,7 @@ module.exports.moveToFlag = behaviorTree.sequenceNode(
           reusePath: 50,
           maxOps: 1500,
         };
-        if (creep.room.name === flag.room.name) {
+        if (creep.room.name === flag.pos.roomName) {
           opts = {
             reusePath: 5,
           };

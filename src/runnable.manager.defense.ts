@@ -10,10 +10,16 @@ import CREEPS from './constants.creeps';
 import PRIORITIES from './constants.priorities';
 import MEMORY from './constants.memory';
 import Colony from './org.colony';
-import {doEvery} from './lib.scheduler';
+import {thread} from './os.thread';
 
 const TARGET_REQUEST_TTL = 1;
 const REQUEST_DEFENDERS_TTL = 10;
+
+const FRIENDS = [
+  'PythonBeatJava',
+];
+
+type Target = Creep | StructureInvaderCore;
 
 interface StoredDefenseParty {
   id: string;
@@ -30,16 +36,16 @@ export default class DefenseManager {
   scheduler: Scheduler;
   memory: DefenseMemory;
   defenseParties: DefensePartyRunnable[];
-  doCheckColonyDefenses: any;
-  doReturnDefendersToStation: any;
+  threadCheckColonyDefenses: any;
+  threadReturnDefendersToStation: any;
 
   constructor(id: string, scheduler: Scheduler, trace: Tracer) {
     this.id = id;
     this.scheduler = scheduler;
     this.restoreFromMemory(trace);
 
-    this.doCheckColonyDefenses = doEvery(REQUEST_DEFENDERS_TTL, null, null)(checkColonyDefenses);
-    this.doReturnDefendersToStation = doEvery(REQUEST_DEFENDERS_TTL, null, null)(returnDefendersToStation);
+    this.threadCheckColonyDefenses = thread(REQUEST_DEFENDERS_TTL, null, null)(checkColonyDefenses);
+    this.threadReturnDefendersToStation = thread(REQUEST_DEFENDERS_TTL, null, null)(returnDefendersToStation);
   }
 
   private restoreFromMemory(trace: Tracer) {
@@ -91,8 +97,8 @@ export default class DefenseManager {
     trace.log('hostiles by colony', {hostilesByColony});
 
     addHostilesToColonyTargetTopic(kingdom, hostilesByColony, trace);
-    this.doCheckColonyDefenses(kingdom, hostilesByColony, trace);
-    this.doReturnDefendersToStation(kingdom, hostilesByColony, trace);
+    this.threadCheckColonyDefenses(kingdom, hostilesByColony, trace);
+    this.threadReturnDefendersToStation(kingdom, hostilesByColony, trace);
 
     return running();
   }
@@ -128,7 +134,7 @@ export default class DefenseManager {
 }
 
 function getHostilesByColony(kingdom: Kingdom, rooms: Room[], trace: Tracer) {
-  return rooms.reduce<Record<string, Creep[]>>((colonies, room: Room) => {
+  return rooms.reduce<Record<string, (Creep | StructureInvaderCore)[]>>((colonies, room: Room) => {
     const orgRoom = kingdom.getRoomByName(room.name)
     if (!orgRoom) {
       return colonies;
@@ -139,22 +145,30 @@ function getHostilesByColony(kingdom: Kingdom, rooms: Room[], trace: Tracer) {
       return colonies;
     }
 
-    const hostiles = room.find(FIND_HOSTILE_CREEPS);
-    if (!hostiles.length) {
-      return colonies;
-    }
-
     if (!colonies[orgColony.id]) {
       colonies[orgColony.id] = [];
     }
 
-    colonies[orgColony.id] = colonies[orgColony.id].concat(...hostiles);
+    // Add any hostiles
+    const hostiles = room.find(FIND_HOSTILE_CREEPS);
+    if (hostiles.length) {
+      colonies[orgColony.id] = colonies[orgColony.id].concat(...hostiles);
+    }
+
+    const invaderCores = room.find<StructureInvaderCore>(FIND_STRUCTURES, {
+      filter: (structure) => {
+        return structure.structureType === STRUCTURE_INVADER_CORE;
+      },
+    });
+    if (invaderCores.length) {
+      colonies[orgColony.id] = colonies[orgColony.id].concat(...invaderCores);
+    }
 
     return colonies;
   }, {});
 }
 
-function addHostilesToColonyTargetTopic(kingdom: Kingdom, hostilesByColony: Record<string, Creep[]>,
+function addHostilesToColonyTargetTopic(kingdom: Kingdom, hostilesByColony: Record<string, Target[]>,
   trace: Tracer) {
   // Add targets to colony target topic
   _.forEach(hostilesByColony, (hostiles, colonyId) => {
@@ -170,8 +184,17 @@ function addHostilesToColonyTargetTopic(kingdom: Kingdom, hostilesByColony: Reco
         roomName: hostile.room.name,
       };
 
+      let priority = 1;
+      if (hostile.room?.name === orgColony.primaryRoomId) {
+        priority = 2;
+      }
+
       // TODO priority based on score
-      const priority = 1;
+      /*
+      hostiles = _.sortBy(hostiles, (hostile) => {
+        return hostile.getActiveBodyparts(HEAL);
+      }).reverse();
+      */
 
       trace.log('requesting target', {details, priority});
 
@@ -236,20 +259,20 @@ function returnDefendersToStation(kingdom: Kingdom, hostilesByColony: Record<str
       return false;
     }
 
-    if (!flag.room) {
-      return false;
-    }
-
-    return kingdom.getRoomByName(flag.room.name)?.getColony();
+    return kingdom.getRoomColony(flag.pos.roomName);
   });
 
+  trace.log('station flags', {flags});
+
   flags.forEach((flag) => {
-    const colony = kingdom.getRoomByName(flag.room.name)?.getColony()
+    const colony = kingdom.getRoomColony(flag.pos.roomName);
     if (!colony) {
+      trace.log('cannot find colony for room', {roomName: flag.pos.roomName});
       return;
     }
 
     if (hostilesByColony[colony.id] && hostilesByColony[colony.id].length) {
+      trace.log('hostiles present, not returning defenders');
       return;
     }
 
