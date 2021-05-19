@@ -39,7 +39,7 @@ class Colony extends OrgBase {
     this.primaryRoomId = colony.primary;
     this.desiredRooms = colony.rooms;
     this.primaryRoom = Game.rooms[this.primaryRoomId];
-
+    this.isPublic = colony.isPublic || false;
 
     this.pidDesiredHaulers = 0;
     if (this.primaryRoom) {

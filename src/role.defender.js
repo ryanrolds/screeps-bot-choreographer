@@ -62,7 +62,7 @@ const behavior = behaviorTree.sequenceNode(
         // TODO defender should flee and heal if low on hits
 
         if (!moveTarget) {
-          return moveToAssignedPosition(creep, trace);
+          return moveToAssignedPosition(creep, trace, kingdom);
         }
 
         if (creep.pos.getRangeTo(moveTarget) <= 2) {
@@ -110,31 +110,57 @@ const behavior = behaviorTree.sequenceNode(
   ],
 );
 
-const moveToAssignedPosition = (creep, trace) => {
+const moveToAssignedPosition = (creep, trace, kingdom) => {
+  let position = null;
+
+  // Check if creep knows last known position
   const positionString = creep.memory[MEMORY.MEMORY_ASSIGN_ROOM_POS] || null;
-  if (!positionString) {
+  if (positionString) {
+    const posArray = positionString.split(',');
+    if (posArray && posArray.length === 3) {
+      position = new RoomPosition(posArray[0], posArray[1], posArray[2]);
+    } else {
+      trace.log('invalid position string', {positionString});
+    }
+  } else {
     trace.log('failed to get position string');
-    return FAILURE;
   }
 
-  const position = null;
-  const posArray = positionString.split(',');
-  if (posArray && posArray.length === 3) {
-    position = new RoomPosition(posArray[0], posArray[1], posArray[2]);
+  // If don't have a last known position, go to parking lot
+  if (!position) {
+    const colony = kingdom.getCreepColony(creep);
+    if (colony) {
+      const room = colony.getPrimaryRoom();
+      if (room) {
+        const parkingLot = room.getParkingLot();
+        if (parkingLot) {
+          trace.log('going to parking lot', {pos: parkingLot.pos});
+          position = parkingLot.pos;
+        } else {
+          trace.log('could not find parking lot in primary room');
+        }
+      } else {
+        trace.log('could not get colony primary room');
+      }
+    } else {
+      trace.log('could not get creep colony');
+    }
   }
 
   if (!position) {
-    trace.log('no or invalid position string', {positionString, posArray});
+    trace.log('not able to determine destination, failing');
     return FAILURE;
   }
 
-  if (creep.pos.getRangeTo(position) < 3) {
-    trace.log('reached last known position, waiting...');
+  // Check if we are at the destination
+  if (creep.pos.getRangeTo(position) < 1) {
+    trace.log('reached last known position or parking lot, waiting...');
     return SUCCESS;
   }
 
+  // Move to destination
   const result = move(creep, position, 1);
-  trace.log('move to last known hostile position', {result, position});
+  trace.log('move to last known hostile position or parking lot', {result, position});
 
   return RUNNING;
 };

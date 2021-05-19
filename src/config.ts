@@ -5,10 +5,14 @@ export interface ShardConfig {
 
 export interface ColonyConfig {
   id: string;
+  isPublic: boolean;
   primary: string;
   rooms: string[];
 }
 
 export interface KingdomConfig {
-  [key: string]: ShardConfig;
+  friends: string[];
+  avoid: string[];
+  kos: string[];
+  shards: Record<string, ShardConfig>;
 }

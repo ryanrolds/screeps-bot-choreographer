@@ -35,7 +35,6 @@ const HAUL_TOWER = 1.2;
 const HAUL_TOWER_HOSTILES = 1.6;
 const UNLOAD_BOOST = 1.3;
 
-
 // Reactions
 REACTION_PRIORITIES = {
   G: 10,

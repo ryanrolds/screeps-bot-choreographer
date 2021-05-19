@@ -11,13 +11,12 @@ import PRIORITIES from './constants.priorities';
 import MEMORY from './constants.memory';
 import Colony from './org.colony';
 import {thread} from './os.thread';
+import {DEFENSE_STATUS} from './defense';
 
 const TARGET_REQUEST_TTL = 1;
 const REQUEST_DEFENDERS_TTL = 10;
-
-const FRIENDS = [
-  'PythonBeatJava',
-];
+const DEFENSE_STATUS_TTL = 1;
+const hostileParts = ['work', 'attack', 'heal', 'ranged_attack', 'claim'];
 
 type Target = Creep | StructureInvaderCore;
 
@@ -90,13 +89,13 @@ export default class DefenseManager {
     trace = trace.asId(this.id);
     trace.log("defense manager run");
 
-    this.handleDefendFlags(trace);
-
     const hostilesByColony = getHostilesByColony(kingdom, Object.values(Game.rooms), trace)
-
     trace.log('hostiles by colony', {hostilesByColony});
 
     addHostilesToColonyTargetTopic(kingdom, hostilesByColony, trace);
+    publishDefenseStatuses(kingdom, hostilesByColony, trace);
+
+    this.handleDefendFlags(trace);
     this.threadCheckColonyDefenses(kingdom, hostilesByColony, trace);
     this.threadReturnDefendersToStation(kingdom, hostilesByColony, trace);
 
@@ -150,10 +149,25 @@ function getHostilesByColony(kingdom: Kingdom, rooms: Room[], trace: Tracer) {
     }
 
     // Add any hostiles
-    const hostiles = room.find(FIND_HOSTILE_CREEPS);
+    let hostiles = room.find(FIND_HOSTILE_CREEPS);
     if (hostiles.length) {
       colonies[orgColony.id] = colonies[orgColony.id].concat(...hostiles);
     }
+
+    hostiles = hostiles.filter((hostile) => {
+      const isFriendly = kingdom.getFriends().indexOf(hostile.owner.username) > -1;
+      if (isFriendly) {
+        const hostilePart = _.find(hostile.body, (part): boolean => {
+          return hostileParts.indexOf(part.type) > -1;
+        });
+        if (!hostilePart) {
+          trace.log('non-hostile creep', {creepName: hostile.name, owner: hostile.owner.username});
+          return false;
+        }
+      }
+
+      return true;
+    });
 
     const invaderCores = room.find<StructureInvaderCore>(FIND_STRUCTURES, {
       filter: (structure) => {
@@ -189,17 +203,51 @@ function addHostilesToColonyTargetTopic(kingdom: Kingdom, hostilesByColony: Reco
         priority = 2;
       }
 
-      // TODO priority based on score
-      /*
-      hostiles = _.sortBy(hostiles, (hostile) => {
-        return hostile.getActiveBodyparts(HEAL);
-      }).reverse();
-      */
+      if (hostile instanceof Creep) {
+        priority += hostile.body.reduce((acc, part) => {
+          if (part.type === HEAL) {
+            acc += 0.1;
+          } else if (part.type === WORK) {
+            acc += 0.4;
+          } else if (part.type === RANGED_ATTACK) {
+            acc += 0.2;
+          } else if (part.type === ATTACK) {
+            acc += 0.3;
+          }
+          return acc;
+        }, 0)
+      }
 
       trace.log('requesting target', {details, priority});
 
       (orgColony as any).sendRequest(TOPICS.PRIORITY_TARGETS, priority, details, TARGET_REQUEST_TTL);
     });
+  });
+}
+
+function publishDefenseStatuses(kingdom: Kingdom, hostilesByColony: Record<string, Target[]>, trace) {
+  kingdom.getColonies().forEach((colony) => {
+    const numHostiles = (hostilesByColony[colony.id] || []).length;
+    const numDefenders = Object.values<Creep>(colony.getCreeps()).filter((creep) => {
+      return creep.memory[MEMORY.MEMORY_ROLE] === CREEPS.WORKER_DEFENDER;
+    }).length;
+
+    let status = DEFENSE_STATUS.GREEN;
+    if (numHostiles && numDefenders) {
+      status = DEFENSE_STATUS.YELLOW;
+    } else if (numHostiles) {
+      status = DEFENSE_STATUS.RED;
+    }
+
+    const details = {
+      status,
+      numHostiles,
+      numDefenders,
+    };
+
+    trace.log('defense status update', details);
+
+    (colony as any).sendRequest(TOPICS.DEFENSE_STATUSES, 0, details, DEFENSE_STATUS_TTL)
   });
 }
 
@@ -284,6 +332,10 @@ function returnDefendersToStation(kingdom: Kingdom, hostilesByColony: Record<str
     trace.log('sending defenders back to station', {colonyId: colony.id, flagName: flag.name});
     requestExistingDefenders(defenders, flag.pos);
   });
+}
+
+function scoreHostile(hostile: Creep): number {
+  return 0;
 }
 
 function scoreDefender(defender: Creep): number {

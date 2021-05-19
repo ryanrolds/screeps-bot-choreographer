@@ -222,7 +222,7 @@ const deliver = behaviorTree.sequenceNode(
   [
     behaviorTree.leafNode(
       'use_memory_dropoff',
-      (creep) => {
+      (creep, trace, kingdom) => {
         const dropoff = creep.memory[MEMORY.MEMORY_HAUL_DROPOFF];
         if (dropoff) {
           behaviorMovement.setDestination(creep, dropoff);
@@ -235,7 +235,7 @@ const deliver = behaviorTree.sequenceNode(
     behaviorMovement.moveToDestination(1, false, 10, 250),
     behaviorTree.leafNode(
       'empty_creep',
-      (creep) => {
+      (creep, trace, kingdom) => {
         if (creep.store.getUsedCapacity() === 0) {
           return SUCCESS;
         }
@@ -248,6 +248,8 @@ const deliver = behaviorTree.sequenceNode(
         const resource = Object.keys(creep.store).pop();
 
         const result = creep.transfer(destination, resource);
+        trace.log('transfer', {resource, result});
+
         if (result === ERR_FULL) {
           return SUCCESS;
         }
@@ -264,7 +266,7 @@ const deliver = behaviorTree.sequenceNode(
           return FAILURE;
         }
 
-        return RUNNING;
+        return SUCCESS;
       },
     ),
   ],

@@ -50,7 +50,7 @@ export default class KingdomGovernor {
         return;
       }
 
-      const shardConfig: ShardConfig = kingdom.getConfig(shardName);
+      const shardConfig: ShardConfig = kingdom.getShardConfig(shardName);
       if (!shardConfig) {
         return;
       }

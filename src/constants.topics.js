@@ -9,4 +9,5 @@ module.exports = {
   BOOST_PREP: 'boost_prep',
   PRIORITY_TARGETS: 'priority_targets',
   NUKER_TARGETS: 'nuker_targets',
+  DEFENSE_STATUSES: 'defense_statuses',
 };

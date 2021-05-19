@@ -132,8 +132,17 @@ class Kingdom extends OrgBase {
   getKingdom() {
     return this;
   }
-  getConfig(shardName) {
-    return this.config[shardName] || null;
+  getFriends() {
+    return this.config.friends;
+  }
+  getAvoid() {
+    return this.config.avoid;
+  }
+  getKOS() {
+    return this.config.kos;
+  }
+  getShardConfig(shardName) {
+    return this.config.shards[shardName] || null;
   }
   getResourceGovernor() {
     return this.resourceGovernor;
@@ -269,7 +278,7 @@ class Kingdom extends OrgBase {
 
     this.creeps = _.values(Game.creeps);
 
-    const shardConfig = this.getConfig(Game.shard.name);
+    const shardConfig = this.getShardConfig(Game.shard.name);
     if (!shardConfig) {
       return;
     }

@@ -45,6 +45,7 @@ class Room extends OrgBase {
 
     this.room = room;
     this.isPrimary = room.name === parent.primaryRoomId;
+    this.isPublic = parent.isPublic;
 
     // Creeps
     this.assignedCreeps = [];

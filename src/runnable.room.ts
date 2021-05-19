@@ -19,8 +19,9 @@ import {creepIsFresh} from './behavior.commute';
 import PRIORITIES from './constants.priorities';
 import MEMORY from './constants.memory';
 import CREEPS from './constants.creeps';
-import TOPICS from './constants.topics';
+import TOPICS, {DEFENSE_STATUSES} from './constants.topics';
 import TASKS from './constants.tasks';
+import {DEFENSE_STATUS} from './defense';
 
 const MIN_ENERGY = 10000;
 const CREDIT_RESERVE = 100000;
@@ -38,6 +39,14 @@ const REQUEST_UPGRADER_TTL = 25;
 const REQUEST_HAUL_DROPPED_RESOURCES_TTL = 15;
 const CHECK_SAFE_MODE_TTL = 5;
 const HAUL_EXTENSION_TTL = 10;
+const RAMPART_ACCESS_TTL = 1;
+const UPDATE_PROCESSES_TTL = 10;
+
+enum DEFENSE_POSTURE {
+  OPEN = 'open',
+  CLOSED = 'closed',
+  UNKNOWN = 'unknown',
+};
 
 const importantStructures = [
   STRUCTURE_SPAWN,
@@ -51,6 +60,9 @@ export default class RoomRunnable {
   scheduler: Scheduler;
   requestEnergyTTL: number;
   prevTime: number;
+  defensePosture: DEFENSE_POSTURE;
+
+  threadUpdateProcesses: any;
   threadRequestRepairer: any;
   threadRequestBuilder: any;
   threadRequestDistributor: any;
@@ -59,14 +71,17 @@ export default class RoomRunnable {
   threadRequestHaulDroppedResources: any;
   threadCheckSafeMode: any;
   threadRequestExtensionFilling: any;
+  threadUpdateRampartAccess: any;
 
   constructor(id: string, scheduler: Scheduler) {
     this.id = id;
     this.scheduler = scheduler;
     this.requestEnergyTTL = ENERGY_REQUEST_TTL;
     this.prevTime = Game.time;
+    this.defensePosture = DEFENSE_POSTURE.UNKNOWN;
 
     // Threads
+    this.threadUpdateProcesses = thread(UPDATE_PROCESSES_TTL, null, null)(this.handleProcesses.bind(this));
     this.threadRequestRepairer = thread(REQUEST_REPAIRER_TTL, null, null)(this.requestRepairer.bind(this));
     this.threadRequestBuilder = thread(REQUEST_BUILDER_TTL, null, null)(this.requestBuilder.bind(this));
     this.threadRequestDistributor = thread(REQUEST_DISTRIBUTOR_TTL, null, null)(this.requestDistributor.bind(this));
@@ -75,6 +90,7 @@ export default class RoomRunnable {
     this.threadRequestHaulDroppedResources = thread(REQUEST_HAUL_DROPPED_RESOURCES_TTL, null, null)(this.requestHaulDroppedResources.bind(this));
     this.threadCheckSafeMode = thread(CHECK_SAFE_MODE_TTL, null, null)(this.checkSafeMode.bind(this));
     this.threadRequestExtensionFilling = thread(HAUL_EXTENSION_TTL, null, null)(this.requestExtensionFilling.bind(this));
+    this.threadUpdateRampartAccess = thread(RAMPART_ACCESS_TTL, null, null)(this.updateRampartAccess.bind(this));
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
@@ -101,19 +117,27 @@ export default class RoomRunnable {
       return terminate();
     }
 
-    trace.log('room run', {});
-
     if (!orgRoom.isPrimary) {
       this.threadRequestReserver(kingdom, orgRoom, room, trace);
     }
 
-    if (orgRoom.isPrimary) {
+    if (room.controller?.my) {
       // Send a request if we are short on distributors
       this.threadRequestDistributor(orgRoom, room, trace);
       // Upgrader request
       this.threadRequestUpgrader(orgRoom, room, trace);
+
+      this.threadUpdateRampartAccess(orgRoom, room, trace);
+      this.threadRequestExtensionFilling(orgRoom, room, trace);
+      this.threadCheckSafeMode(room, trace);
     }
 
+    this.threadUpdateProcesses(orgRoom, room, trace);
+
+    return running();
+  }
+
+  handleProcesses(orgRoom: OrgRoom, room: Room, trace: Tracer) {
     if (room.controller?.my || !room.controller?.owner?.username) {
       // Sources
       room.find<FIND_SOURCES>(FIND_SOURCES).forEach((source) => {
@@ -229,13 +253,8 @@ export default class RoomRunnable {
         }
       }
 
-      this.threadRequestExtensionFilling(orgRoom, room, trace);
-      this.threadCheckSafeMode(room, trace);
-
       // Observer runnable
     }
-
-    return sleeping(10);
   }
 
   requestRepairer(orgRoom: OrgRoom, room: Room, trace: Tracer) {
@@ -547,6 +566,49 @@ export default class RoomRunnable {
 
       (orgRoom as any).sendRequest(TOPICS.TOPIC_HAUL_TASK, loadPriority, details, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
     });
+  }
+
+  updateRampartAccess(orgRoom: OrgRoom, room: Room, trace: Tracer) {
+    const colony = (orgRoom as any).getColony()
+    if (!colony) {
+      trace.log('could not find colony')
+      return;
+    }
+
+    const message = colony.peekNextRequest(TOPICS.DEFENSE_STATUSES);
+    if (!message) {
+      trace.log('did not find a defense status, fail closed');
+      this.setRamparts(room, DEFENSE_POSTURE.CLOSED, trace);
+      return;
+    }
+
+    const status = message.details.status;
+    const isPublic = colony.isPublic;
+
+    trace.log('rampart access', {status, isPublic, posture: this.defensePosture})
+
+    if ((!isPublic || status !== DEFENSE_STATUS.GREEN) && this.defensePosture !== DEFENSE_POSTURE.CLOSED) {
+      trace.log('setting ramparts closed');
+      this.setRamparts(room, DEFENSE_POSTURE.CLOSED, trace);
+    }
+
+    if (status === DEFENSE_STATUS.GREEN && isPublic && this.defensePosture !== DEFENSE_POSTURE.OPEN) {
+      trace.log('setting ramparts open');
+      this.setRamparts(room, DEFENSE_POSTURE.OPEN, trace);
+    }
+  }
+
+  setRamparts(room: Room, posture: DEFENSE_POSTURE, trace: Tracer) {
+    const isPublic = posture === DEFENSE_POSTURE.OPEN;
+    // Close all ramparts
+    room.find<StructureRampart>(FIND_STRUCTURES, {
+      filter: (structure) => {
+        return structure.structureType === STRUCTURE_RAMPART;
+      }
+    }).forEach((rampart) => {
+      rampart.setPublic(isPublic);
+    });
+    this.defensePosture = posture;
   }
 
   checkSafeMode(room: Room, trace: Tracer) {
