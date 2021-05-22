@@ -2,10 +2,10 @@ const topEdge = 1;
 const bottomEdge = 48;
 const leftEdge = 1;
 const rightEdge = 48;
-const blockingObjects: StructureConstant[] = [
-  STRUCTURE_WALL,
-  STRUCTURE_RAMPART,
-];
+const blockingObjects: Record<string, boolean> = {
+  [STRUCTURE_WALL]: true,
+  [STRUCTURE_RAMPART]: true,
+};
 
 export type RegionMap = Record<string, Position>;
 export type Position = {x: number, y: number};
@@ -68,7 +68,7 @@ function isWallOrInRegion(room: Room, regionMap: RegionMap, pos: Position): bool
   const objects = room.lookAt(pos.x, pos.y);
   return !!_.find(objects, (object) => {
     if (object.type === LOOK_STRUCTURES) {
-      return blockingObjects.indexOf(object.structure.structureType) > -1;
+      return blockingObjects[object.structure.structureType];
     }
 
     return false;

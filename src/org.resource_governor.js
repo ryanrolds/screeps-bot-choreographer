@@ -13,6 +13,8 @@ const MIN_CREDITS_FOR_BOOSTS = 15000;
 const MIN_SELL_ORDER_SIZE = 1000;
 const MAX_SELL_AMOUNT = 25000;
 
+const MIN_ROOM_ENERGY = 100000;
+
 const REQUEST_REACTION_TTL = 100;
 const REQUEST_SELL_TTL = 60;
 const REQUEST_DISTRIBUTE_BOOSTS = 30;
@@ -124,6 +126,10 @@ class Resources extends OrgBase {
 
       if (isCritical) {
         amount -= MIN_CRITICAL_COMPOUND;
+      }
+
+      if (resource === RESOURCE_ENERGY && amount < MIN_ROOM_ENERGY) {
+        return acc;
       }
 
       if (amount <= 0) {

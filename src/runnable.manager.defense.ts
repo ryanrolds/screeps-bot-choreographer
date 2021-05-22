@@ -16,7 +16,12 @@ import {DEFENSE_STATUS} from './defense';
 const TARGET_REQUEST_TTL = 1;
 const REQUEST_DEFENDERS_TTL = 10;
 const DEFENSE_STATUS_TTL = 1;
-const hostileParts = ['work', 'attack', 'heal', 'ranged_attack', 'claim'];
+const hostileParts = {
+  'attack': true,
+  'heal': true,
+  'ranged_attack': true,
+  'claim': true,
+};
 
 type Target = Creep | StructureInvaderCore;
 
@@ -150,15 +155,21 @@ function getHostilesByColony(kingdom: Kingdom, rooms: Room[], trace: Tracer) {
 
     // Add any hostiles
     let hostiles = room.find(FIND_HOSTILE_CREEPS);
-    if (hostiles.length) {
-      colonies[orgColony.id] = colonies[orgColony.id].concat(...hostiles);
-    }
-
     hostiles = hostiles.filter((hostile) => {
       const isFriendly = kingdom.getFriends().indexOf(hostile.owner.username) > -1;
       if (isFriendly) {
         const hostilePart = _.find(hostile.body, (part): boolean => {
-          return hostileParts.indexOf(part.type) > -1;
+          // If hostile has work part and near wall/rampart then view as hostole
+          if (part.type === WORK && hostile.pos.findInRange(FIND_STRUCTURES, 5, {
+            filter: (structure) => {
+              return structure.structureType === STRUCTURE_RAMPART ||
+                structure.structureType === STRUCTURE_WALL;
+            }
+          }).length > 0) {
+            return true;
+          }
+
+          return hostileParts[part.type];
         });
         if (!hostilePart) {
           trace.log('non-hostile creep', {creepName: hostile.name, owner: hostile.owner.username});
@@ -166,8 +177,13 @@ function getHostilesByColony(kingdom: Kingdom, rooms: Room[], trace: Tracer) {
         }
       }
 
+      trace.log('hostile creep', {creepName: hostile.name, owner: hostile.owner.username});
+
       return true;
     });
+    if (hostiles.length) {
+      colonies[orgColony.id] = colonies[orgColony.id].concat(...hostiles);
+    }
 
     const invaderCores = room.find<StructureInvaderCore>(FIND_STRUCTURES, {
       filter: (structure) => {
