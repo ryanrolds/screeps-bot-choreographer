@@ -1,5 +1,5 @@
 const Room = require('./org.room');
-const OrgBase = require('./org.base');
+const {OrgBase} = require('./org.base');
 const Observer = require('./org.observer');
 const Topics = require('./lib.topics');
 const PID = require('./lib.pid');

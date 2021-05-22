@@ -1,7 +1,7 @@
 const PRICES = {
   energy: {sell: 3, buy: 1.5},
   H: {sell: 0.5, buy: 0.2},
-  O: {sell: 0.4, buy: 0.09},
+  O: {sell: 0.45, buy: 0.08},
   Z: {sell: 0.17, buy: 0.07},
   K: {sell: 0.25, buy: 0.08},
   U: {sell: 0.5, buy: 0.15},

@@ -1,5 +1,4 @@
-
-const OrgBase = require('./org.base');
+const {OrgBase} = require('./org.base');
 
 const CREEPS = require('./constants.creeps');
 const MEMORY = require('./constants.memory');

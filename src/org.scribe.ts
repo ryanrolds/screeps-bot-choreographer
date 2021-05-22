@@ -1,29 +1,72 @@
-const OrgBase = require('./org.base');
+import {stringify} from 'node:querystring';
+import {OrgBase} from './org.base';
 
-class Scribe extends OrgBase {
+const COST_MATRIX_TTL = 1500;
+const COST_DEFENDER_NOT_BASE = 6;
+
+type Journal = {
+  rooms: Record<string, RoomEntry>;
+  creeps: Record<string, Creep>;
+  defenderCostMatrices: Record<string, CostMatrixEntry>;
+};
+
+type CostMatrixEntry = {
+  id: Id<Room>;
+  costs: CostMatrix;
+  ttl: number;
+};
+
+type PortalEntry = {
+  id: Id<StructurePortal>,
+  pos: RoomPosition,
+  destinationShard: string;
+  destinationRoom: string;
+};
+
+type RoomEntry = {
+  id: Id<Room>,
+  lastUpdated: number;
+  controller?: {
+    owner: string;
+    level: number;
+    safeModeAvailable: number;
+  };
+  numSources: number;
+  hasHostiles: boolean;
+  numTowers: number;
+  mineral: MineralConstant;
+  portals: PortalEntry[];
+  powerBanks: {
+    id: Id<StructurePowerBank>;
+    hits: number;
+    ttl: number;
+    power: number;
+    pos: RoomPosition;
+  }[];
+  deposits: {
+    type: DepositConstant;
+    cooldown: number;
+    ttl: number;
+  }[];
+};
+
+export class Scribe extends OrgBase {
+  journal: Journal;
+
   constructor(parent, trace) {
     super(parent, 'scribe', trace);
 
-    const setupTrace = this.trace.begin('constructor');
-
-    // if (!Memory[MEMORY_JOURNAL]) {
-    //  Memory[MEMORY_JOURNAL] = {
-    //    rooms: {},
-    //  };
-    // }
-
-    // this.journal = Memory[MEMORY_JOURNAL];
     this.journal = {
       rooms: {},
+      defenderCostMatrices: {},
       creeps: {},
-    };
+    }
 
+    const setupTrace = this.trace.begin('constructor');
     setupTrace.end();
   }
   update(trace) {
     const updateTrace = trace.begin('update');
-
-    // Memory[MEMORY_JOURNAL] = this.journal;
 
     updateTrace.end();
   }
@@ -35,19 +78,13 @@ class Scribe extends OrgBase {
 
     processTrace.end();
   }
-  toString() {
-    return `** Scribe - Rooms: ${Object.keys(this.journal.rooms).length}, `;// +
-    // `RecentlyUpdated: ${this.getRoomsUpdatedRecently().length}, ` +
-    // `PowerBanks: ${JSON.stringify(this.getRoomsWithPowerBanks())}, ` +
-    // `DangerousRooms: ${this.getRoomsWithHostileTowers().length}`;
-  }
   removeStaleJournalEntries() {
 
   }
   updateStats() {
 
   }
-  getOldestRoomInList(rooms) {
+  getOldestRoomInList(rooms: string[]) {
     const knownRooms = Object.keys(this.journal.rooms);
     const missingRooms = _.shuffle(_.difference(rooms, knownRooms));
 
@@ -55,7 +92,7 @@ class Scribe extends OrgBase {
       return missingRooms[0];
     }
 
-    const inRangeRooms = Object.values(_.pick(this.journal.rooms, rooms));
+    const inRangeRooms: RoomEntry[] = Object.values(_.pick(this.journal.rooms, rooms));
     const sortedRooms = _.sortBy(inRangeRooms, 'lastUpdated');
 
     return sortedRooms[0].id;
@@ -112,7 +149,11 @@ class Scribe extends OrgBase {
         return false;
       }
 
-      if (room.controller.level >= 7 || room.controller.level < 1) {
+      if (room.controller.level >= 7) {
+        return false;
+      }
+
+      if (room.controller.level < 1) {
         return false;
       }
 
@@ -121,13 +162,20 @@ class Scribe extends OrgBase {
       return [room.id, room.numTowers, room.controller.owner];
     });
   }
-  updateRoom(roomObject) {
-    const room = {
-      id: roomObject.name,
+  updateRoom(roomObject: Room) {
+    const room: RoomEntry = {
+      id: roomObject.name as Id<Room>,
       lastUpdated: Game.time,
+      controller: null,
+      numSources: 0,
+      hasHostiles: false,
+      numTowers: 0,
+      mineral: null,
+      powerBanks: [],
+      portals: [],
+      deposits: [],
     };
 
-    room.controller = null;
     if (roomObject.controller) {
       let owner = null;
       if (roomObject.controller.owner) {
@@ -157,7 +205,7 @@ class Scribe extends OrgBase {
     }
 
     room.portals = [];
-    const portals = roomObject.find(FIND_STRUCTURES, {
+    const portals = roomObject.find<StructurePortal>(FIND_STRUCTURES, {
       filter: (structure) => {
         return structure.structureType === STRUCTURE_PORTAL;
       },
@@ -166,12 +214,12 @@ class Scribe extends OrgBase {
       return {
         id: portal.id,
         pos: portal.pos,
-        destinationShard: portal.destination.shard,
-        destinationRoom: portal.destination.room,
+        destinationShard: (portal.destination as any).shard,
+        destinationRoom: (portal.destination as any).room,
       };
     });
 
-    room.powerBanks = roomObject.find(FIND_STRUCTURES, {
+    room.powerBanks = roomObject.find<StructurePowerBank>(FIND_STRUCTURES, {
       filter: (structure) => {
         return structure.structureType === STRUCTURE_POWER_BANK;
       },
@@ -181,11 +229,7 @@ class Scribe extends OrgBase {
         hits: powerBank.hits,
         ttl: powerBank.ticksToDecay,
         power: powerBank.power,
-        pos: {
-          x: powerBank.pos.x,
-          y: powerBank.pos.y,
-          roomName: powerBank.pos.roomName,
-        },
+        pos: powerBank.pos,
       };
     });
 
@@ -199,39 +243,39 @@ class Scribe extends OrgBase {
 
     this.journal.rooms[room.id] = room;
   }
-  getRoom(roomId) {
+  getRoomById(roomId): RoomEntry {
     return this.journal.rooms[roomId] || null;
   }
 
-  getLocalShardMemory() {
+  getLocalShardMemory(): any {
     return JSON.parse(InterShardMemory.getLocal() || '{}');
   }
 
-  setLocalShardMemory(memory) {
+  setLocalShardMemory(memory: any) {
     return InterShardMemory.setLocal(JSON.stringify(memory));
   }
 
-  getRemoteShardMemory(shardName) {
+  getRemoteShardMemory(shardName: string) {
     return JSON.parse(InterShardMemory.getRemote(shardName) || '{}');
   }
 
-  getPortals(shardName) {
+  getPortals(shardName: string) {
     const portals = Object.values(this.journal.rooms).filter((room) => {
       return _.filter(room.portals, _.matchesProperty('destinationShard', shardName)).length > 0;
     }).map((room) => {
-      return room.portals.reduce((acc, portal) => {
+      return room.portals.reduce((acc: PortalEntry[], portal) => {
         if (portal.destinationShard === shardName) {
           acc.push(portal);
         }
 
         return acc;
-      });
+      }, []);
     }, []);
 
     return portals;
   }
 
-  setCreepBackup(creep) {
+  setCreepBackup(creep: Creep) {
     const localMemory = this.getLocalShardMemory();
     if (!localMemory.creep_backups) {
       localMemory.creep_backups = {};
@@ -250,7 +294,7 @@ class Scribe extends OrgBase {
     this.setLocalShardMemory(localMemory);
   }
 
-  getCreepBackup(shardName, creepName) {
+  getCreepBackup(shardName: string, creepName: string) {
     const remoteMemory = this.getRemoteShardMemory(shardName);
     if (remoteMemory.creep_backups) {
       return remoteMemory.creep_backups[creepName] || null;
@@ -258,6 +302,27 @@ class Scribe extends OrgBase {
 
     return null;
   }
-}
 
-module.exports = Scribe;
+  createDefenderCostMatric(room: Room, spawn: RoomPosition): CostMatrix {
+    const costs = new PathFinder.CostMatrix();
+
+    return costs;
+  }
+
+  getDefenderCostMatrix(room: Room, spawn: RoomPosition): CostMatrix {
+    const costMatrixEntry = this.journal.defenderCostMatrices[room.name];
+    if (costMatrixEntry && costMatrixEntry.ttl <= Game.time) {
+      return
+    }
+
+    const costs = this.createDefenderCostMatric(room, spawn);
+
+    this.journal.defenderCostMatrices[room.name] = {
+      id: room.name as Id<Room>,
+      costs,
+      ttl: Game.time + COST_MATRIX_TTL,
+    };
+
+    return costs;
+  }
+}

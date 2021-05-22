@@ -23,8 +23,8 @@ let config: KingdomConfig = {
         id: 'E22S48-Shard2',
         primary: 'E22S48',
         isPublic: false,
-        // rooms: ['E22S48', 'E22S49', 'E22S47', 'E21S47', 'E21S46', 'E22S46'],
-        rooms: ['E22S48', 'E22S49', 'E22S47', 'E21S47'],
+        rooms: ['E22S48', 'E22S49', 'E22S47', 'E21S47', 'E22S46'],
+        // rooms: ['E22S48', 'E22S49', 'E22S47', 'E21S47'],
       },
     },
     'shard3': {

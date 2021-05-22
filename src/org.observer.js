@@ -1,4 +1,4 @@
-const OrgBase = require('./org.base');
+const {OrgBase} = require('./org.base');
 
 class Observer extends OrgBase {
   constructor(parent, observer, trace) {

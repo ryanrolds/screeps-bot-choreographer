@@ -29,7 +29,7 @@ const behavior = behaviorTree.sequenceNode(
         });
 
         let entries = exits.map((roomId) => {
-          const entry = kingdom.getScribe().getRoom(roomId);
+          const entry = kingdom.getScribe().getRoomById(roomId);
 
           return {
             id: roomId,
