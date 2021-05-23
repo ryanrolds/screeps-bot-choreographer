@@ -28,6 +28,7 @@ class Kingdom extends OrgBase {
       spawns: {},
       pathCache: {},
       scheduler: {},
+      defense: {},
     };
 
     this.colonies = {};

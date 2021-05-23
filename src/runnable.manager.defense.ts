@@ -16,6 +16,7 @@ import {DEFENSE_STATUS} from './defense';
 const TARGET_REQUEST_TTL = 1;
 const REQUEST_DEFENDERS_TTL = 10;
 const DEFENSE_STATUS_TTL = 1;
+const UPDATE_DEFENSE_STATS_TTL = 5;
 const hostileParts = {
   'attack': true,
   'heal': true,
@@ -42,6 +43,7 @@ export default class DefenseManager {
   defenseParties: DefensePartyRunnable[];
   threadCheckColonyDefenses: any;
   threadReturnDefendersToStation: any;
+  threadUpdateDefenseStats: any;
 
   constructor(id: string, scheduler: Scheduler, trace: Tracer) {
     this.id = id;
@@ -50,6 +52,7 @@ export default class DefenseManager {
 
     this.threadCheckColonyDefenses = thread(REQUEST_DEFENDERS_TTL, null, null)(checkColonyDefenses);
     this.threadReturnDefendersToStation = thread(REQUEST_DEFENDERS_TTL, null, null)(returnDefendersToStation);
+    this.threadUpdateDefenseStats = thread(UPDATE_DEFENSE_STATS_TTL, null, null)(updateDefenseStats);
   }
 
   private restoreFromMemory(trace: Tracer) {
@@ -97,12 +100,16 @@ export default class DefenseManager {
     const hostilesByColony = getHostilesByColony(kingdom, Object.values(Game.rooms), trace)
     trace.log('hostiles by colony', {hostilesByColony});
 
+    const defendersByColony = getDefendersByColony(kingdom, Object.values(Game.rooms), trace)
+    trace.log('defenders by colony', {defendersByColony});
+
     addHostilesToColonyTargetTopic(kingdom, hostilesByColony, trace);
     publishDefenseStatuses(kingdom, hostilesByColony, trace);
 
     this.handleDefendFlags(trace);
     this.threadCheckColonyDefenses(kingdom, hostilesByColony, trace);
     this.threadReturnDefendersToStation(kingdom, hostilesByColony, trace);
+    this.threadUpdateDefenseStats(kingdom, hostilesByColony, defendersByColony, trace);
 
     return running();
   }
@@ -192,6 +199,37 @@ function getHostilesByColony(kingdom: Kingdom, rooms: Room[], trace: Tracer) {
     });
     if (invaderCores.length) {
       colonies[orgColony.id] = colonies[orgColony.id].concat(...invaderCores);
+    }
+
+    return colonies;
+  }, {});
+}
+
+function getDefendersByColony(kingdom: Kingdom, rooms: Room[], trace: Tracer) {
+  return rooms.reduce<Record<string, (Creep)[]>>((colonies, room: Room) => {
+    const orgRoom = kingdom.getRoomByName(room.name)
+    if (!orgRoom) {
+      return colonies;
+    }
+
+    const orgColony = orgRoom.getColony();
+    if (!orgColony) {
+      return colonies;
+    }
+
+    if (!colonies[orgColony.id]) {
+      colonies[orgColony.id] = [];
+    }
+
+    // Add any defenders
+    let defenders = room.find(FIND_MY_CREEPS, {
+      filter: (creep) => {
+        return creep.memory[MEMORY.MEMORY_ROLE] === CREEPS.WORKER_DEFENDER ||
+          creep.memory[MEMORY.MEMORY_ROLE] === CREEPS.WORKER_DEFENDER_DRONE;
+      }
+    });
+    if (defenders.length) {
+      colonies[orgColony.id] = colonies[orgColony.id].concat(...defenders);
     }
 
     return colonies;
@@ -350,10 +388,57 @@ function returnDefendersToStation(kingdom: Kingdom, hostilesByColony: Record<str
   });
 }
 
+function updateDefenseStats(kingdom: Kingdom, hostilesByColony: Record<string, Target[]>,
+  defendersByColony: Record<string, Creep[]>, trace: Tracer) {
+  const stats = kingdom.getStats();
+  stats.defense = {
+    defenderScores: _.mapValues(defendersByColony, (defender) => {
+      return defender.reduce((total, defender) => {
+        if (defender instanceof Creep) {
+          total += scoreDefender(defender);
+        }
+
+        return total;
+      }, 0)
+    }),
+    hostileScores: _.mapValues(hostilesByColony, (hostiles) => {
+      return hostiles.reduce((total, hostile) => {
+        if (hostile instanceof Creep) {
+          total += scoreHostile(hostile);
+        }
+
+        return total;
+      }, 0)
+    }),
+  };
+
+  trace.log('defense stats', {defenseStats: stats.defense});
+}
+
 function scoreHostile(hostile: Creep): number {
-  return 0;
+  return hostile.body.reduce((acc, part) => {
+    if (part.type === HEAL) {
+      acc += 2;
+    } else if (part.type === WORK) {
+      acc += 3;
+    } else if (part.type === RANGED_ATTACK) {
+      acc += 1;
+    } else if (part.type === ATTACK) {
+      acc += 2;
+    }
+    return acc;
+  }, 0)
 }
 
 function scoreDefender(defender: Creep): number {
-  return 0;
+  return defender.body.reduce((acc, part) => {
+    if (part.type === HEAL) {
+      acc += 2;
+    } else if (part.type === RANGED_ATTACK) {
+      acc += 1;
+    } else if (part.type === ATTACK) {
+      acc += 2;
+    }
+    return acc;
+  }, 0)
 };

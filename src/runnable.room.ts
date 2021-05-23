@@ -23,7 +23,7 @@ import TOPICS, {DEFENSE_STATUSES} from './constants.topics';
 import TASKS from './constants.tasks';
 import {DEFENSE_STATUS} from './defense';
 
-const MIN_ENERGY = 10000;
+const MIN_ENERGY = 100000;
 const CREDIT_RESERVE = 100000;
 const ENERGY_REQUEST_TTL = 50;
 const UPGRADER_ENERGY = 25000;
@@ -220,6 +220,7 @@ export default class RoomRunnable {
             new TerminalRunnable(orgRoom, room.terminal)));
         }
 
+        // TODO make thread
         const terminalEnergy = room.terminal?.store.getUsedCapacity(RESOURCE_ENERGY) || 0;
         const storageEnergy = room.storage?.store.getUsedCapacity(RESOURCE_ENERGY) || 0;
 
@@ -228,19 +229,26 @@ export default class RoomRunnable {
           terminalEnergy,
           storageEnergy,
           roomLevel: orgRoom.getRoomLevel(),
-          desiredBuffere: orgRoom.getReserveBuffer(),
+          desiredBuffer: orgRoom.getReserveBuffer(),
+          UPGRADER_ENERGY,
+          MIN_ENERGY,
         });
+
+        // dont request energy if ttl on previous request not passed
+        if (this.requestEnergyTTL > 0) {
+          return;
+        }
 
         let requestEnergy = false;
 
         // if we are below minimum energy, request more
-        if (storageEnergy + terminalEnergy < MIN_ENERGY && this.requestEnergyTTL < 0) {
+        if (storageEnergy + terminalEnergy < MIN_ENERGY) {
           requestEnergy = true;
         }
 
         // If not level 8, request more energy then buffer for upgrades
         if (Game.market.credits > CREDIT_RESERVE && orgRoom.getRoomLevel() < 8 &&
-          storageEnergy < orgRoom.getReserveBuffer() + UPGRADER_ENERGY) {
+          storageEnergy + terminalEnergy < orgRoom.getReserveBuffer() + UPGRADER_ENERGY) {
           requestEnergy = true;
         }
 
