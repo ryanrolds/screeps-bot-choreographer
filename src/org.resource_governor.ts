@@ -1,6 +1,8 @@
 const {OrgBase} = require('./org.base');
 const TOPICS = require('./constants.topics');
-const MEMORY = require('./constants.memory');
+import * as MEMORY from './constants.memory';
+import {TASK_ID} from './constants.memory';
+import Kingdom from './org.kingdom';
 const TASKS = require('./constants.tasks');
 const PRIORITIES = require('./constants.priorities');
 const MARKET = require('./constants.market');
@@ -31,32 +33,42 @@ const CRITICAL_EFFECTS = {
 };
 const MIN_CRITICAL_COMPOUND = 1000;
 
-class Resources extends OrgBase {
-  constructor(parent, trace) {
-    super(parent, 'resources', trace);
+export type ResourceRequestDetails = {
+  [MEMORY.TASK_ID]: string;
+  [MEMORY.MEMORY_TASK_TYPE]: string;
+  [MEMORY.MEMORY_HAUL_PICKUP]: string;
+  [MEMORY.MEMORY_HAUL_RESOURCE]: ResourceConstant,
+  [MEMORY.MEMORY_HAUL_AMOUNT]: number;
+  [MEMORY.MEMORY_HAUL_DROPOFF]: Id<Structure>;
+};
 
-    const setupTrace = this.trace.begin('constructor');
+export type MessageResourceRequest = {
+  priority: number;
+  ttl: number,
+  details: ResourceRequestDetails;
+};
 
+export class ResourceGovernor {
+  id: string;
+  resources: {};
+  sharedResources: {};
+  availableReactions: {};
+  threadRequestReactions: any;
+  threadRequestSellExtraResources: any;
+  threadDistributeBoosts: any;
+
+  constructor(kingdom: Kingdom, id: string) {
+    this.id = id;
     this.resources = {};
     this.sharedResources = {};
-
     this.availableReactions = {};
 
-    this.threadRequestReactions = thread(REQUEST_REACTION_TTL)(() => {
-      this.requestReactions();
-    });
-
-    this.threadRequestSellExtraResources = thread(REQUEST_SELL_TTL)(() => {
-      this.requestSellResource();
-    });
-
-    this.threadDistributeBoosts = thread(REQUEST_DISTRIBUTE_BOOSTS)((trace) => {
-      this.requestDistributeBoosts(trace);
-    });
-
-    setupTrace.end();
+    this.threadRequestReactions = thread(REQUEST_REACTION_TTL, null, null)(this.requestReactions.bind(this));
+    this.threadRequestSellExtraResources = thread(REQUEST_SELL_TTL, null, null)(this.requestSellResource.bind(this));
+    this.threadDistributeBoosts = thread(REQUEST_DISTRIBUTE_BOOSTS, null, null)(this.requestDistributeBoosts.bind(this));
   }
-  update(trace) {
+
+  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
     trace = trace.asId(this.id);
 
     const updateTrace = trace.begin('update');
@@ -71,6 +83,7 @@ class Resources extends OrgBase {
 
     updateTrace.end();
   }
+
   process(trace) {
     trace = trace.asId(this.id);
 
@@ -80,15 +93,7 @@ class Resources extends OrgBase {
 
     processTrace.end();
   }
-  toString() {
-    const reactions = this.availableReactions.map((reaction) => {
-      return reaction.output;
-    });
 
-    return `* Resource Gov - ` +
-      `NextReactions: ${JSON.stringify(reactions)}`;
-    // `SharedResources: ${JSON.stringify(this.sharedResources)}`;
-  }
   updateStats() {
     const stats = this.getStats();
     stats.resources = this.resources;
@@ -387,7 +392,6 @@ class Resources extends OrgBase {
     amount = _.min([result.amount, amount]);
 
     trace.log('requesting resource from other room', {room: result.room.id, resource, amount});
-
     result.room.sendRequest(TOPICS.TOPIC_TERMINAL_TASK, PRIORITIES.TERMINAL_TRANSFER, {
       [MEMORY.TERMINAL_TASK_TYPE]: TASKS.TASK_TRANSFER,
       [MEMORY.TRANSFER_RESOURCE]: resource,
@@ -528,5 +532,3 @@ class Resources extends OrgBase {
     });
   }
 }
-
-module.exports = Resources;
