@@ -3,7 +3,7 @@ const DEFAULT_TTL = 500;
 type TopicKey = string;
 type Topic = Array<any>;
 
-class Topics {
+export class Topics {
   topics: Record<TopicKey, Topic>;
 
   constructor() {
@@ -124,5 +124,3 @@ class Topics {
     }, {});
   }
 }
-
-module.exports = Topics;

@@ -1,4 +1,4 @@
-import Kingdom from './org.kingdom';
+import {Kingdom} from './org.kingdom';
 import * as tracing from './lib.tracing';
 import {KingdomConfig, ShardConfig} from './config'
 import {Tracer} from './lib.tracing';

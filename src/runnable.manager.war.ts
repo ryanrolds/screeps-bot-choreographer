@@ -3,7 +3,7 @@ import * as _ from 'lodash';
 import {Priorities, Scheduler} from "./os.scheduler";
 import {Process, Runnable, RunnableResult, running, sleeping} from "./os.process";
 import {Tracer} from './lib.tracing';
-import Kingdom from './org.kingdom';
+import {Kingdom} from './org.kingdom';
 import WarPartyRunnable from './runnable.warparty';
 
 const WAR_PARTY_PROCESS_PRIORITY = 2;

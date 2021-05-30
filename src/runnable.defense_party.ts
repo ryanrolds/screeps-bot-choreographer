@@ -1,5 +1,5 @@
 import * as _ from 'lodash';
-import Kingdom from "./org.kingdom";
+import {Kingdom} from "./org.kingdom";
 import {Process, Runnable, RunnableResult, running, sleeping, terminate} from "./os.process";
 import {Tracer} from './lib.tracing';
 import {WORKER_DEFENDER_DRONE} from './constants.creeps'

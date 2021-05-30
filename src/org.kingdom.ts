@@ -1,19 +1,39 @@
-const {OrgBase} = require('./org.base');
-const Colony = require('./org.colony');
-const WarParty = require('./org.warparty');
-const ResourceGovernor = require('./org.resource_governor');
-const {Scribe} = require('./org.scribe');
-const Topics = require('./lib.topics');
-const PathCache = require('./lib.path_cache');
-const {thread} = require('./os.thread');
-const helpersCreeps = require('./helpers.creeps');
-const MEMORY = require('./constants.memory');
-const featureFlags = require('./lib.feature_flags');
+import {OrgBase} from './org.base';
+import Colony from './org.colony';
+import WarParty from './org.warparty';
+import ResourceGovernor from './org.resource_governor';
+import {Scribe} from './org.scribe';
+import {Topics} from './lib.topics';
+import PathCache from './lib.path_cache';
+import {thread} from './os.thread';
+import helpersCreeps from './helpers.creeps';
+import MEMORY from './constants.memory';
+import * as featureFlags from './lib.feature_flags';
+import {KingdomConfig, ShardConfig} from './config';
+import {Scheduler} from './os.scheduler';
+import {Tracer} from './lib.tracing';
+import OrgRoom from './org.room';
 
 const UPDATE_ORG_TTL = 1;
 
-class Kingdom extends OrgBase {
-  constructor(config, scheduler, trace) {
+export class Kingdom extends OrgBase {
+  config: KingdomConfig;
+  scheduler: Scheduler;
+  topics: Topics;
+
+  stats: any; // TODO
+
+  colonies: Record<string, Colony>;
+  roomNameToOrgRoom: Record<string, OrgRoom>;
+  creeps: Creep[];
+  warParties: Record<string, WarParty>;
+
+  resourceGovernor: ResourceGovernor;
+  scribe: Scribe;
+  pathCache: PathCache;
+  threadUpdateOrg: any;
+
+  constructor(config: KingdomConfig, scheduler: Scheduler, trace: Tracer) {
     super(null, 'kingdom', trace);
 
     const setupTrace = this.trace.begin('constructor');
@@ -35,7 +55,7 @@ class Kingdom extends OrgBase {
     this.roomNameToOrgRoom = {};
     this.creeps = [];
 
-    this.threadUpdateOrg = thread(UPDATE_ORG_TTL)((trace) => {
+    this.threadUpdateOrg = thread(UPDATE_ORG_TTL, null, null)((trace) => {
       this.updateOrg(trace);
     });
 
@@ -53,7 +73,7 @@ class Kingdom extends OrgBase {
 
     setupTrace.end();
   }
-  update(trace) {
+  update(trace: Tracer) {
     const updateTrace = trace.begin('update');
 
     this.topics.removeStale();
@@ -64,6 +84,7 @@ class Kingdom extends OrgBase {
       spawns: {},
       pathCache: {},
       scheduler: {},
+      defense: {},
     };
 
     this.threadUpdateOrg(updateTrace);
@@ -92,7 +113,7 @@ class Kingdom extends OrgBase {
 
     updateTrace.end();
   }
-  process(trace) {
+  process(trace: Tracer) {
     const processTrace = trace.begin('process');
 
     const partiesTrace = processTrace.begin('warparty');
@@ -124,40 +145,37 @@ class Kingdom extends OrgBase {
 
     processTrace.end();
   }
-  toString() {
-    return `---- Kingdom - #Colonies: ${Object.keys(this.colonies).length}`;
-  }
-  getParent() {
+  getParent(): Kingdom {
     return this;
   }
-  getKingdom() {
+  getKingdom(): Kingdom {
     return this;
   }
-  getFriends() {
+  getFriends(): string[] {
     return this.config.friends;
   }
-  getAvoid() {
+  getAvoid(): string[] {
     return this.config.avoid;
   }
-  getKOS() {
+  getKOS(): string[] {
     return this.config.kos;
   }
-  getShardConfig(shardName) {
+  getShardConfig(shardName: string): ShardConfig {
     return this.config.shards[shardName] || null;
   }
-  getResourceGovernor() {
+  getResourceGovernor(): ResourceGovernor {
     return this.resourceGovernor;
   }
-  getScribe() {
+  getScribe(): Scribe {
     return this.scribe;
   }
-  getPathCache() {
+  getPathCache(): PathCache {
     return this.pathCache;
   }
-  getColonies() {
+  getColonies(): Colony[] {
     return Object.values(this.colonies);
   }
-  getColonyById(colonyId) {
+  getColonyById(colonyId: string): Colony {
     return this.colonies[colonyId];
   }
   getColony() {
@@ -166,18 +184,18 @@ class Kingdom extends OrgBase {
   getRoom() {
     throw new Error('a kingdom is not a room');
   }
-  getRoomColony(roomName) {
+  getRoomColony(roomName: string): Colony {
     return _.find(this.colonies, (colony) => {
       return colony.desiredRooms.indexOf(roomName) > -1;
     });
   }
-  getRoomByName(name) {
+  getRoomByName(name: string): OrgRoom {
     return this.roomNameToOrgRoom[name] || null;
   }
-  getCreeps() {
+  getCreeps(): Creep[] {
     return this.creeps;
   }
-  getCreepColony(creep) {
+  getCreepColony(creep: Creep): Colony {
     const colonyId = creep.memory[MEMORY.MEMORY_COLONY];
     if (!colonyId) {
       return null;
@@ -185,7 +203,7 @@ class Kingdom extends OrgBase {
 
     return this.getColonyById(colonyId);
   }
-  getCreepAssignedRoom(creep) {
+  getCreepAssignedRoom(creep: Creep): OrgRoom {
     const colony = this.getCreepColony(creep);
     if (!colony) {
       return null;
@@ -205,13 +223,13 @@ class Kingdom extends OrgBase {
 
     return room;
   }
-  getCreepRoom(creep) {
+  getCreepRoom(creep: Creep): OrgRoom {
     const colony = this.getCreepColony(creep);
     if (!colony) {
       return null;
     }
 
-    const roomId = creep.room.name;
+    const roomId = creep.room?.name;
     if (!roomId) {
       return null;
     }
@@ -223,10 +241,10 @@ class Kingdom extends OrgBase {
 
     return room;
   }
-  getScheduler() {
+  getScheduler(): Scheduler {
     return this.scheduler;
   }
-  getStats() {
+  getStats(): any {
     return this.stats;
   }
   updateStats() {
@@ -247,7 +265,7 @@ class Kingdom extends OrgBase {
     stats.cpu.used = Game.cpu.getUsed();
 
     stats.creeps = _.countBy(Game.creeps, (creep) => {
-      return creep.memory.role;
+      return creep.memory[MEMORY.MEMORY_ROLE];
     });
 
     stats.topics = this.topics.getCounts();
@@ -256,25 +274,25 @@ class Kingdom extends OrgBase {
 
     stats.credits = Game.market.credits;
   }
-  sendRequest(topic, priority, request, ttl) {
+  sendRequest(topic: string, priority: number, request, ttl: number) {
     this.topics.addRequest(topic, priority, request, ttl);
   }
-  getNextRequest(topic) {
+  getNextRequest(topic: string): any {
     return this.topics.getNextRequest(topic);
   }
-  peekNextRequest(topic) {
+  peekNextRequest(topic: string): any {
     return this.topics.peekNextRequest(topic);
   }
-  getTopicLength(topic) {
+  getTopicLength(topic: string): number {
     return this.topics.getLength(topic);
   }
-  getTopics() {
+  getTopics(): Topics {
     return this.topics;
   }
-  getFilteredRequests(topicId, filter) {
+  getFilteredRequests(topicId, filter): any[] {
     return this.topics.getFilteredRequests(topicId, filter);
   }
-  updateOrg(trace) {
+  updateOrg(trace: Tracer) {
     const orgUpdateTrace = trace.begin('update_org');
 
     this.creeps = _.values(Game.creeps);
@@ -317,5 +335,3 @@ class Kingdom extends OrgBase {
     orgUpdateTrace.end();
   }
 }
-
-module.exports = Kingdom;

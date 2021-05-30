@@ -2,7 +2,7 @@ import {Process, Runnable, RunnableResult, running, sleeping, terminate} from ".
 import {Tracer} from './lib.tracing';
 import {thread} from './os.thread';
 
-import Kingdom from "./org.kingdom";
+import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
 
 import {Priorities, Scheduler} from "./os.scheduler";
@@ -16,7 +16,7 @@ import TerminalRunnable from "./runnable.terminal";
 import {LabsManager} from "./runnable.manager.labs";
 import {creepIsFresh} from './behavior.commute';
 
-import PRIORITIES from './constants.priorities';
+import * as PRIORITIES from './constants.priorities';
 import MEMORY from './constants.memory';
 import CREEPS from './constants.creeps';
 import TOPICS, {DEFENSE_STATUSES} from './constants.topics';
@@ -62,7 +62,7 @@ export default class RoomRunnable {
   prevTime: number;
   defensePosture: DEFENSE_POSTURE;
 
-  threadUpdateProcesses: any;
+  threadUpdateProcessSpawning: any;
   threadRequestRepairer: any;
   threadRequestBuilder: any;
   threadRequestDistributor: any;
@@ -72,6 +72,7 @@ export default class RoomRunnable {
   threadCheckSafeMode: any;
   threadRequestExtensionFilling: any;
   threadUpdateRampartAccess: any;
+  threadRequestEnergy: any;
 
   constructor(id: string, scheduler: Scheduler) {
     this.id = id;
@@ -81,7 +82,7 @@ export default class RoomRunnable {
     this.defensePosture = DEFENSE_POSTURE.UNKNOWN;
 
     // Threads
-    this.threadUpdateProcesses = thread(UPDATE_PROCESSES_TTL, null, null)(this.handleProcesses.bind(this));
+    this.threadUpdateProcessSpawning = thread(UPDATE_PROCESSES_TTL, null, null)(this.handleProcessSpawning.bind(this));
     this.threadRequestRepairer = thread(REQUEST_REPAIRER_TTL, null, null)(this.requestRepairer.bind(this));
     this.threadRequestBuilder = thread(REQUEST_BUILDER_TTL, null, null)(this.requestBuilder.bind(this));
     this.threadRequestDistributor = thread(REQUEST_DISTRIBUTOR_TTL, null, null)(this.requestDistributor.bind(this));
@@ -91,6 +92,7 @@ export default class RoomRunnable {
     this.threadCheckSafeMode = thread(CHECK_SAFE_MODE_TTL, null, null)(this.checkSafeMode.bind(this));
     this.threadRequestExtensionFilling = thread(HAUL_EXTENSION_TTL, null, null)(this.requestExtensionFilling.bind(this));
     this.threadUpdateRampartAccess = thread(RAMPART_ACCESS_TTL, null, null)(this.updateRampartAccess.bind(this));
+    this.threadRequestEnergy = thread(ENERGY_REQUEST_TTL, null, null)(this.requestEnergy.bind(this))
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
@@ -132,12 +134,17 @@ export default class RoomRunnable {
       this.threadCheckSafeMode(room, trace);
     }
 
-    this.threadUpdateProcesses(orgRoom, room, trace);
+    this.threadUpdateProcessSpawning(orgRoom, room, trace);
+
+    // TODO don't request builders or repairers
+    this.threadRequestBuilder(orgRoom, room, trace);
+    this.threadRequestRepairer(orgRoom, room, trace);
+    this.threadRequestEnergy(orgRoom, room, trace);
 
     return running();
   }
 
-  handleProcesses(orgRoom: OrgRoom, room: Room, trace: Tracer) {
+  handleProcessSpawning(orgRoom: OrgRoom, room: Room, trace: Tracer) {
     if (room.controller?.my || !room.controller?.owner?.username) {
       // Sources
       room.find<FIND_SOURCES>(FIND_SOURCES).forEach((source) => {
@@ -162,10 +169,6 @@ export default class RoomRunnable {
             new SourceRunnable(orgRoom, mineral)));
         }
       }
-
-      // TODO don't request builders or repairers
-      this.threadRequestBuilder(orgRoom, room, trace);
-      this.threadRequestRepairer(orgRoom, room, trace);
     }
 
     if (orgRoom.isPrimary) {
@@ -218,46 +221,6 @@ export default class RoomRunnable {
         if (!this.scheduler.hasProcess(terminalId)) {
           this.scheduler.registerProcess(new Process(terminalId, 'terminals', Priorities.LOGISTICS,
             new TerminalRunnable(orgRoom, room.terminal)));
-        }
-
-        // TODO make thread
-        const terminalEnergy = room.terminal?.store.getUsedCapacity(RESOURCE_ENERGY) || 0;
-        const storageEnergy = room.storage?.store.getUsedCapacity(RESOURCE_ENERGY) || 0;
-
-        trace.log('room energy', {
-          requestEnergyTTL: this.requestEnergyTTL,
-          terminalEnergy,
-          storageEnergy,
-          roomLevel: orgRoom.getRoomLevel(),
-          desiredBuffer: orgRoom.getReserveBuffer(),
-          UPGRADER_ENERGY,
-          MIN_ENERGY,
-        });
-
-        // dont request energy if ttl on previous request not passed
-        if (this.requestEnergyTTL > 0) {
-          return;
-        }
-
-        let requestEnergy = false;
-
-        // if we are below minimum energy, request more
-        if (storageEnergy + terminalEnergy < MIN_ENERGY) {
-          requestEnergy = true;
-        }
-
-        // If not level 8, request more energy then buffer for upgrades
-        if (Game.market.credits > CREDIT_RESERVE && orgRoom.getRoomLevel() < 8 &&
-          storageEnergy + terminalEnergy < orgRoom.getReserveBuffer() + UPGRADER_ENERGY) {
-          requestEnergy = true;
-        }
-
-        if (requestEnergy) {
-          this.requestEnergyTTL = ENERGY_REQUEST_TTL;
-          const amount = 5000;
-          trace.log('requesting energy from governor', {amount, resource: RESOURCE_ENERGY});
-          (orgRoom as any).getKingdom().getResourceGovernor().requestResource(orgRoom,
-            RESOURCE_ENERGY, amount, ENERGY_REQUEST_TTL, trace);
         }
       }
 
@@ -658,6 +621,50 @@ export default class RoomRunnable {
       }
     } else {
       trace.log('do not enable safe mode');
+    }
+  }
+
+  requestEnergy(orgRoom: OrgRoom, room: Room, trace: Tracer) {
+    // TODO make thread
+    const terminalEnergy = room.terminal?.store.getUsedCapacity(RESOURCE_ENERGY) || 0;
+    const storageEnergy = room.storage?.store.getUsedCapacity(RESOURCE_ENERGY) || 0;
+
+    trace.log('room energy', {
+      requestEnergyTTL: this.requestEnergyTTL,
+      terminalEnergy,
+      storageEnergy,
+      roomLevel: orgRoom.getRoomLevel(),
+      desiredBuffer: orgRoom.getReserveBuffer(),
+      UPGRADER_ENERGY,
+      MIN_ENERGY,
+    });
+
+    // dont request energy if ttl on previous request not passed
+    if (this.requestEnergyTTL > 0) {
+      return;
+    }
+
+    let requestEnergy = false;
+
+    // if we are below minimum energy, request more
+    if (storageEnergy + terminalEnergy < MIN_ENERGY) {
+      requestEnergy = true;
+    }
+
+    /*
+    // If not level 8, request more energy then buffer for upgrades
+    if (Game.market.credits > CREDIT_RESERVE && orgRoom.getRoomLevel() < 8 &&
+      storageEnergy + terminalEnergy < orgRoom.getReserveBuffer() + UPGRADER_ENERGY) {
+      requestEnergy = true;
+    }
+    */
+
+    if (requestEnergy) {
+      this.requestEnergyTTL = ENERGY_REQUEST_TTL;
+      const amount = 5000;
+      trace.log('requesting energy from governor', {amount, resource: RESOURCE_ENERGY});
+      (orgRoom as any).getKingdom().getResourceGovernor().requestResource(orgRoom,
+        RESOURCE_ENERGY, amount, ENERGY_REQUEST_TTL, trace);
     }
   }
 }

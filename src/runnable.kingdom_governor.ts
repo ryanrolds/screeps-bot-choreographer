@@ -1,15 +1,12 @@
 import {Process, Runnable, RunnableResult, running, sleeping, terminate} from "./os.process";
 import {Tracer} from './lib.tracing';
-import Kingdom from "./org.kingdom";
+import {Kingdom} from "./org.kingdom";
 import {ColonyConfig, ShardConfig} from "./config";
-import {request} from "node:http";
 
-const MEMORY = require('./constants.memory');
-const WORKERS = require('./constants.creeps');
-const TASKS = require('./constants.tasks');
-const TOPICS = require('./constants.topics');
-const PRIORITIES = require('./constants.priorities');
-const {creepIsFresh} = require('./behavior.commute');
+import * as MEMORY from './constants.memory';
+import * as WORKERS from './constants.creeps';
+import * as TOPICS from './constants.topics';
+import * as PRIORITIES from './constants.priorities';
 
 const REQUEST_TTL = 1;
 const shardsNames = ['shard0', 'shard1', 'shard2', 'shard3'];

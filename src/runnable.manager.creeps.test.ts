@@ -11,7 +11,7 @@ import {CreepManager} from './runnable.manager.creeps';
 import {Tracer} from './lib.tracing';
 import * as MEMORY from './constants.memory';
 import * as CREEPS from './constants.creeps';
-import Kingdom from './org.kingdom';
+import {Kingdom} from './org.kingdom';
 
 describe('Creeps Manager', () => {
   let kingdom: Kingdom = null;

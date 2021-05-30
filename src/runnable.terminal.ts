@@ -1,11 +1,14 @@
 import {Process, Runnable, RunnableResult, running, sleeping, terminate} from "./os.process";
 import {Tracer} from './lib.tracing';
-import Kingdom from "./org.kingdom";
+import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
 import * as MEMORY from "./constants.memory"
 import * as TASKS from "./constants.tasks"
 import * as TOPICS from "./constants.topics"
-import * as MARKET from "./constants.market"
+import {PRICES} from "./constants.market"
+import * as PRIORITIES from "./constants.priorities"
+import {thread} from "./os.thread";
+import {ResourcePricer, SigmoidPricing} from './lib.sigmoid_pricing';
 
 const TASK_PHASE_HAUL_RESOURCE = 'phase_transfer_resource';
 const TASK_PHASE_TRANSACT = 'phase_transact';
@@ -17,6 +20,7 @@ const MAX_TERMINAL_ENERGY = 1000;
 const PROCESS_TASK_TTL = 10;
 const REQUEST_RETURN_ENERGY_TTL = 10;
 const ORDER_MGMT_TTL = 55;
+const HAUL_OLD_SELL_ORDER_TTL = 20;
 
 
 export default class TerminalRunnable {
@@ -26,6 +30,8 @@ export default class TerminalRunnable {
   processTaskTTL: number;
   returnEnergyTTL: number;
   updateOrdersTTL: number;
+  pricer: ResourcePricer;
+  threadHaulOldSellOrders: any;
 
   constructor(room: OrgRoom, terminal: StructureTerminal) {
     this.orgRoom = room;
@@ -35,6 +41,9 @@ export default class TerminalRunnable {
     this.processTaskTTL = 0;
     this.returnEnergyTTL = REQUEST_RETURN_ENERGY_TTL;
     this.updateOrdersTTL = ORDER_MGMT_TTL;
+    this.pricer = new SigmoidPricing(PRICES,);
+
+    this.threadHaulOldSellOrders = thread(HAUL_OLD_SELL_ORDER_TTL, null, null)(this.haulOldSellOrders.bind(this));
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
@@ -53,6 +62,8 @@ export default class TerminalRunnable {
       trace.log('terminal not found - terminating', {})
       return terminate();
     }
+
+    this.threadHaulOldSellOrders(terminal, trace);
 
     let task = terminal.room.memory[MEMORY.TERMINAL_TASK] || null;
     if (!task) {
@@ -249,7 +260,12 @@ export default class TerminalRunnable {
     }
 
     const order = _.sortBy(orders, 'price')[0];
-    if (order.price > MARKET.PRICES[resource].buy) {
+
+    const resources = this.orgRoom.getKingdom().getResourceGovernor().getSharedResources();
+    const reserveAmount = resources[resource] || 0;
+    const price = this.pricer.getPrice(ORDER_BUY, resource, reserveAmount);
+
+    if (order.price > price) {
       trace.log('buy order failed: costs to much');
       this.clearTask(trace);
       return;
@@ -259,21 +275,26 @@ export default class TerminalRunnable {
     let haulAmount = dealAmount;
     trace.log('deal amount', {dealAmount, resource});
 
-    const energyRequired = Game.market.calcTransactionCost(missingAmount, terminal.room.name, order.roomName);
+    const energyRequired = Game.market.calcTransactionCost(missingAmount, terminal.room.name,
+      order.roomName);
     // If we are transfering energy we need energy in addition to what we want to transfer
     if (resource === RESOURCE_ENERGY) {
       haulAmount += energyRequired;
       trace.log('padded haul amount', {haulAmount, added: energyRequired});
     }
 
-    const energyReady = this.haulTransferEnergyToTerminal(terminal, resource, haulAmount, order.roomName, trace);
+    const energyReady = this.haulTransferEnergyToTerminal(terminal, resource, haulAmount,
+      order.roomName, trace);
     if (!energyReady) {
       trace.log('deal energy not ready')
       return;
     }
 
     const result = Game.market.deal(order.id, dealAmount, terminal.room.name);
-    trace.log('deal result', {orderId: order.id, missingAmount, dealAmount, destRoom: terminal.room.name, energyRequired, result});
+    trace.log('deal result', {
+      orderId: order.id, missingAmount, dealAmount,
+      destRoom: terminal.room.name, energyRequired, result
+    });
   }
 
   sell(terminal: StructureTerminal, task, trace: Tracer) {
@@ -313,6 +334,17 @@ export default class TerminalRunnable {
           break;
         }
 
+        // Check if we already have a sell order for the room and resource
+        const duplicateBuyOrders = Object.values(Game.market.orders).filter((order) => {
+          return order.type === ORDER_SELL && order.resourceType === resource &&
+            order.roomName === terminal.room.name && order.remainingAmount > 0;
+        });
+        if (duplicateBuyOrders.length) {
+          trace.log('duplicate orders found', {duplicateBuyOrders});
+          this.clearTask(trace);
+          return;
+        }
+
         let orders = Game.market.getAllOrders({type: ORDER_BUY, resourceType: resource});
 
         orders = orders.filter((order) => {
@@ -322,27 +354,11 @@ export default class TerminalRunnable {
         orders = _.sortBy(orders, 'price').reverse();
         const order = orders[0];
 
-        if (!orders.length || order.price < MARKET.PRICES[resource].sell) {
-          // Check if we already have a sell order for the room and resource
-          const duplicateBuyOrders = Object.values(Game.market.orders).filter((order) => {
-            return order.type === ORDER_SELL && order.resourceType === resource &&
-              order.roomName === terminal.room.name && order.remainingAmount > 0;
-          });
-          if (duplicateBuyOrders.length) {
+        const resources = this.orgRoom.getKingdom().getResourceGovernor().getSharedResources();
+        const currentAmount = resources[resource] || 0;
+        const price = this.pricer.getPrice(ORDER_SELL, resource, currentAmount);
 
-            //  `${JSON.stringify(duplicateBuyOrders)}`)
-            this.clearTask(trace);
-            return;
-          }
-
-          if (!MARKET.PRICES[resource]) {
-
-            this.clearTask(trace);
-            return;
-          }
-
-          const price = MARKET.PRICES[resource].sell;
-
+        if (!orders.length || order.price < price) {
           // Create buy order
           const order = {
             type: ORDER_SELL,
@@ -352,9 +368,7 @@ export default class TerminalRunnable {
             roomName: terminal.room.name,
           };
           const result = Game.market.createOrder(order);
-          if (result != OK) {
-
-          }
+          trace.log('create order result', {result, order});
 
           this.clearTask(trace);
           return;
@@ -372,7 +386,6 @@ export default class TerminalRunnable {
         }
 
         const result = Game.market.deal(order.id, dealAmount, terminal.room.name);
-
         if (result == OK) {
           terminal.room.memory[MEMORY.TERMINAL_TASK].details[MEMORY.MEMORY_ORDER_AMOUNT] -= dealAmount;
         }
@@ -385,40 +398,22 @@ export default class TerminalRunnable {
   }
 
   updateOrders(terminal: StructureTerminal, trace: Tracer) {
-    // Check if we already have a sell order for the room and resource
+    trace.log('updating prices on buy/sell orders');
+
     Object.values(Game.market.orders).filter((order) => {
       return order.roomName === terminal.room.name;
     }).forEach((order) => {
       if (order.remainingAmount === 0) {
-        trace.log('order is complete; cancelling', {orderId: order.id});
-        Game.market.cancelOrder(order.id);
+        const result = Game.market.cancelOrder(order.id);
+        trace.log('order is complete; cancelled', {result, orderId: order.id});
         return;
       }
 
-      const missingAmount = order.amount - order.remainingAmount;
-      if (missingAmount > 0) {
-        const pickup = this.orgRoom.getReserveStructureWithMostOfAResource(order.resourceType, false);
-        if (!pickup) {
-          trace.log('order missing resource and no pickup; cancelling',
-            {orderId: order.id, missingAmount, resource: order.resourceType});
-          Game.market.cancelOrder(order.id);
-        } else {
-          trace.log('requesting hauling of missing resource',
-            {orderId: order.id, missingAmount, resource: order.resourceType});
-          this.haulResourceToTerminal(terminal, pickup, order.resourceType, order.remainingAmount - order.amount);
-        }
-      }
 
-      if (!MARKET.PRICES[order.resourceType]) {
-        trace.log(`no price set for resource`, {resource: order.resourceType, orderId: order.id});
-        return;
-      }
-
-      let price = MARKET.PRICES[order.resourceType].sell;
-      if (order.type === ORDER_BUY) {
-        price = MARKET.PRICES[order.resourceType].buy;
-      }
-
+      const resources = this.orgRoom.getKingdom().getResourceGovernor().getSharedResources();
+      const currentAmount = resources[order.resourceType] || 0;
+      const price = this.pricer.getPrice(order.type as (ORDER_BUY | ORDER_SELL),
+        order.resourceType as ResourceConstant, currentAmount);
       if (order.price !== price) {
         Game.market.changeOrderPrice(order.id, price);
         trace.log('updating order price', {
@@ -426,6 +421,37 @@ export default class TerminalRunnable {
           previousPrice: order.price, newPrice: price, resource: order.resourceType,
         });
       }
+    });
+  }
+
+  haulOldSellOrders(terminal: StructureTerminal, trace: Tracer) {
+    trace.log('checking for incomplete sell orders');
+
+    const ordersWithMissingResources = Object.values(Game.market.orders).filter((order) => {
+      return order.type === ORDER_SELL && order.roomName === terminal.room.name &&
+        order.remainingAmount - order.amount > 0;
+    });
+
+    trace.log('incomplete orders', {ordersWithMissingResources})
+
+    ordersWithMissingResources.forEach((order) => {
+      const pickup = this.orgRoom.getReserveStructureWithMostOfAResource(order.resourceType, false);
+      if (!pickup) {
+        const result = Game.market.cancelOrder(order.id);
+        trace.log('cancelling order: resource not available', {result, order});
+        return;
+      }
+
+      const missingAmount = order.remainingAmount - order.amount;
+      if (pickup.store.getUsedCapacity(order.resourceType) < missingAmount) {
+        const result = Game.market.cancelOrder(order.id);
+        trace.log('cancelling order: not enough of the resource available', {result, order, missingAmount});
+        return;
+      }
+
+      trace.log('requesting hauling', {resource: order.resourceType, missingAmount});
+
+      this.sendHaulRequest(terminal, pickup, order.resourceType as ResourceConstant, missingAmount, PRIORITIES.HAUL_TERMINAL);
     });
   }
 
@@ -441,7 +467,7 @@ export default class TerminalRunnable {
       return;
     }
 
-    this.sendHaulRequest(terminal, pickup, resource, amount, 0.8);
+    this.sendHaulRequest(terminal, pickup, resource, amount, PRIORITIES.HAUL_TERMINAL);
   }
 
   haulTransferEnergyToTerminal(terminal: StructureTerminal, resource: ResourceConstant,
@@ -457,7 +483,7 @@ export default class TerminalRunnable {
 
         const requestAmount = amount - currentEnergy;
         trace.log('requesting', {resource, amount: requestAmount});
-        this.sendHaulRequest(terminal, pickup, RESOURCE_ENERGY, requestAmount, 1);
+        this.sendHaulRequest(terminal, pickup, RESOURCE_ENERGY, requestAmount, PRIORITIES.HAUL_TERMINAL);
         return false;
       }
 
@@ -499,6 +525,8 @@ export default class TerminalRunnable {
       [MEMORY.MEMORY_HAUL_AMOUNT]: amount,
       [MEMORY.MEMORY_HAUL_DROPOFF]: reserve.id,
     };
-    (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, 1.0, details, ttl);
+    (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_TERMINAL, details, ttl);
   }
 }
+
+

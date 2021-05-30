@@ -174,19 +174,22 @@ const loadIfNeeded = behaviorTree.selectorNode(
         }
 
         let amount = creep.memory[MEMORY.MEMORY_HAUL_AMOUNT];
-
-        if (creep.store.getFreeCapacity(resource) === 0) {
-          return SUCCESS;
-        }
-
-        if (amount >= creep.store.getFreeCapacity(resource)) {
-          amount = creep.store.getFreeCapacity(resource);
-          creep.memory[MEMORY.MEMORY_HAUL_AMOUNT] = amount;
-        }
-
         if (!amount) {
           const taskId = creep.memory[MEMORY.TASK_ID] || 'unknown task id';
           throw new Error(`Hauler task missing amount: ${taskId}`);
+        }
+
+        if (creep.store.getUsedCapacity(resource) > amount * 0.5) {
+          return SUCCESS;
+        }
+
+        if (amount >= creep.store.getCapacity(resource)) {
+          amount = creep.store.getCapacity(resource);
+          creep.memory[MEMORY.MEMORY_HAUL_AMOUNT] = amount;
+        }
+
+        if (amount < creep.store.getCapacity(resource) && resource === RESOURCE_ENERGY) {
+          creep.memory[MEMORY.MEMORY_HAUL_AMOUNT] = creep.store.getCapacity(resource);
         }
 
         trace.log('has resource', {

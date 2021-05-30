@@ -1,6 +1,6 @@
 import {Process, Runnable, RunnableResult, running, sleeping, terminate} from "./os.process";
 import {Tracer} from './lib.tracing';
-import Kingdom from "./org.kingdom";
+import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
 import * as MEMORY from "./constants.memory"
 import * as TASKS from "./constants.tasks"
@@ -11,7 +11,7 @@ import * as PRIORITIES from "./constants.priorities"
 const TASK_PHASE_LOAD = 'phase_transfer_resources';
 const TASK_PHASE_REACT = 'phase_react';
 const TASK_PHASE_UNLOAD = 'phase_unload';
-const TASK_TTL = 300;
+const TASK_TTL = 25;
 
 const REQUEST_LOAD_TTL = 20;
 const REQUEST_UNLOAD_TTL = 20;
@@ -125,6 +125,11 @@ export default class ReactorRunnable {
       case TASK_PHASE_LOAD:
         // Maintain task TTL. We want to abort hard to perform tasks
         let ttl = task[MEMORY.REACTOR_TTL];
+        // Check if we have lowered the TTL and use the new one
+        if (ttl > TASK_TTL) {
+          ttl = TASK_TTL;
+        }
+
         if (ttl <= 0) {
           trace.log('ttl exceeded, clearing task', {});
           this.clearTask();

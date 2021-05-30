@@ -1,6 +1,6 @@
 import {Process, Runnable, RunnableResult, running, sleeping, terminate} from "./os.process";
 import {Tracer} from './lib.tracing';
-import Kingdom from "./org.kingdom";
+import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
 import * as MEMORY from "./constants.memory"
 import * as TASKS from "./constants.tasks"

@@ -64,8 +64,8 @@ let config: KingdomConfig = {
         id: 'E12S49-Shard3',
         primary: 'E12S49',
         isPublic: false,
-        rooms: ['E12S49'],
-        // rooms: ['E12S49', 'E13S49'],
+        //rooms: ['E12S49'],
+        rooms: ['E12S49', 'E13S49'],
       },
       'E19S51-Shard3': {
         id: 'E19S51-Shard3',

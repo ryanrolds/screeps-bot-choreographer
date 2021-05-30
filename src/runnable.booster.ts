@@ -1,6 +1,6 @@
 import {Process, Runnable, RunnableResult, running, sleeping, terminate} from "./os.process";
 import {Tracer} from './lib.tracing';
-import Kingdom from "./org.kingdom";
+import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
 import * as MEMORY from "./constants.memory"
 import * as TASKS from "./constants.tasks"
@@ -8,7 +8,7 @@ import * as TOPICS from "./constants.topics"
 import * as CREEPS from "./constants.creeps"
 import * as PRIORITIES from "./constants.priorities"
 
-const MIN_COMPOUND = 500;
+const MIN_COMPOUND = 30;
 const MIN_ENERGY = 1000;
 const MAX_ENERGY = 1000;
 
@@ -69,15 +69,26 @@ export default class BoosterRunnable {
       return terminate();
     }
 
+    trace.log('booster run', {labId: labs.map(lab => lab.id)});
+
     const availableEffects = this.getAvailableEffects();
     const loadedEffects = this.getLoadedEffects();
     const desiredEffects = this.getDesiredEffects();
 
-    trace.log('booster run', {
-      labIds: this.labIds,
+    const [needToLoad, couldUnload, emptyLabs] = this.getNeeds(loadedEffects, desiredEffects, trace);
+    this.updateStats(loadedEffects, couldUnload, needToLoad, trace);
+
+    trace.log('room status', {
       loaded: loadedEffects,
       desired: desiredEffects,
       availableEffects: availableEffects,
+    });
+
+    trace.log('booster needs', {
+      labIds: this.labIds,
+      needToLoad,
+      couldUnload,
+      emptyLabIds: emptyLabs.map(lab => lab.id),
     });
 
     let sleepFor = REQUEST_ENERGY_TTL;
@@ -85,7 +96,7 @@ export default class BoosterRunnable {
 
     if (Object.keys(desiredEffects).length) {
       sleepFor = REQUEST_LOAD_TTL;
-      this.sendHaulRequests(desiredEffects, trace);
+      this.sendHaulRequests(loadedEffects, desiredEffects, needToLoad, emptyLabs, couldUnload, trace);
     } else {
       sleepFor = REQUEST_UNLOAD_TTL;
       this.requestClearLowLabs(trace);
@@ -98,13 +109,30 @@ export default class BoosterRunnable {
     return this.labIds.map(labId => Game.getObjectById(labId)).filter((lab => lab));
   }
 
-  updateStats(prepared, toUnLoad, toLoad) {
+  updateStats(prepared, toUnLoad, toLoad, trace: Tracer) {
     const stats = (this.orgRoom as any).getStats();
-    stats.colonies[(this.orgRoom as any).getColony().id].booster = {
+    const colony = (this.orgRoom as any).getColony();
+    if (!colony) {
+      trace.log('could not find colony', {roomId: this.orgRoom.id});
+      return;
+    }
+
+    const boosterStats = {
       prepared: prepared.length,
       toUnload: toUnLoad.length,
       toLoad: toLoad.length,
+      boostedCreeps: (colony.getCreeps() as Creep[]).reduce((total, creep) => {
+        if (_.find(creep.body, part => {return !!part.boost;})) {
+          return total + 1;
+        }
+
+        return total;
+      }, 0),
     };
+
+    trace.log('updating booster stats', {boosterStats});
+
+    stats.colonies[colony.id].booster = boosterStats;
   }
 
   getBoostPosition() {
@@ -240,8 +268,7 @@ export default class BoosterRunnable {
 
     return desiredEffects;
   }
-  sendHaulRequests(desiredEffects, trace: Tracer) {
-    const loadedEffects = this.getLoadedEffects();
+  getNeeds(loadedEffects, desiredEffects, trace: Tracer) {
     const loadedNames = Object.keys(loadedEffects);
     const desiredNames = Object.keys(desiredEffects);
     let preparedNames = _.intersection(loadedNames, desiredNames);
@@ -257,18 +284,16 @@ export default class BoosterRunnable {
       return true;
     });
 
-    const emptyLabs = this.getEmptyLabs();
-    const couldUnload = _.difference(loadedNames, preparedNames);
     const needToLoad = _.difference(desiredNames, preparedNames);
+    const couldUnload = _.difference(loadedNames, preparedNames);
+    const emptyLabs = this.getEmptyLabs();
 
+    return [needToLoad, couldUnload, emptyLabs]
+  }
+
+  sendHaulRequests(loadedEffects, desiredEffects, needToLoad, emptyLabs, couldUnload, trace: Tracer) {
     const numToLoad = needToLoad.length;
     const numEmpty = emptyLabs.length;
-
-    if (numToLoad > numEmpty) {
-      const numToUnload = numToLoad - numEmpty;
-      const unload = couldUnload.slice(0, numToUnload);
-      this.requestUnloadOfLabs(loadedEffects, unload, trace);
-    }
 
     if (numEmpty && numToLoad) {
       const numReadyToLoad = _.min([numEmpty, numToLoad]);
@@ -276,7 +301,11 @@ export default class BoosterRunnable {
       this.requestMaterialsForLabs(desiredEffects, load, trace);
     }
 
-    this.updateStats(preparedNames, couldUnload, needToLoad);
+    if (numToLoad > numEmpty) {
+      const numToUnload = numToLoad - numEmpty;
+      const unload = couldUnload.slice(0, numToUnload);
+      this.requestUnloadOfLabs(loadedEffects, unload, trace);
+    }
   }
   requestClearLowLabs(trace: Tracer) {
     const labs = this.getLabs();
@@ -286,7 +315,7 @@ export default class BoosterRunnable {
         return;
       }
 
-      if (lab.store.getUsedCapacity(lab.mineralType) > MIN_COMPOUND) {
+      if (lab.store.getUsedCapacity(lab.mineralType) >= MIN_COMPOUND) {
         trace.log('lab is not below min', {labId: lab.id, resource: lab.mineralType});
         return;
       }
@@ -361,6 +390,10 @@ export default class BoosterRunnable {
     needToLoad.forEach((toLoad) => {
       trace.log('need to load', {toLoad})
       const effect = desiredEffects[toLoad];
+      if (!effect) {
+        trace.log('not able to find desired effect', {toLoad});
+        return;
+      }
 
       const emptyLabs = this.getEmptyLabs();
       if (emptyLabs.length === 0) {
@@ -382,7 +415,7 @@ export default class BoosterRunnable {
 
       // Refactor this to a a function that further filters a set of effects
       const compound = effect.compounds.reduce((selected, compound) => {
-        if (reserveResources[compound.name] > MIN_COMPOUND) {
+        if (reserveResources[compound.name] >= MIN_COMPOUND) {
           if (!selected) {
             selected = compound;
           }

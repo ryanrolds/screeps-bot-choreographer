@@ -1,6 +1,6 @@
 import {Tracer} from './lib.tracing';
 import {Process} from './os.process';
-import Kingdom from './org.kingdom';
+import {Kingdom} from './org.kingdom';
 import * as _ from 'lodash';
 import {start} from 'node:repl';
 

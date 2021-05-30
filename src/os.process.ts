@@ -1,5 +1,5 @@
 import {Tracer} from './lib.tracing';
-import Kingdom from './org.kingdom';
+import {Kingdom} from './org.kingdom';
 import * as _ from 'lodash';
 
 export interface Runnable {

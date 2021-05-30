@@ -3,20 +3,21 @@ const TOPICS = require('./constants.topics');
 const MEMORY = require('./constants.memory');
 const TASKS = require('./constants.tasks');
 const PRIORITIES = require('./constants.priorities');
-const MARKET = require('./constants.market');
 const {thread} = require('./os.thread');
+const {SigmoidPricing} = require('./lib.sigmoid_pricing');
+const {PRICES} = require('./constants.market');
 
 const RESERVE_LIMIT = 10000;
 const REACTION_BATCH_SIZE = 1000;
 const MIN_CREDITS = 5000;
-const MIN_CREDITS_FOR_BOOSTS = 15000;
+const MIN_CREDITS_FOR_BOOSTS = 100000;
 const MIN_SELL_ORDER_SIZE = 1000;
 const MAX_SELL_AMOUNT = 25000;
 
 const MIN_ROOM_ENERGY = 100000;
 
-const REQUEST_REACTION_TTL = 100;
-const REQUEST_SELL_TTL = 60;
+const REQUEST_REACTION_TTL = 500;
+const REQUEST_SELL_TTL = 500;
 const REQUEST_DISTRIBUTE_BOOSTS = 30;
 
 // Try to ensure that all colonies are ready to
@@ -30,6 +31,7 @@ const CRITICAL_EFFECTS = {
   'damage': ['XGHO2', 'GHO2', 'GO'],
 };
 const MIN_CRITICAL_COMPOUND = 1000;
+const DESIRED_CRITICAL_COMPOUND = 5000;
 
 class Resources extends OrgBase {
   constructor(parent, trace) {
@@ -37,12 +39,14 @@ class Resources extends OrgBase {
 
     const setupTrace = this.trace.begin('constructor');
 
+    this.pricer = new SigmoidPricing(PRICES);
     this.resources = {};
     this.sharedResources = {};
 
     this.availableReactions = {};
 
     this.threadRequestReactions = thread(REQUEST_REACTION_TTL)(() => {
+      this.availableReactions = this.getReactions(trace);
       this.requestReactions();
     });
 
@@ -63,7 +67,6 @@ class Resources extends OrgBase {
 
     this.resources = this.getReserveResources(true);
     this.sharedResources = this.getSharedResources();
-    this.availableReactions = this.getReactions(trace);
 
     this.threadRequestReactions();
     this.threadRequestSellExtraResources();
@@ -80,18 +83,25 @@ class Resources extends OrgBase {
 
     processTrace.end();
   }
-  toString() {
-    const reactions = this.availableReactions.map((reaction) => {
-      return reaction.output;
-    });
-
-    return `* Resource Gov - ` +
-      `NextReactions: ${JSON.stringify(reactions)}`;
-    // `SharedResources: ${JSON.stringify(this.sharedResources)}`;
-  }
   updateStats() {
     const stats = this.getStats();
     stats.resources = this.resources;
+
+    const colonies = this.getKingdom().getColonies();
+    stats.critical_resources = colonies.reduce((acc, colony) => {
+      const colonyResources = colony.getReserveResources(true);
+      acc[colony.id] = Object.values(CRITICAL_EFFECTS).reduce((totalScore, effectResources) => {
+        for (let i = 0; i < effectResources.length; i++) {
+          if (colonyResources[effectResources[i]] >= MIN_CRITICAL_COMPOUND) {
+            return totalScore + 3 - i;
+          }
+        }
+
+        return totalScore;
+      }, 0);
+
+      return acc;
+    }, {});
   }
   getRoomWithTerminalWithResource(resource, notRoomName = null) {
     const terminals = this.getKingdom().getColonies().reduce((acc, colony) => {
@@ -125,7 +135,7 @@ class Resources extends OrgBase {
       let amount = colony.getAmountInReserve(resource, true);
 
       if (isCritical) {
-        amount -= MIN_CRITICAL_COMPOUND;
+        amount -= DESIRED_CRITICAL_COMPOUND;
       }
 
       if (resource === RESOURCE_ENERGY && amount < MIN_ROOM_ENERGY) {
@@ -185,7 +195,7 @@ class Resources extends OrgBase {
         let amount = roomResources[resource];
 
         if (isCritical) {
-          amount -= MIN_CRITICAL_COMPOUND;
+          amount -= DESIRED_CRITICAL_COMPOUND;
         }
 
         if (amount < 0) {
@@ -325,7 +335,7 @@ class Resources extends OrgBase {
         };
       }
 
-      if (acc.amount > MIN_CRITICAL_COMPOUND) {
+      if (acc.amount > DESIRED_CRITICAL_COMPOUND) {
         return acc;
       }
 
@@ -348,7 +358,7 @@ class Resources extends OrgBase {
       return;
     }
 
-    // Don't sent transfer request if a terminal already has the task
+    // Don't send transfer request if a terminal already has the task
     const inProgress = this.getTerminals().filter((orgTerminal) => {
       const task = orgTerminal.getTask();
       if (!task) {
@@ -397,6 +407,7 @@ class Resources extends OrgBase {
   }
   createBuyOrder(room, resource, amount, trace) {
     if (!room.hasTerminal()) {
+      trace.log('room does not have terminal', {roomName: room.name});
       return;
     }
 
@@ -406,14 +417,12 @@ class Resources extends OrgBase {
         order.resourceType === resource;
     });
     if (duplicateBuyOrders.length) {
+      trace.log('already have an order for resource', {resource});
       return;
     }
 
-    if (!MARKET.PRICES[resource]) {
-      return;
-    }
-
-    const price = MARKET.PRICES[resource].buy;
+    const currentAmount = this.resources[resource] || 0;
+    const price = this.pricer.getPrice(ORDER_BUY, resource, currentAmount);
 
     // Create buy order
     const order = {
@@ -424,9 +433,7 @@ class Resources extends OrgBase {
       roomName: room.id,
     };
     const result = Game.market.createOrder(order);
-    if (result != OK) {
-      trace.log('failed to create buy order', {order, result});
-    }
+    trace.log('create order result', {order, result});
   }
   requestReactions() {
     this.availableReactions.forEach((reaction) => {
@@ -503,26 +510,36 @@ class Resources extends OrgBase {
       const allEffects = booster.getEffects();
       const availableEffects = booster.getAvailableEffects();
 
-      Object.keys(CRITICAL_EFFECTS).forEach((effectName) => {
+      Object.entries(CRITICAL_EFFECTS).forEach(([effectName, compounds]) => {
         const effect = allEffects[effectName];
-        const availableEffect = availableEffects[effectName];
-        let desiredCompound = null;
-
-        if (!availableEffect) {
-          desiredCompound = this.getDesiredCompound(effect, this.resources);
-
-          // If the resource is available request transfer to room
-          if (desiredCompound.amount < MIN_CRITICAL_COMPOUND) {
-            this.requestResource(primaryRoom, desiredCompound.resource, MIN_CRITICAL_COMPOUND, trace);
-            return;
-          }
+        if (!effect) {
+          trace.log('missing effect', {effectName});
+          return;
         }
 
-        const roomReserve = primaryRoom.getReserveResources(true);
-        desiredCompound = this.getDesiredCompound(effect, roomReserve);
-        if (desiredCompound.amount < MIN_CRITICAL_COMPOUND && Game.market.credits > MIN_CREDITS_FOR_BOOSTS) {
-          this.createBuyOrder(primaryRoom, desiredCompound.resource, MIN_CRITICAL_COMPOUND, trace);
-          return;
+        const availableEffect = availableEffects[effectName];
+        if (!availableEffect) {
+          const desiredCompound = this.getDesiredCompound(effect, this.resources);
+          // If the resource is available request transfer to room
+          if (desiredCompound.amount < DESIRED_CRITICAL_COMPOUND) {
+            this.requestResource(primaryRoom, desiredCompound.resource, DESIRED_CRITICAL_COMPOUND,
+              REQUEST_DISTRIBUTE_BOOSTS, trace);
+          }
+
+          const bestCompound = compounds[0];
+          const roomReserve = primaryRoom.getReserveResources(true);
+          const currentAmount = roomReserve[bestCompound] || 0;
+          trace.log('maybe buy best compound', {
+            colonyId: colony.id,
+            bestCompound,
+            currentAmount,
+            credits: Game.market.credits,
+            MIN_CREDITS_FOR_BOOSTS,
+            MIN_CRITICAL_COMPOUND,
+          });
+          if (currentAmount < MIN_CRITICAL_COMPOUND && Game.market.credits > MIN_CREDITS_FOR_BOOSTS) {
+            this.createBuyOrder(primaryRoom, bestCompound, MIN_CRITICAL_COMPOUND, trace);
+          }
         }
       });
     });

@@ -4,7 +4,7 @@ import * as _ from 'lodash';
 import {Scheduler} from "./os.scheduler";
 import {Process, Runnable, RunnableResult, running, terminate} from "./os.process";
 import {Tracer} from './lib.tracing';
-import Kingdom from './org.kingdom';
+import {Kingdom} from './org.kingdom';
 
 import {MEMORY_ROLE} from './constants.memory';
 import * as CREEPS from './constants.creeps';

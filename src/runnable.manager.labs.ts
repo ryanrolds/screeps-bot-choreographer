@@ -3,7 +3,7 @@ import * as _ from 'lodash';
 import {Scheduler, Priorities} from "./os.scheduler";
 import {Process, Runnable, RunnableResult, running, sleeping, terminate} from "./os.process";
 import {Tracer} from './lib.tracing';
-import Kingdom from './org.kingdom';
+import {Kingdom} from './org.kingdom';
 import Room from './org.room';
 import ReactorRunnable from './runnable.reactor';
 import BoosterRunnable from './runnable.booster';
@@ -46,7 +46,7 @@ export class LabsManager {
 
     // Check that we have processes for reactors
     this.reactorsIds.forEach((reactorIds) => {
-      const reactorId = `reactor_${reactorIds[0]}`;
+      const reactorId = `${reactorIds[0]}`;
       const hasProcess = this.scheduler.hasProcess(reactorId);
       if (!hasProcess) {
         this.scheduler.registerProcess(new Process(reactorId, 'reactors', Priorities.RESOURCES,
@@ -56,7 +56,7 @@ export class LabsManager {
 
     // Check that we have processes for boosters
     if (this.boosterIds.length) {
-      const boosterId = `booster_${this.boosterIds[0]}`;
+      const boosterId = `${this.boosterIds[0]}`;
       const hasProcess = this.scheduler.hasProcess(boosterId);
       if (!hasProcess) {
         const booster = new BoosterRunnable(boosterId, this.orgRoom, this.boosterIds);
@@ -90,7 +90,7 @@ export class LabsManager {
     }
 
     // TODO support multiple spawns
-    const primaryBooster: any = _.sortBy(spawns[0].pos.findInRange(unassignedLabs, 2), 'id').shift();
+    const primaryBooster: any = _.sortBy(spawns[0].pos.findInRange(unassignedLabs, 3), 'id').shift();
     if (primaryBooster) {
       // TODO change range to 2 to support having more than 3 labs in a booster
       let boosterLabs: StructureLab[] = _.sortBy(primaryBooster.pos.findInRange(unassignedLabs, 2), 'id');

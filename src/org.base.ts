@@ -1,9 +1,11 @@
+import {Tracer} from './lib.tracing'
+
 export class OrgBase {
   parent: OrgBase;
   id: string;
   trace: any;
 
-  constructor(parent: OrgBase, id: string, trace) {
+  constructor(parent: OrgBase, id: string, trace: Tracer) {
     this.parent = parent;
     this.id = id;
     this.trace = trace.with(this.constructor.name);

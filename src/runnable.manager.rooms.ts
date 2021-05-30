@@ -4,7 +4,7 @@ import * as _ from 'lodash';
 import {Scheduler, Priorities} from "./os.scheduler";
 import {Process, Runnable, RunnableResult, running, terminate} from "./os.process";
 import {Tracer} from './lib.tracing';
-import Kingdom from './org.kingdom';
+import {Kingdom} from './org.kingdom';
 import RoomRunnable from './runnable.room';
 import {ColonyConfig} from './config';
 
