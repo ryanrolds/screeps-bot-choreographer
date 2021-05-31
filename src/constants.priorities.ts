@@ -34,10 +34,10 @@ export const HAUL_CONTAINER = 1.0;
 export const HAUL_TOWER_HOSTILES = 1.6;
 export const HAUL_BOOST = 1.5;
 export const UNLOAD_BOOST = 1.5;
-export const HAUL_TOWER = 1.4;
 export const HAUL_TERMINAL = 1.3;
 export const HAUL_REACTION = 1.2;
 export const HAUL_EXTENSION = 1.0;
+export const HAUL_TOWER = 1.0;
 export const HAUL_NUKER = 0.8;
 
 // Reactions
