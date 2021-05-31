@@ -7,7 +7,7 @@ const {thread} = require('./os.thread');
 const {SigmoidPricing} = require('./lib.sigmoid_pricing');
 const {PRICES} = require('./constants.market');
 
-const RESERVE_LIMIT = 10000;
+const RESERVE_LIMIT = 20000;
 const REACTION_BATCH_SIZE = 1000;
 const MIN_CREDITS = 5000;
 const MIN_CREDITS_FOR_BOOSTS = 100000;
@@ -22,16 +22,15 @@ const REQUEST_DISTRIBUTE_BOOSTS = 30;
 
 // Try to ensure that all colonies are ready to
 // boost creeps with these effects
+const MIN_CRITICAL_COMPOUND = 1000;
 const CRITICAL_EFFECTS = {
   'upgradeController': ['XGH2O', 'GH2O', 'GH'],
-  'capacity': ['XKH2O', 'KH2O', 'KH'],
+  // 'capacity': ['XKH2O', 'KH2O', 'KH'],
   'heal': ['XLHO2', 'LHO2', 'LO'],
   'attack': ['XUH2O', 'UH2O', 'UH'],
   'rangedAttack': ['XKHO2', 'KHO2', 'KO'],
   'damage': ['XGHO2', 'GHO2', 'GO'],
 };
-const MIN_CRITICAL_COMPOUND = 1000;
-const DESIRED_CRITICAL_COMPOUND = 5000;
 
 class Resources extends OrgBase {
   constructor(parent, trace) {
@@ -135,7 +134,7 @@ class Resources extends OrgBase {
       let amount = colony.getAmountInReserve(resource, true);
 
       if (isCritical) {
-        amount -= DESIRED_CRITICAL_COMPOUND;
+        amount -= MIN_CRITICAL_COMPOUND;
       }
 
       if (resource === RESOURCE_ENERGY && amount < MIN_ROOM_ENERGY) {
@@ -195,7 +194,7 @@ class Resources extends OrgBase {
         let amount = roomResources[resource];
 
         if (isCritical) {
-          amount -= DESIRED_CRITICAL_COMPOUND;
+          amount -= MIN_CRITICAL_COMPOUND;
         }
 
         if (amount < 0) {
@@ -335,7 +334,7 @@ class Resources extends OrgBase {
         };
       }
 
-      if (acc.amount > DESIRED_CRITICAL_COMPOUND) {
+      if (acc.amount > MIN_CRITICAL_COMPOUND) {
         return acc;
       }
 
@@ -487,6 +486,8 @@ class Resources extends OrgBase {
     });
   }
   requestDistributeBoosts(trace) {
+    trace.log('balancing boosts');
+
     this.getKingdom().getColonies().forEach((colony) => {
       const primaryRoom = colony.getPrimaryRoom();
       if (!primaryRoom) {
@@ -517,19 +518,13 @@ class Resources extends OrgBase {
           return;
         }
 
-        const availableEffect = availableEffects[effectName];
-        if (!availableEffect) {
-          const desiredCompound = this.getDesiredCompound(effect, this.resources);
-          // If the resource is available request transfer to room
-          if (desiredCompound.amount < DESIRED_CRITICAL_COMPOUND) {
-            this.requestResource(primaryRoom, desiredCompound.resource, DESIRED_CRITICAL_COMPOUND,
-              REQUEST_DISTRIBUTE_BOOSTS, trace);
-          }
+        const bestCompound = compounds[0];
+        const roomReserve = primaryRoom.getReserveResources(true);
+        const currentAmount = roomReserve[bestCompound] || 0;
 
-          const bestCompound = compounds[0];
-          const roomReserve = primaryRoom.getReserveResources(true);
-          const currentAmount = roomReserve[bestCompound] || 0;
-          trace.log('maybe buy best compound', {
+        const availableEffect = availableEffects[effectName];
+        if (!availableEffect || currentAmount < MIN_CRITICAL_COMPOUND) {
+          trace.log('maybe request/buy best compound', {
             colonyId: colony.id,
             bestCompound,
             currentAmount,
@@ -537,9 +532,11 @@ class Resources extends OrgBase {
             MIN_CREDITS_FOR_BOOSTS,
             MIN_CRITICAL_COMPOUND,
           });
-          if (currentAmount < MIN_CRITICAL_COMPOUND && Game.market.credits > MIN_CREDITS_FOR_BOOSTS) {
-            this.createBuyOrder(primaryRoom, bestCompound, MIN_CRITICAL_COMPOUND, trace);
-          }
+
+          this.requestResource(primaryRoom, bestCompound, MIN_CRITICAL_COMPOUND - currentAmount,
+            REQUEST_DISTRIBUTE_BOOSTS, trace);
+        } else {
+          trace.log('have booster', {colonyId: colony.id, effectName, bestCompound, currentAmount});
         }
       });
     });

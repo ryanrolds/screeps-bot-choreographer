@@ -126,7 +126,7 @@ describe('Sigmoid Pricing', function () {
 
       it('should return high price when buying resource we do not have', () => {
         const price = pricer.getPrice(ORDER_BUY, RESOURCE_HYDROXIDE, 0);
-        expect(price).to.equal(3.001);
+        expect(price).to.equal(3);
       });
 
       it('should return high price when selling resource we do not have', () => {
@@ -151,7 +151,7 @@ describe('Sigmoid Pricing', function () {
 
       it('should return market price when selling a resource we have a lot of', () => {
         const price = pricer.getPrice(ORDER_SELL, RESOURCE_HYDROXIDE, 100000);
-        expect(price).to.equal(1.499);
+        expect(price).to.equal(1.5);
       });
     });
 
@@ -182,7 +182,7 @@ describe('Sigmoid Pricing', function () {
 
       it('should return high price when buying resource we do not have', () => {
         const price = pricer.getPrice(ORDER_BUY, RESOURCE_HYDROXIDE, 0);
-        expect(price).to.equal(1.001);
+        expect(price).to.equal(1);
       });
 
       it('should return high price when selling resource we do not have', () => {
@@ -192,12 +192,12 @@ describe('Sigmoid Pricing', function () {
 
       it('should return middle price when buying resources we have 50k', () => {
         const price = pricer.getPrice(ORDER_BUY, RESOURCE_HYDROXIDE, 10000);
-        expect(price).to.equal(1.001);
+        expect(price).to.equal(1);
       });
 
       it('should return middle price when selling resources we have 50k', () => {
         const price = pricer.getPrice(ORDER_SELL, RESOURCE_HYDROXIDE, 10000);
-        expect(price).to.equal(3.499);
+        expect(price).to.equal(3.5);
       });
 
       it('should return market price when buying a resource we have a lot of', () => {
@@ -207,7 +207,7 @@ describe('Sigmoid Pricing', function () {
 
       it('should return market price when selling a resource we have a lot of', () => {
         const price = pricer.getPrice(ORDER_SELL, RESOURCE_HYDROXIDE, 100000);
-        expect(price).to.equal(3.499);
+        expect(price).to.equal(3.5);
       });
     });
   });

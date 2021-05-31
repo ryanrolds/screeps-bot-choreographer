@@ -13,13 +13,13 @@ import {ResourcePricer, SigmoidPricing} from './lib.sigmoid_pricing';
 const TASK_PHASE_HAUL_RESOURCE = 'phase_transfer_resource';
 const TASK_PHASE_TRANSACT = 'phase_transact';
 const TASK_PHASE_TRANSFER = 'phase_transfer';
-const TASK_TTL = 100;
+const TASK_TTL = 50;
 
 const MAX_TERMINAL_ENERGY = 1000;
 
 const PROCESS_TASK_TTL = 10;
 const REQUEST_RETURN_ENERGY_TTL = 10;
-const ORDER_MGMT_TTL = 55;
+const ORDER_MGMT_TTL = 1000;
 const HAUL_OLD_SELL_ORDER_TTL = 20;
 
 
@@ -206,7 +206,7 @@ export default class TerminalRunnable {
 
         const energyReady = this.haulTransferEnergyToTerminal(terminal, resource, haulAmount, roomId, trace);
         if (!energyReady) {
-          trace.log('energy not ready', {amount, roomId});
+          trace.log('energy not ready', {amount, roomId, haulAmount});
           break;
         }
 
@@ -252,48 +252,48 @@ export default class TerminalRunnable {
       return;
     }
 
-    let orders = Game.market.getAllOrders({type: ORDER_SELL, resourceType: resource});
-    if (!orders.length) {
-      trace.log('buy order failed: no energy for sale');
-      this.clearTask(trace);
-      return;
-    }
-
-    const order = _.sortBy(orders, 'price')[0];
+    const orders = Game.market.getAllOrders({type: ORDER_SELL, resourceType: resource});
+    const sellOrder = _.sortBy(orders, 'price')[0];
 
     const resources = this.orgRoom.getKingdom().getResourceGovernor().getSharedResources();
     const reserveAmount = resources[resource] || 0;
-    const price = this.pricer.getPrice(ORDER_BUY, resource, reserveAmount);
+    const sellPrice = this.pricer.getPrice(ORDER_SELL, resource, reserveAmount);
 
-    if (order.price > price) {
-      trace.log('buy order failed: costs to much');
+    if (!sellOrder || sellOrder.price > sellPrice) {
+      trace.log('sell orders too expensive: creating buy order',
+        {resource, orderPrice: sellOrder.price, sellPrice});
+
+      // Check if we already have a sell order for the room and resource
+      const duplicateBuyOrders = Object.values(Game.market.orders).filter((order) => {
+        return order.type === ORDER_BUY && order.resourceType === resource &&
+          order.roomName === terminal.room.name && order.remainingAmount > 0;
+      });
+      if (duplicateBuyOrders.length) {
+        trace.log('duplicate buy orders found', {duplicateBuyOrders});
+        this.clearTask(trace);
+        return;
+      }
+
+      this.createBuyOrder(terminal, resource, amount, trace);
+
       this.clearTask(trace);
       return;
     }
 
-    let dealAmount = Math.min(missingAmount, order.remainingAmount);
-    let haulAmount = dealAmount;
-    trace.log('deal amount', {dealAmount, resource});
-
-    const energyRequired = Game.market.calcTransactionCost(missingAmount, terminal.room.name,
-      order.roomName);
-    // If we are transfering energy we need energy in addition to what we want to transfer
-    if (resource === RESOURCE_ENERGY) {
-      haulAmount += energyRequired;
-      trace.log('padded haul amount', {haulAmount, added: energyRequired});
-    }
-
-    const energyReady = this.haulTransferEnergyToTerminal(terminal, resource, haulAmount,
-      order.roomName, trace);
+    let dealAmount = Math.min(missingAmount, sellOrder.remainingAmount);
+    const energyReady = this.prepareTransferEnergy(terminal, sellOrder, dealAmount, trace);
     if (!energyReady) {
-      trace.log('deal energy not ready')
+      trace.log('deal energy not ready', {dealAmount})
       return;
     }
 
-    const result = Game.market.deal(order.id, dealAmount, terminal.room.name);
+    const result = Game.market.deal(sellOrder.id, dealAmount, terminal.room.name);
     trace.log('deal result', {
-      orderId: order.id, missingAmount, dealAmount,
-      destRoom: terminal.room.name, energyRequired, result
+      orderId: sellOrder.id,
+      missingAmount,
+      dealAmount,
+      destRoom: terminal.room.name,
+      result
     });
   }
 
@@ -334,59 +334,56 @@ export default class TerminalRunnable {
           break;
         }
 
-        // Check if we already have a sell order for the room and resource
-        const duplicateBuyOrders = Object.values(Game.market.orders).filter((order) => {
-          return order.type === ORDER_SELL && order.resourceType === resource &&
-            order.roomName === terminal.room.name && order.remainingAmount > 0;
-        });
-        if (duplicateBuyOrders.length) {
-          trace.log('duplicate orders found', {duplicateBuyOrders});
-          this.clearTask(trace);
-          return;
-        }
-
-        let orders = Game.market.getAllOrders({type: ORDER_BUY, resourceType: resource});
-
-        orders = orders.filter((order) => {
+        // Get lowest buy order
+        let buyOrders = Game.market.getAllOrders({type: ORDER_BUY, resourceType: resource});
+        buyOrders = buyOrders.filter((order) => {
           return order.remainingAmount > 0;
         });
+        const buyOrder = _.sortBy(buyOrders, 'price').reverse()[0];
 
-        orders = _.sortBy(orders, 'price').reverse();
-        const order = orders[0];
-
+        // Get desired purchase price based on current stockpile
         const resources = this.orgRoom.getKingdom().getResourceGovernor().getSharedResources();
         const currentAmount = resources[resource] || 0;
         const price = this.pricer.getPrice(ORDER_SELL, resource, currentAmount);
 
-        if (!orders.length || order.price < price) {
-          // Create buy order
-          const order = {
-            type: ORDER_SELL,
-            resourceType: resource,
-            price: price,
-            totalAmount: amount,
-            roomName: terminal.room.name,
-          };
-          const result = Game.market.createOrder(order);
-          trace.log('create order result', {result, order});
+        // If no buy orders or price is too low, create a sell order
+        if (!buyOrder || buyOrder.price < price) {
+          trace.log('no orders or sell prices too low, creating sell order')
+
+          // Check if we already have a sell order for the room and resource
+          const duplicateSellOrders = Object.values(Game.market.orders).filter((order) => {
+            return order.type === ORDER_SELL && order.resourceType === resource &&
+              order.roomName === terminal.room.name && order.remainingAmount > 0;
+          });
+          if (duplicateSellOrders.length) {
+            trace.log('duplicate sell orders found', {duplicateSellOrders});
+            this.clearTask(trace);
+            return;
+          }
+
+          this.createSellOrder(terminal, resource, amount, trace);
 
           this.clearTask(trace);
           return;
         }
 
-        const dealAmount = _.min([amount, order.remainingAmount]);
-        const energyReady = this.haulTransferEnergyToTerminal(terminal, resource, dealAmount,
-          order.roomName, trace);
+        // Make sure we have enough energy to perform the deal
+        const dealAmount = _.min([amount, buyOrder.remainingAmount]);
+        const energyReady = this.prepareTransferEnergy(terminal, buyOrder, dealAmount, trace);
         if (!energyReady) {
+          trace.log('deal energy not ready', {dealAmount})
           return;
         }
 
+        // If terminal is on cool down, try again in a bit
         if (terminal.cooldown) {
           return;
         }
 
-        const result = Game.market.deal(order.id, dealAmount, terminal.room.name);
+        // Transact the deal
+        const result = Game.market.deal(buyOrder.id, dealAmount, terminal.room.name);
         if (result == OK) {
+          // deduct amount transacted from total amount we want to buy
           terminal.room.memory[MEMORY.TERMINAL_TASK].details[MEMORY.MEMORY_ORDER_AMOUNT] -= dealAmount;
         }
 
@@ -395,6 +392,50 @@ export default class TerminalRunnable {
         trace.error('BROKEN MARKET LOGIC', phase);
         this.clearTask(trace);
     }
+  }
+
+  prepareTransferEnergy(terminal: StructureTerminal, order: Order, amount: number, trace: Tracer) {
+    const energyRequired = Game.market.calcTransactionCost(amount, terminal.room.name,
+      order.roomName);
+    // If we are transfering energy we need energy in addition to what we want to transfer
+    let haulAmount = energyRequired;
+    if (order.resourceType === RESOURCE_ENERGY) {
+      haulAmount = amount + energyRequired;
+      trace.log('padded haul amount', {haulAmount, added: energyRequired});
+    }
+
+    return this.haulTransferEnergyToTerminal(terminal, order.resourceType as ResourceConstant,
+      haulAmount, order.roomName, trace);
+  }
+
+  createBuyOrder(terminal: StructureTerminal, resource: ResourceConstant, amount: number, trace: Tracer) {
+    const buyPrice = this.pricer.getPrice(ORDER_BUY, resource, amount);
+
+    // Create buy order
+    const buyOrder = {
+      type: ORDER_BUY,
+      resourceType: resource,
+      price: buyPrice,
+      totalAmount: amount,
+      roomName: terminal.room.name,
+    };
+    const result = Game.market.createOrder(buyOrder);
+    trace.log('create buy order result', {result, buyOrder})
+  }
+
+  createSellOrder(terminal: StructureTerminal, resource: ResourceConstant, amount: number, trace: Tracer) {
+    const sellPrice = this.pricer.getPrice(ORDER_SELL, resource, amount);
+
+    // Create buy order
+    const order = {
+      type: ORDER_SELL,
+      resourceType: resource,
+      price: sellPrice,
+      totalAmount: amount,
+      roomName: terminal.room.name,
+    };
+    const result = Game.market.createOrder(order);
+    trace.log('create sell order result', {result, order});
   }
 
   updateOrders(terminal: StructureTerminal, trace: Tracer) {

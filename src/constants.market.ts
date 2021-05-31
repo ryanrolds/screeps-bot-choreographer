@@ -3,20 +3,20 @@ export const PRICES = {
   [RESOURCE_POWER]: {max: 100, min: 10},
   [RESOURCE_OPS]: {max: 100, min: 10},
 
-  [RESOURCE_HYDROGEN]: {max: 5, min: 0.5},
-  [RESOURCE_OXYGEN]: {max: 5, min: 0.5},
+  [RESOURCE_HYDROGEN]: {max: 5, min: 0.4},
+  [RESOURCE_OXYGEN]: {max: 5, min: 0.1},
   [RESOURCE_HYDROXIDE]: {max: 10, min: 0.5},
 
   [RESOURCE_LEMERGIUM]: {max: 10, min: 0.5},
-  [RESOURCE_UTRIUM]: {max: 10, min: 0.5},
+  [RESOURCE_UTRIUM]: {max: 10, min: 0.4},
   [RESOURCE_UTRIUM_LEMERGITE]: {max: 10, min: 0.5},
 
-  [RESOURCE_KEANIUM]: {max: 10, min: 0.5},
-  [RESOURCE_ZYNTHIUM]: {max: 10, min: 0.5},
+  [RESOURCE_KEANIUM]: {max: 10, min: 0.3},
+  [RESOURCE_ZYNTHIUM]: {max: 10, min: 0.1},
   [RESOURCE_ZYNTHIUM_KEANITE]: {max: 10, min: 0.5},
 
   [RESOURCE_GHODIUM]: {max: 10, min: 0.5},
-  [RESOURCE_CATALYST]: {max: 20, min: 3},
+  [RESOURCE_CATALYST]: {max: 20, min: 2},
 
   [RESOURCE_GHODIUM_HYDRIDE]: {max: 10, min: 0.5},
   [RESOURCE_GHODIUM_OXIDE]: {max: 10, min: 0.5},

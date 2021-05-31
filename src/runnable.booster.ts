@@ -8,7 +8,8 @@ import * as TOPICS from "./constants.topics"
 import * as CREEPS from "./constants.creeps"
 import * as PRIORITIES from "./constants.priorities"
 
-const MIN_COMPOUND = 30;
+const MIN_COMPOUND = 500;
+const MAX_COMPOUND = 1500;
 const MIN_ENERGY = 1000;
 const MAX_ENERGY = 1000;
 
@@ -99,7 +100,7 @@ export default class BoosterRunnable {
       this.sendHaulRequests(loadedEffects, desiredEffects, needToLoad, emptyLabs, couldUnload, trace);
     } else {
       sleepFor = REQUEST_UNLOAD_TTL;
-      this.requestClearLowLabs(trace);
+      this.rebalanceLabs(trace);
     }
 
     return sleeping(sleepFor);
@@ -277,7 +278,9 @@ export default class BoosterRunnable {
       const effect = loadedEffects[effectName];
       const compound = effect.compounds[0].name;
       const lab = this.getLabByResource(compound);
-      if (lab.store.getUsedCapacity(compound) < MIN_COMPOUND) {
+      const currentAmount = lab.store.getUsedCapacity(compound);
+      if (currentAmount < MIN_COMPOUND) {
+        trace.log('not enough of compound', {compound, effectName, currentAmount})
         return false;
       }
 
@@ -307,7 +310,7 @@ export default class BoosterRunnable {
       this.requestUnloadOfLabs(loadedEffects, unload, trace);
     }
   }
-  requestClearLowLabs(trace: Tracer) {
+  rebalanceLabs(trace: Tracer) {
     const labs = this.getLabs();
     labs.forEach((lab) => {
       if (!lab.mineralType) {
@@ -315,30 +318,37 @@ export default class BoosterRunnable {
         return;
       }
 
-      if (lab.store.getUsedCapacity(lab.mineralType) >= MIN_COMPOUND) {
-        trace.log('lab is not below min', {labId: lab.id, resource: lab.mineralType});
-        return;
+      const currentAmount = lab.store.getUsedCapacity(lab.mineralType);
+      let amount = 0;
+      if (currentAmount < MIN_COMPOUND) {
+        trace.log('lab is below min: unload it', {labId: lab.id, resource: lab.mineralType});
+        amount = currentAmount
+      } else if (currentAmount > MAX_COMPOUND) {
+        trace.log('lab is above min: return some', {labId: lab.id, resource: lab.mineralType});
+        amount = currentAmount - MAX_COMPOUND;
       }
 
-      const dropoff = this.orgRoom.getReserveStructureWithRoomForResource(lab.mineralType);
-      if (!dropoff) {
-        trace.log('no dropoff for already loaded compound', {resource: lab.mineralType});
-        return;
+      if (amount) {
+        const dropoff = this.orgRoom.getReserveStructureWithRoomForResource(lab.mineralType);
+        if (!dropoff) {
+          trace.log('no dropoff for already loaded compound', {resource: lab.mineralType});
+          return;
+        }
+
+        const details = {
+          [MEMORY.TASK_ID]: `bmc-${this.id}-${Game.time}`,
+          [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
+          [MEMORY.MEMORY_HAUL_PICKUP]: lab.id,
+          [MEMORY.MEMORY_HAUL_RESOURCE]: lab.mineralType,
+          [MEMORY.MEMORY_HAUL_DROPOFF]: dropoff.id,
+          [MEMORY.MEMORY_HAUL_AMOUNT]: amount,
+        };
+
+        trace.log('boost clear low', {priority: PRIORITIES.HAUL_BOOST, details});
+
+        (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST,
+          details, REQUEST_LOW_LABS_UNLOAD_TTL);
       }
-
-      const details = {
-        [MEMORY.TASK_ID]: `bmc-${this.id}-${Game.time}`,
-        [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
-        [MEMORY.MEMORY_HAUL_PICKUP]: lab.id,
-        [MEMORY.MEMORY_HAUL_RESOURCE]: lab.mineralType,
-        [MEMORY.MEMORY_HAUL_DROPOFF]: dropoff.id,
-        [MEMORY.MEMORY_HAUL_AMOUNT]: lab.store.getUsedCapacity(lab.mineralType),
-      };
-
-      trace.log('boost clear low', {priority: PRIORITIES.HAUL_BOOST, details});
-
-      (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST,
-        details, REQUEST_LOW_LABS_UNLOAD_TTL);
     });
   }
   requestUnloadOfLabs(loadedEffects, couldUnload, trace: Tracer) {
@@ -451,7 +461,7 @@ export default class BoosterRunnable {
         [MEMORY.MEMORY_HAUL_PICKUP]: pickup.id,
         [MEMORY.MEMORY_HAUL_RESOURCE]: compound.name,
         [MEMORY.MEMORY_HAUL_DROPOFF]: emptyLab.id,
-        [MEMORY.MEMORY_HAUL_AMOUNT]: pickup.store.getUsedCapacity(compound.name),
+        [MEMORY.MEMORY_HAUL_AMOUNT]: MAX_COMPOUND,
       };
 
       trace.log('boost load material', {priority: PRIORITIES.HAUL_BOOST, details});

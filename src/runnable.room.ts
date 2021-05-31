@@ -526,7 +526,6 @@ export default class RoomRunnable {
         return;
       }
 
-      const loadPriority = 0.8;
       const details = {
         [MEMORY.TASK_ID]: `pickup-${this.id}-${Game.time}`,
         [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
@@ -535,7 +534,7 @@ export default class RoomRunnable {
         [MEMORY.MEMORY_HAUL_RESOURCE]: resource.resourceType,
       };
 
-      (orgRoom as any).sendRequest(TOPICS.TOPIC_HAUL_TASK, loadPriority, details, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
+      (orgRoom as any).sendRequest(TOPICS.TOPIC_HAUL_TASK, PRIORITIES.HAUL_DROPPED, details, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
     });
   }
 

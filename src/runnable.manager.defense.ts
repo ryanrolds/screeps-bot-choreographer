@@ -14,7 +14,7 @@ import {thread} from './os.thread';
 import {DEFENSE_STATUS} from './defense';
 
 const TARGET_REQUEST_TTL = 1;
-const REQUEST_DEFENDERS_TTL = 10;
+const REQUEST_DEFENDERS_TTL = 25;
 const DEFENSE_STATUS_TTL = 1;
 const UPDATE_DEFENSE_STATS_TTL = 5;
 const hostileParts = {
@@ -305,8 +305,7 @@ function publishDefenseStatuses(kingdom: Kingdom, hostilesByColony: Record<strin
   });
 }
 
-function checkColonyDefenses(kingdom: Kingdom, hostilesByColony: Record<string, Creep[]>,
-  trace: Tracer) {
+function checkColonyDefenses(kingdom: Kingdom, hostilesByColony: Record<string, Creep[]>, trace: Tracer) {
   // Check for defenders
   _.forEach(hostilesByColony, (hostiles, colonyId) => {
     const colony = kingdom.getColonyById(colonyId);

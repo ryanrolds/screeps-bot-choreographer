@@ -26,10 +26,10 @@ export class SigmoidPricing {
     const myOrderIds = Object.keys(Game.market.orders);
     orders = _.filter(orders, (order) => {
       return myOrderIds.indexOf(order.id) === -1;
-    })
+    });
 
     if (!orders.length) {
-      return orderType === ORDER_BUY ? 0 : null;
+      return orderType === ORDER_BUY ? 0.001 : null;
     }
 
     let price = null;
@@ -54,9 +54,9 @@ export class SigmoidPricing {
     const marketPrice = this.getMarketPrice(orderType, resource);
     if (marketPrice !== null) {
       if (orderType === ORDER_BUY) {
-        price = _.min([marketPrice + OUTBID, price]);
+        price = _.min([marketPrice, price]);
       } else {
-        price = _.max([marketPrice - OUTBID, price]);
+        price = _.max([marketPrice, price]);
       }
     }
 
