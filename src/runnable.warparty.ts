@@ -74,6 +74,11 @@ export default class WarPartyRunnable {
   formParty(kingdom: Kingdom): boolean {
     // once all all four creeps are in their assigned place, move to next phase
 
+    const creepsRallied = this.rallyPoint.pos.findInRange(this.creeps, 4)
+    if (creepsRallied.length) {
+      return true;
+    }
+
     this.creepRequestTTL--;
     if (this.creepRequestTTL < 1) {
       this.creeps = this.getAssignedCreeps();

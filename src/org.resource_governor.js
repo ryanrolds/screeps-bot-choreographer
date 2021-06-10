@@ -9,8 +9,7 @@ const {PRICES} = require('./constants.market');
 
 const RESERVE_LIMIT = 20000;
 const REACTION_BATCH_SIZE = 1000;
-const MIN_CREDITS = 5000;
-const MIN_CREDITS_FOR_BOOSTS = 100000;
+const MIN_CREDITS = 25000;
 const MIN_SELL_ORDER_SIZE = 1000;
 const MAX_SELL_AMOUNT = 25000;
 
@@ -529,7 +528,6 @@ class Resources extends OrgBase {
             bestCompound,
             currentAmount,
             credits: Game.market.credits,
-            MIN_CREDITS_FOR_BOOSTS,
             MIN_CRITICAL_COMPOUND,
           });
 

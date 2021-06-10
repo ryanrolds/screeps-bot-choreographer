@@ -10,4 +10,5 @@ module.exports = {
   PRIORITY_TARGETS: 'priority_targets',
   NUKER_TARGETS: 'nuker_targets',
   DEFENSE_STATUSES: 'defense_statuses',
+  ACTIVE_REACTIONS: 'active_reactions',
 };

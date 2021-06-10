@@ -1,4 +1,5 @@
 import {Process, Runnable, RunnableResult, running, sleeping, terminate} from "./os.process";
+import {thread} from './os.thread';
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
@@ -18,20 +19,30 @@ const REQUEST_UNLOAD_TTL = 20;
 const REACTION_TTL = 0;
 const NO_SLEEP = 0;
 const NEW_TASK_SLEEP = 10;
+const PRODUCE_STATUS_TTL = 25;
+
+export const REACTION_UPDATE_TOPIC = 'reaction_updates';
+
+export type ReactionUpdateMessage = {
+  id: Id<StructureLab>;
+  compound: MineralConstant | MineralCompoundConstant;
+  amount: number;
+}
 
 export default class ReactorRunnable {
   id: string;
   orgRoom: OrgRoom;
   labIds: Id<StructureLab>[];
-
   prevTime: number;
+  threadProduceStatus: any;
 
   constructor(id: string, orgRoom: OrgRoom, labIds: Id<StructureLab>[]) {
     this.id = id;
     this.orgRoom = orgRoom;
     this.labIds = labIds;
-
     this.prevTime = Game.time;
+
+    this.threadProduceStatus = thread(PRODUCE_STATUS_TTL, null, null)(this.produceStatus.bind(this));
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
@@ -264,5 +275,11 @@ export default class ReactorRunnable {
       [MEMORY.MEMORY_HAUL_AMOUNT]: currentAmount,
       [MEMORY.MEMORY_HAUL_DROPOFF]: dropoff.id,
     }, REQUEST_LOAD_TTL);
+  }
+
+  produceStatus(kingdom: Kingdom, trace: Tracer) {
+    trace.log('producing reactor status');
+
+
   }
 }

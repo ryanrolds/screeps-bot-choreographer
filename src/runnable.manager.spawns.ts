@@ -132,6 +132,7 @@ export default class SpawnManager {
             const role = peek.details.role;
             const definition = definitions[role];
             const numColonies = (this.orgRoom as any).getKingdom().getColonies().length;
+
             if (definition.energyMinimum && energy < definition.energyMinimum && numColonies > 3) {
               return;
             }
@@ -157,14 +158,35 @@ export default class SpawnManager {
                   return true;
                 }
 
+                trace.log('choosing', {message})
+
+                let destinationRoom = null;
+
                 const assignedRoom = message.details.memory[MEMORY.MEMORY_ASSIGN_ROOM];
-                if (!assignedRoom) {
+                if (assignedRoom) {
+                  destinationRoom = assignedRoom;
+                }
+
+                const positionRoom = message.details.memory[MEMORY.MEMORY_POSITION_ROOM];
+                if (positionRoom) {
+                  destinationRoom = positionRoom
+                }
+
+                const flag = message.details.memory[MEMORY.MEMORY_FLAG];
+                if (flag) {
+                  destinationRoom = Game.flags[flag]?.pos.roomName
+                }
+
+                trace.log('choosing', {destinationRoom, flag})
+
+                if (!destinationRoom) {
                   return false;
                 }
 
-                const distance = Game.map.getRoomLinearDistance((this.orgRoom as any).id,
-                  assignedRoom);
+                const distance = Game.map.getRoomLinearDistance((this.orgRoom as any).id, destinationRoom);
                 if (distance > 5) {
+                  trace.log('distance', {distance, message});
+
                   return false;
                 }
 
@@ -177,6 +199,8 @@ export default class SpawnManager {
 
               return selected[0];
             });
+
+          trace.log('kingdom request', {request});
 
           if (request) {
             this.createCreep(spawn, request.details.role, request.details.memory, energy, energyLimit);

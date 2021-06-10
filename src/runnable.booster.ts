@@ -16,7 +16,8 @@ const MAX_ENERGY = 1000;
 const REQUEST_UNLOAD_TTL = 5;
 const REQUEST_LOAD_TTL = 5;
 const REQUEST_ENERGY_TTL = 5;
-const REQUEST_LOW_LABS_UNLOAD_TTL = 5;
+const REQUEST_REBALANCE_TTL = 10;
+const MIN_CREDITS_FOR_BOOSTS = 50000;
 
 class Compound {
   name: string;
@@ -347,7 +348,7 @@ export default class BoosterRunnable {
         trace.log('boost clear low', {priority: PRIORITIES.HAUL_BOOST, details});
 
         (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST,
-          details, REQUEST_LOW_LABS_UNLOAD_TTL);
+          details, REQUEST_REBALANCE_TTL);
       }
     });
   }
