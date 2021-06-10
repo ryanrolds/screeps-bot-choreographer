@@ -16,7 +16,7 @@ const MAX_ENERGY = 1000;
 const REQUEST_UNLOAD_TTL = 5;
 const REQUEST_LOAD_TTL = 5;
 const REQUEST_ENERGY_TTL = 5;
-const REQUEST_REBALNCE_TTL = 10;
+const REQUEST_LOW_LABS_UNLOAD_TTL = 5;
 
 class Compound {
   name: string;
@@ -99,8 +99,8 @@ export default class BoosterRunnable {
       sleepFor = REQUEST_LOAD_TTL;
       this.sendHaulRequests(loadedEffects, desiredEffects, needToLoad, emptyLabs, couldUnload, trace);
     } else {
-      sleepFor = REQUEST_REBALNCE_TTL;
-      this.balanceLabs(trace);
+      sleepFor = REQUEST_UNLOAD_TTL;
+      this.rebalanceLabs(trace);
     }
 
     return sleeping(sleepFor);
@@ -310,7 +310,7 @@ export default class BoosterRunnable {
       this.requestUnloadOfLabs(loadedEffects, unload, trace);
     }
   }
-  balanceLabs(trace: Tracer) {
+  rebalanceLabs(trace: Tracer) {
     const labs = this.getLabs();
     labs.forEach((lab) => {
       if (!lab.mineralType) {
@@ -325,24 +325,15 @@ export default class BoosterRunnable {
         amount = currentAmount
       } else if (currentAmount > MAX_COMPOUND) {
         trace.log('lab is above min: return some', {labId: lab.id, resource: lab.mineralType});
+        amount = currentAmount - MAX_COMPOUND;
+      }
 
+      if (amount) {
         const dropoff = this.orgRoom.getReserveStructureWithRoomForResource(lab.mineralType);
         if (!dropoff) {
           trace.log('no dropoff for already loaded compound', {resource: lab.mineralType});
           return;
         }
-
-        amount = currentAmount - MAX_COMPOUND;
-      }
-
-      if (amount < 0) {
-
-      } else if (amount > 0) {
-      
-      }
-
-      if (amount) {
-
 
         const details = {
           [MEMORY.TASK_ID]: `bmc-${this.id}-${Game.time}`,
@@ -356,7 +347,7 @@ export default class BoosterRunnable {
         trace.log('boost clear low', {priority: PRIORITIES.HAUL_BOOST, details});
 
         (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST,
-          details, REQUEST_REBALNCE_TTL);
+          details, REQUEST_LOW_LABS_UNLOAD_TTL);
       }
     });
   }
