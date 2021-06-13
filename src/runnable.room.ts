@@ -662,8 +662,12 @@ export default class RoomRunnable {
       this.requestEnergyTTL = ENERGY_REQUEST_TTL;
       const amount = 5000;
       trace.log('requesting energy from governor', {amount, resource: RESOURCE_ENERGY});
-      (orgRoom as any).getKingdom().getResourceGovernor().requestResource(orgRoom,
-        RESOURCE_ENERGY, amount, ENERGY_REQUEST_TTL, trace);
+
+      const resourceGovernor = (orgRoom as any).getKingdom().getResourceGovernor();
+      const requested = resourceGovernor.requestResource(orgRoom, RESOURCE_ENERGY, amount, ENERGY_REQUEST_TTL, trace);
+      if (!requested) {
+        resourceGovernor.buyResource(orgRoom, RESOURCE_ENERGY, amount, ENERGY_REQUEST_TTL, trace);
+      }
     }
   }
 }

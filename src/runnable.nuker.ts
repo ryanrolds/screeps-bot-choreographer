@@ -96,8 +96,13 @@ export default class NuckerRunnable {
       trace.log('unable to get resource from reserve', {resource, amount});
 
       trace.log('requesting resource from governor', {resource, amount});
-      (this.orgRoom as any).getKingdom().getResourceGovernor().requestResource(this.orgRoom,
-        resource, amount, REQUEST_RESOURCES_TTL, trace);
+      const resourceGovernor = (this.orgRoom as any).getKingdom().getResourceGovernor();
+
+      const requested = resourceGovernor.requestResource(this.orgRoom, resource, amount, REQUEST_RESOURCES_TTL, trace);
+      if (!requested) {
+        resourceGovernor.buyResource(this.orgRoom, resource, amount, REQUEST_RESOURCES_TTL, trace);
+      }
+
       return;
     }
 

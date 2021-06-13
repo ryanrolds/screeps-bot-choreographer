@@ -218,7 +218,7 @@ export default class ReactorRunnable {
       const missingAmount = desiredAmount - currentAmount;
 
       if (!pickup) {
-        this.requestRequest(resource, missingAmount, trace);
+        this.requestResource(resource, missingAmount, trace);
       } else {
         this.loadLab(lab, pickup, resource, missingAmount, trace);
       }
@@ -229,11 +229,15 @@ export default class ReactorRunnable {
     return true;
   }
 
-  requestRequest(resource: ResourceConstant, amount: number, trace: Tracer) {
+  requestResource(resource: ResourceConstant, amount: number, trace: Tracer) {
     // TODO this really should use topics/IPC
     trace.log('requesting resource from governor', {resource, amount});
-    (this.orgRoom as any).getKingdom().getResourceGovernor().requestResource(this.orgRoom,
-      resource, amount, REQUEST_LOAD_TTL, trace);
+
+    const resourceGovernor = (this.orgRoom as any).getKingdom().getResourceGovernor();
+    const requested = resourceGovernor.requestResource(this.orgRoom, resource, amount, REQUEST_LOAD_TTL, trace);
+    if (!requested) {
+      resourceGovernor.buyResource(this.orgRoom, resource, amount, REQUEST_LOAD_TTL, trace);
+    }
   }
 
   loadLab(lab: StructureLab, pickup: AnyStoreStructure, resource: ResourceConstant, amount: number, trace: Tracer) {

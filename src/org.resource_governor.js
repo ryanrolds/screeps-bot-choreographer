@@ -10,6 +10,7 @@ const {PRICES} = require('./constants.market');
 const RESERVE_LIMIT = 20000;
 const REACTION_BATCH_SIZE = 1000;
 const MIN_CREDITS = 25000;
+const MIN_BOOST_CREDITS = 100000;
 const MIN_SELL_ORDER_SIZE = 1000;
 const MAX_SELL_AMOUNT = 25000;
 
@@ -347,13 +348,40 @@ class Resources extends OrgBase {
       return acc;
     }, null);
   }
-  requestResource(room, resource, amount, ttl, trace) {
-    trace.log('requesting resource', {room: room.id, resource, amount, ttl});
+  buyResource(room, resource, amount, ttl, trace) {
+    trace.log('requesting resource purchase', {room: room.id, resource, amount, ttl});
 
     // We can't request a transfer if room lacks a terminal
     if (!room.hasTerminal()) {
       trace.log('room does not have a terminal', {room: room.id});
-      return;
+      return false;
+    }
+
+    const details = {
+      [MEMORY.TERMINAL_TASK_TYPE]: TASKS.TASK_MARKET_ORDER,
+      [MEMORY.MEMORY_ORDER_TYPE]: ORDER_BUY,
+      [MEMORY.MEMORY_ORDER_RESOURCE]: resource,
+      [MEMORY.MEMORY_ORDER_AMOUNT]: amount,
+    };
+
+    if (Game.market.credits < MIN_CREDITS) {
+      trace.log('below min credits, not purchasing resource', {resource, amount});
+      return false;
+    }
+
+    trace.log('purchase resource', {room: room.id, resource, amount});
+    room.sendRequest(TOPICS.TOPIC_TERMINAL_TASK, PRIORITIES.TERMINAL_BUY,
+      details, ttl);
+
+    return true;
+  }
+  requestResource(room, resource, amount, ttl, trace) {
+    trace.log('requesting resource transfer', {room: room.id, resource, amount, ttl});
+
+    // We can't request a transfer if room lacks a terminal
+    if (!room.hasTerminal()) {
+      trace.log('room does not have a terminal', {room: room.id});
+      return false;
     }
 
     // Don't send transfer request if a terminal already has the task
@@ -369,27 +397,13 @@ class Resources extends OrgBase {
 
     if (inProgress) {
       trace.log('task already in progress', {room: room.id, resource, amount, ttl});
-      return;
+      return true;
     }
 
     const result = this.getRoomWithTerminalWithResource(resource, room.id);
     if (!result) {
-      const details = {
-        [MEMORY.TERMINAL_TASK_TYPE]: TASKS.TASK_MARKET_ORDER,
-        [MEMORY.MEMORY_ORDER_TYPE]: ORDER_BUY,
-        [MEMORY.MEMORY_ORDER_RESOURCE]: resource,
-        [MEMORY.MEMORY_ORDER_AMOUNT]: amount,
-      };
-
-      if (Game.market.credits < MIN_CREDITS) {
-        trace.log('below reserve, not purchasing resource', {resource, amount});
-        return;
-      }
-
-      trace.log('purchase resource', {room: room.id, resource, amount});
-      room.sendRequest(TOPICS.TOPIC_TERMINAL_TASK, PRIORITIES.TERMINAL_BUY,
-        details, ttl);
-      return;
+      trace.log('no rooms with resource', {resource});
+      return false;
     }
 
     amount = _.min([result.amount, amount]);
@@ -402,6 +416,8 @@ class Resources extends OrgBase {
       [MEMORY.TRANSFER_AMOUNT]: amount,
       [MEMORY.TRANSFER_ROOM]: room.id,
     }, ttl);
+
+    return true;
   }
   createBuyOrder(room, resource, amount, trace) {
     if (!room.hasTerminal()) {
@@ -531,8 +547,14 @@ class Resources extends OrgBase {
             MIN_CRITICAL_COMPOUND,
           });
 
-          this.requestResource(primaryRoom, bestCompound, MIN_CRITICAL_COMPOUND - currentAmount,
+          const requested = this.requestResource(primaryRoom, bestCompound, MIN_CRITICAL_COMPOUND - currentAmount,
             REQUEST_DISTRIBUTE_BOOSTS, trace);
+
+          // If we couldnt request resource, try buying
+          if (!requested && Game.market.credits > MIN_BOOST_CREDITS) {
+            this.buyResource(primaryRoom, bestCompound, MIN_CRITICAL_COMPOUND - currentAmount,
+              REQUEST_DISTRIBUTE_BOOSTS, trace);
+          }
         } else {
           trace.log('have booster', {colonyId: colony.id, effectName, bestCompound, currentAmount});
         }
