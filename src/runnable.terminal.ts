@@ -9,8 +9,6 @@ import {PRICES} from "./constants.market"
 import * as PRIORITIES from "./constants.priorities"
 import {thread} from "./os.thread";
 import {ResourcePricer, SigmoidPricing} from './lib.sigmoid_pricing';
-import { privateDecrypt } from "node:crypto";
-import { identity } from "lodash";
 
 const TASK_PHASE_HAUL_RESOURCE = 'phase_transfer_resource';
 const TASK_PHASE_TRANSACT = 'phase_transact';
@@ -23,7 +21,7 @@ const PROCESS_TASK_TTL = 10;
 const REQUEST_RETURN_ENERGY_TTL = 10;
 const ORDER_MGMT_TTL = 1000;
 const HAUL_OLD_SELL_ORDER_TTL = 20;
-const UPDATE_ENERGY_VALUE_TTL = 2500;''
+const UPDATE_ENERGY_VALUE_TTL = 2500;
 
 export default class TerminalRunnable {
   orgRoom: OrgRoom;
@@ -165,10 +163,10 @@ export default class TerminalRunnable {
   transferResource(terminal: StructureTerminal, task, trace: Tracer) {
     const resource = task[MEMORY.TRANSFER_RESOURCE];
     let amount = task[MEMORY.TRANSFER_AMOUNT];
-    const roomId = task[MEMORY.TRANSFER_ROOM];
+    const roomName = task[MEMORY.TRANSFER_ROOM];
     const phase = task[MEMORY.TASK_PHASE] || TASK_PHASE_HAUL_RESOURCE;
 
-    trace.log('transfer resource', {resource, amount, roomId, phase});
+    trace.log('transfer resource', {resource, amount, roomName, phase});
 
     switch (phase) {
       case TASK_PHASE_HAUL_RESOURCE:
@@ -203,21 +201,21 @@ export default class TerminalRunnable {
       case TASK_PHASE_TRANSFER:
         let haulAmount = amount;
 
-        const energyRequired = Game.market.calcTransactionCost(amount, terminal.room.name, roomId);
+        const energyRequired = Game.market.calcTransactionCost(amount, terminal.room.name, roomName);
         // If we are transfering energy we need energy in addition to what we want to transfer
         if (resource === RESOURCE_ENERGY) {
           haulAmount += energyRequired;
           trace.log('padded energy', {amount, added: energyRequired});
         }
 
-        const energyReady = this.haulTransferEnergyToTerminal(terminal, resource, haulAmount, roomId, trace);
+        const energyReady = this.haulTransferEnergyToTerminal(terminal, resource, haulAmount, roomName, trace);
         if (!energyReady) {
-          trace.log('energy not ready', {amount, roomId, haulAmount});
+          trace.log('energy not ready', {amount, roomName, haulAmount});
           break;
         }
 
-        const result = terminal.send(resource, amount, roomId);
-        trace.log('sending result', {resource, amount, roomId, result});
+        const result = terminal.send(resource, amount, roomName);
+        trace.notice('send resource', {resource, amount, roomName, result});
         if (result !== OK) {
 
         }
@@ -284,10 +282,10 @@ export default class TerminalRunnable {
     }
 
     const result = Game.market.deal(sellOrder.id, dealAmount, terminal.room.name);
-    trace.log('deal result', {
+    trace.notice('buy deal result', {
       orderId: sellOrder.id,
-      missingAmount,
       dealAmount,
+      price: sellOrder.price,
       destRoom: terminal.room.name,
       result
     });
@@ -370,6 +368,14 @@ export default class TerminalRunnable {
         // Transact the deal
         const result = Game.market.deal(buyOrder.id, dealAmount, terminal.room.name);
         if (result == OK) {
+          trace.notice('sold resources', {
+            orderId: buyOrder.id,
+            dealAmount,
+            price: buyOrder.price,
+            destRoom: terminal.room.name,
+            result
+          });
+
           // deduct amount transacted from total amount we want to buy
           terminal.room.memory[MEMORY.TERMINAL_TASK].details[MEMORY.MEMORY_ORDER_AMOUNT] -= dealAmount;
         }
@@ -418,7 +424,7 @@ export default class TerminalRunnable {
       roomName: terminal.room.name,
     };
     const result = Game.market.createOrder(buyOrder);
-    trace.log('create buy order result', {result, buyOrder})
+    trace.notice('create buy order result', {result, buyOrder})
   }
 
   createSellOrder(terminal: StructureTerminal, resource: ResourceConstant, amount: number, trace: Tracer) {
@@ -444,7 +450,7 @@ export default class TerminalRunnable {
       roomName: terminal.room.name,
     };
     const result = Game.market.createOrder(order);
-    trace.log('create sell order result', {result, order});
+    trace.notice('create sell order result', {result, order});
   }
 
   updateOrders(terminal: StructureTerminal, trace: Tracer) {
@@ -466,7 +472,7 @@ export default class TerminalRunnable {
         order.resourceType as ResourceConstant, currentAmount);
       if (order.price !== price) {
         Game.market.changeOrderPrice(order.id, price);
-        trace.log('updating order price', {
+        trace.notice('updating order price', {
           orderId: order.id,
           previousPrice: order.price, newPrice: price, resource: order.resourceType,
         });

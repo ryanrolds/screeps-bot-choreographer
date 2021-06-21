@@ -200,9 +200,9 @@ export default class SpawnManager {
               return selected[0];
             });
 
-          trace.log('kingdom request', {request});
 
           if (request) {
+            trace.notice('kingdom spawn request', {roomName: this.orgRoom.id, request});
             this.createCreep(spawn, request.details.role, request.details.memory, energy, energyLimit);
             return;
           }
@@ -217,7 +217,7 @@ export default class SpawnManager {
     return running();
   }
 
-  createCreep(spawner, role, memory, energy, energyLimit) {
+  createCreep(spawner: StructureSpawn, role, memory, energy: number, energyLimit: number) {
     return createCreep((this.orgRoom as any).getColony().id, (this.orgRoom as any).id, spawner,
       role, memory, energy, energyLimit);
   }

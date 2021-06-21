@@ -96,7 +96,7 @@ export const loop = function () {
   ai.tick(aiTrace);
   aiTrace.end();
 
-  console.log('--------------------------------');
+  // console.log('--------------------------------');
 
   trace.end();
   tracing.report();

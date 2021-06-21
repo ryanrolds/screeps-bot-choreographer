@@ -46,8 +46,12 @@ export class Tracer {
     console.log(this.id, this.name, message, JSON.stringify(details));
   }
 
+  notice(message: string, details: Object = {}): void {
+    console.log(`[NOTICE] `, this.id, this.name, message, JSON.stringify(details));
+  }
+
   error(message: string, details: Object = {}): void {
-    console.log(`ERROR`, this.id, this.name, message, JSON.stringify(details));
+    console.log(`[ERROR] `, this.id, this.name, message, JSON.stringify(details));
   }
 
   begin(name: string) {
