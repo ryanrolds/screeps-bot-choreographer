@@ -11,4 +11,5 @@ module.exports = {
   NUKER_TARGETS: 'nuker_targets',
   DEFENSE_STATUSES: 'defense_statuses',
   ACTIVE_REACTIONS: 'active_reactions',
+  ROOM_STATUES: 'room_status',
 };

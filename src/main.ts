@@ -77,7 +77,7 @@ let config: KingdomConfig = {
   },
 };
 
-console.log('***** setting up ai *****');
+console.log('***** STARTING AI *****');
 const ai = new AI(config);
 global.AI = ai; // So we can access it from the console
 

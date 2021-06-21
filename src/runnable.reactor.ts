@@ -79,6 +79,11 @@ export default class ReactorRunnable {
       trace.log('got new task', {task})
     }
 
+    if (task) {
+      this.threadProduceStatus(task.details[MEMORY.REACTOR_OUTPUT],
+        labs[0]?.store.getUsedCapacity(task.details[MEMORY.REACTOR_OUTPUT]), trace);
+    }
+
     trace.log('reactor run', {
       labIds: this.labIds,
       ticks,
@@ -271,7 +276,7 @@ export default class ReactorRunnable {
       ttl: REQUEST_LOAD_TTL,
     });
 
-    (this.orgRoom as any).getColony().sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_REACTION, {
+    this.orgRoom.getColony().sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_REACTION, {
       [MEMORY.TASK_ID]: `unload-${this.id}-${Game.time}`,
       [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
       [MEMORY.MEMORY_HAUL_PICKUP]: lab.id,
@@ -281,9 +286,15 @@ export default class ReactorRunnable {
     }, REQUEST_LOAD_TTL);
   }
 
-  produceStatus(kingdom: Kingdom, trace: Tracer) {
-    trace.log('producing reactor status');
+  produceStatus(resource: ResourceConstant, amount: number, trace: Tracer) {
+    const status = {
+      [MEMORY.REACTION_STATUS_ROOM]: this.orgRoom.id,
+      [MEMORY.REACTION_STATUS_RESOURCE]: resource,
+      [MEMORY.REACTION_STATUS_RESOURCE_AMOUNT]: amount,
+    };
 
+    trace.log('producing reactor status', {status});
 
+    this.orgRoom.getKingdom().sendRequest(TOPICS.ACTIVE_REACTIONS, 1, status, PRODUCE_STATUS_TTL);
   }
 }

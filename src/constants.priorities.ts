@@ -25,6 +25,7 @@ export const PRIORITY_BOOTSTRAP = 0;
 export const TERMINAL_SELL = 1;
 export const TERMINAL_BUY = 2;
 export const TERMINAL_TRANSFER = 3;
+export const TERMINAL_ENERGY_BALANCE = 4;
 
 // Long hauling
 export const HAUL_DROPPED = 10.0;

@@ -41,6 +41,7 @@ const CHECK_SAFE_MODE_TTL = 5;
 const HAUL_EXTENSION_TTL = 10;
 const RAMPART_ACCESS_TTL = 1;
 const UPDATE_PROCESSES_TTL = 10;
+const PRODUCE_STATUS_TTL = 25;
 
 enum DEFENSE_POSTURE {
   OPEN = 'open',
@@ -73,6 +74,7 @@ export default class RoomRunnable {
   threadRequestExtensionFilling: any;
   threadUpdateRampartAccess: any;
   threadRequestEnergy: any;
+  threadProduceStatus: any;
 
   constructor(id: string, scheduler: Scheduler) {
     this.id = id;
@@ -92,7 +94,8 @@ export default class RoomRunnable {
     this.threadCheckSafeMode = thread(CHECK_SAFE_MODE_TTL, null, null)(this.checkSafeMode.bind(this));
     this.threadRequestExtensionFilling = thread(HAUL_EXTENSION_TTL, null, null)(this.requestExtensionFilling.bind(this));
     this.threadUpdateRampartAccess = thread(RAMPART_ACCESS_TTL, null, null)(this.updateRampartAccess.bind(this));
-    this.threadRequestEnergy = thread(ENERGY_REQUEST_TTL, null, null)(this.requestEnergy.bind(this))
+    this.threadRequestEnergy = thread(ENERGY_REQUEST_TTL, null, null)(this.requestEnergy.bind(this));
+    this.threadProduceStatus = thread(PRODUCE_STATUS_TTL, null, null)(this.produceStatus.bind(this));
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
@@ -132,6 +135,7 @@ export default class RoomRunnable {
       this.threadUpdateRampartAccess(orgRoom, room, trace);
       this.threadRequestExtensionFilling(orgRoom, room, trace);
       this.threadCheckSafeMode(room, trace);
+      this.threadProduceStatus(orgRoom, trace);
     }
 
     this.threadUpdateProcessSpawning(orgRoom, room, trace);
@@ -669,5 +673,20 @@ export default class RoomRunnable {
         resourceGovernor.buyResource(orgRoom, RESOURCE_ENERGY, amount, ENERGY_REQUEST_TTL, trace);
       }
     }
+  }
+
+  produceStatus(orgRoom: OrgRoom, trace: Tracer) {
+    const resources = orgRoom.getReserveResources(false);
+
+    const status = {
+      [MEMORY.ROOM_STATUS_NAME]: orgRoom.id,
+      [MEMORY.ROOM_STATUS_LEVEL]: orgRoom.getRoomLevel(),
+      [MEMORY.ROOM_STATUS_TERMINAL]: orgRoom.hasTerminal(),
+      [MEMORY.ROOM_STATUS_ENERGY]: resources[RESOURCE_ENERGY] || 0,
+    };
+
+    trace.log('producing room status', {status});
+
+    orgRoom.getKingdom().sendRequest(TOPICS.ROOM_STATUES, 1, status, PRODUCE_STATUS_TTL);
   }
 }

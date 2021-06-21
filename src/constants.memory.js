@@ -78,6 +78,18 @@ module.exports.MEMORY_POSITION_X = 'position_x';
 module.exports.MEMORY_POSITION_Y = 'position_y';
 module.exports.MEMORY_POSITION_ROOM = 'position_room';
 
+// Reaction status
+module.exports.REACTION_STATUS_ROOM = 'reaction_room';
+module.exports.REACTION_STATUS_RESOURCE = 'reaction_resource';
+module.exports.REACTION_STATUS_RESOURCE_AMOUNT = 'reaction_resource_amount';
+
+// Room status
+module.exports.ROOM_STATUS_NAME = 'room_status_name';
+module.exports.ROOM_STATUS_LEVEL = 'room_status_level';
+module.exports.ROOM_STATUS_ENERGY = 'room_status_energy';
+module.exports.ROOM_STATUS_ALERT_LEVEL = 'room_status_alert_level';
+module.exports.ROOM_STATUS_TERMINAL = 'room_status_terminal';
+
 // PID Controller prefixes
 module.exports.PID_PREFIX_HAULERS = 'haulers_';
 

@@ -13,12 +13,14 @@ const MIN_CREDITS = 25000;
 const MIN_BOOST_CREDITS = 100000;
 const MIN_SELL_ORDER_SIZE = 1000;
 const MAX_SELL_AMOUNT = 25000;
-
 const MIN_ROOM_ENERGY = 100000;
+const ENERGY_BALANCE_AMOUNT = 5000;
 
 const REQUEST_REACTION_TTL = 500;
 const REQUEST_SELL_TTL = 500;
 const REQUEST_DISTRIBUTE_BOOSTS = 30;
+const CONSUME_STATUS_TTL = 25;
+const BALANCE_ENERGY_TTL = 50;
 
 // Try to ensure that all colonies are ready to
 // boost creeps with these effects
@@ -41,8 +43,9 @@ class Resources extends OrgBase {
     this.pricer = new SigmoidPricing(PRICES);
     this.resources = {};
     this.sharedResources = {};
-
     this.availableReactions = {};
+    this.reactorStatuses = [];
+    this.roomStatuses = [];
 
     this.threadRequestReactions = thread(REQUEST_REACTION_TTL)(() => {
       this.availableReactions = this.getReactions(trace);
@@ -54,8 +57,11 @@ class Resources extends OrgBase {
     });
 
     this.threadDistributeBoosts = thread(REQUEST_DISTRIBUTE_BOOSTS)((trace) => {
-      this.requestDistributeBoosts(trace);
+      this.distributeBoosts(trace);
     });
+
+    this.threadConsumeStatuses = thread(CONSUME_STATUS_TTL, null, null)(this.consumeStatuses.bind(this));
+    this.threadBalanceEnergy = thread(BALANCE_ENERGY_TTL, null, null)(this.balanceEnergy.bind(this));
 
     setupTrace.end();
   }
@@ -70,6 +76,8 @@ class Resources extends OrgBase {
     this.threadRequestReactions();
     this.threadRequestSellExtraResources();
     this.threadDistributeBoosts(trace);
+    this.threadConsumeStatuses(trace);
+    this.threadBalanceEnergy(trace);
 
     updateTrace.end();
   }
@@ -500,7 +508,7 @@ class Resources extends OrgBase {
         details, REQUEST_SELL_TTL);
     });
   }
-  requestDistributeBoosts(trace) {
+  distributeBoosts(trace) {
     trace.log('balancing boosts');
 
     this.getKingdom().getColonies().forEach((colony) => {
@@ -560,6 +568,56 @@ class Resources extends OrgBase {
         }
       });
     });
+  }
+
+  consumeStatuses(trace) {
+    trace.log('consuming statues');
+
+    const reactorStatuses = this.getKingdom().getTopics().getTopic(TOPICS.ACTIVE_REACTIONS) || [];
+    this.reactorStatuses = reactorStatuses;
+    trace.log('reactor statuses', {length: reactorStatuses.length});
+
+    const roomStatuses = this.getKingdom().getTopics().getTopic(TOPICS.ROOM_STATUES) || [];
+    this.roomStatuses = roomStatuses;
+    trace.log('room statuses', {length: roomStatuses.length});
+  }
+
+  balanceEnergy(trace) {
+    if (this.roomStatuses.length < 2) {
+      trace.notice('not enough rooms to balance');
+      return;
+    }
+
+    const hasTerminals = _.filter(this.roomStatuses, {details: {[MEMORY.ROOM_STATUS_TERMINAL]: true}});
+    const energySorted = _.sortByAll(hasTerminals, [
+      ['details', MEMORY.ROOM_STATUS_LEVEL].join('.'),
+      ['details', MEMORY.ROOM_STATUS_ENERGY].join('.'),
+    ]);
+
+    trace.notice('sorted', {energySorted});
+
+    const sinkRoom = energySorted[0];
+    const sourceRoom = energySorted[energySorted.length - 1];
+
+    const energyDiff = sourceRoom.details[MEMORY.ROOM_STATUS_ENERGY] - sinkRoom.details[MEMORY.ROOM_STATUS_ENERGY];
+    if (energyDiff < ENERGY_BALANCE_AMOUNT * 2) {
+      trace.notice('energy different too small, no need to send energy', {energyDiff});
+      return;
+    }
+
+    const sourceRoomName = sourceRoom.details[MEMORY.ROOM_STATUS_NAME];
+    const sinkRoomName = sinkRoom.details[MEMORY.ROOM_STATUS_NAME];
+    const request = {
+      [MEMORY.TERMINAL_TASK_TYPE]: TASKS.TASK_TRANSFER,
+      [MEMORY.TRANSFER_RESOURCE]: RESOURCE_ENERGY,
+      [MEMORY.TRANSFER_AMOUNT]: ENERGY_BALANCE_AMOUNT,
+      [MEMORY.TRANSFER_ROOM]: sinkRoomName,
+    };
+
+    trace.notice('send energy request', {request});
+
+    this.getKingdom().getRoomByName(sourceRoomName).sendRequest(TOPICS.TOPIC_TERMINAL_TASK,
+      PRIORITIES.TERMINAL_ENERGY_BALANCE, request, BALANCE_ENERGY_TTL);
   }
 }
 
