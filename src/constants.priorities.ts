@@ -12,6 +12,7 @@ export const PRIORITY_ATTACKER = 10;
 export const PRIORITY_HARVESTER = 9;
 export const PRIORITY_REPAIRER_URGENT = 8.5;
 export const PRIORITY_UPGRADER = 8;
+export const PRIORITY_BUFFER_PATROL = 7;
 export const PRIORITY_REMOTE_HARVESTER = 7;
 export const PRIORITY_REPAIRER = 6;
 export const PRIORITY_BUILDER = 5;
@@ -32,6 +33,7 @@ export const HAUL_DROPPED = 10.0;
 export const HAUL_CONTAINER = 1.0;
 
 // Core Hauling
+export const UNLOAD_LINK = 2;
 export const HAUL_TOWER_HOSTILES = 1.6;
 export const HAUL_BOOST = 1.5;
 export const UNLOAD_BOOST = 1.5;
@@ -39,6 +41,7 @@ export const HAUL_TERMINAL = 1.3;
 export const HAUL_REACTION = 1.2;
 export const HAUL_EXTENSION = 1.0;
 export const HAUL_TOWER = 1.0;
+export const LOAD_LINK = 0.9;
 export const HAUL_NUKER = 0.8;
 
 // Reactions

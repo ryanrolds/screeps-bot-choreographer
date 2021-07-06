@@ -13,6 +13,7 @@ import {KingdomConfig, ShardConfig} from './config';
 import {Scheduler} from './os.scheduler';
 import {Tracer} from './lib.tracing';
 import OrgRoom from './org.room';
+import WarManager from './runnable.manager.war';
 
 const UPDATE_ORG_TTL = 1;
 
@@ -172,11 +173,33 @@ export class Kingdom extends OrgBase {
   getPathCache(): PathCache {
     return this.pathCache;
   }
+  getWarManager(): WarManager {
+    if (!this.scheduler.hasProcess('war_manager')) {
+      return null;
+    }
+
+    // TODO stop doing this, use a topic
+    return this.scheduler.processMap['war_manager'].runnable as WarManager;
+  }
   getColonies(): Colony[] {
     return Object.values(this.colonies);
   }
   getColonyById(colonyId: string): Colony {
     return this.colonies[colonyId];
+  }
+  getClosestColonyInRange(roomName: string, range: Number = 5): Colony {
+    let selectedColony = null;
+    let selectedColonyDistance = 99999;
+
+    this.getColonies().forEach((colony) => {
+      const distance = Game.map.getRoomLinearDistance(colony.primaryRoomId, roomName)
+      if (distance <= range && selectedColonyDistance > distance) {
+        selectedColony = colony;
+        selectedColonyDistance = distance;
+      }
+    })
+
+    return selectedColony;
   }
   getColony() {
     throw new Error('a kingdom is not a colony');

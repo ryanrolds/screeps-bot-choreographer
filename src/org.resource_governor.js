@@ -24,7 +24,7 @@ const BALANCE_ENERGY_TTL = 50;
 
 // Try to ensure that all colonies are ready to
 // boost creeps with these effects
-const MIN_CRITICAL_COMPOUND = 1000;
+const MIN_CRITICAL_COMPOUND = 2500;
 const CRITICAL_EFFECTS = {
   'upgradeController': ['XGH2O', 'GH2O', 'GH'],
   // 'capacity': ['XKH2O', 'KH2O', 'KH'],
@@ -467,8 +467,7 @@ class Resources extends OrgBase {
         [MEMORY.REACTOR_OUTPUT]: reaction['output'],
         [MEMORY.REACTOR_AMOUNT]: REACTION_BATCH_SIZE,
       };
-      this.getKingdom().sendRequest(TOPICS.TASK_REACTION, priority, details,
-        REQUEST_REACTION_TTL);
+      this.getKingdom().sendRequest(TOPICS.TASK_REACTION, priority, details, REQUEST_REACTION_TTL);
     });
   }
   requestSellResource() {

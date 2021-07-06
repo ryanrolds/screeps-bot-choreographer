@@ -5,7 +5,7 @@ import OrgRoom from "./org.room";
 import * as MEMORY from "./constants.memory"
 import * as TASKS from "./constants.tasks"
 import * as TOPICS from "./constants.topics"
-import {exception} from "node:console";
+import * as PRIORITIES from "./constants.priorities"
 
 const TICK_STEP = 2;
 const PROCESS_TTL = 250;
@@ -206,14 +206,13 @@ export default class LinkManager {
       [MEMORY.MEMORY_HAUL_DROPOFF]: dropoff.id,
     };
 
-    (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, 2, details, HAUL_TTL);
+    (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.UNLOAD_LINK, details, HAUL_TTL);
     trace.log('haul energy from storage link', {
       request: details,
     });
   }
 
   fillLink(link: StructureLink, pickup: AnyStoreStructure, amount: number, trace: Tracer) {
-
     this.haulTTL = HAUL_TTL;
 
     const details = {
@@ -225,7 +224,7 @@ export default class LinkManager {
       [MEMORY.MEMORY_HAUL_DROPOFF]: link.id,
     };
 
-    (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, 0.9, details, HAUL_TTL);
+    (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.LOAD_LINK, details, HAUL_TTL);
     trace.log('haul energy to storage link', {
       request: details,
     });

@@ -13,9 +13,9 @@ export interface RunnableResult {
 
 type ProcessStatus = 'running' | 'sleeping' | 'stopped' | 'terminated';
 
-const STATUS_RUNNING = 'running';
-const STATUS_SLEEPING = 'sleeping';
-const STATUS_TERMINATED = 'terminated';
+export const STATUS_RUNNING = 'running';
+export const STATUS_SLEEPING = 'sleeping';
+export const STATUS_TERMINATED = 'terminated';
 
 export const running = (): RunnableResult => {
   return {status: STATUS_RUNNING};

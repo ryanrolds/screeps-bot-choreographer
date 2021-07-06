@@ -1,5 +1,5 @@
 const behaviorTree = require('./lib.behaviortree');
-const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
+const {FAILURE, SUCCESS} = require('./lib.behaviortree');
 
 const MEMORY = require('./constants.memory');
 const TASKS = require('./constants.tasks');
@@ -41,12 +41,14 @@ module.exports.getNearbyHaulTaskFromTopic = function(topic) {
 
         messages.forEach((message) => {
           const pickupId = message.details[MEMORY.MEMORY_HAUL_PICKUP];
-          if (pickupId) {
+          if (!pickupId) {
+            trace.log('no pickup id', {message});
             return;
           }
 
-          const pickup = Game.getObjectById(pickId);
+          const pickup = Game.getObjectById(pickupId);
           if (!pickup) {
+            trace.log('could not find object to pickup', {pickupId});
             return;
           }
 
@@ -172,6 +174,6 @@ module.exports.loadCreep = behaviorTree.leafNode(
       return FAILURE;
     }
 
-    return RUNNING;
+    return SUCCESS;
   },
 );

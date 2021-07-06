@@ -50,6 +50,13 @@ type RoomEntry = {
   }[];
 };
 
+export type TargetRoom = {
+  id: Id<Room>;
+  numTowers: number;
+  owner: string;
+  level: number;
+};
+
 export class Scribe extends OrgBase {
   journal: Journal;
 
@@ -143,7 +150,7 @@ export class Scribe extends OrgBase {
       })];
     });
   }
-  getWeakRooms() {
+  getWeakRooms(): TargetRoom[] {
     return Object.values(this.journal.rooms).filter((room) => {
       if (!room.controller || room.controller.owner === 'ENETDOWN') {
         return false;
@@ -159,7 +166,12 @@ export class Scribe extends OrgBase {
 
       return true;
     }).map((room) => {
-      return [room.id, room.numTowers, room.controller.owner];
+      return {
+        id: room.id,
+        numTowers: room.numTowers,
+        owner: room.controller.owner,
+        level: room.controller.level,
+      };
     });
   }
   updateRoom(roomObject: Room) {

@@ -32,6 +32,27 @@ const behavior = behaviorTree.sequenceNode(
           },
         ).reverse();
 
+        /*
+        // If there are no priority targets, start destroying whatever is there
+        if (targets.length === 0) {
+          targets = creep.pos.findInRange(FIND_HOSTILE_CREEPS, 3);
+
+          targets = targets.concat(creep.room.find(FIND_HOSTILE_STRUCTURES, {
+            filter: (structure) => {
+              return structure.structureType === STRUCTURE_TOWER ||
+                structure.structureType === STRUCTURE_SPAWN;
+            },
+          }));
+
+          targets = targets.concat(creep.room.find(FIND_HOSTILE_STRUCTURES, {
+            filter: (structure) => {
+              return structure.structureType === STRUCTURE_RAMPART ||
+                structure.structureType === STRUCTURE_WALL;
+            },
+          }));
+        }
+        */
+
         trace.log('room targets', {targets});
 
         // We move to the room target and attack the highest priority target in range,

@@ -345,7 +345,6 @@ export const featureFlagBool = (id: string, flag: string, defaultNode: TreeNode,
       }
 
       trace.log('result', result);
-
       trace.end();
 
       return result;
@@ -369,16 +368,16 @@ function getState(actor: Actor, id: string, trace: Tracer): number {
   // time we enter the node it will be 0 unless override it
   clearState(actor, id, trace);
 
-  trace.log('get state (clears existing state)', {id, state});
+  // trace.log('get state (clears existing state)', {id, state});
   return state;
 }
 
 function setState(actor: Actor, id: string, state: any, trace: Tracer): void {
   actor.memory[id] = state;
-  trace.log('set state', {id, state});
+  // trace.log('set state', {id, state});
 }
 
 function clearState(actor: Actor, id: string, trace: Tracer): void {
-  trace.log('clear state', {id, state: actor.memory[id]});
+  // trace.log('clear state', {id, state: actor.memory[id]});
   delete actor.memory[id];
 }

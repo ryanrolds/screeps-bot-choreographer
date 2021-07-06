@@ -27,10 +27,11 @@ const behavior = behaviorTree.sequenceNode(
       (creep, trace, kingdom) => {
         trace.log('done_if_full_or_no_tasks', {
           free: creep.store.getFreeCapacity(),
-          taskType: creep.memory[MEMORY.MEMORY_TASK_TYPE],
+          taskType: creep.memory[MEMORY.MEMORY_TASK_TYPE] || null,
         });
 
         if (!creep.memory[MEMORY.MEMORY_TASK_TYPE]) {
+          trace.log('done because no task type');
           return true;
         }
 

@@ -54,7 +54,7 @@ export default class SpawnManager {
       return terminate();
     }
 
-    trace.log('Spawn manager run', {spawnIds: this.spawnIds});
+    trace.log('Spawn manager run', {id: this.id, spawnIds: this.spawnIds});
 
     this.threadUpdateSpawnList(trace);
 
@@ -115,97 +115,108 @@ export default class SpawnManager {
 
         trace.log('spawn idle', {spawnTopicSize, numCreeps, energy, minEnergy, spawnTopicBackPressure});
 
-        if (energy >= minEnergy) {
-          let request = (this.orgRoom as any).getNextRequest(TOPICS.TOPIC_SPAWN);
-          if (request) {
-            // Allow request to override energy limit
-            if (request.details.energyLimit) {
-              energyLimit = request.details.energyLimit;
-            }
+        if (energy < minEnergy) {
+          trace.notice("low energy, not spawning", {id: this.id, energy, minEnergy})
+          return;
+        }
 
-            this.createCreep(spawn, request.details.role, request.details.memory, energy, energyLimit);
+        let request = (this.orgRoom as any).getNextRequest(TOPICS.TOPIC_SPAWN);
+        if (request) {
+          // Allow request to override energy limit
+          if (request.details.energyLimit) {
+            energyLimit = request.details.energyLimit;
+          }
+
+          const minEnergy = request.details[MEMORY.SPAWN_MIN_ENERGY] || 0;
+          if (energy < minEnergy) {
+            trace.notice('colony does not have energy', {minEnergy, energy});
             return;
           }
 
-          const peek = (this.orgRoom as any).getKingdom().peekNextRequest(TOPICS.TOPIC_SPAWN);
-          if (peek) {
-            const role = peek.details.role;
-            const definition = definitions[role];
-            const numColonies = (this.orgRoom as any).getKingdom().getColonies().length;
+          trace.notice("colony spawn request", {id: this.id, energy, energyLimit, request});
 
-            if (definition.energyMinimum && energy < definition.energyMinimum && numColonies > 3) {
-              return;
-            }
+          this.createCreep(spawn, request.details.role, request.details.memory, energy, energyLimit);
+          return;
+        }
+
+        const peek = (this.orgRoom as any).getKingdom().peekNextRequest(TOPICS.TOPIC_SPAWN);
+        if (peek) {
+          const role = peek.details.role;
+          const definition = definitions[role];
+          const numColonies = (this.orgRoom as any).getKingdom().getColonies().length;
+
+          if (definition.energyMinimum && energy < definition.energyMinimum && numColonies > 3) {
+            return;
           }
+        }
 
-          // Check inter-colony requests if the colony has spawns
-          request = (this.orgRoom as any).getKingdom().getTopics()
-            .getMessageOfMyChoice(TOPICS.TOPIC_SPAWN, (messages) => {
-              const selected = messages.filter((message) => {
-                const assignedShard = message.details.memory[MEMORY.MEMORY_ASSIGN_SHARD] || null;
-                if (assignedShard && assignedShard != Game.shard.name) {
-                  let portals: any[] = (this.orgRoom as any).getKingdom().getScribe()
-                    .getPortals(assignedShard).filter((portal) => {
-                      const distance = Game.map.getRoomLinearDistance((this.orgRoom as any).id,
-                        portal.pos.roomName);
-                      return distance < 2;
-                    });
+        // Check inter-colony requests if the colony has spawns
+        request = (this.orgRoom as any).getKingdom().getTopics()
+          .getMessageOfMyChoice(TOPICS.TOPIC_SPAWN, (messages) => {
+            const selected = messages.filter((message) => {
+              const assignedShard = message.details.memory[MEMORY.MEMORY_ASSIGN_SHARD] || null;
+              if (assignedShard && assignedShard != Game.shard.name) {
+                let portals: any[] = (this.orgRoom as any).getKingdom().getScribe()
+                  .getPortals(assignedShard).filter((portal) => {
+                    const distance = Game.map.getRoomLinearDistance((this.orgRoom as any).id,
+                      portal.pos.roomName);
+                    return distance < 2;
+                  });
 
-                  if (!portals.length) {
-                    return false;
-                  }
-
-                  return true;
-                }
-
-                trace.log('choosing', {message})
-
-                let destinationRoom = null;
-
-                const assignedRoom = message.details.memory[MEMORY.MEMORY_ASSIGN_ROOM];
-                if (assignedRoom) {
-                  destinationRoom = assignedRoom;
-                }
-
-                const positionRoom = message.details.memory[MEMORY.MEMORY_POSITION_ROOM];
-                if (positionRoom) {
-                  destinationRoom = positionRoom
-                }
-
-                const flag = message.details.memory[MEMORY.MEMORY_FLAG];
-                if (flag) {
-                  destinationRoom = Game.flags[flag]?.pos.roomName
-                }
-
-                trace.log('choosing', {destinationRoom, flag})
-
-                if (!destinationRoom) {
-                  return false;
-                }
-
-                const distance = Game.map.getRoomLinearDistance((this.orgRoom as any).id, destinationRoom);
-                if (distance > 5) {
-                  trace.log('distance', {distance, message});
-
+                if (!portals.length) {
                   return false;
                 }
 
                 return true;
-              });
-
-              if (!selected.length) {
-                return null;
               }
 
-              return selected[0];
+              trace.log('choosing', {message})
+
+              let destinationRoom = null;
+
+              const assignedRoom = message.details.memory[MEMORY.MEMORY_ASSIGN_ROOM];
+              if (assignedRoom) {
+                destinationRoom = assignedRoom;
+              }
+
+              const positionRoom = message.details.memory[MEMORY.MEMORY_POSITION_ROOM];
+              if (positionRoom) {
+                destinationRoom = positionRoom
+              }
+
+              const flag = message.details.memory[MEMORY.MEMORY_FLAG];
+              if (flag) {
+                destinationRoom = Game.flags[flag]?.pos.roomName
+              }
+
+              trace.log('choosing', {destinationRoom, flag})
+
+              if (!destinationRoom) {
+                return false;
+              }
+
+              const distance = Game.map.getRoomLinearDistance((this.orgRoom as any).id, destinationRoom);
+              if (distance > 5) {
+                trace.log('distance', {distance, message});
+
+                return false;
+              }
+
+              return true;
             });
 
+            if (!selected.length) {
+              return null;
+            }
 
-          if (request) {
-            trace.notice('kingdom spawn request', {roomName: this.orgRoom.id, request});
-            this.createCreep(spawn, request.details.role, request.details.memory, energy, energyLimit);
-            return;
-          }
+            return selected[0];
+          });
+
+
+        if (request) {
+          trace.notice('kingdom spawn request', {roomName: this.orgRoom.id, request});
+          this.createCreep(spawn, request.details.role, request.details.memory, energy, energyLimit);
+          return;
         }
       }
     })

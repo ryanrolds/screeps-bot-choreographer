@@ -4,6 +4,7 @@ import {Priorities, Scheduler} from "./os.scheduler";
 import {Process, Runnable, RunnableResult, running, sleeping} from "./os.process";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
+import OrgRoom from './org.room';
 import DefensePartyRunnable from './runnable.defense_party';
 import TOPICS from './constants.topics';
 import CREEPS from './constants.creeps';
@@ -17,6 +18,7 @@ const TARGET_REQUEST_TTL = 1;
 const REQUEST_DEFENDERS_TTL = 25;
 const DEFENSE_STATUS_TTL = 1;
 const UPDATE_DEFENSE_STATS_TTL = 5;
+
 const hostileParts = {
   'attack': true,
   'heal': true,
@@ -30,6 +32,7 @@ interface StoredDefenseParty {
   id: string;
   flagId: string;
   position: RoomPosition;
+  colony: string;
 }
 
 interface DefenseMemory {
@@ -45,17 +48,17 @@ export default class DefenseManager {
   threadReturnDefendersToStation: any;
   threadUpdateDefenseStats: any;
 
-  constructor(id: string, scheduler: Scheduler, trace: Tracer) {
+  constructor(kingdom: Kingdom, id: string, scheduler: Scheduler, trace: Tracer) {
     this.id = id;
     this.scheduler = scheduler;
-    this.restoreFromMemory(trace);
+    this.restoreFromMemory(kingdom, trace);
 
     this.threadCheckColonyDefenses = thread(REQUEST_DEFENDERS_TTL, null, null)(checkColonyDefenses);
     this.threadReturnDefendersToStation = thread(REQUEST_DEFENDERS_TTL, null, null)(returnDefendersToStation);
     this.threadUpdateDefenseStats = thread(UPDATE_DEFENSE_STATS_TTL, null, null)(updateDefenseStats);
   }
 
-  private restoreFromMemory(trace: Tracer) {
+  private restoreFromMemory(kingdom: Kingdom, trace: Tracer) {
     const memory = (Memory as any);
     if (!memory.defense) {
       memory.defense = {
@@ -72,17 +75,29 @@ export default class DefenseManager {
 
       party.position = new RoomPosition(party.position.x, party.position.y, party.position.roomName);
 
-      return this.createAndScheduleDefenseParty(party.id, party.flagId, party.position, trace);
+      return this.createAndScheduleDefenseParty(kingdom, party.id, party.flagId, party.position, trace);
     }).filter((party) => {
       return party
     });
   }
 
-  createAndScheduleDefenseParty(id: string, flagId: string, position: RoomPosition, trace: Tracer): DefensePartyRunnable {
-    const party = new DefensePartyRunnable(id, flagId, position)
+  createAndScheduleDefenseParty(kingdom: Kingdom, id: string, flagId: string, position: RoomPosition,
+    trace: Tracer): DefensePartyRunnable {
+
+    const flag = Game.flags[flagId] || null;
+    if (!flag) {
+      trace.log('flag not found, not creating defense party', {flagId});
+      return;
+    }
+
+    const colony = kingdom.getClosestColonyInRange(flag.pos.roomName, 5);
+    if (!colony) {
+      trace.log('could not find colony in range, not creating defense party', {roomName: flag.pos.roomName});
+    }
 
     trace.log("creating defense party", {id, position});
 
+    const party = new DefensePartyRunnable(id, colony, flagId, position, trace)
     const process = new Process(id, 'defense_party', Priorities.DEFENCE, {
       run(kingdom: Kingdom, trace: Tracer): RunnableResult {
         return party.run(kingdom, trace);
@@ -106,7 +121,7 @@ export default class DefenseManager {
     addHostilesToColonyTargetTopic(kingdom, hostilesByColony, trace);
     publishDefenseStatuses(kingdom, hostilesByColony, trace);
 
-    this.handleDefendFlags(trace);
+    this.handleDefendFlags(kingdom, trace);
     this.threadCheckColonyDefenses(kingdom, hostilesByColony, trace);
     this.threadReturnDefendersToStation(kingdom, hostilesByColony, trace);
     this.threadUpdateDefenseStats(kingdom, hostilesByColony, defendersByColony, trace);
@@ -114,7 +129,7 @@ export default class DefenseManager {
     return running();
   }
 
-  handleDefendFlags(trace: Tracer) {
+  handleDefendFlags(kingdom: Kingdom, trace: Tracer) {
     // Removed old defense parties
     this.defenseParties = this.defenseParties.filter((party) => {
       return this.scheduler.hasProcess(party.id);
@@ -125,7 +140,7 @@ export default class DefenseManager {
         const flagDefensePartyId = `${flag.name}_party`;
         trace.log('defend flag', {flagDefensePartyId})
         if (!this.scheduler.hasProcess(flagDefensePartyId)) {
-          const party = this.createAndScheduleDefenseParty(flagDefensePartyId, flag.name, flag.pos, trace);
+          const party = this.createAndScheduleDefenseParty(kingdom, flagDefensePartyId, flag.name, flag.pos, trace);
           this.defenseParties.push(party);
         }
       }
@@ -136,16 +151,19 @@ export default class DefenseManager {
       parties: this.defenseParties.map((party) => {
         return {
           id: party.id,
-          flagId: party.flagId,
-          position: party.position,
+          flagId: party.getFlag()?.name,
+          position: party.getPosition(),
+          colony: party.getColony().id,
         };
       })
     };
   }
 }
 
-function getHostilesByColony(kingdom: Kingdom, rooms: Room[], trace: Tracer) {
-  return rooms.reduce<Record<string, (Creep | StructureInvaderCore)[]>>((colonies, room: Room) => {
+type HostilesByColony = Record<string, Target[]>;
+
+function getHostilesByColony(kingdom: Kingdom, rooms: Room[], trace: Tracer): HostilesByColony {
+  return rooms.reduce<HostilesByColony>((colonies, room: Room) => {
     const orgRoom = kingdom.getRoomByName(room.name)
     if (!orgRoom) {
       return colonies;
@@ -205,8 +223,10 @@ function getHostilesByColony(kingdom: Kingdom, rooms: Room[], trace: Tracer) {
   }, {});
 }
 
-function getDefendersByColony(kingdom: Kingdom, rooms: Room[], trace: Tracer) {
-  return rooms.reduce<Record<string, (Creep)[]>>((colonies, room: Room) => {
+type DefendersByColony = Record<string, (Creep)[]>
+
+function getDefendersByColony(kingdom: Kingdom, rooms: Room[], trace: Tracer): DefendersByColony {
+  return rooms.reduce<DefendersByColony>((colonies, room: Room) => {
     const orgRoom = kingdom.getRoomByName(room.name)
     if (!orgRoom) {
       return colonies;
@@ -279,7 +299,7 @@ function addHostilesToColonyTargetTopic(kingdom: Kingdom, hostilesByColony: Reco
   });
 }
 
-function publishDefenseStatuses(kingdom: Kingdom, hostilesByColony: Record<string, Target[]>, trace) {
+function publishDefenseStatuses(kingdom: Kingdom, hostilesByColony: HostilesByColony, trace) {
   kingdom.getColonies().forEach((colony) => {
     const numHostiles = (hostilesByColony[colony.id] || []).length;
     const numDefenders = Object.values<Creep>(colony.getCreeps()).filter((creep) => {
@@ -294,6 +314,7 @@ function publishDefenseStatuses(kingdom: Kingdom, hostilesByColony: Record<strin
     }
 
     const details = {
+      colonyId: colony.id,
       status,
       numHostiles,
       numDefenders,

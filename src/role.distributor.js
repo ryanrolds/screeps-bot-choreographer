@@ -71,7 +71,14 @@ const emptyCreep = behaviorTree.leafNode(
       throw new Error('Hauler task missing desired resource');
     }
 
-    const toUnload = _.difference(Object.keys(creep.store), [desiredResource]);
+    const taskId = creep.memory[MEMORY.TASK_ID];
+
+    let toUnload = Object.keys(creep.store);
+    if (!taskId.startsWith('lu-')) {
+      // If not a link unload, we should unload what isnt needed
+      toUnload = _.difference(toUnload, [desiredResource]);
+    }
+
     if (!toUnload.length) {
       return SUCCESS;
     }
@@ -117,9 +124,17 @@ const unloadIfNeeded = behaviorTree.selectorNode(
           throw new Error('Hauler task missing desired resource');
         }
 
+        const taskId = creep.memory[MEMORY.TASK_ID];
         const loadedResources = Object.keys(creep.store);
-        const toUnload = _.difference(loadedResources, [desiredResource]);
+
+        let toUnload = loadedResources;
+        if (!taskId.startsWith('lu-')) {
+          // If not a link unload, we should unload what isnt needed
+          toUnload = _.difference(loadedResources, [desiredResource]);
+        }
+
         trace.log('to unload', {loadedResources, desiredResource, toUnload});
+
         if (toUnload.length) {
           const room = kingdom.getCreepRoom(creep);
           if (!room) {

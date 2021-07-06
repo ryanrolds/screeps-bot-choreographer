@@ -144,6 +144,7 @@ export default class RoomRunnable {
     this.threadRequestBuilder(orgRoom, room, trace);
     this.threadRequestRepairer(orgRoom, room, trace);
     this.threadRequestEnergy(orgRoom, room, trace);
+    this.threadRequestHaulDroppedResources(orgRoom, room, trace);
 
     return running();
   }

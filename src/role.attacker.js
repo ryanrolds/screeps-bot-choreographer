@@ -9,9 +9,9 @@ const behavior = behaviorTree.sequenceNode(
   [
     behaviorTree.leafNode(
       'move_node',
-      (creep) => {
-        const x = creep.memory[MEMORY.MEMORY_POSITION_X];
-        const y = creep.memory[MEMORY.MEMORY_POSITION_Y];
+      (creep, trace) => {
+        const x = _.min([_.max([creep.memory[MEMORY.MEMORY_POSITION_X], 0]), 49]);
+        const y = _.min([_.max([creep.memory[MEMORY.MEMORY_POSITION_Y], 0]), 49]);
         const roomId = creep.memory[MEMORY.MEMORY_POSITION_ROOM];
         if (!x || !y || !roomId) {
           return SUCCESS;
@@ -23,10 +23,11 @@ const behavior = behaviorTree.sequenceNode(
           return SUCCESS;
         }
 
+        const ignoreCreeps = creep.pos.inRangeTo(position, 1);
         if (creep.room.name != roomId) {
-          creep.moveTo(position, {reusePath: 50});
+          creep.moveTo(position, {reusePath: 50, ignoreCreeps});
         } else {
-          creep.moveTo(position, {reusePath: 5, ignoreCreeps: false});
+          creep.moveTo(position, {reusePath: 5, ignoreCreeps});
         }
 
         return SUCCESS;

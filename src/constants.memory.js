@@ -1,5 +1,6 @@
 // General role memory IDs
 module.exports.MEMORY_ROLE = 'role';
+module.exports.SPAWN_MIN_ENERGY = 'spawn_min_energy';
 
 // Old source memory ID (deprecated)
 module.exports.MEMORY_SOURCE = 'source';
@@ -118,3 +119,7 @@ module.exports.REACTOR_AMOUNT = 'reactor_amount';
 // Defense parties
 module.exports.MEMORY_DEFENSE_IN_POSITION = 'defense_in_position';
 module.exports.MEMORY_DEFENSE_PARTY = 'defense_party';
+
+// Party
+module.exports.MEMORY_PARTY_ID = 'party_id';
+module.exports.MEMORY_PARTY_POSITION = 'party_position';

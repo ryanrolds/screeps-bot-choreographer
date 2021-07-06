@@ -91,6 +91,17 @@ const harvest = behaviorTree.leafNode(
 const moveEnergyToLink = behaviorTree.leafNode(
   'move_energy_to_link',
   (creep, trace, kingdom) => {
+    const source = Game.getObjectById(creep.memory[MEMORY.MEMORY_HARVEST]);
+    if (!source) {
+      trace.log('source not found');
+      return FAILURE;
+    }
+
+    if (source.energy > 0) {
+      trace.log('source has energy, stop trying to load link');
+      return SUCCESS;
+    }
+
     const link = creep.pos.findInRange(FIND_MY_STRUCTURES, 1, {
       filter: (structure) => {
         return structure.structureType === STRUCTURE_LINK;

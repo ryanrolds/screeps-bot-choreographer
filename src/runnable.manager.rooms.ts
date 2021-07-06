@@ -27,7 +27,7 @@ export class RoomManager {
         return;
       }
 
-      trace.log('missing room', {name})
+      trace.log('missing room', {name});
 
       this.scheduler.registerProcess(new Process(name, 'room', Priorities.RESOURCES,
         new RoomRunnable(name, this.scheduler)));

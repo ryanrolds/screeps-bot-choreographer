@@ -11,7 +11,9 @@ export interface ColonyConfig {
 }
 
 export interface KingdomConfig {
+  buffer: number;
   friends: string[];
+  neutral: string[];
   avoid: string[];
   kos: string[];
   shards: Record<string, ShardConfig>;

@@ -5,7 +5,15 @@ import {KingdomConfig} from './config'
 global.TRACING_ACTIVE = false;
 
 let config: KingdomConfig = {
-  'friends': ['PythonBeatJava'],
+  'buffer': 2,
+  'friends': [
+    'PythonBeatJava'
+  ],
+  'neutral': [
+    'JavaXCrow',
+    'likeafox',
+    'kobez0r',
+  ],
   'avoid': [],
   'kos': [],
   'shards': {
@@ -23,7 +31,7 @@ let config: KingdomConfig = {
         id: 'E22S48-Shard2',
         primary: 'E22S48',
         isPublic: false,
-        rooms: ['E22S48', 'E22S49', 'E22S47', 'E22S46'],
+        rooms: ['E22S48', 'E22S49', 'E22S47', 'E22S46', 'E21S46'],
         // rooms: ['E22S48', 'E22S49', 'E22S47', 'E21S47'],
       },
     },
