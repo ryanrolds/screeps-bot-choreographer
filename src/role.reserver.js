@@ -71,7 +71,7 @@ const behavior = behaviorTree.sequenceNode(
         'claim',
         (creep, trace, kingdom) => {
           const roomId = creep.memory[MEMORY.MEMORY_ASSIGN_ROOM];
-          // If creep doesn't have a harvest room assigned, we are done
+          // If reserver doesn't have a room assigned, we are done
           if (!roomId) {
             return behaviorTree.SUCCESS;
           }

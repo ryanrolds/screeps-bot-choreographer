@@ -30,7 +30,7 @@ export default class DefensePartyRunnable {
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
     trace = trace.asId(this.id);
 
-    const creeps = this.getCreeps();
+    const creeps = this.getAssignedCreeps();
     if (creeps.length < 1) {
       return sleeping(REQUEST_PARTY_MEMBER_TTL)
     }
@@ -96,16 +96,16 @@ export default class DefensePartyRunnable {
     return running();
   }
 
-  inPosition(trace: Tracer) {
-    return this.party.inPosition(trace);
+  getAssignedCreeps() {
+    return this.party.getAssignedCreeps();
+  }
+
+  inPosition(position: RoomPosition, trace: Tracer) {
+    return this.party.inPosition(position, trace);
   }
 
   getColony(): Colony {
     return this.party.getColony();
-  }
-
-  getCreeps() {
-    return this.party.getCreeps();
   }
 
   getFlag() {

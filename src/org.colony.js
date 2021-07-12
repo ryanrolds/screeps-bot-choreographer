@@ -402,6 +402,14 @@ class Colony extends OrgBase {
     const updateOrgTrace = trace.begin('update_org');
 
     this.visibleRooms = Object.keys(Game.rooms);
+
+    // If primary room is not owned by me, count as missing
+    if (!this.primaryRoom || !this.primaryRoom.controller.my) {
+      this.visibleRooms = this.visibleRooms.filter((roomId) => {
+        return roomId !== this.primaryRoomId;
+      });
+    }
+
     this.missingRooms = _.difference(this.desiredRooms, this.visibleRooms);
     this.colonyRooms = _.difference(this.desiredRooms, this.missingRooms);
 

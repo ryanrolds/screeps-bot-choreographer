@@ -5,6 +5,7 @@ import {Process, Runnable, RunnableResult, running, sleeping} from "./os.process
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
 import WarPartyRunnable from './runnable.warparty';
+import {Phase} from './runnable.warparty';
 import {trace} from 'node:console';
 import {UNLOAD_LINK} from './constants.priorities';
 import Colony from './org.colony';
@@ -16,7 +17,7 @@ interface StoredWarParty {
   target: string;
   position: RoomPosition;
   colony: string;
-  phase: string;
+  phase: Phase;
 }
 
 interface WarMemory {
@@ -60,7 +61,7 @@ export default class WarManager {
       }
 
       const position = new RoomPosition(party.position.x, party.position.y, party.position.roomName);
-      const colony = kingdom.getRoomColony(party.colony);
+      const colony = kingdom.getColonyById(party.colony);
       if (!colony) {
         trace.log('not create war party, cannot find colony', {colonyId: party.colony});
         return null;
@@ -145,20 +146,16 @@ export default class WarManager {
 
     const partyId = `war_party_${this.targetRoom}_${Game.time}`;
     trace.log("creating war party", {target: this.targetRoom, partyId});
-    const warParty = this.createAndScheduleWarParty(colony, partyId, this.targetRoom, null, flag.pos, trace);
+    const warParty = this.createAndScheduleWarParty(colony, partyId, this.targetRoom, Phase.PHASE_MARSHAL, flag.pos, trace);
     if (warParty) {
       this.warParties.push(warParty);
     }
   }
 
-  createAndScheduleWarParty(colony: Colony, id: string, target: string, phase: string,
+  createAndScheduleWarParty(colony: Colony, id: string, target: string, phase: Phase,
     position: RoomPosition, trace: Tracer): WarPartyRunnable {
-    const party = new WarPartyRunnable(id, colony.primaryOrgRoom, 'rally', position, target, phase);
-    const process = new Process(id, 'war_party', Priorities.OFFENSE, {
-      run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-        return party.run(kingdom, trace);
-      }
-    });
+    const party = new WarPartyRunnable(id, colony, 'rally', position, target, phase);
+    const process = new Process(id, 'war_party', Priorities.OFFENSE, party);
     this.scheduler.registerProcess(process);
 
     return party;

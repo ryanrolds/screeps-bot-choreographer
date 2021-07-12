@@ -97,6 +97,7 @@ export default class SpawnManager {
 
         let minEnergy = 300;
         const numCreeps = (this.orgRoom as any).getColony().numCreeps;
+
         /*
         if (energyCapacity > 800) {
           if (numCreeps > 50) {
@@ -122,6 +123,12 @@ export default class SpawnManager {
 
         let request = (this.orgRoom as any).getNextRequest(TOPICS.TOPIC_SPAWN);
         if (request) {
+          const role = request.details.role;
+          const definition = definitions[role];
+          if (definition.energyMinimum && energy < definition.energyMinimum) {
+            return;
+          }
+
           // Allow request to override energy limit
           if (request.details.energyLimit) {
             energyLimit = request.details.energyLimit;

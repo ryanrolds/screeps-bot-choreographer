@@ -8,91 +8,160 @@ import {PRIORITY_ATTACKER} from "./constants.priorities";
 import PartyRunnable from './runnable.party';
 
 const REQUEST_ATTACKER_TTL = 30;
-const PHASE_FORMING = 'forming';
-const PHASE_EN_ROUTE = 'en_route';
-const PHASE_ATTACK = 'attack';
 
-const ADJACENT_DIRECTION = {
-  [TOP]: {x: 0, y: 0},
-  [TOP_RIGHT]: {x: 0, y: 0},
-  [RIGHT]: {x: 0, y: 0},
-  [BOTTOM_RIGHT]: {x: 0, y: 0},
-  [BOTTOM]: {x: 0, y: 0},
-  [BOTTOM_LEFT]: {x: 0, y: 0},
-  [LEFT]: {x: 0, y: 0},
-  [TOP_LEFT]: {x: 0, y: 0},
+export enum Phase {
+  PHASE_MARSHAL = 'marshal',
+  PHASE_EN_ROUTE = 'en_route',
+  PHASE_ATTACK = 'attack',
+}
+
+const DIRECTION_2BY2_FORMATION = {
+  [TOP]: [
+    {x: 0, y: -1}, // TL
+    {x: 1, y: -1}, // TR
+    {x: 0, y: 0}, // BL
+    {x: 1, y: 0}, // BR
+  ],
+  [TOP_RIGHT]: [
+    {x: 0, y: -1}, // TL
+    {x: 1, y: -1}, // TR
+    {x: 0, y: 0}, // BL
+    {x: 1, y: 0}, // BR
+  ],
+  [RIGHT]: [
+    {x: 1, y: 0}, // BR
+    {x: 1, y: -1}, // TR
+    {x: 0, y: -1}, // TL
+    {x: 0, y: 0}, // BL
+  ],
+  [BOTTOM_RIGHT]: [
+    {x: 1, y: 0}, // BR
+    {x: 1, y: -1}, // TR
+    {x: 0, y: -1}, // TL
+    {x: 0, y: 0}, // BL
+  ],
+  [BOTTOM]: [
+    {x: 1, y: 0}, // BR
+    {x: 0, y: 0}, // BL
+    {x: 0, y: -1}, // TL
+    {x: 1, y: -1}, // TR
+  ],
+  [BOTTOM_LEFT]: [
+    {x: 0, y: 0}, // BL
+    {x: 1, y: 0}, // BR
+    {x: 0, y: -1}, // TL
+    {x: 1, y: -1}, // TR
+  ],
+  [LEFT]: [
+    {x: 0, y: 0}, // BL
+    {x: 0, y: -1}, // TL
+    {x: 1, y: 0}, // BR
+    {x: 1, y: -1}, // TR
+  ],
+  [TOP_LEFT]: [
+    {x: 0, y: -1}, // TL
+    {x: 1, y: -1}, // TR
+    {x: 0, y: 0}, // BL
+    {x: 1, y: 0}, // BR
+  ],
 }
 
 export default class WarPartyRunnable {
   id: string;
-  flagId: string;
-  targetRoom: string;
-  phase: string;
+  flagId: string; // Starting position
+  targetRoom: string; // Destination room
+  phase: Phase;
+  position: RoomPosition;
+  // TODO move to Scribe
+  costMatrices: Record<string, CostMatrix>;
+
   party: PartyRunnable;
 
-  pathDestination: RoomPosition;
   path: RoomPosition[];
-  pathIndex: number;
-  costMatrices: Record<string, CostMatrix>;
-  stuckCounter: number;
+  pathDestination: RoomPosition;
+  pathComplete: boolean;
+  pathTime: number;
+
+  kingdom: Kingdom;
 
   constructor(id: string, colony: Colony, flagId: string, position: RoomPosition, targetRoom: string,
-    phase: string) {
+    phase: Phase) {
     this.id = id;
     this.flagId = flagId;
     this.targetRoom = targetRoom;
-    this.phase = phase || PHASE_FORMING;
+    this.phase = phase || Phase.PHASE_MARSHAL;
+    this.costMatrices = {};
+    this.position = position;
+
     this.party = new PartyRunnable(id, colony, position, WORKER_ATTACKER, PRIORITY_ATTACKER,
       REQUEST_ATTACKER_TTL);
+
+    this.kingdom = null;
+
     this.pathDestination = null;
     this.path = [];
-    this.pathIndex = -1;
-    this.costMatrices = {};
-    this.stuckCounter = 0;
+    this.pathTime = 0;
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
     trace = trace.asId(this.id);
 
+    this.kingdom = kingdom
+
     const targetRoom = kingdom.getWarManager().getTargetRoom();
     const flag = this.getFlag();
     const creeps = this.getAssignedCreeps();
+    const targetRoomObject = Game.rooms[targetRoom];
+    const positionRoomObject = Game.rooms[this.position.roomName];
 
     if (!targetRoom || !flag) {
       trace.log("no rally point defined, terminating war party");
       this.party.done();
     } else {
-      // Check if we need to change rooms
-      if (this.targetRoom != targetRoom) {
-        trace.log('target room changed', {prev: this.targetRoom, current: targetRoom});
-        this.phase = PHASE_EN_ROUTE;
-        this.targetRoom = targetRoom;
-      }
-
       trace.log('war party run', {
         id: this.id,
         flag: flag.name,
+        colonyId: this.getColony().id,
+        primaryRoomId: this.getColony().primaryRoomId,
         targetRoom,
         phase: this.phase,
+        position: this.position,
         creeps: creeps.length,
         costMatrices: Object.keys(this.costMatrices),
       });
 
       this.setHeal(trace);
 
-      if (this.phase === PHASE_FORMING) {
-        this.marshal(flag, creeps, trace)
-      } else if (this.phase === PHASE_EN_ROUTE) {
-        this.deploy(targetRoom, creeps, trace);
-      } else if (this.phase === PHASE_ATTACK) {
-        if (!Game.rooms[targetRoom] || !creeps.length || creeps[0].pos.roomName !== targetRoom) {
-          this.phase = (creeps.length < 4) ? PHASE_FORMING : PHASE_EN_ROUTE;
+      if (this.phase === Phase.PHASE_MARSHAL) {
+        // If we have at least 4 creeps and they are in position, begin deployment
+        if (this.inPosition(this.position, trace) && creeps.length >= 4) {
+          this.phase = Phase.PHASE_EN_ROUTE;
+          trace.log('moving to deploy phase', {phase: this.phase});
         } else {
-          this.engage(targetRoom, creeps, trace);
+          this.marshal(this.position, creeps, trace);
         }
-      } else {
-        trace.log('invalid war party phase', {phase: this.phase});
-        this.party.done();
+      }
+
+      if (this.phase === Phase.PHASE_EN_ROUTE) {
+        // If we are out of creep, remarshal
+        if (!creeps.length || !positionRoomObject) {
+          this.phase = Phase.PHASE_MARSHAL;
+          trace.log('moving to marshal phase', {phase: this.phase});
+        } else if (targetRoom === this.position.roomName) {
+          this.phase = Phase.PHASE_ATTACK;
+          trace.log('moving to attack phase', {phase: this.phase});
+        } else {
+          this.deploy(kingdom, positionRoomObject, targetRoom, creeps, trace);
+        }
+      }
+
+      if (this.phase === Phase.PHASE_ATTACK) {
+        if (!creeps.length || !targetRoomObject) {
+          this.phase = Phase.PHASE_MARSHAL;
+          trace.log('moving to marshal phase', {phase: this.phase});
+        } else {
+          this.engage(kingdom, targetRoomObject, creeps, trace);
+        }
       }
     }
 
@@ -103,86 +172,159 @@ export default class WarPartyRunnable {
       return partyResult;
     }
 
+    if (global.LOG_WHEN_ID === this.id) {
+      this.visualizePathToTarget(this.position, trace);
+    }
+
     return running();
   }
 
-  marshal(flag: Flag, creeps: Creep[], trace: Tracer) {
+  marshal(position: RoomPosition, creeps: Creep[], trace: Tracer) {
     if (!creeps.length) {
       return;
     }
 
-    this.setPosition(flag.pos, trace);
-
-    if (this.inPosition(trace) && creeps.length === 4) {
-      this.phase = PHASE_EN_ROUTE;
-      trace.log('moving to next phase', {phase: this.phase});
-    }
+    this.position = this.getFlag().pos;
+    this.setPosition(position, trace);
   }
 
-  deploy(targetRoom: string, creeps: Creep[], trace: Tracer) {
-    if (!creeps.length) {
-      return;
-    }
-
-    // TODO bug: need to check if we have at least one creep
-    if (targetRoom === creeps[0].pos.roomName) {
-      this.phase = PHASE_ATTACK;
-      trace.log('moving to next phase', {phase: this.phase});
-      return;
-    }
+  deploy(kingdom: Kingdom, room: Room, targetRoom: string, creeps: Creep[], trace: Tracer) {
+    trace.log("deploy", {
+      targetRoom,
+      position: this.position,
+    });
 
     const destination = new RoomPosition(25, 25, targetRoom);
-    const nextPosition = this.getNextPosition(destination, creeps[0], false, trace);
-    trace.log("next position", {targetRoom, nextPosition});
+    const [nextPosition, direction, blockers] = this.getNextPosition(this.position, destination, trace);
+
+    trace.log("next position", {targetRoom, nextPosition, blockers: blockers.map(blocker => blocker.id)});
+
     if (nextPosition) {
-      this.setPosition(this.path[this.pathIndex], trace);
+      this.setPosition(nextPosition, trace);
+    } else {
+      trace.log("no next position");
+    }
+
+    if (direction) {
+      trace.log("changing formation", {direction});
+      this.setFormation(direction);
+    }
+
+    let targets: (Creep | Structure)[] = [];
+
+    const friends = kingdom.config.friends;
+    // determine target (hostile creeps, towers, spawns, nukes, all other structures)
+    targets = targets.concat(room.find(FIND_HOSTILE_CREEPS, {
+      filter: creep => friends.indexOf(creep.owner.username) === -1
+    }));
+
+    if (blockers.length) {
+      trace.log("blockers", {blocked: blockers.map(structure => structure.id)});
+      targets = targets.concat(blockers);
+    }
+
+    if (targets.length) {
+      targets = _.sortBy(targets, (target) => {
+        return creeps[0].pos.getRangeTo(target);
+      });
+
+      trace.log("targets", {targetsLength: targets.length})
+      this.party.setTarget(targets, trace);
+    } else {
+      trace.log("no targets");
     }
   }
 
-  engage(targetRoom: string, creeps: Creep[], trace: Tracer) {
-    const room = Game.rooms[targetRoom];
-    let destination = new RoomPosition(25, 25, targetRoom);
-
-    let blocked: Structure[] = [];
-    let target: (Creep | Structure) = null;
-    let targets: (Creep | Structure)[] = [];
-    if (room) {
-      // determine target (hostile creeps, towers, spawns, nukes, all other structures)
-      targets = targets.concat(room.find(FIND_HOSTILE_CREEPS));
-
-      targets = room.find(FIND_HOSTILE_STRUCTURES, {
-        filter: structure => structure.structureType === STRUCTURE_TOWER,
-      });
-
-      targets = targets.concat(room.find(FIND_HOSTILE_STRUCTURES, {
-        filter: structure => structure.structureType === STRUCTURE_SPAWN,
-      }));
-
-      targets = targets.concat(room.find(FIND_HOSTILE_STRUCTURES, {
-        filter: structure => structure.structureType === STRUCTURE_NUKER,
-      }));
-
-      blocked = this.getBlockingStructures(creeps[0].pos);
-      trace.log("blocked", {blocked});
-      targets = targets.concat(blocked);
-
-      targets = targets.concat(room.find(FIND_HOSTILE_STRUCTURES));
-
-      // TODO, update attackers to have ranged attack
-      // melee attacks should mass heal
-      // ranged attacks should heal
-
-      if (targets.length) {
-        destination = targets[0].pos;
-        this.party.setTarget(targets, trace);
-      }
+  engage(kingdom: Kingdom, room: Room, creeps: Creep[], trace: Tracer) {
+    let destination = new RoomPosition(25, 25, room.name);
+    if (room.controller) {
+      destination = room.controller.pos;
     }
 
-    const nextPosition = this.getNextPosition(destination, creeps[0], blocked.length > 0, trace);
-    trace.log("next position", {targetRoom, nextPosition});
+    let targets = this.getTargets(kingdom, room);
+    if (targets.length) {
+      destination = targets[0].pos;
+    }
+
+    const [nextPosition, direction, blockers] = this.getNextPosition(this.position, destination, trace);
+    trace.log("next position", {nextPosition, blockers: blockers.map(blocker => blocker.id)});
     if (nextPosition) {
       this.setPosition(nextPosition, trace);
+    } else {
+      trace.log("no next position");
     }
+
+    if (blockers.length) {
+      trace.log("blockers", {blocked: blockers.map(structure => structure.id)});
+      targets = targets.concat(blockers);
+    }
+
+    if (direction) {
+      trace.log("changing formation", {direction});
+      this.setFormation(direction);
+    }
+
+    if (targets.length) {
+      trace.log("targets", {targetsLength: targets.length})
+      this.party.setTarget(targets, trace);
+    } else {
+      trace.log("no targets");
+    }
+  }
+
+  getTargets(kingdom: Kingdom, room: Room): (Creep | Structure)[] {
+    const friends = kingdom.config.friends;
+
+    let targets: (Structure | Creep)[] = [];
+    // determine target (hostile creeps, towers, spawns, nukes, all other structures)
+    targets = targets.concat(room.find(FIND_HOSTILE_CREEPS, {
+      filter: creep => friends.indexOf(creep.owner.username) === -1
+    }));
+
+    targets = room.find(FIND_HOSTILE_STRUCTURES, {
+      filter: structure => structure.structureType === STRUCTURE_TOWER &&
+        friends.indexOf(structure.owner.username) === -1,
+    });
+
+    targets = targets.concat(room.find(FIND_HOSTILE_STRUCTURES, {
+      filter: structure => structure.structureType === STRUCTURE_SPAWN &&
+        friends.indexOf(structure.owner.username) === -1,
+    }));
+
+    targets = targets.concat(room.find(FIND_HOSTILE_STRUCTURES, {
+      filter: structure => structure.structureType === STRUCTURE_NUKER &&
+        friends.indexOf(structure.owner.username) === -1,
+    }));
+
+    targets = targets.concat(room.find(FIND_HOSTILE_STRUCTURES, {
+      filter: structure => friends.indexOf(structure.owner.username) === -1
+    }));
+
+    targets = targets.concat(room.find<Structure>(FIND_STRUCTURES, {
+      filter: (structure) => {
+        if (structure.structureType === STRUCTURE_CONTROLLER) {
+          return false;
+        }
+
+        if (structure instanceof OwnedStructure && structure.owner) {
+          const structureOwner = structure.owner.username;
+          if (structureOwner && kingdom.config.friends.indexOf(structureOwner) !== -1) {
+            return false;
+          }
+
+          return true;
+        }
+
+        const roomOwner = structure.room.controller?.owner?.username;
+        if (roomOwner && kingdom.config.friends.indexOf(roomOwner) !== -1) {
+          return false;
+        }
+
+        return true;
+      }
+    }));
+
+    return targets;
   }
 
   getFlag() {
@@ -193,10 +335,10 @@ export default class WarPartyRunnable {
     return this.party.getAssignedCreeps();
   }
 
-  isCreepLowHealth(): boolean {
+  isCreepLowHealth(creeps: Creep[]): boolean {
     let lowHealth = false;
 
-    this.getAssignedCreeps().forEach((creep) => {
+    creeps.forEach((creep) => {
       if (creep.hits === 0) {
         return lowHealth = true;
       }
@@ -213,159 +355,253 @@ export default class WarPartyRunnable {
     return this.party.getColony();
   }
 
-  getNextPosition(position: RoomPosition, leader: Creep, blocked: boolean, trace: Tracer): RoomPosition {
-    if (!this.path || !this.pathDestination || !this.pathDestination.isEqualTo(position) ||
-      this.pathIndex > this.path.length) {
-      this.pathIndex = -1;
-      this.pathDestination = position;
+  visualizePathToTarget(origin: RoomPosition, trace) {
+    const destination = new RoomPosition(25, 25, this.targetRoom);
 
-      const result = PathFinder.search(leader.pos, position, {
-        roomCallback: this.getRoomCostMatrix.bind(this),
-      });
-
-      trace.log('search', {
-        leaderPos: leader.pos,
-        destination: position,
-        result,
-      });
-
-      this.path = result.path;
+    const path = this.getPath(origin, destination, trace);
+    if (!path) {
+      trace.log('no path to visualize');
+      return;
     }
 
-    if (!this.path.length) {
-      return null;
-    }
-
-    // Check if we have hit the end of the path
-    if (leader.pos.isEqualTo(this.path[this.path.length - 1])) {
-      trace.log('end of path', {leaderPos: leader.pos, end: this.path[this.path.length - 1]});
-      return null;
-    }
-
-    const visual = new RoomVisual(leader.pos.roomName);
-    visual.poly(this.path.filter(pos => pos.roomName === leader.pos.roomName));
-
-    if (!blocked && (this.inPosition(trace) || this.onEdge() || this.stuckCounter >= 10)) {
-      // Move away from target if we have creeps that are low health
-      if (this.isCreepLowHealth()) {
-        this.pathIndex--;
-      } else {
-        this.pathIndex++;
-      }
-
-      this.stuckCounter = 0;
-    } else if (!blocked) {
-      this.stuckCounter++
-    }
-
-    const nextPosition = this.path[this.pathIndex];
-
-    trace.log('get next position', {
-      pathIndex: this.pathIndex,
-      stuckCounteR: this.stuckCounter,
-      nextPosition,
-      pathLength: this.path.length,
-      pathDestination: this.pathDestination,
-    })
-
-    return nextPosition;
+    const visual = new RoomVisual()
+    visual.poly(path);
   }
 
-  getRoomCostMatrix(roomName: string): CostMatrix {
+  getPath(origin: RoomPosition, destination: RoomPosition, trace: Tracer) {
+    if (this.path && this.pathDestination && this.pathDestination.isEqualTo(destination) &&
+      Game.time - this.pathTime < 50) {
+      trace.log('path cache hit', {pathLength: this.path.length, origin, destination})
+      return this.path;
+    }
+
+    trace.log('war party path cache miss', {origin, destination});
+
+    this.pathDestination = destination;
+    this.pathComplete = false;
+    this.pathTime = Game.time;
+
+    const result = PathFinder.search(origin, destination, {
+      roomCallback: this.getRoomCostMatrix.bind(this),
+      maxOps: 4000,
+    });
+
+    trace.log('search', {
+      origin: origin,
+      destination: destination,
+      result,
+    });
+
+    this.path = result.path;
+    this.pathComplete = !result.incomplete;
+
+    return this.path;
+  }
+
+  getNextPosition(currentPosition: RoomPosition, destination: RoomPosition,
+    trace: Tracer): [RoomPosition, (DirectionConstant | 0), Structure[]] {
+
+    // Figure out where we are going
+    const path = this.getPath(currentPosition, destination, trace);
+    if (!path) {
+      // Cant find where we are going, freeze
+      // TODO maybe suicide
+      return [currentPosition, 0, []];
+    }
+
+    // We know where we are going and the path
+    trace.log("path found", {pathLength: path.length, currentPosition, destination});
+
+    // Work out the closest position along the path and it's distance
+    // Scan path and find closest position, use that as as position on path
+    const currentIndex = _.findIndex(path, (position) => {
+      return position.isEqualTo(currentPosition);
+    });
+
+    // Log a message if we could not find an index, should not happen much
+    if (currentIndex < 0) {
+      trace.log('could not find origin/creep index', {currentIndex, currentPosition, path})
+    }
+
+    // Assume we are off path
+    let nextIndex = currentIndex;
+
+    // Advance the position by one if creeps are ready, on an edge, start of path
+    if (this.inPosition(this.position, trace) || this.onEdge() || currentIndex === -1) {
+      nextIndex++;
+    }
+
+    // Get the next position (may be same as current, if creeps are not in position)
+    let nextPosition = path[nextIndex];
+
+    let direction: (DirectionConstant | 0) = 0;
+
+    // Determine if we plan to move
+    const positionChanged = !currentPosition.isEqualTo(nextPosition);
+    if (positionChanged) {
+      direction = currentPosition.getDirectionTo(nextPosition);
+    }
+
+    // Check if our path is blocked
+    let blockers: Structure[] = [];
+    if (direction && currentPosition.roomName === nextPosition.roomName) {
+      blockers = this.getBlockingStructures(direction, nextPosition, trace);
+      trace.log("blocked", {blockers});
+    }
+
+    // We are blocked, don't move and instead clear blockage
+    if (blockers.length) {
+      nextPosition = currentPosition;
+    }
+
+    trace.log('get next position', {
+      positionChanged,
+      currentIndex,
+      currentPosition,
+      direction,
+      blockers: blockers.map(blocker => blocker.id),
+      nextIndex,
+      nextPosition,
+      pathLength: path.length,
+      destination,
+    });
+
+    return [nextPosition, direction, blockers];
+  }
+
+  getRoomCostMatrix(roomName: string): CostMatrix | boolean {
     if (this.costMatrices[roomName]) {
       return this.costMatrices[roomName];
     }
 
     const costMatrix = new PathFinder.CostMatrix();
+
+    const room = Game.rooms[roomName];
+    if (!room) {
+      return costMatrix;
+    }
+
+    const owner = room.controller?.owner?.username;
+    if (owner) {
+      if (this.kingdom.config.friends.indexOf(owner) !== -1) {
+        return false;
+      }
+      if (this.kingdom.config.neutral.indexOf(owner) !== -1) {
+        return false;
+      }
+    }
+
     const terrain = Game.map.getRoomTerrain(roomName);
-    const visual = new RoomVisual(roomName);
 
     for (let x = 0; x <= 49; x++) {
       for (let y = 0; y <= 49; y++) {
-        if (terrain.get(x, y) === TERRAIN_MASK_WALL) {
-          costMatrix.set(x - 1, y, 255);
-          visual.text("255", x - 1, y);
-          costMatrix.set(x - 1, y + 1, 255);
-          visual.text("255", x - 1, y + 1);
-          costMatrix.set(x, y + 1, 255);
-          visual.text("255", x, y + 1);
+        const mask = terrain.get(x, y);
+        if (mask) {
+          const maskValue = (mask === TERRAIN_MASK_WALL) ? 255 : 5;
+
+          if (costMatrix.get(x, y) < maskValue) {
+            costMatrix.set(x, y, maskValue);
+          }
+
+          if (x !== 0 && costMatrix.get(x - 1, y) < maskValue) {
+            costMatrix.set(x - 1, y, maskValue);
+          }
+
+          if (y < 49 && costMatrix.get(x, y + 1) < maskValue) {
+            costMatrix.set(x, y + 1, maskValue);
+          }
+
+          if (x !== 0 && y < 49 && costMatrix.get(x - 1, y + 1) < maskValue) {
+            costMatrix.set(x - 1, y + 1, maskValue);
+          }
+
           continue;
         }
 
         if (x <= 1 || y <= 1 || x >= 48 || y >= 48) {
-          costMatrix.set(x, y, 25);
-          visual.text("25", x, y);
+          if (costMatrix.get(x, y) < 25) {
+            costMatrix.set(x, y, 25);
+          }
         }
       }
     }
 
-    const room = Game.rooms[roomName];
-    if (room) {
-      const wallValue = room.controller?.owner?.username === 'ENETDOWN' ? 255 : 10;
-      const walls = room.find(FIND_STRUCTURES, {
-        filter: structure => structure.structureType === STRUCTURE_WALL
-      });
-      walls.forEach((wall) => {
-        costMatrix.set(wall.pos.x, wall.pos.y, wallValue);
-        visual.text(wallValue.toString(), wall.pos.x, wall.pos.y);
-        costMatrix.set(wall.pos.x - 1, wall.pos.y, wallValue);
-        visual.text(wallValue.toString(), wall.pos.x - 1, wall.pos.y);
-        costMatrix.set(wall.pos.x - 1, wall.pos.y + 1, wallValue);
-        visual.text(wallValue.toString(), wall.pos.x - 1, wall.pos.y + 1);
-        costMatrix.set(wall.pos.x, wall.pos.y + 1, wallValue);
-        visual.text(wallValue.toString(), wall.pos.x, wall.pos.y + 1);
-      });
-    }
+    /*
+    const structures = room.find<Structure>(FIND_STRUCTURES, {
+      filter: structure => structure.structureType
+    });
+    structures.forEach((structure) => {
+      if (structure.structureType === STRUCTURE_ROAD) {
+        return;
+      }
+
+      let wallValue = 255;
+      costMatrix.set(structure.pos.x, structure.pos.y, wallValue);
+      costMatrix.set(structure.pos.x - 1, structure.pos.y, wallValue);
+      costMatrix.set(structure.pos.x - 1, structure.pos.y + 1, wallValue);
+      costMatrix.set(structure.pos.x, structure.pos.y + 1, wallValue);
+    });
+
+    const walls = room.find<StructureWall>(FIND_STRUCTURES, {
+      filter: structure => structure.structureType === STRUCTURE_WALL
+    });
+    walls.forEach((wall) => {
+      let wallValue = 255;
+      if (room.controller?.owner?.username !== 'ENETDOWN') {
+        wallValue == 25 + (wall.hits / 300000000 * 100);
+      }
+
+      costMatrix.set(wall.pos.x, wall.pos.y, wallValue);
+      costMatrix.set(wall.pos.x - 1, wall.pos.y, wallValue);
+      costMatrix.set(wall.pos.x - 1, wall.pos.y + 1, wallValue);
+      costMatrix.set(wall.pos.x, wall.pos.y + 1, wallValue);
+    });
+    */
 
     this.costMatrices[roomName] = costMatrix;
 
     return costMatrix;
   }
 
+  printCostMatric(roomName: string) {
+    const matrix = this.costMatrices[roomName];
+    if (!matrix) {
+      return;
+    }
+
+    const visual = new RoomVisual(roomName);
+
+    for (let x = 0; x <= 49; x++) {
+      for (let y = 0; y <= 49; y++) {
+        const cost = matrix.get(x, y);
+        visual.text((cost / 5).toString(), x, y);
+      }
+    }
+  }
+
+  setFormation(direction: DirectionConstant) {
+    this.party.setFormation(DIRECTION_2BY2_FORMATION[direction]);
+  }
+
   getPosition() {
     return this.party.getPosition();
   }
 
-  inPosition(trace: Tracer) {
-    return this.party.inPosition(trace);
+  inPosition(position: RoomPosition, trace: Tracer) {
+    return this.party.inPosition(position, trace);
+  }
+
+  getBlockingStructures(direction: DirectionConstant, position: RoomPosition, trace: Tracer): Structure[] {
+    return this.party.getBlockingStructures(direction, position, trace);
   }
 
   onEdge() {
-    return this.party.onEdge();
-  }
-
-  getBlockingStructures(leaderPos: RoomPosition): Structure[] {
-    if (!this.path.length) {
-      return [];
-    }
-
-    const next = this.path[this.pathIndex + 1];
-    if (!next) {
-      return [];
-    }
-
-    const direction = leaderPos.getDirectionTo(next);
-
-    const adjX = next.x + ADJACENT_DIRECTION[direction].x;
-    const adjY = next.y + ADJACENT_DIRECTION[direction].y;
-    const adjacent = new RoomPosition(adjX, adjY, next.roomName);
-
-    let structures = [];
-    if (next.roomName === leaderPos.roomName) {
-      structures = structures.concat(next.lookFor(LOOK_STRUCTURES));
-    }
-    if (adjacent.roomName === leaderPos.roomName) {
-      structures = structures.concat(adjacent.lookFor(LOOK_STRUCTURES));
-    }
-
-    structures = structures.filter((structure) => {
-      return structure.structureType !== STRUCTURE_ROAD;
-    });
-
-    return structures;
+    return this.position.x === 1 || this.position.x >= 48 || this.position.y <= 1 ||
+      this.position.y === 49;
   }
 
   setPosition(position: RoomPosition, trace: Tracer) {
+    this.position = position;
     this.party.setPosition(position);
   }
 

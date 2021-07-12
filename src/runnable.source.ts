@@ -157,7 +157,7 @@ export default class SourceRunnable {
 
       trace.log('requesting miner', {sourceId: this.sourceId});
 
-      (this.orgRoom as any).sendRequest(TOPICS.TOPIC_SPAWN, priority, {
+      (this.orgRoom as any).requestSpawn(priority, {
         role: CREEPS.WORKER_MINER,
         memory: {
           [MEMORY.MEMORY_HARVEST]: this.sourceId, // Deprecated
@@ -165,6 +165,7 @@ export default class SourceRunnable {
           [MEMORY.MEMORY_HARVEST_ROOM]: room.name, // Deprecated
           [MEMORY.MEMORY_SOURCE]: this.sourceId,
           [MEMORY.MEMORY_ASSIGN_ROOM]: room.name,
+          [MEMORY.MEMORY_COLONY]: (this.orgRoom as any).getColony().id,
         },
       }, REQUEST_WORKER_TTL);
     }
@@ -184,13 +185,14 @@ export default class SourceRunnable {
 
       // As we get more harvesters, make sure other creeps get a chance to spawn
       const priority = PRIORITIES.PRIORITY_HARVESTER - (numHarvesters * 1.5);
-      (this.orgRoom as any).sendRequest(TOPICS.TOPIC_SPAWN, priority, {
+      (this.orgRoom as any).requestSpawn(priority, {
         role: CREEPS.WORKER_HARVESTER,
         memory: {
           [MEMORY.MEMORY_HARVEST]: this.sourceId, // Deprecated
           [MEMORY.MEMORY_HARVEST_ROOM]: room.name, // Deprecated
           [MEMORY.MEMORY_SOURCE]: this.sourceId,
           [MEMORY.MEMORY_ASSIGN_ROOM]: room.name,
+          [MEMORY.MEMORY_COLONY]: (this.orgRoom as any).getColony().id,
         },
       }, REQUEST_WORKER_TTL);
     }

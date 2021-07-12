@@ -25,7 +25,7 @@ const behavior = behaviorTree.sequenceNode(
 
         const ignoreCreeps = creep.pos.inRangeTo(position, 1);
         if (creep.room.name != roomId) {
-          creep.moveTo(position, {reusePath: 50, ignoreCreeps});
+          creep.moveTo(position, {reusePath: 5, ignoreCreeps});
         } else {
           creep.moveTo(position, {reusePath: 5, ignoreCreeps});
         }
@@ -34,37 +34,29 @@ const behavior = behaviorTree.sequenceNode(
       },
     ),
     behaviorTree.leafNode(
-      'attack_node',
+      'attack_heal_node',
       (creep) => {
+        const didAttack = false;
         const attack = creep.memory[MEMORY.MEMORY_ATTACK];
-        if (!attack) {
-          return SUCCESS;
+        if (attack) {
+          const attackTarget = Game.getObjectById(attack);
+          if (attackTarget && creep.pos.inRangeTo(attackTarget, 1)) {
+            didAttack = true;
+            creep.attack(attackTarget);
+          }
         }
 
-        const target = Game.getObjectById(attack);
-        if (!creep.pos.inRangeTo(target, 1)) {
-          return SUCCESS;
-        }
-
-        creep.attack(target);
-
-        return SUCCESS;
-      },
-    ),
-    behaviorTree.leafNode(
-      'heal_node',
-      (creep) => {
         const heal = creep.memory[MEMORY.MEMORY_HEAL];
-        if (!heal) {
-          return SUCCESS;
+        if (heal) {
+          const healTarget = Game.getObjectById(heal);
+          if (healTarget && creep.pos.inRangeTo(healTarget, 3)) {
+            if (didAttack) {
+              creep.rangedHeal(healTarget);
+            } else {
+              creep.heal(healTarget);
+            }
+          }
         }
-
-        const target = Game.getObjectById(heal);
-        if (!creep.pos.inRangeTo(target, 1)) {
-          return SUCCESS;
-        }
-
-        creep.heal(target);
 
         return SUCCESS;
       },

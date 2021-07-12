@@ -24,13 +24,14 @@ const BALANCE_ENERGY_TTL = 50;
 
 // Try to ensure that all colonies are ready to
 // boost creeps with these effects
-const MIN_CRITICAL_COMPOUND = 2500;
+const MIN_CRITICAL_COMPOUND = 500;
+const MIN_CRITICAL_COMPOUND_RALLY = 2500;
 const CRITICAL_EFFECTS = {
   'upgradeController': ['XGH2O', 'GH2O', 'GH'],
   // 'capacity': ['XKH2O', 'KH2O', 'KH'],
   'heal': ['XLHO2', 'LHO2', 'LO'],
   'attack': ['XUH2O', 'UH2O', 'UH'],
-  'rangedAttack': ['XKHO2', 'KHO2', 'KO'],
+  // 'rangedAttack': ['XKHO2', 'KHO2', 'KO'],
   'damage': ['XGHO2', 'GHO2', 'GO'],
 };
 
@@ -532,6 +533,7 @@ class Resources extends OrgBase {
 
       const allEffects = booster.getEffects();
       const availableEffects = booster.getAvailableEffects();
+      const rallyFlagRoom = Game.flags['rally']?.pos.roomName;
 
       Object.entries(CRITICAL_EFFECTS).forEach(([effectName, compounds]) => {
         const effect = allEffects[effectName];
@@ -554,12 +556,17 @@ class Resources extends OrgBase {
             MIN_CRITICAL_COMPOUND,
           });
 
-          const requested = this.requestResource(primaryRoom, bestCompound, MIN_CRITICAL_COMPOUND - currentAmount,
+          let minimumCritical = MIN_CRITICAL_COMPOUND;
+          if (primaryRoom === rallyFlagRoom) {
+            minimumCritical = MIN_CRITICAL_COMPOUND_RALLY;
+          }
+
+          const requested = this.requestResource(primaryRoom, bestCompound, minimumCritical - currentAmount,
             REQUEST_DISTRIBUTE_BOOSTS, trace);
 
           // If we couldnt request resource, try buying
           if (!requested && Game.market.credits > MIN_BOOST_CREDITS) {
-            this.buyResource(primaryRoom, bestCompound, MIN_CRITICAL_COMPOUND - currentAmount,
+            this.buyResource(primaryRoom, bestCompound, minimumCritical - currentAmount,
               REQUEST_DISTRIBUTE_BOOSTS, trace);
           }
         } else {

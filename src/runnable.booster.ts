@@ -8,7 +8,7 @@ import * as TOPICS from "./constants.topics"
 import * as CREEPS from "./constants.creeps"
 import * as PRIORITIES from "./constants.priorities"
 
-const MIN_COMPOUND = 1000;
+const MIN_COMPOUND = 500;
 const MAX_COMPOUND = 2000;
 const MIN_ENERGY = 1000;
 const MAX_ENERGY = 2000;

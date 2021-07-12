@@ -86,10 +86,16 @@ const definitions = {
   },
   [WORKER_ATTACKER]: {
     energyLimit: null,
-    energyMinimum: 4000,
+    energyMinimum: 6000,
     parts: [MOVE, TOUGH, MOVE, ATTACK, MOVE, HEAL],
     base: [MOVE, TOUGH, MOVE, ATTACK],
-    boosts: ['heal', 'damage', 'attack'],
+    // energyMinimum: 6000,
+    // parts: [MOVE, TOUGH, MOVE, ATTACK, HEAL, HEAL],
+    // base: [MOVE, TOUGH, MOVE, ATTACK],
+    // energyMinimum: 8450,
+    // parts: [MOVE, MOVE, TOUGH, ATTACK, HEAL, HEAL, HEAL, HEAL, HEAL, HEAL],
+    // base: [MOVE, MOVE, TOUGH, ATTACK, HEAL, HEAL, HEAL, HEAL, HEAL, HEAL],
+    // boosts: ['heal', 'damage', 'attack'],
     processPriority: 2,
   },
   [WORKER_EXPLORER]: {
