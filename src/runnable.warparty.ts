@@ -6,6 +6,8 @@ import {Tracer} from './lib.tracing';
 import {WORKER_ATTACKER} from './constants.creeps'
 import {PRIORITY_ATTACKER} from "./constants.priorities";
 import PartyRunnable from './runnable.party';
+import {Direction} from 'node:readline';
+import {Dir} from 'node:fs';
 
 const REQUEST_ATTACKER_TTL = 30;
 
@@ -64,6 +66,28 @@ const DIRECTION_2BY2_FORMATION = {
     {x: 0, y: 0}, // BL
     {x: 1, y: 0}, // BR
   ],
+}
+
+const CORNERS: Record<DirectionConstant, {x: number, y: number}> = {
+  [TOP]: null,
+  [RIGHT]: null,
+  [BOTTOM]: null,
+  [LEFT]: null,
+  [TOP_LEFT]: {x: -1, y: -2}, // TL
+  [TOP_RIGHT]: {x: 2, y: -2}, // TR
+  [BOTTOM_LEFT]: {x: -1, y: 1}, // BL
+  [BOTTOM_RIGHT]: {x: 2, y: 1}, // BR
+}
+
+const ADJACENT_SIDES: Record<DirectionConstant, DirectionConstant[]> = {
+  [TOP]: [],
+  [RIGHT]: [],
+  [BOTTOM]: [],
+  [LEFT]: [],
+  [TOP_RIGHT]: [TOP, RIGHT],
+  [BOTTOM_RIGHT]: [BOTTOM, RIGHT],
+  [BOTTOM_LEFT]: [BOTTOM, LEFT],
+  [TOP_LEFT]: [TOP, LEFT],
 }
 
 export default class WarPartyRunnable {
@@ -229,7 +253,45 @@ export default class WarPartyRunnable {
       });
 
       trace.log("targets", {targetsLength: targets.length})
-      this.party.setTarget(targets, trace);
+      const target = this.party.setTarget(targets, trace);
+      if (target) {
+        let inCorner: DirectionConstant = null;
+        _.each<Record<DirectionConstant, {x: number, y: number}>>(CORNERS, (corner, direction) => {
+          if (!corner) {
+            return;
+          }
+
+          trace.log("corner", {corner, direction});
+
+          const x = _.min([_.max([this.position.x + corner.x, 0]), 49]);
+          const y = _.min([_.max([this.position.y + corner.y, 0]), 49]);
+          const cornerPosition = new RoomPosition(x, y, this.position.roomName);
+
+          trace.log("cornerPosition", {cornerPosition});
+          if (target.pos.isEqualTo(cornerPosition)) {
+            inCorner = parseInt(direction, 10) as DirectionConstant;
+          }
+        });
+
+        if (inCorner) {
+          const sides = ADJACENT_SIDES[inCorner];
+          if (sides.length) {
+            const side = _.find(sides, (side) => {
+              const shiftedPosition = this.party.shiftPosition(nextPosition, side);
+              return !this.isBlocked(shiftedPosition, trace);
+            });
+
+            if (side) {
+              const shiftPosition = this.party.shiftPosition(nextPosition, side);
+              if (shiftPosition) {
+                trace.notice("shifting position", {shiftPosition});
+                this.setPosition(shiftPosition, trace);
+              }
+            }
+          }
+        }
+      }
+
     } else {
       trace.log("no targets");
     }
@@ -591,6 +653,10 @@ export default class WarPartyRunnable {
     return this.party.inPosition(position, trace);
   }
 
+  isBlocked(position: RoomPosition, trace: Tracer): boolean {
+    return this.party.isBlocked(position, trace);
+  }
+
   getBlockingStructures(direction: DirectionConstant, position: RoomPosition, trace: Tracer): Structure[] {
     return this.party.getBlockingStructures(direction, position, trace);
   }
@@ -605,8 +671,8 @@ export default class WarPartyRunnable {
     this.party.setPosition(position);
   }
 
-  setTarget(targetRequests: Creep[], trace: Tracer) {
-    this.party.setTarget(targetRequests, trace);
+  setTarget(targetRequests: Creep[], trace: Tracer): (Creep | Structure) {
+    return this.party.setTarget(targetRequests, trace);
   }
 
   setHeal(trace: Tracer) {

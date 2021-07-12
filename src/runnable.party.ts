@@ -167,6 +167,32 @@ export default class PartyRunnable {
     return new RoomPosition(x, y, position.roomName);
   }
 
+  isBlocked(position: RoomPosition, trace: Tracer): boolean {
+    let structures: (Terrain | Structure)[] = [];
+
+    let positions = this.formation.map((offset) => {
+      const x = _.min([_.max([position.x + offset.x, 0]), 49]);
+      const y = _.min([_.max([position.y + offset.y, 0]), 49]);
+      return new RoomPosition(x, y, position.roomName);
+    });
+
+    positions.forEach((position) => {
+      structures = structures.concat(position.lookFor(LOOK_STRUCTURES))
+        .filter((structure: Structure) => {
+          return structure.structureType !== STRUCTURE_ROAD;
+        });
+
+      structures = structures.concat(position.lookFor(LOOK_TERRAIN))
+        .filter((terrain: Terrain) => {
+          return terrain === "wall";
+        });
+    });
+
+    trace.log("blocking structures", (structures));
+
+    return structures.length > 0;
+  }
+
   getBlockingStructures(direction: DirectionConstant, position: RoomPosition, trace: Tracer): Structure[] {
     let structures: Structure[] = [];
 
@@ -195,13 +221,16 @@ export default class PartyRunnable {
     this.position = position;
   }
 
-  setTarget(targets: (Creep | Structure)[], trace: Tracer): boolean {
+  setTarget(targets: (Creep | Structure)[], trace: Tracer): (Creep | Structure) {
     const target = _.find(targets, (target) => {
       return this.position.getRangeTo(target) <= 2;
     });
 
     if (target) {
       Game.map.visual.line(this.position, target.pos, {color: '#FF0000'});
+    } else {
+      trace.log("no targets in range");
+      return null;
     }
 
     trace.log("setting targets", {target});
@@ -211,7 +240,7 @@ export default class PartyRunnable {
       creep.memory[MEMORY.MEMORY_ATTACK] = target?.id;
     });
 
-    return false;
+    return target;
   }
 
   setHeal(trace: Tracer) {
