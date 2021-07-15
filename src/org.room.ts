@@ -1,7 +1,7 @@
 import {OrgBase} from './org.base';
 
-import CREEPS from './constants.creeps';
-import MEMORY from './constants.memory';
+import * as CREEPS from './constants.creeps';
+import * as MEMORY from './constants.memory';
 import TOPICS from './constants.topics';
 import * as PRIORITIES from './constants.priorities';
 import {creepIsFresh} from './behavior.commute';
@@ -520,7 +520,7 @@ export default class OrgRoom extends OrgBase {
 
     return structures.pop();
   }
-  
+
   getNextDamagedStructure() {
     let list = this.room.memory[MEMORY.ROOM_DAMAGED_STRUCTURES_LIST] || [];
     let listTime = this.room.memory[MEMORY.ROOM_DAMAGED_STRUCTURES_TIME] || 0;

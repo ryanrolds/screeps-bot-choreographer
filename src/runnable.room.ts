@@ -17,8 +17,8 @@ import {LabsManager} from "./runnable.manager.labs";
 import {creepIsFresh} from './behavior.commute';
 
 import * as PRIORITIES from './constants.priorities';
-import MEMORY from './constants.memory';
-import CREEPS from './constants.creeps';
+import * as MEMORY from './constants.memory';
+import * as CREEPS from './constants.creeps';
 import TOPICS, {DEFENSE_STATUSES} from './constants.topics';
 import TASKS from './constants.tasks';
 import {DEFENSE_STATUS} from './defense';
@@ -680,7 +680,7 @@ export default class RoomRunnable {
   produceStatus(orgRoom: OrgRoom, trace: Tracer) {
     const resources = orgRoom.getReserveResources(false);
 
-    
+
 
     const status = {
       [MEMORY.ROOM_STATUS_NAME]: orgRoom.id,

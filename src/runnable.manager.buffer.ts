@@ -5,9 +5,9 @@ import {Process, Runnable, RunnableResult, running, sleeping} from "./os.process
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
 import TOPICS from './constants.topics';
-import CREEPS from './constants.creeps';
+import * as CREEPS from './constants.creeps';
 import * as PRIORITIES from './constants.priorities';
-import MEMORY from './constants.memory';
+import * as MEMORY from './constants.memory';
 import Colony from './org.colony';
 import {thread} from './os.thread';
 import {TargetRoom} from './org.scribe'

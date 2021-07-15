@@ -25,7 +25,7 @@ const BALANCE_ENERGY_TTL = 50;
 // Try to ensure that all colonies are ready to
 // boost creeps with these effects
 const MIN_CRITICAL_COMPOUND = 500;
-const MIN_CRITICAL_COMPOUND_YELLOW = 2500;
+// const MIN_CRITICAL_COMPOUND_YELLOW = 2500;
 const CRITICAL_EFFECTS = {
   'upgradeController': ['XGH2O', 'GH2O', 'GH'],
   // 'capacity': ['XKH2O', 'KH2O', 'KH'],

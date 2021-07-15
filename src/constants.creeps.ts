@@ -1,19 +1,19 @@
-const WORKER_BUILDER = module.exports.WORKER_BUILDER = 'builder';
-const WORKER_HARVESTER = module.exports.WORKER_HARVESTER = 'harvester';
-const WORKER_MINER = module.exports.WORKER_MINER = 'miner';
-const WORKER_UPGRADER = module.exports.WORKER_UPGRADER = 'upgrader';
-const WORKER_DEFENDER = module.exports.WORKER_DEFENDER = 'defender';
-const WORKER_DEFENDER_DRONE = module.exports.WORKER_DEFENDER_DRONE = 'defender_drone';
-const WORKER_ATTACKER = module.exports.WORKER_ATTACKER = 'attacker';
-const WORKER_REPAIRER = module.exports.WORKER_REPAIRER = 'repairer';
-const WORKER_DISTRIBUTOR = module.exports.WORKER_DISTRIBUTOR = 'distributor';
-const WORKER_RESERVER = module.exports.WORKER_RESERVER = 'reserver';
-const WORKER_HAULER = module.exports.WORKER_HAULER = 'hauler';
-const WORKER_EXPLORER = module.exports.WORKER_EXPLORER = 'explorer';
+export const WORKER_BUILDER = 'builder';
+export const WORKER_HARVESTER = 'harvester';
+export const WORKER_MINER = 'miner';
+export const WORKER_UPGRADER = 'upgrader';
+export const WORKER_DEFENDER = 'defender';
+export const WORKER_DEFENDER_DRONE = 'defender_drone';
+export const WORKER_ATTACKER = 'attacker';
+export const WORKER_REPAIRER = 'repairer';
+export const WORKER_DISTRIBUTOR = 'distributor';
+export const WORKER_RESERVER = 'reserver';
+export const WORKER_HAULER = 'hauler';
+export const WORKER_EXPLORER = 'explorer';
 
 // The 'base' should at most 300 energy as it will form the base of the creep
 // The 'parts' are additional parts that will be used to fill up to the 'energyLimit'
-const definitions = {
+export const definitions = {
   [WORKER_HARVESTER]: {
     energyLimit: 3200,
     parts: [MOVE, CARRY, WORK],
@@ -105,21 +105,4 @@ const definitions = {
     base: [MOVE],
     processPriority: 5,
   },
-};
-
-module.exports = {
-  WORKER_BUILDER,
-  WORKER_HARVESTER,
-  WORKER_MINER,
-  WORKER_UPGRADER,
-  WORKER_DEFENDER,
-  WORKER_DEFENDER_DRONE,
-  WORKER_ATTACKER,
-  WORKER_REPAIRER,
-  WORKER_DISTRIBUTOR,
-  WORKER_RESERVER,
-  WORKER_HAULER,
-  WORKER_EXPLORER,
-  // definitions
-  definitions,
 };
