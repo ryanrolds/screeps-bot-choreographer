@@ -230,7 +230,7 @@ export default class SourceRunnable {
 
       const details = {
         [MEMORY.TASK_ID]: `sch-${this.sourceId}-${Game.time}`,
-        [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
+        [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
         [MEMORY.MEMORY_HAUL_PICKUP]: this.containerId,
         [MEMORY.MEMORY_HAUL_DROPOFF]: this.dropoffId,
         [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,

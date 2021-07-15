@@ -199,7 +199,7 @@ export default class LinkManager {
 
     const details = {
       [MEMORY.TASK_ID]: `lu-${link.id}-${Game.time}`,
-      [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
+      [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
       [MEMORY.MEMORY_HAUL_PICKUP]: link.id,
       [MEMORY.MEMORY_HAUL_AMOUNT]: amount,
       [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
@@ -217,7 +217,7 @@ export default class LinkManager {
 
     const details = {
       [MEMORY.TASK_ID]: `ll-${link.id}-${Game.time}`,
-      [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
+      [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
       [MEMORY.MEMORY_HAUL_PICKUP]: pickup.id,
       [MEMORY.MEMORY_HAUL_AMOUNT]: amount,
       [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,

@@ -2,7 +2,7 @@ import {OrgBase} from './org.base';
 
 import * as CREEPS from './constants.creeps';
 import * as MEMORY from './constants.memory';
-import TOPICS from './constants.topics';
+import * as TOPICS from './constants.topics';
 import * as PRIORITIES from './constants.priorities';
 import {creepIsFresh} from './behavior.commute';
 import {thread} from './os.thread';

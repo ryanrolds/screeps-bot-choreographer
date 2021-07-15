@@ -513,7 +513,7 @@ export default class TerminalRunnable {
 
   haulResourceToTerminal(terminal: StructureTerminal, pickup, resource, amount) {
     const numHaulers = this.orgRoom.getCreeps().filter((creep) => {
-      return creep.memory[MEMORY.MEMORY_TASK_TYPE] === TASKS.HAUL_TASK &&
+      return creep.memory[MEMORY.MEMORY_TASK_TYPE] === TASKS.TASK_HAUL &&
         creep.memory[MEMORY.MEMORY_HAUL_RESOURCE] === resource &&
         creep.memory[MEMORY.MEMORY_HAUL_DROPOFF] === terminal.id;
     }).length;
@@ -554,7 +554,7 @@ export default class TerminalRunnable {
 
     const details = {
       [MEMORY.TASK_ID]: `mrl-${terminal.id}-${Game.time}`,
-      [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
+      [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
       [MEMORY.MEMORY_HAUL_PICKUP]: pickup.id,
       [MEMORY.MEMORY_HAUL_RESOURCE]: resource,
       [MEMORY.MEMORY_HAUL_AMOUNT]: amount,
@@ -575,7 +575,7 @@ export default class TerminalRunnable {
 
     const details = {
       [MEMORY.TASK_ID]: `meu-${terminal.id}-${Game.time}`,
-      [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
+      [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
       [MEMORY.MEMORY_HAUL_PICKUP]: terminal.id,
       [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
       [MEMORY.MEMORY_HAUL_AMOUNT]: amount,

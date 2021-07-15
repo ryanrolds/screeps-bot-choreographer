@@ -6,7 +6,7 @@ import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
 import OrgRoom from './org.room';
 import DefensePartyRunnable from './runnable.defense_party';
-import TOPICS from './constants.topics';
+import * as TOPICS from './constants.topics';
 import * as CREEPS from './constants.creeps';
 import * as PRIORITIES from './constants.priorities';
 import * as MEMORY from './constants.memory';

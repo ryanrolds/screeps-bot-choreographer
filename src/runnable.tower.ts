@@ -186,7 +186,7 @@ export default class TowerRunnable {
 
     const details = {
       [MEMORY.TASK_ID]: `tel-${tower.id}-${Game.time}`,
-      [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
+      [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
       [MEMORY.MEMORY_HAUL_PICKUP]: pickupId,
       [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
       [MEMORY.MEMORY_HAUL_AMOUNT]: towerFree,

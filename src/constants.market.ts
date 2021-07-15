@@ -16,7 +16,7 @@ export const PRICES = {
   [RESOURCE_ZYNTHIUM_KEANITE]: {max: 10, min: 0.5},
 
   [RESOURCE_GHODIUM]: {max: 10, min: 0.5},
-  [RESOURCE_CATALYST]: {max: 20, min: 2},
+  [RESOURCE_CATALYST]: {max: 20, min: 1.2},
 
   [RESOURCE_GHODIUM_HYDRIDE]: {max: 10, min: 0.5},
   [RESOURCE_GHODIUM_OXIDE]: {max: 10, min: 0.5},
