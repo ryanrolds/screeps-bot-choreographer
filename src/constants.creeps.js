@@ -86,9 +86,10 @@ const definitions = {
   },
   [WORKER_ATTACKER]: {
     energyLimit: null,
-    energyMinimum: 6000,
-    parts: [MOVE, TOUGH, MOVE, ATTACK, MOVE, HEAL],
-    base: [MOVE, TOUGH, MOVE, ATTACK],
+    // 1 tower
+    energyMinimum: 6500,
+    parts: [ATTACK, TOUGH, MOVE, HEAL, MOVE, HEAL, MOVE, HEAL, HEAL, MOVE],
+    base: [TOUGH, MOVE, HEAL, MOVE, HEAL, MOVE, ATTACK, MOVE, HEAL, HEAL],
     // energyMinimum: 6000,
     // parts: [MOVE, TOUGH, MOVE, ATTACK, HEAL, HEAL],
     // base: [MOVE, TOUGH, MOVE, ATTACK],

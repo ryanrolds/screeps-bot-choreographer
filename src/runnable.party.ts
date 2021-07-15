@@ -302,9 +302,9 @@ export default class PartyRunnable {
     });
 
     // TODO need to calculate plains cost
-    const plainsCost = 1;
+    const plainsCost = 2;
 
-    this.deployTicks = path.path.length * plainsCost + 100;
+    this.deployTicks = path.path.length * plainsCost + 150;
     if (path.incomplete) {
       this.deployTicks += 200
     }
@@ -313,6 +313,7 @@ export default class PartyRunnable {
       pathLength: path.path.length,
       pathIncomplete: path.incomplete,
       plainsCost,
+      expectedDeployTicks: this.deployTicks,
     })
 
     const creeps = this.getAssignedCreeps();

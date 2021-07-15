@@ -96,6 +96,7 @@ export default class WarPartyRunnable {
   targetRoom: string; // Destination room
   phase: Phase;
   position: RoomPosition;
+  destination: RoomPosition;
   // TODO move to Scribe
   costMatrices: Record<string, CostMatrix>;
 
@@ -116,6 +117,7 @@ export default class WarPartyRunnable {
     this.phase = phase || Phase.PHASE_MARSHAL;
     this.costMatrices = {};
     this.position = position;
+    this.destination = new RoomPosition(25, 25, targetRoom);
 
     this.party = new PartyRunnable(id, colony, position, WORKER_ATTACKER, PRIORITY_ATTACKER,
       REQUEST_ATTACKER_TTL);
@@ -168,7 +170,7 @@ export default class WarPartyRunnable {
 
       if (this.phase === Phase.PHASE_EN_ROUTE) {
         // If we are out of creep, remarshal
-        if (!creeps.length || !positionRoomObject) {
+        if (!creeps.length) {
           this.phase = Phase.PHASE_MARSHAL;
           trace.log('moving to marshal phase', {phase: this.phase});
         } else if (targetRoom === this.position.roomName) {
@@ -180,7 +182,11 @@ export default class WarPartyRunnable {
       }
 
       if (this.phase === Phase.PHASE_ATTACK) {
-        if (!creeps.length || !targetRoomObject) {
+        const activeCreeps = creeps.filter(creep => creep.pos.roomName === targetRoom);
+
+        trace.log("begin attack phase", {targetRoomObject, activeCreeps: activeCreeps.map(creep => creep.name)})
+
+        if (!activeCreeps.length) {
           this.phase = Phase.PHASE_MARSHAL;
           trace.log('moving to marshal phase', {phase: this.phase});
         } else {
@@ -197,7 +203,7 @@ export default class WarPartyRunnable {
     }
 
     if (global.LOG_WHEN_ID === this.id) {
-      this.visualizePathToTarget(this.position, trace);
+      this.visualizePathToTarget(this.position, this.destination, trace);
     }
 
     return running();
@@ -209,7 +215,7 @@ export default class WarPartyRunnable {
     }
 
     this.position = this.getFlag().pos;
-    this.setPosition(position, trace);
+    this.setPosition(this.position, trace);
   }
 
   deploy(kingdom: Kingdom, room: Room, targetRoom: string, creeps: Creep[], trace: Tracer) {
@@ -218,8 +224,7 @@ export default class WarPartyRunnable {
       position: this.position,
     });
 
-    const destination = new RoomPosition(25, 25, targetRoom);
-    const [nextPosition, direction, blockers] = this.getNextPosition(this.position, destination, trace);
+    const [nextPosition, direction, blockers] = this.getNextPosition(this.position, this.destination, trace);
 
     trace.log("next position", {targetRoom, nextPosition, blockers: blockers.map(blocker => blocker.id)});
 
@@ -247,6 +252,7 @@ export default class WarPartyRunnable {
       targets = targets.concat(blockers);
     }
 
+    // TODO move shift logic to its own function
     if (targets.length) {
       targets = _.sortBy(targets, (target) => {
         return creeps[0].pos.getRangeTo(target);
@@ -298,17 +304,22 @@ export default class WarPartyRunnable {
   }
 
   engage(kingdom: Kingdom, room: Room, creeps: Creep[], trace: Tracer) {
-    let destination = new RoomPosition(25, 25, room.name);
+    // By default move to the controller
     if (room.controller) {
-      destination = room.controller.pos;
+      this.destination = room.controller.pos;
     }
 
-    let targets = this.getTargets(kingdom, room);
+    // Check if there are any targets that need destroyed
+    let targets = this.getStrategicTargets(kingdom, room, trace);
     if (targets.length) {
-      destination = targets[0].pos;
+      this.destination = targets[0].pos;
+    } else {
+      trace.log("no strategic targets")
     }
 
-    const [nextPosition, direction, blockers] = this.getNextPosition(this.position, destination, trace);
+    trace.log("strategic targets", {first: targets[0], destination: this.destination});
+
+    const [nextPosition, direction, blockers] = this.getNextPosition(this.position, this.destination, trace);
     trace.log("next position", {nextPosition, blockers: blockers.map(blocker => blocker.id)});
     if (nextPosition) {
       this.setPosition(nextPosition, trace);
@@ -316,53 +327,71 @@ export default class WarPartyRunnable {
       trace.log("no next position");
     }
 
-    if (blockers.length) {
-      trace.log("blockers", {blocked: blockers.map(structure => structure.id)});
-      targets = targets.concat(blockers);
-    }
-
     if (direction) {
       trace.log("changing formation", {direction});
       this.setFormation(direction);
     }
 
-    if (targets.length) {
-      trace.log("targets", {targetsLength: targets.length})
-      this.party.setTarget(targets, trace);
+    // Get nearby targets
+    let nearbyTargets = this.getNearByTargets(kingdom, room, trace);
+
+    // Feels hacky, need to fix - find a better way to prioritize creep and blockers
+    const hostileCreeps = nearbyTargets.filter((target) => {
+      return target instanceof Creep;
+    });
+    const remaining = nearbyTargets.filter((target) => {
+      return !(target instanceof Creep);
+    });
+    nearbyTargets = [].concat(hostileCreeps, blockers, remaining);
+
+    if (nearbyTargets) {
+      trace.log("nearby targets", {targetsLength: nearbyTargets.length})
+      this.party.setTarget(nearbyTargets, trace);
     } else {
-      trace.log("no targets");
+      trace.log("no nearby targets")
     }
   }
 
-  getTargets(kingdom: Kingdom, room: Room): (Creep | Structure)[] {
+  getStrategicTargets(kingdom: Kingdom, room: Room, trace: Tracer): (Structure)[] {
+    // We should filter out anything owned by friends
     const friends = kingdom.config.friends;
 
-    let targets: (Structure | Creep)[] = [];
-    // determine target (hostile creeps, towers, spawns, nukes, all other structures)
-    targets = targets.concat(room.find(FIND_HOSTILE_CREEPS, {
-      filter: creep => friends.indexOf(creep.owner.username) === -1
-    }));
+    let targets: (Structure)[] = [];
 
-    targets = room.find(FIND_HOSTILE_STRUCTURES, {
-      filter: structure => structure.structureType === STRUCTURE_TOWER &&
-        friends.indexOf(structure.owner.username) === -1,
-    });
-
+    // Towers
     targets = targets.concat(room.find(FIND_HOSTILE_STRUCTURES, {
-      filter: structure => structure.structureType === STRUCTURE_SPAWN &&
-        friends.indexOf(structure.owner.username) === -1,
+      filter: (structure) => {
+        return structure.structureType === STRUCTURE_TOWER &&
+          friends.indexOf(structure.owner.username) === -1;
+      },
     }));
 
+    // Spawns
     targets = targets.concat(room.find(FIND_HOSTILE_STRUCTURES, {
-      filter: structure => structure.structureType === STRUCTURE_NUKER &&
-        friends.indexOf(structure.owner.username) === -1,
+      filter: (structure) => {
+        return structure.structureType === STRUCTURE_SPAWN &&
+          friends.indexOf(structure.owner.username) === -1;
+      }
     }));
 
+    // Nuker
     targets = targets.concat(room.find(FIND_HOSTILE_STRUCTURES, {
-      filter: structure => friends.indexOf(structure.owner.username) === -1
+      filter: (structure) => {
+        return structure.structureType === STRUCTURE_NUKER &&
+          friends.indexOf(structure.owner.username) === -1;
+      }
     }));
 
-    targets = targets.concat(room.find<Structure>(FIND_STRUCTURES, {
+    // Remaining hostile structures
+    targets = targets.concat(room.find(FIND_HOSTILE_STRUCTURES, {
+      filter: (structure) => {
+        return structure.structureType !== STRUCTURE_CONTROLLER &&
+          friends.indexOf(structure.owner.username) === -1
+      }
+    }));
+
+    // Remaining structures
+    let remainingStructures = room.find<Structure>(FIND_STRUCTURES, {
       filter: (structure) => {
         if (structure.structureType === STRUCTURE_CONTROLLER) {
           return false;
@@ -384,7 +413,32 @@ export default class WarPartyRunnable {
 
         return true;
       }
+    });
+    remainingStructures = _.sortBy(remainingStructures, (structure) => {
+      return (structure.structureType === STRUCTURE_WALL) ? 2 : 1;
+    });
+
+    targets = targets.concat(remainingStructures);
+
+    return targets;
+  }
+
+  getNearByTargets(kingdom: Kingdom, room: Room, trace: Tracer): (Creep | Structure)[] {
+    // We should filter out anything owned by friends
+    const friends = kingdom.config.friends;
+
+    let targets: (Creep | Structure)[] = [];
+
+    // Hostile creeps
+    targets = targets.concat(room.find(FIND_HOSTILE_CREEPS, {
+      filter: (creep) => {
+        return friends.indexOf(creep.owner.username) === -1;
+      },
     }));
+
+    targets = targets.concat(this.getStrategicTargets(kingdom, room, trace));
+
+    targets = targets.filter(target => target.pos.getRangeTo(this.position) <= 3);
 
     return targets;
   }
@@ -417,9 +471,7 @@ export default class WarPartyRunnable {
     return this.party.getColony();
   }
 
-  visualizePathToTarget(origin: RoomPosition, trace) {
-    const destination = new RoomPosition(25, 25, this.targetRoom);
-
+  visualizePathToTarget(origin: RoomPosition, destination: RoomPosition, trace) {
     const path = this.getPath(origin, destination, trace);
     if (!path) {
       trace.log('no path to visualize');
@@ -472,7 +524,7 @@ export default class WarPartyRunnable {
     }
 
     // We know where we are going and the path
-    trace.log("path found", {pathLength: path.length, currentPosition, destination});
+    trace.log("path found", {pathLength: path.length, currentPosition, destination, path});
 
     // Work out the closest position along the path and it's distance
     // Scan path and find closest position, use that as as position on path
@@ -495,6 +547,10 @@ export default class WarPartyRunnable {
 
     // Get the next position (may be same as current, if creeps are not in position)
     let nextPosition = path[nextIndex];
+    if (!nextPosition) {
+      trace.log("bad index", {nextIndex, pathLength: path.length});
+      return [currentPosition, 0, []];
+    }
 
     let direction: (DirectionConstant | 0) = 0;
 
@@ -588,7 +644,6 @@ export default class WarPartyRunnable {
       }
     }
 
-    /*
     const structures = room.find<Structure>(FIND_STRUCTURES, {
       filter: structure => structure.structureType
     });
@@ -618,7 +673,6 @@ export default class WarPartyRunnable {
       costMatrix.set(wall.pos.x - 1, wall.pos.y + 1, wallValue);
       costMatrix.set(wall.pos.x, wall.pos.y + 1, wallValue);
     });
-    */
 
     this.costMatrices[roomName] = costMatrix;
 
