@@ -17,7 +17,7 @@ const REQUEST_HAULING_TTL = 20;
 export default class SourceRunnable {
   id: string;
   orgRoom: OrgRoom;
-  sourceId: Id<Source>;
+  sourceId: Id<Source | Mineral>;
   prevTime: number;
 
   ttl: number;
@@ -31,7 +31,7 @@ export default class SourceRunnable {
   desiredMiners: number;
   desiredHarvesters: number;
 
-  constructor(room: OrgRoom, source: Source) {
+  constructor(room: OrgRoom, source: (Source | Mineral)) {
     this.orgRoom = room;
     this.sourceId = source.id;
     this.prevTime = Game.time;
@@ -120,7 +120,7 @@ export default class SourceRunnable {
 
   updateStats(kingdom: Kingdom) {
     const source = Game.getObjectById(this.sourceId);
-    if (!source) {
+    if (!source || !(source instanceof Source)) {
       return;
     }
 

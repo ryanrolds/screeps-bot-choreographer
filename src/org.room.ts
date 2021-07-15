@@ -1,15 +1,16 @@
-const {OrgBase} = require('./org.base');
+import {OrgBase} from './org.base';
 
-const CREEPS = require('./constants.creeps');
-const MEMORY = require('./constants.memory');
-const TOPICS = require('./constants.topics');
-const PRIORITIES = require('./constants.priorities');
-const {creepIsFresh} = require('./behavior.commute');
-const {thread} = require('./os.thread');
+import CREEPS from './constants.creeps';
+import MEMORY from './constants.memory';
+import TOPICS from './constants.topics';
+import * as PRIORITIES from './constants.priorities';
+import {creepIsFresh} from './behavior.commute';
+import {thread} from './os.thread';
+import {Tracer} from './lib.tracing'
 
-const {MEMORY_ROLE, MEMORY_ASSIGN_ROOM, MEMORY_HARVEST_ROOM} = require('./constants.memory');
-const {TOPIC_SPAWN} = require('./constants.topics');
-const {WORKER_DISTRIBUTOR, WORKER_HAULER} = require('./constants.creeps');
+import {MEMORY_ROLE, MEMORY_ASSIGN_ROOM, MEMORY_HARVEST_ROOM} from './constants.memory';
+import {TOPIC_SPAWN} from './constants.topics';
+import {WORKER_HAULER} from './constants.creeps';
 
 const MEMORY_HOSTILE_TIME = 'hostile_time';
 const MEMORY_HOSTILE_POS = 'hostile_pos';
@@ -36,7 +37,60 @@ const REQUEST_DEFENDERS_TTL = 20;
 const REQUEST_DEFENDERS_DELAY = 20;
 const HOSTILE_PRESENCE_TTL = 200;
 
-class Room extends OrgBase {
+enum RoomAlertLevel {
+  GREEN = "green",
+  YELLO = "yellow",
+  RED = "red",
+};
+
+export default class OrgRoom extends OrgBase {
+  room: Room;
+  isPrimary: boolean;
+  isPublic: boolean;
+  assignedCreeps: Creep[];
+  defenderIds: Id<Creep>[];
+  unowned: boolean;
+  claimedByMe: boolean;
+  reservedByMe: boolean;
+  myStructures: Structure[];
+  roomStructures: Structure[];
+  hostileStructures: Structure[];
+  parkingLot: Flag;
+  hasSpawns: boolean;
+  resources: Partial<Record<ResourceConstant, number>>;
+  hasStorage: boolean;
+
+  hostileTime: number;
+  hostileTimes: Record<number, number>;
+  lastHostilePosition: string;
+  hostiles: Creep[];
+  numHostiles: number;
+  numDefenders: number;
+  defendersLost: number;
+  invaderCores: StructureInvaderCore[];
+  lowHitsDefenses: number;
+
+  damagedCreeps: string[];
+  damagedStructures: Id<AnyStructure>[];
+  defenseHitsLimit: number;
+  damagedSecondaryStructures: Id<AnyStructure>[];
+  damagedRoads: Id<AnyStructure>[];
+
+  stationFlags: Flag[];
+
+  threadUpdateCreeps: any;
+  threadUpdateRoom: any;
+  threadUpdatePrimary: any;
+  threadUpdateResources: any;
+  threadUpdateDefenseStatus: any;
+  threadUpdateDamagedCreeps: any;
+  updateDamagedCreeps: any;
+  updateDamagedStructure: any;
+  updateDamagedSecondaryStructures: any;
+  updateDamagedRoads: any;
+  threadRequestDefenders: any;
+
+
   constructor(parent, room, trace) {
     super(parent, room.name, trace);
 
@@ -49,7 +103,7 @@ class Room extends OrgBase {
     // Creeps
     this.assignedCreeps = [];
     this.defenderIds = [];
-    this.threadUpdateCreeps = thread(UPDATE_CREEPS_TTL)((trace) => {
+    this.threadUpdateCreeps = thread(UPDATE_CREEPS_TTL, null, null)((trace) => {
       this.updateCreeps(trace);
     });
 
@@ -61,7 +115,7 @@ class Room extends OrgBase {
     this.roomStructures = [];
     this.hostileStructures = [];
     this.parkingLot = null;
-    this.threadUpdateRoom = thread(UPDATE_ROOM_TTL)((trace) => {
+    this.threadUpdateRoom = thread(UPDATE_ROOM_TTL, null, null)((trace) => {
       this.updateRoom(trace);
     });
 
@@ -70,14 +124,14 @@ class Room extends OrgBase {
     // this.booster = null;
     // this.terminal = null;
     this.hasSpawns = false;
-    this.threadUpdatePrimary = thread(UPDATE_ORG_TTL)((trace) => {
+    this.threadUpdatePrimary = thread(UPDATE_ORG_TTL, null, null)((trace) => {
       this.updatePrimary(trace);
     });
 
     // Resources / logistics
     this.resources = {};
     this.hasStorage = false;
-    this.threadUpdateResources = thread(UPDATE_RESOURCES_TTL)(() => {
+    this.threadUpdateResources = thread(UPDATE_RESOURCES_TTL, null, null)(() => {
       // Storage
       this.hasStorage = this.getReserveStructures().length > 0;
       this.resources = this.getReserveResources(true);
@@ -92,12 +146,13 @@ class Room extends OrgBase {
     this.numDefenders = 0;
     this.defendersLost = 0;
     this.invaderCores = [];
-    this.threadUpdateDefenseStatus = thread(UPDATE_DEFENSE_STATUS_TTL)((room, trace) => {
+    this.threadUpdateDefenseStatus = thread(UPDATE_DEFENSE_STATUS_TTL, null, null)((room, trace) => {
       this.updateDefenseStatus(room, trace);
     });
 
     this.damagedCreeps = [];
-    this.updateDamagedCreeps = thread(UPDATE_DAMAGED_CREEPS_TTL)(() => {
+
+    this.updateDamagedCreeps = thread(UPDATE_DAMAGED_CREEPS_TTL, null, null)(() => {
       let damagedCreeps = this.getCreeps().filter((creep) => {
         return creep.hits < creep.hitsMax;
       });
@@ -108,7 +163,7 @@ class Room extends OrgBase {
     });
 
     this.damagedStructures = [];
-    this.updateDamagedStructure = thread(UPDATE_DAMAGED_STRUCTURES_TTL)(() => {
+    this.updateDamagedStructure = thread(UPDATE_DAMAGED_STRUCTURES_TTL, null, null)(() => {
       const damagedStructures = this.room.find(FIND_STRUCTURES, {
         filter: (s) => {
           return s.hits < s.hitsMax && (
@@ -122,7 +177,7 @@ class Room extends OrgBase {
 
     this.defenseHitsLimit = 10000;
     this.damagedSecondaryStructures = [];
-    this.updateDamagedSecondaryStructures = thread(UPDATE_DAMAGED_SECONDARY_TTL)(() => {
+    this.updateDamagedSecondaryStructures = thread(UPDATE_DAMAGED_SECONDARY_TTL, null, null)(() => {
       const rcLevel = room.controller.level.toString();
       const rcLevelHitsMax = RAMPART_HITS_MAX[rcLevel] || 10000;
 
@@ -149,7 +204,7 @@ class Room extends OrgBase {
     });
 
     this.damagedRoads = [];
-    this.updateDamagedRoads = thread(UPDATE_DAMAGED_ROADS_TTL)(() => {
+    this.updateDamagedRoads = thread(UPDATE_DAMAGED_ROADS_TTL, null, null)(() => {
       let damagedRoads = this.room.find(FIND_STRUCTURES, {
         filter: (s) => {
           return s.hits < s.hitsMax && s.structureType == STRUCTURE_ROAD;
@@ -162,7 +217,7 @@ class Room extends OrgBase {
       this.damagedRoads = _.map(damagedRoads, 'id');
     });
 
-    this.threadRequestDefenders = thread(REQUEST_DEFENDERS_TTL)((trace) => {
+    this.threadRequestDefenders = thread(REQUEST_DEFENDERS_TTL, null, null)((trace) => {
       const freshDefenders = this.getColony().defenders.filter((defender) => {
         return creepIsFresh(defender);
       });
@@ -207,7 +262,7 @@ class Room extends OrgBase {
         return;
       }
 
-      if (!this.primaryRoom && this.defendersLost >= 3) {
+      if (!this.isPrimary && this.defendersLost >= 3) {
         trace.log('do not request defender: we have lost too many defenders');
       }
 
@@ -237,7 +292,7 @@ class Room extends OrgBase {
     if (!room) {
       if (Game.time - this.hostileTime > HOSTILE_PRESENCE_TTL) {
         trace.log('past hostile presence ttl, clearing hostiles');
-        this.hostile = [];
+        this.hostiles = [];
         this.numHostiles = 0;
         this.defendersLost = 0;
       }
@@ -251,7 +306,7 @@ class Room extends OrgBase {
     updateTrace.log('reading events', {roomId: room.name});
     room.getEventLog().forEach((msg) => {
       if (msg.event === EVENT_OBJECT_DESTROYED && msg.data.type === 'creep') {
-        if (this.defenderIds.indexOf(msg.objectId) > -1) {
+        if (this.defenderIds.indexOf(msg.objectId as Id<Creep>) > -1) {
           trace.log('lost a defender', {defenderId: msg.objectId});
           this.defendersLost += 1;
         }
@@ -283,7 +338,7 @@ class Room extends OrgBase {
 
     updateTrace.end();
   }
-  process(trace) {
+  process(trace: Tracer) {
     trace = trace.asId(this.id);
     const processTrace = trace.begin('process');
 
@@ -337,8 +392,8 @@ class Room extends OrgBase {
 
     return notQuite;
   }
-  getLabs() {
-    return this.myStructures.filter((structure) => {
+  getLabs(): StructureLab[] {
+    return this.myStructures.filter((structure): structure is StructureLab => {
       return structure.structureType === STRUCTURE_LAB;
     });
   }
@@ -465,71 +520,7 @@ class Room extends OrgBase {
 
     return structures.pop();
   }
-  getNextEnergyStructure(creep) {
-    let list = this.room.memory[MEMORY.ROOM_NEEDS_ENERGY_LIST] || [];
-    let listTime = this.room.memory[MEMORY.ROOM_NEEDS_ENERGY_TIME] || Game.time;
-
-    if (!list || !list.length || !listTime || Game.time - listTime > 20) {
-      const room = this.room;
-
-      // We will subtract structures already being serviced by a creep
-      const assignedDestinations = _.reduce(this.assignedCreeps, (acc, c) => {
-        if (c.room.name !== room.name) {
-          return acc;
-        }
-
-        if (c.memory[MEMORY.MEMORY_ROLE] !== WORKER_DISTRIBUTOR &&
-          c.memory[MEMORY.MEMORY_ROLE] !== WORKER_HAULER) {
-          return acc;
-        }
-
-        if (c.memory[MEMORY.MEMORY_DESTINATION]) {
-          return acc;
-        }
-
-        acc.push(c.memory[MEMORY.MEMORY_DESTINATION]);
-
-        return acc;
-      }, []);
-
-      list = this.myStructures.filter((structure) => {
-        return ( // Fill extensions and spawns with room
-          (structure.structureType == STRUCTURE_EXTENSION ||
-            structure.structureType == STRUCTURE_SPAWN
-          ) && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0
-        );
-      });
-
-      // We get a a deadlock if there are fewer sources than distributors
-      if (list.length > 2) {
-        // Filter out destinations that are already assigned to another Distributor
-        list = _.filter(list, (structure) => {
-          return assignedDestinations.indexOf(structure.id) === -1;
-        });
-      }
-
-      list = list.map((structure) => {
-        return structure.id;
-      });
-
-      listTime = Game.time;
-    }
-
-    list = _.sortBy(list, (id) => {
-      return creep.pos.getRangeTo(Game.getObjectById(id));
-    });
-
-    const next = list.shift();
-
-    this.room.memory[MEMORY.ROOM_NEEDS_ENERGY_LIST] = list;
-    this.room.memory[MEMORY.ROOM_NEEDS_ENERGY_TIME] = listTime;
-
-    if (!next) {
-      return null;
-    }
-
-    return Game.getObjectById(next);
-  }
+  
   getNextDamagedStructure() {
     let list = this.room.memory[MEMORY.ROOM_DAMAGED_STRUCTURES_LIST] || [];
     let listTime = this.room.memory[MEMORY.ROOM_DAMAGED_STRUCTURES_TIME] || 0;
@@ -597,7 +588,7 @@ class Room extends OrgBase {
   updateStats() {
     const room = this.room;
 
-    const roomStats = {
+    const roomStats: any = {
       sources: {},
     };
 
@@ -639,6 +630,7 @@ class Room extends OrgBase {
 
     return (roomLevel - 3) * PER_LEVEL_ENERGY;
   }
+
   getRoomLevel() {
     if (!this.room) {
       return 0;
@@ -650,6 +642,11 @@ class Room extends OrgBase {
 
     return this.room.controller.level;
   }
+
+  getAlertLevel(): RoomAlertLevel {
+    return RoomAlertLevel.GREEN;
+  }
+
   requestSpawn(priority, details, ttl) {
     if (this.getColony().getPrimaryRoom().hasSpawns) {
       this.sendRequest(TOPIC_SPAWN, priority, details, ttl);
@@ -780,7 +777,7 @@ class Room extends OrgBase {
       trace.log('clear hostile time');
     }
 
-    this.invaderCores = this.roomStructures.filter((structure) => {
+    this.invaderCores = this.roomStructures.filter((structure): structure is StructureInvaderCore => {
       return structure.structureType === STRUCTURE_INVADER_CORE;
     });
 

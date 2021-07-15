@@ -357,11 +357,11 @@ export default class RoomRunnable {
     }
 
     let distributorPriority = PRIORITIES.PRIORITY_DISTRIBUTOR;
-    if (orgRoom.getAmountInReserve(RESOURCE_ENERGY) === 0) {
+    if (orgRoom.getAmountInReserve(RESOURCE_ENERGY, false) === 0) {
       distributorPriority = PRIORITIES.DISTRIBUTOR_NO_RESERVE;
     }
 
-    if (orgRoom.getAmountInReserve(RESOURCE_ENERGY) > 25000) {
+    if (orgRoom.getAmountInReserve(RESOURCE_ENERGY, false) > 25000) {
       distributorPriority += 3;
     }
 
@@ -432,7 +432,7 @@ export default class RoomRunnable {
     let maxParts = 15;
     let roomCapacity = 300;
 
-    const reserveEnergy = orgRoom.getAmountInReserve(RESOURCE_ENERGY);
+    const reserveEnergy = orgRoom.getAmountInReserve(RESOURCE_ENERGY, false);
     const reserveBuffer = orgRoom.getReserveBuffer();
 
     if (!room.controller.my) {
@@ -680,11 +680,14 @@ export default class RoomRunnable {
   produceStatus(orgRoom: OrgRoom, trace: Tracer) {
     const resources = orgRoom.getReserveResources(false);
 
+    
+
     const status = {
       [MEMORY.ROOM_STATUS_NAME]: orgRoom.id,
       [MEMORY.ROOM_STATUS_LEVEL]: orgRoom.getRoomLevel(),
       [MEMORY.ROOM_STATUS_TERMINAL]: orgRoom.hasTerminal(),
       [MEMORY.ROOM_STATUS_ENERGY]: resources[RESOURCE_ENERGY] || 0,
+      [MEMORY.ROOM_STATUS_ALERT_LEVEL]: orgRoom.getAlertLevel(),
     };
 
     trace.log('producing room status', {status});
