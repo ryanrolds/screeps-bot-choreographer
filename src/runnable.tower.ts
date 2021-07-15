@@ -21,7 +21,7 @@ export default class TowerRunnable {
   orgRoom: OrgRoom;
   towerId: Id<StructureTower>;
 
-  damagedCreep: Id<Creep>;
+  damagedCreep: string; // Creep name FIX
   repairTarget: Id<AnyStructure>;
 
   haulTTL: number;
