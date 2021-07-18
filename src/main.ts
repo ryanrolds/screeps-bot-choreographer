@@ -5,7 +5,7 @@ import {KingdomConfig} from './config'
 global.TRACING_ACTIVE = false;
 
 let config: KingdomConfig = {
-  'buffer': 2,
+  'buffer': 3,
   'friends': [
     'PythonBeatJava'
   ],

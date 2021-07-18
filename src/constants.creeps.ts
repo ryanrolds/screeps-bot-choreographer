@@ -13,7 +13,7 @@ export const WORKER_EXPLORER = 'explorer';
 
 // The 'base' should at most 300 energy as it will form the base of the creep
 // The 'parts' are additional parts that will be used to fill up to the 'energyLimit'
-export const definitions = {
+export const DEFINITIONS = {
   [WORKER_HARVESTER]: {
     energyLimit: 3200,
     parts: [MOVE, CARRY, WORK],

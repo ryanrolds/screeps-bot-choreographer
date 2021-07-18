@@ -34,6 +34,7 @@ export class Process {
   type: string;
   priority: number;
   runnable: Runnable;
+  skippable: boolean;
 
   status: ProcessStatus;
   lastRun: number;
@@ -45,6 +46,7 @@ export class Process {
     this.priority = priority;
     this.runnable = runnable;
 
+    this.skippable = true;
     this.status = STATUS_RUNNING;
     this.lastRun = 0;
     this.nextRun = 0;
@@ -82,6 +84,14 @@ export class Process {
 
   setTerminated() {
     this.status = STATUS_TERMINATED;
+  }
+
+  setSkippable(skippable: boolean) {
+    this.skippable = skippable;
+  }
+
+  canSkip(): boolean {
+    return this.skippable;
   }
 
   run(kingdom: Kingdom, trace: Tracer) {

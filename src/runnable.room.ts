@@ -190,8 +190,10 @@ export default class RoomRunnable {
       }).forEach((tower) => {
         const towerId = `${tower.id}`
         if (!this.scheduler.hasProcess(towerId)) {
-          this.scheduler.registerProcess(new Process(towerId, 'towers', Priorities.DEFENCE,
-            new TowerRunnable(orgRoom, tower)));
+          const process = new Process(towerId, 'towers', Priorities.DEFENCE,
+            new TowerRunnable(orgRoom, tower))
+          process.setSkippable(false);
+          this.scheduler.registerProcess(process);
         }
       });
 

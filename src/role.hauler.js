@@ -47,8 +47,8 @@ const behavior = behaviorTree.sequenceNode(
           behaviorTree.featureFlagBool(
             'flag_move_by_path',
             featureFlags.USE_HEAP_PATH_CACHE,
-            behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_PICKUP, 1, false, 50, 1500),
-            behaviorMovement.moveByHeapPath(MEMORY.MEMORY_HAUL_PICKUP, 1, false, 50, 1500),
+            behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_PICKUP, 1, true, 50, 1500),
+            behaviorMovement.moveByHeapPath(MEMORY.MEMORY_HAUL_PICKUP, 1, true, 50, 1500),
           ),
           behaviorHaul.loadCreep,
           behaviorHaul.clearTask,
@@ -74,8 +74,8 @@ const behavior = behaviorTree.sequenceNode(
           behaviorTree.featureFlagBool(
             'flag_move_by_path',
             featureFlags.USE_HEAP_PATH_CACHE,
-            behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_DROPOFF, 1, false, 50, 1500),
-            behaviorMovement.moveByHeapPath(MEMORY.MEMORY_HAUL_DROPOFF, 1, false, 50, 1500),
+            behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_DROPOFF, 1, true, 50, 1500),
+            behaviorMovement.moveByHeapPath(MEMORY.MEMORY_HAUL_DROPOFF, 1, true, 50, 1500),
           ),
           behaviorTree.leafNode(
             'empty_creep',

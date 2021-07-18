@@ -164,6 +164,8 @@ export default class WarPartyRunnable {
           this.phase = Phase.PHASE_EN_ROUTE;
           trace.log('moving to deploy phase', {phase: this.phase});
         } else {
+          this.destination = new RoomPosition(25, 25, this.targetRoom);
+          this.position = flag.pos;
           this.marshal(this.position, creeps, trace);
         }
       }
@@ -177,15 +179,14 @@ export default class WarPartyRunnable {
           this.phase = Phase.PHASE_ATTACK;
           trace.log('moving to attack phase', {phase: this.phase});
         } else {
+          this.destination = new RoomPosition(25, 25, this.targetRoom);
           this.deploy(kingdom, positionRoomObject, targetRoom, creeps, trace);
         }
       }
 
       if (this.phase === Phase.PHASE_ATTACK) {
         const activeCreeps = creeps.filter(creep => creep.pos.roomName === targetRoom);
-
-        trace.log("begin attack phase", {targetRoomObject, activeCreeps: activeCreeps.map(creep => creep.name)})
-
+        trace.log("begin attack phase", {targetRoomObject, activeCreeps: activeCreeps.map(creep => creep.name)});
         if (!activeCreeps.length) {
           this.phase = Phase.PHASE_MARSHAL;
           trace.log('moving to marshal phase', {phase: this.phase});
@@ -222,6 +223,7 @@ export default class WarPartyRunnable {
     trace.log("deploy", {
       targetRoom,
       position: this.position,
+      destination: this.destination,
     });
 
     const [nextPosition, direction, blockers] = this.getNextPosition(this.position, this.destination, trace);
@@ -242,10 +244,13 @@ export default class WarPartyRunnable {
     let targets: (Creep | Structure)[] = [];
 
     const friends = kingdom.config.friends;
-    // determine target (hostile creeps, towers, spawns, nukes, all other structures)
-    targets = targets.concat(room.find(FIND_HOSTILE_CREEPS, {
-      filter: creep => friends.indexOf(creep.owner.username) === -1
-    }));
+
+    if (room) {
+      // determine target (hostile creeps, towers, spawns, nukes, all other structures)
+      targets = targets.concat(room.find(FIND_HOSTILE_CREEPS, {
+        filter: creep => friends.indexOf(creep.owner.username) === -1
+      }));
+    }
 
     if (blockers.length) {
       trace.log("blockers", {blocked: blockers.map(structure => structure.id)});
@@ -304,18 +309,24 @@ export default class WarPartyRunnable {
   }
 
   engage(kingdom: Kingdom, room: Room, creeps: Creep[], trace: Tracer) {
-    // By default move to the controller
-    if (room.controller) {
-      this.destination = room.controller.pos;
+    let destination = new RoomPosition(25, 25, this.targetRoom);
+    if (room && room.controller) {
+      destination = room.controller.pos;
     }
 
-    // Check if there are any targets that need destroyed
-    let targets = this.getStrategicTargets(kingdom, room, trace);
-    if (targets.length) {
-      this.destination = targets[0].pos;
-    } else {
-      trace.log("no strategic targets")
+    let targets = [];
+
+    // If we have visibility into the room, get targets and choose first as destination
+    if (room) {
+      targets = this.getStrategicTargets(kingdom, room, trace);
+      if (targets.length) {
+        destination = targets[0].pos;
+      } else {
+        trace.log("no strategic targets")
+      }
     }
+
+    this.destination = destination;
 
     trace.log("strategic targets", {first: targets[0], destination: this.destination});
 
