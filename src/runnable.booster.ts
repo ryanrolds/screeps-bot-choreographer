@@ -449,27 +449,30 @@ export default class BoosterRunnable {
         trace.log('no compound available for', {toLoad});
         return;
       }
-
-      const pickup = this.orgRoom.getReserveStructureWithMostOfAResource(compound.name, true);
-      if (!pickup) {
-        trace.log('no pickup for available compound', {resource: compound.name});
-        return;
-      }
-
-      const details = {
-        [MEMORY.TASK_ID]: `brl-${this.id}-${Game.time}`,
-        [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
-        [MEMORY.MEMORY_HAUL_PICKUP]: pickup.id,
-        [MEMORY.MEMORY_HAUL_RESOURCE]: compound.name,
-        [MEMORY.MEMORY_HAUL_DROPOFF]: emptyLab.id,
-        [MEMORY.MEMORY_HAUL_AMOUNT]: MAX_COMPOUND,
-      };
-
-      trace.log('boost load material', {priority: PRIORITIES.HAUL_BOOST, details});
-
-      (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details, REQUEST_LOAD_TTL);
     });
   }
+
+  requestHaulingOfMaterial(compound, lab, trace: Tracer) {
+    const pickup = this.orgRoom.getReserveStructureWithMostOfAResource(compound.name, true);
+    if (!pickup) {
+      trace.log('no pickup for available compound', {resource: compound.name});
+      return;
+    }
+
+    const details = {
+      [MEMORY.TASK_ID]: `brl-${this.id}-${Game.time}`,
+      [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
+      [MEMORY.MEMORY_HAUL_PICKUP]: pickup.id,
+      [MEMORY.MEMORY_HAUL_RESOURCE]: compound.name,
+      [MEMORY.MEMORY_HAUL_DROPOFF]: lab.id,
+      [MEMORY.MEMORY_HAUL_AMOUNT]: MAX_COMPOUND,
+    };
+
+    trace.log('boost load material', {priority: PRIORITIES.HAUL_BOOST, details});
+
+    (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details, REQUEST_LOAD_TTL);
+  }
+
   requestEnergyForLabs(trace: Tracer) {
     const labs = this.getLabs();
     labs.forEach((lab) => {

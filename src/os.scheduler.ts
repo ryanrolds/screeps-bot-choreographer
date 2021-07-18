@@ -9,11 +9,12 @@ const TIME_LIMIT_FACTOR = 1.0;
 export const Priorities = {
   CRITICAL: 0,
   DEFENCE: 1,
-  RESOURCES: 2,
-  OFFENSE: 3,
-  LOGISTICS: 4,
-  MAINTENANCE: 5,
-  EXPLORATION: 6
+  ATTACK: 2,
+  RESOURCES: 3,
+  OFFENSE: 4,
+  LOGISTICS: 5,
+  MAINTENANCE: 6,
+  EXPLORATION: 7,
 }
 
 export class Scheduler {
@@ -80,14 +81,14 @@ export class Scheduler {
 
     // Sort process table priority
     // -1 should maintain the same order
-    this.processTable = _.sortByAll(this.processTable, ['priority', 'lastRun']);
+    this.processTable = _.sortByAll(this.processTable, ['priority', 'skippable', 'lastRun']);
 
     const toRemove = [];
     const processCpu: Record<string, number> = {};
 
     // Iterate processes and act on their status
     this.processTable.forEach((process) => {
-      if (this.isOutOfTime()) {
+      if (this.isOutOfTime() && process.canSkip()) {
         this.ranOutOfTime++;
         return;
       }

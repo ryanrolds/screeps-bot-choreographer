@@ -96,6 +96,7 @@ export default class WarPartyRunnable {
   targetRoom: string; // Destination room
   phase: Phase;
   position: RoomPosition;
+  destination: RoomPosition;
   // TODO move to Scribe
   costMatrices: Record<string, CostMatrix>;
 
@@ -116,6 +117,7 @@ export default class WarPartyRunnable {
     this.phase = phase || Phase.PHASE_MARSHAL;
     this.costMatrices = {};
     this.position = position;
+    this.destination = new RoomPosition(25, 25, targetRoom);
 
     this.party = new PartyRunnable(id, colony, position, WORKER_ATTACKER, PRIORITY_ATTACKER,
       REQUEST_ATTACKER_TTL);
@@ -162,25 +164,28 @@ export default class WarPartyRunnable {
           this.phase = Phase.PHASE_EN_ROUTE;
           trace.log('moving to deploy phase', {phase: this.phase});
         } else {
+          this.destination = new RoomPosition(25, 25, this.targetRoom);
+          this.position = flag.pos;
           this.marshal(this.position, creeps, trace);
         }
       }
 
       if (this.phase === Phase.PHASE_EN_ROUTE) {
         // If we are out of creep, remarshal
-        if (!creeps.length || !positionRoomObject) {
+        if (!creeps.length) {
           this.phase = Phase.PHASE_MARSHAL;
           trace.log('moving to marshal phase', {phase: this.phase});
         } else if (targetRoom === this.position.roomName) {
           this.phase = Phase.PHASE_ATTACK;
           trace.log('moving to attack phase', {phase: this.phase});
         } else {
+          this.destination = new RoomPosition(25, 25, this.targetRoom);
           this.deploy(kingdom, positionRoomObject, targetRoom, creeps, trace);
         }
       }
 
       if (this.phase === Phase.PHASE_ATTACK) {
-        if (!creeps.length || !targetRoomObject) {
+        if (!creeps.length) {
           this.phase = Phase.PHASE_MARSHAL;
           trace.log('moving to marshal phase', {phase: this.phase});
         } else {
@@ -197,7 +202,7 @@ export default class WarPartyRunnable {
     }
 
     if (global.LOG_WHEN_ID === this.id) {
-      this.visualizePathToTarget(this.position, trace);
+      this.visualizePathToTarget(this.position, this.destination, trace);
     }
 
     return running();
@@ -216,10 +221,10 @@ export default class WarPartyRunnable {
     trace.log("deploy", {
       targetRoom,
       position: this.position,
+      destination: this.destination,
     });
 
-    const destination = new RoomPosition(25, 25, targetRoom);
-    const [nextPosition, direction, blockers] = this.getNextPosition(this.position, destination, trace);
+    const [nextPosition, direction, blockers] = this.getNextPosition(this.position, this.destination, trace);
 
     trace.log("next position", {targetRoom, nextPosition, blockers: blockers.map(blocker => blocker.id)});
 
@@ -237,10 +242,13 @@ export default class WarPartyRunnable {
     let targets: (Creep | Structure)[] = [];
 
     const friends = kingdom.config.friends;
-    // determine target (hostile creeps, towers, spawns, nukes, all other structures)
-    targets = targets.concat(room.find(FIND_HOSTILE_CREEPS, {
-      filter: creep => friends.indexOf(creep.owner.username) === -1
-    }));
+
+    if (room) {
+      // determine target (hostile creeps, towers, spawns, nukes, all other structures)
+      targets = targets.concat(room.find(FIND_HOSTILE_CREEPS, {
+        filter: creep => friends.indexOf(creep.owner.username) === -1
+      }));
+    }
 
     if (blockers.length) {
       trace.log("blockers", {blocked: blockers.map(structure => structure.id)});
@@ -298,17 +306,24 @@ export default class WarPartyRunnable {
   }
 
   engage(kingdom: Kingdom, room: Room, creeps: Creep[], trace: Tracer) {
-    let destination = new RoomPosition(25, 25, room.name);
-    if (room.controller) {
+    let destination = new RoomPosition(25, 25, this.targetRoom);
+    if (room && room.controller) {
       destination = room.controller.pos;
     }
 
-    let targets = this.getTargets(kingdom, room);
-    if (targets.length) {
-      destination = targets[0].pos;
+    let targets = [];
+
+    // If we have visibility into the room, get targets and choose first as destination
+    if (room) {
+      targets = this.getTargets(kingdom, room);
+      if (targets.length) {
+        destination = targets[0].pos;
+      }
     }
 
-    const [nextPosition, direction, blockers] = this.getNextPosition(this.position, destination, trace);
+    this.destination = destination;
+
+    const [nextPosition, direction, blockers] = this.getNextPosition(this.position, this.destination, trace);
     trace.log("next position", {nextPosition, blockers: blockers.map(blocker => blocker.id)});
     if (nextPosition) {
       this.setPosition(nextPosition, trace);
@@ -417,9 +432,7 @@ export default class WarPartyRunnable {
     return this.party.getColony();
   }
 
-  visualizePathToTarget(origin: RoomPosition, trace) {
-    const destination = new RoomPosition(25, 25, this.targetRoom);
-
+  visualizePathToTarget(origin: RoomPosition, destination: RoomPosition, trace) {
     const path = this.getPath(origin, destination, trace);
     if (!path) {
       trace.log('no path to visualize');

@@ -5,12 +5,12 @@ import {Process, Runnable, RunnableResult, running, sleeping} from "./os.process
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
 import WarPartyRunnable from './runnable.warparty';
+import * as TOPICS from './constants.topics';
 import {Phase} from './runnable.warparty';
-import {trace} from 'node:console';
-import {UNLOAD_LINK} from './constants.priorities';
 import Colony from './org.colony';
 
 const WAR_PARTY_PROCESS_PRIORITY = 2;
+const WAR_PARTY_RUN_TTL = 20;
 
 interface StoredWarParty {
   id: string;
@@ -86,6 +86,9 @@ export default class WarManager {
 
     trace = trace.asId(this.id);
 
+    const request = kingdom.peekNextRequest(TOPICS.ATTACK_ROOM);
+    trace.log("attack room request", {request});
+
     this.warParties = this.warParties.filter((party) => {
       return this.scheduler.hasProcess(party.id);
     });
@@ -113,7 +116,7 @@ export default class WarManager {
 
     trace.log("storing war parties", {parties: (Memory as any).war});
 
-    return sleeping(20);
+    return sleeping(WAR_PARTY_RUN_TTL);
   }
 
   getTargetRoom(): string {
@@ -156,6 +159,7 @@ export default class WarManager {
     position: RoomPosition, trace: Tracer): WarPartyRunnable {
     const party = new WarPartyRunnable(id, colony, 'rally', position, target, phase);
     const process = new Process(id, 'war_party', Priorities.OFFENSE, party);
+    process.setSkippable(false);
     this.scheduler.registerProcess(process);
 
     return party;

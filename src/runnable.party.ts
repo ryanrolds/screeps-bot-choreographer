@@ -123,16 +123,24 @@ export default class PartyRunnable {
   inPosition(position: RoomPosition, trace: Tracer) {
     let inPosition = true;
 
-    const visual = new RoomVisual()
-    visual.rect(position.x - 0.5, position.y - 1.5, 2, 2);
+    const visual = new RoomVisual();
+
+    const showVisuals = global.LOG_WHEN_ID === this.id;
+    if (showVisuals) {
+      visual.rect(position.x - 0.5, position.y - 1.5, 2, 2);
+    }
 
     this.getAssignedCreeps().slice(0, 4).forEach((creep, idx) => {
       if (creep.fatigue > 0) {
         trace.log("not ready: fatigued", {creepName: creep.name, fatigue: creep.fatigue});
         inPosition = false;
-        visual.text("F", creep.pos.x, creep.pos.y + 0.5, {
-          color: (idx) ? '#0000FF' : '#FFFFFF',
-        });
+
+        if (showVisuals) {
+          visual.text("F", creep.pos.x, creep.pos.y + 0.5, {
+            color: (idx) ? '#0000FF' : '#FFFFFF',
+          });
+        }
+
         return;
       }
 
@@ -147,11 +155,16 @@ export default class PartyRunnable {
           desired: {x, y, roomName},
         });
         inPosition = false;
-        visual.text("O", creep.pos.x, creep.pos.y + 0.5);
+
+        if (showVisuals) {
+          visual.text("O", creep.pos.x, creep.pos.y + 0.5);
+        }
         return;
       }
 
-      visual.text("R", creep.pos.x, creep.pos.y + 0.5);
+      if (showVisuals) {
+        visual.text("R", creep.pos.x, creep.pos.y + 0.5);
+      }
     });
 
     return inPosition;
@@ -203,12 +216,15 @@ export default class PartyRunnable {
       return new RoomPosition(x, y, position.roomName);
     });
 
-    positions.forEach((position) => {
-      structures = structures.concat(position.lookFor(LOOK_STRUCTURES))
-        .filter((structure) => {
-          return structure.structureType !== STRUCTURE_ROAD;
-        });
-    });
+    // We cannot lookFor in a room that is not loaded
+    if (Game.rooms[position.roomName]) {
+      positions.forEach((position) => {
+        structures = structures.concat(position.lookFor(LOOK_STRUCTURES))
+          .filter((structure) => {
+            return structure.structureType !== STRUCTURE_ROAD;
+          });
+      });
+    }
 
     return structures;
   }
@@ -245,6 +261,10 @@ export default class PartyRunnable {
 
   setHeal(trace: Tracer) {
     const creeps = this.getAssignedCreeps();
+    if (!creeps.length) {
+      return;
+    }
+
     // Locate most damaged creep and heal
     const healOrder = _.sortBy(creeps, (creep) => {
       return creep.hits / creep.hitsMax;
@@ -255,8 +275,16 @@ export default class PartyRunnable {
       targetId = healOrder[0].id;
     }
 
-    creeps.forEach((creep) => {
-      creep.memory[MEMORY.MEMORY_HEAL] = targetId;
+    const damagePercent = healOrder[0].hits / healOrder[0].hitsMax;
+
+    creeps.forEach((creep, idx) => {
+      creep.memory[MEMORY.MEMORY_HEAL] = null;
+
+      if ((idx === 0 && damagePercent < 0.5) || (idx === 1 && damagePercent < 0.75)) {
+        creep.memory[MEMORY.MEMORY_HEAL] = targetId;
+      } else if (idx >= 2 && damagePercent < 1) {
+        creep.memory[MEMORY.MEMORY_HEAL] = targetId;
+      }
     });
   }
 
@@ -302,9 +330,12 @@ export default class PartyRunnable {
     });
 
     // TODO need to calculate plains cost
-    const plainsCost = 1;
-
-    this.deployTicks = path.path.length * plainsCost + 100;
+    const plainsCost = 2;
+    // path length * move cost/ticks
+    const travelTime = path.path.length * plainsCost
+    // 150 for the 50 parts
+    const buildTime = 150;
+    this.deployTicks = travelTime + buildTime;
     if (path.incomplete) {
       this.deployTicks += 200
     }
