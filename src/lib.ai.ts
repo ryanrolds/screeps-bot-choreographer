@@ -55,19 +55,19 @@ export class AI {
     const defenseManagerId = 'defense_manager';
     const defenseManager = new DefenseManager(this.kingdom, defenseManagerId, this.scheduler, trace);
     this.scheduler.registerProcess(new Process(defenseManagerId, 'defense_manager',
-      Priorities.DEFENCE, defenseManager));
+      Priorities.CRITICAL, defenseManager));
 
     // Buffer manager
     const bufferManagerId = 'buffer_manager';
     const bufferManager = new BufferManager(bufferManagerId, this.scheduler, trace);
     this.scheduler.registerProcess(new Process(bufferManagerId, 'buffer_manager',
-      Priorities.DEFENCE, bufferManager));
+      Priorities.CRITICAL, bufferManager));
 
     // War manager
     const warManagerId = 'war_manager';
     const warManager = new WarManager(this.kingdom, warManagerId, this.scheduler, trace);
     this.scheduler.registerProcess(new Process(warManagerId, 'war_manager',
-      Priorities.ATTACK, warManager));
+      Priorities.CRITICAL, warManager));
 
     trace.end();
   }

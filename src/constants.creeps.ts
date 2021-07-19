@@ -102,11 +102,11 @@ export const DEFINITIONS = {
   },
   [WORKER_ATTACKER]: {
     energyLimit: null,
-    energyMinimum: 6500,
-    parts: [ATTACK, TOUGH, MOVE, HEAL, MOVE, HEAL, MOVE, HEAL, ATTACK, MOVE],
-    base: [TOUGH, MOVE, HEAL, MOVE, HEAL, MOVE, ATTACK, MOVE, HEAL, HEAL],
-    boosts: ['attack'],
-    processPriority: Priorities.DEFENCE,
+    energyMinimum: 6000,
+    parts: [WORK, TOUGH, MOVE, HEAL, MOVE, HEAL, MOVE, RANGED_ATTACK, WORK],
+    base: [TOUGH, MOVE, MOVE, MOVE, MOVE, MOVE, HEAL, HEAL, HEAL, HEAL, HEAL, RANGED_ATTACK, WORK, WORK],
+    boosts: ['dismantle'],
+    processPriority: Priorities.ATTACK,
     skippable: false,
   },
   [WORKER_ATTACKER_1TOWER]: {

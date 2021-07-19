@@ -40,19 +40,43 @@ const behavior = behaviorTree.sequenceNode(
         const heal = creep.memory[MEMORY.MEMORY_HEAL];
         if (heal) {
           const healTarget = Game.getObjectById(heal);
-          if (healTarget && creep.pos.inRangeTo(healTarget, 3)) {
-            const healResult = creep.heal(healTarget);
-            trace.log('heal result', {healResult});
-            didHeal = true;
+          if (healTarget) {
+            const healTargetDistance = creep.pos.getRangeTo(healTarget);
+
+            if (healTarget && healTargetDistance <= 1) {
+              const healResult = creep.heal(healTarget);
+              trace.log('heal result', {healResult});
+              didHeal = true;
+            } else if (healTarget && distance <= 3) {
+              const rangedHealResult = creep.rangedHeal(healTarget);
+              trace.log('ranged heal result', {rangedHealResult});
+              didHeal = true;
+            }
           }
         }
 
         const attack = creep.memory[MEMORY.MEMORY_ATTACK];
-        if (attack && !didHeal) {
+        if (attack) {
           const attackTarget = Game.getObjectById(attack);
-          if (attackTarget && creep.pos.inRangeTo(attackTarget, 1)) {
-            const attackResult = creep.attack(attackTarget);
-            trace.log('attack result', {attackResult});
+          if (attackTarget) {
+            const attackDistance = creep.pos.getRangeTo(attackTarget);
+            const didDismantle = false;
+
+            if (!didHeal && attackDistance <= 1 && creep.getActiveBodyparts(WORK) > 0) {
+              const dismantleResult = creep.dismantle(attackTarget);
+              trace.log('dismantle result', {dismantleResult});
+              didDismantle = true;
+            }
+
+            if (!didHeal && !didDismantle && attackDistance <= 1 && creep.getActiveBodyparts(ATTACK) > 0) {
+              const attackResult = creep.dismantle(attackTarget);
+              trace.log('attack result', {attackResult});
+            }
+
+            if (creep.getActiveBodyparts(RANGED_ATTACK) > 0) {
+              const rangedResult = creep.rangedMassAttack();
+              trace.log('ranged mass attack result', {rangedResult});
+            }
           }
         }
 

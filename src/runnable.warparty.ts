@@ -263,43 +263,8 @@ export default class WarPartyRunnable {
       trace.log("targets", {targetsLength: targets.length})
       const target = this.party.setTarget(targets, trace);
       if (target) {
-        let inCorner: DirectionConstant = null;
-        _.each<Record<DirectionConstant, {x: number, y: number}>>(CORNERS, (corner, direction) => {
-          if (!corner) {
-            return;
-          }
-
-          trace.log("corner", {corner, direction});
-
-          const x = _.min([_.max([this.position.x + corner.x, 0]), 49]);
-          const y = _.min([_.max([this.position.y + corner.y, 0]), 49]);
-          const cornerPosition = new RoomPosition(x, y, this.position.roomName);
-
-          trace.log("cornerPosition", {cornerPosition});
-          if (target.pos.isEqualTo(cornerPosition)) {
-            inCorner = parseInt(direction, 10) as DirectionConstant;
-          }
-        });
-
-        if (inCorner) {
-          const sides = ADJACENT_SIDES[inCorner];
-          if (sides.length) {
-            const side = _.find(sides, (side) => {
-              const shiftedPosition = this.party.shiftPosition(nextPosition, side);
-              return !this.isBlocked(shiftedPosition, trace);
-            });
-
-            if (side) {
-              const shiftPosition = this.party.shiftPosition(nextPosition, side);
-              if (shiftPosition) {
-                trace.notice("shifting position", {shiftPosition});
-                this.setPosition(shiftPosition, trace);
-              }
-            }
-          }
-        }
+        this.alignWithTarget(target, nextPosition, trace);
       }
-
     } else {
       trace.log("no targets");
     }
@@ -331,21 +296,77 @@ export default class WarPartyRunnable {
       trace.log("no next position");
     }
 
-    if (blockers.length) {
-      trace.log("blockers", {blocked: blockers.map(structure => structure.id)});
-      targets = targets.concat(blockers);
-    }
-
     if (direction) {
       trace.log("changing formation", {direction});
       this.setFormation(direction);
     }
 
+    let nearbyTargets: (Creep | Structure)[] = [];
+
+    if (room) {
+      const friends = kingdom.config.friends;
+      // determine target (hostile creeps, towers, spawns, nukes, all other structures)
+      nearbyTargets = nearbyTargets.concat(room.find(FIND_HOSTILE_CREEPS, {
+        filter: creep => friends.indexOf(creep.owner.username) === -1
+      }));
+    }
+
+    if (blockers.length) {
+      trace.log("blockers", {blocked: blockers.map(structure => structure.id)});
+      nearbyTargets = nearbyTargets.concat(blockers);
+    }
+
+    // Add other targets
     if (targets.length) {
-      trace.log("targets", {targetsLength: targets.length})
-      this.party.setTarget(targets, trace);
+      nearbyTargets = nearbyTargets.concat(targets);
+    }
+
+    if (nearbyTargets.length) {
+      trace.log("nearby targets", {nearByTargetsLength: nearbyTargets.length})
+      const target = this.party.setTarget(nearbyTargets, trace);
+      if (target) {
+        this.alignWithTarget(target, nextPosition, trace);
+      }
     } else {
       trace.log("no targets");
+    }
+  }
+
+  alignWithTarget(target: (Creep | Structure), position: RoomPosition, trace: Tracer) {
+    let inCorner: DirectionConstant = null;
+    _.each<Record<DirectionConstant, {x: number, y: number}>>(CORNERS, (corner, direction) => {
+      if (!corner) {
+        return;
+      }
+
+      trace.log("corner", {corner, direction});
+
+      const x = _.min([_.max([this.position.x + corner.x, 0]), 49]);
+      const y = _.min([_.max([this.position.y + corner.y, 0]), 49]);
+      const cornerPosition = new RoomPosition(x, y, this.position.roomName);
+
+      trace.log("cornerPosition", {cornerPosition});
+      if (target.pos.isEqualTo(cornerPosition)) {
+        inCorner = parseInt(direction, 10) as DirectionConstant;
+      }
+    });
+
+    if (inCorner) {
+      const sides = ADJACENT_SIDES[inCorner];
+      if (sides.length) {
+        const side = _.find(sides, (side) => {
+          const shiftedPosition = this.party.shiftPosition(position, side);
+          return !this.isBlocked(shiftedPosition, trace);
+        });
+
+        if (side) {
+          const shiftPosition = this.party.shiftPosition(position, side);
+          if (shiftPosition) {
+            trace.notice("shifting position", {shiftPosition});
+            this.setPosition(shiftPosition, trace);
+          }
+        }
+      }
     }
   }
 

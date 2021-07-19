@@ -51,7 +51,7 @@ export const REACTION_PRIORITIES = {
   ZK: 9,
   UL: 9,
   LH: 1, // repair/build
-  ZH: 1, // dismantle
+  ZH: 6, // dismantle
   GH: 5, // upgrade controller
   KH: 4, // carry
   UH: 6, // attack
@@ -62,7 +62,7 @@ export const REACTION_PRIORITIES = {
   GO: 7, // damage
   LH2O: 1, // repair/build
   KH2O: 5, // carry
-  ZH2O: 1, // fatigue
+  ZH2O: 6, // dismantle
   UH2O: 7, // attack
   GH2O: 6, // upgrade controller
   LHO2: 9, // heal
@@ -72,7 +72,7 @@ export const REACTION_PRIORITIES = {
   GHO2: 8, // damage
   XLH2O: 1, // repair/build
   XKH2O: 6, // carry
-  XZH2O: 1, // dismantle
+  XZH2O: 8, // dismantle
   XUH2O: 8, // attack
   XGH2O: 7, // upgrade controller
   XLHO2: 10, // heal

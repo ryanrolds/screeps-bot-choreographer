@@ -33,6 +33,7 @@ const CRITICAL_EFFECTS = {
   'attack': ['XUH2O', 'UH2O', 'UH'],
   // 'rangedAttack': ['XKHO2', 'KHO2', 'KO'],
   'damage': ['XGHO2', 'GHO2', 'GO'],
+  'dismantle': ['XZH2O', 'ZH2O', 'ZH'],
 };
 
 class Resources extends OrgBase {
@@ -590,24 +591,37 @@ class Resources extends OrgBase {
 
   balanceEnergy(trace) {
     if (this.roomStatuses.length < 2) {
-      trace.notice('not enough rooms to balance');
+      trace.log('not enough rooms to balance');
       return;
     }
 
     const hasTerminals = _.filter(this.roomStatuses, {details: {[MEMORY.ROOM_STATUS_TERMINAL]: true}});
+    if (hasTerminals.length < 2) {
+      trace.log('not enough terminals to balance');
+      return;
+    }
+
     const energySorted = _.sortByAll(hasTerminals, [
+      ['details', MEMORY.ROOM_STATUS_ENERGY].join('.'),
+    ]);
+    const levelAndEnergySorted = _.sortByAll(hasTerminals, [
       ['details', MEMORY.ROOM_STATUS_LEVEL].join('.'),
       ['details', MEMORY.ROOM_STATUS_ENERGY].join('.'),
     ]);
 
-    trace.notice('sorted', {energySorted});
+    trace.log('sorted', {energySorted, levelAndEnergySorted});
 
-    const sinkRoom = energySorted[0];
+    const sinkRoom = levelAndEnergySorted[0];
     const sourceRoom = energySorted[energySorted.length - 1];
+
+    if (sinkRoom === sourceRoom) {
+      trace.log('sink and source are same');
+      return;
+    }
 
     const energyDiff = sourceRoom.details[MEMORY.ROOM_STATUS_ENERGY] - sinkRoom.details[MEMORY.ROOM_STATUS_ENERGY];
     if (energyDiff < ENERGY_BALANCE_AMOUNT * 2) {
-      trace.notice('energy different too small, no need to send energy', {energyDiff});
+      trace.log('energy different too small, no need to send energy', {energyDiff});
       return;
     }
 
