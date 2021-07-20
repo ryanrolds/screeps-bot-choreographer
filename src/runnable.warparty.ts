@@ -189,7 +189,10 @@ export default class WarPartyRunnable {
           this.phase = Phase.PHASE_MARSHAL;
           trace.log('moving to marshal phase', {phase: this.phase});
         } else {
-          this.engage(kingdom, targetRoomObject, creeps, trace);
+          const done = this.engage(kingdom, targetRoomObject, creeps, trace);
+          if (done) {
+            this.party.done();
+          }
         }
       }
     }
@@ -270,7 +273,7 @@ export default class WarPartyRunnable {
     }
   }
 
-  engage(kingdom: Kingdom, room: Room, creeps: Creep[], trace: Tracer) {
+  engage(kingdom: Kingdom, room: Room, creeps: Creep[], trace: Tracer): boolean {
     let destination = new RoomPosition(25, 25, this.targetRoom);
     if (room && room.controller) {
       destination = room.controller.pos;
@@ -284,6 +287,10 @@ export default class WarPartyRunnable {
       if (targets.length) {
         destination = targets[0].pos;
       }
+    }
+
+    if (!targets.length) {
+      return true;
     }
 
     this.destination = destination;
@@ -330,6 +337,8 @@ export default class WarPartyRunnable {
     } else {
       trace.log("no targets");
     }
+
+    return false;
   }
 
   alignWithTarget(target: (Creep | Structure), position: RoomPosition, trace: Tracer) {
@@ -395,7 +404,13 @@ export default class WarPartyRunnable {
     }));
 
     targets = targets.concat(room.find(FIND_HOSTILE_STRUCTURES, {
-      filter: structure => friends.indexOf(structure.owner.username) === -1
+      filter: (structure) => {
+        if (structure.structureType === STRUCTURE_CONTROLLER) {
+          return false;
+        }
+
+        return friends.indexOf(structure.owner.username) === -1;
+      }
     }));
 
     targets = targets.concat(room.find<Structure>(FIND_STRUCTURES, {
@@ -529,6 +544,10 @@ export default class WarPartyRunnable {
 
     // Get the next position (may be same as current, if creeps are not in position)
     let nextPosition = path[nextIndex];
+    if (!nextPosition) {
+      trace.log('no next position', {nextIndex, path});
+      return [currentPosition, 0, []];
+    }
 
     let direction: (DirectionConstant | 0) = 0;
 
