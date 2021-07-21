@@ -7,7 +7,7 @@ import * as TASKS from "./constants.tasks"
 import * as TOPICS from "./constants.topics"
 import * as CREEPS from "./constants.creeps"
 import {createCreep} from "./helpers.creeps"
-import {definitions} from './constants.creeps'
+import {DEFINITIONS} from './constants.creeps'
 import {thread} from "./os.thread";
 
 const PROCESS_TTL = 500;
@@ -75,8 +75,8 @@ export default class SpawnManager {
       if (!isIdle) {
         const creep = Game.creeps[spawn.spawning.name];
         const role = creep.memory[MEMORY.MEMORY_ROLE];
-        const boosts = CREEPS.definitions[role].boosts;
-        const priority = CREEPS.definitions[role].processPriority;
+        const boosts = CREEPS.DEFINITIONS[role].boosts;
+        const priority = CREEPS.DEFINITIONS[role].processPriority;
 
         trace.log('spawning', {creepName: creep.name, role, boosts, priority});
 
@@ -124,7 +124,7 @@ export default class SpawnManager {
         let request = (this.orgRoom as any).getNextRequest(TOPICS.TOPIC_SPAWN);
         if (request) {
           const role = request.details.role;
-          const definition = definitions[role];
+          const definition = DEFINITIONS[role];
           if (definition.energyMinimum && energy < definition.energyMinimum) {
             return;
           }
@@ -149,7 +149,7 @@ export default class SpawnManager {
         const peek = (this.orgRoom as any).getKingdom().peekNextRequest(TOPICS.TOPIC_SPAWN);
         if (peek) {
           const role = peek.details.role;
-          const definition = definitions[role];
+          const definition = DEFINITIONS[role];
           const numColonies = (this.orgRoom as any).getKingdom().getColonies().length;
 
           if (definition.energyMinimum && energy < definition.energyMinimum && numColonies > 3) {

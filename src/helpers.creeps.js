@@ -13,7 +13,7 @@ const roleReserver = require('./role.reserver');
 const CREEPS = require('./constants.creeps');
 const MEMORY = require('./constants.memory');
 
-const {definitions} = require('./constants.creeps');
+const {DEFINITIONS} = require('./constants.creeps');
 const {MEMORY_ROLE, MEMORY_ORIGIN, MEMORY_COLONY, MEMORY_ORIGIN_SHARD} = require('./constants.memory');
 
 const MIN_BUCKET_THROTTLE = 1000;
@@ -112,7 +112,7 @@ module.exports.tick = (kingdom, trace) => {
 };
 
 module.exports.createCreep = (colony, room, spawn, role, memory, energy, energyLimit) => {
-  const definition = definitions[role];
+  const definition = DEFINITIONS[role];
 
   const ignoreSpawnEnergyLimit = definition.ignoreSpawnEnergyLimit || false;
   const roleEnergyLimit = definition.energyLimit;

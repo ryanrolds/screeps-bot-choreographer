@@ -13,28 +13,32 @@ const selectSite = behaviorTree.leafNode(
 
     sites = _.sortByAll(sites, (site) => {
       switch (site.structureType) {
-        case STRUCTURE_SPAWN:
-          return 0 - site.progress / site.progressTotal;
-        case STRUCTURE_STORAGE:
-          return 1 - site.progress / site.progressTotal;
-        case STRUCTURE_LINK:
-          return 2 - site.progress / site.progressTotal;
-        case STRUCTURE_TERMINAL:
-          return 3 - site.progress / site.progressTotal;
         case STRUCTURE_TOWER:
+          return 0 - site.progress / site.progressTotal;
+        case STRUCTURE_SPAWN:
+          return 1 - site.progress / site.progressTotal;
+        case STRUCTURE_STORAGE:
+          return 2 - site.progress / site.progressTotal;
+        case STRUCTURE_LINK:
+          return 3 - site.progress / site.progressTotal;
+        case STRUCTURE_TERMINAL:
           return 4 - site.progress / site.progressTotal;
         case STRUCTURE_RAMPART:
           return 5 - site.progress / site.progressTotal;
-        case STRUCTURE_CONTAINER:
+        case STRUCTURE_EXTRACTOR:
           return 6 - site.progress / site.progressTotal;
-        case STRUCTURE_EXTENSION:
+        case STRUCTURE_LAB:
           return 7 - site.progress / site.progressTotal;
+        case STRUCTURE_CONTAINER:
+          return 8 - site.progress / site.progressTotal;
+        case STRUCTURE_EXTENSION:
+          return 9 - site.progress / site.progressTotal;
         case STRUCTURE_ROAD:
-          return 11 - site.progress / site.progressTotal;
+          return 20 - site.progress / site.progressTotal;
         case STRUCTURE_WALL:
-          return 12 - site.progress / site.progressTotal;
+          return 21 - site.progress / site.progressTotal;
         default:
-          return 10 - site.progress / site.progressTotal;
+          return 15 - site.progress / site.progressTotal;
       }
     }, (site) => {
       const room = kingdom.getCreepRoom(creep);

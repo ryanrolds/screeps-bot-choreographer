@@ -5,8 +5,7 @@ import {RunnableResult, running, sleeping, terminate, STATUS_TERMINATED} from ".
 import {Tracer} from './lib.tracing';
 import {WORKER_DEFENDER_DRONE} from './constants.creeps'
 import {PRIORITY_BUFFER_PATROL} from "./constants.priorities";
-import * as MEMORY from './constants.memory'
-import TOPICS from './constants.topics';
+import * as TOPICS from './constants.topics';
 import Room from './org.room';
 import PartyRunnable from './runnable.party';
 

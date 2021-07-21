@@ -160,7 +160,7 @@ const unloadIfNeeded = behaviorTree.selectorNode(
     behaviorTree.sequenceNode(
       'move_and_unload',
       [
-        behaviorMovement.moveToCreepMemory(MEMORY.MEMORY_DESTINATION, 1, false, 10, 250),
+        behaviorMovement.moveToCreepMemory(MEMORY.MEMORY_DESTINATION, 1, true, 10, 250),
         emptyCreep,
       ],
     ),
@@ -228,7 +228,7 @@ const loadIfNeeded = behaviorTree.selectorNode(
     behaviorTree.sequenceNode(
       'get_resource',
       [
-        behaviorMovement.moveToCreepMemory(MEMORY.MEMORY_HAUL_PICKUP, 1, false, 10, 250),
+        behaviorMovement.moveToCreepMemory(MEMORY.MEMORY_HAUL_PICKUP, 1, true, 10, 250),
         behaviorHaul.loadCreep,
       ],
     ),
@@ -250,7 +250,7 @@ const deliver = behaviorTree.sequenceNode(
         return FAILURE;
       },
     ),
-    behaviorMovement.moveToDestination(1, false, 10, 250),
+    behaviorMovement.moveToDestination(1, true, 10, 250),
     behaviorTree.leafNode(
       'empty_creep',
       (creep, trace, kingdom) => {

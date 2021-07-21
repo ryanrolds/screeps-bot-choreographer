@@ -18,8 +18,8 @@ import {creepIsFresh} from './behavior.commute';
 
 import * as PRIORITIES from './constants.priorities';
 import MEMORY from './constants.memory';
-import CREEPS from './constants.creeps';
-import TOPICS, {DEFENSE_STATUSES} from './constants.topics';
+import * as CREEPS from './constants.creeps';
+import * as TOPICS from './constants.topics';
 import TASKS from './constants.tasks';
 import {DEFENSE_STATUS} from './defense';
 
@@ -190,8 +190,10 @@ export default class RoomRunnable {
       }).forEach((tower) => {
         const towerId = `${tower.id}`
         if (!this.scheduler.hasProcess(towerId)) {
-          this.scheduler.registerProcess(new Process(towerId, 'towers', Priorities.DEFENCE,
-            new TowerRunnable(orgRoom, tower)));
+          const process = new Process(towerId, 'towers', Priorities.DEFENCE,
+            new TowerRunnable(orgRoom, tower))
+          process.setSkippable(false);
+          this.scheduler.registerProcess(process);
         }
       });
 

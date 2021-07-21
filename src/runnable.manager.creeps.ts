@@ -8,7 +8,7 @@ import {Kingdom} from './org.kingdom';
 
 import {MEMORY_ROLE} from './constants.memory';
 import * as CREEPS from './constants.creeps';
-import {definitions} from './constants.creeps';
+import {DEFINITIONS} from './constants.creeps';
 
 import roleHarvester from './role.harvester';
 import roleUpgrader from './role.upgrader';
@@ -86,19 +86,22 @@ export class CreepManager {
       throw new Error(`Creep ${id} has no role`);
     }
 
-    const roleDefinition = definitions[role];
+    const roleDefinition = DEFINITIONS[role];
     if (!roleDefinition) {
-      throw new Error(`Creep ${id} has $${role} which does not have role definition`)
+      throw new Error(`Creep ${id} has ${role} which does not have role definition`)
     }
-
-    const priority = definitions[role].processPriority;
 
     const behavior = this.getCreepBehavior(id, role)
     if (!behavior) {
       throw new Error(`Creep ${id} has ${role} which does not have behavior defined`);
     }
 
-    return new Process(id, role, priority, behavior)
+    // add 1 to the priority because creeps need to be lower priority than their manager
+    const priority = roleDefinition.processPriority + 1;
+    const process = new Process(id, role, priority, behavior)
+    process.setSkippable(roleDefinition.skippable);
+
+    return process;
   }
 
   private getCreepBehavior(id: string, role: string): Runnable {

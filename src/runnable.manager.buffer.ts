@@ -4,16 +4,15 @@ import {Priorities, Scheduler} from "./os.scheduler";
 import {Process, Runnable, RunnableResult, running, sleeping} from "./os.process";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
-import TOPICS from './constants.topics';
-import CREEPS from './constants.creeps';
+import * as TOPICS from './constants.topics';
+import * as CREEPS from './constants.creeps';
 import * as PRIORITIES from './constants.priorities';
 import MEMORY from './constants.memory';
 import Colony from './org.colony';
 import {thread} from './os.thread';
 import {TargetRoom} from './org.scribe'
 
-const PATROL_TTL = 50;
-const MAX_PATROLS = 1;
+const ATTACK_ROOM_TTL = 100;
 
 export default class BufferManager {
   id: string;
@@ -24,7 +23,7 @@ export default class BufferManager {
     this.id = id;
     this.scheduler = scheduler;
 
-    this.threadEnforceBuffer = thread(PATROL_TTL, null, null)(enforceBuffer)
+    this.threadEnforceBuffer = thread(ATTACK_ROOM_TTL, null, null)(enforceBuffer)
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
@@ -37,9 +36,8 @@ export default class BufferManager {
 }
 
 function enforceBuffer(kingdom: Kingdom, trace: Tracer) {
-  const patrolsByColony = getPatrolsByColony(kingdom, trace);
   const hostileRoomsByColony = getHostileRoomsByColony(kingdom, trace);
-  trace.log('hostile rooms by colony', {patrolsByColony, hostileRoomsByColony});
+  trace.log('hostile rooms by colony', {hostileRoomsByColony});
 
   _.forEach(hostileRoomsByColony, (rooms, colonyId) => {
     if (rooms.length < 1) {
@@ -59,31 +57,13 @@ function enforceBuffer(kingdom: Kingdom, trace: Tracer) {
       return;
     }
 
-    const patrols = patrolsByColony[colonyId] || [];
-    const roomPos = new RoomPosition(25, 25, room.id);
+    trace.notice('attack hostile room', {colonyId, room});
 
-    trace.notice('attack hostile room', {colonyId, numDefenders: patrols.length, roomPos});
-
-    //requestExistingBufferPatrol(patrol, roomPos);
-    if (patrols.length < MAX_PATROLS) {
-      //requestAdditionalBufferPatrol(colony, trace);
-    }
+    kingdom.sendRequest(TOPICS.ATTACK_ROOM, 1, {
+      colony: colonyId,
+      roomId: room.id,
+    }, ATTACK_ROOM_TTL);
   });
-}
-
-type Patrol = {
-  id: string;
-  creeps: Creep[];
-  targetRoom: Id<Room>;
-}
-type PatrolsByColony = Record<string, Patrol[]>;
-
-function getPatrolsByColony(kingdom: Kingdom, trace: Tracer): PatrolsByColony {
-  const patrolsByColony = {};
-
-  // TODO
-
-  return patrolsByColony;
 }
 
 type HostileRoomsByColony = Record<string, TargetRoom[]>;
@@ -106,34 +86,57 @@ function getHostileRoomsByColony(kingdom: Kingdom, trace: Tracer): HostileRoomsB
   const colonies = kingdom.getColonies().filter(colony => colony.primaryRoom.controller.level >= 6)
   colonies.forEach((colony) => {
     const nearByWeakRooms = weakRooms.filter((room) => {
-      const distance = Game.map.getRoomLinearDistance(colony.primaryRoomId, room.id);
-      return distance <= kingdom.config.buffer;
+      // First narrow to linear distance to reduce the number of rooms to findRoute on
+      const linearDistance = Game.map.getRoomLinearDistance(room.id, colony.primaryRoomId);
+      if (linearDistance > kingdom.config.buffer) {
+        // trace.log('weak room not near colony', {
+        //   roomId: room.id,
+        //   distance: linearDistance,
+        //   colonyId: colony.id,
+        // });
+        return false;
+      }
+
+      // Find the route and avoid rooms owned by other people
+      const route = Game.map.findRoute(room.id, colony.primaryRoomId, {
+        routeCallback: (toRoom, fromRoom) => {
+          const roomDetails = kingdom.getScribe().getRoomById(toRoom);
+
+          // If we have not scanned the room, dont enter it
+          if (!roomDetails) {
+            // trace.log('room not logged', {toRoom, fromRoom});
+            return Infinity;
+          }
+
+          // If owned by someone else and its not the target room, dont enter it
+          if (roomDetails.controller?.owner && toRoom !== room.id) {
+            // trace.log('room owned by someone', {toRoom, fromRoom, owner: roomDetails.controller.owner});
+            return Infinity;
+          }
+
+          return 1;
+        },
+      });
+
+      if (route === ERR_NO_PATH) {
+        // trace.log('no path', {
+        //   roomId: room.id,
+        //   distance: linearDistance,
+        //   colonyId: colony.id,
+        // });
+        return false;
+      }
+
+      if (route.length > kingdom.config.buffer) {
+        // trace.log('room near by path too long', {routeLength: route.length, roomId: room.id, colonyId: colony.id});
+        return false;
+      }
+
+      return true;
     });
 
     hostileRoomsByColony[colony.id] = nearByWeakRooms;
   });
 
   return hostileRoomsByColony;
-}
-
-function requestExistingBufferPatrol(defenders: Creep[], position: RoomPosition) {
-  const positionStr = [position.x, position.y, position.roomName].join(',');
-
-  // Order existing defenders to the room and last known location
-  defenders.forEach((defender) => {
-    defender.memory[MEMORY.MEMORY_ASSIGN_ROOM] = position.roomName;
-    defender.memory[MEMORY.MEMORY_ASSIGN_ROOM_POS] = positionStr;
-  });
-}
-
-function requestAdditionalBufferPatrol(colony: Colony, needed: number, trace: Tracer) {
-  for (let i = 0; i < needed; i++) {
-    trace.log('requesting defender', {colonyId: (colony as any).id});
-
-    colony.sendRequest(TOPICS.TOPIC_DEFENDERS, PRIORITIES.PRIORITY_BUFFER_PATROL, {
-      role: CREEPS.WORKER_DEFENDER,
-      spawn: true,
-      memory: {}
-    }, PATROL_TTL);
-  }
 }
