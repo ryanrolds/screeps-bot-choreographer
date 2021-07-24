@@ -1,5 +1,5 @@
 import {OrgBase} from './org.base';
-import Colony from './org.colony';
+import {Colony} from './org.colony';
 import WarParty from './org.warparty';
 import ResourceGovernor from './org.resource_governor';
 import {Scribe} from './org.scribe';
@@ -204,7 +204,7 @@ export class Kingdom extends OrgBase {
   getColony() {
     throw new Error('a kingdom is not a colony');
   }
-  getRoom() {
+  getRoom(): OrgRoom {
     throw new Error('a kingdom is not a room');
   }
   getRoomColony(roomName: string): Colony {

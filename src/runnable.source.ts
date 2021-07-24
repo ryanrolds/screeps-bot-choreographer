@@ -7,7 +7,7 @@ import * as TASKS from "./constants.tasks"
 import * as TOPICS from "./constants.topics"
 import * as CREEPS from "./constants.creeps"
 import * as PRIORITIES from "./constants.priorities"
-import Colony from "./org.colony";
+import {Colony} from './org.colony';
 const {creepIsFresh} = require('./behavior.commute');
 
 const PROCESS_TTL = 250;

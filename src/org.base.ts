@@ -1,4 +1,8 @@
+import {Topics} from './lib.topics';
 import {Tracer} from './lib.tracing'
+import {Kingdom} from './org.kingdom';
+import OrgRoom from './org.room';
+import {Scheduler} from './os.scheduler';
 
 export class OrgBase {
   parent: OrgBase;
@@ -10,31 +14,31 @@ export class OrgBase {
     this.id = id;
     this.trace = trace.with(this.constructor.name);
   }
-  getID() {
+  getID(): string {
     return this.id;
   }
-  getParent() {
+  getParent(): OrgBase {
     return this.parent;
   }
-  getKingdom() {
+  getKingdom(): Kingdom {
     return this.getParent().getKingdom();
   }
   getColony() {
     return this.getParent().getColony();
   }
-  getRoom() {
+  getRoom(): OrgRoom {
     return this.getParent().getRoom();
   }
-  getCreeps() {
+  getCreeps(): Creep[] {
     return this.getParent().getCreeps();
   }
-  getTopics() {
+  getTopics(): Topics {
     return this.getParent().getTopics();
   }
   getStats() {
     return this.getParent().getStats();
   }
-  getScheduler() {
+  getScheduler(): Scheduler {
     return this.getParent().getScheduler();
   }
   sendRequest(topic, priority, request, ttl) {

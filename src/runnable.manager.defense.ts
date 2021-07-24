@@ -10,7 +10,7 @@ import * as TOPICS from './constants.topics';
 import * as CREEPS from './constants.creeps';
 import * as PRIORITIES from './constants.priorities';
 import MEMORY from './constants.memory';
-import Colony from './org.colony';
+import {Colony} from './org.colony';
 import {thread} from './os.thread';
 import {DEFENSE_STATUS} from './defense';
 

@@ -1,21 +1,24 @@
-const Room = require('./org.room');
-const {OrgBase} = require('./org.base');
-const Observer = require('./org.observer');
-const {Topics} = require('./lib.topics');
-const PID = require('./lib.pid');
-const {thread} = require('./os.thread');
+import OrgRoom from './org.room';
+import {OrgBase} from './org.base';
+import Observer from './org.observer';
+import {Topics} from './lib.topics';
+import * as PID from './lib.pid';
+import {thread} from './os.thread';
 
-const MEMORY = require('./constants.memory');
-const WORKERS = require('./constants.creeps');
-const TASKS = require('./constants.tasks');
-const TOPICS = require('./constants.topics');
-const PRIORITIES = require('./constants.priorities');
-const {creepIsFresh} = require('./behavior.commute');
+import MEMORY from './constants.memory';
+import * as WORKERS from './constants.creeps';
+import TASKS from './constants.tasks';
+import * as TOPICS from './constants.topics';
+import * as PRIORITIES from './constants.priorities';
+import {creepIsFresh} from './behavior.commute';
 
-const {MEMORY_ASSIGN_ROOM, MEMORY_ROLE, MEMORY_COLONY} = require('./constants.memory');
-const {TOPIC_SPAWN, TOPIC_DEFENDERS, TOPIC_HAUL_TASK} = require('./constants.topics');
-const {WORKER_RESERVER, WORKER_DEFENDER} = require('./constants.creeps');
-const {PRIORITY_CLAIMER, PRIORITY_DEFENDER, PRIORITY_HAULER} = require('./constants.priorities');
+import {MEMORY_ASSIGN_ROOM, MEMORY_ROLE, MEMORY_COLONY} from './constants.memory';
+import {TOPIC_SPAWN, TOPIC_DEFENDERS, TOPIC_HAUL_TASK} from './constants.topics';
+import {WORKER_RESERVER, WORKER_DEFENDER} from './constants.creeps';
+import {PRIORITY_CLAIMER, PRIORITY_DEFENDER, PRIORITY_HAULER} from './constants.priorities';
+import {Kingdom} from './org.kingdom';
+import {ColonyConfig} from './config';
+import {Tracer} from './lib.tracing';
 
 const MAX_EXPLORERS = 1;
 
@@ -28,8 +31,42 @@ const REQUEST_HAULER_TTL = 20;
 const REQUEST_DEFENDER_TTL = 5;
 const REQUEST_EXPLORER_TTL = 3000;
 
-class Colony extends OrgBase {
-  constructor(parent, colony, trace) {
+export class Colony extends OrgBase {
+  topics: Topics;
+  desiredRooms: string[];
+  missingRooms: string[];
+  colonyRooms: string[];
+  visibleRooms: string[];
+  roomMap: Record<string, OrgRoom>;
+
+  primaryRoomId: string;
+  primaryRoom: Room;
+  primaryOrgRoom: OrgRoom;
+
+  observer: Observer;
+  isPublic: boolean;
+
+  assignedCreeps: Creep[];
+  numCreeps: number;
+
+  haulers: Creep[];
+  numHaulers: number;
+  numActiveHaulers: number;
+  idleHaulers: number;
+  avgHaulerCapacity: number;
+
+  defenders: Creep[];
+
+  pidDesiredHaulers: number;
+
+  threadUpdateOrg: any;
+  threadUpdateCreeps: any;
+  threadUpdateHaulers: any;
+  threadHandleDefenderRequest: any;
+  threadRequestReserversForMissingRooms: any;
+  threadRequestHaulers: any;
+
+  constructor(parent: Kingdom, colony: ColonyConfig, trace: Tracer) {
     super(parent, colony.id, trace);
 
     const setupTrace = this.trace.begin('constructor');
@@ -49,14 +86,14 @@ class Colony extends OrgBase {
     this.roomMap = {};
     this.primaryOrgRoom = null;
     this.observer = null;
-    this.threadUpdateOrg = thread(UPDATE_ROOM_TTL)((trace) => {
+    this.threadUpdateOrg = thread(UPDATE_ROOM_TTL, null, null)((trace) => {
       this.updateOrg(trace);
     });
 
     this.assignedCreeps = [];
     this.defenders = [];
     this.numCreeps = 0;
-    this.threadUpdateCreeps = thread(UPDATE_CREEPS_TTL)(() => {
+    this.threadUpdateCreeps = thread(UPDATE_CREEPS_TTL, null, null)(() => {
       this.assignedCreeps = this.getParent().getCreeps().filter((creep) => {
         return creep.memory[MEMORY.MEMORY_COLONY] === this.id;
       });
@@ -73,7 +110,7 @@ class Colony extends OrgBase {
     this.numActiveHaulers = 0;
     this.idleHaulers = 0;
     this.avgHaulerCapacity = 300;
-    this.threadUpdateHaulers = thread(UPDATE_HAULERS_TTL)(() => {
+    this.threadUpdateHaulers = thread(UPDATE_HAULERS_TTL, null, null)(() => {
       this.haulers = this.assignedCreeps.filter((creep) => {
         return creep.memory[MEMORY_ROLE] === WORKERS.WORKER_HAULER &&
           creep.memory[MEMORY_COLONY] === this.id &&
@@ -102,7 +139,7 @@ class Colony extends OrgBase {
       }
     });
 
-    this.threadHandleDefenderRequest = thread(REQUEST_DEFENDER_TTL)((trace) => {
+    this.threadHandleDefenderRequest = thread(REQUEST_DEFENDER_TTL, null, null)((trace) => {
       // Check intra-colony requests for defenders
       const request = this.getNextRequest(TOPIC_DEFENDERS);
       if (request) {
@@ -111,11 +148,11 @@ class Colony extends OrgBase {
       }
     });
 
-    this.threadRequestReserversForMissingRooms = thread(REQUEST_MISSING_ROOMS_TTL)(() => {
+    this.threadRequestReserversForMissingRooms = thread(REQUEST_MISSING_ROOMS_TTL, null, null)(() => {
       this.requestReserverForMissingRooms();
     });
 
-    this.threadRequestHaulers = thread(REQUEST_HAULER_TTL)(() => {
+    this.threadRequestHaulers = thread(REQUEST_HAULER_TTL, null, null)(() => {
       this.requestHaulers();
     });
 
@@ -211,7 +248,7 @@ class Colony extends OrgBase {
   getColony() {
     return this;
   }
-  getRoom() {
+  getRoom(): OrgRoom {
     throw new Error('a colony is not a room');
   }
   getPrimaryRoom() {
@@ -248,11 +285,11 @@ class Colony extends OrgBase {
     return this.topics.getMessageOfMyChoice(topicId, chooser);
   }
   getReserveStructures() {
-    if (!this.primaryRoom) {
+    if (!this.primaryOrgRoom) {
       return [];
     }
 
-    return this.primaryRoom.getReserveStructures();
+    return this.primaryOrgRoom.getReserveStructures(false);
   }
   getReserveResources(includeTerminal) {
     if (!this.primaryOrgRoom) {
@@ -273,14 +310,7 @@ class Colony extends OrgBase {
       return null;
     }
 
-    return this.primaryOrgRoom.getReserveStructureWithMostOfAResource(resource);
-  }
-  getStructureWithMostOfAResource(resource) {
-    if (!this.primaryOrgRoom) {
-      return null;
-    }
-
-    return this.primaryOrgRoom.getStructureWithMostOfAResource(resource);
+    return this.primaryOrgRoom.getReserveStructureWithMostOfAResource(resource, false);
   }
   getReserveStructureWithRoomForResource(resource) {
     if (!this.primaryOrgRoom) {
@@ -298,7 +328,6 @@ class Colony extends OrgBase {
     const colonyStats = {
       numHaulers: this.numHaulers,
       haulTasks: (topicCounts[TOPICS.TOPIC_HAUL_TASK] || 0) - this.idleHaulers,
-      haulerSetpoint: this.haulerSetpoint,
       pidDesiredHaulers: this.pidDesiredHaulers,
       rooms: {},
       booster: {},
@@ -357,7 +386,7 @@ class Colony extends OrgBase {
     const numExplorers = this.assignedCreeps.filter((creep) => {
       return creep.memory[MEMORY_ROLE] == WORKERS.WORKER_EXPLORER &&
         creep.memory[MEMORY_COLONY] === this.id;
-    });
+    }).length;
 
     if (numExplorers < MAX_EXPLORERS) {
       this.sendRequest(TOPIC_SPAWN, PRIORITIES.EXPLORER, {
@@ -424,7 +453,7 @@ class Colony extends OrgBase {
         return;
       }
 
-      const orgNode = new Room(this, room, trace);
+      const orgNode = new OrgRoom(this, room, trace);
       this.roomMap[id] = orgNode;
       this.getKingdom().roomNameToOrgRoom[id] = orgNode;
     });

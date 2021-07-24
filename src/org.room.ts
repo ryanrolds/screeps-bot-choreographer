@@ -1,8 +1,9 @@
 import {OrgBase} from './org.base';
+import {Colony} from './org.colony';
 
-import CREEPS from './constants.creeps';
+import * as CREEPS from './constants.creeps';
 import MEMORY from './constants.memory';
-import TOPICS from './constants.topics';
+import * as TOPICS from './constants.topics';
 import * as PRIORITIES from './constants.priorities';
 import {creepIsFresh} from './behavior.commute';
 import {thread} from './os.thread';
@@ -91,7 +92,7 @@ export default class OrgRoom extends OrgBase {
   threadRequestDefenders: any;
 
 
-  constructor(parent, room, trace) {
+  constructor(parent: Colony, room: Room, trace: Tracer) {
     super(parent, room.name, trace);
 
     const setupTrace = this.trace.begin('constructor');
@@ -133,7 +134,7 @@ export default class OrgRoom extends OrgBase {
     this.hasStorage = false;
     this.threadUpdateResources = thread(UPDATE_RESOURCES_TTL, null, null)(() => {
       // Storage
-      this.hasStorage = this.getReserveStructures().length > 0;
+      this.hasStorage = this.getReserveStructures(false).length > 0;
       this.resources = this.getReserveResources(true);
     });
 
@@ -419,7 +420,7 @@ export default class OrgRoom extends OrgBase {
 
     return this.getColony().primaryRoom.getClosestStoreWithEnergy(creep);
   }
-  getReserveStructures(includeTerminal = false) {
+  getReserveStructures(includeTerminal: boolean): AnyStoreStructure[] {
     const reserveStructures = [];
 
     if (this.room.storage) {
@@ -459,8 +460,8 @@ export default class OrgRoom extends OrgBase {
 
     return stores;
   }
-  getEnergyFullness() {
-    const structures = this.getReserveStructures();
+  getEnergyFullness(): number {
+    const structures = this.getReserveStructures(false);
     if (!structures.length) {
       return 0;
     }
@@ -481,7 +482,7 @@ export default class OrgRoom extends OrgBase {
     const structures = this.getReserveStructures(includeTerminal);
 
     return structures.reduce((acc, structure) => {
-      Object.keys(structure.store).forEach((resource) => {
+      Object.keys(structure.store).forEach((resource: ResourceConstant) => {
         const current = acc[resource] || 0;
         acc[resource] = structure.store.getUsedCapacity(resource) + current;
       });
@@ -493,7 +494,7 @@ export default class OrgRoom extends OrgBase {
     return this.getReserveResources(includeTerminal)[resource] || 0;
   }
   getReserveStructureWithRoomForResource(resource) {
-    let structures = this.getReserveStructures();
+    let structures = this.getReserveStructures(false);
     if (!structures.length) {
       return null;
     }
@@ -520,7 +521,7 @@ export default class OrgRoom extends OrgBase {
 
     return structures.pop();
   }
-  
+
   getNextDamagedStructure() {
     let list = this.room.memory[MEMORY.ROOM_DAMAGED_STRUCTURES_LIST] || [];
     let listTime = this.room.memory[MEMORY.ROOM_DAMAGED_STRUCTURES_TIME] || 0;

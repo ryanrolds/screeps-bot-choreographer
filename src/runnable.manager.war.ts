@@ -7,7 +7,7 @@ import {Kingdom} from './org.kingdom';
 import WarPartyRunnable from './runnable.warparty';
 import * as TOPICS from './constants.topics';
 import {Phase} from './runnable.warparty';
-import Colony from './org.colony';
+import {Colony} from './org.colony';
 
 const WAR_PARTY_PROCESS_PRIORITY = 2;
 const WAR_PARTY_RUN_TTL = 20;

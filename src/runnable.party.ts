@@ -15,7 +15,7 @@ import {thread} from './os.thread';
 import {Tracer} from './lib.tracing';
 import {TOPIC_SPAWN} from './constants.topics';
 import * as MEMORY from './constants.memory'
-import Colony from './org.colony';
+import {Colony} from './org.colony';
 
 const REQUEST_PARTY_MEMBER_TTL = 25;
 const MAX_PARTY_SIZE = 4;

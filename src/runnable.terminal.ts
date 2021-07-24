@@ -499,7 +499,7 @@ export default class TerminalRunnable {
       }
 
       const missingAmount = order.remainingAmount - order.amount;
-      if (pickup.store.getUsedCapacity(order.resourceType) < missingAmount) {
+      if (pickup.store.getUsedCapacity(order.resourceType as ResourceConstant) < missingAmount) {
         const result = Game.market.cancelOrder(order.id);
         trace.log('cancelling order: not enough of the resource available', {result, order, missingAmount});
         return;
