@@ -794,5 +794,3 @@ export default class OrgRoom extends OrgBase {
     defenseTrace.end();
   }
 }
-
-module.exports = Room;

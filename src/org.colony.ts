@@ -488,5 +488,3 @@ export class Colony extends OrgBase {
     updateOrgTrace.end();
   }
 }
-
-module.exports = Colony;
