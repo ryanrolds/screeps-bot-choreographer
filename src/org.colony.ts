@@ -5,9 +5,9 @@ import {Topics} from './lib.topics';
 import * as PID from './lib.pid';
 import {thread} from './os.thread';
 
-import MEMORY from './constants.memory';
+import * as MEMORY from './constants.memory';
 import * as WORKERS from './constants.creeps';
-import TASKS from './constants.tasks';
+import * as TASKS from './constants.tasks';
 import * as TOPICS from './constants.topics';
 import * as PRIORITIES from './constants.priorities';
 import {creepIsFresh} from './behavior.commute';

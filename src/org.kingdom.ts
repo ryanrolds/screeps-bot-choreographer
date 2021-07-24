@@ -6,7 +6,7 @@ import {Topics} from './lib.topics';
 import PathCache from './lib.path_cache';
 import {thread} from './os.thread';
 import helpersCreeps from './helpers.creeps';
-import MEMORY from './constants.memory';
+import * as MEMORY from './constants.memory';
 import * as featureFlags from './lib.feature_flags';
 import {KingdomConfig, ShardConfig} from './config';
 import {Scheduler} from './os.scheduler';
