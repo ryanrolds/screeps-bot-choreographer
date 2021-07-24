@@ -338,7 +338,7 @@ export default class BoosterRunnable {
 
         const details = {
           [MEMORY.TASK_ID]: `bmc-${this.id}-${Game.time}`,
-          [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
+          [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
           [MEMORY.MEMORY_HAUL_PICKUP]: lab.id,
           [MEMORY.MEMORY_HAUL_RESOURCE]: lab.mineralType,
           [MEMORY.MEMORY_HAUL_DROPOFF]: dropoff.id,
@@ -367,7 +367,7 @@ export default class BoosterRunnable {
         const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
         const taskPickup = creep.memory[MEMORY.MEMORY_HAUL_PICKUP];
         const resource = creep.memory[MEMORY.MEMORY_HAUL_RESOURCE];
-        return task === TASKS.HAUL_TASK && taskPickup === pickup.id && resource == compound.name;
+        return task === TASKS.TASK_HAUL && taskPickup === pickup.id && resource == compound.name;
       });
       if (assignedCreeps.length) {
         trace.log('creep already unloading', {resource: compound.name});
@@ -382,7 +382,7 @@ export default class BoosterRunnable {
 
       const details = {
         [MEMORY.TASK_ID]: `bmu-${this.id}-${Game.time}`,
-        [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
+        [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
         [MEMORY.MEMORY_HAUL_PICKUP]: pickup.id,
         [MEMORY.MEMORY_HAUL_RESOURCE]: compound.name,
         [MEMORY.MEMORY_HAUL_DROPOFF]: dropoff.id,
@@ -411,13 +411,14 @@ export default class BoosterRunnable {
         trace.log('no destination for available compound', {toLoad});
         return;
       }
+
       const emptyLab = emptyLabs[0];
 
       const assignedCreeps = this.orgRoom.getCreeps().filter((creep) => {
         const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
         const taskDropoff = creep.memory[MEMORY.MEMORY_HAUL_DROPOFF];
         const resource = creep.memory[MEMORY.MEMORY_HAUL_RESOURCE];
-        return task === TASKS.HAUL_TASK && taskDropoff === emptyLab.id && resource !== RESOURCE_ENERGY;
+        return task === TASKS.TASK_HAUL && taskDropoff === emptyLab.id && resource !== RESOURCE_ENERGY;
       });
       if (assignedCreeps.length) {
         trace.log('creep already loading', {toLoad});
@@ -449,6 +450,8 @@ export default class BoosterRunnable {
         trace.log('no compound available for', {toLoad});
         return;
       }
+
+      this.requestHaulingOfMaterial(compound, emptyLab, trace);
     });
   }
 
@@ -461,7 +464,7 @@ export default class BoosterRunnable {
 
     const details = {
       [MEMORY.TASK_ID]: `brl-${this.id}-${Game.time}`,
-      [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
+      [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
       [MEMORY.MEMORY_HAUL_PICKUP]: pickup.id,
       [MEMORY.MEMORY_HAUL_RESOURCE]: compound.name,
       [MEMORY.MEMORY_HAUL_DROPOFF]: lab.id,
@@ -486,7 +489,7 @@ export default class BoosterRunnable {
       const currentEnergy = lab.store.getUsedCapacity(RESOURCE_ENERGY);
       const details = {
         [MEMORY.TASK_ID]: `bel-${this.id}-${Game.time}`,
-        [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
+        [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
         [MEMORY.MEMORY_HAUL_PICKUP]: pickup.id,
         [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
         [MEMORY.MEMORY_HAUL_DROPOFF]: lab.id,

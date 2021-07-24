@@ -256,7 +256,7 @@ export default class ReactorRunnable {
 
     (this.orgRoom as any).getColony().sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_REACTION, {
       [MEMORY.TASK_ID]: `load-${this.id}-${Game.time}`,
-      [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
+      [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
       [MEMORY.MEMORY_HAUL_PICKUP]: pickup.id,
       [MEMORY.MEMORY_HAUL_RESOURCE]: resource,
       [MEMORY.MEMORY_HAUL_AMOUNT]: amount,
@@ -278,7 +278,7 @@ export default class ReactorRunnable {
 
     this.orgRoom.getColony().sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_REACTION, {
       [MEMORY.TASK_ID]: `unload-${this.id}-${Game.time}`,
-      [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
+      [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
       [MEMORY.MEMORY_HAUL_PICKUP]: lab.id,
       [MEMORY.MEMORY_HAUL_RESOURCE]: lab.mineralType,
       [MEMORY.MEMORY_HAUL_AMOUNT]: currentAmount,

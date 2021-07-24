@@ -17,10 +17,10 @@ import {LabsManager} from "./runnable.manager.labs";
 import {creepIsFresh} from './behavior.commute';
 
 import * as PRIORITIES from './constants.priorities';
-import MEMORY from './constants.memory';
+import * as MEMORY from './constants.memory';
 import * as CREEPS from './constants.creeps';
 import * as TOPICS from './constants.topics';
-import TASKS from './constants.tasks';
+import * as TASKS from './constants.tasks';
 import {DEFENSE_STATUS} from './defense';
 
 const MIN_ENERGY = 100000;
@@ -498,7 +498,7 @@ export default class RoomRunnable {
     nonFullExtensions.forEach((extension) => {
       const details = {
         [MEMORY.TASK_ID]: `ext-${this.id}-${Game.time}`,
-        [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
+        [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
         [MEMORY.MEMORY_HAUL_PICKUP]: pickup.id,
         [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
         [MEMORY.MEMORY_HAUL_DROPOFF]: extension.id,
@@ -536,7 +536,7 @@ export default class RoomRunnable {
 
       const details = {
         [MEMORY.TASK_ID]: `pickup-${this.id}-${Game.time}`,
-        [MEMORY.MEMORY_TASK_TYPE]: TASKS.HAUL_TASK,
+        [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
         [MEMORY.MEMORY_HAUL_PICKUP]: resource.id,
         [MEMORY.MEMORY_HAUL_DROPOFF]: dropoff.id,
         [MEMORY.MEMORY_HAUL_RESOURCE]: resource.resourceType,
@@ -682,7 +682,7 @@ export default class RoomRunnable {
   produceStatus(orgRoom: OrgRoom, trace: Tracer) {
     const resources = orgRoom.getReserveResources(false);
 
-    
+
 
     const status = {
       [MEMORY.ROOM_STATUS_NAME]: orgRoom.id,

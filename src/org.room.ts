@@ -21,7 +21,10 @@ const MAX_DEFENDERS = 4;
 const WALL_LEVEL = 1000;
 const RAMPART_LEVEL = 1000;
 const MY_USERNAME = 'ENETDOWN';
-const PER_LEVEL_ENERGY = 150000;
+const PER_LEVEL_ENERGY = 100000;
+const UPGRADER_BUFFER = 25000;
+// TODO increase this later, we should be able to sustain at least one nuke
+// before the walls break
 const MAX_WALL_HITS = 11000000;
 
 const UPDATE_CREEPS_TTL = 1;
@@ -190,9 +193,13 @@ export default class OrgRoom extends OrgBase {
         this.defenseHitsLimit = 10000;
       }
 
-      // Cap wall hits
-      // TODO find a way slowly raise wall hist over time
-      this.defenseHitsLimit = _.min([this.defenseHitsLimit, MAX_WALL_HITS]);
+      // If energy in reserve is less then we need to sustain a max ugprader,
+      // then limit the amount our defense hits
+      const reserveEnergy = this.getAmountInReserve(RESOURCE_ENERGY, false);
+      const reserveBuffer = this.getReserveBuffer();
+      if (reserveEnergy < reserveBuffer + UPGRADER_BUFFER) {
+        this.defenseHitsLimit = _.min([this.defenseHitsLimit, MAX_WALL_HITS]);
+      }
 
       let damagedSecondaryStructures = this.room.find(FIND_STRUCTURES, {
         filter: (s) => {
