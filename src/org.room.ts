@@ -22,6 +22,7 @@ const WALL_LEVEL = 1000;
 const RAMPART_LEVEL = 1000;
 const MY_USERNAME = 'ENETDOWN';
 const PER_LEVEL_ENERGY = 150000;
+const MAX_WALL_HITS = 11000000;
 
 const UPDATE_CREEPS_TTL = 1;
 const UPDATE_ROOM_TTL = 10;
@@ -188,6 +189,10 @@ export default class OrgRoom extends OrgBase {
       if (room.storage && room.storage.store.getUsedCapacity(RESOURCE_ENERGY) < 50000) {
         this.defenseHitsLimit = 10000;
       }
+
+      // Cap wall hits
+      // TODO find a way slowly raise wall hist over time
+      this.defenseHitsLimit = _.min([this.defenseHitsLimit, MAX_WALL_HITS]);
 
       let damagedSecondaryStructures = this.room.find(FIND_STRUCTURES, {
         filter: (s) => {
