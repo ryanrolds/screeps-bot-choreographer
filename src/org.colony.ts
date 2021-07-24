@@ -1,6 +1,6 @@
 import OrgRoom from './org.room';
 import {OrgBase} from './org.base';
-import Observer from './org.observer';
+import {Observer} from './org.observer';
 import {Topics} from './lib.topics';
 import * as PID from './lib.pid';
 import {thread} from './os.thread';
@@ -468,7 +468,7 @@ export class Colony extends OrgBase {
 
     if (this.primaryRoom && this.primaryRoom.controller.level === 8) {
       if (!this.observer) {
-        const observerStructures = this.primaryRoom.find(FIND_MY_STRUCTURES, {
+        const observerStructures = this.primaryRoom.find<StructureObserver>(FIND_MY_STRUCTURES, {
           filter: (structure) => {
             return structure.structureType === STRUCTURE_OBSERVER;
           },

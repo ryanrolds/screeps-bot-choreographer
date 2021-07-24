@@ -1,7 +1,16 @@
-const {OrgBase} = require('./org.base');
+import {Tracer} from './lib.tracing';
+import {OrgBase} from './org.base';
+import {Colony} from './org.colony';
+import {Scribe} from './org.scribe';
 
-class Observer extends OrgBase {
-  constructor(parent, observer, trace) {
+export class Observer extends OrgBase {
+  observer: StructureObserver;
+  inRangeRooms: string[];
+  justObserved: Id<Room>;
+
+  scribe: Scribe;
+
+  constructor(parent: Colony, observer: StructureObserver, trace: Tracer) {
     super(parent, observer.id, trace);
 
     const setupTrace = this.trace.begin('constructor');
@@ -16,7 +25,7 @@ class Observer extends OrgBase {
   update(trace) {
     const updateTrace = trace.begin('update');
 
-    this.observer = Game.getObjectById(this.id);
+    this.observer = Game.getObjectById(this.id as Id<StructureObserver>);
 
     if (this.justObserved && Game.rooms[this.justObserved]) {
       const updateRoomTrace = updateTrace.begin('update_room');
@@ -40,9 +49,9 @@ class Observer extends OrgBase {
       trace.log('observe room result', {nextRoom, result});
 
       if (result === OK) {
-        this.justObserved = nextRoom;
+        this.justObserved = nextRoom as Id<Room>;
       } else {
-        this.justObserved = false;
+        this.justObserved = null;
       }
     }
 
@@ -59,7 +68,7 @@ class Observer extends OrgBase {
   }
 }
 
-const inRangeRoomNames = (centerRoomName) => {
+const inRangeRoomNames = (centerRoomName: string): string[] => {
   const roomsInRange = [];
   const centerRoomXY = roomNameToXY(centerRoomName);
   const topLeft = [centerRoomXY[0] - 10, centerRoomXY[1] - 10];
@@ -67,7 +76,7 @@ const inRangeRoomNames = (centerRoomName) => {
   for (let i = 0; i < 21; i++) {
     for (let j = 0; j < 21; j++) {
       const roomName = roomNameFromXY(topLeft[0] + i, topLeft[1] + j);
-      if (Game.map.getRoomStatus(roomName) !== 'closed') {
+      if (Game.map.getRoomStatus(roomName).status !== 'closed') {
         roomsInRange.push(roomName);
       }
     }
@@ -112,4 +121,3 @@ const roomNameToXY = (name) => {
   return [xx, yy];
 };
 
-module.exports = Observer;

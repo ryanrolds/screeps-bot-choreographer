@@ -1,6 +1,5 @@
 import {OrgBase} from './org.base';
 import {Colony} from './org.colony';
-import WarParty from './org.warparty';
 import ResourceGovernor from './org.resource_governor';
 import {Scribe} from './org.scribe';
 import {Topics} from './lib.topics';
@@ -27,7 +26,6 @@ export class Kingdom extends OrgBase {
   colonies: Record<string, Colony>;
   roomNameToOrgRoom: Record<string, OrgRoom>;
   creeps: Creep[];
-  warParties: Record<string, WarParty>;
 
   resourceGovernor: ResourceGovernor;
   scribe: Scribe;
@@ -60,8 +58,6 @@ export class Kingdom extends OrgBase {
       this.updateOrg(trace);
     });
 
-    this.warParties = {};
-
     this.resourceGovernor = new ResourceGovernor(this, setupTrace);
 
     this.scribe = new Scribe(this, setupTrace);
@@ -90,12 +86,6 @@ export class Kingdom extends OrgBase {
 
     this.threadUpdateOrg(updateTrace);
 
-    const partiesTrace = updateTrace.begin('warparty');
-    Object.values(this.warParties).forEach((party) => {
-      party.update(partiesTrace);
-    });
-    partiesTrace.end();
-
     const coloniesTrace = updateTrace.begin('colonies');
     Object.values(this.colonies).forEach((colony) => {
       colony.update(coloniesTrace);
@@ -116,12 +106,6 @@ export class Kingdom extends OrgBase {
   }
   process(trace: Tracer) {
     const processTrace = trace.begin('process');
-
-    const partiesTrace = processTrace.begin('warparty');
-    Object.values(this.warParties).forEach((party) => {
-      party.process(partiesTrace);
-    });
-    partiesTrace.end();
 
     const coloniesTrace = processTrace.begin('colonies');
     Object.values(this.colonies).forEach((colony) => {
@@ -337,22 +321,6 @@ export class Kingdom extends OrgBase {
     const extraColonyIds = _.difference(orgIds, configIds);
     extraColonyIds.forEach((id) => {
       delete this.colonies[id];
-    });
-
-    // War parties
-    const flagIds = Object.keys(Game.flags).filter((id) => {
-      return id.startsWith('attack');
-    });
-    const partyIds = Object.keys(this.warParties);
-
-    const missingFlagIds = _.difference(flagIds, partyIds);
-    missingFlagIds.forEach((id) => {
-      this.warParties[id] = new WarParty(this, Game.flags[id], orgUpdateTrace);
-    });
-
-    const extraFlagIds = _.difference(partyIds, flagIds);
-    extraFlagIds.forEach((id) => {
-      delete this.warParties[id];
     });
 
     orgUpdateTrace.end();
