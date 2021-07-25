@@ -48,26 +48,26 @@ class Resources extends OrgBase {
     this.reactorStatuses = [];
     this.roomStatuses = [];
 
-    this.threadRequestReactions = thread(REQUEST_REACTION_TTL)((trace) => {
+    this.threadRequestReactions = thread('request_reactions_thread', REQUEST_REACTION_TTL)((trace) => {
       this.availableReactions = this.getReactions(trace);
       this.requestReactions(trace);
     });
 
-    this.threadRequestSellExtraResources = thread(REQUEST_SELL_TTL)((trace) => {
+    this.threadRequestSellExtraResources = thread('request_sell_resources_tread', REQUEST_SELL_TTL)((trace) => {
       this.requestSellResource(trace);
     });
 
-    this.threadDistributeBoosts = thread(REQUEST_DISTRIBUTE_BOOSTS)((trace) => {
+    this.threadDistributeBoosts = thread('distribute_boosts_thread', REQUEST_DISTRIBUTE_BOOSTS)((trace) => {
       this.distributeBoosts(trace);
     });
 
-    this.threadConsumeStatuses = thread(CONSUME_STATUS_TTL, null, null)(this.consumeStatuses.bind(this));
-    this.threadBalanceEnergy = thread(BALANCE_ENERGY_TTL, null, null)(this.balanceEnergy.bind(this));
+    this.threadConsumeStatuses = thread('statuses_thread', CONSUME_STATUS_TTL)(this.consumeStatuses.bind(this));
+    this.threadBalanceEnergy = thread('balance_energy_thread', BALANCE_ENERGY_TTL)(this.balanceEnergy.bind(this));
 
     setupTrace.end();
   }
   update(trace) {
-    trace = trace.asId(this.id);
+    trace = trace.asId(this.id).begin('resource_governor_run');
 
     const updateTrace = trace.begin('update');
 
@@ -79,6 +79,8 @@ class Resources extends OrgBase {
     this.threadDistributeBoosts(trace);
     this.threadConsumeStatuses(trace);
     this.threadBalanceEnergy(trace);
+
+    trace.end();
 
     updateTrace.end();
   }
