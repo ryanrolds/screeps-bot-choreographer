@@ -1,6 +1,6 @@
 import {Process, Runnable, RunnableResult, running, sleeping, terminate} from "./os.process";
 import {Tracer} from './lib.tracing';
-import {thread} from './os.thread';
+import {thread, ThreadFunc} from './os.thread';
 
 import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
@@ -63,18 +63,18 @@ export default class RoomRunnable {
   prevTime: number;
   defensePosture: DEFENSE_POSTURE;
 
-  threadUpdateProcessSpawning: any;
-  threadRequestRepairer: any;
-  threadRequestBuilder: any;
-  threadRequestDistributor: any;
-  threadRequestReserver: any;
-  threadRequestUpgrader: any;
-  threadRequestHaulDroppedResources: any;
-  threadCheckSafeMode: any;
-  threadRequestExtensionFilling: any;
-  threadUpdateRampartAccess: any;
-  threadRequestEnergy: any;
-  threadProduceStatus: any;
+  threadUpdateProcessSpawning: ThreadFunc;
+  threadRequestRepairer: ThreadFunc;
+  threadRequestBuilder: ThreadFunc;
+  threadRequestDistributor: ThreadFunc;
+  threadRequestReserver: ThreadFunc;
+  threadRequestUpgrader: ThreadFunc;
+  threadRequestHaulDroppedResources: ThreadFunc;
+  threadCheckSafeMode: ThreadFunc;
+  threadRequestExtensionFilling: ThreadFunc;
+  threadUpdateRampartAccess: ThreadFunc;
+  threadRequestEnergy: ThreadFunc;
+  threadProduceStatus: ThreadFunc;
 
   constructor(id: string, scheduler: Scheduler) {
     this.id = id;
@@ -84,18 +84,18 @@ export default class RoomRunnable {
     this.defensePosture = DEFENSE_POSTURE.UNKNOWN;
 
     // Threads
-    this.threadUpdateProcessSpawning = thread(UPDATE_PROCESSES_TTL, null, null)(this.handleProcessSpawning.bind(this));
-    this.threadRequestRepairer = thread(REQUEST_REPAIRER_TTL, null, null)(this.requestRepairer.bind(this));
-    this.threadRequestBuilder = thread(REQUEST_BUILDER_TTL, null, null)(this.requestBuilder.bind(this));
-    this.threadRequestDistributor = thread(REQUEST_DISTRIBUTOR_TTL, null, null)(this.requestDistributor.bind(this));
-    this.threadRequestReserver = thread(REQUEST_RESERVER_TTL, null, null)(this.requestReserver.bind(this));
-    this.threadRequestUpgrader = thread(REQUEST_UPGRADER_TTL, null, null)(this.requestUpgrader.bind(this));
-    this.threadRequestHaulDroppedResources = thread(REQUEST_HAUL_DROPPED_RESOURCES_TTL, null, null)(this.requestHaulDroppedResources.bind(this));
-    this.threadCheckSafeMode = thread(CHECK_SAFE_MODE_TTL, null, null)(this.checkSafeMode.bind(this));
-    this.threadRequestExtensionFilling = thread(HAUL_EXTENSION_TTL, null, null)(this.requestExtensionFilling.bind(this));
-    this.threadUpdateRampartAccess = thread(RAMPART_ACCESS_TTL, null, null)(this.updateRampartAccess.bind(this));
-    this.threadRequestEnergy = thread(ENERGY_REQUEST_TTL, null, null)(this.requestEnergy.bind(this));
-    this.threadProduceStatus = thread(PRODUCE_STATUS_TTL, null, null)(this.produceStatus.bind(this));
+    this.threadUpdateProcessSpawning = thread('spawn_room_processes_thread', UPDATE_PROCESSES_TTL)(this.handleProcessSpawning.bind(this));
+    this.threadRequestRepairer = thread('request_repairs_thread', REQUEST_REPAIRER_TTL)(this.requestRepairer.bind(this));
+    this.threadRequestBuilder = thread('request_builder_thead', REQUEST_BUILDER_TTL)(this.requestBuilder.bind(this));
+    this.threadRequestDistributor = thread('request_distributer_thread', REQUEST_DISTRIBUTOR_TTL)(this.requestDistributor.bind(this));
+    this.threadRequestReserver = thread('request_reserver_thread', REQUEST_RESERVER_TTL)(this.requestReserver.bind(this));
+    this.threadRequestUpgrader = thread('request_upgrader_thread', REQUEST_UPGRADER_TTL)(this.requestUpgrader.bind(this));
+    this.threadRequestHaulDroppedResources = thread('request_haul_dropped_thread', REQUEST_HAUL_DROPPED_RESOURCES_TTL)(this.requestHaulDroppedResources.bind(this));
+    this.threadCheckSafeMode = thread('check_safe_mode_thread', CHECK_SAFE_MODE_TTL)(this.checkSafeMode.bind(this));
+    this.threadRequestExtensionFilling = thread('request_extension_filling_thread', HAUL_EXTENSION_TTL)(this.requestExtensionFilling.bind(this));
+    this.threadUpdateRampartAccess = thread('update_rampart_access_thread', RAMPART_ACCESS_TTL)(this.updateRampartAccess.bind(this));
+    this.threadRequestEnergy = thread('request_energy_thread', ENERGY_REQUEST_TTL)(this.requestEnergy.bind(this));
+    this.threadProduceStatus = thread('produce_status_thread', PRODUCE_STATUS_TTL)(this.produceStatus.bind(this));
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
@@ -123,33 +123,33 @@ export default class RoomRunnable {
     }
 
     if (!orgRoom.isPrimary) {
-      this.threadRequestReserver(kingdom, orgRoom, room, trace);
+      this.threadRequestReserver(trace, kingdom, orgRoom, room);
     }
 
     if (room.controller?.my) {
       // Send a request if we are short on distributors
-      this.threadRequestDistributor(orgRoom, room, trace);
+      this.threadRequestDistributor(trace, orgRoom, room);
       // Upgrader request
-      this.threadRequestUpgrader(orgRoom, room, trace);
+      this.threadRequestUpgrader(trace, orgRoom, room);
 
-      this.threadUpdateRampartAccess(orgRoom, room, trace);
-      this.threadRequestExtensionFilling(orgRoom, room, trace);
-      this.threadCheckSafeMode(room, trace);
-      this.threadProduceStatus(orgRoom, trace);
+      this.threadUpdateRampartAccess(trace, orgRoom, room);
+      this.threadRequestExtensionFilling(trace, orgRoom, room);
+      this.threadCheckSafeMode(trace, room);
+      this.threadProduceStatus(trace, orgRoom);
     }
 
-    this.threadUpdateProcessSpawning(orgRoom, room, trace);
+    this.threadUpdateProcessSpawning(trace, orgRoom, room);
 
     // TODO don't request builders or repairers
-    this.threadRequestBuilder(orgRoom, room, trace);
-    this.threadRequestRepairer(orgRoom, room, trace);
-    this.threadRequestEnergy(orgRoom, room, trace);
-    this.threadRequestHaulDroppedResources(orgRoom, room, trace);
+    this.threadRequestBuilder(trace, orgRoom, room);
+    this.threadRequestRepairer(trace, orgRoom, room);
+    this.threadRequestEnergy(trace, orgRoom, room);
+    this.threadRequestHaulDroppedResources(trace, orgRoom, room);
 
     return running();
   }
 
-  handleProcessSpawning(orgRoom: OrgRoom, room: Room, trace: Tracer) {
+  handleProcessSpawning(trace: Tracer, orgRoom: OrgRoom, room: Room) {
     if (room.controller?.my || !room.controller?.owner?.username) {
       // Sources
       room.find<FIND_SOURCES>(FIND_SOURCES).forEach((source) => {
@@ -235,7 +235,7 @@ export default class RoomRunnable {
     }
   }
 
-  requestRepairer(orgRoom: OrgRoom, room: Room, trace: Tracer) {
+  requestRepairer(trace: Tracer, orgRoom: OrgRoom, room: Room) {
     let maxHits = 0;
     let hits = 0;
 
@@ -284,7 +284,7 @@ export default class RoomRunnable {
     }, REQUEST_REPAIRER_TTL);
   }
 
-  requestBuilder(orgRoom: OrgRoom, room: Room, trace: Tracer) {
+  requestBuilder(trace: Tracer, orgRoom: OrgRoom, room: Room) {
     if (!Object.values(Game.spawns).length) {
       // We have no spawns in this shard
       return;
@@ -319,7 +319,7 @@ export default class RoomRunnable {
     }, REQUEST_BUILDER_TTL);
   }
 
-  requestDistributor(orgRoom: OrgRoom, room: Room, trace: Tracer) {
+  requestDistributor(trace: Tracer, orgRoom: OrgRoom, room: Room) {
     const numDistributors = _.filter(orgRoom.getCreeps(), (creep) => {
       return creep.memory[MEMORY.MEMORY_ROLE] === CREEPS.WORKER_DISTRIBUTOR &&
         creep.memory[MEMORY.MEMORY_ASSIGN_ROOM] === this.id && creepIsFresh(creep);
@@ -379,7 +379,7 @@ export default class RoomRunnable {
 
   }
 
-  requestReserver(kingdom: Kingdom, orgRoom: OrgRoom, room: Room, trace: Tracer) {
+  requestReserver(trace: Tracer, kingdom: Kingdom, orgRoom: OrgRoom, room: Room) {
     const numReservers = _.filter(Game.creeps, (creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
       return (role === CREEPS.WORKER_RESERVER) &&
@@ -419,7 +419,7 @@ export default class RoomRunnable {
     }
   }
 
-  requestUpgrader(orgRoom: OrgRoom, room: Room, trace: Tracer) {
+  requestUpgrader(trace: Tracer, orgRoom: OrgRoom, room: Room) {
     if (!orgRoom.isPrimary) {
       return;
     }
@@ -480,7 +480,7 @@ export default class RoomRunnable {
     }
   }
 
-  requestExtensionFilling(orgRoom: OrgRoom, room: Room, trace: Tracer) {
+  requestExtensionFilling(trace: Tracer, orgRoom: OrgRoom, room: Room) {
     const pickup = orgRoom.getReserveStructureWithMostOfAResource(RESOURCE_ENERGY, true);
     if (!pickup) {
       trace.log('no energy available for extensions', {resource: RESOURCE_ENERGY});
@@ -511,7 +511,7 @@ export default class RoomRunnable {
     trace.log('haul extensions', {numHaulTasks: nonFullExtensions.length});
   }
 
-  requestHaulDroppedResources(orgRoom: OrgRoom, room: Room, trace: Tracer) {
+  requestHaulDroppedResources(trace: Tracer, orgRoom: OrgRoom, room: Room) {
     if (orgRoom.numHostiles) {
       return;
     }
@@ -546,7 +546,7 @@ export default class RoomRunnable {
     });
   }
 
-  updateRampartAccess(orgRoom: OrgRoom, room: Room, trace: Tracer) {
+  updateRampartAccess(trace: Tracer, orgRoom: OrgRoom, room: Room) {
     const colony = (orgRoom as any).getColony()
     if (!colony) {
       trace.log('could not find colony')
@@ -589,7 +589,7 @@ export default class RoomRunnable {
     this.defensePosture = posture;
   }
 
-  checkSafeMode(room: Room, trace: Tracer) {
+  checkSafeMode(trace: Tracer, room: Room) {
     const controller = room.controller;
     if (!controller) {
       trace.log('controller not found');
@@ -631,7 +631,7 @@ export default class RoomRunnable {
     }
   }
 
-  requestEnergy(orgRoom: OrgRoom, room: Room, trace: Tracer) {
+  requestEnergy(trace: Tracer, orgRoom: OrgRoom, room: Room) {
     // TODO make thread
     const terminalEnergy = room.terminal?.store.getUsedCapacity(RESOURCE_ENERGY) || 0;
     const storageEnergy = room.storage?.store.getUsedCapacity(RESOURCE_ENERGY) || 0;
@@ -679,10 +679,8 @@ export default class RoomRunnable {
     }
   }
 
-  produceStatus(orgRoom: OrgRoom, trace: Tracer) {
+  produceStatus(trace: Tracer, orgRoom: OrgRoom) {
     const resources = orgRoom.getReserveResources(false);
-
-
 
     const status = {
       [MEMORY.ROOM_STATUS_NAME]: orgRoom.id,

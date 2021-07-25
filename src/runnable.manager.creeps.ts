@@ -35,6 +35,7 @@ export class CreepManager {
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
     trace = trace.asId(this.id);
+    trace = trace.begin('creep_manager_run');
 
     // Create processes for any creeps that do not have a process
     // registered with the scheduler
@@ -76,6 +77,8 @@ export class CreepManager {
         }
       }
     }
+
+    trace.end();
 
     return running();
   }

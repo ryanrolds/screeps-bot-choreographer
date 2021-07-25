@@ -11,7 +11,7 @@ import * as CREEPS from './constants.creeps';
 import * as PRIORITIES from './constants.priorities';
 import * as MEMORY from './constants.memory';
 import {Colony} from './org.colony';
-import {thread} from './os.thread';
+import {thread, ThreadFunc} from './os.thread';
 import {DEFENSE_STATUS} from './defense';
 
 const TARGET_REQUEST_TTL = 1;
@@ -43,19 +43,20 @@ export default class DefenseManager {
   id: string;
   scheduler: Scheduler;
   memory: DefenseMemory;
+
   defenseParties: DefensePartyRunnable[];
-  threadCheckColonyDefenses: any;
-  threadReturnDefendersToStation: any;
-  threadUpdateDefenseStats: any;
+  threadCheckColonyDefenses: ThreadFunc;
+  threadReturnDefendersToStation: ThreadFunc;
+  threadUpdateDefenseStats: ThreadFunc;
 
   constructor(kingdom: Kingdom, id: string, scheduler: Scheduler, trace: Tracer) {
     this.id = id;
     this.scheduler = scheduler;
     this.restoreFromMemory(kingdom, trace);
 
-    this.threadCheckColonyDefenses = thread(REQUEST_DEFENDERS_TTL, null, null)(checkColonyDefenses);
-    this.threadReturnDefendersToStation = thread(REQUEST_DEFENDERS_TTL, null, null)(returnDefendersToStation);
-    this.threadUpdateDefenseStats = thread(UPDATE_DEFENSE_STATS_TTL, null, null)(updateDefenseStats);
+    this.threadCheckColonyDefenses = thread('check_defense_thread', REQUEST_DEFENDERS_TTL)(checkColonyDefenses);
+    this.threadReturnDefendersToStation = thread('recall_defenders_thread', REQUEST_DEFENDERS_TTL)(returnDefendersToStation);
+    this.threadUpdateDefenseStats = thread('update_defense_stats_thread', UPDATE_DEFENSE_STATS_TTL)(updateDefenseStats);
   }
 
   private restoreFromMemory(kingdom: Kingdom, trace: Tracer) {
@@ -110,6 +111,7 @@ export default class DefenseManager {
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
     trace = trace.asId(this.id);
+    trace = trace.begin('defense_manager_run');
     trace.log("defense manager run");
 
     const hostilesByColony = getHostilesByColony(kingdom, Object.values(Game.rooms), trace)
@@ -122,9 +124,11 @@ export default class DefenseManager {
     publishDefenseStatuses(kingdom, hostilesByColony, trace);
 
     this.handleDefendFlags(kingdom, trace);
-    this.threadCheckColonyDefenses(kingdom, hostilesByColony, trace);
-    this.threadReturnDefendersToStation(kingdom, hostilesByColony, trace);
-    this.threadUpdateDefenseStats(kingdom, hostilesByColony, defendersByColony, trace);
+    this.threadCheckColonyDefenses(trace, kingdom, hostilesByColony);
+    this.threadReturnDefendersToStation(trace, kingdom, hostilesByColony);
+    this.threadUpdateDefenseStats(trace, kingdom, hostilesByColony, defendersByColony);
+
+    trace.end();
 
     return running();
   }
@@ -326,7 +330,7 @@ function publishDefenseStatuses(kingdom: Kingdom, hostilesByColony: HostilesByCo
   });
 }
 
-function checkColonyDefenses(kingdom: Kingdom, hostilesByColony: Record<string, Creep[]>, trace: Tracer) {
+function checkColonyDefenses(trace: Tracer, kingdom: Kingdom, hostilesByColony: Record<string, Creep[]>) {
   // Check for defenders
   _.forEach(hostilesByColony, (hostiles, colonyId) => {
     const colony = kingdom.getColonyById(colonyId);
@@ -374,7 +378,7 @@ function requestAdditionalDefenders(colony: Colony, needed: number, trace: Trace
   }
 }
 
-function returnDefendersToStation(kingdom: Kingdom, hostilesByColony: Record<string, Creep[]>, trace: Tracer) {
+function returnDefendersToStation(trace: Tracer, kingdom: Kingdom, hostilesByColony: Record<string, Creep[]>) {
   const flags = Object.values(Game.flags).filter((flag) => {
     trace.log('flag', {flag})
     if (!flag.name.startsWith('station')) {
@@ -408,8 +412,8 @@ function returnDefendersToStation(kingdom: Kingdom, hostilesByColony: Record<str
   });
 }
 
-function updateDefenseStats(kingdom: Kingdom, hostilesByColony: Record<string, Target[]>,
-  defendersByColony: Record<string, Creep[]>, trace: Tracer) {
+function updateDefenseStats(trace: Tracer, kingdom: Kingdom, hostilesByColony: Record<string, Target[]>,
+  defendersByColony: Record<string, Creep[]>) {
   const stats = kingdom.getStats();
   stats.defense = {
     defenderScores: _.mapValues(defendersByColony, (defender) => {

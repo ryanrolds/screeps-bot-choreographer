@@ -19,6 +19,7 @@ export class RoomManager {
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
     trace = trace.asId(this.id);
+    trace = trace.begin('room_run');
     trace.log('room manager run');
 
     Object.entries(Game.rooms).forEach(([name, room]) => {
@@ -46,6 +47,8 @@ export class RoomManager {
       this.scheduler.registerProcess(new Process(colony.primary, 'room', Priorities.RESOURCES,
         new RoomRunnable(colony.primary, this.scheduler)));
     });
+
+    trace.end();
 
     return running();
   }

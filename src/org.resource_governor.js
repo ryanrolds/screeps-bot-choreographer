@@ -48,13 +48,13 @@ class Resources extends OrgBase {
     this.reactorStatuses = [];
     this.roomStatuses = [];
 
-    this.threadRequestReactions = thread(REQUEST_REACTION_TTL)(() => {
+    this.threadRequestReactions = thread(REQUEST_REACTION_TTL)((trace) => {
       this.availableReactions = this.getReactions(trace);
-      this.requestReactions();
+      this.requestReactions(trace);
     });
 
-    this.threadRequestSellExtraResources = thread(REQUEST_SELL_TTL)(() => {
-      this.requestSellResource();
+    this.threadRequestSellExtraResources = thread(REQUEST_SELL_TTL)((trace) => {
+      this.requestSellResource(trace);
     });
 
     this.threadDistributeBoosts = thread(REQUEST_DISTRIBUTE_BOOSTS)((trace) => {
@@ -74,8 +74,8 @@ class Resources extends OrgBase {
     this.resources = this.getReserveResources(true);
     this.sharedResources = this.getSharedResources();
 
-    this.threadRequestReactions();
-    this.threadRequestSellExtraResources();
+    this.threadRequestReactions(trace);
+    this.threadRequestSellExtraResources(trace);
     this.threadDistributeBoosts(trace);
     this.threadConsumeStatuses(trace);
     this.threadBalanceEnergy(trace);

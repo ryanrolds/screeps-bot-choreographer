@@ -34,6 +34,7 @@ export default class KingdomGovernor {
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
     trace = trace.asId(this.id);
+    trace = trace.begin('kingdom_governor');
 
     trace.log('kingdom governor run', {})
 
@@ -75,6 +76,8 @@ export default class KingdomGovernor {
     trace.log('setting local memory', {localMemory})
 
     kingdom.getScribe().setLocalShardMemory(localMemory);
+
+    trace.end();
 
     return sleeping(REQUEST_TTL);
   }

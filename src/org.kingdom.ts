@@ -4,7 +4,7 @@ import ResourceGovernor from './org.resource_governor';
 import {Scribe} from './org.scribe';
 import {Topics} from './lib.topics';
 import PathCache from './lib.path_cache';
-import {thread} from './os.thread';
+import {thread, ThreadFunc} from './os.thread';
 import helpersCreeps from './helpers.creeps';
 import * as MEMORY from './constants.memory';
 import * as featureFlags from './lib.feature_flags';
@@ -30,7 +30,8 @@ export class Kingdom extends OrgBase {
   resourceGovernor: ResourceGovernor;
   scribe: Scribe;
   pathCache: PathCache;
-  threadUpdateOrg: any;
+
+  threadUpdateOrg: ThreadFunc;
 
   constructor(config: KingdomConfig, scheduler: Scheduler, trace: Tracer) {
     super(null, 'kingdom', trace);
@@ -54,7 +55,7 @@ export class Kingdom extends OrgBase {
     this.roomNameToOrgRoom = {};
     this.creeps = [];
 
-    this.threadUpdateOrg = thread(UPDATE_ORG_TTL, null, null)((trace) => {
+    this.threadUpdateOrg = thread('update_org', UPDATE_ORG_TTL)((trace) => {
       this.updateOrg(trace);
     });
 

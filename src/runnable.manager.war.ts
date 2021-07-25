@@ -80,11 +80,12 @@ export default class WarManager {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+    trace = trace.asId(this.id);
+    trace = trace.begin('war_manager_run');
+
     if (this.warParties === null) {
       this.restoreFromMemory(kingdom, trace);
     }
-
-    trace = trace.asId(this.id);
 
     const request = kingdom.peekNextRequest(TOPICS.ATTACK_ROOM);
     trace.log("attack room request", {request});
@@ -115,6 +116,8 @@ export default class WarManager {
     };
 
     trace.log("storing war parties", {parties: (Memory as any).war});
+
+    trace.end();
 
     return sleeping(WAR_PARTY_RUN_TTL);
   }

@@ -7,7 +7,7 @@ import * as TASKS from "./constants.tasks"
 import * as TOPICS from "./constants.topics"
 import {PRICES} from "./constants.market"
 import * as PRIORITIES from "./constants.priorities"
-import {thread} from "./os.thread";
+import {thread, ThreadFunc} from "./os.thread";
 import {ResourcePricer, SigmoidPricing} from './lib.sigmoid_pricing';
 
 const TASK_PHASE_HAUL_RESOURCE = 'phase_transfer_resource';
@@ -32,8 +32,9 @@ export default class TerminalRunnable {
   updateOrdersTTL: number;
   pricer: ResourcePricer;
   energyValue: number;
-  threadHaulOldSellOrders: any;
-  threadUpdateEnergyValue: any;
+
+  threadHaulOldSellOrders: ThreadFunc;
+  threadUpdateEnergyValue: ThreadFunc;
 
   constructor(room: OrgRoom, terminal: StructureTerminal) {
     this.orgRoom = room;
@@ -45,8 +46,8 @@ export default class TerminalRunnable {
     this.updateOrdersTTL = ORDER_MGMT_TTL;
     this.pricer = new SigmoidPricing(PRICES);
 
-    this.threadHaulOldSellOrders = thread(HAUL_OLD_SELL_ORDER_TTL, null, null)(this.haulOldSellOrders.bind(this));
-    this.threadUpdateEnergyValue = thread(UPDATE_ENERGY_VALUE_TTL, null, null)(this.updateEnergyValue.bind(this));
+    this.threadHaulOldSellOrders = thread('haul_old_sell_orders_thread', HAUL_OLD_SELL_ORDER_TTL)(this.haulOldSellOrders.bind(this));
+    this.threadUpdateEnergyValue = thread('update_energy_thread', UPDATE_ENERGY_VALUE_TTL)(this.updateEnergyValue.bind(this));
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
@@ -66,7 +67,7 @@ export default class TerminalRunnable {
       return terminate();
     }
 
-    this.threadHaulOldSellOrders(terminal, trace);
+    this.threadHaulOldSellOrders(trace, terminal);
     this.threadUpdateEnergyValue(trace);
 
     let task = terminal.room.memory[MEMORY.TERMINAL_TASK] || null;
@@ -480,7 +481,7 @@ export default class TerminalRunnable {
     });
   }
 
-  haulOldSellOrders(terminal: StructureTerminal, trace: Tracer) {
+  haulOldSellOrders(trace: Tracer, terminal: StructureTerminal) {
     trace.log('checking for incomplete sell orders');
 
     const ordersWithMissingResources = Object.values(Game.market.orders).filter((order) => {

@@ -74,7 +74,6 @@ export class Scribe extends OrgBase {
   }
   update(trace) {
     const updateTrace = trace.begin('update');
-
     updateTrace.end();
   }
   process(trace) {

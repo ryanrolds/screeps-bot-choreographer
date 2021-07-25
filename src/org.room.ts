@@ -6,7 +6,7 @@ import * as MEMORY from './constants.memory';
 import * as TOPICS from './constants.topics';
 import * as PRIORITIES from './constants.priorities';
 import {creepIsFresh} from './behavior.commute';
-import {thread} from './os.thread';
+import {thread, ThreadFunc} from './os.thread';
 import {Tracer} from './lib.tracing'
 
 import {MEMORY_ROLE, MEMORY_ASSIGN_ROOM, MEMORY_HARVEST_ROOM} from './constants.memory';
@@ -83,17 +83,17 @@ export default class OrgRoom extends OrgBase {
 
   stationFlags: Flag[];
 
-  threadUpdateCreeps: any;
-  threadUpdateRoom: any;
-  threadUpdatePrimary: any;
-  threadUpdateResources: any;
-  threadUpdateDefenseStatus: any;
-  threadUpdateDamagedCreeps: any;
-  updateDamagedCreeps: any;
-  updateDamagedStructure: any;
-  updateDamagedSecondaryStructures: any;
-  updateDamagedRoads: any;
-  threadRequestDefenders: any;
+  threadUpdateCreeps: ThreadFunc;
+  threadUpdateRoom: ThreadFunc;
+  threadUpdatePrimary: ThreadFunc;
+  threadUpdateResources: ThreadFunc;
+  threadUpdateDefenseStatus: ThreadFunc;
+  threadUpdateDamagedCreeps: ThreadFunc;
+  updateDamagedCreeps: ThreadFunc;
+  updateDamagedStructure: ThreadFunc;
+  updateDamagedSecondaryStructures: ThreadFunc;
+  updateDamagedRoads: ThreadFunc;
+  threadRequestDefenders: ThreadFunc;
 
 
   constructor(parent: Colony, room: Room, trace: Tracer) {
@@ -108,7 +108,7 @@ export default class OrgRoom extends OrgBase {
     // Creeps
     this.assignedCreeps = [];
     this.defenderIds = [];
-    this.threadUpdateCreeps = thread(UPDATE_CREEPS_TTL, null, null)((trace) => {
+    this.threadUpdateCreeps = thread('update_creeps_thread', UPDATE_CREEPS_TTL)((trace) => {
       this.updateCreeps(trace);
     });
 
@@ -120,7 +120,7 @@ export default class OrgRoom extends OrgBase {
     this.roomStructures = [];
     this.hostileStructures = [];
     this.parkingLot = null;
-    this.threadUpdateRoom = thread(UPDATE_ROOM_TTL, null, null)((trace) => {
+    this.threadUpdateRoom = thread('update_room_thread', UPDATE_ROOM_TTL)((trace) => {
       this.updateRoom(trace);
     });
 
@@ -129,14 +129,14 @@ export default class OrgRoom extends OrgBase {
     // this.booster = null;
     // this.terminal = null;
     this.hasSpawns = false;
-    this.threadUpdatePrimary = thread(UPDATE_ORG_TTL, null, null)((trace) => {
+    this.threadUpdatePrimary = thread('update_primary', UPDATE_ORG_TTL)((trace) => {
       this.updatePrimary(trace);
     });
 
     // Resources / logistics
     this.resources = {};
     this.hasStorage = false;
-    this.threadUpdateResources = thread(UPDATE_RESOURCES_TTL, null, null)(() => {
+    this.threadUpdateResources = thread('update_resource', UPDATE_RESOURCES_TTL)((trace) => {
       // Storage
       this.hasStorage = this.getReserveStructures(false).length > 0;
       this.resources = this.getReserveResources(true);
@@ -151,13 +151,13 @@ export default class OrgRoom extends OrgBase {
     this.numDefenders = 0;
     this.defendersLost = 0;
     this.invaderCores = [];
-    this.threadUpdateDefenseStatus = thread(UPDATE_DEFENSE_STATUS_TTL, null, null)((room, trace) => {
+    this.threadUpdateDefenseStatus = thread('defense_status_thread', UPDATE_DEFENSE_STATUS_TTL)((trace, room) => {
       this.updateDefenseStatus(room, trace);
     });
 
     this.damagedCreeps = [];
 
-    this.updateDamagedCreeps = thread(UPDATE_DAMAGED_CREEPS_TTL, null, null)(() => {
+    this.updateDamagedCreeps = thread('damaged_creeps', UPDATE_DAMAGED_CREEPS_TTL)(() => {
       let damagedCreeps = this.getCreeps().filter((creep) => {
         return creep.hits < creep.hitsMax;
       });
@@ -168,7 +168,7 @@ export default class OrgRoom extends OrgBase {
     });
 
     this.damagedStructures = [];
-    this.updateDamagedStructure = thread(UPDATE_DAMAGED_STRUCTURES_TTL, null, null)(() => {
+    this.updateDamagedStructure = thread('damaged_structures_thread', UPDATE_DAMAGED_STRUCTURES_TTL)(() => {
       const damagedStructures = this.room.find(FIND_STRUCTURES, {
         filter: (s) => {
           return s.hits < s.hitsMax && (
@@ -182,7 +182,7 @@ export default class OrgRoom extends OrgBase {
 
     this.defenseHitsLimit = 10000;
     this.damagedSecondaryStructures = [];
-    this.updateDamagedSecondaryStructures = thread(UPDATE_DAMAGED_SECONDARY_TTL, null, null)(() => {
+    this.updateDamagedSecondaryStructures = thread('secondary_structures_thread', UPDATE_DAMAGED_SECONDARY_TTL)(() => {
       const rcLevel = room.controller.level.toString();
       const rcLevelHitsMax = RAMPART_HITS_MAX[rcLevel] || 10000;
 
@@ -217,7 +217,7 @@ export default class OrgRoom extends OrgBase {
     });
 
     this.damagedRoads = [];
-    this.updateDamagedRoads = thread(UPDATE_DAMAGED_ROADS_TTL, null, null)(() => {
+    this.updateDamagedRoads = thread('update_damaged_roads_thread', UPDATE_DAMAGED_ROADS_TTL)(() => {
       let damagedRoads = this.room.find(FIND_STRUCTURES, {
         filter: (s) => {
           return s.hits < s.hitsMax && s.structureType == STRUCTURE_ROAD;
@@ -230,7 +230,7 @@ export default class OrgRoom extends OrgBase {
       this.damagedRoads = _.map(damagedRoads, 'id');
     });
 
-    this.threadRequestDefenders = thread(REQUEST_DEFENDERS_TTL, null, null)((trace) => {
+    this.threadRequestDefenders = thread('request_defenders_thread', REQUEST_DEFENDERS_TTL)((trace) => {
       const freshDefenders = this.getColony().defenders.filter((defender) => {
         return creepIsFresh(defender);
       });
@@ -327,7 +327,7 @@ export default class OrgRoom extends OrgBase {
     });
 
     this.threadUpdateCreeps(updateTrace);
-    this.threadUpdateDefenseStatus(room, updateTrace);
+    this.threadUpdateDefenseStatus(updateTrace, room);
     this.threadUpdateRoom(updateTrace);
 
     if (this.isPrimary) {
@@ -335,18 +335,16 @@ export default class OrgRoom extends OrgBase {
       this.threadUpdateResources(updateTrace);
 
       const towerFocusTrace = updateTrace.begin('tower_focus');
-      this.updateDamagedCreeps();
-      this.updateDamagedStructure();
-      this.updateDamagedSecondaryStructures();
-      this.updateDamagedRoads();
+      this.updateDamagedCreeps(updateTrace);
+      this.updateDamagedStructure(updateTrace);
+      this.updateDamagedSecondaryStructures(updateTrace);
+      this.updateDamagedRoads(updateTrace);
       towerFocusTrace.end();
     }
 
-    const requestTrace = updateTrace.begin('requests');
-
     // Request defenders
+    const requestTrace = updateTrace.begin('requests');
     this.threadRequestDefenders(trace);
-
     requestTrace.end();
 
     updateTrace.end();
@@ -630,6 +628,7 @@ export default class OrgRoom extends OrgBase {
       },
     }, REQUEST_DEFENDERS_TTL);
   }
+
   getReserveBuffer() {
     if (!this.room.controller.my) {
       return 0;
@@ -754,7 +753,7 @@ export default class OrgRoom extends OrgBase {
       },
     }).length;
 
-    trace.log('hostile presence', {
+    defenseTrace.log('hostile presence', {
       numHostiles: this.numHostiles,
       numDefenders: this.numDefenders,
       hostileTime: this.hostileTime,
@@ -777,7 +776,7 @@ export default class OrgRoom extends OrgBase {
       this.hostileTime = Math.min(...Object.values(this.hostileTimes));
       room.memory[MEMORY_HOSTILE_TIME] = this.hostileTime;
 
-      trace.log('set hostile time', {
+      defenseTrace.log('set hostile time', {
         hostileTime: this.hostileTime,
       });
 
@@ -785,9 +784,9 @@ export default class OrgRoom extends OrgBase {
       const hostile = this.hostiles[0];
       this.lastHostilePosition = [hostile.pos.x, hostile.pos.y, hostile.pos.roomName].join(',');
       room.memory[MEMORY_HOSTILE_POS] = this.lastHostilePosition;
-    } else if (!this.isHostile(trace)) {
+    } else if (!this.isHostile(defenseTrace)) {
       this.defendersLost = 0;
-      trace.log('clear hostile time');
+      defenseTrace.log('clear hostile time');
     }
 
     this.invaderCores = this.roomStructures.filter((structure): structure is StructureInvaderCore => {

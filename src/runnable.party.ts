@@ -11,7 +11,7 @@
 import * as _ from 'lodash';
 import {Kingdom} from "./org.kingdom";
 import {RunnableResult, running, terminate} from "./os.process";
-import {thread} from './os.thread';
+import {thread, ThreadFunc} from './os.thread';
 import {Tracer} from './lib.tracing';
 import {TOPIC_SPAWN} from './constants.topics';
 import * as MEMORY from './constants.memory'
@@ -48,7 +48,8 @@ export default class PartyRunnable {
   requestCreepTTL: number;
   isDone: boolean;
   deployTicks: number;
-  threadRequestCreeps: any;
+
+  threadRequestCreeps: ThreadFunc;
 
   constructor(id: string, colony: Colony, position: RoomPosition, role: string, priority: number, ttl: number) {
     this.id = id;
@@ -62,11 +63,11 @@ export default class PartyRunnable {
     this.formation = DEFAULT_FORMATION;
     this.setPosition(position);
 
-    this.threadRequestCreeps = thread(REQUEST_PARTY_MEMBER_TTL, null, null)(this.requestCreeps.bind(this));
+    this.threadRequestCreeps = thread('request_creeps', REQUEST_PARTY_MEMBER_TTL)(this.requestCreeps.bind(this));
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    trace = trace.asId(this.id);
+    trace = trace.asId(this.id).begin('party_run');
 
     // TODO possible race condition with outer layer and this
     const creeps = this.getAssignedCreeps();
@@ -79,6 +80,8 @@ export default class PartyRunnable {
         creep.suicide();
       });
 
+      trace.end();
+
       return terminate();
     }
 
@@ -90,7 +93,7 @@ export default class PartyRunnable {
     });
 
     if (!Game.flags['debug']) {
-      this.threadRequestCreeps(kingdom, trace);
+      this.threadRequestCreeps(trace, kingdom);
     } else {
       trace.log('in debug mode, not spawning');
     }
@@ -108,6 +111,8 @@ export default class PartyRunnable {
       creep.memory[MEMORY.MEMORY_POSITION_Y] = y;
       creep.memory[MEMORY.MEMORY_POSITION_ROOM] = roomName;
     });
+
+    trace.end();
 
     return running();
   }
@@ -316,7 +321,7 @@ export default class PartyRunnable {
     return this.colony;
   }
 
-  requestCreeps(kingdom: Kingdom, trace: Tracer) {
+  requestCreeps(trace: Tracer, kingdom: Kingdom) {
     const spawns = Game.rooms[this.colony.primaryRoomId]?.find(FIND_MY_STRUCTURES, {
       filter: structure => structure.structureType === STRUCTURE_SPAWN,
     });

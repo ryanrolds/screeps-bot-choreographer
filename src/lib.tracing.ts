@@ -123,12 +123,20 @@ export const report = () => {
 
   console.log('------- CPU Usage report --------');
 
-  // slice to 50 so that we don't overflow the console in the game
-  summaryArray.reverse().slice(0, 75).forEach((metric) => {
-    if (globalAny.TRACING_FILTER && !metric.key.startsWith(globalAny.TRACING_FILTER)) {
-      return;
+  console.log('= Time Avg, Count, Total time, Max Time');
+
+  // slice to 75 so that we don't overflow the console in the game
+  summaryArray.reverse().filter((metric) => {
+    if (!globalAny.TRACING_FILTER) {
+      return true;
     }
 
+    if (metric.key.startsWith(globalAny.TRACING_FILTER)) {
+      return true;
+    }
+
+    return false;
+  }).slice(0, 75).forEach((metric) => {
     console.log(`* ${(metric.total / metric.count).toFixed(2)}, ${metric.count.toFixed(0)}, ` +
       `${metric.total.toFixed(2)}, ${metric.max.toFixed(2)} - ${metric.key}`);
   });

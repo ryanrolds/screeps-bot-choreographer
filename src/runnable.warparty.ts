@@ -6,8 +6,6 @@ import {Tracer} from './lib.tracing';
 import {WORKER_ATTACKER} from './constants.creeps'
 import {PRIORITY_ATTACKER} from "./constants.priorities";
 import PartyRunnable from './runnable.party';
-import {Direction} from 'node:readline';
-import {Dir} from 'node:fs';
 
 const REQUEST_ATTACKER_TTL = 30;
 

@@ -1,5 +1,5 @@
 import {Process, Runnable, RunnableResult, running, sleeping, terminate} from "./os.process";
-import {thread} from './os.thread';
+import {thread, ThreadFunc} from './os.thread';
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
@@ -34,7 +34,8 @@ export default class ReactorRunnable {
   orgRoom: OrgRoom;
   labIds: Id<StructureLab>[];
   prevTime: number;
-  threadProduceStatus: any;
+
+  threadProduceStatus: ThreadFunc;
 
   constructor(id: string, orgRoom: OrgRoom, labIds: Id<StructureLab>[]) {
     this.id = id;
@@ -42,7 +43,7 @@ export default class ReactorRunnable {
     this.labIds = labIds;
     this.prevTime = Game.time;
 
-    this.threadProduceStatus = thread(PRODUCE_STATUS_TTL, null, null)(this.produceStatus.bind(this));
+    this.threadProduceStatus = thread('produce_status_thread', PRODUCE_STATUS_TTL)(this.produceStatus.bind(this));
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
@@ -286,7 +287,7 @@ export default class ReactorRunnable {
     }, REQUEST_LOAD_TTL);
   }
 
-  produceStatus(resource: ResourceConstant, amount: number, trace: Tracer) {
+  produceStatus(trace: Tracer, resource: ResourceConstant, amount: number) {
     const status = {
       [MEMORY.REACTION_STATUS_ROOM]: this.orgRoom.id,
       [MEMORY.REACTION_STATUS_RESOURCE]: resource,

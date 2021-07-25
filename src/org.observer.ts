@@ -22,7 +22,8 @@ export class Observer extends OrgBase {
 
     setupTrace.end();
   }
-  update(trace) {
+
+  update(trace: Tracer) {
     const updateTrace = trace.begin('update');
 
     this.observer = Game.getObjectById(this.id as Id<StructureObserver>);
@@ -33,20 +34,20 @@ export class Observer extends OrgBase {
       updateRoomTrace.end();
     }
 
-    trace.log('in range rooms', {inRange: this.inRangeRooms});
+    updateTrace.log('in range rooms', {inRange: this.inRangeRooms});
 
     const getOldestRoomTrace = updateTrace.begin('get_oldest_room');
     const nextRoom = this.scribe.getOldestRoomInList(this.inRangeRooms);
     getOldestRoomTrace.end();
 
-    trace.log('next room', {nextRoom});
+    updateTrace.log('next room', {nextRoom});
 
     if (nextRoom) {
       const observeRoomTrace = updateTrace.begin('observe_room');
       const result = this.observer.observeRoom(nextRoom);
       observeRoomTrace.end();
 
-      trace.log('observe room result', {nextRoom, result});
+      updateTrace.log('observe room result', {nextRoom, result});
 
       if (result === OK) {
         this.justObserved = nextRoom as Id<Room>;
@@ -57,11 +58,13 @@ export class Observer extends OrgBase {
 
     updateTrace.end();
   }
-  process(trace) {
+
+  process(trace: Tracer) {
     const processTrace = trace.begin('process');
 
     processTrace.end();
   }
+
   toString() {
     return `** Observer - Id: ${this.id}, Room: ${this.observer.room.name}, ` +
       `LastScanned: ${this.justObserved}, #InRange: ${this.inRangeRooms.length}`;
@@ -101,7 +104,7 @@ const roomNameFromXY = (x, y) => {
 };
 
 // https://github.com/screeps/engine/blob/master/src/utils.js
-const roomNameToXY = (name) => {
+const roomNameToXY = (name: string) => {
   let xx = parseInt(name.substr(1), 10);
   let verticalPos = 2;
   if (xx >= 100) {

@@ -8,7 +8,7 @@ import * as TOPICS from "./constants.topics"
 import * as CREEPS from "./constants.creeps"
 import {createCreep} from "./helpers.creeps"
 import {DEFINITIONS} from './constants.creeps'
-import {thread} from "./os.thread";
+import {thread, ThreadFunc} from "./os.thread";
 
 const PROCESS_TTL = 500;
 const REQUEST_BOOSTS_TTL = 1;
@@ -20,7 +20,8 @@ export default class SpawnManager {
   prevTime: number;
   ttl: number;
   spawnIds: Id<StructureSpawn>[];
-  threadUpdateSpawnList: any;
+
+  threadUpdateSpawnList: ThreadFunc;
 
   constructor(id: string, room: OrgRoom) {
     this.id = id;
@@ -33,7 +34,7 @@ export default class SpawnManager {
       throw new Error('cannot create a spawn manager when room does not exist');
     }
 
-    this.threadUpdateSpawnList = thread(UPDATE_SPAWN_LIST_TTL, null, null)((trace) => {
+    this.threadUpdateSpawnList = thread('update_spawn_list_thread', UPDATE_SPAWN_LIST_TTL)((trace) => {
       trace.log('updating spawn list');
       this.spawnIds = roomObject.find<StructureSpawn>(FIND_MY_STRUCTURES, {
         filter: structure => structure.structureType === STRUCTURE_SPAWN,

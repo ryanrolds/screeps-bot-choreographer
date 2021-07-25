@@ -5,7 +5,7 @@ import {Process, Runnable, RunnableResult, running, sleeping} from "./os.process
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
 import * as TOPICS from './constants.topics';
-import {thread} from './os.thread';
+import {thread, ThreadFunc} from './os.thread';
 import {TargetRoom} from './org.scribe'
 
 const ATTACK_ROOM_TTL = 100;
@@ -13,25 +13,28 @@ const ATTACK_ROOM_TTL = 100;
 export default class BufferManager {
   id: string;
   scheduler: Scheduler;
-  threadEnforceBuffer: any;
+  threadEnforceBuffer: ThreadFunc;
 
   constructor(id: string, scheduler: Scheduler, trace: Tracer) {
     this.id = id;
     this.scheduler = scheduler;
 
-    this.threadEnforceBuffer = thread(ATTACK_ROOM_TTL, null, null)(enforceBuffer)
+    this.threadEnforceBuffer = thread('enforce_buffer_thread', ATTACK_ROOM_TTL)(enforceBuffer);
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
     trace = trace.asId(this.id);
+    trace = trace.begin('buffer_manager_run');
 
-    this.threadEnforceBuffer(kingdom, trace);
+    this.threadEnforceBuffer(trace, kingdom);
+
+    trace.end();
 
     return running();
   }
 }
 
-function enforceBuffer(kingdom: Kingdom, trace: Tracer) {
+function enforceBuffer(trace: Tracer, kingdom: Kingdom) {
   const hostileRoomsByColony = getHostileRoomsByColony(kingdom, trace);
   trace.log('hostile rooms by colony', {hostileRoomsByColony});
 

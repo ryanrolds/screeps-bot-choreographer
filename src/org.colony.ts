@@ -3,7 +3,7 @@ import {OrgBase} from './org.base';
 import {Observer} from './org.observer';
 import {Topics} from './lib.topics';
 import * as PID from './lib.pid';
-import {thread} from './os.thread';
+import {thread, ThreadFunc} from './os.thread';
 
 import * as MEMORY from './constants.memory';
 import * as WORKERS from './constants.creeps';
@@ -59,12 +59,12 @@ export class Colony extends OrgBase {
 
   pidDesiredHaulers: number;
 
-  threadUpdateOrg: any;
-  threadUpdateCreeps: any;
-  threadUpdateHaulers: any;
-  threadHandleDefenderRequest: any;
-  threadRequestReserversForMissingRooms: any;
-  threadRequestHaulers: any;
+  threadUpdateOrg: ThreadFunc;
+  threadUpdateCreeps: ThreadFunc;
+  threadUpdateHaulers: ThreadFunc;
+  threadHandleDefenderRequest: ThreadFunc;
+  threadRequestReserversForMissingRooms: ThreadFunc;
+  threadRequestHaulers: ThreadFunc;
 
   constructor(parent: Kingdom, colony: ColonyConfig, trace: Tracer) {
     super(parent, colony.id, trace);
@@ -86,14 +86,12 @@ export class Colony extends OrgBase {
     this.roomMap = {};
     this.primaryOrgRoom = null;
     this.observer = null;
-    this.threadUpdateOrg = thread(UPDATE_ROOM_TTL, null, null)((trace) => {
-      this.updateOrg(trace);
-    });
+    this.threadUpdateOrg = thread('update_org_thread', UPDATE_ROOM_TTL)(this.updateOrg.bind(this));
 
     this.assignedCreeps = [];
     this.defenders = [];
     this.numCreeps = 0;
-    this.threadUpdateCreeps = thread(UPDATE_CREEPS_TTL, null, null)(() => {
+    this.threadUpdateCreeps = thread('update_creeps_thread', UPDATE_CREEPS_TTL)(() => {
       this.assignedCreeps = this.getParent().getCreeps().filter((creep) => {
         return creep.memory[MEMORY.MEMORY_COLONY] === this.id;
       });
@@ -110,7 +108,7 @@ export class Colony extends OrgBase {
     this.numActiveHaulers = 0;
     this.idleHaulers = 0;
     this.avgHaulerCapacity = 300;
-    this.threadUpdateHaulers = thread(UPDATE_HAULERS_TTL, null, null)(() => {
+    this.threadUpdateHaulers = thread('update_haulers_thread', UPDATE_HAULERS_TTL)(() => {
       this.haulers = this.assignedCreeps.filter((creep) => {
         return creep.memory[MEMORY_ROLE] === WORKERS.WORKER_HAULER &&
           creep.memory[MEMORY_COLONY] === this.id &&
@@ -139,7 +137,7 @@ export class Colony extends OrgBase {
       }
     });
 
-    this.threadHandleDefenderRequest = thread(REQUEST_DEFENDER_TTL, null, null)((trace) => {
+    this.threadHandleDefenderRequest = thread('request_defenders_thread', REQUEST_DEFENDER_TTL)((trace) => {
       // Check intra-colony requests for defenders
       const request = this.getNextRequest(TOPIC_DEFENDERS);
       if (request) {
@@ -148,11 +146,11 @@ export class Colony extends OrgBase {
       }
     });
 
-    this.threadRequestReserversForMissingRooms = thread(REQUEST_MISSING_ROOMS_TTL, null, null)(() => {
+    this.threadRequestReserversForMissingRooms = thread('request_servers_thread', REQUEST_MISSING_ROOMS_TTL)(() => {
       this.requestReserverForMissingRooms();
     });
 
-    this.threadRequestHaulers = thread(REQUEST_HAULER_TTL, null, null)(() => {
+    this.threadRequestHaulers = thread('request_haulers_thread', REQUEST_HAULER_TTL)(() => {
       this.requestHaulers();
     });
 
@@ -169,14 +167,8 @@ export class Colony extends OrgBase {
     this.primaryRoom = Game.rooms[this.primaryRoomId];
 
     this.threadUpdateOrg(updateTrace);
-
-    const updateCreeps = updateTrace.begin('update_creeps');
-    this.threadUpdateCreeps();
-    updateCreeps.end();
-
-    const updateHaulers = updateTrace.begin('update_haulers');
-    this.threadUpdateHaulers();
-    updateHaulers.end();
+    this.threadUpdateCreeps(updateTrace);
+    this.threadUpdateHaulers(updateTrace);
 
     // Fraction of num haul tasks
     let numHaulTasks = this.getTopicLength(TOPIC_HAUL_TASK);
@@ -202,11 +194,11 @@ export class Colony extends OrgBase {
     }
 
     const handleRequests = updateTrace.begin('handle_requests');
-    this.threadRequestReserversForMissingRooms();
+    this.threadRequestReserversForMissingRooms(updateTrace);
     this.threadHandleDefenderRequest(handleRequests);
 
     if (this.primaryOrgRoom && this.primaryOrgRoom.hasStorage) {
-      this.threadRequestHaulers();
+      this.threadRequestHaulers(updateTrace);
     }
     handleRequests.end();
 
@@ -216,7 +208,7 @@ export class Colony extends OrgBase {
 
     updateTrace.end();
   }
-  process(trace) {
+  process(trace: Tracer) {
     trace = trace.asId(this.id);
     const processTrace = trace.begin('process');
 
@@ -427,7 +419,7 @@ export class Colony extends OrgBase {
       }
     });
   }
-  updateOrg(trace) {
+  updateOrg(trace: Tracer) {
     const updateOrgTrace = trace.begin('update_org');
 
     this.visibleRooms = Object.keys(Game.rooms);
