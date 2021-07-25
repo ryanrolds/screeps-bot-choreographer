@@ -51,7 +51,7 @@ export default class TerminalRunnable {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    trace = trace.asId(this.terminalId);
+    trace = trace.asId(this.terminalId).begin('terminal_run');
 
     const ticks = Game.time - this.prevTime;
     this.prevTime = Game.time;
@@ -64,6 +64,7 @@ export default class TerminalRunnable {
     // If terminal no longer exists, terminate
     if (!terminal) {
       trace.log('terminal not found - terminating', {})
+      trace.end();
       return terminate();
     }
 
@@ -106,6 +107,7 @@ export default class TerminalRunnable {
       this.updateOrders(terminal, trace);
     }
 
+    trace.end();
     return running();
   }
 

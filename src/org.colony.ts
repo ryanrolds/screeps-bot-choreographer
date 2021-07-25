@@ -193,14 +193,12 @@ export class Colony extends OrgBase {
       observerTrace.end();
     }
 
-    const handleRequests = updateTrace.begin('handle_requests');
     this.threadRequestReserversForMissingRooms(updateTrace);
-    this.threadHandleDefenderRequest(handleRequests);
+    this.threadHandleDefenderRequest(updateTrace);
 
     if (this.primaryOrgRoom && this.primaryOrgRoom.hasStorage) {
       this.threadRequestHaulers(updateTrace);
     }
-    handleRequests.end();
 
     // if (this.threadRequestExplorer) {
     //  this.threadRequestExplorer();

@@ -296,10 +296,9 @@ export default class OrgRoom extends OrgBase {
   }
 
   update(trace) {
-    trace = trace.asId(this.id);
-    const updateTrace = trace.begin('update');
+    trace = trace.asId(this.id).begin('update');
 
-    updateTrace.log('room update', {roomId: this.id});
+    trace.log('room update', {roomId: this.id});
 
     const room = this.room = Game.rooms[this.id];
     if (!room) {
@@ -312,11 +311,11 @@ export default class OrgRoom extends OrgBase {
 
       this.threadRequestDefenders(trace);
 
-      updateTrace.end();
+      trace.end();
       return;
     }
 
-    updateTrace.log('reading events', {roomId: room.name});
+    trace.log('reading events', {roomId: room.name});
     room.getEventLog().forEach((msg) => {
       if (msg.event === EVENT_OBJECT_DESTROYED && msg.data.type === 'creep') {
         if (this.defenderIds.indexOf(msg.objectId as Id<Creep>) > -1) {
@@ -326,28 +325,23 @@ export default class OrgRoom extends OrgBase {
       }
     });
 
-    this.threadUpdateCreeps(updateTrace);
-    this.threadUpdateDefenseStatus(updateTrace, room);
-    this.threadUpdateRoom(updateTrace);
+    this.threadUpdateCreeps(trace);
+    this.threadUpdateDefenseStatus(trace, room);
+    this.threadUpdateRoom(trace);
 
     if (this.isPrimary) {
-      this.threadUpdatePrimary(updateTrace);
-      this.threadUpdateResources(updateTrace);
-
-      const towerFocusTrace = updateTrace.begin('tower_focus');
-      this.updateDamagedCreeps(updateTrace);
-      this.updateDamagedStructure(updateTrace);
-      this.updateDamagedSecondaryStructures(updateTrace);
-      this.updateDamagedRoads(updateTrace);
-      towerFocusTrace.end();
+      this.threadUpdatePrimary(trace);
+      this.threadUpdateResources(trace);
+      this.updateDamagedCreeps(trace);
+      this.updateDamagedStructure(trace);
+      this.updateDamagedSecondaryStructures(trace);
+      this.updateDamagedRoads(trace);
     }
 
     // Request defenders
-    const requestTrace = updateTrace.begin('requests');
     this.threadRequestDefenders(trace);
-    requestTrace.end();
 
-    updateTrace.end();
+    trace.end();
   }
   process(trace: Tracer) {
     trace = trace.asId(this.id);

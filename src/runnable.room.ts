@@ -99,7 +99,7 @@ export default class RoomRunnable {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    trace = trace.asId(this.id);
+    trace = trace.asId(this.id).begin('room_run');
 
     const ticks = Game.time - this.prevTime;
     this.prevTime = Game.time;
@@ -113,12 +113,14 @@ export default class RoomRunnable {
     const orgRoom = kingdom.getRoomByName(this.id);
     // TODO implement room class
     if (!orgRoom) {
+      trace.end();
       return terminate();
     }
 
     const room = Game.rooms[this.id];
     if (!room) {
       trace.log('cannot find room in game', {});
+      trace.end();
       return terminate();
     }
 
@@ -146,6 +148,7 @@ export default class RoomRunnable {
     this.threadRequestEnergy(trace, orgRoom, room);
     this.threadRequestHaulDroppedResources(trace, orgRoom, room);
 
+    trace.end();
     return running();
   }
 

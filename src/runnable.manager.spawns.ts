@@ -43,7 +43,7 @@ export default class SpawnManager {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    trace = trace.asId(this.id);
+    trace = trace.asId(this.id).begin('spawn_manager_run');
 
     const ticks = Game.time - this.prevTime;
     this.prevTime = Game.time;
@@ -52,6 +52,7 @@ export default class SpawnManager {
 
     const roomObject: Room = this.orgRoom.getRoomObject()
     if (!roomObject) {
+      trace.end();
       return terminate();
     }
 
@@ -227,12 +228,14 @@ export default class SpawnManager {
           return;
         }
       }
-    })
+    });
 
     if (this.ttl < 0) {
+      trace.end();
       return terminate();
     }
 
+    trace.end();
     return running();
   }
 

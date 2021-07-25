@@ -47,7 +47,7 @@ export default class ReactorRunnable {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    trace = trace.asId(this.id);
+    trace = trace.asId(this.id).begin('reactor_run');
 
     const ticks = Game.time - this.prevTime;
     this.prevTime = Game.time;
@@ -55,12 +55,14 @@ export default class ReactorRunnable {
     const room = this.orgRoom.getRoomObject();
     if (!room) {
       trace.log("room not found - terminating", {});
+      trace.end();
       return terminate();
     }
 
     let labs = this.labIds.map(labId => Game.getObjectById(labId));
     if (_.filter(labs, lab => !lab).length) {
-      trace.log('lab missing - terminating', {labIds: this.labIds})
+      trace.log('lab missing - terminating', {labIds: this.labIds});
+      trace.end();
       return terminate();
     }
 
@@ -70,7 +72,8 @@ export default class ReactorRunnable {
 
       const task = (this.orgRoom as any).getKingdom().getNextRequest(TOPICS.TASK_REACTION);
       if (!task) {
-        trace.log('no available tasks', {})
+        trace.log('no available tasks', {});
+        trace.end();
         return sleeping(NEW_TASK_SLEEP);
       }
 
@@ -81,8 +84,9 @@ export default class ReactorRunnable {
     }
 
     if (task) {
-      this.threadProduceStatus(task.details[MEMORY.REACTOR_OUTPUT],
-        labs[0]?.store.getUsedCapacity(task.details[MEMORY.REACTOR_OUTPUT]), trace);
+
+      this.threadProduceStatus(trace, task.details[MEMORY.REACTOR_OUTPUT],
+        labs[0]?.store.getUsedCapacity(task.details[MEMORY.REACTOR_OUTPUT]));
     }
 
     trace.log('reactor run', {
@@ -94,10 +98,12 @@ export default class ReactorRunnable {
     if (task) {
       const sleepFor = this.processTask(room, labs, task, ticks, trace)
       if (sleepFor) {
+        trace.end();
         return sleeping(sleepFor);
       }
     }
 
+    trace.end();
     return running();
   }
 

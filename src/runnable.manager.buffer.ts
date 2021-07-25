@@ -23,8 +23,7 @@ export default class BufferManager {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    trace = trace.asId(this.id);
-    trace = trace.begin('buffer_manager_run');
+    trace = trace.asId(this.id).begin('buffer_manager_run');
 
     this.threadEnforceBuffer(trace, kingdom);
 

@@ -110,8 +110,7 @@ export default class DefenseManager {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    trace = trace.asId(this.id);
-    trace = trace.begin('defense_manager_run');
+    trace = trace.asId(this.id).begin('defense_manager_run');
     trace.log("defense manager run");
 
     const hostilesByColony = getHostilesByColony(kingdom, Object.values(Game.rooms), trace)
