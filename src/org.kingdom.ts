@@ -1,6 +1,6 @@
 import {OrgBase} from './org.base';
 import {Colony} from './org.colony';
-import ResourceGovernor from './org.resource_governor';
+import {ResourceGovernor} from './org.resource_governor';
 import {Scribe} from './org.scribe';
 import {Topics} from './lib.topics';
 import PathCache from './lib.path_cache';

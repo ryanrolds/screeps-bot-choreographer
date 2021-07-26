@@ -1,7 +1,7 @@
 const DEFAULT_TTL = 500;
 
-type TopicKey = string;
-type Topic = Array<any>;
+export type TopicKey = string;
+export type Topic = Array<any>;
 
 export class Topics {
   topics: Record<TopicKey, Topic>;
@@ -10,7 +10,7 @@ export class Topics {
     this.topics = {};
   }
 
-  getTopic(key: TopicKey) {
+  getTopic(key: TopicKey): Topic {
     if (!this.topics[key]) {
       return null;
     }

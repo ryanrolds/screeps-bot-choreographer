@@ -3,7 +3,7 @@ import {Tracer} from './lib.tracing';
 import {thread, ThreadFunc} from './os.thread';
 
 import {Kingdom} from "./org.kingdom";
-import OrgRoom from "./org.room";
+import OrgRoom, {RoomAlertLevel} from "./org.room";
 
 import {Priorities, Scheduler} from "./os.scheduler";
 
@@ -55,6 +55,14 @@ const importantStructures = [
   STRUCTURE_TERMINAL,
   STRUCTURE_TOWER,
 ];
+
+export type RoomStatus = {
+  [MEMORY.ROOM_STATUS_NAME]: string
+  [MEMORY.ROOM_STATUS_LEVEL]: number,
+  [MEMORY.ROOM_STATUS_TERMINAL]: boolean;
+  [MEMORY.ROOM_STATUS_ENERGY]: number,
+  [MEMORY.ROOM_STATUS_ALERT_LEVEL]: RoomAlertLevel,
+};
 
 export default class RoomRunnable {
   id: string;
@@ -685,7 +693,7 @@ export default class RoomRunnable {
   produceStatus(trace: Tracer, orgRoom: OrgRoom) {
     const resources = orgRoom.getReserveResources(false);
 
-    const status = {
+    const status: RoomStatus = {
       [MEMORY.ROOM_STATUS_NAME]: orgRoom.id,
       [MEMORY.ROOM_STATUS_LEVEL]: orgRoom.getRoomLevel(),
       [MEMORY.ROOM_STATUS_TERMINAL]: orgRoom.hasTerminal(),

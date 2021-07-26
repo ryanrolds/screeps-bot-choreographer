@@ -241,13 +241,13 @@ export class Colony extends OrgBase {
   getRoom(): OrgRoom {
     throw new Error('a colony is not a room');
   }
-  getPrimaryRoom() {
+  getPrimaryRoom(): OrgRoom {
     return this.primaryOrgRoom;
   }
-  getRoomByID(roomId) {
+  getRoomByID(roomId): OrgRoom {
     return this.roomMap[roomId] || null;
   }
-  getCreeps() {
+  getCreeps(): Creep[] {
     return this.assignedCreeps;
   }
   getHaulers() {
@@ -288,7 +288,7 @@ export class Colony extends OrgBase {
 
     return this.primaryOrgRoom.getReserveResources(includeTerminal);
   }
-  getAmountInReserve(resource, includeTerminal) {
+  getAmountInReserve(resource: ResourceConstant, includeTerminal: boolean) {
     if (!this.primaryOrgRoom) {
       return 0;
     }

@@ -22,6 +22,7 @@ const REQUEST_RETURN_ENERGY_TTL = 10;
 const ORDER_MGMT_TTL = 1000;
 const HAUL_OLD_SELL_ORDER_TTL = 20;
 const UPDATE_ENERGY_VALUE_TTL = 2500;
+const PRODUCE_STATUS_TTL = 25;
 
 export default class TerminalRunnable {
   orgRoom: OrgRoom;
@@ -35,6 +36,7 @@ export default class TerminalRunnable {
 
   threadHaulOldSellOrders: ThreadFunc;
   threadUpdateEnergyValue: ThreadFunc;
+  threadProduceStatus: ThreadFunc;
 
   constructor(room: OrgRoom, terminal: StructureTerminal) {
     this.orgRoom = room;
@@ -48,6 +50,7 @@ export default class TerminalRunnable {
 
     this.threadHaulOldSellOrders = thread('haul_old_sell_orders_thread', HAUL_OLD_SELL_ORDER_TTL)(this.haulOldSellOrders.bind(this));
     this.threadUpdateEnergyValue = thread('update_energy_thread', UPDATE_ENERGY_VALUE_TTL)(this.updateEnergyValue.bind(this));
+    this.threadProduceStatus = thread('produce_status_thread', PRODUCE_STATUS_TTL)(this.produceStatus.bind(this));
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
@@ -70,6 +73,7 @@ export default class TerminalRunnable {
 
     this.threadHaulOldSellOrders(trace, terminal);
     this.threadUpdateEnergyValue(trace);
+    this.threadProduceStatus(trace);
 
     let task = terminal.room.memory[MEMORY.TERMINAL_TASK] || null;
     if (!task) {
@@ -595,5 +599,20 @@ export default class TerminalRunnable {
 
     this.energyValue = _.sum(dailyAvgs) / dailyAvgs.length;
   }
+
+
+  produceStatus(trace: Tracer) {
+    const status: TerminalStatus = {
+
+
+    };
+
+    trace.log('producing room status', {status});
+
+    this.orgRoom.getKingdom().sendRequest(TOPICS.TERMINAL_STATUS, 1, status, PRODUCE_STATUS_TTL);
+  }
 }
 
+export type TerminalStatus = {
+
+};

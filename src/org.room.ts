@@ -42,7 +42,7 @@ const REQUEST_DEFENDERS_TTL = 20;
 const REQUEST_DEFENDERS_DELAY = 20;
 const HOSTILE_PRESENCE_TTL = 200;
 
-enum RoomAlertLevel {
+export enum RoomAlertLevel {
   GREEN = "green",
   YELLO = "yellow",
   RED = "red",
@@ -482,7 +482,7 @@ export default class OrgRoom extends OrgBase {
 
     return stores.used / stores.capacity;
   }
-  getReserveResources(includeTerminal) {
+  getReserveResources(includeTerminal: boolean): Partial<Record<ResourceConstant, number>> {
     const structures = this.getReserveStructures(includeTerminal);
 
     return structures.reduce((acc, structure) => {
@@ -492,9 +492,9 @@ export default class OrgRoom extends OrgBase {
       });
 
       return acc;
-    }, {});
+    }, {} as Partial<Record<ResourceConstant, number>>);
   }
-  getAmountInReserve(resource, includeTerminal) {
+  getAmountInReserve(resource: ResourceConstant, includeTerminal: boolean) {
     return this.getReserveResources(includeTerminal)[resource] || 0;
   }
   getReserveStructureWithRoomForResource(resource) {

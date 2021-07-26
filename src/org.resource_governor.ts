@@ -1,11 +1,16 @@
-const {OrgBase} = require('./org.base');
-const TOPICS = require('./constants.topics');
-const MEMORY = require('./constants.memory');
-const TASKS = require('./constants.tasks');
-const PRIORITIES = require('./constants.priorities');
-const {thread} = require('./os.thread');
-const {SigmoidPricing} = require('./lib.sigmoid_pricing');
-const {PRICES} = require('./constants.market');
+import {Tracer} from "./lib.tracing";
+import {Kingdom} from "./org.kingdom";
+
+import {OrgBase} from './org.base';
+import * as TOPICS from './constants.topics';
+import * as MEMORY from './constants.memory';
+import * as TASKS from './constants.tasks';
+import * as PRIORITIES from './constants.priorities';
+import {thread, ThreadFunc} from './os.thread';
+import {SigmoidPricing} from './lib.sigmoid_pricing';
+import {PRICES} from './constants.market';
+import {Topic} from "./lib.topics";
+import TerminalRunnable from "./runnable.terminal";
 
 const RESERVE_LIMIT = 20000;
 const REACTION_BATCH_SIZE = 1000;
@@ -35,8 +40,29 @@ const CRITICAL_EFFECTS = {
   'dismantle': ['XZH2O', 'ZH2O', 'ZH'],
 };
 
-class Resources extends OrgBase {
-  constructor(parent, trace) {
+type ReactionParts = {
+  inputA: string;
+  inputB: string;
+  output: string;
+}
+
+export class ResourceGovernor extends OrgBase {
+  resources: Partial<Record<ResourceConstant, number>>;
+  sharedResources: Partial<Record<ResourceConstant, number>>;
+  pricer: SigmoidPricing;
+
+  availableReactions: ReactionParts[];
+  reactorStatuses: Topic;
+  roomStatuses: Topic;
+
+  threadRequestReactions: ThreadFunc;
+  threadRequestSellExtraResources: ThreadFunc;
+  threadDistributeBoosts: ThreadFunc;
+  threadConsumeStatuses: ThreadFunc;
+  threadBalanceEnergy: ThreadFunc;
+
+
+  constructor(parent: Kingdom, trace: Tracer) {
     super(parent, 'resources', trace);
 
     const setupTrace = this.trace.begin('constructor');
@@ -44,7 +70,7 @@ class Resources extends OrgBase {
     this.pricer = new SigmoidPricing(PRICES);
     this.resources = {};
     this.sharedResources = {};
-    this.availableReactions = {};
+    this.availableReactions = []
     this.reactorStatuses = [];
     this.roomStatuses = [];
 
@@ -61,18 +87,24 @@ class Resources extends OrgBase {
       this.distributeBoosts(trace);
     });
 
-    this.threadConsumeStatuses = thread('statuses_thread', CONSUME_STATUS_TTL)(this.consumeStatuses.bind(this));
+    this.threadConsumeStatuses = thread('statuses_thread', CONSUME_STATUS_TTL)((trace) => {
+      [this.roomStatuses, this.reactorStatuses] = this.consumeStatuses(trace);
+    });
+
     this.threadBalanceEnergy = thread('balance_energy_thread', BALANCE_ENERGY_TTL)(this.balanceEnergy.bind(this));
 
     setupTrace.end();
   }
-  update(trace) {
-    trace = trace.asId(this.id).begin('resource_governor_run');
+  update(trace: Tracer) {
+    trace = trace.asId(this.id).begin('update');
 
-    const updateTrace = trace.begin('update');
-
+    const reservedTrace = trace.begin('reserved');
     this.resources = this.getReserveResources(true);
+    reservedTrace.end()
+
+    const sharedTrace = trace.begin('shared');
     this.sharedResources = this.getSharedResources();
+    sharedTrace.end();
 
     this.threadRequestReactions(trace);
     this.threadRequestSellExtraResources(trace);
@@ -81,17 +113,11 @@ class Resources extends OrgBase {
     this.threadBalanceEnergy(trace);
 
     trace.end();
-
-    updateTrace.end();
   }
   process(trace) {
-    trace = trace.asId(this.id);
-
-    const processTrace = trace.begin('process');
-
+    trace = trace.asId(this.id).begin('process');
     this.updateStats();
-
-    processTrace.end();
+    trace.end();
   }
   updateStats() {
     const stats = this.getStats();
@@ -161,9 +187,9 @@ class Resources extends OrgBase {
 
     return _.sortBy(terminals, 'amount').reverse().shift();
   }
-  getTerminals() {
+  getTerminals(): TerminalRunnable[] {
     return this.getKingdom().getColonies().reduce((acc, colony) => {
-      const room = colony.getPrimaryRoom();
+      const room = colony.primaryRoom;
       if (!room) {
         return acc;
       }
@@ -174,7 +200,7 @@ class Resources extends OrgBase {
       }
 
       return acc.concat(room.terminal);
-    }, []);
+    }, [] as StructureTerminal[]);
   }
   getSharedResources() {
     const sharedResources = {};
@@ -224,7 +250,8 @@ class Resources extends OrgBase {
 
     return sharedResources;
   }
-  getReserveResources(includeTerminal) {
+
+  getReserveResources(includeTerminal): Partial<Record<ResourceConstant, number>> {
     return this.getKingdom().getColonies().reduce((acc, colony) => {
       // If colony doesn't have a terminal don't include it
       if (!colony.getPrimaryRoom() || !colony.getPrimaryRoom().hasTerminal()) {
@@ -232,22 +259,24 @@ class Resources extends OrgBase {
       }
 
       const colonyResources = colony.getReserveResources(includeTerminal);
-      Object.keys(colonyResources).forEach((resource) => {
+      Object.keys(colonyResources).forEach((resource: ResourceConstant) => {
         const current = acc[resource] || 0;
         acc[resource] = colonyResources[resource] + current;
       });
 
       return acc;
-    }, {});
+    }, {} as Partial<Record<ResourceConstant, number>>);
   }
-  getAmountInReserve(resource) {
+
+  getAmountInReserve(resource: ResourceConstant): number {
     return this.getKingdom().getColonies().reduce((acc, colony) => {
-      return acc + colony.getAmountInReserve(resource);
+      return acc + colony.getAmountInReserve(resource, false);
     }, 0);
   }
-  getReactions(trace) {
-    let availableReactions = {};
-    let missingOneInput = {};
+
+  getReactions(trace: Tracer): ReactionParts[] {
+    let availableReactions: Record<string, ReactionParts> = {};
+    let missingOneInput = []
     const overReserve = {};
 
     const firstInputs = Object.keys(REACTIONS);
@@ -306,13 +335,13 @@ class Resources extends OrgBase {
       });
     });
 
-    availableReactions = this.prioritizeReactions(availableReactions);
-    missingOneInput = this.prioritizeReactions(missingOneInput);
+    const orderedAvailableReactions = this.prioritizeReactions(availableReactions);
+    const orderedMissingOneInput = this.prioritizeReactions(missingOneInput);
     // overReserve = this.prioritizeReactions(overReserve);
 
-    const nextReactions = [].concat(availableReactions);
-    if (missingOneInput.length && Game.market.credits > MIN_CREDITS) {
-      nextReactions = nextReactions.concat(missingOneInput);
+    let nextReactions = [].concat(orderedAvailableReactions);
+    if (orderedMissingOneInput.length && Game.market.credits > MIN_CREDITS) {
+      nextReactions = nextReactions.concat(orderedMissingOneInput);
     }
     // nextReactions = nextReactions.concat(overReserve.reverse());
 
@@ -320,7 +349,8 @@ class Resources extends OrgBase {
 
     return nextReactions;
   }
-  prioritizeReactions(reactions) {
+
+  prioritizeReactions(reactions): ReactionParts[] {
     // Sorts reactions based on hard coded priorities, if kingdom has more
     // than reserve limit, reduce priority by 3
     return _.sortBy(Object.values(reactions), (reaction) => {
@@ -332,6 +362,7 @@ class Resources extends OrgBase {
       return priority;
     });
   }
+
   getDesiredCompound(effect, reserve) {
     // Returns fist compound (assumes sorted by priority) that has more
     // than minimum, or the compound with the most available
@@ -460,7 +491,7 @@ class Resources extends OrgBase {
     const result = Game.market.createOrder(order);
     trace.log('create order result', {order, result});
   }
-  requestReactions() {
+  requestReactions(trace) {
     this.availableReactions.forEach((reaction) => {
       const priority = PRIORITIES.REACTION_PRIORITIES[reaction['output']];
       const details = {
@@ -473,7 +504,7 @@ class Resources extends OrgBase {
       this.getKingdom().sendRequest(TOPICS.TASK_REACTION, priority, details, REQUEST_REACTION_TTL);
     });
   }
-  requestSellResource() {
+  requestSellResource(trace) {
     Object.entries(this.sharedResources).forEach(([resource, amount]) => {
       if (resource === RESOURCE_ENERGY) {
         return;
@@ -578,16 +609,16 @@ class Resources extends OrgBase {
     });
   }
 
-  consumeStatuses(trace) {
+  consumeStatuses(trace: Tracer): [Topic, Topic] {
     trace.log('consuming statues');
 
     const reactorStatuses = this.getKingdom().getTopics().getTopic(TOPICS.ACTIVE_REACTIONS) || [];
-    this.reactorStatuses = reactorStatuses;
     trace.log('reactor statuses', {length: reactorStatuses.length});
 
     const roomStatuses = this.getKingdom().getTopics().getTopic(TOPICS.ROOM_STATUES) || [];
-    this.roomStatuses = roomStatuses;
     trace.log('room statuses', {length: roomStatuses.length});
+
+    return [roomStatuses, reactorStatuses];
   }
 
   balanceEnergy(trace) {
@@ -641,5 +672,3 @@ class Resources extends OrgBase {
       PRIORITIES.TERMINAL_ENERGY_BALANCE, request, BALANCE_ENERGY_TTL);
   }
 }
-
-module.exports = Resources;
