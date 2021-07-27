@@ -425,9 +425,11 @@ module.exports.clearDestination = (creep) => {
   delete creep.memory[MEMORY.MEMORY_DESTINATION_SHARD];
 };
 
-module.exports.fillCreepFromDestination = (creep) => {
+module.exports.fillCreepFromDestination = (creep, trace) => {
+  const destinationMemory = creep.memory[MEMORY.MEMORY_DESTINATION];
   const destination = Game.getObjectById(creep.memory[MEMORY.MEMORY_DESTINATION]);
   if (!destination) {
+    trace.log('could not find destination', {destinationMemory});
     return FAILURE;
   }
 
@@ -438,20 +440,8 @@ module.exports.fillCreepFromDestination = (creep) => {
     amount = creep.store.getFreeCapacity(resource);
   }
 
-  // TODO address
-  /*
-  [7:09:13 PM][shard3]TypeError: Cannot read property 'getUsedCapacity' of undefined
-    at Object.module.exports.fillCreepFromDestination (behavior.movement:341:36)
-    at Object.behavior (behavior.room:100:37)
-    at Object.tick (lib.behaviortree:244:31)
-    at Object.tickChildren (lib.behaviortree:79:42)
-    at Object.tick (lib.behaviortree:94:31)
-    at Object.tickChildren (lib.behaviortree:46:36)
-    at Object.tick (lib.behaviortree:64:31)
-    at Object.tick (lib.behaviortree:189:40)
-    at Object.tickChildren (lib.behaviortree:79:42)
-    */
   if (!destination.store) {
+    trace.log('destination does not have a store');
     return FAILURE;
   }
 
@@ -460,15 +450,18 @@ module.exports.fillCreepFromDestination = (creep) => {
   }
 
   if (amount === 0) {
+    trace.log('amount is 0');
     return FAILURE;
   }
 
   // If we are seeing a specific amount, we are done when we have that amount in the hold
   if (amount && creep.store.getUsedCapacity(resource) >= amount) {
+    trace.log('success: have amount we are looking for', {amount, resource});
     return SUCCESS;
   }
 
   result = creep.withdraw(destination, resource, amount);
+  trace.log('widthdrawl result', {result, destinationId: destination.id, resource, amount});
   if (result === OK) {
     return RUNNING;
   }
@@ -476,7 +469,7 @@ module.exports.fillCreepFromDestination = (creep) => {
     return SUCCESS;
   }
   if (result === ERR_NOT_ENOUGH_RESOURCES) {
-    return FAILURE;
+    return SUCCESS;
   }
 
   return FAILURE;

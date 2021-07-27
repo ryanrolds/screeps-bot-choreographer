@@ -138,8 +138,8 @@ const selectMoveFill = (selector) => {
       behaviorMovement.moveToDestination(1),
       behaviorTree.leafNode(
         'fill_creep',
-        (creep) => {
-          return behaviorMovement.fillCreepFromDestination(creep);
+        (creep, trace) => {
+          return behaviorMovement.fillCreepFromDestination(creep, trace);
         },
       ),
     ],
@@ -160,15 +160,11 @@ module.exports.getEnergy = behaviorTree.repeatUntilConditionMet(
   (creep, trace, kingdom) => {
     const freeCapacity = creep.store.getFreeCapacity(RESOURCE_ENERGY);
     trace.log('creep free capacity', {freeCapacity});
-    return creep.store.getFreeCapacity(RESOURCE_ENERGY) < 1;
+    return creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
   },
   behaviorTree.selectorNode(
     'select_and_fill_with_energy',
     [
-      behaviorTree.leafNode('probe', (creep, trace) => {
-        trace.log('probe');
-        return FAILURE;
-      }),
       selectMoveFill(selectNearbyLink),
       selectMoveFill(selectStorage),
       selectMoveFill(selectContainer),
