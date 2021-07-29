@@ -114,6 +114,7 @@ export default class LinkManager {
     const hasEnergy = this.sourceLinks.map((linkId) => {
       const link = Game.getObjectById<StructureLink>(linkId);
       if (!link) {
+        trace.log("should terminate due to missing source link", {linkId});
         shouldTerminate = true;
         return null;
       }
@@ -130,6 +131,7 @@ export default class LinkManager {
     this.sinkLinks.map((linkId) => {
       const link = Game.getObjectById<StructureLink>(linkId);
       if (!link) {
+        trace.log("should terminate due to missing sink link", {linkId});
         shouldTerminate = true;
         return null;
       }
@@ -257,5 +259,5 @@ const canReceive = (link: StructureLink): boolean => {
 };
 
 const notEmpty = (link: StructureLink): boolean => {
-  return link?.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+  return link?.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
 }
