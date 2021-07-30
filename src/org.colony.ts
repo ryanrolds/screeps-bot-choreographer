@@ -80,7 +80,7 @@ export class Colony extends OrgBase {
 
     this.pidDesiredHaulers = 0;
     if (this.primaryRoom) {
-      PID.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, 0, 0.4, 0.0001, 0);
+      PID.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, 0, 0.2, 0.0001, 0);
     }
 
     this.roomMap = {};

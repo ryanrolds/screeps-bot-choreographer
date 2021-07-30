@@ -2,6 +2,7 @@ import {clear} from 'node:console';
 import * as featureFlags from './lib.feature_flags';
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
+import {running} from './os.process';
 
 export const RUNNING = 'running';
 export const SUCCESS = 'success';
@@ -260,6 +261,32 @@ export const repeatUntilConditionMet = (id: string, condition: ConditionFunc,
     },
   } as TreeNode;
 };
+
+export const tripIfCalledXTimes = (id: string, limit: number, regular: TreeNode, tripped: TreeNode): TreeNode => {
+  return {
+    id,
+    limit,
+    regular,
+    tripped,
+    tick: function (actor, trace, kingdom): NodeTickResult {
+      let i = getState(actor, this.id, trace);
+      setState(actor, this.id, i + 1, trace);
+
+      trace.log("trip", {i, limit: this.limit});
+
+      if (i > this.limit) {
+        trace.log("tripped")
+        return this.tripped.tick(actor, trace, kingdom);
+      }
+
+      return this.regular.tick(actor, trace, kingdom);
+    },
+    clear: function (actor, trace): void {
+      clearState(actor, this.id, trace);
+      this.node.clear(actor, trace);
+    },
+  } as TreeNode;
+}
 
 export const invert = (id: string, node: TreeNode): TreeNode => {
   return {

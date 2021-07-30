@@ -348,7 +348,29 @@ function checkColonyDefenses(trace: Tracer, kingdom: Kingdom, hostilesByColony: 
     if (hostiles.length) {
       requestExistingDefenders(defenders, hostiles[0].pos);
 
-      if (defenders.length < hostiles.length) {
+      // are hostiles not in primary room?
+      const hostilesNotInPrimaryRoom = hostiles.filter((hostile) => {
+        return hostile.room.name !== colony.primaryRoomId;
+      });
+
+      let numNeededDefenders = 0;
+      if (hostilesNotInPrimaryRoom.length) {
+        numNeededDefenders = hostilesNotInPrimaryRoom.length;
+      } else {
+        const hostileScore = hostiles.reduce((acc, hostile) => {
+          return acc + scoreHostile(hostile);
+        }, 0);
+        const defenderScore = hostiles.reduce((acc, defender) => {
+          return acc + scoreDefender(defender);
+        }, 0);
+
+        // Spawn 2 more defenders if defender score less than hostile score
+        if (hostileScore > defenderScore) {
+          numNeededDefenders = defenders.length + 2;
+        }
+      }
+
+      if (defenders.length < numNeededDefenders) {
         requestAdditionalDefenders(colony, hostiles.length - defenders.length, trace);
       }
     }

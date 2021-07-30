@@ -70,6 +70,7 @@ export default class RoomRunnable {
   threadRequestReserver: ThreadFunc;
   threadRequestUpgrader: ThreadFunc;
   threadRequestHaulDroppedResources: ThreadFunc;
+  threadRequestHaulTombstones: ThreadFunc;
   threadCheckSafeMode: ThreadFunc;
   threadRequestExtensionFilling: ThreadFunc;
   threadUpdateRampartAccess: ThreadFunc;
@@ -91,6 +92,7 @@ export default class RoomRunnable {
     this.threadRequestReserver = thread('request_reserver_thread', REQUEST_RESERVER_TTL)(this.requestReserver.bind(this));
     this.threadRequestUpgrader = thread('request_upgrader_thread', REQUEST_UPGRADER_TTL)(this.requestUpgrader.bind(this));
     this.threadRequestHaulDroppedResources = thread('request_haul_dropped_thread', REQUEST_HAUL_DROPPED_RESOURCES_TTL)(this.requestHaulDroppedResources.bind(this));
+    this.threadRequestHaulTombstones = thread('request_haul_tombstone_thread', REQUEST_HAUL_DROPPED_RESOURCES_TTL)(this.requestHaulTombstones.bind(this));
     this.threadCheckSafeMode = thread('check_safe_mode_thread', CHECK_SAFE_MODE_TTL)(this.checkSafeMode.bind(this));
     this.threadRequestExtensionFilling = thread('request_extension_filling_thread', HAUL_EXTENSION_TTL)(this.requestExtensionFilling.bind(this));
     this.threadUpdateRampartAccess = thread('update_rampart_access_thread', RAMPART_ACCESS_TTL)(this.updateRampartAccess.bind(this));
@@ -147,6 +149,7 @@ export default class RoomRunnable {
     this.threadRequestRepairer(trace, orgRoom, room);
     this.threadRequestEnergy(trace, orgRoom, room);
     this.threadRequestHaulDroppedResources(trace, orgRoom, room);
+    this.threadRequestHaulTombstones(trace, orgRoom, room);
 
     trace.end();
     return running();
@@ -333,12 +336,21 @@ export default class RoomRunnable {
       desiredDistributors = 1;
     }
 
-    if (room.controller.level >= 3 && room.energyAvailable / room.energyCapacityAvailable < 0.5) {
+    const fullness = room.energyAvailable / room.energyCapacityAvailable;
+    if (room.controller.level >= 3 && fullness < 0.5) {
       desiredDistributors = 2;
       // We are less CPU constrained on other shards
       if (Game.shard.name !== 'shard3') {
         desiredDistributors = 3;
       }
+    }
+
+    const numCoreHaulTasks = orgRoom.getColony().getTopicLength(TOPICS.HAUL_CORE_TASK);
+    if (numCoreHaulTasks > 20) {
+      desiredDistributors = 2;
+    }
+    if (numCoreHaulTasks > 40) {
+      desiredDistributors = 3;
     }
 
     if (orgRoom.numHostiles) {
@@ -353,10 +365,14 @@ export default class RoomRunnable {
     }
 
     if (!orgRoom.hasStorage || numDistributors >= desiredDistributors) {
-      trace.log('do not request distributors', {
+      trace.notice('do not request distributors', {
         hasStorage: orgRoom.hasStorage,
         numDistributors,
         desiredDistributors,
+        roomLevel: room.controller.level,
+        fullness,
+        numCoreHaulTasks,
+        numHostiles: orgRoom.numHostiles,
       });
       return;
     }
@@ -519,7 +535,7 @@ export default class RoomRunnable {
       return;
     }
 
-    const droppedResourcesToHaul = room.find(FIND_DROPPED_RESOURCES, {
+    let droppedResourcesToHaul = room.find(FIND_DROPPED_RESOURCES, {
       filter: (resource) => {
         const numAssigned = _.filter((orgRoom as any).getColony().getHaulers(), (hauler: Creep) => {
           return hauler.memory[MEMORY.MEMORY_HAUL_PICKUP] === resource.id;
@@ -543,9 +559,68 @@ export default class RoomRunnable {
         [MEMORY.MEMORY_HAUL_PICKUP]: resource.id,
         [MEMORY.MEMORY_HAUL_DROPOFF]: dropoff.id,
         [MEMORY.MEMORY_HAUL_RESOURCE]: resource.resourceType,
+        [MEMORY.MEMORY_HAUL_AMOUNT]: resource.amount,
       };
 
-      (orgRoom as any).sendRequest(TOPICS.TOPIC_HAUL_TASK, PRIORITIES.HAUL_DROPPED, details, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
+      let topic = TOPICS.TOPIC_HAUL_TASK;
+      let priority = PRIORITIES.HAUL_DROPPED;
+      if (orgRoom.isPrimary) {
+        topic = TOPICS.HAUL_CORE_TASK;
+        priority = PRIORITIES.HAUL_CORE_DROPPED;
+      }
+
+
+      trace.notice('haul dropped', {topic, priority, details});
+
+      (orgRoom as any).sendRequest(topic, priority, details, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
+    });
+  }
+
+  requestHaulTombstones(trace: Tracer, orgRoom: OrgRoom, room: Room) {
+    if (orgRoom.numHostiles) {
+      return;
+    }
+
+    const tombstones = room.find(FIND_TOMBSTONES, {
+      filter: (tombstone) => {
+        const numAssigned = _.filter((orgRoom as any).getColony().getHaulers(), (hauler: Creep) => {
+          return hauler.memory[MEMORY.MEMORY_HAUL_PICKUP] === tombstone.id;
+        }).length;
+
+        return numAssigned === 0;
+      },
+    });
+
+    const primaryRoom = (orgRoom as any).getColony().getPrimaryRoom();
+
+    tombstones.forEach((tombstone) => {
+      Object.keys(tombstone.store).forEach((resourceType) => {
+        trace.log("tombstone", {id: tombstone.id, resource: resourceType, amount: tombstone.store[resourceType]});
+        const dropoff = primaryRoom.getReserveStructureWithRoomForResource(resourceType);
+        if (!dropoff) {
+          return;
+        }
+
+        const details = {
+          [MEMORY.TASK_ID]: `pickup-${this.id}-${Game.time}`,
+          [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
+          [MEMORY.MEMORY_HAUL_PICKUP]: tombstone.id,
+          [MEMORY.MEMORY_HAUL_DROPOFF]: dropoff.id,
+          [MEMORY.MEMORY_HAUL_RESOURCE]: resourceType,
+          [MEMORY.MEMORY_HAUL_AMOUNT]: tombstone.store[resourceType],
+        };
+
+        let topic = TOPICS.TOPIC_HAUL_TASK;
+        let priority = PRIORITIES.HAUL_DROPPED;
+        if (orgRoom.isPrimary) {
+          topic = TOPICS.HAUL_CORE_TASK;
+          priority = PRIORITIES.HAUL_CORE_DROPPED;
+        }
+
+        trace.notice('haul tombstone', {topic, priority, details});
+
+        (orgRoom as any).sendRequest(topic, priority, details, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
+      });
     });
   }
 
