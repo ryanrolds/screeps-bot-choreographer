@@ -6,7 +6,7 @@ import * as PID from './lib.pid';
 import {thread, ThreadFunc} from './os.thread';
 
 import * as MEMORY from './constants.memory';
-import * as WORKERS from './constants.creeps';
+import * as CREEPS from './constants.creeps';
 import * as TASKS from './constants.tasks';
 import * as TOPICS from './constants.topics';
 import * as PRIORITIES from './constants.priorities';
@@ -97,7 +97,9 @@ export class Colony extends OrgBase {
       });
 
       this.defenders = this.assignedCreeps.filter((creep) => {
-        return creep.memory[MEMORY.MEMORY_ROLE] === WORKER_DEFENDER;
+        const role = creep.memory[MEMORY.MEMORY_ROLE];
+        return role === CREEPS.WORKER_DEFENDER || role === CREEPS.WORKER_DEFENDER_DRONE ||
+          role === CREEPS.WORKER_DEFENDER_BOOSTED;
       });
 
       this.numCreeps = this.assignedCreeps.length;
@@ -110,7 +112,7 @@ export class Colony extends OrgBase {
     this.avgHaulerCapacity = 300;
     this.threadUpdateHaulers = thread('update_haulers_thread', UPDATE_HAULERS_TTL)(() => {
       this.haulers = this.assignedCreeps.filter((creep) => {
-        return creep.memory[MEMORY_ROLE] === WORKERS.WORKER_HAULER &&
+        return creep.memory[MEMORY_ROLE] === CREEPS.WORKER_HAULER &&
           creep.memory[MEMORY_COLONY] === this.id &&
           creepIsFresh(creep);
       });
@@ -362,7 +364,7 @@ export class Colony extends OrgBase {
       // PID approach
       if (this.numHaulers < this.pidDesiredHaulers) {
         this.sendRequest(TOPIC_SPAWN, PRIORITY_HAULER, {
-          role: WORKERS.WORKER_HAULER,
+          role: CREEPS.WORKER_HAULER,
           memory: {},
         }, REQUEST_HAULER_TTL);
       }
@@ -374,13 +376,13 @@ export class Colony extends OrgBase {
     }
 
     const numExplorers = this.assignedCreeps.filter((creep) => {
-      return creep.memory[MEMORY_ROLE] == WORKERS.WORKER_EXPLORER &&
+      return creep.memory[MEMORY_ROLE] == CREEPS.WORKER_EXPLORER &&
         creep.memory[MEMORY_COLONY] === this.id;
     }).length;
 
     if (numExplorers < MAX_EXPLORERS) {
       this.sendRequest(TOPIC_SPAWN, PRIORITIES.EXPLORER, {
-        role: WORKERS.WORKER_EXPLORER,
+        role: CREEPS.WORKER_EXPLORER,
         memory: {},
       }, REQUEST_EXPLORER_TTL);
     }
@@ -388,7 +390,7 @@ export class Colony extends OrgBase {
   requestReserverForMissingRooms() {
     this.missingRooms.forEach((roomID) => {
       const numReservers = this.assignedCreeps.filter((creep) => {
-        return creep.memory[MEMORY_ROLE] == WORKERS.WORKER_RESERVER &&
+        return creep.memory[MEMORY_ROLE] == CREEPS.WORKER_RESERVER &&
           creep.memory[MEMORY_ASSIGN_ROOM] === roomID;
       }).length;
 

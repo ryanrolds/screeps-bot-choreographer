@@ -42,14 +42,10 @@ export class AI {
       Priorities.CRITICAL, roomManager));
 
     // Creep processes
-    const useCreepManager = featureFlags.getFlag(featureFlags.CREEPS_USE_MANAGER);
-    if (useCreepManager) {
-      // Setup creep manager
-      const creepManagerId = 'creeps_manager';
-      const creepManager = new CreepManager(creepManagerId, this.scheduler)
-      this.scheduler.registerProcess(new Process(creepManagerId, 'creeps_manager',
-        Priorities.CRITICAL, creepManager));
-    }
+    const creepManagerId = 'creeps_manager';
+    const creepManager = new CreepManager(creepManagerId, this.scheduler)
+    this.scheduler.registerProcess(new Process(creepManagerId, 'creeps_manager',
+      Priorities.CRITICAL, creepManager));
 
     // Defense manager
     const defenseManagerId = 'defense_manager';

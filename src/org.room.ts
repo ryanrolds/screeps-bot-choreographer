@@ -649,6 +649,18 @@ export default class OrgRoom extends OrgBase {
     return this.room.controller.level;
   }
 
+  getRoomLevelCompleted() {
+    if (!this.room) {
+      return 0;
+    }
+
+    if (!this.room.controller.my) {
+      return 0;
+    }
+
+    return this.room.controller.progress / this.room.controller.progressTotal;
+  }
+
   getAlertLevel(): RoomAlertLevel {
     return RoomAlertLevel.GREEN;
   }
@@ -725,7 +737,9 @@ export default class OrgRoom extends OrgBase {
     });
 
     this.defenderIds = this.assignedCreeps.filter((creep) => {
-      return creep.memory[MEMORY_ROLE] === CREEPS.WORKER_DEFENDER;
+      const role = creep.memory[MEMORY.MEMORY_ROLE];
+      return role === CREEPS.WORKER_DEFENDER || role === CREEPS.WORKER_DEFENDER_DRONE ||
+        role === CREEPS.WORKER_DEFENDER_BOOSTED;
     }).map((defender) => {
       return defender.id;
     });
@@ -743,7 +757,9 @@ export default class OrgRoom extends OrgBase {
 
     this.numDefenders = this.room.find(FIND_MY_CREEPS, {
       filter: (creep) => {
-        return creep.memory[MEMORY.MEMORY_ROLE] === CREEPS.WORKER_DEFENDER;
+        const role = creep.memory[MEMORY.MEMORY_ROLE];
+        return role === CREEPS.WORKER_DEFENDER || role === CREEPS.WORKER_DEFENDER_DRONE ||
+          role === CREEPS.WORKER_DEFENDER_BOOSTED;
       },
     }).length;
 

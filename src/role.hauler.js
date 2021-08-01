@@ -6,7 +6,6 @@ const behaviorNonCombatant = require('./behavior.noncombatant');
 const behaviorHaul = require('./behavior.haul');
 const behaviorRoom = require('./behavior.room');
 const behaviorBoosts = require('./behavior.boosts');
-const featureFlags = require('./lib.feature_flags');
 
 const MEMORY = require('./constants.memory');
 const TOPICS = require('./constants.topics');
@@ -23,12 +22,7 @@ const emptyCreep = behaviorTree.repeatUntilConditionMet(
   behaviorTree.sequenceNode(
     'dump_energy',
     [
-      behaviorTree.featureFlagBool(
-        'flag_move_by_path',
-        featureFlags.USE_HEAP_PATH_CACHE,
-        behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_DROPOFF, 1, true, 50, 1500),
-        behaviorMovement.moveByHeapPath(MEMORY.MEMORY_HAUL_DROPOFF, 1, true, 50, 1500),
-      ),
+      behaviorMovement.moveByHeapPath(MEMORY.MEMORY_HAUL_DROPOFF, 1, true, 100, 2500),
       behaviorTree.leafNode(
         'empty_creep',
         (creep, trace, kingdom) => {
@@ -126,12 +120,7 @@ const behavior = behaviorTree.sequenceNode(
       behaviorTree.sequenceNode(
         'pickup_load',
         [
-          behaviorTree.featureFlagBool(
-            'flag_move_by_path',
-            featureFlags.USE_HEAP_PATH_CACHE,
-            behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_PICKUP, 1, true, 50, 1500),
-            behaviorMovement.moveByHeapPath(MEMORY.MEMORY_HAUL_PICKUP, 1, true, 50, 1500),
-          ),
+          behaviorMovement.moveByHeapPath(MEMORY.MEMORY_HAUL_PICKUP, 1, true, 100, 2500),
           behaviorHaul.loadCreep,
           behaviorHaul.clearTask,
           behaviorTree.returnSuccess(

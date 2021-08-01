@@ -122,13 +122,6 @@ export class Kingdom extends OrgBase {
     this.scribe.process(scribeTrace);
     scribeTrace.end();
 
-    const useCreepManager = featureFlags.getFlag(featureFlags.CREEPS_USE_MANAGER);
-    if (!useCreepManager) {
-      const creepsTrace = processTrace.begin('creeps');
-      helpersCreeps.tick(this, creepsTrace);
-      creepsTrace.end();
-    }
-
     processTrace.end();
   }
   getParent(): Kingdom {

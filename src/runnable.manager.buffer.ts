@@ -8,7 +8,7 @@ import * as TOPICS from './constants.topics';
 import {thread, ThreadFunc} from './os.thread';
 import {TargetRoom} from './org.scribe'
 
-const ATTACK_ROOM_TTL = 100;
+const ATTACK_ROOM_TTL = 20;
 
 export default class BufferManager {
   id: string;
@@ -35,7 +35,7 @@ export default class BufferManager {
 
 function enforceBuffer(trace: Tracer, kingdom: Kingdom) {
   const hostileRoomsByColony = getHostileRoomsByColony(kingdom, trace);
-  trace.log('hostile rooms by colony', {hostileRoomsByColony});
+  trace.notice('hostile rooms by colony', {hostileRoomsByColony});
 
   _.forEach(hostileRoomsByColony, (rooms, colonyId) => {
     if (rooms.length < 1) {
@@ -84,6 +84,8 @@ function getHostileRoomsByColony(kingdom: Kingdom, trace: Tracer): HostileRoomsB
   const colonies = kingdom.getColonies().filter(colony => colony.primaryRoom.controller.level >= 6)
   colonies.forEach((colony) => {
     const nearByWeakRooms = weakRooms.filter((room) => {
+      trace.log('checking if room should be attacked', {colonyId: colony.id, weakRoom: room.id});
+
       // First narrow to linear distance to reduce the number of rooms to findRoute on
       const linearDistance = Game.map.getRoomLinearDistance(room.id, colony.primaryRoomId);
       if (linearDistance > kingdom.config.buffer) {
@@ -95,38 +97,64 @@ function getHostileRoomsByColony(kingdom: Kingdom, trace: Tracer): HostileRoomsB
         return false;
       }
 
-      // Find the route and avoid rooms owned by other people
-      const route = Game.map.findRoute(room.id, colony.primaryRoomId, {
-        routeCallback: (toRoom, fromRoom) => {
-          const roomDetails = kingdom.getScribe().getRoomById(toRoom);
-
-          // If we have not scanned the room, dont enter it
-          if (!roomDetails) {
-            // trace.log('room not logged', {toRoom, fromRoom});
-            return Infinity;
-          }
-
-          // If owned by someone else and its not the target room, dont enter it
-          if (roomDetails.controller?.owner && toRoom !== room.id) {
-            // trace.log('room owned by someone', {toRoom, fromRoom, owner: roomDetails.controller.owner});
-            return Infinity;
-          }
-
-          return 1;
-        },
-      });
-
-      if (route === ERR_NO_PATH) {
-        // trace.log('no path', {
-        //   roomId: room.id,
-        //   distance: linearDistance,
-        //   colonyId: colony.id,
-        // });
+      const originStatus = Game.map.getRoomStatus(colony.primaryRoomId);
+      const destinationStatus = Game.map.getRoomStatus(room.id);
+      if (originStatus.status != destinationStatus.status) {
+        trace.log('rooms are different statues', {originStatus, destinationStatus});
         return false;
       }
 
-      if (route.length > kingdom.config.buffer) {
-        // trace.log('room near by path too long', {routeLength: route.length, roomId: room.id, colonyId: colony.id});
+      const originSpawn = colony.primaryOrgRoom.getSpawns()[0];
+      if (!originSpawn) {
+        trace.log('no origin spawn', {colonyId: colony.id});
+        return false;
+      }
+
+      const destinationController = room.controllerPos;
+
+      const result = PathFinder.search(originSpawn.pos, {pos: destinationController, range: 5}, {
+        maxRooms: 8,
+        roomCallback: (roomName): (CostMatrix | false) => {
+          const roomDetails = kingdom.getScribe().getRoomById(roomName);
+          // If we have not scanned the room, dont enter it
+          if (!roomDetails) {
+            trace.log('room not logged', {roomName});
+            return false;
+          }
+
+          // If owned by someone else and its not the target room, dont enter it
+          trace.log('check if room owned and not destination', {
+            roomName,
+            roomId: room.id,
+            isDestination: roomName === room.id,
+            owner: roomDetails.controller?.owner,
+          });
+
+          const roomStatus = Game.map.getRoomStatus(room.id);
+          if (originStatus.status != roomStatus.status) {
+            trace.log('intermediate room is different statues', {originStatus, roomStatus});
+            return false;
+          }
+
+          const owner = roomDetails.controller?.owner;
+          const ownerIsNotMe = owner !== 'ENETDOWN';
+          if (owner && ownerIsNotMe && roomName !== room.id) {
+            trace.log('room owned by someone', {roomName, owner});
+            return false;
+          }
+
+          return new PathFinder.CostMatrix();
+        },
+      });
+
+      if (result.incomplete) {
+        trace.log('path incomplete', {result});
+        return false;
+      }
+
+      const roomsInPath = _.uniq(result.path.map((pos) => pos.roomName));
+      if (roomsInPath.length > kingdom.config.buffer + 1) {
+        trace.log('too many rooms in path', {roomsInPath});
         return false;
       }
 

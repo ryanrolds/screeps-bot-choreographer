@@ -247,8 +247,9 @@ function getDefendersByColony(kingdom: Kingdom, rooms: Room[], trace: Tracer): D
     // Add any defenders
     let defenders = room.find(FIND_MY_CREEPS, {
       filter: (creep) => {
-        return creep.memory[MEMORY.MEMORY_ROLE] === CREEPS.WORKER_DEFENDER ||
-          creep.memory[MEMORY.MEMORY_ROLE] === CREEPS.WORKER_DEFENDER_DRONE;
+        const role = creep.memory[MEMORY.MEMORY_ROLE];
+        return role === CREEPS.WORKER_DEFENDER || role === CREEPS.WORKER_DEFENDER_DRONE ||
+          role === CREEPS.WORKER_DEFENDER_BOOSTED;
       }
     });
     if (defenders.length) {
@@ -306,7 +307,9 @@ function publishDefenseStatuses(kingdom: Kingdom, hostilesByColony: HostilesByCo
   kingdom.getColonies().forEach((colony) => {
     const numHostiles = (hostilesByColony[colony.id] || []).length;
     const numDefenders = Object.values<Creep>(colony.getCreeps()).filter((creep) => {
-      return creep.memory[MEMORY.MEMORY_ROLE] === CREEPS.WORKER_DEFENDER;
+      const role = creep.memory[MEMORY.MEMORY_ROLE];
+      return role === CREEPS.WORKER_DEFENDER || role === CREEPS.WORKER_DEFENDER_DRONE ||
+        role === CREEPS.WORKER_DEFENDER_BOOSTED;
     }).length;
 
     let status = DEFENSE_STATUS.GREEN;
@@ -339,14 +342,22 @@ function checkColonyDefenses(trace: Tracer, kingdom: Kingdom, hostilesByColony: 
     }
 
     const defenders = colony.getCreeps().filter((creep) => {
-      return creep.memory[MEMORY.MEMORY_ROLE] === CREEPS.WORKER_DEFENDER ||
-        creep.memory[MEMORY.MEMORY_ROLE] === CREEPS.WORKER_DEFENDER_DRONE;
+      const role = creep.memory[MEMORY.MEMORY_ROLE];
+      return role === CREEPS.WORKER_DEFENDER || role === CREEPS.WORKER_DEFENDER_DRONE ||
+        role === CREEPS.WORKER_DEFENDER_BOOSTED;
     });
 
     trace.log('colony threat status', {colonyId, numHostiles: hostiles.length, numDefenders: defenders.length});
 
     if (hostiles.length) {
       requestExistingDefenders(defenders, hostiles[0].pos);
+
+      const hostileScore = hostiles.reduce((acc, hostile) => {
+        return acc + scoreHostile(hostile);
+      }, 0);
+      const defenderScore = defenders.reduce((acc, defender) => {
+        return acc + scoreDefender(defender);
+      }, 0);
 
       // are hostiles not in primary room?
       const hostilesNotInPrimaryRoom = hostiles.filter((hostile) => {
@@ -357,18 +368,23 @@ function checkColonyDefenses(trace: Tracer, kingdom: Kingdom, hostilesByColony: 
       if (hostilesNotInPrimaryRoom.length) {
         numNeededDefenders = hostilesNotInPrimaryRoom.length;
       } else {
-        const hostileScore = hostiles.reduce((acc, hostile) => {
-          return acc + scoreHostile(hostile);
-        }, 0);
-        const defenderScore = hostiles.reduce((acc, defender) => {
-          return acc + scoreDefender(defender);
-        }, 0);
-
         // Spawn 2 more defenders if defender score less than hostile score
-        if (hostileScore > defenderScore) {
-          numNeededDefenders = defenders.length + 2;
+        if (hostileScore > 100 && hostileScore > defenderScore) {
+          numNeededDefenders = defenders.length + 1;
         }
       }
+
+      trace.notice('hostiles present', {
+        hostileScore,
+        defenderScore,
+        hostilesNotInPrimaryRoom: hostilesNotInPrimaryRoom.length,
+        hostiles: hostiles.map((hostile) => {
+          return {id: hostile.id, roomName: hostile.room.name};
+        }),
+        defenders: defenders.map((defender) => {
+          return {id: defender.id, roomName: defender.room.name};
+        }),
+      });
 
       if (defenders.length < numNeededDefenders) {
         requestAdditionalDefenders(colony, hostiles.length - defenders.length, trace);
@@ -424,8 +440,9 @@ function returnDefendersToStation(trace: Tracer, kingdom: Kingdom, hostilesByCol
     }
 
     const defenders = colony.getCreeps().filter((creep) => {
-      return creep.memory[MEMORY.MEMORY_ROLE] === CREEPS.WORKER_DEFENDER ||
-        creep.memory[MEMORY.MEMORY_ROLE] === CREEPS.WORKER_DEFENDER_DRONE;
+      const role = creep.memory[MEMORY.MEMORY_ROLE];
+      return role === CREEPS.WORKER_DEFENDER || role === CREEPS.WORKER_DEFENDER_DRONE ||
+        role === CREEPS.WORKER_DEFENDER_BOOSTED;
     });
 
     trace.log('sending defenders back to station', {colonyId: colony.id, flagName: flag.name});

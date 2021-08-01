@@ -365,7 +365,7 @@ export default class RoomRunnable {
     }
 
     if (!orgRoom.hasStorage || numDistributors >= desiredDistributors) {
-      trace.notice('do not request distributors', {
+      trace.log('do not request distributors', {
         hasStorage: orgRoom.hasStorage,
         numDistributors,
         desiredDistributors,
@@ -570,7 +570,7 @@ export default class RoomRunnable {
       }
 
 
-      trace.notice('haul dropped', {topic, priority, details});
+      trace.log('haul dropped', {topic, priority, details});
 
       (orgRoom as any).sendRequest(topic, priority, details, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
     });
@@ -617,7 +617,7 @@ export default class RoomRunnable {
           priority = PRIORITIES.HAUL_CORE_DROPPED;
         }
 
-        trace.notice('haul tombstone', {topic, priority, details});
+        trace.log('haul tombstone', {topic, priority, details});
 
         (orgRoom as any).sendRequest(topic, priority, details, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
       });
@@ -763,6 +763,7 @@ export default class RoomRunnable {
     const status = {
       [MEMORY.ROOM_STATUS_NAME]: orgRoom.id,
       [MEMORY.ROOM_STATUS_LEVEL]: orgRoom.getRoomLevel(),
+      [MEMORY.ROOM_STATUS_LEVEL_COMPLETED]: orgRoom.getRoomLevelCompleted(),
       [MEMORY.ROOM_STATUS_TERMINAL]: orgRoom.hasTerminal(),
       [MEMORY.ROOM_STATUS_ENERGY]: resources[RESOURCE_ENERGY] || 0,
       [MEMORY.ROOM_STATUS_ALERT_LEVEL]: orgRoom.getAlertLevel(),
