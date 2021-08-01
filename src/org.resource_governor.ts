@@ -187,7 +187,7 @@ export class ResourceGovernor extends OrgBase {
 
     return _.sortBy(terminals, 'amount').reverse().shift();
   }
-  getTerminals(): TerminalRunnable[] {
+  getTerminals(): StructureTerminal[] {
     return this.getKingdom().getColonies().reduce((acc, colony) => {
       const room = colony.primaryRoom;
       if (!room) {
