@@ -138,8 +138,8 @@ const selectMoveFill = (selector) => {
       behaviorMovement.moveToDestination(1),
       behaviorTree.leafNode(
         'fill_creep',
-        (creep) => {
-          return behaviorMovement.fillCreepFromDestination(creep);
+        (creep, trace) => {
+          return behaviorMovement.fillCreepFromDestination(creep, trace);
         },
       ),
     ],
@@ -160,15 +160,11 @@ module.exports.getEnergy = behaviorTree.repeatUntilConditionMet(
   (creep, trace, kingdom) => {
     const freeCapacity = creep.store.getFreeCapacity(RESOURCE_ENERGY);
     trace.log('creep free capacity', {freeCapacity});
-    return creep.store.getFreeCapacity(RESOURCE_ENERGY) < 1;
+    return creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
   },
   behaviorTree.selectorNode(
     'select_and_fill_with_energy',
     [
-      behaviorTree.leafNode('probe', (creep, trace) => {
-        trace.log('probe');
-        return FAILURE;
-      }),
       selectMoveFill(selectNearbyLink),
       selectMoveFill(selectStorage),
       selectMoveFill(selectContainer),
@@ -212,5 +208,44 @@ module.exports.parkingLot = behaviorTree.leafNode(
     });
 
     return FAILURE;
+  },
+);
+
+module.exports.recycleCreep = behaviorTree.leafNode(
+  'recycle_creep',
+  (creep, trace, kingdom) => {
+    const colony = kingdom.getCreepColony(creep);
+    if (!colony) {
+      trace.log('could not find creep colony');
+      return FAILURE;
+    }
+
+    const room = colony.getPrimaryRoom();
+    if (!room) {
+      trace.log('could not find colony primary room');
+      return FAILURE;
+    }
+
+    const spawns = room.getSpawns();
+    if (!spawns.length) {
+      trace.log('could not find spawns');
+      return FAILURE;
+    }
+
+    const spawn = spawns[0];
+    if (creep.pos.inRangeTo(spawn, 1)) {
+      const result = spawn.recycleCreep(creep);
+      trace.log('recycled creep', {result});
+      return RUNNING;
+    }
+
+    trace.log('moving to spawn');
+
+    creep.moveTo(spawn, {
+      reusePath: 50,
+      maxOps: 1500,
+    });
+
+    return RUNNING;
   },
 );

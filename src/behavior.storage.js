@@ -229,8 +229,8 @@ module.exports.fillCreep = behaviorTree.sequenceNode(
     behaviorMovement.moveToDestination(1, false),
     behaviorTree.leafNode(
       'fill_creep',
-      (creep) => {
-        return behaviorMovement.fillCreepFromDestination(creep);
+      (creep, trace) => {
+        return behaviorMovement.fillCreepFromDestination(creep, trace);
       },
     ),
   ],
@@ -244,8 +244,8 @@ module.exports.fillCreepFrom = (from) => {
       behaviorMovement.moveToDestination(1),
       behaviorTree.leafNode(
         'fill_creep_from_destination',
-        (creep) => {
-          return behaviorMovement.fillCreepFromDestination(creep);
+        (creep, trace) => {
+          return behaviorMovement.fillCreepFromDestination(creep, trace);
         },
       ),
     ],

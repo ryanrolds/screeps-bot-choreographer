@@ -1,8 +1,8 @@
-import {stringify} from 'node:querystring';
 import {OrgBase} from './org.base';
 
 const COST_MATRIX_TTL = 1500;
 const COST_DEFENDER_NOT_BASE = 6;
+const JOURNAL_ENTRY_TTL = 250;
 
 type Journal = {
   rooms: Record<string, RoomEntry>;
@@ -29,7 +29,9 @@ type RoomEntry = {
   controller?: {
     owner: string;
     level: number;
+    safeMode: number;
     safeModeAvailable: number;
+    pos: RoomPosition;
   };
   numSources: number;
   hasHostiles: boolean;
@@ -55,6 +57,7 @@ export type TargetRoom = {
   numTowers: number;
   owner: string;
   level: number;
+  controllerPos: RoomPosition;
 };
 
 export class Scribe extends OrgBase {
@@ -74,6 +77,14 @@ export class Scribe extends OrgBase {
   }
   update(trace) {
     const updateTrace = trace.begin('update');
+
+    Object.values(Game.rooms).forEach((room) => {
+      const entry = this.getRoomById(room.name);
+      if (!entry || Game.time - entry.lastUpdated > JOURNAL_ENTRY_TTL) {
+        this.updateRoom(room);
+      }
+    });
+
     updateTrace.end();
   }
   process(trace) {
@@ -163,6 +174,10 @@ export class Scribe extends OrgBase {
         return false;
       }
 
+      if (room.controller.safeMode) {
+        return false;
+      }
+
       return true;
     }).map((room) => {
       return {
@@ -170,6 +185,7 @@ export class Scribe extends OrgBase {
         numTowers: room.numTowers,
         owner: room.controller.owner,
         level: room.controller.level,
+        controllerPos: room.controller.pos,
       };
     });
   }
@@ -196,7 +212,9 @@ export class Scribe extends OrgBase {
       room.controller = {
         owner: owner,
         level: roomObject.controller.level,
+        safeMode: roomObject.controller.safeMode || 0,
         safeModeAvailable: roomObject.controller.safeModeAvailable,
+        pos: roomObject.controller.pos,
       };
     }
 

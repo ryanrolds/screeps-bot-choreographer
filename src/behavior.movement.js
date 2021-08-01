@@ -1,6 +1,5 @@
 const behaviorTree = require('./lib.behaviortree');
 const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
-const featureFlags = require('./lib.feature_flags');
 
 const MEMORY = require('./constants.memory');
 const {MEMORY_ORIGIN, MEMORY_SOURCE} = require('./constants.memory');
@@ -12,7 +11,7 @@ const MEMORY_MOVE_PREV_POS = 'move_prev_pos';
 const PATH_ORIGIN_KEY = 'path_origin_id';
 const PATH_DESTINATION_KEY = 'path_dest_key';
 
-const getMoveOpts = (ignoreCreeps = false, reusePath = 50, maxOps = 1500, range = 0) => {
+const getMoveOpts = (ignoreCreeps = false, reusePath = 100, maxOps = 2000, range = 0) => {
   return {reusePath, maxOps, ignoreCreeps, range};
 };
 
@@ -298,7 +297,6 @@ const cachedMoveToPosition = (kingdom, creep, destination, range = 1, ignoreCree
   }
 
   // Compare current and last and increase stuck ttl
-  let didMove = false;
   if (prevPos && creep.pos.isEqualTo(prevPos)) {
     if (!creep.memory[MEMORY_MOVE_POS_TTL]) {
       creep.memory[MEMORY_MOVE_POS_TTL] = 0;
@@ -317,44 +315,25 @@ const cachedMoveToPosition = (kingdom, creep, destination, range = 1, ignoreCree
     // Creep is not stuck, update previous position and clear ttl
     creep.memory[MEMORY_MOVE_PREV_POS] = creep.pos;
     creep.memory[MEMORY_MOVE_POS_TTL] = 0;
-    didMove = true;
   }
 
   let result = null;
 
-  const useSerializedPath = featureFlags.getFlag(featureFlags.USE_SERIALIZED_PATH);
-  const usePathCache = featureFlags.getFlag(featureFlags.USE_PATH_CACHE);
-  if (usePathCache && ignoreCreeps) {
+  if (ignoreCreeps) {
     let path = creep.memory[MEMORY.PATH_CACHE];
     if (!path) {
       trace.log('path cache miss');
       path = kingdom.getPathCache().getPath(creep.pos, destination.pos, range, ignoreCreeps);
-
-      if (useSerializedPath) {
-        creep.memory[MEMORY.PATH_CACHE] = path.serializedPath;
-        path = path.serializedPath;
-      } else {
-        path = path.path;
-        creep.memory[MEMORY.PATH_CACHE] = path;
-      }
+      path = path.path;
+      creep.memory[MEMORY.PATH_CACHE] = path;
     } else {
       trace.log('path cache hit');
     }
 
-    if (useSerializedPath) {
-      if (didMove) {
-        path = path.slice(1);
-        creep.memory[MEMORY.PATH_CACHE] = path;
-      }
+    path = deserializePath(path);
+    result = creep.moveByPath(path);
 
-      const direction = parseInt(path[0], 10);
-      result = creep.move(direction);
-    } else {
-      path = deserializePath(path);
-      result = creep.moveByPath(path);
-    }
-
-    trace.log('move by path result', {result, usePathCache, path});
+    trace.log('move by path result', {result, path});
 
     if (result === ERR_NOT_FOUND) {
       delete creep.memory['_move'];
@@ -425,9 +404,11 @@ module.exports.clearDestination = (creep) => {
   delete creep.memory[MEMORY.MEMORY_DESTINATION_SHARD];
 };
 
-module.exports.fillCreepFromDestination = (creep) => {
+module.exports.fillCreepFromDestination = (creep, trace) => {
+  const destinationMemory = creep.memory[MEMORY.MEMORY_DESTINATION];
   const destination = Game.getObjectById(creep.memory[MEMORY.MEMORY_DESTINATION]);
   if (!destination) {
+    trace.log('could not find destination', {destinationMemory});
     return FAILURE;
   }
 
@@ -438,20 +419,8 @@ module.exports.fillCreepFromDestination = (creep) => {
     amount = creep.store.getFreeCapacity(resource);
   }
 
-  // TODO address
-  /*
-  [7:09:13 PM][shard3]TypeError: Cannot read property 'getUsedCapacity' of undefined
-    at Object.module.exports.fillCreepFromDestination (behavior.movement:341:36)
-    at Object.behavior (behavior.room:100:37)
-    at Object.tick (lib.behaviortree:244:31)
-    at Object.tickChildren (lib.behaviortree:79:42)
-    at Object.tick (lib.behaviortree:94:31)
-    at Object.tickChildren (lib.behaviortree:46:36)
-    at Object.tick (lib.behaviortree:64:31)
-    at Object.tick (lib.behaviortree:189:40)
-    at Object.tickChildren (lib.behaviortree:79:42)
-    */
   if (!destination.store) {
+    trace.log('destination does not have a store');
     return FAILURE;
   }
 
@@ -460,15 +429,18 @@ module.exports.fillCreepFromDestination = (creep) => {
   }
 
   if (amount === 0) {
+    trace.log('amount is 0');
     return FAILURE;
   }
 
   // If we are seeing a specific amount, we are done when we have that amount in the hold
   if (amount && creep.store.getUsedCapacity(resource) >= amount) {
+    trace.log('success: have amount we are looking for', {amount, resource});
     return SUCCESS;
   }
 
   result = creep.withdraw(destination, resource, amount);
+  trace.log('widthdrawl result', {result, destinationId: destination.id, resource, amount});
   if (result === OK) {
     return RUNNING;
   }
@@ -476,7 +448,7 @@ module.exports.fillCreepFromDestination = (creep) => {
     return SUCCESS;
   }
   if (result === ERR_NOT_ENOUGH_RESOURCES) {
-    return FAILURE;
+    return SUCCESS;
   }
 
   return FAILURE;
@@ -531,7 +503,7 @@ module.exports.moveToShard = (shardMemoryKey) => {
             return SUCCESS;
           },
         ),
-        cachedMoveToMemoryPos(MEMORY.MEMORY_DESTINATION_POS, 0, true, 50, 2500),
+        cachedMoveToMemoryPos(MEMORY.MEMORY_DESTINATION_POS, 0, true, 100, 2500),
       ],
     ),
   );

@@ -86,6 +86,7 @@ export const REACTION_STATUS_RESOURCE_AMOUNT = 'reaction_resource_amount';
 // Room status
 export const ROOM_STATUS_NAME = 'room_status_name';
 export const ROOM_STATUS_LEVEL = 'room_status_level';
+export const ROOM_STATUS_LEVEL_COMPLETED = 'room_status_level_completed';
 export const ROOM_STATUS_ENERGY = 'room_status_energy';
 export const ROOM_STATUS_ALERT_LEVEL = 'room_status_alert_level';
 export const ROOM_STATUS_TERMINAL = 'room_status_terminal';

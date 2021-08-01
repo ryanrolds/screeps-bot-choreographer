@@ -1,5 +1,3 @@
-const featureFlags = require('./lib.feature_flags');
-
 const COST_MATRIX_TTL = 1000;
 const CACHE_ITEM_TTL = 1000;
 
@@ -196,37 +194,33 @@ class PathCache {
 
       let path = null;
       // Calculate new path
-      if (featureFlags.getFlag(featureFlags.USE_PATH_SEARCH)) {
-        const opts = {
-          plainCost: 2,
-          swampCost: 10,
-          roomCallback: (roomName) => {
-            let room = this.rooms[roomName];
-            if (!room) {
-              const roomEntity = Game.rooms[roomName];
-              if (!roomEntity) {
-                // Return empty cost matrix
-                return new PathFinder.CostMatrix();
-              }
-
-              room = new RoomCostMatrix(roomEntity);
-              this.rooms[roomName] = room;
+      const opts = {
+        plainCost: 2,
+        swampCost: 10,
+        roomCallback: (roomName) => {
+          let room = this.rooms[roomName];
+          if (!room) {
+            const roomEntity = Game.rooms[roomName];
+            if (!roomEntity) {
+              // Return empty cost matrix
+              return new PathFinder.CostMatrix();
             }
 
-            const costMatrix = room.getCostMatrix();
-            return costMatrix;
-          },
-        };
+            room = new RoomCostMatrix(roomEntity);
+            this.rooms[roomName] = room;
+          }
 
-        const result = PathFinder.search(origin, {pos: goal, range}, opts);
+          const costMatrix = room.getCostMatrix();
+          return costMatrix;
+        },
+      };
+
+      const result = PathFinder.search(origin, {pos: goal, range}, opts);
 
 
-        // TODO if incompletely try cutting some off the path to avoid getting stuck
+      // TODO if incompletely try cutting some off the path to avoid getting stuck
 
-        path = result.path;
-      } else {
-        path = origin.findPathTo(goal, {ignoreCreeps});
-      }
+      path = result.path;
 
       const serializedPath = serializePath(origin, path);
       item = this.setCachedPath(originId, goalId, {serializedPath, path}, Game.time);

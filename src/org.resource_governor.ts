@@ -638,6 +638,7 @@ export class ResourceGovernor extends OrgBase {
     ]);
     const levelAndEnergySorted = _.sortByAll(hasTerminals, [
       ['details', MEMORY.ROOM_STATUS_LEVEL].join('.'),
+      ['details', 1 - MEMORY.ROOM_STATUS_LEVEL_COMPLETED].join('.'),
       ['details', MEMORY.ROOM_STATUS_ENERGY].join('.'),
     ]);
 

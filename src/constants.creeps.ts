@@ -5,6 +5,7 @@ export const WORKER_HARVESTER = 'harvester';
 export const WORKER_MINER = 'miner';
 export const WORKER_UPGRADER = 'upgrader';
 export const WORKER_DEFENDER = 'defender';
+export const WORKER_DEFENDER_BOOSTED = 'defender_boosted';
 export const WORKER_DEFENDER_DRONE = 'defender_drone';
 export const WORKER_ATTACKER = 'attacker';
 export const WORKER_ATTACKER_1TOWER = 'attacker_1t';
@@ -85,6 +86,14 @@ export const DEFINITIONS = {
     skippable: true,
   },
   [WORKER_DEFENDER]: {
+    energyLimit: null,
+    parts: [MOVE, HEAL, MOVE, TOUGH, MOVE, RANGED_ATTACK, MOVE, TOUGH, MOVE, RANGED_ATTACK],
+    base: [MOVE, RANGED_ATTACK],
+    //boosts: ['heal', 'damage', 'rangedAttack'],
+    processPriority: Priorities.DEFENCE,
+    skippable: false,
+  },
+  [WORKER_DEFENDER_BOOSTED]: {
     energyLimit: null,
     parts: [MOVE, HEAL, MOVE, TOUGH, MOVE, RANGED_ATTACK, MOVE, TOUGH, MOVE, RANGED_ATTACK],
     base: [MOVE, RANGED_ATTACK],
