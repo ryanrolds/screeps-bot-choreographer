@@ -88,7 +88,7 @@ export default class WarManager {
     }
 
     const request = kingdom.peekNextRequest(TOPICS.ATTACK_ROOM);
-    trace.log("attack room request", {request});
+    trace.notice("attack room request", {request});
 
     this.warParties = this.warParties.filter((party) => {
       return this.scheduler.hasProcess(party.id);

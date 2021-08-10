@@ -8,7 +8,12 @@ import * as TOPICS from './constants.topics';
 import {thread, ThreadFunc} from './os.thread';
 import {TargetRoom} from './org.scribe'
 
-const ATTACK_ROOM_TTL = 20;
+const ATTACK_ROOM_TTL = 250;
+
+export type AttackRequest = {
+  roomId: Id<Room>;
+  colonyId: string;
+};
 
 export default class BufferManager {
   id: string;
@@ -57,10 +62,12 @@ function enforceBuffer(trace: Tracer, kingdom: Kingdom) {
 
     trace.notice('attack hostile room', {colonyId, room});
 
-    kingdom.sendRequest(TOPICS.ATTACK_ROOM, 1, {
-      colony: colonyId,
+    const attackRequest: AttackRequest = {
+      colonyId,
       roomId: room.id,
-    }, ATTACK_ROOM_TTL);
+    };
+
+    kingdom.sendRequest(TOPICS.ATTACK_ROOM, 1, attackRequest, ATTACK_ROOM_TTL);
   });
 }
 

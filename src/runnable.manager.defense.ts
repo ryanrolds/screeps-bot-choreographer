@@ -478,6 +478,10 @@ function updateDefenseStats(trace: Tracer, kingdom: Kingdom, hostilesByColony: R
 }
 
 function scoreHostile(hostile: Creep): number {
+  if (!hostile.body) {
+    return 0;
+  }
+
   return hostile.body.reduce((acc, part) => {
     if (part.type === HEAL) {
       acc += 2;
@@ -493,6 +497,10 @@ function scoreHostile(hostile: Creep): number {
 }
 
 function scoreDefender(defender: Creep): number {
+  if (!defender.body) {
+    return 0;
+  }
+
   return defender.body.reduce((acc, part) => {
     if (part.type === HEAL) {
       acc += 2;
