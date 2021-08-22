@@ -422,10 +422,14 @@ export default class OrgRoom extends OrgBase {
       return null;
     }
 
-    return this.getColony().primaryRoom.getClosestStoreWithEnergy(creep);
+    return this.getColony().primaryOrgRoom.getClosestStoreWithEnergy(creep);
   }
   getReserveStructures(includeTerminal: boolean): AnyStoreStructure[] {
     const reserveStructures = [];
+
+    if (!this.room) {
+      return [];
+    }
 
     if (this.room.storage) {
       reserveStructures.push(this.room.storage);

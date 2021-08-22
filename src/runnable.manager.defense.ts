@@ -187,7 +187,7 @@ function getHostilesByColony(kingdom: Kingdom, rooms: Room[], trace: Tracer): Ho
       const isFriendly = kingdom.getFriends().indexOf(hostile.owner.username) > -1;
       if (isFriendly) {
         const hostilePart = _.find(hostile.body, (part): boolean => {
-          // If hostile has work part and near wall/rampart then view as hostole
+          // If hostile has work part and near wall/rampart then view as hostile
           if (part.type === WORK && hostile.pos.findInRange(FIND_STRUCTURES, 5, {
             filter: (structure) => {
               return structure.structureType === STRUCTURE_RAMPART ||
@@ -199,6 +199,7 @@ function getHostilesByColony(kingdom: Kingdom, rooms: Room[], trace: Tracer): Ho
 
           return hostileParts[part.type];
         });
+
         if (!hostilePart) {
           trace.log('non-hostile creep', {creepName: hostile.name, owner: hostile.owner.username});
           return false;
@@ -377,6 +378,7 @@ function checkColonyDefenses(trace: Tracer, kingdom: Kingdom, hostilesByColony: 
       trace.notice('hostiles present', {
         hostileScore,
         defenderScore,
+        numNeededDefenders,
         hostilesNotInPrimaryRoom: hostilesNotInPrimaryRoom.length,
         hostiles: hostiles.map((hostile) => {
           return {id: hostile.id, roomName: hostile.room.name};

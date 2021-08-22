@@ -2,6 +2,7 @@ import {Topics} from './lib.topics';
 import {Tracer} from './lib.tracing'
 import {Kingdom} from './org.kingdom';
 import OrgRoom from './org.room';
+import {Colony} from './org.colony';
 import {Scheduler} from './os.scheduler';
 
 export class OrgBase {
@@ -23,7 +24,7 @@ export class OrgBase {
   getKingdom(): Kingdom {
     return this.getParent().getKingdom();
   }
-  getColony() {
+  getColony(): Colony {
     return this.getParent().getColony();
   }
   getRoom(): OrgRoom {

@@ -6,12 +6,11 @@ import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
 import WarPartyRunnable from './runnable.warparty';
 import * as TOPICS from './constants.topics';
-import {Phase} from './runnable.warparty';
 import {Colony} from './org.colony';
+import {ATTACK_ROOM_TTL, AttackRequest, AttackStatus, Phase} from './constants.attack';
 
 const WAR_PARTY_PROCESS_PRIORITY = 2;
 const WAR_PARTY_RUN_TTL = 20;
-
 interface StoredWarParty {
   id: string;
   target: string;
@@ -87,17 +86,43 @@ export default class WarManager {
       this.restoreFromMemory(kingdom, trace);
     }
 
-    const request = kingdom.peekNextRequest(TOPICS.ATTACK_ROOM);
-    trace.notice("attack room request", {request});
-
+    // Load war parties
     this.warParties = this.warParties.filter((party) => {
       return this.scheduler.hasProcess(party.id);
     });
 
-    trace.log("war manager run", {warPartyIds: this.warParties.map(warParty => warParty.id)});
+    // Process events
+    let request: any = null;
+    while (request = kingdom.getNextRequest(TOPICS.ATTACK_ROOM)) {
+      trace.log("attack room request", {request});
+
+      switch (request.details.status) {
+        case AttackStatus.REQUESTED:
+          if (!this.targetRoom) {
+            trace.notice("setting targeting room", {targetRoom: this.targetRoom});
+            this.targetRoom = request.details.roomId;
+          }
+          break;
+        case AttackStatus.COMPLETED:
+          if (this.targetRoom === request.details.roomId) {
+            trace.notice('attack completed', {targetRoom: this.targetRoom});
+            kingdom.getScribe().clearRoom(this.targetRoom);
+            this.targetRoom = null;
+          }
+          break;
+        default:
+          throw new Error(`invalid status ${request.details.status}`);
+      }
+    }
+
+    // Write post event status
+    trace.log("war manager state", {
+      targetRoom: this.targetRoom,
+      warPartyIds: this.warParties.map(warParty => warParty.id)
+    });
 
     // Create minimum war parties
-    if (this.warParties.length < 1) {
+    if (this.targetRoom && this.warParties.length < 1) {
       this.createNewWarParty(kingdom, trace);
     }
 
@@ -114,8 +139,6 @@ export default class WarManager {
         };
       })
     };
-
-    trace.log("storing war parties", {parties: (Memory as any).war});
 
     trace.end();
 
@@ -152,7 +175,8 @@ export default class WarManager {
 
     const partyId = `war_party_${this.targetRoom}_${Game.time}`;
     trace.log("creating war party", {target: this.targetRoom, partyId});
-    const warParty = this.createAndScheduleWarParty(colony, partyId, this.targetRoom, Phase.PHASE_MARSHAL, flag.pos, trace);
+    const warParty = this.createAndScheduleWarParty(colony, partyId, this.targetRoom,
+      Phase.PHASE_MARSHAL, flag.pos, trace);
     if (warParty) {
       this.warParties.push(warParty);
     }

@@ -1,4 +1,6 @@
 import {OrgBase} from './org.base';
+import {getRegion, Position} from './lib.flood_fill'
+import {Colony} from './org.colony';
 
 const COST_MATRIX_TTL = 1500;
 const COST_DEFENDER_NOT_BASE = 6;
@@ -8,6 +10,7 @@ type Journal = {
   rooms: Record<string, RoomEntry>;
   creeps: Record<string, Creep>;
   defenderCostMatrices: Record<string, CostMatrixEntry>;
+  colonyCostMatrices: Record<string, CostMatrixEntry>;
 };
 
 type CostMatrixEntry = {
@@ -62,6 +65,7 @@ export type TargetRoom = {
 
 export class Scribe extends OrgBase {
   journal: Journal;
+  costMatrix255: CostMatrix;
 
   constructor(parent, trace) {
     super(parent, 'scribe', trace);
@@ -69,6 +73,7 @@ export class Scribe extends OrgBase {
     this.journal = {
       rooms: {},
       defenderCostMatrices: {},
+      colonyCostMatrices: {},
       creeps: {},
     }
 
@@ -272,6 +277,11 @@ export class Scribe extends OrgBase {
 
     this.journal.rooms[room.id] = room;
   }
+
+  clearRoom(roomId: string) {
+    delete this.journal.rooms[roomId];
+  }
+
   getRoomById(roomId): RoomEntry {
     return this.journal.rooms[roomId] || null;
   }
@@ -353,5 +363,75 @@ export class Scribe extends OrgBase {
     };
 
     return costs;
+  }
+
+  /*
+  getColonyCostMatrix(colony: Colony): CostMatrix {
+    const costMatrixEntry = this.journal.defenderCostMatrices[room.name];
+    if (costMatrixEntry && costMatrixEntry.ttl <= Game.time) {
+      return
+    }
+
+    const costs = this.createDefenderCostMatric(room, spawn);
+
+    this.journal.defenderCostMatrices[room.name] = {
+      id: room.name as Id<Room>,
+      costs,
+      ttl: Game.time + COST_MATRIX_TTL,
+    };
+
+    return costs;
+  }
+  */
+
+  createColonyCostMatrix(colony: Colony): CostMatrix {
+    const room = colony.primaryRoom;
+    const spawn = room.find(FIND_STRUCTURES, {
+      filter: structure => structure.structureType === STRUCTURE_SPAWN
+    })[0];
+
+
+    if (!spawn) {
+      // No spawn, return a cost matrix with 0s
+      return new PathFinder.CostMatrix();
+    }
+
+    const costs = this.get255CostMatrix();
+
+    // Set every position in base to 0
+    const regionValues = Object.values(getRegion(room, spawn.pos));
+    regionValues.forEach((pos: Position) => {
+      costs.set(pos.x, pos.y, 0);
+    });
+
+    return costs;
+  }
+
+  get255CostMatrix(): CostMatrix {
+    if (this.costMatrix255) {
+      return this.costMatrix255.clone();
+    }
+
+    const costs = new PathFinder.CostMatrix();
+    for (let x = 0; x <= 49; x++) {
+      for (let y = 0; y <= 49; y++) {
+        costs.set(x, y, 255);
+      }
+    }
+
+    this.costMatrix255 = costs;
+
+    return costs.clone();
+  }
+
+  visualizeCostMatrix(roomName: string, costMatrix: CostMatrix) {
+    const visual = new RoomVisual(roomName);
+
+    for (let x = 0; x <= 49; x++) {
+      for (let y = 0; y <= 49; y++) {
+        const cost = costMatrix.get(x, y);
+        visual.text((cost / 5).toString(), x, y);
+      }
+    }
   }
 }

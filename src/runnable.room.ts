@@ -32,7 +32,7 @@ const REQUEST_BUILDER_TTL = 30;
 const MIN_DISTRIBUTORS = 1;
 const REQUEST_DISTRIBUTOR_TTL = 10;
 const MIN_RESERVATION_TICKS = 4000;
-const REQUEST_RESERVER_TTL = 5;
+const REQUEST_RESERVER_TTL = 25;
 const MIN_UPGRADERS = 1;
 const MAX_UPGRADERS = 5;
 const REQUEST_UPGRADER_TTL = 25;
@@ -215,7 +215,7 @@ export default class RoomRunnable {
 
       // Link Manager
       const linkManagerId = `links_${this.id}`
-      if (!this.scheduler.hasProcess(linkManagerId)) {
+      if (!this.scheduler.hasProcess(linkManagerId) && orgRoom.room.storage) {
         this.scheduler.registerProcess(new Process(linkManagerId, 'links', Priorities.LOGISTICS,
           new LinkManager(linkManagerId, orgRoom)));
       }
@@ -428,13 +428,20 @@ export default class RoomRunnable {
     if (notOwned && !orgRoom.numHostiles || reservedByMeAndEndingSoon) {
       trace.log('sending reserve request to colony');
 
-      (orgRoom as any).requestSpawn(PRIORITIES.PRIORITY_RESERVER, {
+      const details = {
         role: CREEPS.WORKER_RESERVER,
         memory: {
           [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
           [MEMORY.MEMORY_COLONY]: (orgRoom as any).getColony().id,
         },
-      }, REQUEST_RESERVER_TTL);
+      }
+
+      if (orgRoom.getColony().primaryRoom.energyCapacityAvailable < 800) {
+        orgRoom.getKingdom().sendRequest(TOPICS.TOPIC_SPAWN, PRIORITIES.PRIORITY_RESERVER,
+          details, REQUEST_RESERVER_TTL);
+      } else {
+        orgRoom.requestSpawn(PRIORITIES.PRIORITY_RESERVER, details, REQUEST_RESERVER_TTL);
+      }
     }
   }
 

@@ -98,7 +98,7 @@ module.exports.harvest = behaviorTree.leafNode(
     if (result === ERR_NOT_ENOUGH_RESOURCES) {
       return RUNNING;
     }
-    if (result == OK) {
+    if (result === OK) {
       return RUNNING;
     }
 

@@ -228,7 +228,7 @@ const loadIfNeeded = behaviorTree.selectorNode(
     behaviorTree.sequenceNode(
       'get_resource',
       [
-        behaviorMovement.moveToCreepMemory(MEMORY.MEMORY_HAUL_PICKUP, 1, true, 10, 500),
+        behaviorMovement.moveToCreepMemory(MEMORY.MEMORY_HAUL_PICKUP, 1, true, 10, 1000),
         behaviorHaul.loadCreep,
       ],
     ),

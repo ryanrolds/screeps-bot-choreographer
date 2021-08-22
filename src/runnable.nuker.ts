@@ -9,7 +9,7 @@ import * as PRIORITIES from "./constants.priorities"
 
 const REQUEST_RESOURCES_TTL = 25;
 
-export default class NuckerRunnable {
+export default class NukerRunnable {
   orgRoom: OrgRoom;
   id: Id<StructureNuker>;
 
@@ -82,7 +82,7 @@ export default class NuckerRunnable {
         if (position !== null) {
           trace.log('would nuke', {position});
           const result = nuker.launchNuke(position);
-          trace.log('nuker launch result', {result, position});
+          trace.notice('nuker launch result', {result, position});
         }
       }
     }

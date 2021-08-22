@@ -6,14 +6,10 @@ import {Tracer} from './lib.tracing';
 import {WORKER_ATTACKER} from './constants.creeps'
 import {PRIORITY_ATTACKER} from "./constants.priorities";
 import PartyRunnable from './runnable.party';
+import {ATTACK_ROOM_TTL, AttackRequest, AttackStatus, Phase} from './constants.attack';
+import * as TOPICS from './constants.topics';
 
 const REQUEST_ATTACKER_TTL = 30;
-
-export enum Phase {
-  PHASE_MARSHAL = 'marshal',
-  PHASE_EN_ROUTE = 'en_route',
-  PHASE_ATTACK = 'attack',
-}
 
 const DIRECTION_2BY2_FORMATION = {
   [TOP]: [
@@ -90,6 +86,7 @@ const ADJACENT_SIDES: Record<DirectionConstant, DirectionConstant[]> = {
 
 export default class WarPartyRunnable {
   id: string;
+  colony: Colony;
   flagId: string; // Starting position
   targetRoom: string; // Destination room
   phase: Phase;
@@ -110,6 +107,7 @@ export default class WarPartyRunnable {
   constructor(id: string, colony: Colony, flagId: string, position: RoomPosition, targetRoom: string,
     phase: Phase) {
     this.id = id;
+    this.colony = colony;
     this.flagId = flagId;
     this.targetRoom = targetRoom;
     this.phase = phase || Phase.PHASE_MARSHAL;
@@ -189,6 +187,19 @@ export default class WarPartyRunnable {
         } else {
           const done = this.engage(kingdom, targetRoomObject, creeps, trace);
           if (done) {
+            trace.log('done, notify war manager that room is cleared', {targetRoom: this.targetRoom});
+
+            // Inform that attack is completed
+            const attackUpdate: AttackRequest = {
+              status: AttackStatus.COMPLETED,
+              roomId: targetRoom,
+              colonyId: this.colony.id,
+            };
+            this.kingdom.sendRequest(TOPICS.ATTACK_ROOM, 1, attackUpdate, ATTACK_ROOM_TTL);
+
+            // TODO go into waiting for orders phase
+
+            // Done, terminate
             this.party.done();
           }
         }
@@ -283,14 +294,13 @@ export default class WarPartyRunnable {
     if (room) {
       targets = this.getTargets(kingdom, room);
       if (targets.length) {
+        trace.log('target', targets[0]);
         destination = targets[0].pos;
+      } else {
+        trace.log("no targets");
+        return true;
       }
     }
-
-    if (!targets.length) {
-      return true;
-    }
-
     this.destination = destination;
 
     const [nextPosition, direction, blockers] = this.getNextPosition(this.position, this.destination, trace);
@@ -334,6 +344,7 @@ export default class WarPartyRunnable {
       }
     } else {
       trace.log("no targets");
+      return false;
     }
 
     return false;
@@ -674,22 +685,6 @@ export default class WarPartyRunnable {
     this.costMatrices[roomName] = costMatrix;
 
     return costMatrix;
-  }
-
-  printCostMatric(roomName: string) {
-    const matrix = this.costMatrices[roomName];
-    if (!matrix) {
-      return;
-    }
-
-    const visual = new RoomVisual(roomName);
-
-    for (let x = 0; x <= 49; x++) {
-      for (let y = 0; y <= 49; y++) {
-        const cost = matrix.get(x, y);
-        visual.text((cost / 5).toString(), x, y);
-      }
-    }
   }
 
   setFormation(direction: DirectionConstant) {

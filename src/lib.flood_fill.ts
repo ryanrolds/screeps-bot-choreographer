@@ -57,6 +57,13 @@ export function getRegion(room: Room, starting: RoomPosition): RegionMap {
     }
   }
 
+  // Get ramparts and add to region map
+  room.find<StructureRampart>(FIND_STRUCTURES, {
+    filter: structure => structure.structureType === STRUCTURE_RAMPART
+  }).forEach((rampart: StructureRampart) => {
+    regionMap[[rampart.pos.x, rampart.pos.y].join(',')] = {x: rampart.pos.x, y: rampart.pos.y};
+  });
+
   return regionMap;
 }
 
@@ -69,6 +76,10 @@ function isWallOrInRegion(room: Room, regionMap: RegionMap, pos: Position): bool
   return !!_.find(objects, (object) => {
     if (object.type === LOOK_STRUCTURES) {
       return blockingObjects[object.structure.structureType];
+    }
+
+    if (object.type === LOOK_TERRAIN && object.terrain === 'wall') {
+      return true;
     }
 
     return false;

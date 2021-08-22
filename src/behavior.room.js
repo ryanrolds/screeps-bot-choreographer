@@ -160,7 +160,7 @@ module.exports.getEnergy = behaviorTree.repeatUntilConditionMet(
   (creep, trace, kingdom) => {
     const freeCapacity = creep.store.getFreeCapacity(RESOURCE_ENERGY);
     trace.log('creep free capacity', {freeCapacity});
-    return creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
+    return creep.store.getFreeCapacity(RESOURCE_ENERGY) <= 0;
   },
   behaviorTree.selectorNode(
     'select_and_fill_with_energy',

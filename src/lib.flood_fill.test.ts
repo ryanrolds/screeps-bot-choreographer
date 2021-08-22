@@ -2,7 +2,7 @@ import 'mocha';
 import {expect} from 'chai';
 import * as sinon from 'sinon';
 import {stubObject, StubbedInstance} from "ts-sinon";
-import {setup, mockGlobal, mockInstanceOf} from "screeps-test-helper";
+import {setup, mockGlobal, mockInstanceOf, mockStructure} from "screeps-test-helper";
 import * as _ from "lodash";
 
 import {getRegion} from './lib.flood_fill';
@@ -16,7 +16,10 @@ describe('Flood Fill', function () {
         name: 'E01S01',
         lookAt: () => {
           return [];
-        }
+        },
+        find: () => {
+          return [];
+        },
       })
       const region = getRegion(room, new RoomPosition(25, 25, room.name));
       expect(Object.values(region).length).to.equal(2400);
@@ -34,7 +37,10 @@ describe('Flood Fill', function () {
           }
 
           return [];
-        }
+        },
+        find: () => {
+          return [];
+        },
       })
       const region = getRegion(room, new RoomPosition(25, 25, roomName));
       expect(Object.values(region).length).to.equal(1);
@@ -52,10 +58,34 @@ describe('Flood Fill', function () {
           }
 
           return [];
-        }
+        },
+        find: () => {
+          return [];
+        },
       })
       const region = getRegion(room, new RoomPosition(25, 25, roomName));
       expect(Object.values(region).length).to.equal(0);
+    });
+
+    it("should region for larger circle of indestructible walls", () => {
+      const roomName = 'E01S01'
+      const room = mockInstanceOf<Room>({
+        name: roomName,
+        lookAt: (x, y) => {
+          if (x >= 24 && x <= 26 && y >= 24 && y <= 26) {
+            return [];
+          } else if (x >= 23 && x <= 27 && y >= 23 && y <= 27) {
+            return [{type: LOOK_TERRAIN, terrain: 'wall'}];
+          }
+
+          return [];
+        },
+        find: () => {
+          return [];
+        },
+      })
+      const region = getRegion(room, new RoomPosition(25, 25, roomName));
+      expect(Object.values(region).length).to.equal(9);
     });
 
     it("should region for larger circle of walls", () => {
@@ -70,13 +100,16 @@ describe('Flood Fill', function () {
           }
 
           return [];
-        }
+        },
+        find: () => {
+          return [];
+        },
       })
       const region = getRegion(room, new RoomPosition(25, 25, roomName));
       expect(Object.values(region).length).to.equal(9);
     });
 
-    it("should region for larger circle of ramparts", () => {
+    it("should region for larger circle of ramparts and include ramparts", () => {
       const roomName = 'E01S01'
       const room = mockInstanceOf<Room>({
         name: roomName,
@@ -88,10 +121,64 @@ describe('Flood Fill', function () {
           }
 
           return [];
-        }
-      })
+        },
+        find: () => {
+          // Return a square formation of ramparts around center
+          return [
+            mockStructure(STRUCTURE_SPAWN, {
+              pos: RoomPosition(23, 23, roomName),
+            }),
+            mockStructure(STRUCTURE_SPAWN, {
+              pos: RoomPosition(23, 24, roomName),
+            }),
+            mockStructure(STRUCTURE_SPAWN, {
+              pos: RoomPosition(23, 25, roomName),
+            }),
+            mockStructure(STRUCTURE_SPAWN, {
+              pos: RoomPosition(23, 26, roomName),
+            }),
+            mockStructure(STRUCTURE_SPAWN, {
+              pos: RoomPosition(23, 27, roomName),
+            }),
+            mockStructure(STRUCTURE_SPAWN, {
+              pos: RoomPosition(24, 27, roomName),
+            }),
+            mockStructure(STRUCTURE_SPAWN, {
+              pos: RoomPosition(25, 27, roomName),
+            }),
+            mockStructure(STRUCTURE_SPAWN, {
+              pos: RoomPosition(26, 27, roomName),
+            }),
+            mockStructure(STRUCTURE_SPAWN, {
+              pos: RoomPosition(27, 27, roomName),
+            }),
+            mockStructure(STRUCTURE_SPAWN, {
+              pos: RoomPosition(27, 26, roomName),
+            }),
+            mockStructure(STRUCTURE_SPAWN, {
+              pos: RoomPosition(27, 25, roomName),
+            }),
+            mockStructure(STRUCTURE_SPAWN, {
+              pos: RoomPosition(27, 24, roomName),
+            }),
+            mockStructure(STRUCTURE_SPAWN, {
+              pos: RoomPosition(27, 23, roomName),
+            }),
+            mockStructure(STRUCTURE_SPAWN, {
+              pos: RoomPosition(26, 23, roomName),
+            }),
+            mockStructure(STRUCTURE_SPAWN, {
+              pos: RoomPosition(25, 23, roomName),
+            }),
+            mockStructure(STRUCTURE_SPAWN, {
+              pos: RoomPosition(24, 23, roomName),
+            }),
+          ];
+        },
+      });
+
       const region = getRegion(room, new RoomPosition(25, 25, roomName));
-      expect(Object.values(region).length).to.equal(9);
+      expect(Object.values(region).length).to.equal(25);
     });
   });
 });

@@ -6,14 +6,8 @@ import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
 import * as TOPICS from './constants.topics';
 import {thread, ThreadFunc} from './os.thread';
-import {TargetRoom} from './org.scribe'
-
-const ATTACK_ROOM_TTL = 250;
-
-export type AttackRequest = {
-  roomId: Id<Room>;
-  colonyId: string;
-};
+import {TargetRoom} from './org.scribe';
+import {ATTACK_ROOM_TTL, AttackRequest, AttackStatus} from './constants.attack';
 
 export default class BufferManager {
   id: string;
@@ -63,6 +57,7 @@ function enforceBuffer(trace: Tracer, kingdom: Kingdom) {
     trace.notice('attack hostile room', {colonyId, room});
 
     const attackRequest: AttackRequest = {
+      status: AttackStatus.REQUESTED,
       colonyId,
       roomId: room.id,
     };
@@ -88,7 +83,7 @@ function getHostileRoomsByColony(kingdom: Kingdom, trace: Tracer): HostileRoomsB
 
   const hostileRoomsByColony = {};
 
-  const colonies = kingdom.getColonies().filter(colony => colony.primaryRoom.controller.level >= 6)
+  const colonies = kingdom.getColonies().filter(colony => colony.primaryRoom?.controller?.level >= 6)
   colonies.forEach((colony) => {
     const nearByWeakRooms = weakRooms.filter((room) => {
       trace.log('checking if room should be attacked', {colonyId: colony.id, weakRoom: room.id});

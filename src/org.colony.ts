@@ -237,13 +237,13 @@ export class Colony extends OrgBase {
       `AvgHaulerCapacity: ${this.avgHaulerCapacity}, ` +
       `#Defenders: ${this.defenders.length}`;
   }
-  getColony() {
+  getColony(): Colony {
     return this;
   }
   getRoom(): OrgRoom {
     throw new Error('a colony is not a room');
   }
-  getPrimaryRoom() {
+  getPrimaryRoom(): OrgRoom {
     return this.primaryOrgRoom;
   }
   getRoomByID(roomId) {
@@ -399,7 +399,8 @@ export class Colony extends OrgBase {
         return;
       }
 
-      if (this.primaryOrgRoom && this.primaryOrgRoom.hasSpawns) {
+      if (this.primaryOrgRoom && this.primaryOrgRoom.hasSpawns &&
+        this.primaryOrgRoom.room.energyCapacityAvailable >= 800) {
         this.sendRequest(TOPIC_SPAWN, PRIORITY_CLAIMER, {
           role: WORKER_RESERVER,
           memory: {
