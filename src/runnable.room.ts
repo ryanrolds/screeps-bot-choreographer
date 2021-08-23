@@ -138,7 +138,7 @@ export default class RoomRunnable {
 
       this.threadUpdateRampartAccess(trace, orgRoom, room);
       this.threadRequestExtensionFilling(trace, orgRoom, room);
-      this.threadCheckSafeMode(trace, room);
+      this.threadCheckSafeMode(trace, kingdom, room);
       this.threadProduceStatus(trace, orgRoom);
     }
 
@@ -674,7 +674,7 @@ export default class RoomRunnable {
     this.defensePosture = posture;
   }
 
-  checkSafeMode(trace: Tracer, room: Room) {
+  checkSafeMode(trace: Tracer, kingdom: Kingdom, room: Room) {
     const controller = room.controller;
     if (!controller) {
       trace.log('controller not found');
@@ -683,7 +683,12 @@ export default class RoomRunnable {
 
     let enableSafeMode = false;
 
-    const hostiles = room.find(FIND_HOSTILE_CREEPS);
+    let hostiles = room.find(FIND_HOSTILE_CREEPS);
+
+    // Filter friendly creeps
+    const friends = kingdom.config.friends;
+    hostiles = hostiles.filter(creep => friends.indexOf(creep.owner.username) === -1);
+
     if (hostiles) {
       const infrastructure = room.find(FIND_MY_STRUCTURES, {
         filter: (structure) => {

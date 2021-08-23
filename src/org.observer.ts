@@ -30,7 +30,7 @@ export class Observer extends OrgBase {
 
     if (this.justObserved && Game.rooms[this.justObserved]) {
       const updateRoomTrace = updateTrace.begin('update_room');
-      this.scribe.updateRoom(Game.rooms[this.justObserved]);
+      this.scribe.updateRoom(this.getKingdom(), Game.rooms[this.justObserved]);
       updateRoomTrace.end();
     }
 

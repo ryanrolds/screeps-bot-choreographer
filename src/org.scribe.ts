@@ -1,5 +1,6 @@
 import {OrgBase} from './org.base';
 import {getRegion, Position} from './lib.flood_fill'
+import {Kingdom} from './org.kingdom';
 import {Colony} from './org.colony';
 
 const COST_MATRIX_TTL = 1500;
@@ -88,7 +89,7 @@ export class Scribe extends OrgBase {
     Object.values(Game.rooms).forEach((room) => {
       const entry = this.getRoomById(room.name);
       if (!entry || Game.time - entry.lastUpdated > JOURNAL_ENTRY_TTL) {
-        this.updateRoom(room);
+        this.updateRoom(this.getKingdom(), room);
       }
     });
 
@@ -201,7 +202,7 @@ export class Scribe extends OrgBase {
       };
     });
   }
-  updateRoom(roomObject: Room) {
+  updateRoom(kingdom: Kingdom, roomObject: Room) {
     const room: RoomEntry = {
       id: roomObject.name as Id<Room>,
       lastUpdated: Game.time,
@@ -232,7 +233,13 @@ export class Scribe extends OrgBase {
     }
 
     room.numSources = roomObject.find(FIND_SOURCES).length;
-    room.hasHostiles = roomObject.find(FIND_HOSTILE_CREEPS).length > 0;
+
+    let hostiles = roomObject.find(FIND_HOSTILE_CREEPS);
+    // Filter friendly creeps
+    const friends = kingdom.config.friends;
+    hostiles = hostiles.filter(creep => friends.indexOf(creep.owner.username) === -1);
+
+    room.hasHostiles = hostiles.length > 0;
 
     room.numTowers = roomObject.find(FIND_HOSTILE_STRUCTURES, {
       filter: (structure) => {

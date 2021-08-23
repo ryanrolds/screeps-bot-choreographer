@@ -12,6 +12,7 @@ import {Tracer} from './lib.tracing'
 import {MEMORY_ROLE, MEMORY_ASSIGN_ROOM, MEMORY_HARVEST_ROOM} from './constants.memory';
 import {TOPIC_SPAWN} from './constants.topics';
 import {WORKER_HAULER} from './constants.creeps';
+import {Kingdom} from './org.kingdom';
 
 const MEMORY_HOSTILE_TIME = 'hostile_time';
 const MEMORY_HOSTILE_POS = 'hostile_pos';
@@ -151,8 +152,8 @@ export default class OrgRoom extends OrgBase {
     this.numDefenders = 0;
     this.defendersLost = 0;
     this.invaderCores = [];
-    this.threadUpdateDefenseStatus = thread('defense_status_thread', UPDATE_DEFENSE_STATUS_TTL)((trace, room) => {
-      this.updateDefenseStatus(room, trace);
+    this.threadUpdateDefenseStatus = thread('defense_status_thread', UPDATE_DEFENSE_STATUS_TTL)((trace, room, kingdom) => {
+      this.updateDefenseStatus(kingdom, room, trace);
     });
 
     this.damagedCreeps = [];
@@ -326,7 +327,7 @@ export default class OrgRoom extends OrgBase {
     });
 
     this.threadUpdateCreeps(trace);
-    this.threadUpdateDefenseStatus(trace, room);
+    this.threadUpdateDefenseStatus(trace, room, this.getKingdom());
     this.threadUpdateRoom(trace);
 
     if (this.isPrimary) {
@@ -750,16 +751,20 @@ export default class OrgRoom extends OrgBase {
 
     updateCreepsTrace.end();
   }
-  updateDefenseStatus(room, trace) {
+  updateDefenseStatus(kingdom: Kingdom, room: Room, trace: Tracer) {
     const defenseTrace = trace.begin('defenses');
 
     // We want to know if the room has hostiles, request defenders or put room in safe mode
-    const hostiles = this.room.find(FIND_HOSTILE_CREEPS);
-    // TODO order hostiles by priority
+    let hostiles = room.find(FIND_HOSTILE_CREEPS);
+
+    // Filter friendly creeps
+    const friends = kingdom.config.friends;
+    hostiles = hostiles.filter(creep => friends.indexOf(creep.owner.username) === -1);
+
     this.hostiles = hostiles;
     this.numHostiles = this.hostiles.length;
 
-    this.numDefenders = this.room.find(FIND_MY_CREEPS, {
+    this.numDefenders = room.find(FIND_MY_CREEPS, {
       filter: (creep) => {
         const role = creep.memory[MEMORY.MEMORY_ROLE];
         return role === CREEPS.WORKER_DEFENDER || role === CREEPS.WORKER_DEFENDER_DRONE ||
