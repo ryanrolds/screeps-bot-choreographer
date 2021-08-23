@@ -4,6 +4,7 @@ const {FAILURE} = require('./lib.behaviortree');
 const behaviorCommute = require('./behavior.commute');
 const behaviorMovement = require('./behavior.movement');
 const behaviorBoosts = require('./behavior.boosts');
+const behaviorRoom = require('./behavior.room');
 const MEMORY = require('./constants.memory');
 
 const behavior = behaviorTree.sequenceNode(
@@ -65,6 +66,7 @@ const behavior = behaviorTree.sequenceNode(
       ),
     ),
     behaviorCommute.setCommuteDuration,
+    behaviorRoom.updateSign,
     behaviorTree.repeatUntilSuccess(
       'reserve',
       behaviorTree.leafNode(

@@ -39,6 +39,7 @@ type RoomEntry = {
   numSources: number;
   hasHostiles: boolean;
   numTowers: number;
+  numKeyStructures: number;
   mineral: MineralConstant;
   portals: PortalEntry[];
   powerBanks: {
@@ -58,6 +59,7 @@ type RoomEntry = {
 export type TargetRoom = {
   id: Id<Room>;
   numTowers: number;
+  numKeyStructures: number;
   owner: string;
   level: number;
   controllerPos: RoomPosition;
@@ -183,11 +185,16 @@ export class Scribe extends OrgBase {
         return false;
       }
 
+      if (room.numKeyStructures < 1) {
+        return false;
+      }
+
       return true;
     }).map((room) => {
       return {
         id: room.id,
         numTowers: room.numTowers,
+        numKeyStructures: room.numKeyStructures,
         owner: room.controller.owner,
         level: room.controller.level,
         controllerPos: room.controller.pos,
@@ -202,6 +209,7 @@ export class Scribe extends OrgBase {
       numSources: 0,
       hasHostiles: false,
       numTowers: 0,
+      numKeyStructures: 0,
       mineral: null,
       powerBanks: [],
       portals: [],
@@ -229,6 +237,15 @@ export class Scribe extends OrgBase {
     room.numTowers = roomObject.find(FIND_HOSTILE_STRUCTURES, {
       filter: (structure) => {
         return structure.structureType === STRUCTURE_TOWER;
+      },
+    }).length;
+
+    room.numKeyStructures = roomObject.find(FIND_HOSTILE_STRUCTURES, {
+      filter: (structure) => {
+        return structure.structureType === STRUCTURE_TOWER ||
+          structure.structureType === STRUCTURE_SPAWN ||
+          structure.structureType === STRUCTURE_TERMINAL ||
+          structure.structureType === STRUCTURE_NUKER;
       },
     }).length;
 

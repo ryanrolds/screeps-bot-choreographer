@@ -249,3 +249,42 @@ module.exports.recycleCreep = behaviorTree.leafNode(
     return RUNNING;
   },
 );
+
+const sign = `Not friendly. Recall your AI. Train your AI before it's off leash!`;
+
+module.exports.updateSign = behaviorTree.repeatUntilConditionMet(
+  'check_sign',
+  (creep, trace, kingdom) => {
+    if (!creep.room || !creep.room.controller || !creep.room.controller.sign) {
+      return true;
+    }
+
+    return creep.room.controller.sign.text === sign;
+  },
+  behaviorTree.sequenceNode(
+    'update_sign',
+    [
+      behaviorTree.leafNode(
+        'pick_room_controller',
+        (creep) => {
+          behaviorMovement.setDestination(creep, creep.room.controller.id);
+          return SUCCESS;
+        },
+      ),
+      behaviorMovement.moveToDestination(1, false, 25, 1500),
+      behaviorTree.leafNode(
+        'set_sign',
+        (creep, trace, kingdom) => {
+          const result = creep.signController(creep.room.controller, sign);
+          trace.log('set sign', {result});
+
+          if (result === OK) {
+            return SUCCESS;
+          }
+
+          return FAILURE;
+        },
+      ),
+    ],
+  ),
+);

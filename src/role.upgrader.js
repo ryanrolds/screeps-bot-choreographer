@@ -13,6 +13,7 @@ const behavior = behaviorTree.sequenceNode(
     behaviorMovement.moveToShard(MEMORY.MEMORY_ASSIGN_SHARD),
     behaviorAssign.moveToRoom,
     behaviorRoom.getEnergy,
+    behaviorRoom.updateSign,
     behaviorTree.leafNode(
       'pick_room_controller',
       (creep) => {
