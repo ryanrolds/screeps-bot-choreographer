@@ -148,8 +148,8 @@ export class Colony extends OrgBase {
       }
     });
 
-    this.threadRequestReserversForMissingRooms = thread('request_servers_thread', REQUEST_MISSING_ROOMS_TTL)(() => {
-      this.requestReserverForMissingRooms();
+    this.threadRequestReserversForMissingRooms = thread('request_servers_thread', REQUEST_MISSING_ROOMS_TTL)((trace) => {
+      this.requestReserverForMissingRooms(trace);
     });
 
     this.threadRequestHaulers = thread('request_haulers_thread', REQUEST_HAULER_TTL)(() => {
@@ -387,7 +387,7 @@ export class Colony extends OrgBase {
       }, REQUEST_EXPLORER_TTL);
     }
   }
-  requestReserverForMissingRooms() {
+  requestReserverForMissingRooms(trace: Tracer) {
     this.missingRooms.forEach((roomID) => {
       const numReservers = this.assignedCreeps.filter((creep) => {
         return creep.memory[MEMORY_ROLE] == CREEPS.WORKER_RESERVER &&
@@ -410,13 +410,15 @@ export class Colony extends OrgBase {
       } else {
         // Bootstrapping a new colony requires another colony sending
         // creeps to claim and build a spawner
-        this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITY_CLAIMER, {
+        const details = {
           role: WORKER_RESERVER,
           memory: {
             [MEMORY_ASSIGN_ROOM]: roomID,
             [MEMORY.MEMORY_COLONY]: this.id,
           },
-        }, REQUEST_MISSING_ROOMS_TTL);
+        };
+        trace.log('requesting claimer from kingdom', {details});
+        this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITY_CLAIMER, details, REQUEST_MISSING_ROOMS_TTL);
       }
     });
   }

@@ -38,11 +38,11 @@ let config: KingdomConfig = {
         isPublic: false,
         rooms: ['E22S49'],
       },
-      'E27S51-Shard2': {
-        id: 'E27S51-Shard2',
-        primary: 'E27S51',
+      'E17S51-Shard2': {
+        id: 'E17S51-Shard2',
+        primary: 'E17S51',
         isPublic: false,
-        rooms: ['E27S51'],
+        rooms: ['E17S51'],
       }/*,
       'E21S45-Shard2': {
         id: 'E21S45-Shard2',
