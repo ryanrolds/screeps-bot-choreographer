@@ -18,6 +18,7 @@ export default class SourceRunnable {
   id: string;
   orgRoom: OrgRoom;
   sourceId: Id<Source | Mineral>;
+  position: RoomPosition;
   prevTime: number;
 
   ttl: number;
@@ -34,6 +35,7 @@ export default class SourceRunnable {
   constructor(room: OrgRoom, source: (Source | Mineral)) {
     this.orgRoom = room;
     this.sourceId = source.id;
+    this.position = source.pos;
     this.prevTime = Game.time;
     this.ttl = PROCESS_TTL;
     this.workerTTL = 0;
@@ -183,6 +185,8 @@ export default class SourceRunnable {
     if (this.desiredHarvesters > numHarvesters) {
       trace.log('requesting harvester', {sourceId: this.sourceId});
 
+      const positionStr = [this.position.x, this.position.y, this.position.roomName].join(',');
+
       // As we get more harvesters, make sure other creeps get a chance to spawn
       const priority = PRIORITIES.PRIORITY_HARVESTER - (numHarvesters * 1.5);
       (this.orgRoom as any).requestSpawn(priority, {
@@ -191,6 +195,7 @@ export default class SourceRunnable {
           [MEMORY.MEMORY_HARVEST]: this.sourceId, // Deprecated
           [MEMORY.MEMORY_HARVEST_ROOM]: room.name, // Deprecated
           [MEMORY.MEMORY_SOURCE]: this.sourceId,
+          [MEMORY.MEMORY_SOURCE_POSITION]: positionStr,
           [MEMORY.MEMORY_ASSIGN_ROOM]: room.name,
           [MEMORY.MEMORY_COLONY]: (this.orgRoom as any).getColony().id,
         },

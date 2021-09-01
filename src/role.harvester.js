@@ -12,8 +12,9 @@ const MEMORY = require('./constants.memory');
 const behavior = behaviorTree.sequenceNode(
   'haul_energy',
   [
-    behaviorHarvest.moveToHarvestRoom,
-    behaviorHarvest.moveToHarvest,
+    // behaviorHarvest.moveToHarvestRoom,
+    // behaviorHarvest.moveToHarvest,
+    behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_SOURCE_POSITION, 1, true, 100, 2000),
     behaviorCommute.setCommuteDuration,
     behaviorHarvest.harvest,
     behaviorTree.selectorNode(

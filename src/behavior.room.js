@@ -49,6 +49,7 @@ const pickupDroppedEnergy = behaviorTree.leafNode(
     return RUNNING;
   },
 );
+module.exports.pickupDroppedEnergy = pickupDroppedEnergy;
 
 const selectNearbyLink = behaviorTree.leafNode(
   'select_nearby_link',
@@ -145,6 +146,7 @@ const selectMoveFill = (selector) => {
     ],
   );
 };
+module.exports.selectMoveFill = selectMoveFill;
 
 const fillCreepFromSource = behaviorTree.sequenceNode(
   'fill_from_source',

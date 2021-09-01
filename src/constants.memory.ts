@@ -4,7 +4,8 @@ export const SPAWN_MIN_ENERGY = 'spawn_min_energy';
 
 // Old source memory ID (deprecated)
 export const MEMORY_SOURCE = 'source';
-export const MEMORY_SOURCE_ROOM = 'source';
+export const MEMORY_SOURCE_ROOM = 'source_room';
+export const MEMORY_SOURCE_POSITION = 'source_position';
 
 // General movement memory IDs (use this for nearly all movement)
 export const MEMORY_DESTINATION = 'destination';

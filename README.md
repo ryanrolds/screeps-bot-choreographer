@@ -45,15 +45,20 @@ An AI for [Screeps](screeps.com).
 - [ ] Move Org/Kingdom work to scheduler
 - [ ] Auto-construction of roads to remote sources
 - [ ] Improved defenders that hide in ramparts
-- [ ] Auto attack of weaker Overmind players
-- [ ] Intra-shared movement and claiming
+- [x] Auto attack of weaker players
+- [x] Intra-shared movement and claiming
 - [ ] Collect Power
 - [ ] Create & drive Power Creeps
 - [ ] Harvest commodities
-
-#### Considering
-
+- [ ] Buff ramparts and walls to withstand nuke
+- [ ] Harass remote mining rooms
+- [ ] Move all data sharing between processes to topics/IPC (remove direct access)
 - [ ] Automatic layout and expansion
+- [ ] Apply buffer to lvl8 rooms
+- [ ] Allow buffer manager to nuke and time sending attackers
+- [ ] Police portal rooms
+- [ ] Attack other players getting commodities/power
+- [ ] Quads moving coherently 100% of time
 
 ## Setup
 
