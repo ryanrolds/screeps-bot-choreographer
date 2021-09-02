@@ -32,7 +32,6 @@ interface StoredDefenseParty {
   id: string;
   flagId: string;
   position: RoomPosition;
-  colony: string;
 }
 
 interface DefenseMemory {
@@ -70,15 +69,15 @@ export default class DefenseManager {
     this.memory = memory.defense;
 
     this.defenseParties = this.memory.parties.map((party) => {
-      if (!party.id || !party.position) {
+      if (!party.id || !party.position || !party.flagId) {
+        trace.notice("invalid defense party", {party});
         return null;
       }
 
       party.position = new RoomPosition(party.position.x, party.position.y, party.position.roomName);
-
       return this.createAndScheduleDefenseParty(kingdom, party.id, party.flagId, party.position, trace);
     }).filter((party) => {
-      return party
+      return !!party
     });
   }
 
@@ -87,16 +86,17 @@ export default class DefenseManager {
 
     const flag = Game.flags[flagId] || null;
     if (!flag) {
-      trace.log('flag not found, not creating defense party', {flagId});
+      trace.notice('flag not found, not creating defense party', {flagId});
       return;
     }
 
     const colony = kingdom.getClosestColonyInRange(flag.pos.roomName, 5);
     if (!colony) {
-      trace.log('could not find colony in range, not creating defense party', {roomName: flag.pos.roomName});
+      trace.notice('could not find colony in range, not creating defense party', {roomName: flag.pos.roomName});
+      return;
     }
 
-    trace.log("creating defense party", {id, position});
+    trace.notice("creating defense party", {id, position, flagId, colonyId: colony.id});
 
     const party = new DefensePartyRunnable(id, colony, flagId, position, trace)
     const process = new Process(id, 'defense_party', Priorities.DEFENCE, {
@@ -151,15 +151,26 @@ export default class DefenseManager {
 
     // Update memory
     (Memory as any).defense = {
-      parties: this.defenseParties.map((party) => {
+      parties: this.defenseParties.map((party): StoredDefenseParty => {
+        if (!party.getColony()) {
+          trace.notice("missing colony");
+          return null;
+        }
+
+        if (!Game.flags[party.flagId]) {
+          trace.notice("missing flag", {flagId: party.flagId});
+          return null;
+        }
+
         return {
           id: party.id,
-          flagId: party.getFlag()?.name,
+          flagId: party.flagId,
           position: party.getPosition(),
-          colony: party.getColony().id,
         };
-      })
+      }).filter(party => !!party)
     };
+
+    trace.log("defense memory", {memory: (Memory as any).defense});
   }
 }
 

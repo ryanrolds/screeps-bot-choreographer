@@ -29,51 +29,48 @@ export default class DefensePartyRunnable {
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
     trace = trace.asId(this.id);
 
-    const creeps = this.getAssignedCreeps();
-    if (creeps.length < 1) {
-      return sleeping(REQUEST_PARTY_MEMBER_TTL)
-    }
+    trace.notice("defense party run top", {id: this.id})
 
     // Check existence of flag
     let flag = this.getFlag();
     if (!flag) {
-      trace.log("no flag with that id, terminating", {flagId: this.flagId});
+      trace.notice("no flag with that id, terminating", {flagId: this.flagId});
       return terminate();
     }
 
+    let colony = this.getColony();
+    if (!colony) {
+      trace.notice("no colony with that id, terminating");
+      return terminate();
+    }
+
+    const creeps = this.getAssignedCreeps();
     const position = this.getPosition();
 
     trace.log('defense party run', {
       id: this.id,
-      creeps: creeps.map(creep => creep.id),
+      creeps: creeps.map(creep => creep.name),
       flagId: this.flagId,
       noTargetTTL: this.noTargetTTL,
       position,
     });
 
-    // If destination is not party of a colony, terminate
-    const orgRoom: Room = kingdom.getRoomByName(position.roomName);
-    if (!orgRoom) {
-      trace.log('not part of a colony, terminate party');
-      return terminate();
+    let targets: Creep[] = []
+    // Get target requests and map to creeps
+    if (flag.room) {
+      const friends = kingdom.config.friends;
+      targets = flag.room.find(FIND_HOSTILE_CREEPS).filter((creep) => {
+        return friends.indexOf(creep.owner.username) === -1;
+      });
     }
 
-    // Get target requests and map to creeps
-    const targetRequests: Creep[] = (orgRoom as any).getFilteredRequests(TOPICS.PRIORITY_TARGETS, (request) => {
-      return request.details.roomName === orgRoom.id;
-    }).map((request) => {
-      return Game.getObjectById(request.details.id);
-    }).filter((creep) => {
-      return creep;
-    });
-
-    trace.log('target requests', {targetRequests: targetRequests.map(target => target.id)});
+    trace.log('target requests', {targets: targets.map(target => target.id)});
 
     // Select target from request; if no requests and its been a while, return to flag
     let destination = this.getPosition();
-    if (targetRequests.length) {
+    if (targets.length) {
       this.noTargetTTL = NO_TARGET_TTL;
-      destination = targetRequests[0].pos
+      destination = targets[0].pos
     } else {
       this.noTargetTTL -= 1;
       if (this.noTargetTTL < 0 && flag) {
@@ -81,14 +78,15 @@ export default class DefensePartyRunnable {
       }
     }
 
-    trace.log('targets', {destination, targetRequests});
+    trace.log('targets', {destination, targets});
 
     this.setPosition(destination, trace);
-    this.setTarget(targetRequests, trace);
+    this.setTarget(targets, trace);
     this.setHeal(trace);
 
     const partyResult = this.party.run(kingdom, trace);
     if (partyResult.status === STATUS_TERMINATED) {
+      trace.notice('party terminated, terminate this');
       return partyResult;
     }
 

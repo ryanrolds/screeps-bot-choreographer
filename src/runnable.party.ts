@@ -244,7 +244,7 @@ export default class PartyRunnable {
 
   setTarget(targets: (Creep | Structure)[], trace: Tracer): (Creep | Structure) {
     const target = _.find(targets, (target) => {
-      return this.position.getRangeTo(target) <= 2;
+      return this.position.getRangeTo(target) <= 3;
     });
 
     if (target) {

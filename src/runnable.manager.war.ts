@@ -8,12 +8,16 @@ import WarPartyRunnable from './runnable.warparty';
 import * as TOPICS from './constants.topics';
 import {Colony} from './org.colony';
 import {ATTACK_ROOM_TTL, AttackRequest, AttackStatus, Phase} from './constants.attack';
+import {Position} from './lib.flood_fill';
 
 const WAR_PARTY_PROCESS_PRIORITY = 2;
 const WAR_PARTY_RUN_TTL = 20;
+const COLONY_ATTACK_RANGE = 5;
+const MAX_WAR_PARTIES_PER_COLONY = 1;
 interface StoredWarParty {
   id: string;
   target: string;
+  flagId: string;
   position: RoomPosition;
   colony: string;
   phase: Phase;
@@ -55,7 +59,7 @@ export default class WarManager {
     this.targetRoom = (Memory as any).war?.targetRoom || null;
     this.warParties = this.memory.parties.map((party) => {
       trace.log("restoring party", {party});
-      if (!party.id || !party.target || !party.position || !party.colony) {
+      if (!party.id || !party.target || !party.position || !party.colony || !party.flagId) {
         return null;
       }
 
@@ -67,7 +71,7 @@ export default class WarManager {
       }
 
       return this.createAndScheduleWarParty(colony, party.id, party.target, party.phase,
-        position, trace);
+        position, party.flagId, trace);
     }).filter((party) => {
       return party;
     });
@@ -121,9 +125,29 @@ export default class WarManager {
       warPartyIds: this.warParties.map(warParty => warParty.id)
     });
 
-    // Create minimum war parties
-    if (this.targetRoom && this.warParties.length < 1) {
-      this.createNewWarParty(kingdom, trace);
+    // If we have a target, create war parties and attack
+    if (this.targetRoom) {
+      // Locate nearby colonies and spawn war parties
+      kingdom.getColonies().forEach((colony) => {
+        const distance = Game.map.getRoomLinearDistance(colony.primaryRoomId, this.targetRoom)
+        trace.log("distance", {distance});
+
+        if (distance <= COLONY_ATTACK_RANGE) {
+          const numColonyWarParties = this.warParties.filter((party) => {
+            return party.colony === colony;
+          }).length;
+
+          trace.log("found parties", {
+            colonyId: colony.id,
+            numColonyWarParties,
+            max: MAX_WAR_PARTIES_PER_COLONY
+          });
+
+          if (numColonyWarParties < MAX_WAR_PARTIES_PER_COLONY) {
+            this.createNewWarParty(kingdom, colony, trace);
+          }
+        }
+      });
     }
 
     // Update memory
@@ -134,6 +158,7 @@ export default class WarManager {
           id: party.id,
           target: party.targetRoom,
           phase: party.phase,
+          flagId: party.flagId,
           colony: party.getColony().id,
           position: party.getPosition(),
         };
@@ -160,31 +185,26 @@ export default class WarManager {
     return this.costMatrices[roomName];
   }
 
-  createNewWarParty(kingdom: Kingdom, trace: Tracer) {
-    const flag = Game.flags['rally'];
+  createNewWarParty(kingdom: Kingdom, colony: Colony, trace: Tracer) {
+    const flagId = `rally_${colony.primaryRoomId}`;
+    const flag = Game.flags[flagId];
     if (!flag) {
-      trace.log('not creating war party, no rally flag');
+      trace.notice(`not creating war party, no rally flag (${flagId})`);
       return null;
     }
 
-    const colony = kingdom.getRoomColony(flag.pos.roomName);
-    if (!colony) {
-      trace.log('not create war party, rally not in colony', {roomName: flag.pos.roomName});
-      return null;
-    }
-
-    const partyId = `war_party_${this.targetRoom}_${Game.time}`;
-    trace.log("creating war party", {target: this.targetRoom, partyId});
+    const partyId = `war_party_${this.targetRoom}_${colony.primaryRoomId}_${Game.time}`;
+    trace.notice("creating war party", {target: this.targetRoom, partyId, flagId});
     const warParty = this.createAndScheduleWarParty(colony, partyId, this.targetRoom,
-      Phase.PHASE_MARSHAL, flag.pos, trace);
+      Phase.PHASE_MARSHAL, flag.pos, flag.name, trace);
     if (warParty) {
       this.warParties.push(warParty);
     }
   }
 
   createAndScheduleWarParty(colony: Colony, id: string, target: string, phase: Phase,
-    position: RoomPosition, trace: Tracer): WarPartyRunnable {
-    const party = new WarPartyRunnable(id, colony, 'rally', position, target, phase);
+    position: RoomPosition, flagId: string, trace: Tracer): WarPartyRunnable {
+    const party = new WarPartyRunnable(id, colony, flagId, position, target, phase);
     const process = new Process(id, 'war_party', Priorities.OFFENSE, party);
     process.setSkippable(false);
     this.scheduler.registerProcess(process);

@@ -47,7 +47,7 @@ const behavior = behaviorTree.sequenceNode(
               const healResult = creep.heal(healTarget);
               trace.log('heal result', {healResult});
               didHeal = true;
-            } else if (healTarget && distance <= 3) {
+            } else if (healTarget && healTargetDistance <= 3) {
               const rangedHealResult = creep.rangedHeal(healTarget);
               trace.log('ranged heal result', {rangedHealResult});
               didHeal = true;

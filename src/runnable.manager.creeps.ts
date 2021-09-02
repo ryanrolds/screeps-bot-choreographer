@@ -134,6 +134,10 @@ export class CreepManager {
 
   private roleToCreepLogic = {
     [CREEPS.WORKER_ATTACKER]: roleAttacker,
+    [CREEPS.WORKER_ATTACKER_1TOWER]: roleAttacker,
+    [CREEPS.WORKER_ATTACKER_2TOWER]: roleAttacker,
+    [CREEPS.WORKER_ATTACKER_3TOWER]: roleAttacker,
+    [CREEPS.WORKER_ATTACKER_6TOWER]: roleAttacker,
     [CREEPS.WORKER_DEFENDER]: roleDefender,
     [CREEPS.WORKER_DEFENDER_BOOSTED]: roleDefender,
     [CREEPS.WORKER_DEFENDER_DRONE]: roleDefenderDrone,

@@ -3,7 +3,7 @@ import {Kingdom} from "./org.kingdom";
 import {Colony} from './org.colony';
 import {RunnableResult, running, sleeping, terminate, STATUS_TERMINATED} from "./os.process";
 import {Tracer} from './lib.tracing';
-import {WORKER_ATTACKER} from './constants.creeps'
+import {WORKER_ATTACKER, WORKER_ATTACKER_3TOWER} from './constants.creeps'
 import {PRIORITY_ATTACKER} from "./constants.priorities";
 import PartyRunnable from './runnable.party';
 import {ATTACK_ROOM_TTL, AttackRequest, AttackStatus, Phase} from './constants.attack';
@@ -136,8 +136,13 @@ export default class WarPartyRunnable {
     const targetRoomObject = Game.rooms[targetRoom];
     const positionRoomObject = Game.rooms[this.position.roomName];
 
-    if (!targetRoom || !flag) {
-      trace.log("no rally point defined, terminating war party");
+    if (!targetRoom) {
+      trace.notice("no rally point defined, terminating war party");
+      this.party.done();
+    }
+
+    if (!flag) {
+      trace.notice(`no flag (${this.flagId}), terminating war party`);
       this.party.done();
     } else {
       trace.log('war party run', {
@@ -187,7 +192,7 @@ export default class WarPartyRunnable {
         } else {
           const done = this.engage(kingdom, targetRoomObject, creeps, trace);
           if (done) {
-            trace.log('done, notify war manager that room is cleared', {targetRoom: this.targetRoom});
+            trace.notice('done, notify war manager that room is cleared', {targetRoom: this.targetRoom});
 
             // Inform that attack is completed
             const attackUpdate: AttackRequest = {
@@ -275,7 +280,7 @@ export default class WarPartyRunnable {
       trace.log("targets", {targetsLength: targets.length})
       const target = this.party.setTarget(targets, trace);
       if (target) {
-        this.alignWithTarget(target, nextPosition, trace);
+        //this.alignWithTarget(target, nextPosition, trace);
       }
     } else {
       trace.log("no targets");
@@ -340,7 +345,7 @@ export default class WarPartyRunnable {
       trace.log("nearby targets", {nearByTargetsLength: nearbyTargets.length})
       const target = this.party.setTarget(nearbyTargets, trace);
       if (target) {
-        this.alignWithTarget(target, nextPosition, trace);
+        //this.alignWithTarget(target, nextPosition, trace);
       }
     } else {
       trace.log("no targets");
@@ -512,7 +517,8 @@ export default class WarPartyRunnable {
       result,
     });
 
-    this.path = result.path;
+    // Add origin to beginning so we have our current position as start/rally point
+    this.path = [origin].concat(result.path);
     this.pathComplete = !result.incomplete;
 
     return this.path;
@@ -526,6 +532,7 @@ export default class WarPartyRunnable {
     if (!path) {
       // Cant find where we are going, freeze
       // TODO maybe suicide
+      trace.notice('warparty stuck', {id: this.id})
       return [currentPosition, 0, []];
     }
 
