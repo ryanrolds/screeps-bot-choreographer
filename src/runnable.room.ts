@@ -338,18 +338,14 @@ export default class RoomRunnable {
 
     const fullness = room.energyAvailable / room.energyCapacityAvailable;
     if (room.controller.level >= 3 && fullness < 0.5) {
-      desiredDistributors = 2;
-      // We are less CPU constrained on other shards
-      if (Game.shard.name !== 'shard3') {
-        desiredDistributors = 3;
-      }
+      desiredDistributors = 3;
     }
 
     const numCoreHaulTasks = orgRoom.getColony().getTopicLength(TOPICS.HAUL_CORE_TASK);
-    if (numCoreHaulTasks > 20) {
+    if (numCoreHaulTasks > 30) {
       desiredDistributors = 2;
     }
-    if (numCoreHaulTasks > 40) {
+    if (numCoreHaulTasks > 50) {
       desiredDistributors = 3;
     }
 
@@ -572,8 +568,8 @@ export default class RoomRunnable {
       let topic = TOPICS.TOPIC_HAUL_TASK;
       let priority = PRIORITIES.HAUL_DROPPED;
       if (orgRoom.isPrimary) {
-        topic = TOPICS.HAUL_CORE_TASK;
-        priority = PRIORITIES.HAUL_CORE_DROPPED;
+        //topic = TOPICS.HAUL_CORE_TASK;
+        //priority = PRIORITIES.HAUL_CORE_DROPPED;
       }
 
 

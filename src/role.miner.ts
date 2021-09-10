@@ -1,16 +1,23 @@
-const behaviorTree = require('./lib.behaviortree');
-const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
-const behaviorNonCombatant = require('./behavior.noncombatant');
-const behaviorBoosts = require('./behavior.boosts');
-const behaviorMovement = require('./behavior.movement');
-const behaviorCommute = require('./behavior.commute');
-const MEMORY = require('./constants.memory');
+import * as behaviorTree from "./lib.behaviortree";
+import {FAILURE, SUCCESS, RUNNING} from "./lib.behaviortree";
+import behaviorNonCombatant from "./behavior.noncombatant";
+import behaviorBoosts from "./behavior.boosts";
+import * as behaviorMovement from "./behavior.movement";
+import behaviorCommute from "./behavior.commute";
+import * as MEMORY from "./constants.memory";
+import {RoomCallbackRules} from "./lib.path_cache";
+
+const rules: RoomCallbackRules = {
+  avoidFriendlyRooms: true,
+  avoidHostiles: true,
+  avoidOwnedRooms: true,
+}
 
 const selectSource = behaviorTree.leafNode(
   'selectSource',
   (creep, trace, kingdom) => {
-    const source = Game.getObjectById(creep.memory[MEMORY.MEMORY_HARVEST]);
-    const container = Game.getObjectById(creep.memory[MEMORY.MEMORY_HARVEST_CONTAINER]);
+    const source: Source = Game.getObjectById(creep.memory[MEMORY.MEMORY_HARVEST]);
+    const container: StructureContainer = Game.getObjectById(creep.memory[MEMORY.MEMORY_HARVEST_CONTAINER]);
     if (source && container) {
       behaviorMovement.setSource(creep, source.id);
       behaviorMovement.setDestination(creep, container.id);
@@ -25,7 +32,7 @@ const harvest = behaviorTree.leafNode(
   'fill_creep',
   (creep, trace, kingdom) => {
     if (!creep.store.getFreeCapacity(RESOURCE_ENERGY)) {
-      const link = creep.pos.findInRange(FIND_MY_STRUCTURES, 1, {
+      const link = creep.pos.findInRange<StructureLink>(FIND_MY_STRUCTURES, 1, {
         filter: (structure) => {
           return structure.structureType === STRUCTURE_LINK;
         },
@@ -48,7 +55,7 @@ const harvest = behaviorTree.leafNode(
     }
 
     const destinationId = creep.memory[MEMORY.MEMORY_HARVEST];
-    const destination = Game.getObjectById(destinationId);
+    const destination: Source = Game.getObjectById(destinationId);
     if (!destination) {
       trace.log('destination not found', {destinationId});
       return FAILURE;
@@ -60,11 +67,6 @@ const harvest = behaviorTree.leafNode(
     if (result === ERR_NOT_IN_RANGE) {
       trace.log('not in range result', {result, destinationId});
       return FAILURE;
-    }
-
-    if (result === ERR_FULL) {
-      trace.log('full result', {result});
-      return SUCCESS;
     }
 
     if (creep.store.getFreeCapacity() === 0) {
@@ -91,7 +93,7 @@ const harvest = behaviorTree.leafNode(
 const moveEnergyToLink = behaviorTree.leafNode(
   'move_energy_to_link',
   (creep, trace, kingdom) => {
-    const source = Game.getObjectById(creep.memory[MEMORY.MEMORY_HARVEST]);
+    const source: Source = Game.getObjectById(creep.memory[MEMORY.MEMORY_HARVEST]);
     if (!source) {
       trace.log('source not found');
       return FAILURE;
@@ -102,7 +104,7 @@ const moveEnergyToLink = behaviorTree.leafNode(
       return SUCCESS;
     }
 
-    const link = creep.pos.findInRange(FIND_MY_STRUCTURES, 1, {
+    const link = creep.pos.findInRange<StructureLink>(FIND_MY_STRUCTURES, 1, {
       filter: (structure) => {
         return structure.structureType === STRUCTURE_LINK;
       },
@@ -113,10 +115,12 @@ const moveEnergyToLink = behaviorTree.leafNode(
       return FAILURE;
     }
 
+    let target: AnyStructure | Resource = null;
+
     const freeCapacity = creep.store.getFreeCapacity(RESOURCE_ENERGY);
     trace.log('creep free capacity', {freeCapacity});
     if (freeCapacity > 0) {
-      const target = creep.pos.findInRange(FIND_STRUCTURES, 1, {
+      target = creep.pos.findInRange(FIND_STRUCTURES, 1, {
         filter: (structure) => {
           return structure.structureType === STRUCTURE_CONTAINER &&
             structure.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
@@ -155,7 +159,7 @@ const moveEnergyToLink = behaviorTree.leafNode(
 const waitUntilSourceReady = behaviorTree.leafNode(
   'wait_until_ready',
   (creep) => {
-    const source = Game.getObjectById(creep.memory[MEMORY.MEMORY_HARVEST]);
+    const source: Source = Game.getObjectById(creep.memory[MEMORY.MEMORY_HARVEST]);
     if (!source) {
       return FAILURE;
     }
@@ -176,7 +180,7 @@ const behavior = behaviorTree.sequenceNode(
   'mine_energy',
   [
     selectSource,
-    behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 0, false, 50, 1500),
+    behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 0, 1500, rules),
     behaviorCommute.setCommuteDuration,
     behaviorTree.repeatUntilFailure(
       'mine_until_failure',
@@ -197,6 +201,6 @@ const behavior = behaviorTree.sequenceNode(
   ],
 );
 
-module.exports = {
+export const roleMiner = {
   run: behaviorTree.rootNode('miner', behaviorBoosts(behaviorNonCombatant(behavior))),
 };

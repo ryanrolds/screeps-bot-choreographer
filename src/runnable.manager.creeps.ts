@@ -10,19 +10,18 @@ import {MEMORY_ROLE} from './constants.memory';
 import * as CREEPS from './constants.creeps';
 import {DEFINITIONS} from './constants.creeps';
 
-import roleHarvester from './role.harvester';
+import {roleHarvester} from './role.harvester';
 import roleUpgrader from './role.upgrader';
 import roleBuilder from './role.builder';
 import roleRepairer from './role.repairer';
-import roleHauler from './role.hauler';
-import roleMiner from './role.miner';
+import {roleHauler} from './role.hauler';
+import {roleMiner} from './role.miner';
 import roleDistributor from './role.distributor';
 import roleDefender from './role.defender';
 import roleDefenderDrone from './role.defender_drone';
 import roleAttacker from './role.attacker';
-import roleReserver from './role.reserver';
+import {roleReserver} from './role.reserver';
 import roleExplorer from './role.explorer';
-
 
 export class CreepManager {
   id: string;

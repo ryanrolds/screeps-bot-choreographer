@@ -33,8 +33,12 @@ describe('Scheduler', () => {
         getUsed: () => {
           return 0;
         }
-      }
+      },
     })
+
+    mockGlobal<Memory>('Memory', {
+      scribe: undefined,
+    });
 
     trace = new Tracer('test', 'scheduler_test');
 

@@ -9,6 +9,10 @@ import * as TOPICS from './constants.topics';
 import {Colony} from './org.colony';
 import {ATTACK_ROOM_TTL, AttackRequest, AttackStatus, Phase} from './constants.attack';
 import {Position} from './lib.flood_fill';
+import * as MEMORY from './constants.memory';
+import * as CREEPS from './constants.creeps';
+import * as PRIORITIES from './constants.priorities';
+import {creepIsFresh} from './behavior.commute';
 
 const WAR_PARTY_PROCESS_PRIORITY = 2;
 const WAR_PARTY_RUN_TTL = 20;
@@ -120,7 +124,7 @@ export default class WarManager {
     }
 
     // Write post event status
-    trace.log("war manager state", {
+    trace.notice("war manager state", {
       targetRoom: this.targetRoom,
       warPartyIds: this.warParties.map(warParty => warParty.id)
     });
@@ -148,6 +152,28 @@ export default class WarManager {
           }
         }
       });
+
+      // Send reserver to block controller if room is clear
+      const roomEntry = kingdom.getScribe().getRoomById(this.targetRoom);
+      if (roomEntry && roomEntry.numTowers === 0 && roomEntry.controller?.level > 0) {
+        const numReservers = _.filter(Game.creeps, (creep) => {
+          const role = creep.memory[MEMORY.MEMORY_ROLE];
+          return (role === CREEPS.WORKER_RESERVER) &&
+            creep.memory[MEMORY.MEMORY_ASSIGN_ROOM] === this.targetRoom && creepIsFresh(creep);
+        }).length;
+
+        if (numReservers < 1) {
+          const details = {
+            role: CREEPS.WORKER_RESERVER,
+            memory: {
+              [MEMORY.MEMORY_ASSIGN_ROOM]: this.targetRoom,
+            },
+          }
+
+          kingdom.sendRequest(TOPICS.TOPIC_SPAWN, PRIORITIES.PRIORITY_RESERVER,
+            details, WAR_PARTY_RUN_TTL);
+        }
+      }
     }
 
     // Update memory

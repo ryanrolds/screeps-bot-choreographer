@@ -1,8 +1,15 @@
-const behaviorTree = require('./lib.behaviortree');
-const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
+import * as behaviorTree from "./lib.behaviortree";
+import {TreeNode} from "./lib.behaviortree";
+import {FAILURE, SUCCESS, RUNNING, NodeTickResult} from "./lib.behaviortree";
 
-const MEMORY = require('./constants.memory');
-const {MEMORY_ORIGIN, MEMORY_SOURCE} = require('./constants.memory');
+import * as MEMORY from "./constants.memory";
+import {MEMORY_ORIGIN, MEMORY_SOURCE} from "./constants.memory";
+import {PathCache, RoomCallbackRules} from "./lib.path_cache";
+import {Tracer} from "./lib.tracing";
+import {Kingdom} from "./org.kingdom";
+import {clear} from "node:console";
+
+
 
 const MAX_POSITION_TTL = 5;
 const MEMORY_MOVE_POS_TTL = 'move_pos_ttl';
@@ -11,22 +18,23 @@ const MEMORY_MOVE_PREV_POS = 'move_prev_pos';
 const PATH_ORIGIN_KEY = 'path_origin_id';
 const PATH_DESTINATION_KEY = 'path_dest_key';
 
-const getMoveOpts = (ignoreCreeps = false, reusePath = 100, maxOps = 2000, range = 0) => {
+const getMoveOpts = (ignoreCreeps: boolean = false, reusePath: number = 100, maxOps: number = 2000,
+  range: number = 0): MoveToOpts => {
   return {reusePath, maxOps, ignoreCreeps, range};
 };
 
-const moveToMemory = module.exports.moveToMemory = (creep, memoryId, range, ignoreCreeps,
-  reusePath, maxOps) => {
-  const destination = Game.getObjectById(creep.memory[memoryId]);
+const moveToMemory = (creep: Creep, memoryId: any, range: number,
+  ignoreCreeps: number, reusePath: number, maxOps: number) => {
+  const destination: _HasRoomPosition = Game.getObjectById(creep.memory[memoryId]);
   if (!destination) {
     return FAILURE;
   }
 
-  return moveTo(creep, destination, range, ignoreCreeps, reusePath, maxOps);
+  return moveTo(creep, destination.pos, range, ignoreCreeps, reusePath, maxOps);
 };
 
-const moveTo = module.exports.moveTo = (creep, destination, range, ignoreCreeps,
-  reusePath, maxOps) => {
+export const moveTo = (creep: Creep, destination: RoomPosition, range, ignoreCreeps,
+  reusePath, maxOps): NodeTickResult => {
   if (creep.pos.inRangeTo(destination, range)) {
     return SUCCESS;
   }
@@ -47,33 +55,30 @@ const moveTo = module.exports.moveTo = (creep, destination, range, ignoreCreeps,
   return RUNNING;
 };
 
-module.exports.moveToRoom = (creep, room, ignoreCreeps, reusePath, maxOps) => {
+export const moveToRoom = (creep: Creep, room: string, ignoreCreeps: boolean,
+  reusePath: number, maxOps: number): NodeTickResult => {
   const opts = getMoveOpts(ignoreCreeps, reusePath, maxOps);
   const result = creep.moveTo(new RoomPosition(25, 25, room), opts);
   if (result === ERR_NO_PATH) {
     return FAILURE;
   }
 
-  if (result === ERR_INVALID_ARGS) {
-    return FAILURE;
-  }
-
   return RUNNING;
 };
 
-module.exports.setSource = (creep, sourceId) => {
+export const setSource = (creep: Creep, sourceId: string) => {
   creep.memory[MEMORY_SOURCE] = sourceId;
 };
 
-module.exports.moveToSource = (creep, range, ignoreCreeps, reusePath, maxOps) => {
+export const moveToSource = (creep, range, ignoreCreeps, reusePath, maxOps) => {
   return moveToMemory(creep, MEMORY_SOURCE, range, ignoreCreeps, reusePath, maxOps);
 };
 
-module.exports.clearSource = (creep) => {
+export const clearSource = (creep) => {
   delete creep.memory[MEMORY_SOURCE];
 };
 
-module.exports.setDestination = (creep, destinationId, roomId = null, shardName = null) => {
+export const setDestination = (creep, destinationId, roomId = null, shardName = null) => {
   creep.memory[MEMORY.MEMORY_DESTINATION] = destinationId;
 
   if (roomId) {
@@ -87,7 +92,7 @@ module.exports.setDestination = (creep, destinationId, roomId = null, shardName 
   creep.memory[MEMORY.MEMORY_DESTINATION_SHARD] = shardName;
 };
 
-const isStuck = (creep) => {
+export const isStuck = (creep) => {
   let prevPos = creep.memory[MEMORY_MOVE_PREV_POS] || null;
   if (prevPos != null) {
     prevPos = new RoomPosition(prevPos.x, prevPos.y, prevPos.roomName);
@@ -114,32 +119,40 @@ const isStuck = (creep) => {
 
   return false;
 };
-module.exports.isStuck = isStuck;
 
-const getDestination = (creep, memoryId) => {
+const getDestinationFromPosInMemory = (creep: Creep, memoryId: string): RoomPosition => {
+  const positionString = creep.memory[memoryId];
+  if (!positionString) {
+    return null;
+  }
+
+  const posArray = positionString.split(',');
+  if (!posArray || posArray.length !== 3) {
+    return null;
+  }
+
+  return new RoomPosition(posArray[0], posArray[1], posArray[2]);
+}
+
+const getDestinationFromMemory = (creep: Creep, memoryId: string): RoomPosition => {
   const destId = creep.memory[memoryId];
   if (!destId) {
     return null;
   }
 
-  const dest = Game.getObjectById(destId);
+  const dest: any = Game.getObjectById(destId);
   if (!dest) {
     return null;
   }
 
-  return dest;
+  return dest.pos;
 };
 
-const getAndSetCreepPath = (pathCache, creep, memoryId, range, ignoreCreeps, trace) => {
-  const destination = getDestination(creep, memoryId);
-  if (!destination) {
-    trace.log('missing or unknown destination', {memory: creep.memory});
-    return [null, null, null];
-  }
-
-  const path = pathCache.getPath(creep.pos, destination.pos, range, ignoreCreeps);
+const getAndSetCreepPath = (pathCache: PathCache, creep: Creep, destination: RoomPosition, range: number,
+  rules: RoomCallbackRules, trace: Tracer): [PathFinderPath, string, string] => {
+  const path = pathCache.getPath(creep.pos, destination, range, rules, trace);
   const originKey = pathCache.getKey(creep.pos, 0);
-  const destKey = pathCache.getKey(destination.pos, range);
+  const destKey = pathCache.getKey(destination, range);
 
   return [path, originKey, destKey];
 };
@@ -150,219 +163,106 @@ const clearMovementCache = (creep) => {
   delete creep.memory[PATH_DESTINATION_KEY];
 };
 
-const moveByHeapPath = (memoryId, range = 1, ignoreCreeps, reusePath, maxOps) => {
-  return behaviorTree.leafNode(
-    'move_by_heap_path',
-    (creep, trace, kingdom) => {
-      const destination = getDestination(creep, memoryId);
-      if (!destination) {
-        trace.log('missing or unknown destination', {memory: creep.memory});
-        return FAILURE;
-      }
+const updateCreepCachedPath = (kingdom: Kingdom, creep: Creep, destination: RoomPosition,
+  range: number, rules: RoomCallbackRules, trace: Tracer): PathFinderPath => {
+  const pathCache = kingdom.getPathCache();
 
-      // Check if crepe has arrived
-      if (creep.pos.inRangeTo(destination, range)) {
-        clearMovementCache(creep);
-        trace.log('reached destination', {id: destination.id, range});
-        return SUCCESS;
-      }
+  let path = null;
+  let originKey = creep.memory[PATH_ORIGIN_KEY] || null;
+  let destKey = creep.memory[PATH_DESTINATION_KEY] || null;
+  if (originKey && destKey) {
+    path = pathCache.getCachedPath(originKey, destKey);
+  }
 
-      const stuck = isStuck(creep);
+  if (!path) {
+    trace.log('heap cache miss', {originKey, destKey});
+    const getSetResult = getAndSetCreepPath(pathCache, creep, destination, range, rules, trace);
+    path = getSetResult[0];
+    originKey = getSetResult[1];
+    destKey = getSetResult[2];
+  }
 
-      let moveResult = null;
+  if (!path) {
+    trace.log('missing path', {originKey, destKey});
+    clearMovementCache(creep);
+    return null;
+  }
 
-      // If not stuck, use the cache
-      if (!stuck) {
-        const pathCache = kingdom.getPathCache();
+  creep.memory[PATH_ORIGIN_KEY] = originKey;
+  creep.memory[PATH_DESTINATION_KEY] = destKey;
 
-        let path = null;
-        let originKey = creep.memory[PATH_ORIGIN_KEY] || null;
-        let destKey = creep.memory[PATH_DESTINATION_KEY] || null;
-        if (originKey && destKey) {
-          path = pathCache.getCachedPath(originKey, destKey);
-        }
+  return path;
+}
 
-        if (!path) {
-          trace.log('heap cache miss', {originKey, destKey});
-          const getSetResult = getAndSetCreepPath(pathCache, creep, memoryId, range, true, trace);
-          path = getSetResult[0];
-          originKey = getSetResult[1];
-          destKey = getSetResult[2];
-        }
-
-        if (!path) {
-          trace.log('missing path', {originKey, destKey});
-          clearMovementCache(creep);
-          return FAILURE;
-        }
-
-        creep.memory[PATH_ORIGIN_KEY] = originKey;
-        creep.memory[PATH_DESTINATION_KEY] = destKey;
-
-        moveResult = creep.moveByPath(path.path);
-        trace.log('move by path result', {moveResult, path: path.path});
-      } else { // When stuck, use traditional move factoring in creeps
-        // Honk at the guy blocking the road
-        creep.say('Beep!');
-
-        const moveOpts = getMoveOpts(false, 5, 500);
-        moveResult = creep.moveTo(destination, moveOpts);
-        trace.log('move to result', {moveResult});
-      }
-
-      if (moveResult === ERR_NO_PATH) {
-        // Clear existing path so we build a new one
-        clearMovementCache(creep);
-        trace.log('move by result no path', {moveResult});
-        return RUNNING;
-      }
-
-      if (moveResult !== OK && moveResult !== ERR_TIRED) {
-        clearMovementCache(creep);
-        trace.log('move by result not OK', {moveResult});
-        return FAILURE;
-      }
-
-      if (moveResult === ERR_TIRED) {
-        creep.memory[MEMORY_MOVE_POS_TTL] -= 1;
-      }
-
-      return RUNNING;
-    },
-  );
-};
-module.exports.moveByHeapPath = moveByHeapPath;
-
-const cachedMoveToMemoryPos = (memoryId, range = 1, ignoreCreeps, reusePath, maxOps) => {
+export const cachedMoveToMemoryPos = (memoryId: string, range: number = 1, maxOps: number,
+  rules: RoomCallbackRules) => {
   return behaviorTree.leafNode(
     'cached_move_to_position',
     (creep, trace, kingdom) => {
-      const positionString = creep.memory[memoryId];
-      if (!positionString) {
+      const destination = getDestinationFromPosInMemory(creep, memoryId);
+      if (!destination) {
+        clearMovementCache(creep);
+        trace.log('missing destination', {memoryId});
         return FAILURE;
       }
 
-      const posArray = positionString.split(',');
-
-      if (!posArray || posArray.length !== 3) {
-        return FAILURE;
-      }
-
-      const destination = {
-        pos: new RoomPosition(posArray[0], posArray[1], posArray[2]),
-      };
-
-      return cachedMoveToPosition(kingdom, creep, destination, range, ignoreCreeps,
-        reusePath, maxOps, trace);
+      return cachedMoveToPosition(kingdom, creep, destination, range, maxOps, rules, trace);
     },
   );
 };
-module.exports.cachedMoveToMemoryPos = cachedMoveToMemoryPos;
 
-const cachedMoveToMemoryObjectId = (memoryId, range = 1, ignoreCreeps, reusePath, maxOps) => {
+export const cachedMoveToMemoryObjectId = (memoryId: string, range: number = 1,
+  maxOps: number, rules: RoomCallbackRules) => {
   return behaviorTree.leafNode(
     'cached_move_to_object_id',
     (creep, trace, kingdom) => {
-      const destination = Game.getObjectById(creep.memory[memoryId]);
+      const destination = getDestinationFromMemory(creep, memoryId);
       if (!destination) {
-        delete creep.memory['_move'];
-        delete creep.memory[MEMORY.PATH_CACHE];
+        clearMovementCache(creep);
         trace.log('missing destination', {id: creep.memory[memoryId]});
         return FAILURE;
       }
 
-      return cachedMoveToPosition(kingdom, creep, destination, range, ignoreCreeps,
-        reusePath, maxOps, trace);
+      return cachedMoveToPosition(kingdom, creep, destination, range, maxOps, rules, trace);
     },
   );
 };
-module.exports.cachedMoveToMemoryObjectId = cachedMoveToMemoryObjectId;
 
-const cachedMoveToPosition = (kingdom, creep, destination, range = 1, ignoreCreeps,
-  reusePath, maxOps, trace) => {
-  // Check if crepe has arrived
+const cachedMoveToPosition = (kingdom: Kingdom, creep: Creep, destination: RoomPosition,
+  range: number = 1, maxOps: number, rules: RoomCallbackRules,
+  trace: Tracer) => {
+
+  // Check if creep has arrived
   if (creep.pos.inRangeTo(destination, range)) {
-    delete creep.memory['_move'];
-    delete creep.memory[MEMORY.PATH_CACHE];
-    trace.log('reached destination', {id: destination.id, range});
+    clearMovementCache(creep);
+    trace.log('reached destination', {destination, range});
     return SUCCESS;
   }
 
-  ignoreCreeps = true;
+  const stuck = isStuck(creep);
 
-  // Get last position
-  let prevPos = creep.memory[MEMORY_MOVE_PREV_POS] || null;
-  if (prevPos != null) {
-    prevPos = new RoomPosition(prevPos.x, prevPos.y, prevPos.roomName);
-  }
+  let result: CreepMoveReturnCode | -5 | -10 | -2 | -7 = null;
 
-  // Compare current and last and increase stuck ttl
-  if (prevPos && creep.pos.isEqualTo(prevPos)) {
-    if (!creep.memory[MEMORY_MOVE_POS_TTL]) {
-      creep.memory[MEMORY_MOVE_POS_TTL] = 0;
-    }
-
-    creep.memory[MEMORY_MOVE_POS_TTL] += 1;
-
-    // Creep is stuck, clear cached path, and get new path factoring in creeps
-    if (creep.memory[MEMORY_MOVE_POS_TTL] > MAX_POSITION_TTL) {
-      trace.log('creep stuck');
-      delete creep.memory['_move'];
-      delete creep.memory[MEMORY.PATH_CACHE];
-      ignoreCreeps = false;
-    }
+  if (!stuck) {
+    const pathfinderResult = updateCreepCachedPath(kingdom, creep, destination, range, rules, trace)
+    result = creep.moveByPath(pathfinderResult.path);
+    trace.log('move by path result', {result, path: pathfinderResult.path});
   } else {
-    // Creep is not stuck, update previous position and clear ttl
-    creep.memory[MEMORY_MOVE_PREV_POS] = creep.pos;
-    creep.memory[MEMORY_MOVE_POS_TTL] = 0;
-  }
-
-  let result = null;
-
-  if (ignoreCreeps) {
-    let path = creep.memory[MEMORY.PATH_CACHE];
-    if (!path) {
-      trace.log('path cache miss');
-      path = kingdom.getPathCache().getPath(creep.pos, destination.pos, range, ignoreCreeps);
-      path = path.path;
-      creep.memory[MEMORY.PATH_CACHE] = path;
-    } else {
-      trace.log('path cache hit');
-    }
-
-    path = deserializePath(path);
-    result = creep.moveByPath(path);
-
-    trace.log('move by path result', {result, path});
-
-    if (result === ERR_NOT_FOUND) {
-      delete creep.memory['_move'];
-      delete creep.memory[MEMORY.PATH_CACHE];
-
-      return RUNNING;
-    }
-  } else {
-    const moveOpts = getMoveOpts(ignoreCreeps, reusePath, maxOps);
+    const moveOpts = getMoveOpts(true, 50, maxOps);
     result = creep.moveTo(destination, moveOpts);
     trace.log('move result', {result});
   }
 
   if (result === ERR_NO_PATH) {
     // Clear existing path so we build a new one
-    delete creep.memory['_move'];
-    delete creep.memory[MEMORY.PATH_CACHE];
-
+    clearMovementCache(creep);
     trace.log('move by result no path', {result});
-
     return RUNNING;
   }
 
   if (result !== OK && result !== ERR_TIRED) {
-    delete creep.memory['_move'];
-    delete creep.memory[MEMORY.PATH_CACHE];
-
+    clearMovementCache(creep);
     trace.log('move by result not OK', {result});
-
     return FAILURE;
   }
 
@@ -379,7 +279,7 @@ const deserializePath = (path) => {
   });
 };
 
-module.exports.moveToCreepMemory = (memoryID, range = 1, ignoreCreeps, reusePath, maxOps) => {
+export const moveToCreepMemory = (memoryID, range = 1, ignoreCreeps, reusePath, maxOps) => {
   return behaviorTree.leafNode(
     'bt.movement.moveToCreepMemory',
     (creep) => {
@@ -388,7 +288,7 @@ module.exports.moveToCreepMemory = (memoryID, range = 1, ignoreCreeps, reusePath
   );
 };
 
-module.exports.moveToDestination = (range = 1, ignoreCreeps, reusePath, maxOps) => {
+export const moveToDestination = (range = 1, ignoreCreeps, reusePath, maxOps) => {
   return behaviorTree.leafNode(
     'bt.movement.moveToDestination',
     (creep) => {
@@ -397,16 +297,16 @@ module.exports.moveToDestination = (range = 1, ignoreCreeps, reusePath, maxOps) 
   );
 };
 
-module.exports.clearDestination = (creep) => {
+export const clearDestination = (creep) => {
   delete creep.memory[MEMORY.MEMORY_DESTINATION];
   delete creep.memory[MEMORY.MEMORY_DESTINATION_POS];
   delete creep.memory[MEMORY.MEMORY_DESTINATION_ROOM];
   delete creep.memory[MEMORY.MEMORY_DESTINATION_SHARD];
 };
 
-module.exports.fillCreepFromDestination = (creep, trace) => {
+export const fillCreepFromDestination = (creep, trace) => {
   const destinationMemory = creep.memory[MEMORY.MEMORY_DESTINATION];
-  const destination = Game.getObjectById(creep.memory[MEMORY.MEMORY_DESTINATION]);
+  const destination: AnyStoreStructure = Game.getObjectById(creep.memory[MEMORY.MEMORY_DESTINATION]);
   if (!destination) {
     trace.log('could not find destination', {destinationMemory});
     return FAILURE;
@@ -439,7 +339,7 @@ module.exports.fillCreepFromDestination = (creep, trace) => {
     return SUCCESS;
   }
 
-  result = creep.withdraw(destination, resource, amount);
+  const result = creep.withdraw(destination, resource, amount);
   trace.log('widthdrawl result', {result, destinationId: destination.id, resource, amount});
   if (result === OK) {
     return RUNNING;
@@ -454,7 +354,13 @@ module.exports.fillCreepFromDestination = (creep, trace) => {
   return FAILURE;
 };
 
-module.exports.moveToShard = (shardMemoryKey) => {
+export const moveToShard = (shardMemoryKey) => {
+  const rules: RoomCallbackRules = {
+    avoidHostiles: false,
+    avoidOwnedRooms: true,
+    avoidFriendlyRooms: false,
+  };
+
   return behaviorTree.repeatUntilConditionMet(
     'moveToShard',
     (creep, trace, kingdom) => {
@@ -503,13 +409,13 @@ module.exports.moveToShard = (shardMemoryKey) => {
             return SUCCESS;
           },
         ),
-        cachedMoveToMemoryPos(MEMORY.MEMORY_DESTINATION_POS, 0, true, 100, 2500),
+        cachedMoveToMemoryPos(MEMORY.MEMORY_DESTINATION_POS, 0, 2500, rules),
       ],
     ),
   );
 };
 
-module.exports.moveToDestinationRoom = behaviorTree.repeatUntilSuccess(
+export const moveToDestinationRoom = behaviorTree.repeatUntilSuccess(
   'bt.movement.moveToDestinationRoom',
   behaviorTree.leafNode(
     'move_to_exit',
@@ -531,16 +437,12 @@ module.exports.moveToDestinationRoom = behaviorTree.repeatUntilSuccess(
         return FAILURE;
       }
 
-      if (result === ERR_INVALID_ARGS) {
-        return FAILURE;
-      }
-
       return RUNNING;
     },
   ),
 );
 
-module.exports.moveToOriginRoom = behaviorTree.repeatUntilSuccess(
+export const moveToOriginRoom = behaviorTree.repeatUntilSuccess(
   'goto_origin_room',
   behaviorTree.leafNode(
     'move_to_exit',
@@ -559,10 +461,6 @@ module.exports.moveToOriginRoom = behaviorTree.repeatUntilSuccess(
       const opts = getMoveOpts();
       const result = creep.moveTo(new RoomPosition(25, 25, room), opts);
       if (result === ERR_NO_PATH) {
-        return FAILURE;
-      }
-
-      if (result === ERR_INVALID_ARGS) {
         return FAILURE;
       }
 

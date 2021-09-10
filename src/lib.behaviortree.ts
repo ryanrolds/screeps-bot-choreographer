@@ -9,27 +9,22 @@ export const SUCCESS = 'success';
 export const FAILURE = 'failure';
 export type NodeTickResult = 'running' | 'success' | 'failure';
 
-interface TickFunc {
-  (actor: Actor, trace: Tracer, kingdom: Kingdom): NodeTickResult;
+export interface TickFunc {
+  (creep: Creep, trace: Tracer, kingdom: Kingdom): NodeTickResult;
 }
 
-interface TreeNode {
+export interface TreeNode {
   id: string;
   tick: TickFunc;
   children?: TreeNode[];
-  clear(actor: Actor, trace: Tracer);
-}
-
-interface Actor {
-  id: string;
-  memory: Object;
+  clear(creep: Creep, trace: Tracer);
 }
 
 export const rootNode = (id: string, behavior: TreeNode) => {
-  return function (actor: Actor, trace: Tracer, kingdom: Kingdom): void {
+  return function (creep: Creep, trace: Tracer, kingdom: Kingdom): void {
     const rootTrace = trace.begin(id);
 
-    const result = behavior.tick(actor, rootTrace, kingdom);
+    const result = behavior.tick(creep, rootTrace, kingdom);
     trace.log('root result', {id});
 
     if (result === FAILURE) {
@@ -44,16 +39,16 @@ export const selectorNode = (id: string, children: TreeNode[]): TreeNode => {
   return {
     id,
     children,
-    tickChildren: function (actor, trace, kingdom) {
-      let i = getState(actor, this.id, trace);
-      setState(actor, this.id, 0, trace);
+    tickChildren: function (creep, trace, kingdom) {
+      let i = getState(creep, this.id, trace);
+      setState(creep, this.id, 0, trace);
 
       for (; i < this.children.length; i++) {
-        const result = this.children[i].tick(actor, trace, kingdom);
+        const result = this.children[i].tick(creep, trace, kingdom);
         trace.log('result', {result});
         switch (result) {
           case RUNNING:
-            setState(actor, this.id, i, trace);
+            setState(creep, this.id, i, trace);
             return RUNNING;
           case FAILURE:
             continue;
@@ -64,18 +59,18 @@ export const selectorNode = (id: string, children: TreeNode[]): TreeNode => {
 
       return FAILURE;
     },
-    tick: function (actor, trace, kingdom): NodeTickResult {
+    tick: function (creep, trace, kingdom): NodeTickResult {
       trace = trace.begin(this.id);
       trace.log('tick', {id: this.id});
-      const result = this.tickChildren(actor, trace, kingdom);
+      const result = this.tickChildren(creep, trace, kingdom);
       trace.log('result', result);
       trace.end();
       return result;
     },
-    clear: function (actor, trace) {
-      clearState(actor, this.id, trace);
+    clear: function (creep, trace) {
+      clearState(creep, this.id, trace);
       this.children.forEach((child) => {
-        child.clear(actor, trace);
+        child.clear(creep, trace);
       });
     },
   } as TreeNode;
@@ -85,13 +80,13 @@ export const sequenceNode = (id: string, children: TreeNode[]): TreeNode => {
   return {
     id, // used track state in memory
     children,
-    tickChildren: function (actor, trace, kingdom) {
-      let i = getState(actor, this.id, trace);
+    tickChildren: function (creep, trace, kingdom) {
+      let i = getState(creep, this.id, trace);
       for (; i < this.children.length; i++) {
-        const result = this.children[i].tick(actor, trace, kingdom);
+        const result = this.children[i].tick(creep, trace, kingdom);
         switch (result) {
           case RUNNING:
-            setState(actor, this.id, i, trace);
+            setState(creep, this.id, i, trace);
             return RUNNING;
           case FAILURE:
             return FAILURE;
@@ -102,17 +97,17 @@ export const sequenceNode = (id: string, children: TreeNode[]): TreeNode => {
 
       return SUCCESS;
     },
-    tick: function (actor, trace, kingdom) {
+    tick: function (creep, trace, kingdom) {
       trace = trace.begin(this.id);
-      const result = this.tickChildren(actor, trace, kingdom);
+      const result = this.tickChildren(creep, trace, kingdom);
       trace.log('result', result);
       trace.end();
       return result;
     },
-    clear: function (actor, trace) {
-      clearState(actor, this.id, trace);
+    clear: function (creep, trace) {
+      clearState(creep, this.id, trace);
       this.children.forEach((child) => {
-        child.clear(actor, trace);
+        child.clear(creep, trace);
       });
     },
   } as TreeNode;
@@ -122,16 +117,16 @@ export const alwaysNode = (id: string, node: TreeNode): TreeNode => {
   return {
     id, // used track state in memory
     node,
-    tick: function (actor, trace, kingdom) {
+    tick: function (creep, trace, kingdom) {
       trace = trace.begin(this.id);
-      const result = this.node.tick(actor, trace, kingdom);
+      const result = this.node.tick(creep, trace, kingdom);
       trace.log('result', result);
       trace.end();
       return result;
     },
-    clear: function (actor, trace) {
-      clearState(actor, this.id, trace);
-      this.node.clear(actor, trace);
+    clear: function (creep, trace) {
+      clearState(creep, this.id, trace);
+      this.node.clear(creep, trace);
     },
   } as TreeNode;
 }
@@ -140,9 +135,9 @@ export const sequenceAlwaysNode = (id: string, children: TreeNode[]): TreeNode =
   return {
     id, // used track state in memory
     children,
-    tickChildren: function (actor, trace, kingdom) {
+    tickChildren: function (creep, trace, kingdom) {
       for (let i = 0; i < this.children.length; i++) {
-        const result = this.children[i].tick(actor, trace, kingdom);
+        const result = this.children[i].tick(creep, trace, kingdom);
         switch (result) {
           case RUNNING:
             return RUNNING;
@@ -155,17 +150,17 @@ export const sequenceAlwaysNode = (id: string, children: TreeNode[]): TreeNode =
 
       return SUCCESS;
     },
-    tick: function (actor, trace, kingdom) {
+    tick: function (creep, trace, kingdom) {
       trace = trace.begin(this.id);
-      const result = this.tickChildren(actor, trace, kingdom);
+      const result = this.tickChildren(creep, trace, kingdom);
       trace.log('result', result);
       trace.end();
       return result;
     },
-    clear: function (actor, trace) {
-      clearState(actor, this.id, trace);
+    clear: function (creep, trace) {
+      clearState(creep, this.id, trace);
       this.children.forEach((child) => {
-        child.clear(actor, trace);
+        child.clear(creep, trace);
       });
     },
   } as TreeNode;
@@ -175,9 +170,9 @@ export const repeatUntilFailure = (id: string, node: TreeNode): TreeNode => {
   return {
     id,
     node,
-    tick: function (actor, trace, kingdom) {
+    tick: function (creep, trace, kingdom) {
       trace = trace.begin(this.id);
-      const result = this.node.tick(actor, trace, kingdom);
+      const result = this.node.tick(creep, trace, kingdom);
       trace.log('result', result);
       trace.end();
 
@@ -187,9 +182,9 @@ export const repeatUntilFailure = (id: string, node: TreeNode): TreeNode => {
 
       return RUNNING;
     },
-    clear: function (actor, trace) {
-      clearState(actor, this.id, trace);
-      this.node.clear(actor, trace);
+    clear: function (creep, trace) {
+      clearState(creep, this.id, trace);
+      this.node.clear(creep, trace);
     },
   } as TreeNode;
 };
@@ -198,9 +193,9 @@ export const repeatUntilSuccess = (id: string, node: TreeNode): TreeNode => {
   return {
     id,
     node,
-    tick: function (actor, trace, kingdom) {
+    tick: function (creep, trace, kingdom) {
       trace = trace.begin(this.id);
-      const result = this.node.tick(actor, trace, kingdom);
+      const result = this.node.tick(creep, trace, kingdom);
       trace.log('result', result);
       trace.end();
 
@@ -210,15 +205,15 @@ export const repeatUntilSuccess = (id: string, node: TreeNode): TreeNode => {
 
       return RUNNING;
     },
-    clear: function (actor, trace) {
-      clearState(actor, this.id, trace);
-      this.node.clear(actor, trace);
+    clear: function (creep, trace) {
+      clearState(creep, this.id, trace);
+      this.node.clear(creep, trace);
     },
   } as TreeNode;
 };
 
 interface ConditionFunc {
-  (actor: Actor, trace: Tracer, kingdom: Kingdom): boolean
+  (creep: Creep, trace: Tracer, kingdom: Kingdom): boolean
 }
 
 export const repeatUntilConditionMet = (id: string, condition: ConditionFunc,
@@ -227,15 +222,15 @@ export const repeatUntilConditionMet = (id: string, condition: ConditionFunc,
     id,
     node,
     condition,
-    tick: function (actor, trace, kingdom) {
+    tick: function (creep, trace, kingdom) {
       trace = trace.begin(this.id);
 
       trace.log('checking condition', {id: this.id});
 
-      const conditionResult = this.condition(actor, trace, kingdom);
+      const conditionResult = this.condition(creep, trace, kingdom);
       if (!conditionResult) {
         trace.log('condition not met', {id: this.id});
-        const result = this.node.tick(actor, trace, kingdom);
+        const result = this.node.tick(creep, trace, kingdom);
         trace.log('result', {result});
         trace.end();
 
@@ -248,16 +243,16 @@ export const repeatUntilConditionMet = (id: string, condition: ConditionFunc,
 
       // We made it through the condition, clear that branches state so that
       // next time around we start from scratch
-      this.clear(actor, trace);
+      this.clear(creep, trace);
 
       trace.log('condition met', {id: this.id});
       trace.end();
 
       return SUCCESS;
     },
-    clear: function (actor, trace) {
-      clearState(actor, this.id, trace);
-      this.node.clear(actor, trace);
+    clear: function (creep, trace) {
+      clearState(creep, this.id, trace);
+      this.node.clear(creep, trace);
     },
   } as TreeNode;
 };
@@ -268,22 +263,22 @@ export const tripIfCalledXTimes = (id: string, limit: number, regular: TreeNode,
     limit,
     regular,
     tripped,
-    tick: function (actor, trace, kingdom): NodeTickResult {
-      let i = getState(actor, this.id, trace);
-      setState(actor, this.id, i + 1, trace);
+    tick: function (creep, trace, kingdom): NodeTickResult {
+      let i = getState(creep, this.id, trace);
+      setState(creep, this.id, i + 1, trace);
 
       trace.log("trip", {i, limit: this.limit});
 
       if (i > this.limit) {
         trace.log("tripped")
-        return this.tripped.tick(actor, trace, kingdom);
+        return this.tripped.tick(creep, trace, kingdom);
       }
 
-      return this.regular.tick(actor, trace, kingdom);
+      return this.regular.tick(creep, trace, kingdom);
     },
-    clear: function (actor, trace): void {
-      clearState(actor, this.id, trace);
-      this.node.clear(actor, trace);
+    clear: function (creep, trace): void {
+      clearState(creep, this.id, trace);
+      this.node.clear(creep, trace);
     },
   } as TreeNode;
 }
@@ -292,10 +287,10 @@ export const invert = (id: string, node: TreeNode): TreeNode => {
   return {
     id,
     node,
-    tick: function (actor, trace, kingdom) {
+    tick: function (creep, trace, kingdom) {
       trace = trace.begin(this.id);
 
-      let result = this.node.tick(actor, trace, kingdom);
+      let result = this.node.tick(creep, trace, kingdom);
       trace.log('result', result);
 
       if (result === FAILURE) {
@@ -309,9 +304,9 @@ export const invert = (id: string, node: TreeNode): TreeNode => {
 
       return result;
     },
-    clear: function (actor, trace) {
-      clearState(actor, this.id, trace);
-      this.node.clear(actor, trace);
+    clear: function (creep, trace) {
+      clearState(creep, this.id, trace);
+      this.node.clear(creep, trace);
     },
   } as TreeNode;
 };
@@ -320,19 +315,19 @@ export const returnSuccess = (id: string, node: TreeNode): TreeNode => {
   return {
     id,
     node,
-    tick: function (actor, trace, kingdom) {
+    tick: function (creep, trace, kingdom) {
       trace = trace.begin(this.id);
 
-      const result = this.node.tick(actor, trace, kingdom);
+      const result = this.node.tick(creep, trace, kingdom);
       trace.log('result', result);
 
       trace.end();
 
       return SUCCESS;
     },
-    clear: function (actor, trace) {
-      clearState(actor, this.id, trace);
-      this.node.clear(actor, trace);
+    clear: function (creep, trace) {
+      clearState(creep, this.id, trace);
+      this.node.clear(creep, trace);
     },
   } as TreeNode;
 };
@@ -341,15 +336,15 @@ export const leafNode = (id: string, behavior: TickFunc): TreeNode => {
   return {
     id,
     behavior,
-    tick: function (actor, trace, kingdom) {
+    tick: function (creep, trace, kingdom) {
       trace = trace.begin(this.id);
-      const result = this.behavior(actor, trace, kingdom);
+      const result = this.behavior(creep, trace, kingdom);
       trace.log('result', result);
       trace.end();
       return result;
     },
-    clear: function (actor, trace) {
-      clearState(actor, this.id, trace);
+    clear: function (creep, trace) {
+      clearState(creep, this.id, trace);
     },
   } as TreeNode;
 };
@@ -361,14 +356,14 @@ export const featureFlagBool = (id: string, flag: string, defaultNode: TreeNode,
     flag,
     defaultNode,
     enabledNode,
-    tick: function (actor: Actor, trace: Tracer, kingdom: Kingdom) {
+    tick: function (creep: Creep, trace: Tracer, kingdom: Kingdom) {
       trace = trace.begin(this.id);
 
       let result = null;
       if (featureFlags.getFlag(this.flag)) {
-        result = this.enabledNode.tick(actor, trace, kingdom);
+        result = this.enabledNode.tick(creep, trace, kingdom);
       } else {
-        result = this.defaultNode.tick(actor, trace, kingdom);
+        result = this.defaultNode.tick(creep, trace, kingdom);
       }
 
       trace.log('result', result);
@@ -376,35 +371,35 @@ export const featureFlagBool = (id: string, flag: string, defaultNode: TreeNode,
 
       return result;
     },
-    clear: function (actor, trace) {
-      clearState(actor, this.id, trace);
-      this.defaultNode.clear(actor, trace);
-      this.enabledNode.clear(actor, trace);
+    clear: function (creep, trace) {
+      clearState(creep, this.id, trace);
+      this.defaultNode.clear(creep, trace);
+      this.enabledNode.clear(creep, trace);
     },
   } as TreeNode;
 };
 
-function getState(actor: Actor, id: string, trace: Tracer): number {
+function getState(creep: Creep, id: string, trace: Tracer): number {
   let state = 0;
 
-  if (actor.memory[id]) {
-    state = actor.memory[id];
+  if (creep.memory[id]) {
+    state = creep.memory[id];
   }
 
   // Avoids state getting stuck on previous value, next
   // time we enter the node it will be 0 unless override it
-  clearState(actor, id, trace);
+  clearState(creep, id, trace);
 
   // trace.log('get state (clears existing state)', {id, state});
   return state;
 }
 
-function setState(actor: Actor, id: string, state: any, trace: Tracer): void {
-  actor.memory[id] = state;
+function setState(creep: Creep, id: string, state: any, trace: Tracer): void {
+  creep.memory[id] = state;
   // trace.log('set state', {id, state});
 }
 
-function clearState(actor: Actor, id: string, trace: Tracer): void {
-  // trace.log('clear state', {id, state: actor.memory[id]});
-  delete actor.memory[id];
+function clearState(creep: Creep, id: string, trace: Tracer): void {
+  // trace.log('clear state', {id, state: creep.memory[id]});
+  delete creep.memory[id];
 }

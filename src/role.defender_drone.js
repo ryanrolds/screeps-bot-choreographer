@@ -33,7 +33,7 @@ const behavior = behaviorTree.sequenceNode(
           if (creep.memory[MEMORY.MEMORY_DEFENSE_IN_POSITION]) {
             ignoreCreep = true;
           }
-          result = creep.moveTo(position, {reusePath: 5, ignoreCreep, visualizePathStyle: {stroke: '#ffffff'}});
+          result = creep.moveTo(position, {reusePath: 20, ignoreCreep, visualizePathStyle: {stroke: '#ffffff'}});
         }
 
         trace.log('move to', {result, position});

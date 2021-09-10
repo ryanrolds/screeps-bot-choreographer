@@ -71,6 +71,8 @@ export class Tracer {
   }
 }
 
+// TODO add profile class and replace Tracer.begin/end
+
 export const reset = () => {
   metrics = [];
 };
@@ -117,8 +119,8 @@ export const report = () => {
   }, []);
 
   summaryArray = _.sortBy(summaryArray, (metric) => {
-    // return metric.total;
-    return metric.total / metric.count;
+    return metric.total;
+    // return metric.total / metric.count;
   });
 
   console.log('------- CPU Usage report --------');

@@ -2,10 +2,12 @@ import {OrgBase} from './org.base';
 import {getRegion, Position} from './lib.flood_fill'
 import {Kingdom} from './org.kingdom';
 import {Colony} from './org.colony';
+import {thread, ThreadFunc} from './os.thread';
 
 const COST_MATRIX_TTL = 1500;
 const COST_DEFENDER_NOT_BASE = 6;
 const JOURNAL_ENTRY_TTL = 250;
+const WRITE_MEMORY_INTERVAL = 50;
 
 type Journal = {
   rooms: Record<string, RoomEntry>;
@@ -27,7 +29,7 @@ type PortalEntry = {
   destinationRoom: string;
 };
 
-type RoomEntry = {
+export type RoomEntry = {
   id: Id<Room>,
   lastUpdated: number;
   controller?: {
@@ -69,20 +71,24 @@ export type TargetRoom = {
 export class Scribe extends OrgBase {
   journal: Journal;
   costMatrix255: CostMatrix;
+  threadWriteMemory: ThreadFunc;
 
   constructor(parent, trace) {
     super(parent, 'scribe', trace);
 
-    this.journal = {
+    this.journal = Memory['scribe'] || {
       rooms: {},
       defenderCostMatrices: {},
       colonyCostMatrices: {},
-      creeps: {},
-    }
+    };
 
-    const setupTrace = this.trace.begin('constructor');
-    setupTrace.end();
+    this.threadWriteMemory = thread('write_memory', WRITE_MEMORY_INTERVAL)(this.writeMemory.bind(this))
   }
+
+  writeMemory() {
+    Memory['scribe'] = this.journal;
+  }
+
   update(trace) {
     const updateTrace = trace.begin('update');
 
@@ -96,19 +102,28 @@ export class Scribe extends OrgBase {
     updateTrace.end();
   }
   process(trace) {
-    const processTrace = trace.begin('process');
 
-    // TODO add stats
-    this.updateStats();
-
-    processTrace.end();
   }
+
   removeStaleJournalEntries() {
 
   }
-  updateStats() {
 
+  getStats() {
+    const rooms = Object.keys(this.journal.rooms);
+    const oldestId = this.getOldestRoomInList(rooms);
+    const oldestRoom = this.getRoomById(oldestId);
+    const oldestAge = oldestRoom ? Game.time - oldestRoom.lastUpdated : 0;
+
+    return {
+      rooms: rooms.length,
+      oldestRoom: oldestId,
+      oldestAge: oldestAge,
+      colonyCostMatrices: Object.keys(this.journal.colonyCostMatrices).length,
+      defenderCostMatrices: Object.keys(this.journal.defenderCostMatrices).length,
+    };
   }
+
   getOldestRoomInList(rooms: string[]) {
     const knownRooms = Object.keys(this.journal.rooms);
     const missingRooms = _.shuffle(_.difference(rooms, knownRooms));
@@ -119,9 +134,13 @@ export class Scribe extends OrgBase {
 
     const inRangeRooms: RoomEntry[] = Object.values(_.pick(this.journal.rooms, rooms));
     const sortedRooms = _.sortBy(inRangeRooms, 'lastUpdated');
+    if (!sortedRooms.length) {
+      return null;
+    }
 
     return sortedRooms[0].id;
   }
+
   getRoomsUpdatedRecently() {
     return Object.values(this.journal.rooms).filter((room) => {
       return Game.time - room.lastUpdated < 500;
@@ -322,20 +341,10 @@ export class Scribe extends OrgBase {
     return JSON.parse(InterShardMemory.getRemote(shardName) || '{}');
   }
 
-  getPortals(shardName: string) {
-    const portals = Object.values(this.journal.rooms).filter((room) => {
-      return _.filter(room.portals, _.matchesProperty('destinationShard', shardName)).length > 0;
-    }).map((room) => {
-      return room.portals.reduce((acc: PortalEntry[], portal) => {
-        if (portal.destinationShard === shardName) {
-          acc.push(portal);
-        }
-
-        return acc;
-      }, []);
-    }, []);
-
-    return portals;
+  getPortals(shardName: string): PortalEntry[] {
+    return Object.values(this.journal.rooms).reduce((portals, room) => {
+      return portals.concat(_.filter(room.portals, _.matchesProperty('destinationShard', shardName)));
+    }, [] as PortalEntry[]);
   }
 
   setCreepBackup(creep: Creep) {

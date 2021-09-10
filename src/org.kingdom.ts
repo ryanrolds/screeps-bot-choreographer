@@ -3,7 +3,7 @@ import {Colony} from './org.colony';
 import ResourceGovernor from './org.resource_governor';
 import {Scribe} from './org.scribe';
 import {Topics} from './lib.topics';
-import PathCache from './lib.path_cache';
+import {PathCache} from './lib.path_cache';
 import {thread, ThreadFunc} from './os.thread';
 import helpersCreeps from './helpers.creeps';
 import * as MEMORY from './constants.memory';
@@ -272,6 +272,8 @@ export class Kingdom extends OrgBase {
     stats.topics = this.topics.getCounts();
 
     stats.path_cache = this.getPathCache().getStats();
+
+    stats.scribe = this.getScribe().getStats();
 
     stats.credits = Game.market.credits;
   }

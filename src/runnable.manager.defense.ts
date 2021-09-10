@@ -431,7 +431,7 @@ function requestAdditionalDefenders(colony: Colony, needed: number, trace: Trace
 function returnDefendersToStation(trace: Tracer, kingdom: Kingdom, hostilesByColony: Record<string, Creep[]>) {
   const flags = Object.values(Game.flags).filter((flag) => {
     trace.log('flag', {flag})
-    if (!flag.name.startsWith('station')) {
+    if (!flag.name.startsWith('station') && flag.name.startsWith('parking')) {
       return false;
     }
 

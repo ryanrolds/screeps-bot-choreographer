@@ -388,36 +388,35 @@ export class Colony extends OrgBase {
     }
   }
   requestReserverForMissingRooms(trace: Tracer) {
+    trace.log("missing rooms", {missingRooms: this.missingRooms});
     this.missingRooms.forEach((roomID) => {
-      const numReservers = this.assignedCreeps.filter((creep) => {
+      const reservers = this.assignedCreeps.filter((creep) => {
         return creep.memory[MEMORY_ROLE] == CREEPS.WORKER_RESERVER &&
           creep.memory[MEMORY_ASSIGN_ROOM] === roomID;
-      }).length;
+      });
 
       // A reserver is already assigned, don't send more
-      if (numReservers) {
+      if (reservers.length) {
+        trace.notice("have reserver already", {reservers: reservers.map(c => c.id)});
         return;
       }
 
+      // Bootstrapping a new colony requires another colony sending
+      // creeps to claim and build a spawner
+      const details = {
+        role: WORKER_RESERVER,
+        memory: {
+          [MEMORY_ASSIGN_ROOM]: roomID,
+          [MEMORY.MEMORY_COLONY]: this.id,
+        },
+      };
+
       if (this.primaryOrgRoom && this.primaryOrgRoom.hasSpawns &&
         this.primaryOrgRoom.room.energyCapacityAvailable >= 800) {
-        this.sendRequest(TOPIC_SPAWN, PRIORITY_CLAIMER, {
-          role: WORKER_RESERVER,
-          memory: {
-            [MEMORY_ASSIGN_ROOM]: roomID,
-          },
-        }, REQUEST_MISSING_ROOMS_TTL);
+        trace.notice('requesting claimer from colony', {details});
+        this.sendRequest(TOPIC_SPAWN, PRIORITY_CLAIMER, details, REQUEST_MISSING_ROOMS_TTL);
       } else {
-        // Bootstrapping a new colony requires another colony sending
-        // creeps to claim and build a spawner
-        const details = {
-          role: WORKER_RESERVER,
-          memory: {
-            [MEMORY_ASSIGN_ROOM]: roomID,
-            [MEMORY.MEMORY_COLONY]: this.id,
-          },
-        };
-        trace.log('requesting claimer from kingdom', {details});
+        trace.notice('requesting claimer from kingdom', {details});
         this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITY_CLAIMER, details, REQUEST_MISSING_ROOMS_TTL);
       }
     });

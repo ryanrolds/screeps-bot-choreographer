@@ -5,9 +5,11 @@ import {KingdomConfig} from './config'
 global.TRACING_ACTIVE = false;
 
 let config: KingdomConfig = {
+  'username': 'ENETDOWN',
   'buffer': 3,
   'friends': [
-    'PythonBeatJava'
+    'PythonBeatJava',
+    'ChaosDMG',
   ],
   'neutral': [
     'JavaXCrow',
@@ -30,21 +32,26 @@ let config: KingdomConfig = {
         id: 'E22S48-Shard2',
         primary: 'E22S48',
         isPublic: false,
-        rooms: ['E22S48', 'E22S47'],
+        rooms: ['E22S48', 'E22S47', 'E22S46', 'E21S46'],
       },
       'E22S49-Shard2': {
         id: 'E22S49-Shard2',
         primary: 'E22S49',
         isPublic: false,
         rooms: ['E22S49'],
+      },
+      'E34S51-Shard2': {
+        id: 'E34S51-Shard2',
+        primary: 'E34S51',
+        isPublic: false,
+        rooms: ['E34S51'],
       }/*,
       'E21S46-Shard2': {
         id: 'E21S46-Shard2',
         primary: 'E21S46',
         isPublic: false,
         rooms: ['E21S46'],
-      },
-      'E17S51-Shard2': {
+      }'E17S51-Shard2': {
         id: 'E17S51-Shard2',
         primary: 'E17S51',
         isPublic: false,

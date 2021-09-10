@@ -1,20 +1,27 @@
-const behaviorTree = require('./lib.behaviortree');
-const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
-const behaviorCommute = require('./behavior.commute');
-const behaviorStorage = require('./behavior.storage');
-const behaviorMovement = require('./behavior.movement');
-const behaviorBuild = require('./behavior.build');
-const behaviorHarvest = require('./behavior.harvest');
-const behaviorNonCombatant = require('./behavior.noncombatant');
-const behaviorBoosts = require('./behavior.boosts');
-const MEMORY = require('./constants.memory');
+import * as behaviorTree from "./lib.behaviortree";
+import {FAILURE, SUCCESS, RUNNING} from "./lib.behaviortree";
+import behaviorCommute from "./behavior.commute";
+import behaviorStorage from "./behavior.storage";
+import * as behaviorMovement from "./behavior.movement";
+import behaviorBuild from "./behavior.build";
+import behaviorHarvest from "./behavior.harvest";
+import behaviorNonCombatant from "./behavior.noncombatant";
+import behaviorBoosts from "./behavior.boosts";
+import * as MEMORY from "./constants.memory";
+import {RoomCallbackRules} from "./lib.path_cache";
+
+const rules: RoomCallbackRules = {
+  avoidFriendlyRooms: false,
+  avoidHostiles: true,
+  avoidOwnedRooms: true,
+}
 
 const behavior = behaviorTree.sequenceNode(
   'haul_energy',
   [
     // behaviorHarvest.moveToHarvestRoom,
     // behaviorHarvest.moveToHarvest,
-    behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_SOURCE_POSITION, 1, true, 100, 2000),
+    behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_SOURCE_POSITION, 1, 2000, rules),
     behaviorCommute.setCommuteDuration,
     behaviorHarvest.harvest,
     behaviorTree.selectorNode(
@@ -25,17 +32,17 @@ const behavior = behaviorTree.sequenceNode(
           [
             behaviorStorage.selectRoomDropoff,
             behaviorMovement.moveToDestinationRoom,
-            behaviorMovement.moveToDestination(1),
+            behaviorMovement.moveToDestination(1, true, 50, 2000),
             behaviorTree.leafNode(
               'empty_creep',
               (creep) => {
-                const destination = Game.getObjectById(creep.memory[MEMORY.MEMORY_DESTINATION]);
+                const destination: Creep | Structure<StructureConstant> = Game.getObjectById(creep.memory[MEMORY.MEMORY_DESTINATION]);
                 if (!destination) {
                   return FAILURE;
                 }
 
                 const resource = Object.keys(creep.store).pop();
-                const result = creep.transfer(destination, resource);
+                const result = creep.transfer(destination, resource as ResourceConstant);
                 if (result === ERR_FULL) {
                   // We still have energy to transfer, fail so we find another
                   // place to dump
@@ -61,7 +68,7 @@ const behavior = behaviorTree.sequenceNode(
           [
             behaviorBuild.selectSite,
             behaviorMovement.moveToDestinationRoom,
-            behaviorMovement.moveToDestination(1),
+            behaviorMovement.moveToDestination(1, true, 50, 2000),
             behaviorBuild.build,
           ],
         ),
@@ -70,6 +77,6 @@ const behavior = behaviorTree.sequenceNode(
   ],
 );
 
-module.exports = {
+export const roleHarvester = {
   run: behaviorTree.rootNode('hauler', behaviorBoosts(behaviorNonCombatant(behavior))),
 };

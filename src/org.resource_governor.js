@@ -24,13 +24,13 @@ const BALANCE_ENERGY_TTL = 50;
 
 // Try to ensure that all colonies are ready to
 // boost creeps with these effects
-const MIN_CRITICAL_COMPOUND = 500;
+const MIN_CRITICAL_COMPOUND = 1000;
 const CRITICAL_EFFECTS = {
   'upgradeController': ['XGH2O', 'GH2O', 'GH'],
   // 'capacity': ['XKH2O', 'KH2O', 'KH'],
   'heal': ['XLHO2', 'LHO2', 'LO'],
   'attack': ['XUH2O', 'UH2O', 'UH'],
-  // 'rangedAttack': ['XKHO2', 'KHO2', 'KO'],
+  'rangedAttack': ['XKHO2', 'KHO2', 'KO'],
   'damage': ['XGHO2', 'GHO2', 'GO'],
   'dismantle': ['XZH2O', 'ZH2O', 'ZH'],
 };

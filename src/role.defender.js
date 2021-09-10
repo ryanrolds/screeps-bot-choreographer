@@ -91,7 +91,7 @@ const behavior = behaviorTree.sequenceNode(
           return RUNNING;
         }
 
-        const pathToTarget = creep.pos.findPathTo(moveTarget);
+        const pathToTarget = creep.pos.findPathTo(moveTarget, {range: 3});
         const lastRampart = pathToTarget.reduce((lastRampart, pos) => {
           pos = creep.room.getPositionAt(pos.x, pos.y);
           const posStructures = pos.lookFor(LOOK_STRUCTURES);

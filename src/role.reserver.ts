@@ -1,55 +1,30 @@
 
-const behaviorTree = require('./lib.behaviortree');
-const {FAILURE} = require('./lib.behaviortree');
-const behaviorCommute = require('./behavior.commute');
-const behaviorMovement = require('./behavior.movement');
-const behaviorBoosts = require('./behavior.boosts');
-const behaviorRoom = require('./behavior.room');
-const MEMORY = require('./constants.memory');
+import * as behaviorTree from './lib.behaviortree';
+import {FAILURE} from './lib.behaviortree';
+import behaviorCommute from "./behavior.commute";
+import * as behaviorMovement from "./behavior.movement";
+import behaviorBoosts from "./behavior.boosts";
+import behaviorRoom from "./behavior.room";
+import * as MEMORY from "./constants.memory";
+import {RoomCallbackRules} from './lib.path_cache';
+
+const rules: RoomCallbackRules = {
+  avoidHostiles: true,
+  avoidOwnedRooms: true,
+  avoidFriendlyRooms: false,
+}
 
 const behavior = behaviorTree.sequenceNode(
   'reserver_root',
   [
     behaviorMovement.moveToShard(MEMORY.MEMORY_ASSIGN_SHARD),
-    behaviorTree.leafNode(
-      'move_to_room',
-      (creep, trace, kingdom) => {
-        const room = creep.memory[MEMORY.MEMORY_ASSIGN_ROOM];
-        if (!room) {
-          trace.log('no room in memory');
-          return FAILURE;
-        }
+    behaviorTree.leafNode('set_controller_location', (creep, trace, kingdom) => {
+      const assignedRoom = creep.memory[MEMORY.MEMORY_ASSIGN_ROOM];
+      creep.memory[MEMORY.MEMORY_ASSIGN_ROOM_POS] = [25, 25, assignedRoom].join(',');
 
-        // If the creep reaches the room we are done
-        if (creep.room.name === room) {
-          return behaviorTree.SUCCESS;
-        }
-
-        // Move to center of the room or controller
-        let destination = new RoomPosition(25, 25, room);
-        const roomObject = Game.rooms[room];
-        if (roomObject) {
-          destination = roomObject.controller;
-        }
-
-        const result = creep.moveTo(destination, {
-          reusePath: 50,
-          maxOps: 2500,
-        });
-
-        if (result === ERR_NO_PATH) {
-          trace.log('no path to room');
-          return behaviorTree.FAILURE;
-        }
-
-        if (result === ERR_INVALID_ARGS) {
-          trace.log('invalid args');
-          return behaviorTree.FAILURE;
-        }
-
-        return behaviorTree.RUNNING;
-      },
-    ),
+      return behaviorTree.SUCCESS
+    }),
+    behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_ASSIGN_ROOM_POS, 1, 2000, rules),
     behaviorTree.repeatUntilSuccess(
       'move_to_rc',
       behaviorTree.leafNode(
@@ -61,7 +36,7 @@ const behavior = behaviorTree.sequenceNode(
             return behaviorTree.SUCCESS;
           }
 
-          return behaviorMovement.moveTo(creep, creep.room.controller, 1, false, 25, 1500);
+          return behaviorMovement.moveTo(creep, creep.room.controller.pos, 1, false, 25, 1500);
         },
       ),
     ),
@@ -83,25 +58,43 @@ const behavior = behaviorTree.sequenceNode(
             return behaviorTree.SUCCESS;
           }
 
-          const room = kingdom.getCreepRoom(creep);
+          const orgRoom = kingdom.getCreepRoom(creep);
+
+          const room = creep.room;
           if (!room) {
-            trace.log('unable to get creep room', {result});
+            trace.log('unable to get creep room');
             return behaviorTree.FAILURE;
           }
 
-          if (room.controller && room.controller.upgradeBlocked) {
+          const unowned = !room.controller || !room.controller.owner;
+          const claimedByMe = room.controller && room.controller.my;
+          const reservedByMe = room.controller && room.controller.reservation &&
+            room.controller.reservation.username === kingdom.config.username;
+          const isPrimary = orgRoom && orgRoom.isPrimary;
+          const controller = room.controller;
+
+          trace.log('reserver', {
+            room: room.name,
+            unowned,
+            claimedByMe,
+            reservedByMe,
+            isPrimary,
+            controller,
+          });
+
+          if (controller && controller.upgradeBlocked) {
             trace.log('upgrade/attack blocked', {ttl: room.controller.upgradeBlocked});
             return behaviorTree.FAILURE;
           }
 
-          if (!room.unowned && !room.claimedByMe && !room.reservedByMe) {
+          if (!unowned && !claimedByMe && !reservedByMe) {
             const result = creep.attackController(creep.room.controller);
             trace.log('attackController', {result});
             if (result != OK) {
               return behaviorTree.FAILURE;
             }
           } else {
-            if (room.isPrimary) {
+            if (isPrimary) {
               const result = creep.claimController(creep.room.controller);
               trace.log('claimController', {result});
               if (result != OK) {
@@ -123,6 +116,6 @@ const behavior = behaviorTree.sequenceNode(
   ],
 );
 
-module.exports = {
+export const roleReserver = {
   run: behaviorTree.rootNode('reserver', behaviorBoosts(behavior)),
 };

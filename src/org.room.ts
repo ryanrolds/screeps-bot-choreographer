@@ -17,7 +17,7 @@ import {Kingdom} from './org.kingdom';
 const MEMORY_HOSTILE_TIME = 'hostile_time';
 const MEMORY_HOSTILE_POS = 'hostile_pos';
 
-const MAX_DEFENDERS = 4;
+const MAX_DEFENDERS = 8;
 
 const WALL_LEVEL = 1000;
 const RAMPART_LEVEL = 1000;
@@ -290,7 +290,9 @@ export default class OrgRoom extends OrgBase {
         return;
       }
 
-      this.requestDefender(this.lastHostilePosition, true, trace);
+      for (let i = 0; i < neededDefenders; i++) {
+        this.requestDefender(this.lastHostilePosition, true, trace);
+      }
     });
 
     setupTrace.end();

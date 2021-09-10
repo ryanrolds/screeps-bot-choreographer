@@ -1,8 +1,26 @@
+import {trace} from "node:console";
+import {Tracer} from "./lib.tracing";
+import {Kingdom} from "./org.kingdom";
+
 const COST_MATRIX_TTL = 1000;
 const CACHE_ITEM_TTL = 1000;
 
+export type RoomCallbackRules = {
+  avoidHostiles: boolean;
+  avoidOwnedRooms: boolean;
+  avoidFriendlyRooms: boolean;
+};
+
 class PathCacheItem {
-  constructor(originId, goalId, path, time) {
+  originId: string
+  goalId: string
+  value: PathFinderPath
+  time: number
+
+  next: PathCacheItem
+  prev: PathCacheItem
+
+  constructor(originId: string, goalId: string, path: PathFinderPath, time: number) {
     this.originId = originId;
     this.goalId = goalId;
     this.value = path;
@@ -11,7 +29,7 @@ class PathCacheItem {
     this.next = null;
     this.prev = null;
   }
-  add(item) {
+  add(item: PathCacheItem) {
     if (this.prev) {
       this.prev.next = item;
       item.prev = this.prev;
@@ -24,12 +42,17 @@ class PathCacheItem {
     this.next.prev = this.prev;
     this.prev.next = this.next;
   }
-  isExpired(time) {
+  isExpired(time: number) {
     return time - this.time > CACHE_ITEM_TTL;
   }
 }
 
 class RoomCostMatrix {
+  roomId: string
+  room: Room
+  costMatrix: CostMatrix
+  time: number
+
   constructor(room) {
     this.roomId = room.name;
     this.room = room;
@@ -39,7 +62,7 @@ class RoomCostMatrix {
   update() {
     const costMatrix = new PathFinder.CostMatrix();
 
-    this.room.find(FIND_STRUCTURES).forEach(function(struct) {
+    this.room.find(FIND_STRUCTURES).forEach(function (struct) {
       if (struct.structureType === STRUCTURE_ROAD) {
         // Favor roads over plain tiles
         costMatrix.set(struct.pos.x, struct.pos.y, 1);
@@ -68,7 +91,17 @@ class RoomCostMatrix {
   }
 }
 
-class PathCache {
+export class PathCache {
+  kingdom: Kingdom
+  maxSize: number
+  listCount: number
+  originGoalToPathMap: {[originKey: string]: {[destKey: string]: PathCacheItem}}
+  head: PathCacheItem
+  tail: PathCacheItem
+  hits: number
+  misses: number
+  rooms: {[roomId: string]: RoomCostMatrix}
+
   constructor(kingdom, maxSize) {
     this.kingdom = kingdom;
     this.maxSize = maxSize;
@@ -78,8 +111,8 @@ class PathCache {
     this.misses = 0;
     this.rooms = {};
 
-    this.head = new PathCacheItem();
-    this.tail = new PathCacheItem();
+    this.head = new PathCacheItem(null, null, null, null);
+    this.tail = new PathCacheItem(null, null, null, null);
     this.head.add(this.tail);
   }
   loadFromMemory(trace) {
@@ -172,7 +205,9 @@ class PathCache {
 
     return item.value;
   }
-  getPath(origin, goal, range, ignoreCreeps = true) {
+
+  getPath(origin: RoomPosition, goal: RoomPosition, range: number, rules: RoomCallbackRules,
+    trace: Tracer): PathFinderPath {
     const originId = this.getKey(origin, 0);
     const goalId = this.getKey(goal, range);
 
@@ -189,38 +224,12 @@ class PathCache {
       item = null;
     }
 
+    // If no item, calculate path; otherwise, move item to top of LRU cache
     if (!item) {
       this.misses += 1;
 
-      let path = null;
-      // Calculate new path
-      const opts = {
-        plainCost: 2,
-        swampCost: 10,
-        roomCallback: (roomName) => {
-          let room = this.rooms[roomName];
-          if (!room) {
-            const roomEntity = Game.rooms[roomName];
-            if (!roomEntity) {
-              // Return empty cost matrix
-              return new PathFinder.CostMatrix();
-            }
-
-            room = new RoomCostMatrix(roomEntity);
-            this.rooms[roomName] = room;
-          }
-
-          const costMatrix = room.getCostMatrix();
-          return costMatrix;
-        },
-      };
-
-      const result = PathFinder.search(origin, {pos: goal, range}, opts);
-
-
-      // TODO if incompletely try cutting some off the path to avoid getting stuck
-
-      path = result.path;
+      const result = this.calculatePath(origin, goal, range, rules, trace);
+      const path = result.path;
 
       const serializedPath = serializePath(origin, path);
       item = this.setCachedPath(originId, goalId, {serializedPath, path}, Game.time);
@@ -240,6 +249,35 @@ class PathCache {
 
     return item.value;
   }
+
+  calculatePath(origin: RoomPosition, goal: RoomPosition, range: number, rules: RoomCallbackRules,
+    trace: Tracer): PathFinderPath {
+    // Calculate new path
+    const opts = {
+      plainCost: 2,
+      swampCost: 10,
+      maxOps: 4000,
+      roomCallback: (roomName) => {
+        let room = this.rooms[roomName];
+        if (!room) {
+          const roomEntity = Game.rooms[roomName];
+          if (!roomEntity) {
+            // Return empty cost matrix
+            return new PathFinder.CostMatrix();
+          }
+
+          room = new RoomCostMatrix(roomEntity);
+          this.rooms[roomName] = room;
+        }
+
+        const costMatrix = room.getCostMatrix();
+        return costMatrix;
+      },
+    };
+
+    trace.log("calculatePath", {origin, goal, range, opts})
+    return PathFinder.search(origin, {pos: goal, range}, opts);
+  }
   getSize() {
     let count = 0;
     let node = this.head;
@@ -250,6 +288,7 @@ class PathCache {
 
     return count;
   }
+
   getStats() {
     return {
       cacheHits: this.hits,
@@ -273,4 +312,3 @@ const serializePath = (startPos, path) => {
   return serializedPath;
 };
 
-module.exports = PathCache;

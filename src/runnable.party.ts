@@ -234,6 +234,10 @@ export default class PartyRunnable {
     return structures;
   }
 
+  setRole(role: string) {
+    this.role = role;
+  }
+
   setFormation(formation: {x: number, y: number}[]) {
     this.formation = formation;
   }

@@ -14,10 +14,8 @@ export default class NukerRunnable {
   id: Id<StructureNuker>;
 
   damagedCreep: Id<Creep>;
-  repairTarget: Id<AnyStructure>;
 
   haulTTL: number;
-  repairTTL: number;
   prevTime: number;
 
   constructor(room: OrgRoom, tower: StructureNuker) {
@@ -25,7 +23,6 @@ export default class NukerRunnable {
 
     this.id = tower.id;
     this.haulTTL = 0;
-    this.repairTTL = 0;
     this.prevTime = Game.time;
   }
 
@@ -36,7 +33,6 @@ export default class NukerRunnable {
     this.prevTime = Game.time;
 
     this.haulTTL -= ticks;
-    this.repairTTL -= ticks;
 
     const room = this.orgRoom.getRoomObject()
     if (!room) {

@@ -8,6 +8,7 @@ import {PRIORITY_BUFFER_PATROL} from "./constants.priorities";
 import * as TOPICS from './constants.topics';
 import Room from './org.room';
 import PartyRunnable from './runnable.party';
+import {find} from 'lodash';
 
 const REQUEST_PARTY_MEMBER_TTL = 30;
 const NO_TARGET_TTL = 20;
@@ -31,16 +32,19 @@ export default class DefensePartyRunnable {
 
     trace.notice("defense party run top", {id: this.id})
 
+    const prep = trace.begin('run_prep')
     // Check existence of flag
     let flag = this.getFlag();
     if (!flag) {
       trace.notice("no flag with that id, terminating", {flagId: this.flagId});
+      prep.end();
       return terminate();
     }
 
     let colony = this.getColony();
     if (!colony) {
       trace.notice("no colony with that id, terminating");
+      prep.end();
       return terminate();
     }
 
@@ -55,16 +59,40 @@ export default class DefensePartyRunnable {
       position,
     });
 
-    let targets: Creep[] = []
+    prep.end();
+
+    const targetTrace = trace.begin('run_target');
+
+    let targetCreeps: Creep[] = [];
+    let targetStructures: Structure[] = [];
     // Get target requests and map to creeps
     if (flag.room) {
       const friends = kingdom.config.friends;
-      targets = flag.room.find(FIND_HOSTILE_CREEPS).filter((creep) => {
+      targetCreeps = flag.room.find(FIND_HOSTILE_CREEPS).filter((creep) => {
         return friends.indexOf(creep.owner.username) === -1;
       });
+
+      targetCreeps = _.sortBy(targetCreeps, (creep) => {
+        return 50 - creep.getActiveBodyparts(ATTACK);
+      });
+
+      if (!flag.room.controller?.my && flag.room.controller?.reservation?.username !== kingdom.config.username) {
+        targetStructures = flag.room.find(FIND_STRUCTURES, {
+          filter: (structure) => {
+            return structure.structureType === STRUCTURE_CONTAINER;
+          }
+        });
+      }
     }
 
+    let targets: (Creep | Structure)[] = [];
+    targets = targets.concat(targetCreeps, targetStructures);
+
     trace.log('target requests', {targets: targets.map(target => target.id)});
+
+    targetTrace.end();
+
+    const movementTrace = trace.begin('run_movement');
 
     // Select target from request; if no requests and its been a while, return to flag
     let destination = this.getPosition();
@@ -78,13 +106,20 @@ export default class DefensePartyRunnable {
       }
     }
 
-    trace.log('targets', {destination, targets});
+    movementTrace.end();
+
+    trace.log('goal', {destination, targets});
+
+    const partyTrace = trace.begin('run_party');
 
     this.setPosition(destination, trace);
     this.setTarget(targets, trace);
     this.setHeal(trace);
 
     const partyResult = this.party.run(kingdom, trace);
+
+    partyTrace.end();
+
     if (partyResult.status === STATUS_TERMINATED) {
       trace.notice('party terminated, terminate this');
       return partyResult;
@@ -117,8 +152,8 @@ export default class DefensePartyRunnable {
     this.party.setPosition(position);
   }
 
-  setTarget(targetRequests: Creep[], trace: Tracer) {
-    this.party.setTarget(targetRequests, trace);
+  setTarget(targets: (Creep | Structure)[], trace: Tracer) {
+    this.party.setTarget(targets, trace);
   }
 
   setHeal(trace: Tracer) {

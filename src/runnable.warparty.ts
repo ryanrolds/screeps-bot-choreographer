@@ -1,6 +1,7 @@
 import * as _ from 'lodash';
 import {Kingdom} from "./org.kingdom";
 import {Colony} from './org.colony';
+import {RoomEntry} from './org.scribe';
 import {RunnableResult, running, sleeping, terminate, STATUS_TERMINATED} from "./os.process";
 import {Tracer} from './lib.tracing';
 import {WORKER_ATTACKER, WORKER_ATTACKER_3TOWER} from './constants.creeps'
@@ -19,14 +20,14 @@ const DIRECTION_2BY2_FORMATION = {
     {x: 1, y: 0}, // BR
   ],
   [TOP_RIGHT]: [
-    {x: 0, y: -1}, // TL
     {x: 1, y: -1}, // TR
-    {x: 0, y: 0}, // BL
+    {x: 0, y: -1}, // TL
     {x: 1, y: 0}, // BR
+    {x: 0, y: 0}, // BL
   ],
   [RIGHT]: [
-    {x: 1, y: 0}, // BR
     {x: 1, y: -1}, // TR
+    {x: 1, y: 0}, // BR
     {x: 0, y: -1}, // TL
     {x: 0, y: 0}, // BL
   ],
@@ -37,8 +38,8 @@ const DIRECTION_2BY2_FORMATION = {
     {x: 0, y: 0}, // BL
   ],
   [BOTTOM]: [
-    {x: 1, y: 0}, // BR
     {x: 0, y: 0}, // BL
+    {x: 1, y: 0}, // BR
     {x: 0, y: -1}, // TL
     {x: 1, y: -1}, // TR
   ],
@@ -49,10 +50,10 @@ const DIRECTION_2BY2_FORMATION = {
     {x: 1, y: -1}, // TR
   ],
   [LEFT]: [
-    {x: 0, y: 0}, // BL
     {x: 0, y: -1}, // TL
-    {x: 1, y: 0}, // BR
+    {x: 0, y: 0}, // BL
     {x: 1, y: -1}, // TR
+    {x: 1, y: 0}, // BR
   ],
   [TOP_LEFT]: [
     {x: 0, y: -1}, // TL
@@ -92,6 +93,7 @@ export default class WarPartyRunnable {
   phase: Phase;
   position: RoomPosition;
   destination: RoomPosition;
+  direction: DirectionConstant;
   // TODO move to Scribe
   costMatrices: Record<string, CostMatrix>;
 
@@ -114,6 +116,7 @@ export default class WarPartyRunnable {
     this.costMatrices = {};
     this.position = position;
     this.destination = new RoomPosition(25, 25, targetRoom);
+    this.direction = TOP;
 
     this.party = new PartyRunnable(id, colony, position, WORKER_ATTACKER, PRIORITY_ATTACKER,
       REQUEST_ATTACKER_TTL);
@@ -137,9 +140,11 @@ export default class WarPartyRunnable {
     const positionRoomObject = Game.rooms[this.position.roomName];
 
     if (!targetRoom) {
-      trace.notice("no rally point defined, terminating war party");
+      trace.notice("no target room, terminating war party");
       this.party.done();
     }
+
+    // TODO score room and set party role
 
     if (!flag) {
       trace.notice(`no flag (${this.flagId}), terminating war party`);
@@ -245,16 +250,19 @@ export default class WarPartyRunnable {
 
     trace.log("next position", {targetRoom, nextPosition, blockers: blockers.map(blocker => blocker.id)});
 
-    if (nextPosition) {
+    const directionChanged = direction != this.direction;
+    if (directionChanged) {
+      trace.log("changing formation", {direction});
+      this.setFormation(direction);
+    } else if (nextPosition) {
+      trace.log("setting next position", {nextPosition});
       this.setPosition(nextPosition, trace);
     } else {
       trace.log("no next position");
     }
 
-    if (direction) {
-      trace.log("changing formation", {direction});
-      this.setFormation(direction);
-    }
+    // Update direction
+    this.direction = direction;
 
     let targets: (Creep | Structure)[] = [];
 
@@ -280,7 +288,7 @@ export default class WarPartyRunnable {
       trace.log("targets", {targetsLength: targets.length})
       const target = this.party.setTarget(targets, trace);
       if (target) {
-        //this.alignWithTarget(target, nextPosition, trace);
+        this.alignWithTarget(target, nextPosition, trace);
       }
     } else {
       trace.log("no targets");
@@ -301,25 +309,33 @@ export default class WarPartyRunnable {
       if (targets.length) {
         trace.log('target', targets[0]);
         destination = targets[0].pos;
-      } else {
+      } else if (room.controller?.my || room.controller?.level < 1) {
         trace.log("no targets");
         return true;
+      } else {
+        // TODO set strength baseed on the threat
+        this.party.setRole(WORKER_ATTACKER)
       }
     }
+
     this.destination = destination;
 
     const [nextPosition, direction, blockers] = this.getNextPosition(this.position, this.destination, trace);
     trace.log("next position", {nextPosition, blockers: blockers.map(blocker => blocker.id)});
-    if (nextPosition) {
+
+    const directionChanged = direction != this.direction;
+    if (directionChanged) {
+      trace.log("changing formation", {direction});
+      this.setFormation(direction);
+    } else if (nextPosition) {
+      trace.log("setting next position", {nextPosition});
       this.setPosition(nextPosition, trace);
     } else {
       trace.log("no next position");
     }
 
-    if (direction) {
-      trace.log("changing formation", {direction});
-      this.setFormation(direction);
-    }
+    // Update direction
+    this.direction = direction;
 
     let nearbyTargets: (Creep | Structure)[] = [];
 
@@ -345,7 +361,7 @@ export default class WarPartyRunnable {
       trace.log("nearby targets", {nearByTargetsLength: nearbyTargets.length})
       const target = this.party.setTarget(nearbyTargets, trace);
       if (target) {
-        //this.alignWithTarget(target, nextPosition, trace);
+        this.alignWithTarget(target, nextPosition, trace);
       }
     } else {
       trace.log("no targets");
@@ -415,6 +431,10 @@ export default class WarPartyRunnable {
     targets = targets.concat(room.find(FIND_HOSTILE_STRUCTURES, {
       filter: structure => structure.structureType === STRUCTURE_NUKER &&
         friends.indexOf(structure.owner.username) === -1,
+    }));
+
+    targets = targets.concat(room.find(FIND_HOSTILE_CREEPS, {
+      filter: creep => friends.indexOf(creep.owner.username) === -1
     }));
 
     targets = targets.concat(room.find(FIND_HOSTILE_STRUCTURES, {
@@ -496,7 +516,7 @@ export default class WarPartyRunnable {
   getPath(origin: RoomPosition, destination: RoomPosition, trace: Tracer) {
     if (this.path && this.pathDestination && this.pathDestination.isEqualTo(destination) &&
       Game.time - this.pathTime < 50) {
-      trace.log('path cache hit', {pathLength: this.path.length, origin, destination})
+      trace.log('path cache hit', {pathLength: this.path.length, ttl: Game.time - this.pathTime, origin, destination});
       return this.path;
     }
 
@@ -518,14 +538,15 @@ export default class WarPartyRunnable {
     });
 
     // Add origin to beginning so we have our current position as start/rally point
-    this.path = [origin].concat(result.path);
+    //this.path = [origin].concat(result.path);
+    this.path = result.path;
     this.pathComplete = !result.incomplete;
 
     return this.path;
   }
 
   getNextPosition(currentPosition: RoomPosition, destination: RoomPosition,
-    trace: Tracer): [RoomPosition, (DirectionConstant | 0), Structure[]] {
+    trace: Tracer): [RoomPosition, DirectionConstant, Structure[]] {
 
     // Figure out where we are going
     const path = this.getPath(currentPosition, destination, trace);
@@ -533,7 +554,7 @@ export default class WarPartyRunnable {
       // Cant find where we are going, freeze
       // TODO maybe suicide
       trace.notice('warparty stuck', {id: this.id})
-      return [currentPosition, 0, []];
+      return [currentPosition, this.direction, []];
     }
 
     // We know where we are going and the path
@@ -562,10 +583,10 @@ export default class WarPartyRunnable {
     let nextPosition = path[nextIndex];
     if (!nextPosition) {
       trace.log('no next position', {nextIndex, path});
-      return [currentPosition, 0, []];
+      return [currentPosition, this.direction, []];
     }
 
-    let direction: (DirectionConstant | 0) = 0;
+    let direction: DirectionConstant = this.direction;
 
     // Determine if we plan to move
     const positionChanged = !currentPosition.isEqualTo(nextPosition);

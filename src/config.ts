@@ -11,6 +11,7 @@ export interface ColonyConfig {
 }
 
 export interface KingdomConfig {
+  username: string;
   buffer: number;
   friends: string[];
   neutral: string[];

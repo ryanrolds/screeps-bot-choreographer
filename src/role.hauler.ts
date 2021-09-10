@@ -1,14 +1,21 @@
 
-const behaviorTree = require('./lib.behaviortree');
-const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
-const behaviorMovement = require('./behavior.movement');
-const behaviorNonCombatant = require('./behavior.noncombatant');
-const behaviorHaul = require('./behavior.haul');
-const behaviorRoom = require('./behavior.room');
-const behaviorBoosts = require('./behavior.boosts');
+import * as behaviorTree from "./lib.behaviortree";
+import {FAILURE, SUCCESS, RUNNING} from "./lib.behaviortree";
+import * as behaviorMovement from "./behavior.movement";
+import behaviorNonCombatant from "./behavior.noncombatant";
+import behaviorHaul from "./behavior.haul";
+import behaviorRoom from "./behavior.room";
+import behaviorBoosts from "./behavior.boosts";
 
-const MEMORY = require('./constants.memory');
-const TOPICS = require('./constants.topics');
+import * as MEMORY from "./constants.memory";
+import * as TOPICS from "./constants.topics";
+import {RoomCallbackRules} from "./lib.path_cache";
+
+const rules: RoomCallbackRules = {
+  avoidOwnedRooms: true,
+  avoidHostiles: true,
+  avoidFriendlyRooms: false,
+};
 
 const emptyCreep = behaviorTree.repeatUntilConditionMet(
   'transfer_until_empty',
@@ -22,7 +29,7 @@ const emptyCreep = behaviorTree.repeatUntilConditionMet(
   behaviorTree.sequenceNode(
     'dump_energy',
     [
-      behaviorMovement.moveByHeapPath(MEMORY.MEMORY_HAUL_DROPOFF, 1, true, 100, 2500),
+      behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_DROPOFF, 1, 2500, rules),
       behaviorTree.leafNode(
         'empty_creep',
         (creep, trace, kingdom) => {
@@ -30,7 +37,7 @@ const emptyCreep = behaviorTree.repeatUntilConditionMet(
             return SUCCESS;
           }
 
-          const destination = Game.getObjectById(creep.memory[MEMORY.MEMORY_HAUL_DROPOFF]);
+          const destination: AnyStoreStructure = Game.getObjectById(creep.memory[MEMORY.MEMORY_HAUL_DROPOFF]);
           if (!destination) {
             trace.log('no dump destination');
             return FAILURE;
@@ -38,7 +45,7 @@ const emptyCreep = behaviorTree.repeatUntilConditionMet(
 
           const resource = Object.keys(creep.store).pop();
 
-          const result = creep.transfer(destination, resource);
+          const result = creep.transfer(destination, resource as ResourceConstant);
 
           trace.log('transfer result', {result});
 
@@ -120,7 +127,7 @@ const behavior = behaviorTree.sequenceNode(
       behaviorTree.sequenceNode(
         'pickup_load',
         [
-          behaviorMovement.moveByHeapPath(MEMORY.MEMORY_HAUL_PICKUP, 1, true, 100, 2500),
+          behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_PICKUP, 1, 2500, rules),
           behaviorHaul.loadCreep,
           behaviorHaul.clearTask,
           behaviorTree.returnSuccess(
@@ -134,6 +141,6 @@ const behavior = behaviorTree.sequenceNode(
   ],
 );
 
-module.exports = {
+export const roleHauler = {
   run: behaviorTree.rootNode('hauler', behaviorBoosts(behaviorNonCombatant(behavior))),
 };
