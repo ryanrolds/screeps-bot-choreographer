@@ -5,13 +5,13 @@ import {Kingdom} from "./org.kingdom";
 const COST_MATRIX_TTL = 1000;
 const CACHE_ITEM_TTL = 1000;
 
-export type RoomCallbackRules = {
+export type PathFinderRules = {
   avoidHostiles: boolean;
   avoidOwnedRooms: boolean;
   avoidFriendlyRooms: boolean;
 };
 
-class PathCacheItem {
+export class PathCacheItem {
   originId: string
   goalId: string
   value: PathFinderPath
@@ -171,7 +171,7 @@ export class PathCache {
 
     trace.end();
   }
-  setCachedPath(originKey, destKey, value, time) {
+  setCachedPath(originKey: string, destKey: string, value: PathFinderPath, time: number): PathCacheItem {
     const item = new PathCacheItem(originKey, destKey, value, time);
     this.head.add(item);
 
@@ -192,7 +192,8 @@ export class PathCache {
   getKey(pos, range = 0) {
     return `${pos.roomName}_${pos.x}_${pos.y}_${range}`;
   }
-  getCachedPath(originKey, destKey) {
+
+  getCachedPath(originKey: string, destKey: string): PathCacheItem {
     const destinations = this.originGoalToPathMap[originKey];
     if (!destinations) {
       return null;
@@ -203,26 +204,21 @@ export class PathCache {
       return null;
     }
 
-    return item.value;
+    if (item && item.isExpired(Game.time)) {
+      item.remove();
+      this.listCount -= 1;
+      return null;
+    }
+
+    return item;
   }
 
-  getPath(origin: RoomPosition, goal: RoomPosition, range: number, rules: RoomCallbackRules,
+  getPath(origin: RoomPosition, goal: RoomPosition, range: number, rules: PathFinderRules,
     trace: Tracer): PathFinderPath {
     const originId = this.getKey(origin, 0);
     const goalId = this.getKey(goal, range);
 
-    const originGoals = this.originGoalToPathMap[originId];
-    if (!originGoals) {
-      this.originGoalToPathMap[originId] = {};
-    }
-
-    let item = this.originGoalToPathMap[originId][goalId];
-
-    if (item && item.isExpired(Game.time)) {
-      item.remove();
-      this.listCount -= 1;
-      item = null;
-    }
+    let item = this.getCachedPath(originId, goalId);
 
     // If no item, calculate path; otherwise, move item to top of LRU cache
     if (!item) {
@@ -231,8 +227,7 @@ export class PathCache {
       const result = this.calculatePath(origin, goal, range, rules, trace);
       const path = result.path;
 
-      const serializedPath = serializePath(origin, path);
-      item = this.setCachedPath(originId, goalId, {serializedPath, path}, Game.time);
+      item = this.setCachedPath(originId, goalId, result, Game.time);
     } else {
       item.remove();
       this.head.add(item);
@@ -250,21 +245,49 @@ export class PathCache {
     return item.value;
   }
 
-  calculatePath(origin: RoomPosition, goal: RoomPosition, range: number, rules: RoomCallbackRules,
+  calculatePath(origin: RoomPosition, goal: RoomPosition, range: number, rules: PathFinderRules,
     trace: Tracer): PathFinderPath {
     // Calculate new path
     const opts = {
       plainCost: 2,
-      swampCost: 10,
-      maxOps: 4000,
+      swampCost: 4,
+      maxOps: 6000,
       roomCallback: (roomName) => {
         let room = this.rooms[roomName];
         if (!room) {
+          const roomEntry = this.kingdom.getScribe().getRoomById(roomName);
+          trace.log('room_callback', {roomEntry});
+          if (roomEntry) {
+
+            if (roomEntry.hasKeepers) {
+              trace.notice('avoid room with keepers', {roomName});
+              return false;
+            }
+
+            const friends = this.kingdom.getFriends();
+            const owner = roomEntry.controller?.owner;
+            trace.notice('room check', {roomName, owner, friends, numTowers: roomEntry.numTowers});
+            if (owner && owner !== this.kingdom.config.username && friends.indexOf(owner) === -1) {
+              trace.notice('avoid owned room', {roomName, owner, ttl: Game.time - roomEntry.lastUpdated});
+              return false;
+            }
+
+            if (!owner && roomEntry.numTowers > 0) {
+              trace.notice('avoid room with towers', {roomName, numTowers: roomEntry.numTowers});
+              return false;
+            }
+          } else {
+            trace.notice('room not yet seen', {roomName})
+          }
+
           const roomEntity = Game.rooms[roomName];
           if (!roomEntity) {
             // Return empty cost matrix
+            trace.notice('using blank cost matrix', {roomName})
             return new PathFinder.CostMatrix();
           }
+
+          trace.notice('generating new matrix', {roomName});
 
           room = new RoomCostMatrix(roomEntity);
           this.rooms[roomName] = room;
@@ -275,7 +298,7 @@ export class PathCache {
       },
     };
 
-    trace.log("calculatePath", {origin, goal, range, opts})
+    trace.notice("calculatePath", {origin, goal, range, opts})
     return PathFinder.search(origin, {pos: goal, range}, opts);
   }
   getSize() {

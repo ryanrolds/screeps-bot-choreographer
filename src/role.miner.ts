@@ -5,9 +5,9 @@ import behaviorBoosts from "./behavior.boosts";
 import * as behaviorMovement from "./behavior.movement";
 import behaviorCommute from "./behavior.commute";
 import * as MEMORY from "./constants.memory";
-import {RoomCallbackRules} from "./lib.path_cache";
+import {PathFinderRules} from "./lib.path_cache";
 
-const rules: RoomCallbackRules = {
+const rules: PathFinderRules = {
   avoidFriendlyRooms: true,
   avoidHostiles: true,
   avoidOwnedRooms: true,

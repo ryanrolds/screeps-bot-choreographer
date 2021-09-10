@@ -4,7 +4,7 @@ import {FAILURE, SUCCESS, RUNNING, NodeTickResult} from "./lib.behaviortree";
 
 import * as MEMORY from "./constants.memory";
 import {MEMORY_ORIGIN, MEMORY_SOURCE} from "./constants.memory";
-import {PathCache, RoomCallbackRules} from "./lib.path_cache";
+import {PathCache, PathCacheItem, PathFinderRules} from "./lib.path_cache";
 import {Tracer} from "./lib.tracing";
 import {Kingdom} from "./org.kingdom";
 import {clear} from "node:console";
@@ -149,7 +149,7 @@ const getDestinationFromMemory = (creep: Creep, memoryId: string): RoomPosition 
 };
 
 const getAndSetCreepPath = (pathCache: PathCache, creep: Creep, destination: RoomPosition, range: number,
-  rules: RoomCallbackRules, trace: Tracer): [PathFinderPath, string, string] => {
+  rules: PathFinderRules, trace: Tracer): [PathFinderPath, string, string] => {
   const path = pathCache.getPath(creep.pos, destination, range, rules, trace);
   const originKey = pathCache.getKey(creep.pos, 0);
   const destKey = pathCache.getKey(destination, range);
@@ -164,38 +164,45 @@ const clearMovementCache = (creep) => {
 };
 
 const updateCreepCachedPath = (kingdom: Kingdom, creep: Creep, destination: RoomPosition,
-  range: number, rules: RoomCallbackRules, trace: Tracer): PathFinderPath => {
+  range: number, rules: PathFinderRules, trace: Tracer): PathFinderPath => {
   const pathCache = kingdom.getPathCache();
 
-  let path = null;
+  let path: PathCacheItem = null;
   let originKey = creep.memory[PATH_ORIGIN_KEY] || null;
   let destKey = creep.memory[PATH_DESTINATION_KEY] || null;
+
+  trace.log('keys', {originKey, destKey});
+
   if (originKey && destKey) {
     path = pathCache.getCachedPath(originKey, destKey);
+  }
+
+  if (path) {
+    trace.log('heap cache hit', {originKey, destKey});
+    return path.value;
   }
 
   if (!path) {
     trace.log('heap cache miss', {originKey, destKey});
     const getSetResult = getAndSetCreepPath(pathCache, creep, destination, range, rules, trace);
-    path = getSetResult[0];
     originKey = getSetResult[1];
     destKey = getSetResult[2];
+
+    trace.log('setting keys', {originKey, destKey});
+
+    creep.memory[PATH_ORIGIN_KEY] = originKey;
+    creep.memory[PATH_DESTINATION_KEY] = destKey;
+
+    return getSetResult[0];
   }
 
-  if (!path) {
-    trace.log('missing path', {originKey, destKey});
-    clearMovementCache(creep);
-    return null;
-  }
-
-  creep.memory[PATH_ORIGIN_KEY] = originKey;
-  creep.memory[PATH_DESTINATION_KEY] = destKey;
-
-  return path;
+  trace.log('missing path', {originKey, destKey});
+  clearMovementCache(creep);
+  return null;
 }
 
 export const cachedMoveToMemoryPos = (memoryId: string, range: number = 1, maxOps: number,
-  rules: RoomCallbackRules) => {
+  rules: PathFinderRules) => {
   return behaviorTree.leafNode(
     'cached_move_to_position',
     (creep, trace, kingdom) => {
@@ -212,7 +219,7 @@ export const cachedMoveToMemoryPos = (memoryId: string, range: number = 1, maxOp
 };
 
 export const cachedMoveToMemoryObjectId = (memoryId: string, range: number = 1,
-  maxOps: number, rules: RoomCallbackRules) => {
+  maxOps: number, rules: PathFinderRules) => {
   return behaviorTree.leafNode(
     'cached_move_to_object_id',
     (creep, trace, kingdom) => {
@@ -229,7 +236,7 @@ export const cachedMoveToMemoryObjectId = (memoryId: string, range: number = 1,
 };
 
 const cachedMoveToPosition = (kingdom: Kingdom, creep: Creep, destination: RoomPosition,
-  range: number = 1, maxOps: number, rules: RoomCallbackRules,
+  range: number = 1, maxOps: number, rules: PathFinderRules,
   trace: Tracer) => {
 
   // Check if creep has arrived
@@ -245,12 +252,14 @@ const cachedMoveToPosition = (kingdom: Kingdom, creep: Creep, destination: RoomP
 
   if (!stuck) {
     const pathfinderResult = updateCreepCachedPath(kingdom, creep, destination, range, rules, trace)
+    trace.log('pathfinder result', {path: pathfinderResult.path});
+
     result = creep.moveByPath(pathfinderResult.path);
     trace.log('move by path result', {result, path: pathfinderResult.path});
   } else {
-    const moveOpts = getMoveOpts(true, 50, maxOps);
+    const moveOpts = getMoveOpts(false, 50, maxOps);
     result = creep.moveTo(destination, moveOpts);
-    trace.log('move result', {result});
+    trace.log('move result', {result, origin: creep.pos, destination});
   }
 
   if (result === ERR_NO_PATH) {
@@ -355,7 +364,7 @@ export const fillCreepFromDestination = (creep, trace) => {
 };
 
 export const moveToShard = (shardMemoryKey) => {
-  const rules: RoomCallbackRules = {
+  const rules: PathFinderRules = {
     avoidHostiles: false,
     avoidOwnedRooms: true,
     avoidFriendlyRooms: false,

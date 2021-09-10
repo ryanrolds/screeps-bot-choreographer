@@ -41,6 +41,7 @@ export type RoomEntry = {
   };
   numSources: number;
   hasHostiles: boolean;
+  hasKeepers: boolean;
   numTowers: number;
   numKeyStructures: number;
   mineral: MineralConstant;
@@ -98,6 +99,8 @@ export class Scribe extends OrgBase {
         this.updateRoom(this.getKingdom(), room);
       }
     });
+
+    this.threadWriteMemory(updateTrace);
 
     updateTrace.end();
   }
@@ -228,6 +231,7 @@ export class Scribe extends OrgBase {
       controller: null,
       numSources: 0,
       hasHostiles: false,
+      hasKeepers: false,
       numTowers: 0,
       numKeyStructures: 0,
       mineral: null,
@@ -256,9 +260,17 @@ export class Scribe extends OrgBase {
     let hostiles = roomObject.find(FIND_HOSTILE_CREEPS);
     // Filter friendly creeps
     const friends = kingdom.config.friends;
-    hostiles = hostiles.filter(creep => friends.indexOf(creep.owner.username) === -1);
+    const hostileCreeps = hostiles.filter((creep) => {
+      const owner = creep.owner.username;
+      return friends.indexOf(owner) === -1 && owner !== 'Source Keeper';
+    });
+    room.hasHostiles = hostileCreeps.length > 0;
 
-    room.hasHostiles = hostiles.length > 0;
+    let keepers = hostiles.filter((creep) => {
+      const owner = creep.owner.username;
+      return owner === 'Source Keeper';
+    });
+    room.hasKeepers = keepers.length > 0;
 
     room.numTowers = roomObject.find(FIND_HOSTILE_STRUCTURES, {
       filter: (structure) => {

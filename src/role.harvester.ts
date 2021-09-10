@@ -8,9 +8,9 @@ import behaviorHarvest from "./behavior.harvest";
 import behaviorNonCombatant from "./behavior.noncombatant";
 import behaviorBoosts from "./behavior.boosts";
 import * as MEMORY from "./constants.memory";
-import {RoomCallbackRules} from "./lib.path_cache";
+import {PathFinderRules} from "./lib.path_cache";
 
-const rules: RoomCallbackRules = {
+const rules: PathFinderRules = {
   avoidFriendlyRooms: false,
   avoidHostiles: true,
   avoidOwnedRooms: true,
