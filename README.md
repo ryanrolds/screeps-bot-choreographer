@@ -42,27 +42,31 @@ An AI for [Screeps](screeps.com).
 - [x] Refactor role and spawn logic to support easy addition of creep roles
 - [x] Implement Scheduler, Process, and other OS components
 - [x] Move Creeps to scheduler
+- [x] Auto attack of weaker players
+- [x] Intra-shared movement and claiming
+- [ ] Buff ramparts and walls to withstand nuke
+- [ ] Quads moving coherently 100% of time
+- [ ] Harass remote mining rooms
 - [ ] Move Org/Kingdom work to scheduler
 - [ ] Auto-construction of roads to remote sources
 - [ ] Improved defenders that hide in ramparts
-- [x] Auto attack of weaker players
-- [x] Intra-shared movement and claiming
 - [ ] Collect Power
 - [ ] Create & drive Power Creeps
 - [ ] Harvest commodities
-- [ ] Buff ramparts and walls to withstand nuke
-- [ ] Harass remote mining rooms
 - [ ] Move all data sharing between processes to topics/IPC (remove direct access)
 - [ ] Automatic layout and expansion
 - [ ] Apply buffer to lvl8 rooms
 - [ ] Allow buffer manager to nuke and time sending attackers
 - [ ] Police portal rooms
 - [ ] Attack other players getting commodities/power
-- [ ] Quads moving coherently 100% of time
+
 
 ## Setup
 
 > Backup your existing scripts.
+
+> Note this project uses LF, not CRLF, and the linter will complain if it files with CRLFs.
+> The project is setup for [EditorConfig](https://editorconfig.org/). Please use that.
 
 ```
 npm install
@@ -93,6 +97,7 @@ There are a couple of helpful global variables:
 * `LOG_WHEN_ID='<game id>'` - `trace.asId(<game id>).log(...)` calls will be output to the console
 * `TRACING_ACTIVE=true` - Will output tracing metric data to the console
 * `TRACING_FILTER=<prefix>` - only print traces with a key that stats with the prefix
+
 ### Creeps
 
 * Harvester - Harvests and brings energy back to Spawner/Origin
