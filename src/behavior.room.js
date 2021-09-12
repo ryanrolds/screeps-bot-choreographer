@@ -261,7 +261,13 @@ module.exports.updateSign = behaviorTree.repeatUntilConditionMet(
       return true;
     }
 
-    return creep.room.controller.sign.text === sign;
+    const current = creep.room.controller.sign.text;
+
+    if (current.indexOf('Respawn Area') !== -1) {
+      return true;
+    }
+
+    return current === sign;
   },
   behaviorTree.sequenceNode(
     'update_sign',
@@ -284,7 +290,7 @@ module.exports.updateSign = behaviorTree.repeatUntilConditionMet(
             return SUCCESS;
           }
 
-          return FAILURE;
+          return SUCCESS;
         },
       ),
     ],

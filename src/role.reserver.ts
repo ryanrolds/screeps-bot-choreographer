@@ -41,7 +41,6 @@ const behavior = behaviorTree.sequenceNode(
       ),
     ),
     behaviorCommute.setCommuteDuration,
-    behaviorRoom.updateSign,
     behaviorTree.repeatUntilSuccess(
       'reserve',
       behaviorTree.leafNode(
@@ -113,6 +112,7 @@ const behavior = behaviorTree.sequenceNode(
         },
       ),
     ),
+    behaviorRoom.updateSign,
   ],
 );
 

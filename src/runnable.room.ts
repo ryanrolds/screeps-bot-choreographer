@@ -304,11 +304,11 @@ export default class RoomRunnable {
     trace.log('num constructions sites', {numConstructionSites})
 
     let desiredBuilders = 0;
-    if ((orgRoom.isPrimary && orgRoom.claimedByMe && room.controller.level <= 2) ||
-      (orgRoom.reservedByMe && numConstructionSites)) {
+    if (numConstructionSites && (orgRoom.reservedByMe || orgRoom.claimedByMe)) {
       desiredBuilders = 3;
-    } else if (room.controller.level > 2) {
-      desiredBuilders = Math.ceil(numConstructionSites / 10);
+      if (room.controller.level > 2) {
+        desiredBuilders = desiredBuilders = Math.ceil(numConstructionSites / 10);
+      }
     }
 
     if (builders.length >= desiredBuilders) {
@@ -478,6 +478,8 @@ export default class RoomRunnable {
       }
 
       desiredUpgraders = Math.ceil(parts / maxParts);
+    } else if (!orgRoom.hasSpawns) {
+      desiredUpgraders = 0;
     }
 
     const energyLimit = ((parts - 1) * 200) + 300;

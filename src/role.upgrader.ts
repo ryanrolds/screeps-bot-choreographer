@@ -1,11 +1,11 @@
-const behaviorTree = require('./lib.behaviortree');
-const behaviorAssign = require('./behavior.assign');
-const behaviorMovement = require('./behavior.movement');
-const behaviorCommute = require('./behavior.commute');
-const behaviorBoosts = require('./behavior.boosts');
-const behaviorRoom = require('./behavior.room');
+import * as behaviorTree from "./lib.behaviortree";
+import behaviorAssign from "./behavior.assign";
+import * as behaviorMovement from "./behavior.movement";
+import behaviorCommute from "./behavior.commute";
+import behaviorBoosts from "./behavior.boosts";
+import behaviorRoom from "./behavior.room";
 
-const MEMORY = require('./constants.memory');
+import * as MEMORY from "./constants.memory";
 
 const behavior = behaviorTree.sequenceNode(
   'upgrader_root',
@@ -13,7 +13,6 @@ const behavior = behaviorTree.sequenceNode(
     behaviorMovement.moveToShard(MEMORY.MEMORY_ASSIGN_SHARD),
     behaviorAssign.moveToRoom,
     behaviorRoom.getEnergy,
-    behaviorRoom.updateSign,
     behaviorTree.leafNode(
       'pick_room_controller',
       (creep) => {
@@ -28,7 +27,7 @@ const behavior = behaviorTree.sequenceNode(
       behaviorTree.leafNode(
         'upgrade_controller',
         (creep) => {
-          const destination = Game.getObjectById(creep.memory.destination);
+          const destination = Game.getObjectById(creep.memory['destination']);
           if (!destination) {
             return behaviorTree.FAILURE;
           }
@@ -46,10 +45,11 @@ const behavior = behaviorTree.sequenceNode(
         },
       ),
     ),
+    behaviorRoom.updateSign,
   ],
 );
 
 
-module.exports = {
+export const roleUpgrader = {
   run: behaviorTree.rootNode('upgrader', behaviorBoosts(behavior)),
 };

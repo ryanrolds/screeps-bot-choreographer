@@ -5,7 +5,8 @@ import OrgRoom from "./org.room";
 import * as MEMORY from "./constants.memory"
 import * as TASKS from "./constants.tasks"
 import * as TOPICS from "./constants.topics"
-import * as CREEPS from "./constants.creeps"
+import {WORKER_HARVESTER, WORKER_MINER, WORKER_UPGRADER} from "./constants.creeps"
+import {PRIORITY_HARVESTER, PRIORITY_MINER, PRIORITY_UPGRADER} from "./constants.priorities";
 import * as PRIORITIES from "./constants.priorities"
 import {Colony} from './org.colony';
 const {creepIsFresh} = require('./behavior.commute');
@@ -29,8 +30,9 @@ export default class SourceRunnable {
   linkId: Id<StructureLink>;
   dropoffId: Id<Structure>;
 
-  desiredMiners: number;
-  desiredHarvesters: number;
+  desiredNumWorkers: number;
+  desiredWorkerType: string;
+  desiredWorkerPriority: number;
 
   constructor(room: OrgRoom, source: (Source | Mineral)) {
     this.orgRoom = room;
@@ -61,17 +63,36 @@ export default class SourceRunnable {
     const primaryRoom: OrgRoom = colony.getPrimaryRoom();
     this.dropoffId = primaryRoom.getReserveStructureWithRoomForResource(RESOURCE_ENERGY)?.id;
 
-    this.desiredMiners = 0;
-    this.desiredHarvesters = 0;
-    if (this.containerId) {
-      this.desiredMiners = 1;
-    } else if (source instanceof Mineral) {
-      this.desiredHarvesters = 1;
-      if (!source.mineralAmount) {
-        this.desiredHarvesters = 0;
+    this.desiredNumWorkers = 0;
+    this.desiredWorkerPriority = 0;
+    this.desiredWorkerType = WORKER_HARVESTER;
+
+    if (primaryRoom.hasStorage) {
+      if (source instanceof Mineral) {
+        // if mineral && storage, 1 harvester
+        this.desiredNumWorkers = 1;
+        this.desiredWorkerType = WORKER_HARVESTER;
+        this.desiredWorkerPriority = PRIORITY_HARVESTER;
+
+        if (!source.mineralAmount) {
+          this.desiredNumWorkers = 0;
+        }
+      } else if (this.containerId) {
+        // if container && storage, 1 miner
+        this.desiredNumWorkers = 1;
+        this.desiredWorkerType = WORKER_MINER;
+        this.desiredWorkerPriority = PRIORITY_MINER;
+      } else {
+        // 3 harvesters
+        this.desiredNumWorkers = 3;
+        this.desiredWorkerType = WORKER_HARVESTER;
+        this.desiredWorkerPriority = PRIORITY_HARVESTER;
       }
     } else {
-      this.desiredHarvesters = 3;
+      // no storage, 3 upgraders
+      this.desiredNumWorkers = 3;
+      this.desiredWorkerType = WORKER_UPGRADER;
+      this.desiredWorkerPriority = PRIORITY_UPGRADER;
     }
   }
 
@@ -100,11 +121,8 @@ export default class SourceRunnable {
     if (this.workerTTL < 0) {
       this.workerTTL = REQUEST_WORKER_TTL;
 
-      // Check miners and harvesters
-      if (this.desiredMiners) {
-        this.requestMiner(room, trace);
-      } else if (this.desiredHarvesters) {
-        this.requestHarvester(room, trace);
+      if (this.desiredNumWorkers) {
+        this.requestWorkers(room, trace)
       }
     }
 
@@ -141,59 +159,28 @@ export default class SourceRunnable {
     stats.colonies[conlonyId].rooms[roomId].sources[this.sourceId] = sourceStats;
   }
 
-  requestMiner(room: Room, trace: Tracer) {
-    const roomCreeps = this.orgRoom.getCreeps();
-    const numMiners = roomCreeps.filter((creep) => {
+  requestWorkers(room: Room, trace: Tracer) {
+    const colonyCreeps = this.orgRoom.getColony().getCreeps();
+    const numWorkers = colonyCreeps.filter((creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
-      return role === CREEPS.WORKER_MINER &&
+      return role === this.desiredWorkerType &&
         creep.memory[MEMORY.MEMORY_HARVEST] === this.sourceId &&
         creepIsFresh(creep);
     }).length;
 
-    if (this.desiredMiners > numMiners) {
-      let priority = PRIORITIES.PRIORITY_MINER;
-      // Energy sources in unowned rooms require half as many parts
-      if (!room.controller.my) {
-        priority = PRIORITIES.PRIORITY_REMOTE_MINER;
-      }
-
-      trace.log('requesting miner', {sourceId: this.sourceId});
-
-      (this.orgRoom as any).requestSpawn(priority, {
-        role: CREEPS.WORKER_MINER,
-        memory: {
-          [MEMORY.MEMORY_HARVEST]: this.sourceId, // Deprecated
-          [MEMORY.MEMORY_HARVEST_CONTAINER]: this.containerId,
-          [MEMORY.MEMORY_HARVEST_ROOM]: room.name, // Deprecated
-          [MEMORY.MEMORY_SOURCE]: this.sourceId,
-          [MEMORY.MEMORY_ASSIGN_ROOM]: room.name,
-          [MEMORY.MEMORY_COLONY]: (this.orgRoom as any).getColony().id,
-        },
-      }, REQUEST_WORKER_TTL);
-    }
-  }
-
-  requestHarvester(room: Room, trace: Tracer) {
-    const roomCreeps = this.orgRoom.getCreeps();
-    const numHarvesters = roomCreeps.filter((creep) => {
-      const role = creep.memory[MEMORY.MEMORY_ROLE];
-      return role === CREEPS.WORKER_HARVESTER &&
-        creep.memory[MEMORY.MEMORY_HARVEST] === this.sourceId &&
-        creepIsFresh(creep);
-    }).length;
-
-    if (this.desiredHarvesters > numHarvesters) {
-      trace.log('requesting harvester', {sourceId: this.sourceId});
+    for (let i = numWorkers; i < this.desiredNumWorkers; i++) {
+      let priority = this.desiredWorkerPriority;
 
       const positionStr = [this.position.x, this.position.y, this.position.roomName].join(',');
 
-      // As we get more harvesters, make sure other creeps get a chance to spawn
-      const priority = PRIORITIES.PRIORITY_HARVESTER - (numHarvesters * 1.5);
-      (this.orgRoom as any).requestSpawn(priority, {
-        role: CREEPS.WORKER_HARVESTER,
+      trace.notice('requesting worker', {sourceId: this.sourceId, worker: this.desiredWorkerType});
+
+      this.orgRoom.requestSpawn(priority, {
+        role: this.desiredWorkerType,
         memory: {
           [MEMORY.MEMORY_HARVEST]: this.sourceId, // Deprecated
           [MEMORY.MEMORY_HARVEST_ROOM]: room.name, // Deprecated
+          [MEMORY.MEMORY_HARVEST_CONTAINER]: this.containerId,
           [MEMORY.MEMORY_SOURCE]: this.sourceId,
           [MEMORY.MEMORY_SOURCE_POSITION]: positionStr,
           [MEMORY.MEMORY_ASSIGN_ROOM]: room.name,

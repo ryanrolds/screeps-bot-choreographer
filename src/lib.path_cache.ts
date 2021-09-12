@@ -130,10 +130,6 @@ export class PathCache {
       this.setCachedPath(path.originId, path.goalId, path.value, path.time);
     });
 
-    rooms.forEach((room) => {
-
-    });
-
     trace.end();
   }
   saveToMemory(trace) {
@@ -250,8 +246,8 @@ export class PathCache {
     // Calculate new path
     const opts = {
       plainCost: 2,
-      swampCost: 4,
-      maxOps: 6000,
+      swampCost: 2,
+      maxOps: 2000,
       roomCallback: (roomName) => {
         let room = this.rooms[roomName];
         if (!room) {
@@ -305,6 +301,11 @@ export class PathCache {
     let count = 0;
     let node = this.head;
     while (node.prev) {
+      if (count > 1000) {
+        console.log('aborting count, too large')
+        break;
+      }
+
       count++;
       node = node.prev;
     }

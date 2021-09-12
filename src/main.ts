@@ -40,11 +40,17 @@ let config: KingdomConfig = {
         isPublic: false,
         rooms: ['E22S49'],
       },
-      'E34S51-Shard2': {
-        id: 'E34S51-Shard2',
-        primary: 'E34S51',
+      'E21S45-Shard2': {
+        id: 'E21S45-Shard2',
+        primary: 'E21S45',
         isPublic: false,
-        rooms: ['E34S51'],
+        rooms: ['E21S45'],
+      },
+      'E23S45-Shard2': {
+        id: 'E23S45-Shard2',
+        primary: 'E23S45',
+        isPublic: false,
+        rooms: ['E23S45'],
       }/*,
       'E21S46-Shard2': {
         id: 'E21S46-Shard2',
@@ -56,12 +62,6 @@ let config: KingdomConfig = {
         primary: 'E17S51',
         isPublic: false,
         rooms: ['E17S51', 'E16S51', 'E18S51'],
-      },
-      'E21S45-Shard2': {
-        id: 'E21S45-Shard2',
-        primary: 'E21S45',
-        isPublic: false,
-        rooms: ['E21S45', 'E22S45', 'E21S44'],
       },*/
     },
     'shard3': {
