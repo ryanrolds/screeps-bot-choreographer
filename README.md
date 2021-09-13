@@ -154,6 +154,14 @@ Later versions will respond to hostile presence by sending groups of Defenders t
 
 When an Attack Flag (`attack*`) is four attackers will be spawned to form a squad. The quad will move to the flag and attack any hostile, towers, walls, etc.. in range of the flag.
 
+#### Defend
+
+TODO
+
+#### Station
+
+
+
 ## Design
 
 > The entire section, including subheadings, are a work in progress.

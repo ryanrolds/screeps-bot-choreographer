@@ -1,5 +1,4 @@
 import * as behaviorTree from "./lib.behaviortree";
-import {TreeNode} from "./lib.behaviortree";
 import {FAILURE, SUCCESS, RUNNING, NodeTickResult} from "./lib.behaviortree";
 
 import * as MEMORY from "./constants.memory";
@@ -7,9 +6,6 @@ import {MEMORY_ORIGIN, MEMORY_SOURCE} from "./constants.memory";
 import {PathCache, PathCacheItem, PathFinderRules} from "./lib.path_cache";
 import {Tracer} from "./lib.tracing";
 import {Kingdom} from "./org.kingdom";
-import {clear} from "node:console";
-
-
 
 const MAX_POSITION_TTL = 5;
 const MEMORY_MOVE_POS_TTL = 'move_pos_ttl';

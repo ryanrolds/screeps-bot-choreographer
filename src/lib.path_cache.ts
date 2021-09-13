@@ -1,4 +1,3 @@
-import {trace} from "node:console";
 import {Tracer} from "./lib.tracing";
 import {Kingdom} from "./org.kingdom";
 
