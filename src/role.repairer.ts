@@ -1,14 +1,14 @@
-const behaviorTree = require('./lib.behaviortree');
-const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
+import * as behaviorTree from "./lib.behaviortree";
+import {FAILURE, SUCCESS, RUNNING} from "./lib.behaviortree";
 
-const behaviorMovement = require('./behavior.movement');
-const behaviorCommute = require('./behavior.commute');
-const behaviorAssign = require('./behavior.assign');
-const behaviorRoom = require('./behavior.room');
-const behaviorNonCombatant = require('./behavior.noncombatant');
-const behaviorBoosts = require('./behavior.boosts');
+import * as behaviorMovement from "./behavior.movement";
+import behaviorCommute from "./behavior.commute";
+import * as behaviorAssign from "./behavior.assign";
+import behaviorRoom from "./behavior.room";
+import behaviorNonCombatant from "./behavior.noncombatant";
+import behaviorBoosts from "./behavior.boosts";
 
-const {MEMORY_DESTINATION} = require('./constants.memory');
+import {MEMORY_DESTINATION} from "./constants.memory";
 
 const selectStructureToRepair = behaviorTree.leafNode(
   'selectStructureToRepair',
@@ -32,7 +32,7 @@ const selectStructureToRepair = behaviorTree.leafNode(
 const repair = behaviorTree.leafNode(
   'repair_structure',
   (creep) => {
-    const destination = Game.getObjectById(creep.memory[MEMORY_DESTINATION]);
+    const destination = Game.getObjectById<Structure>(creep.memory[MEMORY_DESTINATION]);
     if (!destination) {
       return FAILURE;
     }
@@ -70,7 +70,7 @@ const behavior = behaviorTree.sequenceNode(
         'select_and_repair',
         [
           selectStructureToRepair,
-          behaviorMovement.moveToDestination(1),
+          behaviorMovement.moveToDestination(1, false, 50, 1000),
           repair,
         ],
       ),
@@ -78,6 +78,6 @@ const behavior = behaviorTree.sequenceNode(
   ],
 );
 
-module.exports = {
+export const roleRepairer = {
   run: behaviorTree.rootNode('repairer', behaviorBoosts(behaviorNonCombatant(behavior))),
 };

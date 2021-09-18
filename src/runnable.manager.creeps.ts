@@ -13,7 +13,7 @@ import {DEFINITIONS} from './constants.creeps';
 import {roleHarvester} from './role.harvester';
 import {roleUpgrader} from './role.upgrader';
 import roleBuilder from './role.builder';
-import roleRepairer from './role.repairer';
+import {roleRepairer} from './role.repairer';
 import {roleHauler} from './role.hauler';
 import {roleMiner} from './role.miner';
 import roleDistributor from './role.distributor';

@@ -533,7 +533,7 @@ export default class OrgRoom extends OrgBase {
     return structures.pop();
   }
 
-  getNextDamagedStructure() {
+  getNextDamagedStructure(): Structure {
     let list = this.room.memory[MEMORY.ROOM_DAMAGED_STRUCTURES_LIST] || [];
     let listTime = this.room.memory[MEMORY.ROOM_DAMAGED_STRUCTURES_TIME] || 0;
 
