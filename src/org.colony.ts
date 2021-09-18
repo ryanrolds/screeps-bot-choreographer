@@ -346,7 +346,6 @@ export class Colony extends OrgBase {
         this.sendRequest(TOPIC_SPAWN, PRIORITY_DEFENDER, request.details, REQUEST_DEFENDER_TTL);
       } else {
         request.details.memory[MEMORY.MEMORY_COLONY] = this.id;
-        console.log('requesting from kingdom');
         this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITY_DEFENDER, request.details, REQUEST_DEFENDER_TTL);
       }
     }

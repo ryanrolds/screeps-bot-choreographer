@@ -1,10 +1,19 @@
-const behaviorTree = require('./lib.behaviortree');
-const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
-const MEMORY = require('./constants.memory');
+import * as behaviorTree from "./lib.behaviortree";
+import {FAILURE, SUCCESS, RUNNING} from "./lib.behaviortree";
+import * as MEMORY from "./constants.memory";
 
 const MEMORY_PREV_ROOM = 'previous_room';
 
-const moveToRoom = behaviorTree.repeatUntilSuccess(
+export const assignRoom = (creep: Creep, position: RoomPosition) => {
+
+}
+
+export const clearRoom = (creep: Creep) => {
+  delete creep.memory[MEMORY.MEMORY_ASSIGN_ROOM];
+  delete creep.memory[MEMORY.MEMORY_ASSIGN_ROOM_POS];
+};
+
+export const moveToRoom = behaviorTree.repeatUntilSuccess(
   'moveToAssignedRoom',
   behaviorTree.leafNode(
     'move_to_exit',
@@ -43,7 +52,7 @@ const moveToRoom = behaviorTree.repeatUntilSuccess(
 
       const result = creep.moveTo(position, {
         reusePath: 50,
-        maxOps: 4000,
+        maxOps: 2000,
       });
 
       trace.log('move to exit result', {
@@ -54,21 +63,7 @@ const moveToRoom = behaviorTree.repeatUntilSuccess(
         return RUNNING;
       }
 
-      if (result === ERR_INVALID_ARGS) {
-        return FAILURE;
-      }
-
       return RUNNING;
     },
   ),
 );
-
-const clearRoom = (creep) => {
-  delete creep.memory[MEMORY.MEMORY_ASSIGN_ROOM];
-  delete creep.memory[MEMORY.MEMORY_ASSIGN_ROOM_POS];
-};
-
-module.exports = {
-  moveToRoom,
-  clearRoom,
-};

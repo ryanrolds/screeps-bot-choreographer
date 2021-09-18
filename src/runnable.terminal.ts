@@ -271,7 +271,7 @@ export default class TerminalRunnable {
 
     const sellPrice = this.pricer.getPrice(ORDER_SELL, resource, reserveAmount);
     if (!sellOrder || sellOrder.price > sellPrice) {
-      trace.log('sell orders too expensive: creating buy order', {resource, orderPrice: sellOrder.price, sellPrice});
+      trace.log('sell orders too expensive: creating buy order', {resource, orderPrice: sellOrder?.price, sellPrice});
       this.createBuyOrder(terminal, resource, amount, trace);
       this.clearTask(trace);
       return;

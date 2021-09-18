@@ -1,3 +1,4 @@
+import {notDeepEqual} from "node:assert";
 import {Tracer} from "./lib.tracing";
 import {Kingdom} from "./org.kingdom";
 
@@ -300,6 +301,15 @@ export class PathCache {
     let count = 0;
     let node = this.head;
     while (node.prev) {
+      if (node.prev === node) {
+        console.log('aborting, hit self referencing node')
+        break;
+      }
+
+      if (node.prev.prev === node) {
+        console.log('aborting, hit cyclical (3) referencing node')
+      }
+
       if (count > 1000) {
         console.log('aborting count, too large')
         break;

@@ -1,5 +1,5 @@
 import * as behaviorTree from "./lib.behaviortree";
-import behaviorAssign from "./behavior.assign";
+import * as behaviorAssign from "./behavior.assign";
 import * as behaviorMovement from "./behavior.movement";
 import behaviorCommute from "./behavior.commute";
 import behaviorBoosts from "./behavior.boosts";
@@ -10,9 +10,9 @@ import * as MEMORY from "./constants.memory";
 const behavior = behaviorTree.sequenceNode(
   'upgrader_root',
   [
+    behaviorRoom.getEnergy,
     behaviorMovement.moveToShard(MEMORY.MEMORY_ASSIGN_SHARD),
     behaviorAssign.moveToRoom,
-    behaviorRoom.getEnergy,
     behaviorTree.leafNode(
       'pick_room_controller',
       (creep) => {
