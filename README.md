@@ -88,6 +88,10 @@ After making changes run linting, tests, and TS complication with `grunt`.
 
 Uploading of built TS+JS can be done by running `grunt upload`.
 
+## Stats
+
+Statistics for the dashboards are written to memory under `stats`. Its setup to be consumed by [my fork of screeps-grafana](https://github.com/ryanrolds/screeps-grafana).
+
 ## Operation
 
 The AI will focus on establishing an economy, build, repair, and defend the colonies. The build manager will spawn at least one Upgrader and will add more if there is energy above the defense reserve.
@@ -100,16 +104,22 @@ There are a couple of helpful global variables:
 
 ### Creeps
 
-* Harvester - Harvests and brings energy back to Spawner/Origin
-* Miner - Harvests and places energy in nearby container
-* Hauler - Picks up and takes energy in containers to colony storage, also picks up dropped resources
-* Builder - Harvest/pick up energy in room and completes construction
-* Repairer - Harvest/pick up energy in room and repair structures
-* Defender - Attacks hostiles creeps in room
-* Explorer - Goes to rooms in domain to get visibility (triggers remote harvesting)
-* Distributor - Moves energy from Containers/Storage into Spawner, Turrets, Labs, and other colony core structures
-* Reserver - Claims/Reserves rooms
 * Attacker - Rally at Attack Flag and attack hostiles in room
+* Builder - Harvest/pick up energy in room and completes construction
+* Defender - Attacks hostiles creeps in room
+* Defender Drone -
+* Distributor - Moves energy from Containers/Storage into Spawner, Turrets, Labs, and other colony core structures
+* Explorer - Goes to rooms in domain to get visibility (triggers remote harvesting)
+* Harvester - Harvests and brings energy back to Spawner/Origin
+* Hauler - Picks up and takes energy in containers to colony storage, also picks up dropped resources
+* Miner - Harvests and places energy in nearby container
+* Repairer - Harvest/pick up energy in room and repair structures
+* Reserver - Claims/Reserves rooms
+* Upgrader - Upgrades room controllers
+
+### Parties
+
+Groups of creeps, typically called a quad, are represented by a single party, which is a process that assigns member creeps move, attack, and heal orders. Parties are created by a manager process, see `runnable.manager.buffer` and `runnable.manager.war`.
 
 ### Colony
 
@@ -123,14 +133,16 @@ The `./src/main.ts` file contains a `KingdomConfig` that defines the rooms that 
 2. Harvesters, miners, and haulers
 3. Minimum of 1 Upgrader
 4. Build explorer and get visibility in rooms in Colony Domain
-5. If attack flags, all energy goes into spawning Attackers (in-development)
+5. If attack flags, all energy goes into spawning Attackers
 6. 1 Repairer for each room with structures (like road and containers)
-7. 2 Builders for each Build flag
+7. 1 Builder for every 10 constructions sites in a room
 8. Max 3 Upgraders in each room with a Spawner
 
 ### Economy & Building
 
 It's up to you to choose the rooms in your Domain. You must also place construction sites.
+
+Automated building may be added in the future.
 
 #### Do these things
 
@@ -142,11 +154,11 @@ It's up to you to choose the rooms in your Domain. You must also place construct
 
 ### Defense
 
-> On the roadmap and coming up soon
+> Active development
 
-When a hostile is present in the colony's domain all energy, except to maintain energy collection, will be used to produce Defenders. Early versions will pool Defenders in spawn rooms and energy will go to Turrets before the spawners and extensions.
+### Offense
 
-Later versions will respond to hostile presence by sending groups of Defenders to the room being occupied. Also, non-combatant creeps in occupied rooms will withdraw to origin.
+> Active development
 
 ### Flags
 
@@ -160,7 +172,7 @@ TODO
 
 #### Station
 
-
+TODO
 
 ## Design
 
@@ -179,18 +191,14 @@ Implementing a scheduler and deferring lower priority work to the next tick is n
 5. Behavior Trees
 6. Behaviors
 
+### Behavior Trees
+
+This section will outline the BT's organizational strategy. Ideally, the `behavior.*` files would provide a well organized and DRY set of logic that can be composed to produce complex behavior.
+
 ### Memory
 
 WIP
 
 ### Topics
-
-WIP
-
-### Behavior Trees
-
-This section will outline the BT's organizational strategy. Ideally, the `behavior.*` files would provide a well organized and DRY set of logic that can be composed to produce complex behavior.
-
-### Stats & Dashboard
 
 WIP
