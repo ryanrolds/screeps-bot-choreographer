@@ -524,8 +524,8 @@ class Resources extends OrgBase {
         return;
       }
 
-      const booster = primaryRoom.booster;
-      if (!booster) {
+      const boosterPos = primaryRoom.getBoosterPosition();
+      if (!boosterPos) {
         return;
       }
 
@@ -533,8 +533,8 @@ class Resources extends OrgBase {
       // in runnable.labs that sets orgRoom.booster when creating the process
       // will bite me, you're welcome future Ryan
 
-      const allEffects = booster.getEffects();
-      const availableEffects = booster.getAvailableEffects();
+      const allEffects = primaryRoom.getAllEffects();
+      const availableEffects = primaryRoom.getLoadedEffects();
       const rallyFlagRoom = Game.flags['rally']?.pos.roomName;
 
       Object.entries(CRITICAL_EFFECTS).forEach(([effectName, compounds]) => {

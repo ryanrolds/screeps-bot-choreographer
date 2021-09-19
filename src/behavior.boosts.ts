@@ -1,8 +1,8 @@
-const behaviorTree = require('./lib.behaviortree');
-const {SUCCESS, RUNNING} = require('./lib.behaviortree');
-const behaviorMovement = require('./behavior.movement');
+import * as behaviorTree from "./lib.behaviortree";
+import {SUCCESS, RUNNING} from "./lib.behaviortree";
+import * as behaviorMovement from "./behavior.movement";
 
-const MEMORY = require('./constants.memory');
+import * as MEMORY from "./constants.memory";
 
 const BOOST_PHASE = 'boost_phase';
 const BOOST_PHASE_START = 'boosting_start';
@@ -10,7 +10,7 @@ const BOOST_PHASE_MOVE = 'boosting_move';
 const BOOST_PHASE_READY = 'boosting_ready';
 const BOOST_PHASE_DONE = 'boosting_done';
 
-module.exports = (behaviorNode) => {
+export const behaviorBoosts = (behaviorNode) => {
   return behaviorTree.sequenceAlwaysNode(
     'boosting',
     [
@@ -25,9 +25,8 @@ module.exports = (behaviorNode) => {
             return SUCCESS;
           }
 
-          const booster = room.booster;
-
-          if (!booster) {
+          const boosterPos = room.getBoosterPosition();
+          if (!boosterPos) {
             creep.memory[BOOST_PHASE] = BOOST_PHASE_DONE;
             return SUCCESS;
           }
@@ -43,9 +42,9 @@ module.exports = (behaviorNode) => {
               creep.memory[BOOST_PHASE] = BOOST_PHASE_MOVE;
             case BOOST_PHASE_MOVE:
               // Move to booster location
-              const destination = booster.getBoostPosition();
+              const destination = boosterPos;
 
-              const result = behaviorMovement.moveTo(creep, destination, 0);
+              const result = behaviorMovement.moveTo(creep, destination, 0, false, 50, 1000);
               if (result === SUCCESS) {
                 creep.memory[BOOST_PHASE] = BOOST_PHASE_READY;
                 return RUNNING;
@@ -54,7 +53,7 @@ module.exports = (behaviorNode) => {
               return result;
             case BOOST_PHASE_READY:
               // Request boosts
-              const loadedEffects = booster.getLoadedEffects();
+              const loadedEffects = room.getLoadedEffects();
               desiredBoosts.forEach((desiredEffect) => {
                 const effect = loadedEffects[desiredEffect];
                 if (!effect) {
@@ -62,7 +61,7 @@ module.exports = (behaviorNode) => {
                 }
 
                 const compound = effect.compounds[0];
-                const lab = booster.getLabByResource(compound.name);
+                const lab = room.getBoosterLabByResource(compound.name);
                 const result = lab.boostCreep(creep);
                 trace.log('boosted', {
                   labId: lab.id,

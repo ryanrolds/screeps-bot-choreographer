@@ -60,8 +60,6 @@ export class LabsManager {
       const hasProcess = this.scheduler.hasProcess(boosterId);
       if (!hasProcess) {
         const booster = new BoosterRunnable(boosterId, this.orgRoom, this.boosterIds);
-        (this.orgRoom as any).booster = booster;
-
         this.scheduler.registerProcess(new Process(boosterId, 'boosters', Priorities.RESOURCES,
           booster));
       }

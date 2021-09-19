@@ -4,7 +4,7 @@ const behaviorMovement = require('./behavior.movement');
 const behaviorBuild = require('./behavior.build');
 const behaviorAssign = require('./behavior.assign');
 const behaviorRoom = require('./behavior.room');
-const behaviorBoosts = require('./behavior.boosts');
+const {behaviorBoosts} = require('./behavior.boosts');
 const behaviorNonCombatant = require('./behavior.noncombatant');
 
 const MEMORY = require('./constants.memory');

@@ -1,6 +1,6 @@
 const behaviorTree = require('./lib.behaviortree');
 const {SUCCESS} = require('./lib.behaviortree');
-const behaviorBoosts = require('./behavior.boosts');
+const {behaviorBoosts} = require('./behavior.boosts');
 
 const MEMORY = require('./constants.memory');
 

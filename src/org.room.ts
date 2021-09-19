@@ -13,7 +13,9 @@ import {MEMORY_ROLE, MEMORY_ASSIGN_ROOM, MEMORY_HARVEST_ROOM} from './constants.
 import {TOPIC_SPAWN} from './constants.topics';
 import {WORKER_HAULER} from './constants.creeps';
 import {Kingdom} from './org.kingdom';
+import BoosterRunnable, {BoosterDetails, EffectSet, LabsByResource, TOPIC_ROOM_BOOSTS} from './runnable.booster';
 
+export const TOPIC_ROOM_KEYVALUE = 'room_keyvalue';
 const MEMORY_HOSTILE_TIME = 'hostile_time';
 const MEMORY_HOSTILE_POS = 'hostile_pos';
 
@@ -32,6 +34,7 @@ const UPDATE_CREEPS_TTL = 1;
 const UPDATE_ROOM_TTL = 10;
 const UPDATE_ORG_TTL = 10;
 const UPDATE_RESOURCES_TTL = 5;
+const UPDATE_BOOSTER_TTL = 5;
 
 const UPDATE_DEFENSE_STATUS_TTL = 5;
 const UPDATE_DAMAGED_CREEPS_TTL = 5;
@@ -90,12 +93,17 @@ export default class OrgRoom extends OrgBase {
   threadUpdateResources: ThreadFunc;
   threadUpdateDefenseStatus: ThreadFunc;
   threadUpdateDamagedCreeps: ThreadFunc;
+  threadUpdateBoosters: ThreadFunc;
   updateDamagedCreeps: ThreadFunc;
   updateDamagedStructure: ThreadFunc;
   updateDamagedSecondaryStructures: ThreadFunc;
   updateDamagedRoads: ThreadFunc;
   threadRequestDefenders: ThreadFunc;
 
+  boosterAllEffects: EffectSet;
+  boosterEffects: EffectSet;
+  boosterPosition: RoomPosition;
+  boosterLabs: LabsByResource;;
 
   constructor(parent: Colony, room: Room, trace: Tracer) {
     super(parent, room.name, trace);
@@ -126,9 +134,6 @@ export default class OrgRoom extends OrgBase {
     });
 
     // Primary room
-    // this.reactorMap = {};
-    // this.booster = null;
-    // this.terminal = null;
     this.hasSpawns = false;
     this.threadUpdatePrimary = thread('update_primary', UPDATE_ORG_TTL)((trace) => {
       this.updatePrimary(trace);
@@ -154,6 +159,24 @@ export default class OrgRoom extends OrgBase {
     this.invaderCores = [];
     this.threadUpdateDefenseStatus = thread('defense_status_thread', UPDATE_DEFENSE_STATUS_TTL)((trace, room, kingdom) => {
       this.updateDefenseStatus(kingdom, room, trace);
+    });
+
+    this.boosterPosition = null;
+    this.boosterEffects = null;
+    this.boosterAllEffects = null;
+    this.boosterLabs = null;
+    this.threadUpdateBoosters = thread('update_booster_thread', UPDATE_BOOSTER_TTL)((trace, room, kingdom) => {
+      this.boosterPosition = null;
+      this.boosterEffects = null;
+      this.boosterAllEffects = null;
+      this.boosterLabs = null;
+
+      this.getTopics().getTopic(TOPIC_ROOM_BOOSTS).forEach((event: BoosterDetails) => {
+        this.boosterPosition = event.position;
+        this.boosterEffects = event.availableEffects;
+        this.boosterAllEffects = event.allEffects;
+        this.boosterLabs = event.labsByResource;
+      })
     });
 
     this.damagedCreeps = [];
@@ -371,6 +394,18 @@ export default class OrgRoom extends OrgBase {
   }
   getSpawns() {
     return this.room.find(FIND_MY_SPAWNS);
+  }
+  getBoosterPosition(): RoomPosition {
+    return this.boosterPosition;
+  }
+  getLoadedEffects(): EffectSet {
+    return this.boosterEffects;
+  }
+  getAllEffects(): EffectSet {
+    return this.boosterAllEffects;
+  }
+  getBoosterLabByResource(resource: ResourceConstant): StructureLab {
+    return this.boosterLabs[resource];
   }
   getHostiles() {
     return this.hostiles;

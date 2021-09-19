@@ -6,7 +6,7 @@ import * as behaviorMovement from "./behavior.movement";
 import behaviorBuild from "./behavior.build";
 import behaviorHarvest from "./behavior.harvest";
 import behaviorNonCombatant from "./behavior.noncombatant";
-import behaviorBoosts from "./behavior.boosts";
+import {behaviorBoosts} from "./behavior.boosts";
 import * as MEMORY from "./constants.memory";
 import {PathFinderRules} from "./lib.path_cache";
 

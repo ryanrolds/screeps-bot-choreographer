@@ -1,12 +1,13 @@
 import {Process, Runnable, RunnableResult, running, sleeping, terminate} from "./os.process";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
-import OrgRoom from "./org.room";
+import OrgRoom, {TOPIC_ROOM_KEYVALUE} from "./org.room";
 import * as MEMORY from "./constants.memory"
 import * as TASKS from "./constants.tasks"
 import * as TOPICS from "./constants.topics"
 import * as CREEPS from "./constants.creeps"
 import * as PRIORITIES from "./constants.priorities"
+import {thread, ThreadFunc} from "./os.thread";
 
 const MIN_COMPOUND = 500;
 const MAX_COMPOUND = 2000;
@@ -18,9 +19,23 @@ const REQUEST_LOAD_TTL = 5;
 const REQUEST_ENERGY_TTL = 5;
 const REQUEST_REBALANCE_TTL = 10;
 const MIN_CREDITS_FOR_BOOSTS = 50000;
+const UPDATE_ROOM_BOOSTER_TTL = 50;
+const UPDATE_ROOM_BOOSTER_INTERVAL = 5;
+
+
+
+export const TOPIC_ROOM_BOOSTS = "room_boosts";
+export type BoosterDetails = {
+  roomId: string;
+  booster: BoosterRunnable;
+  position: RoomPosition;
+  allEffects: EffectSet;
+  availableEffects: EffectSet;
+  labsByResource: LabsByResource;
+}
 
 class Compound {
-  name: string;
+  name: ResourceConstant;
   effect: any;
   bonus: number;
 
@@ -43,20 +58,28 @@ class Effect {
   }
 }
 
+export type EffectSet = Record<string, Effect>;
+export type LabsByResource = Record<Partial<MineralConstant | MineralCompoundConstant>, StructureLab>;
+
 export default class BoosterRunnable {
   id: string;
   orgRoom: OrgRoom;
   labIds: Id<StructureLab>[];
   boostPosition: RoomPosition;
   prevTime: number;
+  allEffects: EffectSet;
+
+  threadUpdateRoomBooster: ThreadFunc;
 
   constructor(id: string, orgRoom: OrgRoom, labIds: Id<StructureLab>[]) {
     this.id = id;
     this.orgRoom = orgRoom;
     this.labIds = labIds;
+    this.allEffects = null;
 
     this.prevTime = Game.time;
     this.boostPosition = this.getCreepBoostPosition();
+    this.threadUpdateRoomBooster = thread('update_room_booster', UPDATE_ROOM_BOOSTER_INTERVAL)(this.updateRoomBooster.bind(this));
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
@@ -95,6 +118,7 @@ export default class BoosterRunnable {
 
     let sleepFor = REQUEST_ENERGY_TTL;
     this.requestEnergyForLabs(trace);
+    this.threadUpdateRoomBooster(trace);
 
     if (Object.keys(desiredEffects).length) {
       sleepFor = REQUEST_LOAD_TTL;
@@ -135,6 +159,24 @@ export default class BoosterRunnable {
     trace.log('updating booster stats', {boosterStats});
 
     stats.colonies[colony.id].booster = boosterStats;
+  }
+
+  updateRoomBooster(trace: Tracer) {
+    const allEffects = this.getEffects();
+    const availableEffects = this.getAvailableEffects();
+    const labsByResource = this.getLabsByResource();
+
+    const details: BoosterDetails = {
+      roomId: this.orgRoom.id,
+      booster: this,
+      position: this.boostPosition,
+      allEffects,
+      availableEffects,
+      labsByResource,
+    };
+
+    trace.notice('publishing room boosts', {position: this.boostPosition, labsByResource, availableEffects});
+    this.orgRoom.sendRequest(TOPIC_ROOM_BOOSTS, 1, details, UPDATE_ROOM_BOOSTER_INTERVAL);
   }
 
   getBoostPosition() {
@@ -193,6 +235,16 @@ export default class BoosterRunnable {
     return labs[0].pos;
   }
 
+  getLabsByResource(): Record<Partial<(MineralConstant | MineralCompoundConstant)>, StructureLab> {
+    const labs = this.getLabs();
+    return labs.reduce((acc, lab) => {
+      if (lab.mineralType) {
+        acc[lab.mineralType] = lab;
+      }
+
+      return acc;
+    }, {} as LabsByResource);
+  }
   getLabByResource(resource) {
     const labs = this.getLabs();
     for (let i = 0; i < labs.length; i++) {
@@ -219,8 +271,14 @@ export default class BoosterRunnable {
       return !lab.mineralType;
     });
   }
-  getEffects(availableResources = null) {
-    const allEffects = {};
+
+  getEffects(availableResources = null): EffectSet {
+    // If we are after all events and they are already cached, then return the cache
+    if (availableResources === null && this.allEffects) {
+      return this.allEffects;
+    }
+
+    const allEffects: EffectSet = {};
 
     Object.keys(BOOSTS).forEach((part) => {
       const resources = BOOSTS[part];
@@ -242,18 +300,26 @@ export default class BoosterRunnable {
       });
     });
 
+    // If all effects are not already cached, cache them.
+    if (!this.allEffects) {
+      this.allEffects = allEffects;
+    }
+
     return allEffects;
   }
-  getLoadedEffects() {
+
+  getLoadedEffects(): EffectSet {
     const resources = this.getLabResources();
     return this.getEffects(resources);
   }
-  getAvailableEffects() {
+
+  getAvailableEffects(): EffectSet {
     const availableResources = this.orgRoom.getReserveResources(true);
     return this.getEffects(availableResources);
   }
-  getDesiredEffects() {
-    const desiredEffects = {};
+
+  getDesiredEffects(): EffectSet {
+    const desiredEffects: EffectSet = {};
     const allEffects = this.getEffects();
 
     let request = null;

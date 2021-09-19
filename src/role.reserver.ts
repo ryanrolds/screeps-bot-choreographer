@@ -3,7 +3,7 @@ import * as behaviorTree from './lib.behaviortree';
 import {FAILURE} from './lib.behaviortree';
 import behaviorCommute from "./behavior.commute";
 import * as behaviorMovement from "./behavior.movement";
-import behaviorBoosts from "./behavior.boosts";
+import {behaviorBoosts} from "./behavior.boosts";
 import behaviorRoom from "./behavior.room";
 import * as MEMORY from "./constants.memory";
 import {PathFinderRules} from './lib.path_cache';

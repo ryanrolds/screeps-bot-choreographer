@@ -5,7 +5,7 @@ import * as behaviorMovement from "./behavior.movement";
 import behaviorNonCombatant from "./behavior.noncombatant";
 import behaviorHaul from "./behavior.haul";
 import behaviorRoom from "./behavior.room";
-import behaviorBoosts from "./behavior.boosts";
+import {behaviorBoosts} from "./behavior.boosts";
 
 import * as MEMORY from "./constants.memory";
 import * as TOPICS from "./constants.topics";

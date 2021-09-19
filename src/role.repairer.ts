@@ -6,7 +6,7 @@ import behaviorCommute from "./behavior.commute";
 import * as behaviorAssign from "./behavior.assign";
 import behaviorRoom from "./behavior.room";
 import behaviorNonCombatant from "./behavior.noncombatant";
-import behaviorBoosts from "./behavior.boosts";
+import {behaviorBoosts} from "./behavior.boosts";
 
 import {MEMORY_DESTINATION} from "./constants.memory";
 
