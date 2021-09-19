@@ -47,6 +47,7 @@ An AI for [Screeps](screeps.com).
 - [ ] Buff ramparts and walls to withstand nuke
 - [ ] Quads moving coherently 100% of time
 - [ ] Harass remote mining rooms
+- [ ] Proper event stream
 - [ ] Move Org/Kingdom work to scheduler
 - [ ] Auto-construction of roads to remote sources
 - [ ] Improved defenders that hide in ramparts
@@ -182,23 +183,30 @@ The Kingdom model work was completed, greatly improving the structure of the bus
 
 Implementing a scheduler and deferring lower priority work to the next tick is needed. At this time I'm in process of implementing a schedule, process, and additional OS components to manage the increasing CPU demands of the AI/system.
 
+TODO - Add additional context around the current design
+
 ### Structure
 
-1. Kingdom
-2. Colony, War Party, Scribe
-3. Rooms, Spawns, Sources, Storage (WIP), Towers, Labs
-4. Creeps
-5. Behavior Trees
-6. Behaviors
+1. AI
+2. Scheduler
+3. Kernel (old generation)
+4. Managers and other processes (new generation)
+5. Behavior Trees - Bulk of the creep logic
+6. Behaviors - Individual creep behaviors
+7. Topics - IPC
+
+### Topics
+
+The codebase is currently of two minds. Previous generations of the code (org.*) allowed direct access to each other's data. Initially this wasn't a major issue, but as complexity and the scheduler was introduced keeping data up-to-date for other logic became problematic. Also, the tightly coupling was a major problem.
+
+The older generation need job queues for hauling, spawning, and other tasks. Priorities lists with item TTLs are used as topics. Kingdoms, Colony's, and Rooms (Org Rooms) each have its own set of topics. It's important to send requests to the right set of topics.
+
+A second need arose, event streams. The priority queue is currently abused to provide event streams. Event stream consumers scan the whole topic, but don't remove any items. It's important to set lowish TTLs to prevent the streams from becoming too large.
+
+Moving forward, all sharing of information must be done through topics, not direct access to memory. There are couple of places that are still using direct access, but they are being refactored out. Also, the constant used for the topic ID should be moved to the same file as the producer of the topic. Creeps are a notable exception to this rule. Currently the creep logic is strongly coupled with the Kernel logic. As much logic as possible is being removed from the kernel in an effort to reduce the per-tick cost of updating the kernel. However, creeps are often accessing a lot of the same game state to make decision. Over-time the kernel will be reduced to just what the creeps need and likely moved.
+
+Eventually a proper event stream, with consumer offsets, will be implemented.
 
 ### Behavior Trees
 
 This section will outline the BT's organizational strategy. Ideally, the `behavior.*` files would provide a well organized and DRY set of logic that can be composed to produce complex behavior.
-
-### Memory
-
-WIP
-
-### Topics
-
-WIP
