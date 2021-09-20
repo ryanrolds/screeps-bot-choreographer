@@ -36,7 +36,7 @@ const behavior = behaviorTree.sequenceNode(
             behaviorTree.leafNode(
               'empty_creep',
               (creep) => {
-                const destination: Creep | Structure<StructureConstant> = Game.getObjectById(creep.memory[MEMORY.MEMORY_DESTINATION]);
+                const destination = Game.getObjectById<Id<(Creep | Structure<StructureConstant>)>>(creep.memory[MEMORY.MEMORY_DESTINATION]);
                 if (!destination) {
                   return FAILURE;
                 }

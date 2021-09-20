@@ -1,4 +1,3 @@
-import {notDeepEqual} from "node:assert";
 import {Tracer} from "./lib.tracing";
 import {Kingdom} from "./org.kingdom";
 

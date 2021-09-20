@@ -447,7 +447,7 @@ export default class WarPartyRunnable {
       }
     }));
 
-    targets = targets.concat(room.find<Structure>(FIND_STRUCTURES, {
+    targets = targets.concat(room.find(FIND_STRUCTURES, {
       filter: (structure) => {
         if (structure.structureType === STRUCTURE_CONTROLLER) {
           return false;

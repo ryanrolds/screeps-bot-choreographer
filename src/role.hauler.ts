@@ -37,7 +37,7 @@ const emptyCreep = behaviorTree.repeatUntilConditionMet(
             return SUCCESS;
           }
 
-          const destination: AnyStoreStructure = Game.getObjectById(creep.memory[MEMORY.MEMORY_HAUL_DROPOFF]);
+          const destination = Game.getObjectById<Id<AnyStoreStructure>>(creep.memory[MEMORY.MEMORY_HAUL_DROPOFF]);
           if (!destination) {
             trace.log('no dump destination');
             return FAILURE;

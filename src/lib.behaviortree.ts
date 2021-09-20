@@ -1,4 +1,3 @@
-import {clear} from 'node:console';
 import * as featureFlags from './lib.feature_flags';
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';

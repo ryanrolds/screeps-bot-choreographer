@@ -609,7 +609,7 @@ export default class OrgRoom extends OrgBase {
       return null;
     }
 
-    return Game.getObjectById(next);
+    return Game.getObjectById<Id<Structure>>(next);
   }
   getParkingLot() {
     return this.parkingLot;

@@ -158,7 +158,7 @@ export default class RoomRunnable {
   handleProcessSpawning(trace: Tracer, orgRoom: OrgRoom, room: Room) {
     if (room.controller?.my || !room.controller?.owner?.username) {
       // Sources
-      room.find<FIND_SOURCES>(FIND_SOURCES).forEach((source) => {
+      room.find(FIND_SOURCES).forEach((source) => {
         const sourceId = `${source.id}`
         if (!this.scheduler.hasProcess(sourceId)) {
           this.scheduler.registerProcess(new Process(sourceId, 'sources', Priorities.RESOURCES,

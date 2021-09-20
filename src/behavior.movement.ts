@@ -21,7 +21,7 @@ const getMoveOpts = (ignoreCreeps: boolean = false, reusePath: number = 100, max
 
 const moveToMemory = (creep: Creep, memoryId: any, range: number,
   ignoreCreeps: number, reusePath: number, maxOps: number) => {
-  const destination: _HasRoomPosition = Game.getObjectById(creep.memory[memoryId]);
+  const destination = Game.getObjectById<Id<_HasRoomPosition>>(creep.memory[memoryId]);
   if (!destination) {
     return FAILURE;
   }
@@ -311,7 +311,7 @@ export const clearDestination = (creep) => {
 
 export const fillCreepFromDestination = (creep, trace) => {
   const destinationMemory = creep.memory[MEMORY.MEMORY_DESTINATION];
-  const destination: AnyStoreStructure = Game.getObjectById(creep.memory[MEMORY.MEMORY_DESTINATION]);
+  const destination = Game.getObjectById<Id<AnyStoreStructure>>(creep.memory[MEMORY.MEMORY_DESTINATION]);
   if (!destination) {
     trace.log('could not find destination', {destinationMemory});
     return FAILURE;
