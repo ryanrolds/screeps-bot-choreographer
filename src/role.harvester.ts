@@ -8,12 +8,13 @@ import behaviorHarvest from "./behavior.harvest";
 import behaviorNonCombatant from "./behavior.noncombatant";
 import {behaviorBoosts} from "./behavior.boosts";
 import * as MEMORY from "./constants.memory";
-import {PathFinderRules} from "./lib.path_cache";
+import {PathFinderPolicy} from "./lib.path_cache";
 
-const rules: PathFinderRules = {
+const policy: PathFinderPolicy = {
   avoidFriendlyRooms: false,
   avoidHostiles: true,
   avoidOwnedRooms: true,
+  maxOps: 1000,
 }
 
 const behavior = behaviorTree.sequenceNode(
@@ -21,7 +22,7 @@ const behavior = behaviorTree.sequenceNode(
   [
     // behaviorHarvest.moveToHarvestRoom,
     // behaviorHarvest.moveToHarvest,
-    behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_SOURCE_POSITION, 1, 2000, rules),
+    behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_SOURCE_POSITION, 1, 2000, policy),
     behaviorCommute.setCommuteDuration,
     behaviorHarvest.harvest,
     behaviorTree.selectorNode(

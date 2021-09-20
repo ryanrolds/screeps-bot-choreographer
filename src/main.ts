@@ -25,7 +25,7 @@ let config: KingdomConfig = {
       'E21S48-Shard2': {
         id: 'E21S48-Shard2',
         primary: 'E21S48',
-        isPublic: true,
+        isPublic: false,
         rooms: ['E21S48'],
       },
       'E22S48-Shard2': {

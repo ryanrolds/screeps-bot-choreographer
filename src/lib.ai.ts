@@ -17,8 +17,12 @@ export class AI {
   config: KingdomConfig;
   scheduler: Scheduler;
   kingdom: Kingdom;
+  gameMapExport: string;
 
   constructor(config: KingdomConfig) {
+
+    Game.map.visual.import(this.gameMapExport || "");
+
     const trace = new Tracer('ai', 'ai_constructor');
 
     this.config = config;
@@ -64,6 +68,8 @@ export class AI {
     const warManager = new WarManager(this.kingdom, warManagerId, this.scheduler, trace);
     this.scheduler.registerProcess(new Process(warManagerId, 'war_manager',
       Priorities.CRITICAL, warManager));
+
+    this.gameMapExport = Game.map.visual.export();
 
     trace.end();
   }

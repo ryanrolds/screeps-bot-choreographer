@@ -6,12 +6,13 @@ import * as behaviorMovement from "./behavior.movement";
 import {behaviorBoosts} from "./behavior.boosts";
 import behaviorRoom from "./behavior.room";
 import * as MEMORY from "./constants.memory";
-import {PathFinderRules} from './lib.path_cache';
+import {PathFinderPolicy} from './lib.path_cache';
 
-const rules: PathFinderRules = {
+const policy: PathFinderPolicy = {
   avoidHostiles: true,
   avoidOwnedRooms: true,
   avoidFriendlyRooms: false,
+  maxOps: 3000,
 }
 
 const behavior = behaviorTree.sequenceNode(
@@ -24,7 +25,7 @@ const behavior = behaviorTree.sequenceNode(
 
       return behaviorTree.SUCCESS
     }),
-    behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_ASSIGN_ROOM_POS, 1, 4000, rules),
+    behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_ASSIGN_ROOM_POS, 1, 4000, policy),
     behaviorTree.repeatUntilSuccess(
       'move_to_rc',
       behaviorTree.leafNode(

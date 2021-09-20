@@ -175,7 +175,7 @@ export default class BoosterRunnable {
       labsByResource,
     };
 
-    trace.notice('publishing room boosts', {position: this.boostPosition, labsByResource, availableEffects});
+    trace.log('publishing room boosts', {position: this.boostPosition, labsByResource, availableEffects});
     this.orgRoom.sendRequest(TOPIC_ROOM_BOOSTS, 1, details, UPDATE_ROOM_BOOSTER_INTERVAL);
   }
 

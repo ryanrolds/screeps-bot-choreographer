@@ -9,12 +9,13 @@ import {behaviorBoosts} from "./behavior.boosts";
 
 import * as MEMORY from "./constants.memory";
 import * as TOPICS from "./constants.topics";
-import {PathFinderRules} from "./lib.path_cache";
+import {PathFinderPolicy} from "./lib.path_cache";
 
-const rules: PathFinderRules = {
+const policy: PathFinderPolicy = {
   avoidOwnedRooms: true,
   avoidHostiles: true,
   avoidFriendlyRooms: false,
+  maxOps: 1000,
 };
 
 const emptyCreep = behaviorTree.repeatUntilConditionMet(
@@ -29,7 +30,7 @@ const emptyCreep = behaviorTree.repeatUntilConditionMet(
   behaviorTree.sequenceNode(
     'dump_energy',
     [
-      behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_DROPOFF, 1, 2500, rules),
+      behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_DROPOFF, 1, 2500, policy),
       behaviorTree.leafNode(
         'empty_creep',
         (creep, trace, kingdom) => {
@@ -127,7 +128,7 @@ const behavior = behaviorTree.sequenceNode(
       behaviorTree.sequenceNode(
         'pickup_load',
         [
-          behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_PICKUP, 1, 2500, rules),
+          behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_PICKUP, 1, 2500, policy),
           behaviorHaul.loadCreep,
           behaviorHaul.clearTask,
           behaviorTree.returnSuccess(

@@ -145,14 +145,20 @@ export default class TowerRunnable {
 
     // Repair damaged secondary structures
     if (!this.repairTarget && this.orgRoom.damagedSecondaryStructures.length) {
-      const nextRepairTarget = Game.getObjectById(this.orgRoom.damagedSecondaryStructures[0]);
-      if (nextRepairTarget.hitsMax - nextRepairTarget.hits < 100000) {
-        this.repairTarget = this.orgRoom.damagedSecondaryStructures.shift();
-      } else {
-        this.repairTarget = this.orgRoom.damagedSecondaryStructures[0];
-      }
+      let nextRepairTarget = null;
+      do {
+        let id = this.orgRoom.damagedSecondaryStructures.shift();
+        nextRepairTarget = Game.getObjectById(id);
+      } while (!nextRepairTarget && this.orgRoom.damagedSecondaryStructures.length);
 
-      this.repairTTL = 10;
+      if (nextRepairTarget) {
+        if (nextRepairTarget.hitsMax - nextRepairTarget.hits < 100000) {
+          this.repairTarget = this.orgRoom.damagedSecondaryStructures.shift();
+        } else {
+          this.repairTarget = this.orgRoom.damagedSecondaryStructures[0];
+        }
+        this.repairTTL = 10;
+      }
     }
 
     // Repair damaged roads

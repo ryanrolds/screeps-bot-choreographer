@@ -1,13 +1,15 @@
+import {stringify} from "querystring";
 import {Tracer} from "./lib.tracing";
 import {Kingdom} from "./org.kingdom";
 
 const COST_MATRIX_TTL = 1000;
 const CACHE_ITEM_TTL = 1000;
 
-export type PathFinderRules = {
+export type PathFinderPolicy = {
   avoidHostiles: boolean;
   avoidOwnedRooms: boolean;
   avoidFriendlyRooms: boolean;
+  maxOps: number;
 };
 
 export class PathCacheItem {
@@ -208,7 +210,29 @@ export class PathCache {
     return item;
   }
 
-  getPath(origin: RoomPosition, goal: RoomPosition, range: number, rules: PathFinderRules,
+  testPath(origin: RoomPosition, goal: RoomPosition, range: number, policy: PathFinderPolicy) {
+    const trace = new Tracer('debug', 'Pathfinder.testPath')
+    const path = this.getPath(origin, goal, range, policy, trace);
+
+    trace.notice('path', {origin, goal, range, policy, path});
+
+    const pathByRooms = path.path.reduce((acc, pos) => {
+      if (!acc[pos.roomName]) {
+        acc[pos.roomName] = [];
+      }
+
+      acc[pos.roomName].push(pos);
+
+      return acc;
+    }, {} as Record<string, RoomPosition[]>);
+
+    Object.entries(pathByRooms).forEach(([key, value]) => {
+      trace.notice("polyline", {key, value});
+      new RoomVisual(key).poly(value);
+    })
+  }
+
+  getPath(origin: RoomPosition, goal: RoomPosition, range: number, policy: PathFinderPolicy,
     trace: Tracer): PathFinderPath {
     const originId = this.getKey(origin, 0);
     const goalId = this.getKey(goal, range);
@@ -219,7 +243,7 @@ export class PathCache {
     if (!item) {
       this.misses += 1;
 
-      const result = this.calculatePath(origin, goal, range, rules, trace);
+      const result = this.calculatePath(origin, goal, range, policy, trace);
       const path = result.path;
 
       item = this.setCachedPath(originId, goalId, result, Game.time);
@@ -240,13 +264,13 @@ export class PathCache {
     return item.value;
   }
 
-  calculatePath(origin: RoomPosition, goal: RoomPosition, range: number, rules: PathFinderRules,
+  calculatePath(origin: RoomPosition, goal: RoomPosition, range: number, policy: PathFinderPolicy,
     trace: Tracer): PathFinderPath {
     // Calculate new path
     const opts = {
       plainCost: 2,
       swampCost: 2,
-      maxOps: 2000,
+      maxOps: policy.maxOps,
       roomCallback: (roomName) => {
         let room = this.rooms[roomName];
         if (!room) {
