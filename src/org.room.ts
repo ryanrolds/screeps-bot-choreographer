@@ -109,8 +109,8 @@ export default class OrgRoom extends OrgBase {
     // Creeps
     this.assignedCreeps = [];
     this.defenderIds = [];
-    this.threadUpdateCreeps = thread('update_creeps_thread', UPDATE_CREEPS_TTL)((trace) => {
-      this.updateCreeps(trace);
+    this.threadUpdateCreeps = thread('update_creeps_thread', UPDATE_CREEPS_TTL)((trace, kingdom) => {
+      this.updateCreeps(kingdom, trace);
     });
 
     // Common room
@@ -328,7 +328,7 @@ export default class OrgRoom extends OrgBase {
       }
     });
 
-    this.threadUpdateCreeps(trace);
+    this.threadUpdateCreeps(trace, this.getKingdom());
     this.threadUpdateDefenseStatus(trace, room, this.getKingdom());
     this.threadUpdateRoom(trace);
 
@@ -734,15 +734,10 @@ export default class OrgRoom extends OrgBase {
 
     trace.end();
   }
-  updateCreeps(trace) {
+  updateCreeps(kingdom: Kingdom, trace: Tracer) {
     const updateCreepsTrace = trace.begin('update_creeps');
 
-    this.assignedCreeps = _.filter(Game.creeps, (creep) => {
-      return (creep.memory[MEMORY_ASSIGN_ROOM] === this.room.name ||
-        creep.memory[MEMORY_HARVEST_ROOM] === this.room.name) || (
-          creep.memory[MEMORY_ROLE] === WORKER_HAULER && creep.room.name === this.room.name);
-    });
-
+    this.assignedCreeps = kingdom.getRoomCreeps(this.id);
     this.defenderIds = this.assignedCreeps.filter((creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
       return role === CREEPS.WORKER_DEFENDER || role === CREEPS.WORKER_DEFENDER_DRONE ||

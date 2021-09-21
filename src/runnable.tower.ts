@@ -47,7 +47,6 @@ export default class TowerRunnable {
       return terminate();
     }
 
-
     const tower = Game.getObjectById(this.towerId);
     if (!tower) {
       return terminate();
@@ -108,6 +107,11 @@ export default class TowerRunnable {
     // Not above attack/heal reserve, skip repair logic
     if (towerUsed < EMERGENCY_RESERVE) {
       trace.log('skipping repairs low energy', {towerUsed});
+      return running();
+    }
+
+    // If low on CPU bucket, stop repairing
+    if (Game.cpu.bucket < 1000) {
       return running();
     }
 

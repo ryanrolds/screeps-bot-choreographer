@@ -91,11 +91,8 @@ export class Colony extends OrgBase {
     this.assignedCreeps = [];
     this.defenders = [];
     this.numCreeps = 0;
-    this.threadUpdateCreeps = thread('update_creeps_thread', UPDATE_CREEPS_TTL)(() => {
-      this.assignedCreeps = this.getParent().getCreeps().filter((creep) => {
-        return creep.memory[MEMORY.MEMORY_COLONY] === this.id;
-      });
-
+    this.threadUpdateCreeps = thread('update_creeps_thread', UPDATE_CREEPS_TTL)((trace: Tracer, kingdom: Kingdom) => {
+      this.assignedCreeps = kingdom.getColonyCreeps(this.id);
       this.defenders = this.assignedCreeps.filter((creep) => {
         const role = creep.memory[MEMORY.MEMORY_ROLE];
         return role === CREEPS.WORKER_DEFENDER || role === CREEPS.WORKER_DEFENDER_DRONE ||
@@ -169,7 +166,7 @@ export class Colony extends OrgBase {
     this.primaryRoom = Game.rooms[this.primaryRoomId];
 
     this.threadUpdateOrg(updateTrace);
-    this.threadUpdateCreeps(updateTrace);
+    this.threadUpdateCreeps(updateTrace, this.getKingdom());
     this.threadUpdateHaulers(updateTrace);
 
     // Fraction of num haul tasks
@@ -190,9 +187,7 @@ export class Colony extends OrgBase {
     roomTrace.end();
 
     if (this.observer) {
-      const observerTrace = updateTrace.begin('observer');
-      this.observer.update(observerTrace);
-      observerTrace.end();
+      this.observer.update(updateTrace);
     }
 
     this.threadRequestReserversForMissingRooms(updateTrace);
@@ -360,6 +355,10 @@ export class Colony extends OrgBase {
   }
   requestHaulers() {
     if (this.primaryRoom) {
+      if (Game.cpu.bucket < 2000) {
+        return;
+      }
+
       // PID approach
       if (this.numHaulers < this.pidDesiredHaulers) {
         this.sendRequest(TOPIC_SPAWN, PRIORITY_HAULER, {

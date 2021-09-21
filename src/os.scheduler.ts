@@ -2,20 +2,21 @@ import {Tracer} from './lib.tracing';
 import {Process} from './os.process';
 import {Kingdom} from './org.kingdom';
 import * as _ from 'lodash';
-import {start} from 'node:repl';
 
 const TIME_LIMIT_FACTOR = 1.0;
 
 export const Priorities = {
   CRITICAL: 0,
-  DEFENCE: 1,
-  ATTACK: 2,
+  CORE_LOGISTICS: 1,
+  DEFENCE: 2,
   RESOURCES: 3,
   OFFENSE: 4,
-  LOGISTICS: 5,
-  MAINTENANCE: 6,
-  EXPLORATION: 7,
+  ATTACK: 5,
+  LOGISTICS: 6,
+  MAINTENANCE: 7,
+  EXPLORATION: 8,
 }
+const LOW_BUCKET_MIN_PRIORITY = Priorities.RESOURCES;
 
 export class Scheduler {
   processTable: Process[];
@@ -81,14 +82,24 @@ export class Scheduler {
 
     // Sort process table priority
     // -1 should maintain the same order
-    this.processTable = _.sortByAll(this.processTable, ['priority', 'skippable', 'lastRun']);
+    this.processTable = _.sortByAll(this.processTable, ['adjustedPriority', 'skippable', 'lastRun']);
 
     const toRemove = [];
     const processCpu: Record<string, number> = {};
 
+    if (Game.cpu.bucket < 1000) {
+      trace.notice('low bucket, running only critical processes', {bucket: Game.cpu.bucket})
+    }
+
     // Iterate processes and act on their status
     this.processTable.forEach((process) => {
+      if (Game.cpu.bucket < 1000 && process.priority >= LOW_BUCKET_MIN_PRIORITY) {
+        this.ranOutOfTime++;
+        return;
+      }
+
       if (this.isOutOfTime() && process.canSkip()) {
+        process.skip();
         this.ranOutOfTime++;
         return;
       }
@@ -96,16 +107,16 @@ export class Scheduler {
       const startProcessCpu = Game.cpu.getUsed();
 
       if (process.isRunning()) {
+        let processTrace = trace.begin(process.type);
         // Run the process
-        process.run(kingdom, trace);
+        process.run(kingdom, processTrace);
+        processTrace.end();
       } else if (process.isSleeping()) {
         if (process.shouldWake()) {
           process.setRunning();
         }
       } else if (process.isTerminated()) {
         toRemove.push(process);
-      } else {
-
       }
 
       if (!processCpu[process.type]) {

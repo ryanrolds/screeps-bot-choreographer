@@ -33,6 +33,7 @@ export class Process {
   id: string;
   type: string;
   priority: number;
+  adjustedPriority: number;
   runnable: Runnable;
   skippable: boolean;
 
@@ -44,6 +45,7 @@ export class Process {
     this.id = id;
     this.type = type;
     this.priority = priority;
+    this.adjustedPriority = priority;
     this.runnable = runnable;
 
     this.skippable = true;
@@ -94,6 +96,10 @@ export class Process {
     return this.skippable;
   }
 
+  skip() {
+    this.adjustedPriority -= 1;
+  }
+
   run(kingdom: Kingdom, trace: Tracer) {
     this.lastRun = Game.time;
     const result = this.runnable.run(kingdom, trace);
@@ -109,5 +115,7 @@ export class Process {
         this.setTerminated()
         break;
     }
+
+    this.adjustedPriority = this.priority;
   }
 }
