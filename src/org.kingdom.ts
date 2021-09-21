@@ -13,6 +13,7 @@ import {Scheduler} from './os.scheduler';
 import {Tracer} from './lib.tracing';
 import OrgRoom from './org.room';
 import WarManager from './runnable.manager.war';
+import {WORKER_HAULER} from './constants.creeps';
 
 const UPDATE_ORG_TTL = 1;
 
@@ -26,6 +27,8 @@ export class Kingdom extends OrgBase {
   colonies: Record<string, Colony>;
   roomNameToOrgRoom: Record<string, OrgRoom>;
   creeps: Creep[];
+  creepsByRoom: Record<string, Creep[]>;
+  creepsByColony: Record<string, Creep[]>;
 
   resourceGovernor: ResourceGovernor;
   scribe: Scribe;
@@ -54,6 +57,8 @@ export class Kingdom extends OrgBase {
     this.colonies = {};
     this.roomNameToOrgRoom = {};
     this.creeps = [];
+    this.creepsByRoom = {};
+    this.creepsByColony = {};
 
     this.threadUpdateOrg = thread('update_org', UPDATE_ORG_TTL)((trace) => {
       this.updateOrg(trace);
@@ -193,9 +198,19 @@ export class Kingdom extends OrgBase {
   getRoomByName(name: string): OrgRoom {
     return this.roomNameToOrgRoom[name] || null;
   }
+
   getCreeps(): Creep[] {
     return this.creeps;
   }
+
+  getColonyCreeps(id: string): Creep[] {
+    return this.creepsByColony[id] || [];
+  }
+
+  getRoomCreeps(id: string): Creep[] {
+    return this.creepsByRoom[id] || [];
+  }
+
   getCreepColony(creep: Creep): Colony {
     const colonyId = creep.memory[MEMORY.MEMORY_COLONY];
     if (!colonyId) {
@@ -299,6 +314,40 @@ export class Kingdom extends OrgBase {
     const orgUpdateTrace = trace.begin('update_org');
 
     this.creeps = _.values(Game.creeps);
+
+    this.creepsByRoom = this.creeps.reduce((acc, creep) => {
+      let room = creep.memory[MEMORY.MEMORY_ASSIGN_ROOM] || creep.memory[MEMORY.MEMORY_HARVEST_ROOM];
+      if (!room && creep.memory[MEMORY.MEMORY_ROLE] === WORKER_HAULER) {
+        room = creep.room.name;
+      }
+
+      if (!room) {
+        return acc;
+      }
+
+      if (!acc[room]) {
+        acc[room] = [];
+      }
+
+      acc[room].push(creep);
+
+      return acc;
+    }, {} as Record<string, Creep[]>);
+
+    this.creepsByColony = this.creeps.reduce((acc, creep) => {
+      const colony = creep.memory[MEMORY.MEMORY_COLONY];
+      if (!colony) {
+        return acc;
+      }
+
+      if (!acc[colony]) {
+        acc[colony] = [];
+      }
+
+      acc[colony].push(creep);
+
+      return acc;
+    }, {} as Record<string, Creep[]>);
 
     const shardConfig = this.getShardConfig(Game.shard.name);
     if (!shardConfig) {

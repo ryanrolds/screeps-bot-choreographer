@@ -25,16 +25,20 @@ import {DEFENSE_STATUS} from './defense';
 
 const MIN_ENERGY = 100000;
 const CREDIT_RESERVE = 100000;
-const ENERGY_REQUEST_TTL = 50;
-const UPGRADER_ENERGY = 25000;
-const REQUEST_REPAIRER_TTL = 30;
-const REQUEST_BUILDER_TTL = 30;
-const MIN_DISTRIBUTORS = 1;
-const REQUEST_DISTRIBUTOR_TTL = 10;
-const MIN_RESERVATION_TICKS = 4000;
-const REQUEST_RESERVER_TTL = 25;
+
 const MIN_UPGRADERS = 1;
 const MAX_UPGRADERS = 5;
+const UPGRADER_ENERGY = 25000;
+
+const MIN_DISTRIBUTORS = 1;
+
+const MIN_RESERVATION_TICKS = 4000;
+
+const ENERGY_REQUEST_TTL = 50;
+const REQUEST_REPAIRER_TTL = 30;
+const REQUEST_BUILDER_TTL = 30;
+const REQUEST_DISTRIBUTOR_TTL = 10;
+const REQUEST_RESERVER_TTL = 25;
 const REQUEST_UPGRADER_TTL = 25;
 const REQUEST_HAUL_DROPPED_RESOURCES_TTL = 15;
 const CHECK_SAFE_MODE_TTL = 5;
@@ -73,7 +77,7 @@ export default class RoomRunnable {
   threadRequestHaulTombstones: ThreadFunc;
   threadCheckSafeMode: ThreadFunc;
   threadRequestExtensionFilling: ThreadFunc;
-  threadUpdateRampartAccess: ThreadFunc;
+  //threadUpdateRampartAccess: ThreadFunc;
   threadRequestEnergy: ThreadFunc;
   threadProduceStatus: ThreadFunc;
 
@@ -95,7 +99,7 @@ export default class RoomRunnable {
     this.threadRequestHaulTombstones = thread('request_haul_tombstone_thread', REQUEST_HAUL_DROPPED_RESOURCES_TTL)(this.requestHaulTombstones.bind(this));
     this.threadCheckSafeMode = thread('check_safe_mode_thread', CHECK_SAFE_MODE_TTL)(this.checkSafeMode.bind(this));
     this.threadRequestExtensionFilling = thread('request_extension_filling_thread', HAUL_EXTENSION_TTL)(this.requestExtensionFilling.bind(this));
-    this.threadUpdateRampartAccess = thread('update_rampart_access_thread', RAMPART_ACCESS_TTL)(this.updateRampartAccess.bind(this));
+    //this.threadUpdateRampartAccess = thread('update_rampart_access_thread', RAMPART_ACCESS_TTL)(this.updateRampartAccess.bind(this));
     this.threadRequestEnergy = thread('request_energy_thread', ENERGY_REQUEST_TTL)(this.requestEnergy.bind(this));
     this.threadProduceStatus = thread('produce_status_thread', PRODUCE_STATUS_TTL)(this.produceStatus.bind(this));
   }
@@ -136,7 +140,7 @@ export default class RoomRunnable {
       // Upgrader request
       this.threadRequestUpgrader(trace, orgRoom, room);
 
-      this.threadUpdateRampartAccess(trace, orgRoom, room);
+      //this.threadUpdateRampartAccess(trace, orgRoom, room);
       this.threadRequestExtensionFilling(trace, orgRoom, room);
       this.threadCheckSafeMode(trace, kingdom, room);
       this.threadProduceStatus(trace, orgRoom);
@@ -156,37 +160,11 @@ export default class RoomRunnable {
   }
 
   handleProcessSpawning(trace: Tracer, orgRoom: OrgRoom, room: Room) {
-    if (room.controller?.my || !room.controller?.owner?.username) {
-      // Sources
-      room.find(FIND_SOURCES).forEach((source) => {
-        const sourceId = `${source.id}`
-        if (!this.scheduler.hasProcess(sourceId)) {
-          this.scheduler.registerProcess(new Process(sourceId, 'sources', Priorities.RESOURCES,
-            new SourceRunnable(orgRoom, source)));
-        }
-      });
-
-      // Mineral
-      const mineral = orgRoom.roomStructures.filter((structure) => {
-        return structure.structureType === STRUCTURE_EXTRACTOR;
-      }).map((extractor) => {
-        const minerals = extractor.pos.findInRange(FIND_MINERALS, 0);
-        return minerals[0];
-      })[0];
-      if (mineral) {
-        const mineralId = `${mineral.id}`
-        if (!this.scheduler.hasProcess(mineralId)) {
-          this.scheduler.registerProcess(new Process(mineralId, 'mineral', Priorities.RESOURCES,
-            new SourceRunnable(orgRoom, mineral)));
-        }
-      }
-    }
-
     if (orgRoom.isPrimary) {
       // Spawn Manager
       const spawnManagerId = `spawns_${this.id}`
       if (!this.scheduler.hasProcess(spawnManagerId)) {
-        this.scheduler.registerProcess(new Process(spawnManagerId, 'spawns', Priorities.DEFENCE,
+        this.scheduler.registerProcess(new Process(spawnManagerId, 'spawns', Priorities.CORE_LOGISTICS,
           new SpawnManager(spawnManagerId, orgRoom)));
       }
 
@@ -208,15 +186,50 @@ export default class RoomRunnable {
       }).forEach((nuker) => {
         const nukeId = `${nuker.id}`
         if (!this.scheduler.hasProcess(nukeId)) {
-          this.scheduler.registerProcess(new Process(nukeId, 'nukes', Priorities.DEFENCE,
+          this.scheduler.registerProcess(new Process(nukeId, 'nukes', Priorities.OFFENSE,
             new NukerRunnable(orgRoom, nuker)));
         }
       });
 
+      if (room.terminal) {
+        // Terminal runnable
+        const terminalId = room.terminal.id;
+        if (!this.scheduler.hasProcess(terminalId)) {
+          this.scheduler.registerProcess(new Process(terminalId, 'terminals', Priorities.DEFENCE,
+            new TerminalRunnable(orgRoom, room.terminal)));
+        }
+      }
+
+      if (room.controller?.my || !room.controller?.owner?.username) {
+        // Sources
+        room.find<FIND_SOURCES>(FIND_SOURCES).forEach((source) => {
+          const sourceId = `${source.id}`
+          if (!this.scheduler.hasProcess(sourceId)) {
+            this.scheduler.registerProcess(new Process(sourceId, 'sources', Priorities.RESOURCES,
+              new SourceRunnable(orgRoom, source)));
+          }
+        });
+
+        // Mineral
+        const mineral = orgRoom.roomStructures.filter((structure) => {
+          return structure.structureType === STRUCTURE_EXTRACTOR;
+        }).map((extractor) => {
+          const minerals = extractor.pos.findInRange(FIND_MINERALS, 0);
+          return minerals[0];
+        })[0];
+        if (mineral) {
+          const mineralId = `${mineral.id}`
+          if (!this.scheduler.hasProcess(mineralId)) {
+            this.scheduler.registerProcess(new Process(mineralId, 'mineral', Priorities.RESOURCES,
+              new SourceRunnable(orgRoom, mineral)));
+          }
+        }
+      }
+
       // Link Manager
       const linkManagerId = `links_${this.id}`
       if (!this.scheduler.hasProcess(linkManagerId) && orgRoom.room.storage) {
-        this.scheduler.registerProcess(new Process(linkManagerId, 'links', Priorities.LOGISTICS,
+        this.scheduler.registerProcess(new Process(linkManagerId, 'links', Priorities.RESOURCES,
           new LinkManager(linkManagerId, orgRoom)));
       }
 
@@ -225,16 +238,6 @@ export default class RoomRunnable {
       if (!this.scheduler.hasProcess(labsManagerId)) {
         this.scheduler.registerProcess(new Process(labsManagerId, 'labs', Priorities.LOGISTICS,
           new LabsManager(labsManagerId, orgRoom, this.scheduler, trace)));
-      }
-
-
-      if (room.terminal) {
-        // Terminal runnable
-        const terminalId = room.terminal.id;
-        if (!this.scheduler.hasProcess(terminalId)) {
-          this.scheduler.registerProcess(new Process(terminalId, 'terminals', Priorities.LOGISTICS,
-            new TerminalRunnable(orgRoom, room.terminal)));
-        }
       }
 
       // Observer runnable
@@ -276,6 +279,10 @@ export default class RoomRunnable {
     if (hitsPercentage < 0.6) {
       desiredRepairers = 2;
       repairerPriority = PRIORITIES.PRIORITY_REPAIRER_URGENT;
+    }
+
+    if (Game.cpu.bucket < 1000) {
+      desiredRepairers = 0;
     }
 
     if (numRepairers >= desiredRepairers) {
@@ -358,6 +365,11 @@ export default class RoomRunnable {
 
       trace.log('hostiles in room and we need more distributors', {numTowers, desiredDistributors});
       desiredDistributors = Math.ceil(numTowers / 2) + desiredDistributors;
+    }
+
+    if (Game.cpu.bucket < 1000) {
+      trace.log('low CPU, limit distributors');
+      desiredDistributors = 1;
     }
 
     if (!orgRoom.hasStorage || numDistributors >= desiredDistributors) {
@@ -649,12 +661,12 @@ export default class RoomRunnable {
     trace.log('rampart access', {status, isPublic, posture: this.defensePosture})
 
     if ((!isPublic || status !== DEFENSE_STATUS.GREEN) && this.defensePosture !== DEFENSE_POSTURE.CLOSED) {
-      trace.log('setting ramparts closed');
+      trace.notice('setting ramparts closed');
       this.setRamparts(room, DEFENSE_POSTURE.CLOSED, trace);
     }
 
     if (status === DEFENSE_STATUS.GREEN && isPublic && this.defensePosture !== DEFENSE_POSTURE.OPEN) {
-      trace.log('setting ramparts open');
+      trace.notice('setting ramparts open');
       this.setRamparts(room, DEFENSE_POSTURE.OPEN, trace);
     }
   }

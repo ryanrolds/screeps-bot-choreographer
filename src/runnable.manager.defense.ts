@@ -14,9 +14,10 @@ import {Colony} from './org.colony';
 import {thread, ThreadFunc} from './os.thread';
 import {DEFENSE_STATUS} from './defense';
 
-const TARGET_REQUEST_TTL = 1;
+const RUN_INTERVAL = 5;
+const TARGET_REQUEST_TTL = RUN_INTERVAL;
+const DEFENSE_STATUS_TTL = RUN_INTERVAL;
 const REQUEST_DEFENDERS_TTL = 25;
-const DEFENSE_STATUS_TTL = 1;
 const UPDATE_DEFENSE_STATS_TTL = 5;
 
 const hostileParts = {
@@ -129,7 +130,7 @@ export default class DefenseManager {
 
     trace.end();
 
-    return running();
+    return sleeping(RUN_INTERVAL);
   }
 
   handleDefendFlags(kingdom: Kingdom, trace: Tracer) {

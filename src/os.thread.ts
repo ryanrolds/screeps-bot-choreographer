@@ -17,7 +17,7 @@ export const thread = (name: string, ttl: number) => (action: ActionFunc): Threa
       lastCall = Game.time;
 
       const actionTrace = trace.begin(name);
-      const result = action(trace, ...args);
+      const result = action(actionTrace, ...args);
       actionTrace.end();
 
       return result;

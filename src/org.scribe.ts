@@ -87,6 +87,11 @@ export class Scribe extends OrgBase {
   }
 
   writeMemory() {
+    if (Game.cpu.bucket < 1000) {
+      Memory['scribe'] = null;
+      return
+    }
+
     Memory['scribe'] = this.journal;
   }
 
@@ -129,10 +134,9 @@ export class Scribe extends OrgBase {
 
   getOldestRoomInList(rooms: string[]) {
     const knownRooms = Object.keys(this.journal.rooms);
-    const missingRooms = _.shuffle(_.difference(rooms, knownRooms));
-
+    const missingRooms = _.difference(rooms, knownRooms)
     if (missingRooms.length) {
-      return missingRooms[0];
+      return _.shuffle(missingRooms)[0];
     }
 
     const inRangeRooms: RoomEntry[] = Object.values(_.pick(this.journal.rooms, rooms));

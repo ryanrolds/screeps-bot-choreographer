@@ -17,7 +17,6 @@ export class Observer extends OrgBase {
 
     this.observer = observer;
     this.inRangeRooms = inRangeRoomNames(observer.room.name);
-    this.justObserved = null;
     this.scribe = this.getKingdom().getScribe();
 
     setupTrace.end();
@@ -27,12 +26,6 @@ export class Observer extends OrgBase {
     const updateTrace = trace.begin('update');
 
     this.observer = Game.getObjectById(this.id as Id<StructureObserver>);
-
-    if (this.justObserved && Game.rooms[this.justObserved]) {
-      const updateRoomTrace = updateTrace.begin('update_room');
-      this.scribe.updateRoom(this.getKingdom(), Game.rooms[this.justObserved]);
-      updateRoomTrace.end();
-    }
 
     updateTrace.log('in range rooms', {inRange: this.inRangeRooms});
 
