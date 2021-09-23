@@ -5,7 +5,6 @@ import behaviorStorage from "./behavior.storage";
 import * as behaviorMovement from "./behavior.movement";
 import behaviorBuild from "./behavior.build";
 import behaviorHarvest from "./behavior.harvest";
-import behaviorNonCombatant from "./behavior.noncombatant";
 import behaviorBoosts from "./behavior.boosts";
 import * as MEMORY from "./constants.memory";
 import {PathFinderRules} from "./lib.path_cache";
@@ -78,5 +77,5 @@ const behavior = behaviorTree.sequenceNode(
 );
 
 export const roleHarvester = {
-  run: behaviorTree.rootNode('hauler', behaviorBoosts(behaviorNonCombatant(behavior))),
+  run: behaviorTree.rootNode('hauler', behaviorBoosts(behavior)),
 };

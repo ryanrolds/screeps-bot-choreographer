@@ -51,19 +51,19 @@ export class AI {
     const defenseManagerId = 'defense_manager';
     const defenseManager = new DefenseManager(this.kingdom, defenseManagerId, this.scheduler, trace);
     this.scheduler.registerProcess(new Process(defenseManagerId, 'defense_manager',
-      Priorities.CRITICAL, defenseManager));
+      Priorities.DEFENCE, defenseManager));
 
     // Buffer manager
     const bufferManagerId = 'buffer_manager';
     const bufferManager = new BufferManager(bufferManagerId, this.scheduler, trace);
     this.scheduler.registerProcess(new Process(bufferManagerId, 'buffer_manager',
-      Priorities.CRITICAL, bufferManager));
+      Priorities.DEFENCE, bufferManager));
 
     // War manager
     const warManagerId = 'war_manager';
     const warManager = new WarManager(this.kingdom, warManagerId, this.scheduler, trace);
     this.scheduler.registerProcess(new Process(warManagerId, 'war_manager',
-      Priorities.CRITICAL, warManager));
+      Priorities.ATTACK, warManager));
 
     trace.end();
   }
@@ -76,10 +76,14 @@ export class AI {
     this.scheduler.tick(this.kingdom, schedulerTrace);
     schedulerTrace.end();
 
-    this.kingdom.updateStats();
+    if (Game.time % 5 === 0) {
+      const statsTrace = trace.begin('stats');
+      this.kingdom.updateStats();
 
-    // Set stats in memory for pulling and display in Grafana
-    (Memory as any).stats = this.kingdom.getStats();
+      // Set stats in memory for pulling and display in Grafana
+      (Memory as any).stats = this.kingdom.getStats();
+      statsTrace.end();
+    }
 
     trace.end();
   }

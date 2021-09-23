@@ -101,6 +101,7 @@ There are a couple of helpful global variables:
 * `LOG_WHEN_ID='<game id>'` - `trace.asId(<game id>).log(...)` calls will be output to the console
 * `TRACING_ACTIVE=true` - Will output tracing metric data to the console
 * `TRACING_FILTER=<prefix>` - only print traces with a key that stats with the prefix
+* `RESET_PIDS=true` - will reset the PID controllers
 
 ### Creeps
 

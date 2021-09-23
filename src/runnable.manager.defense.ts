@@ -114,19 +114,24 @@ export default class DefenseManager {
     trace = trace.asId(this.id).begin('defense_manager_run');
     trace.log("defense manager run");
 
-    const hostilesByColony = getHostilesByColony(kingdom, Object.values(Game.rooms), trace)
-    trace.log('hostiles by colony', {hostilesByColony});
+    const hostilesTrace = trace.begin('getHostilesByColony')
+    const hostilesByColony = getHostilesByColony(kingdom, Object.values(Game.rooms), hostilesTrace)
+    hostilesTrace.log('hostiles by colony', {hostilesByColony});
+    hostilesTrace.end();
 
-    const defendersByColony = getDefendersByColony(kingdom, Object.values(Game.rooms), trace)
-    trace.log('defenders by colony', {defendersByColony});
+    const targetTopicTrace = trace.begin('addHostilesToColonyTargetTopic')
+    addHostilesToColonyTargetTopic(kingdom, hostilesByColony, targetTopicTrace);
+    targetTopicTrace.end();
 
-    addHostilesToColonyTargetTopic(kingdom, hostilesByColony, trace);
-    publishDefenseStatuses(kingdom, hostilesByColony, trace);
+    const defenseStatusTrace = trace.begin('updateDefenseStatus')
+    publishDefenseStatuses(kingdom, hostilesByColony, defenseStatusTrace);
+    defenseStatusTrace.end();
 
     this.handleDefendFlags(kingdom, trace);
     this.threadCheckColonyDefenses(trace, kingdom, hostilesByColony);
     this.threadReturnDefendersToStation(trace, kingdom, hostilesByColony);
-    this.threadUpdateDefenseStats(trace, kingdom, hostilesByColony, defendersByColony);
+
+    this.threadUpdateDefenseStats(trace, kingdom, hostilesByColony);
 
     trace.end();
 
@@ -341,7 +346,7 @@ function publishDefenseStatuses(kingdom: Kingdom, hostilesByColony: HostilesByCo
 
     trace.log('defense status update', details);
 
-    (colony as any).sendRequest(TOPICS.DEFENSE_STATUSES, 0, details, DEFENSE_STATUS_TTL)
+    colony.sendRequest(TOPICS.DEFENSE_STATUSES, 0, details, DEFENSE_STATUS_TTL)
   });
 }
 
@@ -464,8 +469,10 @@ function returnDefendersToStation(trace: Tracer, kingdom: Kingdom, hostilesByCol
   });
 }
 
-function updateDefenseStats(trace: Tracer, kingdom: Kingdom, hostilesByColony: Record<string, Target[]>,
-  defendersByColony: Record<string, Creep[]>) {
+function updateDefenseStats(trace: Tracer, kingdom: Kingdom, hostilesByColony: Record<string, Target[]>) {
+  const defendersByColony = getDefendersByColony(kingdom, Object.values(Game.rooms), trace)
+  trace.log('defenders by colony', {defendersByColony});
+
   const stats = kingdom.getStats();
   stats.defense = {
     defenderScores: _.mapValues(defendersByColony, (defender) => {

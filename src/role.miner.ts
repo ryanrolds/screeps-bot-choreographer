@@ -1,6 +1,5 @@
 import * as behaviorTree from "./lib.behaviortree";
 import {FAILURE, SUCCESS, RUNNING} from "./lib.behaviortree";
-import behaviorNonCombatant from "./behavior.noncombatant";
 import behaviorBoosts from "./behavior.boosts";
 import * as behaviorMovement from "./behavior.movement";
 import behaviorCommute from "./behavior.commute";
@@ -31,6 +30,7 @@ const selectSource = behaviorTree.leafNode(
 const harvest = behaviorTree.leafNode(
   'fill_creep',
   (creep, trace, kingdom) => {
+    // If miner is full, then dump
     if (!creep.store.getFreeCapacity(RESOURCE_ENERGY)) {
       const link = creep.pos.findInRange<StructureLink>(FIND_MY_STRUCTURES, 1, {
         filter: (structure) => {
@@ -58,6 +58,10 @@ const harvest = behaviorTree.leafNode(
     const destination: Source = Game.getObjectById(destinationId);
     if (!destination) {
       trace.log('destination not found', {destinationId});
+      return FAILURE;
+    }
+
+    if (destination.energy === 0) {
       return FAILURE;
     }
 
@@ -202,5 +206,5 @@ const behavior = behaviorTree.sequenceNode(
 );
 
 export const roleMiner = {
-  run: behaviorTree.rootNode('miner', behaviorBoosts(behaviorNonCombatant(behavior))),
+  run: behaviorTree.rootNode('miner', behaviorBoosts(behavior)),
 };

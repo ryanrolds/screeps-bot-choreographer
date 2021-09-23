@@ -27,11 +27,6 @@ const behavior = behaviorTree.sequenceNode(
       behaviorTree.leafNode(
         'upgrade_controller',
         (creep) => {
-          const destination = Game.getObjectById(creep.memory['destination']);
-          if (!destination) {
-            return behaviorTree.FAILURE;
-          }
-
           const result = creep.upgradeController(creep.room.controller);
           if (result == ERR_NOT_ENOUGH_RESOURCES) {
             return behaviorTree.SUCCESS;
