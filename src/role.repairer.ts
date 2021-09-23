@@ -5,7 +5,6 @@ import * as behaviorMovement from "./behavior.movement";
 import behaviorCommute from "./behavior.commute";
 import * as behaviorAssign from "./behavior.assign";
 import behaviorRoom from "./behavior.room";
-import behaviorNonCombatant from "./behavior.noncombatant";
 import {behaviorBoosts} from "./behavior.boosts";
 
 import {MEMORY_DESTINATION} from "./constants.memory";
@@ -79,5 +78,5 @@ const behavior = behaviorTree.sequenceNode(
 );
 
 export const roleRepairer = {
-  run: behaviorTree.rootNode('repairer', behaviorBoosts(behaviorNonCombatant(behavior))),
+  run: behaviorTree.rootNode('repairer', behaviorBoosts(behavior)),
 };

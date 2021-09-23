@@ -23,7 +23,7 @@ export class Observer extends OrgBase {
   }
 
   update(trace: Tracer) {
-    const updateTrace = trace.begin('update');
+    const updateTrace = trace.begin('observer_update');
 
     this.observer = Game.getObjectById(this.id as Id<StructureObserver>);
 

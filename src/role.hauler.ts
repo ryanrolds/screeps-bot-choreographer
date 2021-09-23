@@ -2,7 +2,6 @@
 import * as behaviorTree from "./lib.behaviortree";
 import {FAILURE, SUCCESS, RUNNING} from "./lib.behaviortree";
 import * as behaviorMovement from "./behavior.movement";
-import behaviorNonCombatant from "./behavior.noncombatant";
 import behaviorHaul from "./behavior.haul";
 import behaviorRoom from "./behavior.room";
 import {behaviorBoosts} from "./behavior.boosts";
@@ -143,5 +142,5 @@ const behavior = behaviorTree.sequenceNode(
 );
 
 export const roleHauler = {
-  run: behaviorTree.rootNode('hauler', behaviorBoosts(behaviorNonCombatant(behavior))),
+  run: behaviorTree.rootNode('hauler', behaviorBoosts(behavior)),
 };

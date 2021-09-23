@@ -1,5 +1,8 @@
 import * as MEMORY from './constants.memory';
 
+const globalAny: any = global;
+globalAny.RESET_PIDS = false;
+
 export const setup = (memory: RoomMemory, prefix: string, setPoint: number, p: number, i: number, d: number) => {
   if (!p) {
     throw new Error('missing p');
@@ -12,6 +15,12 @@ export const setup = (memory: RoomMemory, prefix: string, setPoint: number, p: n
 }
 
 export const update = (memory: RoomMemory, prefix: string, value: number, time: number) => {
+  if (globalAny.RESET_PIDS) {
+    memory[`${prefix}${MEMORY.PID_SUFFIX_ERROR}`] = 0;
+    memory[`${prefix}${MEMORY.PID_SUFFIX_TIME}`] = time;
+    memory[`${prefix}${MEMORY.PID_SUFFIX_INTEGRAL}`] = 0;
+  }
+
   const setPoint = memory[`${prefix}${MEMORY.PID_SUFFIX_SETPOINT}`];
   const p = memory[`${prefix}${MEMORY.PID_SUFFIX_P}`] || 0.4;
   const i = memory[`${prefix}${MEMORY.PID_SUFFIX_I}`] || 0.0001;

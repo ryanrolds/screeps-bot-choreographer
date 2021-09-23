@@ -17,8 +17,17 @@ export const behaviorBoosts = (behaviorNode) => {
       behaviorTree.leafNode(
         'get_boosted',
         (creep, trace, kingdom) => {
+          const phase = creep.memory[BOOST_PHASE] || BOOST_PHASE_START;
+          if (phase === BOOST_PHASE_DONE) {
+            return SUCCESS;
+          }
+
+          // Mark done of no requested boosts
           const desiredBoosts = creep.memory[MEMORY.DESIRED_BOOSTS] || [];
-          const phase = creep.memory[BOOST_PHASE] || BOOST_PHASE_MOVE;
+          if (!desiredBoosts.length) {
+            creep.memory[BOOST_PHASE] = BOOST_PHASE_DONE;
+            return SUCCESS;
+          }
 
           const room = kingdom.getCreepRoom(creep);
           if (!room) {
@@ -27,12 +36,6 @@ export const behaviorBoosts = (behaviorNode) => {
 
           const boosterPos = room.getBoosterPosition();
           if (!boosterPos) {
-            creep.memory[BOOST_PHASE] = BOOST_PHASE_DONE;
-            return SUCCESS;
-          }
-
-          // Mark done of no requested boosts
-          if (!desiredBoosts.length) {
             creep.memory[BOOST_PHASE] = BOOST_PHASE_DONE;
             return SUCCESS;
           }
@@ -72,8 +75,6 @@ export const behaviorBoosts = (behaviorNode) => {
 
               creep.memory[BOOST_PHASE] = BOOST_PHASE_DONE;
               return RUNNING;
-            case BOOST_PHASE_DONE:
-              return SUCCESS;
             default:
               throw new Error(`Unknown boost phase: ${phase}`);
           }

@@ -6,6 +6,7 @@ declare global {
       TRACING_ACTIVE: boolean;
       TRACING_FILTER: string;
       LOG_WHEN_ID: string;
+      RESET_PIDS: boolean;
       AI: any;
     }
   }

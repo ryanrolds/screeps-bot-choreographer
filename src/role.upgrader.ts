@@ -6,7 +6,6 @@ import {behaviorBoosts} from "./behavior.boosts";
 import behaviorRoom from "./behavior.room";
 
 import * as MEMORY from "./constants.memory";
-import {trace} from "console";
 
 const behavior = behaviorTree.sequenceNode(
   'upgrader_root',
@@ -28,11 +27,6 @@ const behavior = behaviorTree.sequenceNode(
       behaviorTree.leafNode(
         'upgrade_controller',
         (creep, trace, kingdom) => {
-          const destination = Game.getObjectById(creep.memory['destination']);
-          if (!destination) {
-            return behaviorTree.FAILURE;
-          }
-
           const result = creep.upgradeController(creep.room.controller);
           trace.log("upgrade result", {result})
           if (result == ERR_NOT_ENOUGH_RESOURCES) {
