@@ -12,6 +12,11 @@ import KingdomModelRunnable from './runnable.kingdom_model';
 import KingdomGovernorRunnable from './runnable.kingdom_governor'
 import DefenseManager from './runnable.manager.defense';
 import BufferManager from './runnable.manager.buffer';
+import {MEMORY_COLONY, MEMORY_SOURCE} from './constants.memory';
+
+
+let lastMemoryTick: number = 0;
+let lastMemory: Memory = null;
 
 export class AI {
   config: KingdomConfig;
@@ -20,9 +25,6 @@ export class AI {
   gameMapExport: string;
 
   constructor(config: KingdomConfig) {
-
-    Game.map.visual.import(this.gameMapExport || "");
-
     const trace = new Tracer('ai', 'ai_constructor');
 
     this.config = config;
@@ -69,13 +71,24 @@ export class AI {
     this.scheduler.registerProcess(new Process(warManagerId, 'war_manager',
       Priorities.ATTACK, warManager));
 
-    this.gameMapExport = Game.map.visual.export();
-
     trace.end();
   }
 
   tick(trace: Tracer) {
     trace = trace.begin('tick');
+
+    const memoryHack = trace.begin('memory_hack');
+    // memory hack from Dissi
+    if (lastMemoryTick && lastMemory && Game.time == (lastMemoryTick + 1)) {
+      delete global.Memory
+      global.Memory = lastMemory;
+      (RawMemory as any)._parsed = lastMemory
+    } else {
+      Memory;
+      lastMemory = (RawMemory as any)._parsed
+    }
+    lastMemoryTick = Game.time
+    memoryHack.end();
 
     // Run the scheduler
     const schedulerTrace = trace.begin('scheduler');

@@ -2,7 +2,7 @@
 const behaviorTree = require('./lib.behaviortree');
 const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
 const behaviorMovement = require('./behavior.movement');
-const {MEMORY_HARVEST_ROOM, MEMORY_SOURCE} = require('./constants.memory');
+const {MEMORY_SOURCE, MEMORY_ASSIGN_ROOM} = require('./constants.memory');
 const {numEnemeiesNearby, numOfSourceSpots} = require('./helpers.proximity');
 
 module.exports.selectHarvestSource = behaviorTree.leafNode(
@@ -47,7 +47,7 @@ module.exports.moveToHarvestRoom = behaviorTree.repeatUntilSuccess(
   behaviorTree.leafNode(
     'move_to_harvest_room',
     (creep) => {
-      const room = creep.memory[MEMORY_HARVEST_ROOM];
+      const room = creep.memory[MEMORY_ASSIGN_ROOM];
       // If creep doesn't have a harvest room assigned, we are done
       if (!room) {
         return SUCCESS;

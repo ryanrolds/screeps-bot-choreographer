@@ -9,11 +9,9 @@ import {creepIsFresh} from './behavior.commute';
 import {thread, ThreadFunc} from './os.thread';
 import {Tracer} from './lib.tracing'
 
-import {MEMORY_ROLE, MEMORY_ASSIGN_ROOM, MEMORY_HARVEST_ROOM} from './constants.memory';
 import {TOPIC_SPAWN} from './constants.topics';
-import {WORKER_HAULER} from './constants.creeps';
 import {Kingdom} from './org.kingdom';
-import BoosterRunnable, {BoosterDetails, EffectSet, LabsByResource, TOPIC_ROOM_BOOSTS} from './runnable.booster';
+import {BoosterDetails, EffectSet, LabsByResource, TOPIC_ROOM_BOOSTS} from './runnable.booster';
 
 export const TOPIC_ROOM_KEYVALUE = 'room_keyvalue';
 const MEMORY_HOSTILE_TIME = 'hostile_time';

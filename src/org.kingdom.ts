@@ -60,10 +60,9 @@ export class Kingdom extends OrgBase {
     this.creepsByRoom = {};
     this.creepsByColony = {};
 
-    this.threadUpdateOrg = thread('update_org', UPDATE_ORG_TTL)((trace) => {
-      this.updateOrg(trace);
-    });
+    this.threadUpdateOrg = thread('update_org_thread', UPDATE_ORG_TTL)(this.updateOrg.bind(this));
 
+    // TODO move to another process
     this.resourceGovernor = new ResourceGovernor(this, setupTrace);
 
     this.scribe = new Scribe(this, setupTrace);
@@ -311,16 +310,24 @@ export class Kingdom extends OrgBase {
     return this.topics.getFilteredRequests(topicId, filter);
   }
   updateOrg(trace: Tracer) {
-    const orgUpdateTrace = trace.begin('update_org');
-
     this.creeps = _.values(Game.creeps);
 
-    this.creepsByRoom = this.creeps.reduce((acc, creep) => {
-      let room = creep.memory[MEMORY.MEMORY_ASSIGN_ROOM] || creep.memory[MEMORY.MEMORY_HARVEST_ROOM];
-      if (!room && creep.memory[MEMORY.MEMORY_ROLE] === WORKER_HAULER) {
-        room = creep.room.name;
-      }
+    const roomCreepsTrace = trace.begin('room_creeps');
+    this.updateRoomCreeps(roomCreepsTrace);
+    roomCreepsTrace.end();
 
+    const colonyCreepsTrace = trace.begin('colony_creeps');
+    this.updateColonyCreeps(colonyCreepsTrace);
+    colonyCreepsTrace.end();
+
+    const updateColoniesTrace = trace.begin('colony_colonies');
+    this.updateColonies(updateColoniesTrace);
+    updateColoniesTrace.end();
+  }
+
+  updateRoomCreeps(trace: Tracer) {
+    this.creepsByRoom = this.creeps.reduce((acc, creep) => {
+      let room = creep.memory[MEMORY.MEMORY_ASSIGN_ROOM];
       if (!room) {
         return acc;
       }
@@ -333,7 +340,9 @@ export class Kingdom extends OrgBase {
 
       return acc;
     }, {} as Record<string, Creep[]>);
+  }
 
+  updateColonyCreeps(trace: Tracer) {
     this.creepsByColony = this.creeps.reduce((acc, creep) => {
       const colony = creep.memory[MEMORY.MEMORY_COLONY];
       if (!colony) {
@@ -348,7 +357,9 @@ export class Kingdom extends OrgBase {
 
       return acc;
     }, {} as Record<string, Creep[]>);
+  }
 
+  updateColonies(trace: Tracer) {
     const shardConfig = this.getShardConfig(Game.shard.name);
     if (!shardConfig) {
       return;
@@ -360,14 +371,12 @@ export class Kingdom extends OrgBase {
 
     const missingColonyIds = _.difference(configIds, orgIds);
     missingColonyIds.forEach((id) => {
-      this.colonies[id] = new Colony(this, shardConfig[id], orgUpdateTrace);
+      this.colonies[id] = new Colony(this, shardConfig[id], trace);
     });
 
     const extraColonyIds = _.difference(orgIds, configIds);
     extraColonyIds.forEach((id) => {
       delete this.colonies[id];
     });
-
-    orgUpdateTrace.end();
   }
 }

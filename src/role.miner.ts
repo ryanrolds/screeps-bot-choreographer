@@ -16,7 +16,7 @@ const policy: PathFinderPolicy = {
 const selectSource = behaviorTree.leafNode(
   'selectSource',
   (creep, trace, kingdom) => {
-    const source = Game.getObjectById<Id<Source>>(creep.memory[MEMORY.MEMORY_HARVEST]);
+    const source = Game.getObjectById<Id<Source>>(creep.memory[MEMORY.MEMORY_SOURCE]);
     const container = Game.getObjectById<Id<StructureContainer>>(creep.memory[MEMORY.MEMORY_HARVEST_CONTAINER]);
     if (source && container) {
       behaviorMovement.setSource(creep, source.id);
@@ -55,7 +55,7 @@ const harvest = behaviorTree.leafNode(
       }
     }
 
-    const destinationId = creep.memory[MEMORY.MEMORY_HARVEST];
+    const destinationId = creep.memory[MEMORY.MEMORY_SOURCE];
     const destination = Game.getObjectById<Id<Source>>(destinationId);
     if (!destination) {
       trace.log('destination not found', {destinationId});
@@ -98,7 +98,7 @@ const harvest = behaviorTree.leafNode(
 const moveEnergyToLink = behaviorTree.leafNode(
   'move_energy_to_link',
   (creep, trace, kingdom) => {
-    const source = Game.getObjectById<Id<Source>>(creep.memory[MEMORY.MEMORY_HARVEST]);
+    const source = Game.getObjectById<Id<Source>>(creep.memory[MEMORY.MEMORY_SOURCE]);
     if (!source) {
       trace.log('source not found');
       return FAILURE;
@@ -164,7 +164,7 @@ const moveEnergyToLink = behaviorTree.leafNode(
 const waitUntilSourceReady = behaviorTree.leafNode(
   'wait_until_ready',
   (creep) => {
-    const source = Game.getObjectById<Id<Source>>(creep.memory[MEMORY.MEMORY_HARVEST]);
+    const source = Game.getObjectById<Id<Source>>(creep.memory[MEMORY.MEMORY_SOURCE]);
     if (!source) {
       return FAILURE;
     }

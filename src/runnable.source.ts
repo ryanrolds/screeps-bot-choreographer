@@ -164,7 +164,7 @@ export default class SourceRunnable {
     const numWorkers = colonyCreeps.filter((creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
       return role === this.desiredWorkerType &&
-        creep.memory[MEMORY.MEMORY_HARVEST] === this.sourceId &&
+        creep.memory[MEMORY.MEMORY_SOURCE] === this.sourceId &&
         creepIsFresh(creep);
     }).length;
 
@@ -178,10 +178,9 @@ export default class SourceRunnable {
       this.orgRoom.requestSpawn(priority, {
         role: this.desiredWorkerType,
         memory: {
-          [MEMORY.MEMORY_HARVEST]: this.sourceId, // Deprecated
-          [MEMORY.MEMORY_HARVEST_ROOM]: room.name, // Deprecated
           [MEMORY.MEMORY_HARVEST_CONTAINER]: this.containerId,
           [MEMORY.MEMORY_SOURCE]: this.sourceId,
+          [MEMORY.MEMORY_SOURCE_CONTAINER]: this.containerId,
           [MEMORY.MEMORY_SOURCE_POSITION]: positionStr,
           [MEMORY.MEMORY_ASSIGN_ROOM]: room.name,
           [MEMORY.MEMORY_COLONY]: (this.orgRoom as any).getColony().id,

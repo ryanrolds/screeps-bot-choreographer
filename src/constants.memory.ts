@@ -6,6 +6,7 @@ export const SPAWN_MIN_ENERGY = 'spawn_min_energy';
 export const MEMORY_SOURCE = 'source';
 export const MEMORY_SOURCE_ROOM = 'source_room';
 export const MEMORY_SOURCE_POSITION = 'source_position';
+export const MEMORY_SOURCE_CONTAINER = 'source_container';
 
 // General movement memory IDs (use this for nearly all movement)
 export const MEMORY_DESTINATION = 'destination';
@@ -15,9 +16,7 @@ export const PATH_CACHE = 'path_cache';
 export const MEMORY_DESTINATION_POS = 'destination_pos';
 
 // Long term memory IDs
-export const MEMORY_HARVEST = 'harvest';
 export const MEMORY_HARVEST_CONTAINER = 'harvest_container';
-export const MEMORY_HARVEST_ROOM = 'harvest_room';
 export const MEMORY_WITHDRAW = 'withdraw';
 export const MEMORY_WITHDRAW_ROOM = 'withdraw_room';
 export const MEMORY_DROPOFF = 'transfer';
