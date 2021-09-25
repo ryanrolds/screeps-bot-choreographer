@@ -16,10 +16,11 @@ const MAX_SELL_AMOUNT = 25000;
 const MIN_ROOM_ENERGY = 100000;
 const ENERGY_BALANCE_AMOUNT = 5000;
 
+const UPDATE_RESOURCES_TTL = 10;
 const REQUEST_REACTION_TTL = 500;
 const REQUEST_SELL_TTL = 500;
 const REQUEST_DISTRIBUTE_BOOSTS = 30;
-const CONSUME_STATUS_TTL = 25;
+const CONSUME_STATUS_TTL = 20;
 const BALANCE_ENERGY_TTL = 50;
 
 // Try to ensure that all colonies are ready to
@@ -48,6 +49,11 @@ class Resources extends OrgBase {
     this.reactorStatuses = [];
     this.roomStatuses = [];
 
+    this.threadUpdateResources = thread('update_resources_thread', UPDATE_RESOURCES_TTL)((trace) => {
+      this.resources = this.getReserveResources(true);
+      this.sharedResources = this.getSharedResources();
+    });
+
     this.threadRequestReactions = thread('request_reactions_thread', REQUEST_REACTION_TTL)((trace) => {
       this.availableReactions = this.getReactions(trace);
       this.requestReactions(trace);
@@ -69,11 +75,7 @@ class Resources extends OrgBase {
   update(trace) {
     trace = trace.asId(this.id).begin('resource_governor_run');
 
-    const updateTrace = trace.begin('update');
-
-    this.resources = this.getReserveResources(true);
-    this.sharedResources = this.getSharedResources();
-
+    this.threadUpdateResources(trace);
     this.threadRequestReactions(trace);
     this.threadRequestSellExtraResources(trace);
     this.threadDistributeBoosts(trace);
@@ -81,8 +83,6 @@ class Resources extends OrgBase {
     this.threadBalanceEnergy(trace);
 
     trace.end();
-
-    updateTrace.end();
   }
   process(trace) {
     trace = trace.asId(this.id);

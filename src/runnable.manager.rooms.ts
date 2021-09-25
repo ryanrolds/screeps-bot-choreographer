@@ -22,18 +22,6 @@ export class RoomManager {
     trace = trace.begin('room_run');
     trace.log('room manager run');
 
-    Object.entries(Game.rooms).forEach(([name, room]) => {
-      const hasProcess = this.scheduler.hasProcess(name);
-      if (hasProcess) {
-        return;
-      }
-
-      trace.log('missing room', {name});
-
-      this.scheduler.registerProcess(new Process(name, 'room', Priorities.RESOURCES,
-        new RoomRunnable(name, this.scheduler)));
-    });
-
     // If any defined colonies don't exist, run it
     const shardConfig = kingdom.getShardConfig(Game.shard.name);
     Object.values<ColonyConfig>(shardConfig).forEach((colony) => {
@@ -47,6 +35,24 @@ export class RoomManager {
       this.scheduler.registerProcess(new Process(colony.primary, 'room', Priorities.RESOURCES,
         new RoomRunnable(colony.primary, this.scheduler)));
     });
+
+    Object.entries(Game.rooms).forEach(([name, room]) => {
+      const hasProcess = this.scheduler.hasProcess(name);
+      if (hasProcess) {
+        return;
+      }
+
+      if (!kingdom.getRoomByName(name)) {
+        trace.log('not a room we assert within our domain', {name});
+        return;
+      }
+
+      trace.log('room we assert domain over without process, starting', {name});
+
+      this.scheduler.registerProcess(new Process(name, 'room', Priorities.RESOURCES,
+        new RoomRunnable(name, this.scheduler)));
+    });
+
 
     trace.end();
 

@@ -15,6 +15,7 @@ export const Priorities = {
   LOGISTICS: 6,
   MAINTENANCE: 7,
   EXPLORATION: 8,
+  DEBUG: 9,
 }
 const LOW_BUCKET_MIN_PRIORITY = Priorities.RESOURCES;
 
@@ -63,6 +64,10 @@ export class Scheduler {
 
   hasProcess(id: string): boolean {
     return !!this.processMap[id]
+  }
+
+  getProcess(id: string): Process {
+    return this.processMap[id];
   }
 
   private updateTimeLimit() {

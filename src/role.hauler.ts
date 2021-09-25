@@ -14,7 +14,7 @@ const policy: PathFinderPolicy = {
   avoidOwnedRooms: true,
   avoidHostiles: true,
   avoidFriendlyRooms: false,
-  maxOps: 1000,
+  maxOps: 2000,
 };
 
 const emptyCreep = behaviorTree.repeatUntilConditionMet(
@@ -29,7 +29,7 @@ const emptyCreep = behaviorTree.repeatUntilConditionMet(
   behaviorTree.sequenceNode(
     'dump_energy',
     [
-      behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_DROPOFF, 1, 2500, policy),
+      behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_DROPOFF, 1, policy),
       behaviorTree.leafNode(
         'empty_creep',
         (creep, trace, kingdom) => {
@@ -127,7 +127,7 @@ const behavior = behaviorTree.sequenceNode(
       behaviorTree.sequenceNode(
         'pickup_load',
         [
-          behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_PICKUP, 1, 2500, policy),
+          behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_PICKUP, 1, policy),
           behaviorHaul.loadCreep,
           behaviorHaul.clearTask,
           behaviorTree.returnSuccess(

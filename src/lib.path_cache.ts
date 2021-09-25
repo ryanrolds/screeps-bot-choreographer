@@ -210,28 +210,6 @@ export class PathCache {
     return item;
   }
 
-  testPath(origin: RoomPosition, goal: RoomPosition, range: number, policy: PathFinderPolicy) {
-    const trace = new Tracer('debug', 'Pathfinder.testPath')
-    const path = this.getPath(origin, goal, range, policy, trace);
-
-    trace.notice('path', {origin, goal, range, policy, path});
-
-    const pathByRooms = path.path.reduce((acc, pos) => {
-      if (!acc[pos.roomName]) {
-        acc[pos.roomName] = [];
-      }
-
-      acc[pos.roomName].push(pos);
-
-      return acc;
-    }, {} as Record<string, RoomPosition[]>);
-
-    Object.entries(pathByRooms).forEach(([key, value]) => {
-      trace.notice("polyline", {key, value});
-      new RoomVisual(key).poly(value);
-    })
-  }
-
   getPath(origin: RoomPosition, goal: RoomPosition, range: number, policy: PathFinderPolicy,
     trace: Tracer): PathFinderPath {
     const originId = this.getKey(origin, 0);

@@ -104,6 +104,10 @@ There are a couple of helpful global variables:
 * `TRACING_FILTER=<prefix>` - only print traces with a key that stats with the prefix
 * `RESET_PIDS=true` - will reset the PID controllers
 
+There are some debugging tools built into the project:
+
+* Run and draw path - `AI.getPathDebugger().debug(new RoomPosition(43, 13, 'E21S48'), new RoomPosition(25,25,'E26S51'), 3, {avoidHostiles: true, avoidOwnedRooms: true, avoidFriendlyRooms: false, maxOps: 2000})`
+
 ### Creeps
 
 * Attacker - Rally at Attack Flag and attack hostiles in room

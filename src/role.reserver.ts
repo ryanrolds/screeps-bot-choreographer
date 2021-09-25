@@ -12,7 +12,7 @@ const policy: PathFinderPolicy = {
   avoidHostiles: true,
   avoidOwnedRooms: true,
   avoidFriendlyRooms: false,
-  maxOps: 3000,
+  maxOps: 2000,
 }
 
 const behavior = behaviorTree.sequenceNode(
@@ -21,11 +21,20 @@ const behavior = behaviorTree.sequenceNode(
     behaviorMovement.moveToShard(MEMORY.MEMORY_ASSIGN_SHARD),
     behaviorTree.leafNode('set_controller_location', (creep, trace, kingdom) => {
       const assignedRoom = creep.memory[MEMORY.MEMORY_ASSIGN_ROOM];
-      creep.memory[MEMORY.MEMORY_ASSIGN_ROOM_POS] = [25, 25, assignedRoom].join(',');
+
+      let posStr = [25, 25, assignedRoom].join(',');
+
+      const roomEntry = kingdom.getScribe().getRoomById(assignedRoom);
+      if (roomEntry?.controller?.pos) {
+        const pos = roomEntry.controller?.pos;
+        posStr = [pos.x, pos.y, pos.roomName].join(',');
+      }
+
+      creep.memory[MEMORY.MEMORY_ASSIGN_ROOM_POS] = posStr;
 
       return behaviorTree.SUCCESS
     }),
-    behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_ASSIGN_ROOM_POS, 1, 4000, policy),
+    behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_ASSIGN_ROOM_POS, 1, policy),
     behaviorTree.repeatUntilSuccess(
       'move_to_rc',
       behaviorTree.leafNode(

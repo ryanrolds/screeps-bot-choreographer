@@ -10,7 +10,7 @@ const policy: PathFinderPolicy = {
   avoidFriendlyRooms: true,
   avoidHostiles: true,
   avoidOwnedRooms: true,
-  maxOps: 1000,
+  maxOps: 2000,
 }
 
 const selectSource = behaviorTree.leafNode(
@@ -185,7 +185,7 @@ const behavior = behaviorTree.sequenceNode(
   'mine_energy',
   [
     selectSource,
-    behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 0, 1500, policy),
+    behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 0, policy),
     behaviorCommute.setCommuteDuration,
     behaviorTree.repeatUntilFailure(
       'mine_until_failure',

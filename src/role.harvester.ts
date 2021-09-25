@@ -21,7 +21,7 @@ const behavior = behaviorTree.sequenceNode(
   [
     // behaviorHarvest.moveToHarvestRoom,
     // behaviorHarvest.moveToHarvest,
-    behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_SOURCE_POSITION, 1, 2000, policy),
+    behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_SOURCE_POSITION, 1, policy),
     behaviorCommute.setCommuteDuration,
     behaviorHarvest.harvest,
     behaviorTree.selectorNode(

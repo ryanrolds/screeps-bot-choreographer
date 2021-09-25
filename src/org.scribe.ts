@@ -155,6 +155,7 @@ export class Scribe extends OrgBase {
       return room.id;
     });
   }
+
   getRoomsWithPowerBanks() {
     return Object.values(this.journal.rooms).filter((room) => {
       if (!room.powerBanks) {
@@ -166,6 +167,15 @@ export class Scribe extends OrgBase {
       return [room.id, Game.time - room.lastUpdated, room.powerBanks[0].ttl];
     });
   }
+
+  getRoomsWithInvaderBases() {
+    return Object.values(this.journal.rooms).filter((room) => {
+      return false;
+    }).map((room) => {
+      return [room.id, Game.time - room.lastUpdated, room.powerBanks[0].ttl];
+    });
+  }
+
   getRoomsWithHostileTowers() {
     return Object.values(this.journal.rooms).filter((room) => {
       if (!room.controller || room.controller.owner === 'ENETDOWN') {
@@ -181,6 +191,7 @@ export class Scribe extends OrgBase {
       return [room.id, room.numTowers, room.controller.owner];
     });
   }
+
   getRoomsWithPortals() {
     return Object.values(this.journal.rooms).filter((room) => {
       if (!room.portals) {
@@ -194,6 +205,7 @@ export class Scribe extends OrgBase {
       })];
     });
   }
+
   getWeakRooms(): TargetRoom[] {
     return Object.values(this.journal.rooms).filter((room) => {
       if (!room.controller || room.controller.owner === 'ENETDOWN') {
@@ -228,6 +240,7 @@ export class Scribe extends OrgBase {
       };
     });
   }
+
   updateRoom(kingdom: Kingdom, roomObject: Room) {
     const room: RoomEntry = {
       id: roomObject.name as Id<Room>,

@@ -5,14 +5,37 @@ import behaviorCommute from "./behavior.commute";
 import {behaviorBoosts} from "./behavior.boosts";
 import behaviorRoom from "./behavior.room";
 
+const policy: PathFinderPolicy = {
+  avoidHostiles: true,
+  avoidOwnedRooms: true,
+  avoidFriendlyRooms: false,
+  maxOps: 2000,
+}
+
 import * as MEMORY from "./constants.memory";
+import {PathFinderPolicy} from "./lib.path_cache";
 
 const behavior = behaviorTree.sequenceNode(
   'upgrader_root',
   [
     behaviorRoom.getEnergy,
     behaviorMovement.moveToShard(MEMORY.MEMORY_ASSIGN_SHARD),
-    behaviorAssign.moveToRoom,
+    behaviorTree.leafNode('set_controller_location', (creep, trace, kingdom) => {
+      const assignedRoom = creep.memory[MEMORY.MEMORY_ASSIGN_ROOM];
+
+      let posStr = [25, 25, assignedRoom].join(',');
+
+      const roomEntry = kingdom.getScribe().getRoomById(assignedRoom);
+      if (roomEntry?.controller?.pos) {
+        const pos = roomEntry.controller?.pos;
+        posStr = [pos.x, pos.y, pos.roomName].join(',');
+      }
+
+      creep.memory[MEMORY.MEMORY_ASSIGN_ROOM_POS] = posStr;
+
+      return behaviorTree.SUCCESS
+    }),
+    behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_ASSIGN_ROOM_POS, 3, policy),
     behaviorTree.leafNode(
       'pick_room_controller',
       (creep) => {
@@ -20,7 +43,7 @@ const behavior = behaviorTree.sequenceNode(
         return behaviorTree.SUCCESS;
       },
     ),
-    behaviorMovement.moveToDestination(3, false, 25, 1500),
+    behaviorMovement.moveToDestination(3, false, 25, 1000),
     behaviorCommute.setCommuteDuration,
     behaviorTree.repeatUntilSuccess(
       'upgrade_until_empty',

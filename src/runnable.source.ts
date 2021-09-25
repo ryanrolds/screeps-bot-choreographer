@@ -109,6 +109,7 @@ export default class SourceRunnable {
 
     const room = this.orgRoom.getRoomObject();
     if (!room) {
+      trace.error('terminate source: no room', {id: this.id, roomId: this.orgRoom.id});
       return terminate();
     }
 
@@ -132,6 +133,7 @@ export default class SourceRunnable {
     }
 
     if (this.ttl < 0) {
+      trace.log('source ttl expired', {id: this.id, roomId: this.orgRoom.id});
       return terminate();
     }
 
@@ -172,10 +174,7 @@ export default class SourceRunnable {
       let priority = this.desiredWorkerPriority;
 
       const positionStr = [this.position.x, this.position.y, this.position.roomName].join(',');
-
-      trace.notice('requesting worker', {sourceId: this.sourceId, worker: this.desiredWorkerType});
-
-      this.orgRoom.requestSpawn(priority, {
+      const details = {
         role: this.desiredWorkerType,
         memory: {
           [MEMORY.MEMORY_HARVEST_CONTAINER]: this.containerId,
@@ -185,7 +184,11 @@ export default class SourceRunnable {
           [MEMORY.MEMORY_ASSIGN_ROOM]: room.name,
           [MEMORY.MEMORY_COLONY]: (this.orgRoom as any).getColony().id,
         },
-      }, REQUEST_WORKER_TTL);
+      }
+
+      trace.notice('requesting worker', {details});
+
+      this.orgRoom.requestSpawn(priority, details, REQUEST_WORKER_TTL);
     }
   }
 

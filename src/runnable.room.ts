@@ -117,15 +117,15 @@ export default class RoomRunnable {
     });
 
     const orgRoom = kingdom.getRoomByName(this.id);
-    // TODO implement room class
     if (!orgRoom) {
+      trace.error("no org room, terminating", {id: this.id})
       trace.end();
       return terminate();
     }
 
     const room = Game.rooms[this.id];
     if (!room) {
-      trace.log('cannot find room in game', {});
+      trace.error('cannot find room in game', {id: this.id});
       trace.end();
       return terminate();
     }
@@ -200,32 +200,6 @@ export default class RoomRunnable {
         }
       }
 
-      if (room.controller?.my || !room.controller?.owner?.username) {
-        // Sources
-        room.find(FIND_SOURCES).forEach((source) => {
-          const sourceId = `${source.id}`
-          if (!this.scheduler.hasProcess(sourceId)) {
-            this.scheduler.registerProcess(new Process(sourceId, 'sources', Priorities.RESOURCES,
-              new SourceRunnable(orgRoom, source)));
-          }
-        });
-
-        // Mineral
-        const mineral = orgRoom.roomStructures.filter((structure) => {
-          return structure.structureType === STRUCTURE_EXTRACTOR;
-        }).map((extractor) => {
-          const minerals = extractor.pos.findInRange(FIND_MINERALS, 0);
-          return minerals[0];
-        })[0];
-        if (mineral) {
-          const mineralId = `${mineral.id}`
-          if (!this.scheduler.hasProcess(mineralId)) {
-            this.scheduler.registerProcess(new Process(mineralId, 'mineral', Priorities.RESOURCES,
-              new SourceRunnable(orgRoom, mineral)));
-          }
-        }
-      }
-
       // Link Manager
       const linkManagerId = `links_${this.id}`
       if (!this.scheduler.hasProcess(linkManagerId) && orgRoom.room.storage) {
@@ -241,6 +215,33 @@ export default class RoomRunnable {
       }
 
       // Observer runnable
+    }
+
+    if (room.controller?.my || !room.controller?.owner?.username) {
+      // Sources
+      room.find(FIND_SOURCES).forEach((source) => {
+        const sourceId = `${source.id}`
+        if (!this.scheduler.hasProcess(sourceId)) {
+          trace.log("found source without process, starting", {sourceId: source.id, room: this.id});
+          this.scheduler.registerProcess(new Process(sourceId, 'sources', Priorities.RESOURCES,
+            new SourceRunnable(orgRoom, source)));
+        }
+      });
+
+      // Mineral
+      const mineral = orgRoom.roomStructures.filter((structure) => {
+        return structure.structureType === STRUCTURE_EXTRACTOR;
+      }).map((extractor) => {
+        const minerals = extractor.pos.findInRange(FIND_MINERALS, 0);
+        return minerals[0];
+      })[0];
+      if (mineral) {
+        const mineralId = `${mineral.id}`
+        if (!this.scheduler.hasProcess(mineralId)) {
+          this.scheduler.registerProcess(new Process(mineralId, 'mineral', Priorities.RESOURCES,
+            new SourceRunnable(orgRoom, mineral)));
+        }
+      }
     }
   }
 

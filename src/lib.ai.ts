@@ -13,6 +13,8 @@ import KingdomGovernorRunnable from './runnable.kingdom_governor'
 import DefenseManager from './runnable.manager.defense';
 import BufferManager from './runnable.manager.buffer';
 import {MEMORY_COLONY, MEMORY_SOURCE} from './constants.memory';
+import PathDebugger from './runnable.path_debugger';
+import InvaderManager from './runnable.manager.invaders';
 
 
 let lastMemoryTick: number = 0;
@@ -71,6 +73,18 @@ export class AI {
     this.scheduler.registerProcess(new Process(warManagerId, 'war_manager',
       Priorities.ATTACK, warManager));
 
+    // Buffer manager
+    const invaderManagerId = 'invader_manager';
+    const invaderManager = new InvaderManager(invaderManagerId, this.scheduler, trace);
+    this.scheduler.registerProcess(new Process(invaderManagerId, 'invader_manager',
+      Priorities.ATTACK, invaderManager));
+
+    // Path debugger
+    const pathDebuggerId = 'path_debugger';
+    const pathDebugger = new PathDebugger(pathDebuggerId, this.kingdom);
+    this.scheduler.registerProcess(new Process(pathDebuggerId, 'path_debugger',
+      Priorities.DEBUG, pathDebugger));
+
     trace.end();
   }
 
@@ -109,5 +123,9 @@ export class AI {
 
   getKingdom(): Kingdom {
     return this.kingdom;
+  }
+
+  getPathDebugger(): PathDebugger {
+    return this.scheduler.getProcess('path_debugger').runnable as PathDebugger;
   }
 }
