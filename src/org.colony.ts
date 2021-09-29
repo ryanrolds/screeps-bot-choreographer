@@ -244,6 +244,14 @@ export class Colony extends OrgBase {
   getRoomByID(roomId) {
     return this.roomMap[roomId] || null;
   }
+  getSpawnPos(): RoomPosition {
+    const originSpawn = this.primaryOrgRoom.getSpawns()[0];
+    if (!originSpawn) {
+      return null;
+    }
+
+    return originSpawn.pos;
+  }
   getCreeps() {
     return this.assignedCreeps;
   }

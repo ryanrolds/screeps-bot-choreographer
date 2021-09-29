@@ -38,13 +38,11 @@ export default class WarManager {
   memory: WarMemory;
   warParties: WarPartyRunnable[];
   targetRoom: string;
-  costMatrices: Record<string, CostMatrix>;
 
   constructor(kingdom: Kingdom, id: string, scheduler: Scheduler, trace: Tracer) {
     this.id = id;
     this.scheduler = scheduler;
     this.warParties = null;
-    this.costMatrices = {};
   }
 
   private restoreFromMemory(kingdom: Kingdom, trace: Tracer) {
@@ -198,17 +196,6 @@ export default class WarManager {
 
   getTargetRoom(): string {
     return this.targetRoom || null;
-  }
-
-  getCostMatrix(roomName: string): CostMatrix {
-    if (!this.costMatrices[roomName]) {
-      const costMatrix = new PathFinder.CostMatrix();
-
-
-      this.costMatrices[roomName] = costMatrix;
-    }
-
-    return this.costMatrices[roomName];
   }
 
   createNewWarParty(kingdom: Kingdom, colony: Colony, trace: Tracer) {

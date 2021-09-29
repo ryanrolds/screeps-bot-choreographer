@@ -83,6 +83,8 @@ function getHostileRoomsByColony(kingdom: Kingdom, trace: Tracer): HostileRoomsB
 
   const hostileRoomsByColony = {};
 
+
+  // TODO replace with lib.pathing
   const colonies = kingdom.getColonies().filter(colony => colony.primaryRoom?.controller?.level >= 6)
   colonies.forEach((colony) => {
     const nearByWeakRooms = weakRooms.filter((room) => {
@@ -106,15 +108,15 @@ function getHostileRoomsByColony(kingdom: Kingdom, trace: Tracer): HostileRoomsB
         return false;
       }
 
-      const originSpawn = colony.primaryOrgRoom.getSpawns()[0];
-      if (!originSpawn) {
-        trace.log('no origin spawn', {colonyId: colony.id});
+      const spawnPos = colony.getSpawnPos();
+      if (!spawnPos) {
+        trace.log('colony has no spawn pos', {colonyId: colony.id});
         return false;
       }
 
       const destinationController = room.controllerPos;
 
-      const result = PathFinder.search(originSpawn.pos, {pos: destinationController, range: 5}, {
+      const result = PathFinder.search(spawnPos, {pos: destinationController, range: 5}, {
         maxRooms: 8,
         roomCallback: (roomName): (CostMatrix | false) => {
           const roomDetails = kingdom.getScribe().getRoomById(roomName);

@@ -9,6 +9,7 @@ import {PRIORITY_ATTACKER} from "./constants.priorities";
 import PartyRunnable from './runnable.party';
 import {ATTACK_ROOM_TTL, AttackRequest, AttackStatus, Phase} from './constants.attack';
 import * as TOPICS from './constants.topics';
+import {AllowedCostMatrixTypes, FindColonyPathPolicy, FindPathPolicy, getPath} from './lib.pathing';
 
 const REQUEST_ATTACKER_TTL = 30;
 
@@ -84,6 +85,28 @@ const ADJACENT_SIDES: Record<DirectionConstant, DirectionConstant[]> = {
   [BOTTOM_LEFT]: [BOTTOM, LEFT],
   [TOP_LEFT]: [TOP, LEFT],
 }
+
+
+const policy: FindPathPolicy = {
+  intermediate: {
+    avoidHostileRooms: true,
+    avoidFriendlyRooms: true,
+    avoidRoomsWithKeepers: false,
+    avoidRoomsWithTowers: false,
+    sameRoomStatus: true,
+  },
+  destination: {
+    range: 1,
+  },
+  path: {
+    allowIncomplete: false,
+    maxSearchRooms: 16,
+    maxOps: 5000,
+    maxPathRooms: 5,
+    ignoreCreeps: true,
+  },
+  costMatrixType: AllowedCostMatrixTypes.WARPARTY,
+};
 
 export default class WarPartyRunnable {
   id: string;
@@ -526,10 +549,7 @@ export default class WarPartyRunnable {
     this.pathComplete = false;
     this.pathTime = Game.time;
 
-    const result = PathFinder.search(origin, destination, {
-      roomCallback: this.getRoomCostMatrix.bind(this),
-      maxOps: 4000,
-    });
+    const result = getPath(this.kingdom, origin, destination, policy, trace);
 
     trace.log('search', {
       origin: origin,
@@ -621,99 +641,6 @@ export default class WarPartyRunnable {
     return [nextPosition, direction, blockers];
   }
 
-  getRoomCostMatrix(roomName: string): CostMatrix | boolean {
-    if (this.costMatrices[roomName]) {
-      return this.costMatrices[roomName];
-    }
-
-    const costMatrix = new PathFinder.CostMatrix();
-
-    const room = Game.rooms[roomName];
-    if (!room) {
-      return costMatrix;
-    }
-
-    const owner = room.controller?.owner?.username;
-    if (owner) {
-      if (this.kingdom.config.friends.indexOf(owner) !== -1) {
-        return false;
-      }
-      if (this.kingdom.config.neutral.indexOf(owner) !== -1) {
-        return false;
-      }
-    }
-
-    const terrain = Game.map.getRoomTerrain(roomName);
-
-    for (let x = 0; x <= 49; x++) {
-      for (let y = 0; y <= 49; y++) {
-        const mask = terrain.get(x, y);
-        if (mask) {
-          const maskValue = (mask === TERRAIN_MASK_WALL) ? 255 : 5;
-
-          if (costMatrix.get(x, y) < maskValue) {
-            costMatrix.set(x, y, maskValue);
-          }
-
-          if (x !== 0 && costMatrix.get(x - 1, y) < maskValue) {
-            costMatrix.set(x - 1, y, maskValue);
-          }
-
-          if (y < 49 && costMatrix.get(x, y + 1) < maskValue) {
-            costMatrix.set(x, y + 1, maskValue);
-          }
-
-          if (x !== 0 && y < 49 && costMatrix.get(x - 1, y + 1) < maskValue) {
-            costMatrix.set(x - 1, y + 1, maskValue);
-          }
-
-          continue;
-        }
-
-        if (x <= 1 || y <= 1 || x >= 48 || y >= 48) {
-          if (costMatrix.get(x, y) < 25) {
-            costMatrix.set(x, y, 25);
-          }
-        }
-      }
-    }
-
-    /*
-    const structures = room.find<Structure>(FIND_STRUCTURES, {
-      filter: structure => structure.structureType
-    });
-    structures.forEach((structure) => {
-      if (structure.structureType === STRUCTURE_ROAD) {
-        return;
-      }
-
-      let wallValue = 255;
-      costMatrix.set(structure.pos.x, structure.pos.y, wallValue);
-      costMatrix.set(structure.pos.x - 1, structure.pos.y, wallValue);
-      costMatrix.set(structure.pos.x - 1, structure.pos.y + 1, wallValue);
-      costMatrix.set(structure.pos.x, structure.pos.y + 1, wallValue);
-    });
-
-    const walls = room.find<StructureWall>(FIND_STRUCTURES, {
-      filter: structure => structure.structureType === STRUCTURE_WALL
-    });
-    walls.forEach((wall) => {
-      let wallValue = 255;
-      if (room.controller?.owner?.username !== 'ENETDOWN') {
-        wallValue == 25 + (wall.hits / 300000000 * 100);
-      }
-
-      costMatrix.set(wall.pos.x, wall.pos.y, wallValue);
-      costMatrix.set(wall.pos.x - 1, wall.pos.y, wallValue);
-      costMatrix.set(wall.pos.x - 1, wall.pos.y + 1, wallValue);
-      costMatrix.set(wall.pos.x, wall.pos.y + 1, wallValue);
-    });
-    */
-
-    this.costMatrices[roomName] = costMatrix;
-
-    return costMatrix;
-  }
 
   setFormation(direction: DirectionConstant) {
     this.party.setFormation(DIRECTION_2BY2_FORMATION[direction]);

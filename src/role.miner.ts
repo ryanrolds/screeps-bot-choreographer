@@ -17,7 +17,7 @@ const selectSource = behaviorTree.leafNode(
   'selectSource',
   (creep, trace, kingdom) => {
     const source = Game.getObjectById<Id<Source>>(creep.memory[MEMORY.MEMORY_SOURCE]);
-    const container = Game.getObjectById<Id<StructureContainer>>(creep.memory[MEMORY.MEMORY_HARVEST_CONTAINER]);
+    const container = Game.getObjectById<Id<StructureContainer>>(creep.memory[MEMORY.MEMORY_SOURCE_CONTAINER]);
     if (source && container) {
       behaviorMovement.setSource(creep, source.id);
       behaviorMovement.setDestination(creep, container.id);

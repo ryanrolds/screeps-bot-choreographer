@@ -177,7 +177,6 @@ export default class SourceRunnable {
       const details = {
         role: this.desiredWorkerType,
         memory: {
-          [MEMORY.MEMORY_HARVEST_CONTAINER]: this.containerId,
           [MEMORY.MEMORY_SOURCE]: this.sourceId,
           [MEMORY.MEMORY_SOURCE_CONTAINER]: this.containerId,
           [MEMORY.MEMORY_SOURCE_POSITION]: positionStr,

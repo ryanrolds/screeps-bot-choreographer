@@ -14,6 +14,7 @@ import {Tracer} from './lib.tracing';
 import OrgRoom from './org.room';
 import WarManager from './runnable.manager.war';
 import {WORKER_HAULER} from './constants.creeps';
+import {CostMatrixCache} from './lib.costmatrix_cache';
 
 const UPDATE_ORG_TTL = 1;
 
@@ -33,6 +34,7 @@ export class Kingdom extends OrgBase {
   resourceGovernor: ResourceGovernor;
   scribe: Scribe;
   pathCache: PathCache;
+  costMatrixCache: CostMatrixCache;
 
   threadUpdateOrg: ThreadFunc;
 
@@ -72,6 +74,8 @@ export class Kingdom extends OrgBase {
     // this.threadStoreSavePathCacheToMemory = thread(SAVE_PATH_CACHE_TTL)((trace) => {
     //  this.pathCache.saveToMemory(trace);
     // });
+
+    this.costMatrixCache = new CostMatrixCache();
 
     setupTrace.end();
   }
@@ -149,12 +153,19 @@ export class Kingdom extends OrgBase {
   getResourceGovernor(): ResourceGovernor {
     return this.resourceGovernor;
   }
+
   getScribe(): Scribe {
     return this.scribe;
   }
+
   getPathCache(): PathCache {
     return this.pathCache;
   }
+
+  getCostMatrixCache(): CostMatrixCache {
+    return this.costMatrixCache;
+  }
+
   getWarManager(): WarManager {
     if (!this.scheduler.hasProcess('war_manager')) {
       return null;
