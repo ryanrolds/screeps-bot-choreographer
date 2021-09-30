@@ -1,52 +1,10 @@
+import {getRegion} from "./lib.flood_fill";
+import {Colony} from "./org.colony";
+import {Kingdom} from "./org.kingdom";
 
+let costMatrix255 = null;
 
-
-
-
-createDefenderCostMatric(room: Room, spawn: RoomPosition): CostMatrix {
-  const costs = new PathFinder.CostMatrix();
-
-  return costs;
-}
-
-getDefenderCostMatrix(room: Room, spawn: RoomPosition): CostMatrix {
-  const costMatrixEntry = this.journal.defenderCostMatrices[room.name];
-  if (costMatrixEntry && costMatrixEntry.ttl <= Game.time) {
-    return
-  }
-
-  const costs = this.createDefenderCostMatric(room, spawn);
-
-  this.journal.defenderCostMatrices[room.name] = {
-    id: room.name as Id<Room>,
-    costs,
-    ttl: Game.time + COST_MATRIX_TTL,
-  };
-
-  return costs;
-}
-
-
-/*
-getColonyCostMatrix(colony: Colony): CostMatrix {
-  const costMatrixEntry = this.journal.defenderCostMatrices[room.name];
-  if (costMatrixEntry && costMatrixEntry.ttl <= Game.time) {
-    return
-  }
-
-  const costs = this.createDefenderCostMatric(room, spawn);
-
-  this.journal.defenderCostMatrices[room.name] = {
-    id: room.name as Id<Room>,
-    costs,
-    ttl: Game.time + COST_MATRIX_TTL,
-  };
-
-  return costs;
-}
-*/
-
-createColonyCostMatrix(colony: Colony): CostMatrix {
+export const createDefenderCostMatrix = (colony: Colony): CostMatrix => {
   const room = colony.primaryRoom;
   const spawn = room.find(FIND_STRUCTURES, {
     filter: structure => structure.structureType === STRUCTURE_SPAWN
@@ -58,69 +16,48 @@ createColonyCostMatrix(colony: Colony): CostMatrix {
     return new PathFinder.CostMatrix();
   }
 
-  const costs = this.get255CostMatrix();
+  const costs = get255CostMatrix();
 
   // Set every position in base to 0
   const regionValues = Object.values(getRegion(room, spawn.pos));
-  regionValues.forEach((pos: Position) => {
+  regionValues.forEach((pos: RoomPosition) => {
     costs.set(pos.x, pos.y, 0);
   });
 
   return costs;
 }
 
-get255CostMatrix(): CostMatrix {
-  if (this.costMatrix255) {
-    return this.costMatrix255.clone();
+export const createCommonCostMatrix = (colony: Colony): CostMatrix => {
+  let costMatrix = new PathFinder.CostMatrix();
+
+  const room = Game.rooms[colony.primaryOrgRoom.id]
+  if (!room) {
+    return costMatrix;
   }
 
-  const costs = new PathFinder.CostMatrix();
-  for (let x = 0; x <= 49; x++) {
-    for (let y = 0; y <= 49; y++) {
-      costs.set(x, y, 255);
+  room.find(FIND_STRUCTURES).forEach(function (struct) {
+    if (struct.structureType === STRUCTURE_ROAD) {
+      // Favor roads over plain tiles
+      costMatrix.set(struct.pos.x, struct.pos.y, 1);
+    } else if (struct.structureType !== STRUCTURE_CONTAINER &&
+      (struct.structureType !== STRUCTURE_RAMPART || !struct.my)) {
+      // Can't walk through non-walkable buildings
+      costMatrix.set(struct.pos.x, struct.pos.y, 255);
     }
-  }
+  });
 
-  this.costMatrix255 = costs;
+  // TODO avoid sources
+  // TODO avoid room controllers
 
-  return costs.clone();
+  return costMatrix;
 }
 
-visualizeCostMatrix(roomName: string, costMatrix: CostMatrix) {
-  const visual = new RoomVisual(roomName);
-
-  for (let x = 0; x <= 49; x++) {
-    for (let y = 0; y <= 49; y++) {
-      const cost = costMatrix.get(x, y);
-      visual.text((cost / 5).toString(), x, y);
-    }
-  }
-}
-}
-
-
-
-
-getRoomCostMatrix(roomName: string): CostMatrix | boolean {
-  if (this.costMatrices[roomName]) {
-    return this.costMatrices[roomName];
-  }
-
+export const createPartyCostMatrix = (roomName: string): CostMatrix | boolean => {
   const costMatrix = new PathFinder.CostMatrix();
 
   const room = Game.rooms[roomName];
   if (!room) {
     return costMatrix;
-  }
-
-  const owner = room.controller?.owner?.username;
-  if (owner) {
-    if (this.kingdom.config.friends.indexOf(owner) !== -1) {
-      return false;
-    }
-    if (this.kingdom.config.neutral.indexOf(owner) !== -1) {
-      return false;
-    }
   }
 
   const terrain = Game.map.getRoomTerrain(roomName);
@@ -190,7 +127,22 @@ getRoomCostMatrix(roomName: string): CostMatrix | boolean {
   });
   */
 
-  this.costMatrices[roomName] = costMatrix;
-
   return costMatrix;
+}
+
+const get255CostMatrix = (): CostMatrix => {
+  if (costMatrix255) {
+    return costMatrix255.clone();
+  }
+
+  const costs = new PathFinder.CostMatrix();
+  for (let x = 0; x <= 49; x++) {
+    for (let y = 0; y <= 49; y++) {
+      costs.set(x, y, 255);
+    }
+  }
+
+  costMatrix255 = costs;
+
+  return costs.clone();
 }

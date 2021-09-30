@@ -7,21 +7,14 @@ import behaviorBuild from "./behavior.build";
 import behaviorHarvest from "./behavior.harvest";
 import {behaviorBoosts} from "./behavior.boosts";
 import * as MEMORY from "./constants.memory";
-import {PathFinderPolicy} from "./lib.path_cache";
-
-const policy: PathFinderPolicy = {
-  avoidFriendlyRooms: false,
-  avoidHostiles: true,
-  avoidOwnedRooms: true,
-  maxOps: 1000,
-}
+import {common} from "./lib.pathing_policies";
 
 const behavior = behaviorTree.sequenceNode(
   'haul_energy',
   [
     // behaviorHarvest.moveToHarvestRoom,
     // behaviorHarvest.moveToHarvest,
-    behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_SOURCE_POSITION, 1, policy),
+    behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_SOURCE_POSITION, 1, common),
     behaviorCommute.setCommuteDuration,
     behaviorHarvest.harvest,
     behaviorTree.selectorNode(

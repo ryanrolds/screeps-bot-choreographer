@@ -1,15 +1,14 @@
 import {UNLOAD_LINK} from "./constants.priorities";
-import {AllowedCostMatrixTypes, FindPathPolicy, getPath} from "./lib.pathing";
+import {FindPathPolicy, getPath} from "./lib.pathing";
 import {Tracer} from "./lib.tracing";
 import {Kingdom} from "./org.kingdom";
 
 const COST_MATRIX_TTL = 1000;
 
-
-type CostMatrixEntry = {
-  id: Id<Room>;
-  costs: CostMatrix;
-  ttl: number;
+export enum AllowedCostMatrixTypes {
+  PARTY = 'party',
+  COMMON = 'common',
+  BASE_DEFENSE = 'base',
 };
 
 export class RoomCostMatrix {
@@ -24,7 +23,17 @@ export class RoomCostMatrix {
     this.time = 0;
   }
   update() {
-    const costMatrix = new PathFinder.CostMatrix();
+    let costMatrix = new PathFinder.CostMatrix();
+
+    switch (this.costMatrixType) {
+      case AllowedCostMatrixTypes.PARTY:
+        break;
+      case AllowedCostMatrixTypes.COMMON:
+        break;
+      case AllowedCostMatrixTypes.BASE_DEFENSE:
+        break;
+    }
+
 
     const room = Game.rooms[this.roomId]
     if (!room) {
@@ -68,10 +77,10 @@ export class CostMatrixCache {
   }
 
   getCostMatrix(roomId: string, costMatrixType: AllowedCostMatrixTypes): CostMatrix {
-    let roomMatrix = this.rooms[id];
+    let roomMatrix = this.rooms[roomId][costMatrixType];
     if (!roomMatrix) {
-      roomMatrix = new RoomCostMatrix(id);
-      this.rooms[id] = roomMatrix;
+      roomMatrix = new RoomCostMatrix(roomId);
+      this.rooms[roomId][costMatrixType] = roomMatrix;
     }
 
     return roomMatrix.getCostMatrix();

@@ -1,4 +1,5 @@
 import path from "path";
+import {AllowedCostMatrixTypes} from "./lib.costmatrix_cache";
 import {Tracer} from "./lib.tracing";
 import {Colony} from "./org.colony";
 import {Kingdom} from "./org.kingdom";
@@ -11,13 +12,14 @@ type ColonyPolicy = {
   hasSpawn: boolean;
 }
 
-type IntermediateRoomPolicy = {
+type RoomPolicy = {
   avoidHostileRooms: boolean;
   avoidFriendlyRooms: boolean;
   avoidRoomsWithKeepers: boolean;
   // some rooms can be newbie, respawn, and other status, which can be blocked
   sameRoomStatus: boolean; // TODO
   avoidRoomsWithTowers: boolean;
+  costMatrixType: AllowedCostMatrixTypes;
 }
 
 type DestinationPolicy = {
@@ -34,24 +36,18 @@ type PathPolicy = {
   swampCost?: number;
 }
 
+
 export type FindColonyPathPolicy = {
   colony: ColonyPolicy;
-  intermediate: IntermediateRoomPolicy;
+  room: RoomPolicy;
   destination: DestinationPolicy;
   path: PathPolicy;
-  costMatrixType: AllowedCostMatrixTypes;
-};
-
-export enum AllowedCostMatrixTypes {
-  WARPARTY = 'war_party',
-  RESERVER = 'reserver',
 };
 
 export type FindPathPolicy = {
-  intermediate: IntermediateRoomPolicy;
+  room: RoomPolicy;
   destination: DestinationPolicy;
   path: PathPolicy;
-  costMatrixType: AllowedCostMatrixTypes;
 };
 
 interface RoomCallbackFunc {
@@ -71,7 +67,7 @@ export const getPath = (kingdom: Kingdom, origin: RoomPosition, destination: Roo
     range: policy.destination.range
   }, {
     maxRooms: policy.path.maxPathRooms,
-    roomCallback: getRoomCallback(kingdom, policy.intermediate, trace),
+    roomCallback: getRoomCallback(kingdom, policy.room, trace),
     maxOps: policy.path.maxOps,
     plainCost: policy.path.plainCost || 2,
     swampCost: policy.path.swampCost || 5,
@@ -168,7 +164,7 @@ const getOriginPosition = (kingdom: Kingdom, colony: Colony, policy: ColonyPolic
   return null;
 }
 
-const getRoomCallback = (kingdom: Kingdom, policy: IntermediateRoomPolicy, trace: Tracer): RoomCallbackFunc => {
+const getRoomCallback = (kingdom: Kingdom, policy: RoomPolicy, trace: Tracer): RoomCallbackFunc => {
   return (roomName: string): (boolean | CostMatrix) => {
     const roomEntry = kingdom.getScribe().getRoomById(roomName);
     // If we have not scanned the room, dont enter it
@@ -183,11 +179,11 @@ const getRoomCallback = (kingdom: Kingdom, policy: IntermediateRoomPolicy, trace
       return false;
     }
 
-    return kingdom.getCostMatrixCache().getCostMatrix(roomName);
+    return kingdom.getCostMatrixCache().getCostMatrix(roomName, policy.costMatrixType);
   }
 }
 
-const applyRoomCallbackPolicy = (kingdom: Kingdom, roomEntry: RoomEntry, policy: IntermediateRoomPolicy, trace: Tracer): boolean => {
+const applyRoomCallbackPolicy = (kingdom: Kingdom, roomEntry: RoomEntry, policy: RoomPolicy, trace: Tracer): boolean => {
   const owner = roomEntry.controller?.owner;
   const ownerIsNotMe = owner !== 'ENETDOWN';
   const isFriendly = kingdom.config.friends.includes(owner)

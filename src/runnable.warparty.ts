@@ -9,7 +9,8 @@ import {PRIORITY_ATTACKER} from "./constants.priorities";
 import PartyRunnable from './runnable.party';
 import {ATTACK_ROOM_TTL, AttackRequest, AttackStatus, Phase} from './constants.attack';
 import * as TOPICS from './constants.topics';
-import {AllowedCostMatrixTypes, FindColonyPathPolicy, FindPathPolicy, getPath} from './lib.pathing';
+import {FindPathPolicy, getPath} from './lib.pathing';
+import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
 
 const REQUEST_ATTACKER_TTL = 30;
 
@@ -88,12 +89,13 @@ const ADJACENT_SIDES: Record<DirectionConstant, DirectionConstant[]> = {
 
 
 const policy: FindPathPolicy = {
-  intermediate: {
+  room: {
     avoidHostileRooms: true,
     avoidFriendlyRooms: true,
     avoidRoomsWithKeepers: false,
     avoidRoomsWithTowers: false,
     sameRoomStatus: true,
+    costMatrixType: AllowedCostMatrixTypes.PARTY,
   },
   destination: {
     range: 1,
@@ -105,7 +107,6 @@ const policy: FindPathPolicy = {
     maxPathRooms: 5,
     ignoreCreeps: true,
   },
-  costMatrixType: AllowedCostMatrixTypes.WARPARTY,
 };
 
 export default class WarPartyRunnable {

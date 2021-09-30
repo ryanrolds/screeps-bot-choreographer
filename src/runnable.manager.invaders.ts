@@ -3,8 +3,8 @@ import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
 import {Scheduler} from "./os.scheduler";
 import {RoomEntry} from "./org.scribe";
-import {Colony} from "./org.colony";
-import {AllowedCostMatrixTypes, FindColonyPathPolicy, getClosestColonyByPath} from "./lib.pathing";
+import {FindColonyPathPolicy, getClosestColonyByPath} from "./lib.pathing";
+import {AllowedCostMatrixTypes} from "./lib.costmatrix_cache";
 
 const RUN_TTL = 50;
 const MAX_BASE_LEVEL = 1;
@@ -16,12 +16,13 @@ const colonyPathingPolicy: FindColonyPathPolicy = {
     minRoomLevel: 0,
     hasSpawn: true,
   },
-  intermediate: {
+  room: {
     avoidHostileRooms: true,
     avoidFriendlyRooms: true,
     avoidRoomsWithKeepers: false,
     avoidRoomsWithTowers: false,
     sameRoomStatus: true,
+    costMatrixType: AllowedCostMatrixTypes.PARTY,
   },
   destination: {
     range: 1,
@@ -33,7 +34,6 @@ const colonyPathingPolicy: FindColonyPathPolicy = {
     maxPathRooms: 5,
     ignoreCreeps: true,
   },
-  costMatrixType: AllowedCostMatrixTypes.WARPARTY,
 };
 
 export default class InvaderManager {
