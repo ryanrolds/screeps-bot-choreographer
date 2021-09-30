@@ -34,26 +34,6 @@ export class RoomCostMatrix {
         break;
     }
 
-
-    const room = Game.rooms[this.roomId]
-    if (!room) {
-      return costMatrix;
-    }
-
-    room.find(FIND_STRUCTURES).forEach(function (struct) {
-      if (struct.structureType === STRUCTURE_ROAD) {
-        // Favor roads over plain tiles
-        costMatrix.set(struct.pos.x, struct.pos.y, 1);
-      } else if (struct.structureType !== STRUCTURE_CONTAINER &&
-        (struct.structureType !== STRUCTURE_RAMPART || !struct.my)) {
-        // Can't walk through non-walkable buildings
-        costMatrix.set(struct.pos.x, struct.pos.y, 255);
-      }
-    });
-
-    // TODO avoid sources
-    // TODO avoid room controllers
-
     this.costMatrix = costMatrix;
     this.time = Game.time;
   }

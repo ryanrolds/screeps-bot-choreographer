@@ -1,4 +1,3 @@
-import path from "path";
 import {AllowedCostMatrixTypes} from "./lib.costmatrix_cache";
 import {Tracer} from "./lib.tracing";
 import {Colony} from "./org.colony";
@@ -73,12 +72,10 @@ export const getPath = (kingdom: Kingdom, origin: RoomPosition, destination: Roo
     swampCost: policy.path.swampCost || 5,
   });
 
-  trace.log('path result', {path})
+  trace.log('path result', {result})
 
   if (!policy.path.allowIncomplete && result.incomplete) {
-    trace.notice('path is incomplete', {
-      path,
-    });
+    trace.notice('path is incomplete', {result});
     return null;
   }
 
