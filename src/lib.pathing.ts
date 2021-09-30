@@ -122,6 +122,12 @@ export const getClosestColonyByPath = (kingdom: Kingdom, destination: RoomPositi
       return;
     }
 
+    const roomsInPath = _.uniq(result.path.map((pos) => pos.roomName));
+    if (roomsInPath.length > policy.path.maxPathRooms) {
+      trace.log('too many rooms in path', {roomsInPath});
+      return false;
+    }
+
     trace.notice('setting path', {
       length: result.path.length,
       roomId: roomEntry.id,

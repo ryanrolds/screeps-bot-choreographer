@@ -8,6 +8,35 @@ import * as TOPICS from './constants.topics';
 import {thread, ThreadFunc} from './os.thread';
 import {TargetRoom} from './org.scribe';
 import {ATTACK_ROOM_TTL, AttackRequest, AttackStatus} from './constants.attack';
+import {FindColonyPathPolicy, getClosestColonyByPath} from './lib.pathing';
+import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
+
+const policy: FindColonyPathPolicy = {
+  colony: {
+    start: 'spawn',
+    maxLinearDistance: 5,
+    minRoomLevel: 0,
+    hasSpawn: true,
+  },
+  room: {
+    avoidHostileRooms: true,
+    avoidFriendlyRooms: true,
+    avoidRoomsWithKeepers: false,
+    avoidRoomsWithTowers: false,
+    sameRoomStatus: true,
+    costMatrixType: AllowedCostMatrixTypes.PARTY,
+  },
+  destination: {
+    range: 1,
+  },
+  path: {
+    allowIncomplete: false,
+    maxSearchRooms: 16,
+    maxOps: 5000,
+    maxPathRooms: 5,
+    ignoreCreeps: true,
+  },
+};
 
 export default class BufferManager {
   id: string;
@@ -81,10 +110,22 @@ function getHostileRoomsByColony(kingdom: Kingdom, trace: Tracer): HostileRoomsB
     numRooms: kingdom.getScribe().getRoomsUpdatedRecently().length,
   });
 
-  const hostileRoomsByColony = {};
+  const hostileRoomsByColony: Record<string, TargetRoom[]> = {};
 
+  // TODO fix this
+  policy.colony.maxLinearDistance = kingdom.config.buffer;
 
   // TODO replace with lib.pathing
+  weakRooms.forEach((room) => {
+    const colony = getClosestColonyByPath(kingdom, room.controllerPos, policy, trace)
+    if (!hostileRoomsByColony[colony.id]) {
+      hostileRoomsByColony[colony.id] = [];
+    }
+
+    hostileRoomsByColony[colony.id].push(room);
+  });
+
+  /*
   const colonies = kingdom.getColonies().filter(colony => colony.primaryRoom?.controller?.level >= 6)
   colonies.forEach((colony) => {
     const nearByWeakRooms = weakRooms.filter((room) => {
@@ -167,6 +208,7 @@ function getHostileRoomsByColony(kingdom: Kingdom, trace: Tracer): HostileRoomsB
 
     hostileRoomsByColony[colony.id] = nearByWeakRooms;
   });
+  */
 
   return hostileRoomsByColony;
 }
