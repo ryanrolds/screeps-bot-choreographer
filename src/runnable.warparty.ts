@@ -101,7 +101,7 @@ const policy: FindPathPolicy = {
     range: 1,
   },
   path: {
-    allowIncomplete: false,
+    allowIncomplete: true,
     maxSearchRooms: 16,
     maxOps: 5000,
     maxPathRooms: 5,

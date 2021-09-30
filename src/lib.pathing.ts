@@ -86,7 +86,6 @@ export const getClosestColonyByPath = (kingdom: Kingdom, destination: RoomPositi
   policy: FindColonyPathPolicy, trace: Tracer): Colony => {
   const roomEntry = kingdom.getScribe().getRoomById(destination.roomName);
 
-
   let selectedColony = null;
   let selectedPathLength = 99999;
 
@@ -104,10 +103,14 @@ export const getClosestColonyByPath = (kingdom: Kingdom, destination: RoomPositi
       dest: destination,
       policy: policy.colony,
       roomEntry: roomEntry,
-    });;
+    });
 
     // Find the path from the origin to the destination
     const result = getPath(kingdom, originPosition, destination, policy, trace);
+    if (!result) {
+      trace.notice("null result", {originPosition, destination, policy, trace});
+      return;
+    }
 
     // If the path is longer then the current selection, skip
     if (result.path.length > selectedPathLength) {
