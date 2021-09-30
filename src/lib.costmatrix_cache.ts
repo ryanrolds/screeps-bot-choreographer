@@ -1,8 +1,3 @@
-import {UNLOAD_LINK} from "./constants.priorities";
-import {FindPathPolicy, getPath} from "./lib.pathing";
-import {Tracer} from "./lib.tracing";
-import {Kingdom} from "./org.kingdom";
-
 const COST_MATRIX_TTL = 1000;
 
 export enum AllowedCostMatrixTypes {
@@ -22,6 +17,7 @@ export class RoomCostMatrix {
     this.costMatrix = null;
     this.time = 0;
   }
+
   update() {
     let costMatrix = new PathFinder.CostMatrix();
 
@@ -37,6 +33,7 @@ export class RoomCostMatrix {
     this.costMatrix = costMatrix;
     this.time = Game.time;
   }
+
   getCostMatrix() {
     if (!this.costMatrix || this.isExpired(Game.time)) {
       this.update();
@@ -44,6 +41,7 @@ export class RoomCostMatrix {
 
     return this.costMatrix;
   }
+
   isExpired(time) {
     return time - this.time > COST_MATRIX_TTL;
   }
@@ -57,6 +55,10 @@ export class CostMatrixCache {
   }
 
   getCostMatrix(roomId: string, costMatrixType: AllowedCostMatrixTypes): CostMatrix {
+    if (!this.rooms[roomId]) {
+      this.rooms[roomId] = {} as Record<Partial<AllowedCostMatrixTypes>, RoomCostMatrix>;
+    }
+
     let roomMatrix = this.rooms[roomId][costMatrixType];
     if (!roomMatrix) {
       roomMatrix = new RoomCostMatrix(roomId);

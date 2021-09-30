@@ -247,7 +247,11 @@ const cachedMoveToPosition = (kingdom: Kingdom, creep: Creep, destination: RoomP
 
   if (!stuck) {
     const pathfinderResult = updateCreepCachedPath(kingdom, creep, destination, range, policy, trace)
-    trace.log('pathfinder result', {path: pathfinderResult.path});
+    trace.log('pathfinder result', {result: pathfinderResult, creepName: creep.name, destination, range, policy});
+    if (!pathfinderResult) {
+      trace.log('no path found', {destination, range});
+      return FAILURE;
+    }
 
     result = creep.moveByPath(pathfinderResult.path);
     trace.log('move by path result', {result, path: pathfinderResult.path});
