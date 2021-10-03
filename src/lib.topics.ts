@@ -31,7 +31,7 @@ export class Topics {
   removeStale() {
     Object.keys(this.topics).forEach((topicId) => {
       this.topics[topicId] = this.topics[topicId].filter((request) => {
-        return request.ttl > Game.time;
+        return request.ttl >= Game.time;
       });
     });
   }
