@@ -86,12 +86,7 @@ const behavior = behaviorTree.sequenceNode(
           return moveToAssignedPosition(creep, trace, kingdom);
         }
 
-        if (creep.pos.getRangeTo(moveTarget) <= 2) {
-          trace.log('target in range');
-          return RUNNING;
-        }
-
-        const pathToTarget = creep.pos.findPathTo(moveTarget, {range: 3});
+        const pathToTarget = creep.pos.findPathTo(moveTarget, {range: 1});
         const lastRampart = pathToTarget.reduce((lastRampart, pos) => {
           pos = creep.room.getPositionAt(pos.x, pos.y);
           const posStructures = pos.lookFor(LOOK_STRUCTURES);
@@ -109,20 +104,27 @@ const behavior = behaviorTree.sequenceNode(
         }, null);
 
         if (lastRampart) {
-          creep.moveTo(lastRampart, {visualizePathStyle: {stroke: '#ffffff'}});
+          const creepPosStructures = creep.pos.lookFor(LOOK_STRUCTURES);
+          const inLastRampart = _.filter(creepPosStructures, (structure) => {
+            return structure.id === structure.id;
+          }).length > 0;
+
+          if (inLastRampart) {
+            trace.log('in rampart');
+            return RUNNING;
+          }
+
+          const result = creep.moveTo(lastRampart, {visualizePathStyle: {stroke: '#ffffff'}});
+          trace.log('moving to last rampart', {result});
           return RUNNING;
         }
 
-        const creepPosStructures = creep.pos.lookFor(LOOK_STRUCTURES);
-        const inRampart = _.filter(creepPosStructures, (structure) => {
-          return structure.structureType === STRUCTURE_RAMPART;
-        }).length > 0;
-
-        if (inRampart) {
+        if (creep.pos.getRangeTo(moveTarget) <= 3) {
+          trace.log('target in range');
           return RUNNING;
         }
 
-        const result = move(creep, moveTarget, 3);
+        const result = move(creep, moveTarget, 2);
         trace.log('move to target', {result, moveTarget});
 
         return RUNNING;

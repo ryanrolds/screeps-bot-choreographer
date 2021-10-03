@@ -74,13 +74,15 @@ export default class TowerRunnable {
     }
 
     // Attack hostiles
-    const roomId = (this.orgRoom as any).id;
-    const targets = (this.orgRoom as any).getColony().getFilteredRequests(TOPICS.PRIORITY_TARGETS,
+    const roomId = this.orgRoom.id;
+    const targets = this.orgRoom.getColony().getFilteredRequests(TOPICS.PRIORITY_TARGETS,
       (target) => {
         trace.log('finding target', {target, roomId});
         return target.details.roomName === roomId;
       }
     ).reverse();
+
+    trace.log('targets', {targets: targets});
 
     if (targets.length) {
       const target = Game.getObjectById<Id<Creep>>(targets[0].details.id)

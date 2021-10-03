@@ -53,11 +53,11 @@ export class AI {
     this.scheduler.registerProcess(new Process(creepManagerId, 'creeps_manager',
       Priorities.CRITICAL, creepManager));
 
-    // Defense manager
+    // Defense manager, must run before towers and defenders
     const defenseManagerId = 'defense_manager';
     const defenseManager = new DefenseManager(this.kingdom, defenseManagerId, this.scheduler, trace);
     this.scheduler.registerProcess(new Process(defenseManagerId, 'defense_manager',
-      Priorities.DEFENCE, defenseManager));
+      Priorities.CRITICAL, defenseManager));
 
     // Buffer manager
     const bufferManagerId = 'buffer_manager';
