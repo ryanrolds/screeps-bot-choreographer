@@ -117,6 +117,14 @@ let config: KingdomConfig = {
         rooms: ['E19S51'],
       },
     },
+    'DESKTOP-I28ILK0': {
+      'W8N4-Private': {
+        id: 'W8N4-Private',
+        primary: 'W8N4',
+        isPublic: false,
+        rooms: ['W8N4'],
+      },
+    }
   },
 };
 

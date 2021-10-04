@@ -386,14 +386,26 @@ export class Scribe extends OrgBase {
   }
 
   getLocalShardMemory(): any {
+    if (typeof (InterShardMemory) === 'undefined') {
+      return {} as any;
+    }
+
     return JSON.parse(InterShardMemory.getLocal() || '{}');
   }
 
   setLocalShardMemory(memory: any) {
+    if (typeof (InterShardMemory) === 'undefined') {
+      return;
+    }
+
     return InterShardMemory.setLocal(JSON.stringify(memory));
   }
 
   getRemoteShardMemory(shardName: string) {
+    if (typeof (InterShardMemory) === 'undefined') {
+      return {} as any;
+    }
+
     return JSON.parse(InterShardMemory.getRemote(shardName) || '{}');
   }
 
