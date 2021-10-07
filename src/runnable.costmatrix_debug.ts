@@ -2,6 +2,7 @@ import {Process, Runnable, RunnableResult, running, sleeping, terminate} from ".
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
 import {AllowedCostMatrixTypes} from "./lib.costmatrix_cache";
+import {createCommonCostMatrix, createDefenderCostMatrix, createPartyCostMatrix} from "./lib.costmatrix";
 
 
 export default class CostMatrixDebugger {
@@ -21,17 +22,36 @@ export default class CostMatrixDebugger {
 
     if (this.costMatrix) {
       // Display on the map
-      visualizeCostMatrix(this.roomId, this.costMatrix);
+      visualizeCostMatrix(this.roomId, this.costMatrix, trace);
     }
 
     return running();
   }
 
   debug(roomId: string, costMatrixType: AllowedCostMatrixTypes) {
-    const costMatrix = this.kingdom.getCostMatrixCache().getCostMatrix(roomId, costMatrixType)
-    if (costMatrix) {
+    const trace = new Tracer('debug', 'costmatrix_debugger.debug')
+    trace.log('debug matrix', {roomId, costMatrixType})
+
+    let costMatrix: CostMatrix | boolean = new PathFinder.CostMatrix();
+
+    switch (costMatrixType) {
+      case AllowedCostMatrixTypes.PARTY:
+        costMatrix = createPartyCostMatrix(roomId, trace);
+        break;
+      case AllowedCostMatrixTypes.COMMON:
+        costMatrix = createCommonCostMatrix(roomId, trace);
+        break;
+      case AllowedCostMatrixTypes.BASE_DEFENSE:
+        costMatrix = createDefenderCostMatrix(roomId, trace);
+        break;
+      default:
+        trace.log('unexpected matrix type', {matrixType: costMatrixType})
+    }
+
+    if (typeof (costMatrix) !== "boolean") {
       this.costMatrix = costMatrix;
-      this.roomId = roomId;
+    } else {
+      this.costMatrix = null;
     }
   }
 
@@ -40,7 +60,14 @@ export default class CostMatrixDebugger {
   }
 }
 
-const visualizeCostMatrix = (roomName: string, costMatrix: CostMatrix) => {
+const visualizeCostMatrix = (roomName: string, costMatrix: CostMatrix, trace: Tracer) => {
+  if (typeof (costMatrix) === "boolean") {
+    trace.log('costmatrix is boolean', {roomName})
+    return;
+  }
+
+  trace.log('show matrix', {roomName})
+
   const visual = new RoomVisual(roomName);
 
   for (let x = 0; x <= 49; x++) {

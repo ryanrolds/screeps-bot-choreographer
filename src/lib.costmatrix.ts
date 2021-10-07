@@ -1,11 +1,18 @@
 import {getRegion} from "./lib.flood_fill";
+import {Tracer} from "./lib.tracing";
 import {Colony} from "./org.colony";
 import {Kingdom} from "./org.kingdom";
 
 let costMatrix255 = null;
 
-export const createDefenderCostMatrix = (colony: Colony): CostMatrix => {
-  const room = colony.primaryRoom;
+export const createDefenderCostMatrix = (roomId: string, trace: Tracer): CostMatrix => {
+  let costMatrix = new PathFinder.CostMatrix();
+
+  const room = Game.rooms[roomId]
+  if (!room) {
+    return costMatrix;
+  }
+
   const spawn = room.find(FIND_STRUCTURES, {
     filter: structure => structure.structureType === STRUCTURE_SPAWN
   })[0];
@@ -27,15 +34,19 @@ export const createDefenderCostMatrix = (colony: Colony): CostMatrix => {
   return costs;
 }
 
-export const createCommonCostMatrix = (colony: Colony): CostMatrix => {
+export const createCommonCostMatrix = (roomName: string, trace: Tracer): CostMatrix => {
   let costMatrix = new PathFinder.CostMatrix();
 
-  const room = Game.rooms[colony.primaryOrgRoom.id]
+  const room = Game.rooms[roomName]
   if (!room) {
+    trace.log('room not visible', {roomName: roomName});
     return costMatrix;
   }
 
-  room.find(FIND_STRUCTURES).forEach(function (struct) {
+  const structures = room.find(FIND_STRUCTURES);
+  trace.log('found structures', {numStructures: structures.length});
+
+  structures.forEach(function (struct) {
     if (struct.structureType === STRUCTURE_ROAD) {
       // Favor roads over plain tiles
       costMatrix.set(struct.pos.x, struct.pos.y, 1);
@@ -52,7 +63,7 @@ export const createCommonCostMatrix = (colony: Colony): CostMatrix => {
   return costMatrix;
 }
 
-export const createPartyCostMatrix = (roomName: string): CostMatrix | boolean => {
+export const createPartyCostMatrix = (roomName: string, trace: Tracer): CostMatrix | boolean => {
   const costMatrix = new PathFinder.CostMatrix();
 
   const room = Game.rooms[roomName];

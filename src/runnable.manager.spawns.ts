@@ -119,7 +119,7 @@ export default class SpawnManager {
         trace.log('spawn idle', {spawnTopicSize, numCreeps, energy, minEnergy, spawnTopicBackPressure});
 
         if (energy < minEnergy) {
-          trace.notice("low energy, not spawning", {id: this.id, energy, minEnergy})
+          trace.log("low energy, not spawning", {id: this.id, energy, minEnergy})
           return;
         }
 
@@ -128,6 +128,7 @@ export default class SpawnManager {
           const role = request.details.role;
           const definition = DEFINITIONS[role];
           if (definition.energyMinimum && energy < definition.energyMinimum) {
+            trace.notice('not enough energy', {energy, request, definition});
             return;
           }
 
@@ -138,7 +139,7 @@ export default class SpawnManager {
 
           const minEnergy = request.details[MEMORY.SPAWN_MIN_ENERGY] || 0;
           if (energy < minEnergy) {
-            trace.notice('colony does not have energy', {minEnergy, energy});
+            trace.log('colony does not have energy', {minEnergy, energy});
             return;
           }
 

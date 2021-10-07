@@ -244,6 +244,7 @@ export class Colony extends OrgBase {
   getRoomByID(roomId) {
     return this.roomMap[roomId] || null;
   }
+
   getSpawnPos(): RoomPosition {
     const originSpawn = this.primaryOrgRoom.getSpawns()[0];
     if (!originSpawn) {
@@ -252,6 +253,7 @@ export class Colony extends OrgBase {
 
     return originSpawn.pos;
   }
+
   getCreeps() {
     return this.assignedCreeps;
   }
@@ -403,7 +405,7 @@ export class Colony extends OrgBase {
 
       // A reserver is already assigned, don't send more
       if (reservers.length) {
-        trace.notice("have reserver already", {reservers: reservers.map(c => c.id)});
+        trace.log("have reserver already", {reservers: reservers.map(c => c.id)});
         return;
       }
 

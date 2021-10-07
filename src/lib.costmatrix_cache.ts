@@ -1,3 +1,7 @@
+import {createCommonCostMatrix, createDefenderCostMatrix, createPartyCostMatrix} from "./lib.costmatrix";
+import {Tracer} from "./lib.tracing";
+import {Kingdom} from "./org.kingdom";
+
 const COST_MATRIX_TTL = 1000;
 
 export enum AllowedCostMatrixTypes {
@@ -6,27 +10,33 @@ export enum AllowedCostMatrixTypes {
   BASE_DEFENSE = 'base',
 };
 
-export class RoomCostMatrix {
+export class CostMatrixCacheItem {
   roomId: string;
   time: number;
-  costMatrix: CostMatrix;
+  costMatrix: CostMatrix | boolean;
   costMatrixType: AllowedCostMatrixTypes;
 
-  constructor(id: string) {
+  constructor(id: string, costMatrixType: AllowedCostMatrixTypes) {
     this.roomId = id;
+    this.costMatrixType = costMatrixType;
     this.costMatrix = null;
     this.time = 0;
   }
 
-  update() {
-    let costMatrix = new PathFinder.CostMatrix();
+  update(trace) {
+    let costMatrix: CostMatrix | boolean = new PathFinder.CostMatrix();
+
+    trace.log('updating', {room: this.roomId, type: this.costMatrixType});
 
     switch (this.costMatrixType) {
       case AllowedCostMatrixTypes.PARTY:
+        costMatrix = createPartyCostMatrix(this.roomId, trace);
         break;
       case AllowedCostMatrixTypes.COMMON:
+        costMatrix = createCommonCostMatrix(this.roomId, trace);
         break;
       case AllowedCostMatrixTypes.BASE_DEFENSE:
+        costMatrix = createDefenderCostMatrix(this.roomId, trace);
         break;
     }
 
@@ -34,9 +44,16 @@ export class RoomCostMatrix {
     this.time = Game.time;
   }
 
-  getCostMatrix() {
+  getCostMatrix(trace: Tracer) {
     if (!this.costMatrix || this.isExpired(Game.time)) {
-      this.update();
+      trace.log('cache miss/expired', {
+        room: this.roomId,
+        type: this.costMatrixType,
+        expired: this.isExpired(Game.time)
+      });
+      this.update(trace);
+    } else {
+      trace.log('cache hit', {room: this.roomId, type: this.costMatrixType})
     }
 
     return this.costMatrix;
@@ -48,24 +65,28 @@ export class RoomCostMatrix {
 }
 
 export class CostMatrixCache {
-  rooms: Record<string, Record<Partial<AllowedCostMatrixTypes>, RoomCostMatrix>>;
+  rooms: Record<string, Record<Partial<AllowedCostMatrixTypes>, CostMatrixCacheItem>>;
 
   constructor() {
     this.rooms = {};
   }
 
-  getCostMatrix(roomId: string, costMatrixType: AllowedCostMatrixTypes): CostMatrix {
+  getCostMatrix(roomId: string, costMatrixType: AllowedCostMatrixTypes, trace: Tracer): CostMatrix | boolean {
+    trace.log('get cost matrix', {roomId, costMatrixType});
+
     if (!this.rooms[roomId]) {
-      this.rooms[roomId] = {} as Record<Partial<AllowedCostMatrixTypes>, RoomCostMatrix>;
+      trace.log('room not in cache', {roomId});
+      this.rooms[roomId] = {} as Record<Partial<AllowedCostMatrixTypes>, CostMatrixCacheItem>;
     }
 
     let roomMatrix = this.rooms[roomId][costMatrixType];
     if (!roomMatrix) {
-      roomMatrix = new RoomCostMatrix(roomId);
+      trace.log('matrix type not in room cache', {roomId, costMatrixType});
+      roomMatrix = new CostMatrixCacheItem(roomId, costMatrixType);
       this.rooms[roomId][costMatrixType] = roomMatrix;
     }
 
-    return roomMatrix.getCostMatrix();
+    return roomMatrix.getCostMatrix(trace);
   }
 
   getStats() {

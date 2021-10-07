@@ -55,7 +55,7 @@ interface RoomCallbackFunc {
 
 export const getPath = (kingdom: Kingdom, origin: RoomPosition, destination: RoomPosition,
   policy: FindPathPolicy, trace: Tracer): PathFinderPath => {
-  trace.notice('get path', {
+  trace.log('get path', {
     origin,
     destination,
     policy,
@@ -72,10 +72,10 @@ export const getPath = (kingdom: Kingdom, origin: RoomPosition, destination: Roo
     swampCost: policy.path.swampCost || 5,
   });
 
-  trace.notice('path result', {result})
+  trace.log('path result', {result})
 
   if (!policy.path.allowIncomplete && result.incomplete) {
-    trace.notice('path is incomplete', {result});
+    trace.log('path is incomplete', {result});
     return null;
   }
 
@@ -97,7 +97,7 @@ export const getClosestColonyByPath = (kingdom: Kingdom, destination: RoomPositi
     // Get the origin position from the colony by apply the colony policy
     const originPosition = getOriginPosition(kingdom, colony, policy.colony, trace);
 
-    trace.notice('checking colony', {
+    trace.log('checking colony', {
       colony: colony.id,
       origin: originPosition,
       dest: destination,
@@ -108,13 +108,13 @@ export const getClosestColonyByPath = (kingdom: Kingdom, destination: RoomPositi
     // Find the path from the origin to the destination
     const result = getPath(kingdom, originPosition, destination, policy, trace);
     if (!result) {
-      trace.notice("null result", {originPosition, destination, policy, trace});
+      trace.log("null result", {originPosition, destination, policy, trace});
       return;
     }
 
     // If the path is longer then the current selection, skip
     if (result.path.length > selectedPathLength) {
-      trace.notice('path is too long', {
+      trace.log('path is too long', {
         length: result.path.length,
         roomId: roomEntry.id,
         colonyId: colony.id,
@@ -128,7 +128,7 @@ export const getClosestColonyByPath = (kingdom: Kingdom, destination: RoomPositi
       return false;
     }
 
-    trace.notice('setting path', {
+    trace.log('setting path', {
       length: result.path.length,
       roomId: roomEntry.id,
       colonyId: colony.id,
@@ -145,19 +145,19 @@ export const getClosestColonyByPath = (kingdom: Kingdom, destination: RoomPositi
 const applyAllowedColonyPolicy = (colonies: Colony[], destRoomEntry: RoomEntry, policy: ColonyPolicy,
   trace: Tracer): Colony[] => {
   if (policy.minRoomLevel) {
-    trace.notice('applying min room level', {minRoomLevel: policy.minRoomLevel});
+    trace.log('applying min room level', {minRoomLevel: policy.minRoomLevel});
     colonies = colonies.filter((colony) => colony.primaryRoom?.controller?.level >= policy.minRoomLevel);
   }
 
   if (policy.maxLinearDistance) {
     // Narrow to linear distance to reduce the number of rooms to findRoute on
-    trace.notice('applying linear distance filter', {maxLinearDistance: policy.maxLinearDistance});
+    trace.log('applying linear distance filter', {maxLinearDistance: policy.maxLinearDistance});
     colonies = colonies.filter((colony) => {
       return Game.map.getRoomLinearDistance(destRoomEntry.id, colony.primaryRoomId) <= policy.maxLinearDistance;
     });
   }
 
-  trace.notice('filtered colonies', {colonies: colonies.map((colony) => colony.id)});
+  trace.log('filtered colonies', {colonies: colonies.map((colony) => colony.id)});
 
   return colonies
 }
@@ -175,17 +175,22 @@ const getRoomCallback = (kingdom: Kingdom, policy: RoomPolicy, trace: Tracer): R
     const roomEntry = kingdom.getScribe().getRoomById(roomName);
     // If we have not scanned the room, dont enter it
     if (!roomEntry) {
-      trace.notice('room not logged', {roomName});
+      trace.log('room not logged', {roomName});
       return false;
     }
 
     const allow = applyRoomCallbackPolicy(kingdom, roomEntry, policy, trace);
     if (!allow) {
-      trace.notice('room not allowed', {roomName});
+      trace.log('room not allowed', {roomName});
       return false;
     }
 
-    return kingdom.getCostMatrixCache().getCostMatrix(roomName, policy.costMatrixType);
+    const costMatrix = kingdom.getCostMatrixCache().getCostMatrix(roomName, policy.costMatrixType, trace)
+    if (typeof (costMatrix) !== 'boolean') {
+      trace.log("cost matrix", {roomName, matrix: costMatrix.serialize()});
+    }
+
+    return costMatrix;
   }
 }
 
@@ -193,25 +198,25 @@ const applyRoomCallbackPolicy = (kingdom: Kingdom, roomEntry: RoomEntry, policy:
   const owner = roomEntry.controller?.owner;
   const ownerIsNotMe = owner !== 'ENETDOWN';
   const isFriendly = kingdom.config.friends.includes(owner)
-  trace.notice('room owner', {roomId: roomEntry.id, owner, ownerIsNotMe, isFriendly});
+  trace.log('room owner', {roomId: roomEntry.id, owner, ownerIsNotMe, isFriendly});
 
   if (owner && ownerIsNotMe && policy.avoidFriendlyRooms && isFriendly) {
-    trace.notice('room is friendly, avoid', {roomName: roomEntry.id, owner});
+    trace.log('room is friendly, avoid', {roomName: roomEntry.id, owner});
     return false;
   }
 
   if (owner && ownerIsNotMe && policy.avoidHostileRooms && !isFriendly) {
-    trace.notice('room is hostile, avoid', {roomName: roomEntry.id, owner});
+    trace.log('room is hostile, avoid', {roomName: roomEntry.id, owner});
     return false;
   }
 
   if (policy.avoidRoomsWithKeepers && roomEntry.hasKeepers) {
-    trace.notice('room has keepers, avoid', {roomName: roomEntry.id});
+    trace.log('room has keepers, avoid', {roomName: roomEntry.id});
     return false;
   }
 
   if (policy.avoidRoomsWithTowers && roomEntry.numTowers) {
-    trace.notice('room has towers, avoid', {roomName: roomEntry.id});
+    trace.log('room has towers, avoid', {roomName: roomEntry.id});
     return false;
   }
 

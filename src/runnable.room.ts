@@ -27,7 +27,7 @@ const MIN_ENERGY = 100000;
 const CREDIT_RESERVE = 100000;
 
 const MIN_UPGRADERS = 1;
-const MAX_UPGRADERS = 5;
+const MAX_UPGRADERS = 6;
 const UPGRADER_ENERGY = 25000;
 
 const MIN_DISTRIBUTORS = 1;
@@ -506,7 +506,7 @@ export default class RoomRunnable {
     }
 
     for (let i = 0; i < desiredUpgraders - numUpgraders; i++) {
-      (orgRoom as any).requestSpawn(upgraderPriority, {
+      orgRoom.requestSpawn(upgraderPriority, {
         role: CREEPS.WORKER_UPGRADER,
         energyLimit: energyLimit,
         memory: {

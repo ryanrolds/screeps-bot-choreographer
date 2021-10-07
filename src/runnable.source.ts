@@ -89,8 +89,12 @@ export default class SourceRunnable {
         this.desiredWorkerPriority = PRIORITY_HARVESTER;
       }
     } else {
-      // no storage, 3 upgraders
-      this.desiredNumWorkers = 3;
+      // no storage, 2 upgraders
+      this.desiredNumWorkers = 2;
+      if (this.orgRoom.getRoomLevel() >= 3) {
+        this.desiredNumWorkers = 1;
+      }
+
       this.desiredWorkerType = WORKER_UPGRADER;
       this.desiredWorkerPriority = PRIORITY_UPGRADER;
     }
