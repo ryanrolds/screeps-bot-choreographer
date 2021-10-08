@@ -172,7 +172,7 @@ export default class LinkManager {
       // If we have no source ready with energy for sinks, then load energey into storage
       if (!hasEnergy.length) {
         const amount = storageLink.store.getFreeCapacity(RESOURCE_ENERGY);
-        if (!amount) {
+        if (amount) {
           const pickup = this.orgRoom.getReserveStructureWithMostOfAResource(RESOURCE_ENERGY, true);
           if (pickup) {
             this.fillLink(storageLink, pickup, _.min([amount, ENERGY_READY_AMOUNT]), trace);
@@ -211,7 +211,7 @@ export default class LinkManager {
       [MEMORY.MEMORY_HAUL_DROPOFF]: dropoff.id,
     };
 
-    (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.UNLOAD_LINK, details, HAUL_TTL);
+    this.orgRoom.sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.UNLOAD_LINK, details, HAUL_TTL);
     trace.log('haul energy from storage link', {
       request: details,
     });
@@ -229,7 +229,7 @@ export default class LinkManager {
       [MEMORY.MEMORY_HAUL_DROPOFF]: link.id,
     };
 
-    (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.LOAD_LINK, details, HAUL_TTL);
+    this.orgRoom.sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.LOAD_LINK, details, HAUL_TTL);
     trace.log('haul energy to storage link', {
       request: details,
     });
