@@ -12,7 +12,7 @@ export const PRICES = {
   [RESOURCE_UTRIUM_LEMERGITE]: {max: 10, min: 1.0},
 
   [RESOURCE_KEANIUM]: {max: 10, min: 0.2},
-  [RESOURCE_ZYNTHIUM]: {max: 10, min: 0.2},
+  [RESOURCE_ZYNTHIUM]: {max: 10, min: 0.1},
   [RESOURCE_ZYNTHIUM_KEANITE]: {max: 10, min: 0.5},
 
   [RESOURCE_GHODIUM]: {max: 10, min: 2.0},
