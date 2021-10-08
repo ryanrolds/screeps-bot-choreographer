@@ -395,7 +395,7 @@ export class Colony extends OrgBase {
 
       // A reserver is already assigned, don't send more
       if (reservers.length) {
-        trace.notice("have reserver already", {reservers: reservers.map(c => c.id)});
+        trace.log("have reserver already", {reservers: reservers.map(c => c.id)});
         return;
       }
 

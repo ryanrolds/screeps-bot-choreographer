@@ -18,16 +18,13 @@ const REQUEST_UNLOAD_TTL = 5;
 const REQUEST_LOAD_TTL = 5;
 const REQUEST_ENERGY_TTL = 5;
 const REQUEST_REBALANCE_TTL = 10;
-const MIN_CREDITS_FOR_BOOSTS = 50000;
-const UPDATE_ROOM_BOOSTER_TTL = 50;
-const UPDATE_ROOM_BOOSTER_INTERVAL = 50;
+const UPDATE_ROOM_BOOSTER_INTERVAL = 5;
 
 
 
 export const TOPIC_ROOM_BOOSTS = "room_boosts";
 export type BoosterDetails = {
   roomId: string;
-  booster: BoosterRunnable;
   position: RoomPosition;
   allEffects: EffectSet;
   availableEffects: EffectSet;
@@ -168,14 +165,18 @@ export default class BoosterRunnable {
 
     const details: BoosterDetails = {
       roomId: this.orgRoom.id,
-      booster: this,
       position: this.boostPosition,
       allEffects,
       availableEffects,
       labsByResource,
     };
 
-    trace.log('publishing room boosts', {position: this.boostPosition, labsByResource, availableEffects});
+    trace.log('publishing room boosts', {
+      room: this.orgRoom.id,
+      position: this.boostPosition,
+      labsByResource,
+      availableEffects
+    });
     this.orgRoom.sendRequest(TOPIC_ROOM_BOOSTS, 1, details, UPDATE_ROOM_BOOSTER_INTERVAL);
   }
 

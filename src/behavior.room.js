@@ -157,6 +157,25 @@ const fillCreepFromSource = behaviorTree.sequenceNode(
   ],
 );
 
+module.exports.getSomeEnergy = behaviorTree.repeatUntilConditionMet(
+  'get_energy_until_success',
+  (creep, trace, kingdom) => {
+    const freeCapacity = creep.store.getFreeCapacity(RESOURCE_ENERGY);
+    trace.log('creep free capacity', {freeCapacity});
+    return creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
+  },
+  behaviorTree.selectorNode(
+    'select_and_fill_with_energy',
+    [
+      selectMoveFill(selectNearbyLink),
+      selectMoveFill(selectStorage),
+      selectMoveFill(selectContainer),
+      pickupDroppedEnergy,
+      fillCreepFromSource,
+    ],
+  ),
+);
+
 module.exports.getEnergy = behaviorTree.repeatUntilConditionMet(
   'get_energy_until_success',
   (creep, trace, kingdom) => {

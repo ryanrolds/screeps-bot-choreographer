@@ -257,34 +257,34 @@ export class PathCache {
           if (roomEntry) {
 
             if (roomEntry.hasKeepers) {
-              trace.notice('avoid room with keepers', {roomName});
+              trace.log('avoid room with keepers', {roomName});
               return false;
             }
 
             const friends = this.kingdom.getFriends();
             const owner = roomEntry.controller?.owner;
-            trace.notice('room check', {roomName, owner, friends, numTowers: roomEntry.numTowers});
+            trace.log('room check', {roomName, owner, friends, numTowers: roomEntry.numTowers});
             if (owner && owner !== this.kingdom.config.username && friends.indexOf(owner) === -1) {
-              trace.notice('avoid owned room', {roomName, owner, ttl: Game.time - roomEntry.lastUpdated});
+              trace.log('avoid owned room', {roomName, owner, ttl: Game.time - roomEntry.lastUpdated});
               return false;
             }
 
             if (!owner && roomEntry.numTowers > 0) {
-              trace.notice('avoid room with towers', {roomName, numTowers: roomEntry.numTowers});
+              trace.log('avoid room with towers', {roomName, numTowers: roomEntry.numTowers});
               return false;
             }
           } else {
-            trace.notice('room not yet seen', {roomName})
+            trace.log('room not yet seen', {roomName})
           }
 
           const roomEntity = Game.rooms[roomName];
           if (!roomEntity) {
             // Return empty cost matrix
-            trace.notice('using blank cost matrix', {roomName})
+            trace.log('using blank cost matrix', {roomName})
             return new PathFinder.CostMatrix();
           }
 
-          trace.notice('generating new matrix', {roomName});
+          trace.log('generating new matrix', {roomName});
 
           room = new RoomCostMatrix(roomEntity);
           this.rooms[roomName] = room;

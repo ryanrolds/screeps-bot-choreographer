@@ -19,23 +19,27 @@ export const behaviorBoosts = (behaviorNode) => {
         (creep, trace, kingdom) => {
           const phase = creep.memory[BOOST_PHASE] || BOOST_PHASE_START;
           if (phase === BOOST_PHASE_DONE) {
+            trace.log('boosting complete');
             return SUCCESS;
           }
 
           // Mark done of no requested boosts
           const desiredBoosts = creep.memory[MEMORY.DESIRED_BOOSTS] || [];
           if (!desiredBoosts.length) {
+            trace.log('no requested boosts');
             creep.memory[BOOST_PHASE] = BOOST_PHASE_DONE;
             return SUCCESS;
           }
 
           const room = kingdom.getCreepRoom(creep);
           if (!room) {
+            trace.log('no room on creep');
             return SUCCESS;
           }
 
           const boosterPos = room.getBoosterPosition();
           if (!boosterPos) {
+            trace.log('no booster position');
             creep.memory[BOOST_PHASE] = BOOST_PHASE_DONE;
             return SUCCESS;
           }
@@ -63,8 +67,18 @@ export const behaviorBoosts = (behaviorNode) => {
                   return;
                 }
 
-                const compound = effect.compounds[0];
-                const lab = room.getBoosterLabByResource(compound.name);
+                // Find loaded compound
+                const compound = effect.compounds.find((compound) => {
+                  return room.getBoosterLabByResource(compound.name);
+                });
+
+                // Get lab for loaded compound
+                const lab = room.getBoosterLabByResource(compound.name)
+                if (!lab) {
+                  trace.error('loaded effects out of date', {room: room.id, effect, compound})
+                  return;
+                }
+
                 const result = lab.boostCreep(creep);
                 trace.log('boosted', {
                   labId: lab.id,
