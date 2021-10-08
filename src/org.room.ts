@@ -32,7 +32,7 @@ const UPDATE_CREEPS_TTL = 1;
 const UPDATE_ROOM_TTL = 10;
 const UPDATE_ORG_TTL = 10;
 const UPDATE_RESOURCES_TTL = 5;
-const UPDATE_BOOSTER_TTL = 50;
+const UPDATE_BOOSTER_TTL = 5;
 
 const UPDATE_DEFENSE_STATUS_TTL = 5;
 const UPDATE_DAMAGED_CREEPS_TTL = 5;
@@ -169,11 +169,20 @@ export default class OrgRoom extends OrgBase {
       this.boosterAllEffects = null;
       this.boosterLabs = null;
 
-      this.getTopics().getTopic(TOPIC_ROOM_BOOSTS).forEach((event: BoosterDetails) => {
-        this.boosterPosition = event.position;
-        this.boosterEffects = event.availableEffects;
-        this.boosterAllEffects = event.allEffects;
-        this.boosterLabs = event.labsByResource;
+      const topic = this.getTopics().getTopic(TOPIC_ROOM_BOOSTS);
+      if (!topic) {
+        trace.log('no topic', {room: this.id});
+        return;
+      }
+
+      topic.forEach((event) => {
+        const details: BoosterDetails = event.details;
+        trace.log('booster position', {room: this.id, details});
+
+        this.boosterPosition = details.position;
+        this.boosterEffects = details.availableEffects;
+        this.boosterAllEffects = details.allEffects;
+        this.boosterLabs = details.labsByResource;
       })
     });
 
@@ -356,6 +365,7 @@ export default class OrgRoom extends OrgBase {
     if (this.isPrimary) {
       this.threadUpdatePrimary(trace);
       this.threadUpdateResources(trace);
+      this.threadUpdateBoosters(trace);
       this.updateDamagedCreeps(trace);
       this.updateDamagedStructure(trace);
       this.updateDamagedSecondaryStructures(trace);

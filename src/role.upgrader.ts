@@ -10,7 +10,7 @@ import {common} from "./lib.pathing_policies";
 const behavior = behaviorTree.sequenceNode(
   'upgrader_root',
   [
-    behaviorRoom.getEnergy,
+    behaviorRoom.getSomeEnergy,
     behaviorMovement.moveToShard(MEMORY.MEMORY_ASSIGN_SHARD),
     behaviorTree.leafNode('set_controller_location', (creep, trace, kingdom) => {
       const assignedRoom = creep.memory[MEMORY.MEMORY_ASSIGN_ROOM];
@@ -25,7 +25,7 @@ const behavior = behaviorTree.sequenceNode(
 
       creep.memory[MEMORY.MEMORY_ASSIGN_ROOM_POS] = posStr;
 
-      return behaviorTree.SUCCESS
+      return behaviorTree.SUCCESS;
     }),
     behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_ASSIGN_ROOM_POS, 3, common),
     behaviorTree.leafNode(

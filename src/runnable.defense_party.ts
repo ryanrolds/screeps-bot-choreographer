@@ -30,7 +30,7 @@ export default class DefensePartyRunnable {
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
     trace = trace.asId(this.id);
 
-    trace.notice("defense party run top", {id: this.id})
+    trace.log("defense party run top", {id: this.id})
 
     const prep = trace.begin('run_prep')
     // Check existence of flag
@@ -43,7 +43,7 @@ export default class DefensePartyRunnable {
 
     let colony = this.getColony();
     if (!colony) {
-      trace.notice("no colony with that id, terminating");
+      trace.error("no colony with that id, terminating");
       prep.end();
       return terminate();
     }
