@@ -65,7 +65,7 @@ export const getPath = (kingdom: Kingdom, origin: RoomPosition, destination: Roo
     pos: destination,
     range: policy.destination.range
   }, {
-    maxRooms: policy.path.maxPathRooms,
+    maxRooms: policy.path.maxSearchRooms,
     roomCallback: getRoomCallback(kingdom, policy.room, trace),
     maxOps: policy.path.maxOps,
     plainCost: policy.path.plainCost || 2,

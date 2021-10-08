@@ -15,9 +15,9 @@ export const common: FindPathPolicy = {
   },
   path: {
     allowIncomplete: true,
-    maxSearchRooms: 8,
-    maxOps: 3000,
-    maxPathRooms: 4,
+    maxSearchRooms: 12,
+    maxOps: 5000,
+    maxPathRooms: 6,
     ignoreCreeps: true,
   },
 };

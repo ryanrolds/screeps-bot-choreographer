@@ -189,7 +189,7 @@ export default class SourceRunnable {
         },
       }
 
-      trace.notice('requesting worker', {details});
+      trace.log('requesting worker', {details});
 
       this.orgRoom.requestSpawn(priority, details, REQUEST_WORKER_TTL);
     }

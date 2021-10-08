@@ -12,8 +12,6 @@ import {common} from "./lib.pathing_policies";
 const behavior = behaviorTree.sequenceNode(
   'haul_energy',
   [
-    // behaviorHarvest.moveToHarvestRoom,
-    // behaviorHarvest.moveToHarvest,
     behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_SOURCE_POSITION, 1, common),
     behaviorCommute.setCommuteDuration,
     behaviorHarvest.harvest,
@@ -23,9 +21,7 @@ const behavior = behaviorTree.sequenceNode(
         behaviorTree.sequenceNode(
           'dump_energy',
           [
-            behaviorStorage.selectRoomDropoff,
-            behaviorMovement.moveToDestinationRoom,
-            behaviorMovement.moveToDestination(1, true, 50, 2000),
+
             behaviorTree.leafNode(
               'empty_creep',
               (creep) => {
@@ -60,8 +56,7 @@ const behavior = behaviorTree.sequenceNode(
           'build_construction_site',
           [
             behaviorBuild.selectSite,
-            behaviorMovement.moveToDestinationRoom,
-            behaviorMovement.moveToDestination(1, true, 50, 2000),
+            behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 1, common),
             behaviorBuild.build,
           ],
         ),
