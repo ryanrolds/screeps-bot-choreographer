@@ -8,6 +8,7 @@ import behaviorRoom from "./behavior.room";
 import {behaviorBoosts} from "./behavior.boosts";
 
 import {MEMORY_DESTINATION} from "./constants.memory";
+import {trace} from "console";
 
 const selectStructureToRepair = behaviorTree.leafNode(
   'selectStructureToRepair',
@@ -22,6 +23,8 @@ const selectStructureToRepair = behaviorTree.leafNode(
       return FAILURE;
     }
 
+    trace.log("selected target", {target: target.id, pos: target.pos});
+
     behaviorMovement.setDestination(creep, target.id);
 
     return SUCCESS;
@@ -30,7 +33,7 @@ const selectStructureToRepair = behaviorTree.leafNode(
 
 const repair = behaviorTree.leafNode(
   'repair_structure',
-  (creep) => {
+  (creep, trace, kingdom) => {
     const destination = Game.getObjectById<Structure>(creep.memory[MEMORY_DESTINATION]);
     if (!destination) {
       return FAILURE;
@@ -42,6 +45,7 @@ const repair = behaviorTree.leafNode(
     }
 
     const result = creep.repair(destination);
+    trace.log('repairing', {destination: destination.id, result});
     if (result != OK) {
       return FAILURE;
     }

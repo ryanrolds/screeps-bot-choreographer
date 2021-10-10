@@ -71,6 +71,10 @@ export const behaviorBoosts = (behaviorNode) => {
                 const compound = effect.compounds.find((compound) => {
                   return room.getBoosterLabByResource(compound.name);
                 });
+                if (!compound) {
+                  trace.error(`no compound for ${desiredEffect}`, {room: room.id, effect, compound});
+                  return;
+                }
 
                 // Get lab for loaded compound
                 const lab = room.getBoosterLabByResource(compound.name)
