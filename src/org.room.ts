@@ -582,6 +582,10 @@ export default class OrgRoom extends OrgBase {
 
     if (!listTime || Game.time - listTime > 20) {
       const targets = this.roomStructures.filter((structure) => {
+        if (structure.structureType === STRUCTURE_INVADER_CORE) {
+          return false;
+        }
+
         return (
           (structure.hits < structure.hitsMax &&
             (

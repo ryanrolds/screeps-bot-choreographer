@@ -86,7 +86,9 @@ const behavior = behaviorTree.sequenceNode(
           return moveToAssignedPosition(creep, trace, kingdom);
         }
 
-        const pathToTarget = creep.pos.findPathTo(moveTarget, {range: 1});
+        // TODO should not check this often
+        const pathToTarget = creep.pos.findPathTo(moveTarget, {range: 3});
+
         const lastRampart = pathToTarget.reduce((lastRampart, pos) => {
           pos = creep.room.getPositionAt(pos.x, pos.y);
           const posStructures = pos.lookFor(LOOK_STRUCTURES);
@@ -103,6 +105,8 @@ const behavior = behaviorTree.sequenceNode(
           return lastRampart;
         }, null);
 
+        trace.log('last rampart', {lastRampart});
+
         if (lastRampart) {
           const creepPosStructures = creep.pos.lookFor(LOOK_STRUCTURES);
           const inLastRampart = _.filter(creepPosStructures, (structure) => {
@@ -111,15 +115,15 @@ const behavior = behaviorTree.sequenceNode(
 
           if (inLastRampart) {
             trace.log('in rampart');
-            return RUNNING;
+            // return RUNNING;
           }
 
           const result = creep.moveTo(lastRampart, {visualizePathStyle: {stroke: '#ffffff'}});
           trace.log('moving to last rampart', {result});
-          return RUNNING;
+          // return RUNNING;
         }
 
-        if (creep.pos.getRangeTo(moveTarget) <= 3) {
+        if (creep.pos.getRangeTo(moveTarget) <= 2) {
           trace.log('target in range');
           return RUNNING;
         }
