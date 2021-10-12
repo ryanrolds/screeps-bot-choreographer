@@ -1,12 +1,12 @@
-const behaviorTree = require('./lib.behaviortree');
-const behaviorCommute = require('./behavior.commute');
-const behaviorMovement = require('./behavior.movement');
-const behaviorBuild = require('./behavior.build');
-const behaviorRoom = require('./behavior.room');
-const {behaviorBoosts} = require('./behavior.boosts');
+import * as behaviorTree from "./lib.behaviortree";
+import behaviorCommute from "./behavior.commute";
+import * as behaviorMovement from "./behavior.movement";
+import behaviorBuild from "./behavior.build";
+import behaviorRoom from "./behavior.room";
+import {behaviorBoosts} from "./behavior.boosts";
 
-const MEMORY = require('./constants.memory');
-const {common} = require('./lib.pathing_policies');
+import * as MEMORY from "./constants.memory";
+import {common} from "./lib.pathing_policies";
 
 const behavior = behaviorTree.sequenceNode(
   'builder_root',
@@ -47,6 +47,6 @@ const behavior = behaviorTree.sequenceNode(
   ],
 );
 
-module.exports = {
+export const roleBuilder = {
   run: behaviorTree.rootNode('builder', behaviorBoosts(behavior)),
 };

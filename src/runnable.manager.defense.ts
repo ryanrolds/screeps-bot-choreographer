@@ -116,7 +116,7 @@ export default class DefenseManager {
 
     const hostilesTrace = trace.begin('getHostilesByColony')
     const hostilesByColony = getHostilesByColony(kingdom, Object.values(Game.rooms), hostilesTrace)
-    hostilesTrace.notice('hostiles by colony', {hostilesByColony});
+    hostilesTrace.log('hostiles by colony', {hostilesByColony});
     hostilesTrace.end();
 
     const targetTopicTrace = trace.begin('addHostilesToColonyTargetTopic')
@@ -314,7 +314,7 @@ function addHostilesToColonyTargetTopic(kingdom: Kingdom, hostilesByColony: Reco
         }, 0)
       }
 
-      trace.notice('requesting target', {details, priority});
+      trace.log('requesting target', {details, priority});
 
       orgColony.sendRequest(TOPICS.PRIORITY_TARGETS, priority, details, TARGET_REQUEST_TTL);
     });

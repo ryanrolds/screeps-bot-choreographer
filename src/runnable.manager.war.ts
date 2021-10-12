@@ -122,7 +122,7 @@ export default class WarManager {
     }
 
     // Write post event status
-    trace.notice("war manager state", {
+    trace.log("war manager state", {
       targetRoom: this.targetRoom,
       warPartyIds: this.warParties.map(warParty => warParty.id)
     });

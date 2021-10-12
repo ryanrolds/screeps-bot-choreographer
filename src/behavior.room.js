@@ -188,8 +188,8 @@ module.exports.getEnergy = behaviorTree.repeatUntilConditionMet(
   behaviorTree.selectorNode(
     'select_and_fill_with_energy',
     [
-      selectMoveFill(selectNearbyLink),
       selectMoveFill(selectStorage),
+      selectMoveFill(selectNearbyLink),
       selectMoveFill(selectContainer),
       pickupDroppedEnergy,
       fillCreepFromSource,
