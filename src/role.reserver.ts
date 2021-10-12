@@ -68,7 +68,7 @@ const behavior = behaviorTree.sequenceNode(
             return behaviorTree.FAILURE;
           }
 
-          const unowned = !room.controller || !room.controller.owner;
+          const unowned = !room.controller?.owner && !room.controller?.reservation;
           const claimedByMe = room.controller && room.controller.my;
           const reservedByMe = room.controller && room.controller.reservation &&
             room.controller.reservation.username === kingdom.config.username;

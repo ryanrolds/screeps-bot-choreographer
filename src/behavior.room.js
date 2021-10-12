@@ -89,20 +89,20 @@ const selectStorage = behaviorTree.leafNode(
   (creep, trace, kingdom) => {
     const room = kingdom.getRoomByName(creep.room.name);
     if (!room) {
-      trace.log('unable to get creep org room', {roomName: creep.room.name});
+      trace.notice('unable to get creep org room', {roomName: creep.room.name});
       return FAILURE;
     }
 
     const energyReserve = room.getReserveStructureWithMostOfAResource(RESOURCE_ENERGY, false);
     if (energyReserve && energyReserve.store.getUsedCapacity(RESOURCE_ENERGY) >= 0) {
-      trace.log('selecting reserve', {id: energyReserve.id});
+      trace.notice('selecting reserve', {id: energyReserve.id});
       behaviorMovement.setDestination(creep, energyReserve.id);
       return SUCCESS;
     }
 
     behaviorMovement.setDestination(creep, null);
 
-    trace.log('did not find reserver with energy');
+    trace.notice('did not find reserve with energy');
     return FAILURE;
   },
 );
@@ -128,7 +128,7 @@ const selectContainer = behaviorTree.leafNode(
 
     behaviorMovement.setDestination(creep, null);
 
-    trace.log('did not find an energy source');
+    trace.log('did not find a container with energy');
     return FAILURE;
   },
 );
@@ -138,7 +138,7 @@ const selectMoveFill = (selector) => {
     'fill_from_selector',
     [
       selector,
-      behaviorMovement.cachedMoveToMemoryObjectId(MEMORY_DESTINATION, 3, common),
+      behaviorMovement.cachedMoveToMemoryObjectId(MEMORY_DESTINATION, 1, common),
       behaviorTree.leafNode(
         'fill_creep',
         (creep, trace) => {
@@ -160,7 +160,7 @@ const fillCreepFromSource = behaviorTree.sequenceNode(
 );
 
 module.exports.getSomeEnergy = behaviorTree.repeatUntilConditionMet(
-  'get_energy_until_success',
+  'get_some_energy_until_success',
   (creep, trace, kingdom) => {
     const freeCapacity = creep.store.getFreeCapacity(RESOURCE_ENERGY);
     trace.log('creep free capacity', {freeCapacity});
