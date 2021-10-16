@@ -1,11 +1,11 @@
 
-const behaviorTree = require('./lib.behaviortree');
-const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
-const behaviorMovement = require('./behavior.movement');
-const {MEMORY_SOURCE, MEMORY_ASSIGN_ROOM} = require('./constants.memory');
-const {numEnemeiesNearby, numOfSourceSpots} = require('./helpers.proximity');
+import * as behaviorTree from "./lib.behaviortree";
+import {FAILURE, SUCCESS, RUNNING} from "./lib.behaviortree";
+import * as behaviorMovement from "./behavior.movement";
+import {MEMORY_SOURCE, MEMORY_ASSIGN_ROOM} from "./constants.memory";
+import {numEnemeiesNearby, numOfSourceSpots} from "./helpers.proximity";
 
-module.exports.selectHarvestSource = behaviorTree.leafNode(
+export const selectHarvestSource = behaviorTree.leafNode(
   'bt.harvest.selectHarvestSource',
   (creep, trace, kingdom) => {
     let sources = creep.room.find(FIND_SOURCES);
@@ -42,11 +42,11 @@ module.exports.selectHarvestSource = behaviorTree.leafNode(
   },
 );
 
-module.exports.moveToHarvestRoom = behaviorTree.repeatUntilSuccess(
+export const moveToHarvestRoom = behaviorTree.repeatUntilSuccess(
   'bt.movement.room.harvest',
   behaviorTree.leafNode(
     'move_to_harvest_room',
-    (creep) => {
+    (creep, trace, kingdom) => {
       const room = creep.memory[MEMORY_ASSIGN_ROOM];
       // If creep doesn't have a harvest room assigned, we are done
       if (!room) {
@@ -61,10 +61,9 @@ module.exports.moveToHarvestRoom = behaviorTree.repeatUntilSuccess(
         reusePath: 50,
         maxOps: 1500,
       });
+      trace.log('move to', {result});
+
       if (result === ERR_NO_PATH) {
-        return FAILURE;
-      }
-      if (result === ERR_INVALID_ARGS) {
         return FAILURE;
       }
 
@@ -73,31 +72,33 @@ module.exports.moveToHarvestRoom = behaviorTree.repeatUntilSuccess(
   ),
 );
 
-module.exports.moveToHarvest = behaviorTree.leafNode(
+export const moveToHarvest = behaviorTree.leafNode(
   'move_to_source',
   (creep) => {
     return behaviorMovement.moveToSource(creep, 1, false, 50, 1500);
   },
 );
 
-module.exports.harvest = behaviorTree.leafNode(
+export const harvest = behaviorTree.leafNode(
   'fill_creep',
-  (creep) => {
-    const destination = Game.getObjectById(creep.memory.source);
+  (creep, trace, kingdom) => {
+    const destination = Game.getObjectById<Id<Source>>(creep.memory[MEMORY_SOURCE]);
     if (!destination) {
       return FAILURE;
     }
 
     const result = creep.harvest(destination);
-    if (result === ERR_FULL) {
-      return SUCCESS;
-    }
+    trace.log('harvest', {result});
+
     if (creep.store.getFreeCapacity() === 0) {
       return SUCCESS;
     }
+
+    // NOTICE switched this to FAILURE from RUNNING, this may cause problems
     if (result === ERR_NOT_ENOUGH_RESOURCES) {
-      return RUNNING;
+      return FAILURE;
     }
+
     if (result === OK) {
       return RUNNING;
     }

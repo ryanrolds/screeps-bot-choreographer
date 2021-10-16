@@ -124,6 +124,14 @@ let config: KingdomConfig = {
         isPublic: false,
         rooms: ['W8N4', 'W7N4', 'W7N3', /*'W8N5', 'W9N5', 'W9N4', 'W8N3', 'W7N5', 'W9N3'*/],
       },
+    },
+    'Ryans-MacBook-Pro.local': {
+      'W5N8-Private': {
+        id: 'W5N8-Private',
+        primary: 'W5N8',
+        isPublic: false,
+        rooms: ['W5N8'],
+      },
     }
   },
 };

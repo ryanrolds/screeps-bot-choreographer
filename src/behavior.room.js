@@ -159,7 +159,7 @@ const fillCreepFromSource = behaviorTree.sequenceNode(
   ],
 );
 
-module.exports.getSomeEnergy = behaviorTree.repeatUntilConditionMet(
+module.exports.getSomeEnergy = behaviorTree.runUntilConditionMet(
   'get_some_energy_until_success',
   (creep, trace, kingdom) => {
     const freeCapacity = creep.store.getFreeCapacity(RESOURCE_ENERGY);
