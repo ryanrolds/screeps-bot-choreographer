@@ -270,27 +270,35 @@ export default class RoomRunnable {
       return creep.memory[MEMORY.MEMORY_ROLE] === CREEPS.WORKER_REPAIRER && creepIsFresh(creep);
     }).length;
 
+    trace.notice('need repairers?', {id: this.id, hitsPercentage, numRepairers});
+
     // Repairer requests
     let desiredRepairers = 0;
     let repairerPriority = PRIORITIES.PRIORITY_REPAIRER;
     if (hitsPercentage < 0.8) {
+      trace.log('need more repairers', {id: this.id, hitsPercentage});
       desiredRepairers = 1;
     }
 
     if (hitsPercentage < 0.6) {
+      trace.log('need more repairers', {id: this.id, hitsPercentage});
       desiredRepairers = 2;
       repairerPriority = PRIORITIES.PRIORITY_REPAIRER_URGENT;
     }
 
     if (Game.cpu.bucket < 1000) {
+      trace.notice('bucket low', {bucket: Game.cpu.bucket});
       desiredRepairers = 0;
     }
 
     if (numRepairers >= desiredRepairers) {
+      trace.notice('already have enough repairers', {id: this.id, numRepairers, desiredRepairers});
       return;
     }
 
-    (orgRoom as any).requestSpawn(repairerPriority, {
+    trace.notice('request reserver', {id: this.id, desiredRepairers, numRepairers});
+
+    orgRoom.requestSpawn(repairerPriority, {
       role: CREEPS.WORKER_REPAIRER,
       memory: {
         [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,

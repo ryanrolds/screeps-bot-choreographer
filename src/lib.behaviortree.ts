@@ -282,6 +282,22 @@ export const tripIfCalledXTimes = (id: string, limit: number, regular: TreeNode,
   } as TreeNode;
 }
 
+export const resetTripCounter = (id: string, counterId: string): TreeNode => {
+  return {
+    id,
+    counterId,
+    tick: function (creep, trace, kingdom): NodeTickResult {
+      // Clear the counter
+      clearState(creep, this.counterId, trace);
+
+      return SUCCESS;
+    },
+    clear: function (creep, trace) {
+      clearState(creep, this.id, trace);
+    },
+  } as TreeNode;
+}
+
 export const invert = (id: string, node: TreeNode): TreeNode => {
   return {
     id,

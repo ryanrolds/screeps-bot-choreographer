@@ -97,6 +97,7 @@ const behavior = behaviorTree.sequenceNode(
         ),
       ],
     ),
+    behaviorTree.resetTripCounter('clear_parked_counter', 'recycle_if_parked_too_long'),
     behaviorTree.repeatUntilConditionMet(
       'pickup_loads_until_full_or_no_tasks',
       (creep, trace, kingdom) => {
