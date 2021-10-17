@@ -36,6 +36,7 @@ export default class SourceRunnable {
   threadUpdateStructures: ThreadFunc;
   threadUpdateDropoff: ThreadFunc;
   threadRequestWorkers: ThreadFunc;
+  threadRequestUpgraders: ThreadFunc;
   threadRequestHauling: ThreadFunc;
 
   constructor(room: OrgRoom, source: (Source | Mineral)) {
@@ -46,6 +47,7 @@ export default class SourceRunnable {
     this.threadUpdateStructures = thread('update_structures', STRUCTURE_TTL)(this.updateStructures.bind(this));
     this.threadUpdateDropoff = thread('update_dropoff', DROPOFF_TTL)(this.updateDropoff.bind(this));
     this.threadRequestWorkers = thread('request_workers', REQUEST_WORKER_TTL)(this.requestWorkers.bind(this));
+    this.threadRequestUpgraders = thread('request_upgraders', REQUEST_WORKER_TTL)(this.requestUpgraders.bind(this));
     this.threadRequestHauling = thread('reqeust_hauling', REQUEST_HAULING_TTL)(this.requestHauling.bind(this));
   }
 
@@ -74,6 +76,7 @@ export default class SourceRunnable {
     this.threadUpdateStructures(trace, source);
     this.threadUpdateDropoff(trace, colony);
     this.threadRequestWorkers(trace, kingdom, colony, room, source);
+    this.threadRequestUpgraders(trace, kingdom, colony, room, source);
     this.threadRequestHauling(trace, colony);
 
     this.updateStats(kingdom);
@@ -102,6 +105,63 @@ export default class SourceRunnable {
   updateDropoff(trace: Tracer, colony: Colony) {
     const primaryRoom = colony.getPrimaryRoom();
     this.dropoffId = primaryRoom.getReserveStructureWithRoomForResource(RESOURCE_ENERGY)?.id;
+  }
+
+  requestUpgraders(trace: Tracer, kingdom: Kingdom, colony: Colony, room: Room, source: Source | Mineral) {
+    if (room.controller?.owner && room.controller.owner.username !== kingdom.config.username) {
+      trace.notice('room owned by someone else', {roomId: room.name, owner: room.controller?.owner?.username});
+      return;
+    }
+
+    if (room.controller?.reservation && room.controller.reservation.username !== kingdom.config.username) {
+      trace.notice('room reserved by someone else', {roomId: room.name, username: room.controller.reservation.username});
+      return;
+    }
+
+    if (source instanceof Mineral) {
+      return;
+    }
+
+    let desiredNum = 0;
+
+    const primaryRoom = colony.getPrimaryRoom();
+    if (primaryRoom.hasStorage) {
+      return;
+    } else {
+      // no storage, 2 upgraders
+      desiredNum = 2;
+      if (this.orgRoom.getRoomLevel() >= 3) {
+        desiredNum = 1;
+      }
+    }
+
+    const colonyCreeps = colony.getCreeps();
+    const numUpgraders = colonyCreeps.filter((creep) => {
+      const role = creep.memory[MEMORY.MEMORY_ROLE];
+      return role === WORKER_UPGRADER &&
+        creep.memory[MEMORY.MEMORY_SOURCE] === this.sourceId &&
+        creepIsFresh(creep);
+    }).length;
+
+    for (let i = numUpgraders; i < desiredNum; i++) {
+      let priority = PRIORITY_UPGRADER;
+
+      const positionStr = [this.position.x, this.position.y, this.position.roomName].join(',');
+      const details = {
+        role: WORKER_UPGRADER,
+        memory: {
+          [MEMORY.MEMORY_SOURCE]: this.sourceId,
+          [MEMORY.MEMORY_SOURCE_CONTAINER]: this.containerId,
+          [MEMORY.MEMORY_SOURCE_POSITION]: positionStr,
+          [MEMORY.MEMORY_ASSIGN_ROOM]: room.name,
+          [MEMORY.MEMORY_COLONY]: this.orgRoom.getColony().id,
+        },
+      }
+
+      trace.notice('requesting worker', {roomId: room.name, sourceId: this.sourceId, details});
+
+      colony.getPrimaryRoom().requestSpawn(priority, details, REQUEST_WORKER_TTL);
+    }
   }
 
   requestWorkers(trace: Tracer, kingdom: Kingdom, colony: Colony, room: Room, source: Source | Mineral) {
@@ -142,14 +202,14 @@ export default class SourceRunnable {
         desiredWorkerPriority = PRIORITY_HARVESTER;
       }
     } else {
-      // no storage, 2 upgraders
+      // no storage, 2 harvesters
       desiredNumWorkers = 2;
       if (this.orgRoom.getRoomLevel() >= 3) {
         desiredNumWorkers = 1;
       }
 
-      desiredWorkerType = WORKER_UPGRADER;
-      desiredWorkerPriority = PRIORITY_UPGRADER;
+      desiredWorkerType = WORKER_HARVESTER;
+      desiredWorkerPriority = PRIORITY_HARVESTER;
     }
 
     const colonyCreeps = colony.getCreeps();

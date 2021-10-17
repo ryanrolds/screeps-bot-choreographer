@@ -22,6 +22,7 @@ import * as CREEPS from './constants.creeps';
 import * as TOPICS from './constants.topics';
 import * as TASKS from './constants.tasks';
 import {DEFENSE_STATUS} from './defense';
+import BaseConstructionRunnable from "./runnable.base_construction";
 
 const MIN_ENERGY = 100000;
 const CREDIT_RESERVE = 100000;
@@ -215,6 +216,13 @@ export default class RoomRunnable {
       }
 
       // Observer runnable
+
+      // Construction
+      const constructionId = `construction_${this.id}`;
+      if (!this.scheduler.hasProcess(constructionId)) {
+        this.scheduler.registerProcess(new Process(constructionId, 'construction', Priorities.CORE_LOGISTICS,
+          new BaseConstructionRunnable(constructionId, orgRoom)));
+      }
     }
 
     if (room.controller?.my || !room.controller?.owner?.username) {

@@ -4,7 +4,7 @@ import behaviorCommute from "./behavior.commute";
 import behaviorStorage from "./behavior.storage";
 import * as behaviorMovement from "./behavior.movement";
 import behaviorBuild from "./behavior.build";
-import behaviorHarvest from "./behavior.harvest";
+import * as behaviorHarvest from "./behavior.harvest";
 import {behaviorBoosts} from "./behavior.boosts";
 import * as MEMORY from "./constants.memory";
 import {common} from "./lib.pathing_policies";
@@ -21,17 +21,21 @@ const behavior = behaviorTree.sequenceNode(
         behaviorTree.sequenceNode(
           'dump_energy',
           [
-
+            behaviorStorage.selectRoomDropoff,
+            behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 1, common),
             behaviorTree.leafNode(
               'empty_creep',
-              (creep) => {
-                const destination = Game.getObjectById<Id<(Creep | Structure<StructureConstant>)>>(creep.memory[MEMORY.MEMORY_DESTINATION]);
+              (creep, trace, kingdom) => {
+                const destination = Game.getObjectById<Id<Structure<StructureConstant>>>(creep.memory[MEMORY.MEMORY_DESTINATION]);
                 if (!destination) {
+                  trace.log('no destination', {destination: creep.memory[MEMORY.MEMORY_DESTINATION]});
                   return FAILURE;
                 }
 
                 const resource = Object.keys(creep.store).pop();
                 const result = creep.transfer(destination, resource as ResourceConstant);
+                trace.log('transfer', {result, resource});
+
                 if (result === ERR_FULL) {
                   // We still have energy to transfer, fail so we find another
                   // place to dump
