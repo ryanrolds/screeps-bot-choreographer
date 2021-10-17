@@ -57,7 +57,6 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.select
           return SUCCESS;
         }
 
-
         return FAILURE;
       },
     ),

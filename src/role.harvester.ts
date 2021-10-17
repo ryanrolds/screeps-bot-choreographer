@@ -21,17 +21,21 @@ const behavior = behaviorTree.sequenceNode(
         behaviorTree.sequenceNode(
           'dump_energy',
           [
-
+            behaviorStorage.selectRoomDropoff,
+            behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 1, common),
             behaviorTree.leafNode(
               'empty_creep',
-              (creep) => {
-                const destination = Game.getObjectById<Id<(Creep | Structure<StructureConstant>)>>(creep.memory[MEMORY.MEMORY_DESTINATION]);
+              (creep, trace, kingdom) => {
+                const destination = Game.getObjectById<Id<Structure<StructureConstant>>>(creep.memory[MEMORY.MEMORY_DESTINATION]);
                 if (!destination) {
+                  trace.log('no destination', {destination: creep.memory[MEMORY.MEMORY_DESTINATION]});
                   return FAILURE;
                 }
 
                 const resource = Object.keys(creep.store).pop();
                 const result = creep.transfer(destination, resource as ResourceConstant);
+                trace.log('transfer', {result, resource});
+
                 if (result === ERR_FULL) {
                   // We still have energy to transfer, fail so we find another
                   // place to dump

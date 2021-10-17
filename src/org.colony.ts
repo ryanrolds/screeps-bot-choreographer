@@ -45,6 +45,8 @@ export class Colony extends OrgBase {
 
   observer: Observer;
   isPublic: boolean;
+  automated: boolean;
+  origin: RoomPosition;
 
   assignedCreeps: Creep[];
   numCreeps: number;
@@ -77,6 +79,8 @@ export class Colony extends OrgBase {
     this.desiredRooms = colony.rooms;
     this.primaryRoom = Game.rooms[this.primaryRoomId];
     this.isPublic = colony.isPublic || false;
+    this.automated = colony.automated;
+    this.origin = colony.origin;
 
     this.pidDesiredHaulers = 0;
     if (this.primaryRoom) {
@@ -241,8 +245,17 @@ export class Colony extends OrgBase {
   getPrimaryRoom(): OrgRoom {
     return this.primaryOrgRoom;
   }
+
   getRoomByID(roomId) {
     return this.roomMap[roomId] || null;
+  }
+
+  isAutomated(): boolean {
+    return this.automated;
+  }
+
+  getOrigin(): RoomPosition {
+    return this.origin;
   }
 
   getSpawnPos(): RoomPosition {
