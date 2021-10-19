@@ -50,7 +50,7 @@ export const update = (memory: RoomMemory, prefix: string, value: number, time: 
   memory[`${prefix}${MEMORY.PID_SUFFIX_TIME}`] = time;
   memory[`${prefix}${MEMORY.PID_SUFFIX_INTEGRAL}`] = integral;
 
-  trace.notice('PID update', {err, integral, det, p, i, d});
+  trace.log('PID update', {err, integral, det, p, i, d});
 
   return p * err + integral + d * det;
 }

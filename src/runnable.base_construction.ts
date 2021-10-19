@@ -139,14 +139,17 @@ export default class BaseConstructionRunnable {
     const layout = layouts.find((layout, level) => {
       // Dont try to build a layout if we are not at the right level
       if (roomLevel < level) {
+        trace.log('room level too low', {roomLevel, level});
         return false;
       }
 
       // Dont build a layout that is already done
       if (this.layoutComplete(layout, room, origin, trace)) {
+        trace.log('layout complete', {level, layout});
         return false;
       }
 
+      trace.log('layout not done', {level, layout});
       return true;
     });
 
@@ -171,19 +174,22 @@ export default class BaseConstructionRunnable {
       for (let x = 0; x < row.length; x++) {
         const code = row[x];
         if (code === ' ') {
+          trace.log('empty spot', {x, y});
           continue;
         }
 
         const pos = getConstructionPosition({x, y}, origin, layout);
         const structure = pos.lookFor(LOOK_STRUCTURES)[0];
         if (structure) {
-          // TODO check type and destoy if wrong
+          // TODO check type and destroy if wrong
+          trace.log('structure present', {structure: structure.structureType});
           continue;
         }
 
         const site = pos.lookFor(LOOK_CONSTRUCTION_SITES)[0];
         if (site) {
           if (site.structureType !== buildingCodes[code]) {
+            trace.log('wrong site, remove', {existing: site.structureType, expected: buildingCodes[code]});
             site.remove();
           }
 
@@ -207,6 +213,7 @@ export default class BaseConstructionRunnable {
 
   layoutComplete(layout: BaseLayout, room: Room, origin: RoomPosition, trace: Tracer): boolean {
     if (layout.buildings.length === 0) {
+      trace.log('nothing to build', {layout});
       return true;
     }
 
@@ -218,19 +225,17 @@ export default class BaseConstructionRunnable {
 
         const code = row[x];
         if (code === ' ') {
-          if (structures.length) {
-            return false;
-          }
-
           continue;
         }
 
         if (!structures.length || structures[0].structureType !== buildingCodes[code]) {
+          trace.log('missing structure', {pos, structures: structures.map(s => s.structureType)});
           return false;
         }
       }
     }
 
+    trace.log('layout complete', {layout});
     return true;
   }
 }

@@ -181,7 +181,7 @@ export class Colony extends OrgBase {
       const updateHaulerPID = updateTrace.begin('update_hauler_pid');
       this.pidDesiredHaulers = PID.update(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS,
         numHaulTasks, Game.time, updateHaulerPID);
-      updateHaulerPID.notice('desired haulers', {desired: this.pidDesiredHaulers});
+      updateHaulerPID.log('desired haulers', {desired: this.pidDesiredHaulers});
       updateHaulerPID.end();
     }
 
