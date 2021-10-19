@@ -84,7 +84,7 @@ export class Colony extends OrgBase {
 
     this.pidDesiredHaulers = 0;
     if (this.primaryRoom) {
-      PID.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, 0, 0.2, 0.0001, 0);
+      PID.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, 0, 0.2, 0.001, 0);
     }
 
     this.roomMap = {};
@@ -180,7 +180,8 @@ export class Colony extends OrgBase {
     if (this.primaryRoom) {
       const updateHaulerPID = updateTrace.begin('update_hauler_pid');
       this.pidDesiredHaulers = PID.update(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS,
-        numHaulTasks, Game.time);
+        numHaulTasks, Game.time, updateHaulerPID);
+      updateHaulerPID.notice('desired haulers', {desired: this.pidDesiredHaulers});
       updateHaulerPID.end();
     }
 

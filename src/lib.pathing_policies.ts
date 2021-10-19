@@ -7,6 +7,7 @@ export const common: FindPathPolicy = {
     avoidFriendlyRooms: false,
     avoidRoomsWithKeepers: true,
     avoidRoomsWithTowers: false,
+    avoidUnloggedRooms: false,
     sameRoomStatus: true,
     costMatrixType: AllowedCostMatrixTypes.COMMON,
   },

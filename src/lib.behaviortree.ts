@@ -345,7 +345,9 @@ export const resetTripCounter = (id: string, counterId: string): TreeNode => {
     counterId,
     tick: function (creep, trace, kingdom): NodeTickResult {
       // Clear the counter
+      trace.notice("clear trip counter", {counter: creep.memory[this.counterId]});
       clearState(creep, this.counterId, trace);
+      trace.notice("clear trip counter", {counter: creep.memory[this.counterId]});
 
       return SUCCESS;
     },

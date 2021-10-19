@@ -1,4 +1,5 @@
 import * as MEMORY from './constants.memory';
+import {Tracer} from './lib.tracing';
 
 const globalAny: any = global;
 globalAny.RESET_PIDS = false;
@@ -14,7 +15,7 @@ export const setup = (memory: RoomMemory, prefix: string, setPoint: number, p: n
   memory[`${prefix}${MEMORY.PID_SUFFIX_D}`] = d || 0;
 }
 
-export const update = (memory: RoomMemory, prefix: string, value: number, time: number) => {
+export const update = (memory: RoomMemory, prefix: string, value: number, time: number, trace: Tracer) => {
   if (globalAny.RESET_PIDS) {
     memory[`${prefix}${MEMORY.PID_SUFFIX_ERROR}`] = 0;
     memory[`${prefix}${MEMORY.PID_SUFFIX_TIME}`] = time;
@@ -23,7 +24,7 @@ export const update = (memory: RoomMemory, prefix: string, value: number, time: 
 
   const setPoint = memory[`${prefix}${MEMORY.PID_SUFFIX_SETPOINT}`];
   const p = memory[`${prefix}${MEMORY.PID_SUFFIX_P}`] || 0.4;
-  const i = memory[`${prefix}${MEMORY.PID_SUFFIX_I}`] || 0.0001;
+  const i = memory[`${prefix}${MEMORY.PID_SUFFIX_I}`] || 0.001;
   const d = memory[`${prefix}${MEMORY.PID_SUFFIX_D}`] || 0;
 
   if (!p) {
@@ -48,6 +49,8 @@ export const update = (memory: RoomMemory, prefix: string, value: number, time: 
   memory[`${prefix}${MEMORY.PID_SUFFIX_ERROR}`] = err;
   memory[`${prefix}${MEMORY.PID_SUFFIX_TIME}`] = time;
   memory[`${prefix}${MEMORY.PID_SUFFIX_INTEGRAL}`] = integral;
+
+  trace.notice('PID update', {err, integral, det, p, i, d});
 
   return p * err + integral + d * det;
 }

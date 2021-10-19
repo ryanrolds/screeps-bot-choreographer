@@ -72,6 +72,8 @@ const behavior = behaviorTree.sequenceNode(
       'pick_something',
       [
         behaviorHaul.getHaulTaskFromTopic(TOPICS.TOPIC_HAUL_TASK),
+        behaviorRoom.parkingLot,
+        /*
         behaviorTree.tripIfCalledXTimes(
           'recycle_if_parked_too_long',
           200,
@@ -95,9 +97,10 @@ const behavior = behaviorTree.sequenceNode(
             ],
           ),
         ),
+        */
       ],
     ),
-    behaviorTree.resetTripCounter('clear_parked_counter', 'recycle_if_parked_too_long'),
+    //behaviorTree.resetTripCounter('clear_parked_counter', 'recycle_if_parked_too_long'),
     behaviorTree.repeatUntilConditionMet(
       'pickup_loads_until_full_or_no_tasks',
       (creep, trace, kingdom) => {

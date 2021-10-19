@@ -104,7 +104,7 @@ export default class BaseConstructionRunnable {
     trace = trace.asId(this.id).begin('base_construction_run');
 
     const roomLevel = this.orgRoom.getRoomLevel();
-    if (roomLevel < 2) {
+    if (roomLevel < 1) {
       trace.notice('room level low', {roomLevel});
       trace.end();
       return sleeping(CONSTRUCTION_INTERVAL);

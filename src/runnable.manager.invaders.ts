@@ -21,6 +21,7 @@ const colonyPathingPolicy: FindColonyPathPolicy = {
     avoidFriendlyRooms: true,
     avoidRoomsWithKeepers: false,
     avoidRoomsWithTowers: false,
+    avoidUnloggedRooms: false,
     sameRoomStatus: true,
     costMatrixType: AllowedCostMatrixTypes.PARTY,
   },

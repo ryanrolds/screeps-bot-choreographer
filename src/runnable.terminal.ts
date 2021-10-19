@@ -588,9 +588,19 @@ export default class TerminalRunnable {
   }
 
   updateEnergyValue(trace: Tracer) {
-    const dailyAvgs = Game.market.getHistory(RESOURCE_ENERGY).map(order => order.avgPrice);
+    const energyHistory = Game.market.getHistory(RESOURCE_ENERGY)
+    trace.notice('updating energy value', {energyHistory});
+
+    // private servers can return energyHistory as an empty object
+    if (!energyHistory || !Array.isArray(energyHistory) || !energyHistory.length) {
+      this.energyValue = 1;
+      return;
+    }
+
+    const dailyAvgs = energyHistory.map(order => order.avgPrice);
     if (!dailyAvgs.length) {
       this.energyValue = 1;
+      return;
     }
 
     this.energyValue = _.sum(dailyAvgs) / dailyAvgs.length;

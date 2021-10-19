@@ -45,7 +45,7 @@ export default class PathDebugger {
     const trace = new Tracer('debug', 'path_debugger.debug')
     const path = getPath(this.kingdom, origin, goal, policy, trace);
 
-    trace.log('path', {origin, goal, range, policy, path});
+    trace.notice('path', {origin, goal, range, policy, path});
     this.results = path;
   }
 

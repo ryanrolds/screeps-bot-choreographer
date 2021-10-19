@@ -258,7 +258,7 @@ module.exports.recycleCreep = behaviorTree.leafNode(
     const spawn = spawns[0];
     if (creep.pos.inRangeTo(spawn, 1)) {
       const result = spawn.recycleCreep(creep);
-      trace.log('recycled creep', {result});
+      trace.notice('recycled creep', {result});
       return RUNNING;
     }
 

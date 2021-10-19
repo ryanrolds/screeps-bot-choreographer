@@ -15,6 +15,7 @@ type RoomPolicy = {
   avoidHostileRooms: boolean;
   avoidFriendlyRooms: boolean;
   avoidRoomsWithKeepers: boolean;
+  avoidUnloggedRooms: boolean;
   // some rooms can be newbie, respawn, and other status, which can be blocked
   sameRoomStatus: boolean; // TODO
   avoidRoomsWithTowers: boolean;
@@ -174,15 +175,17 @@ const getRoomCallback = (kingdom: Kingdom, policy: RoomPolicy, trace: Tracer): R
   return (roomName: string): (boolean | CostMatrix) => {
     const roomEntry = kingdom.getScribe().getRoomById(roomName);
     // If we have not scanned the room, dont enter it
-    if (!roomEntry) {
+    if (!roomEntry && policy.avoidUnloggedRooms) {
       trace.log('room not logged', {roomName});
       return false;
     }
 
-    const allow = applyRoomCallbackPolicy(kingdom, roomEntry, policy, trace);
-    if (!allow) {
-      trace.log('room not allowed', {roomName});
-      return false;
+    if (roomEntry) {
+      const allow = applyRoomCallbackPolicy(kingdom, roomEntry, policy, trace);
+      if (!allow) {
+        trace.log('room not allowed', {roomName});
+        return false;
+      }
     }
 
     const costMatrix = kingdom.getCostMatrixCache().getCostMatrix(roomName, policy.costMatrixType, trace)
