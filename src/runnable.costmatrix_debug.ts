@@ -79,7 +79,7 @@ const visualizeCostMatrix = (roomName: string, costMatrix: CostMatrix, trace: Tr
   for (let x = 0; x <= 49; x++) {
     for (let y = 0; y <= 49; y++) {
       const cost = costMatrix.get(x, y);
-      visual.text((cost / 5).toString(), x, y);
+      visual.text((cost).toString(), x, y);
     }
   }
 }

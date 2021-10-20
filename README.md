@@ -107,7 +107,7 @@ There are a couple of helpful global variables:
 There are some debugging tools built into the project:
 
 * Run and draw path - `AI.getPathDebugger().debug(new RoomPosition(43, 13, 'E21S48'), new RoomPosition(25,25,'E26S51'), 3, {avoidHostiles: true, avoidOwnedRooms: true, avoidFriendlyRooms: false, maxOps: 2000})`
-* Run and draw cost matrix - `AI.getCostMatrixDebugger().debug("W8N4", 'common')`
+* Run and draw cost matrix - `AI.getCostMatrixDebugger().debug("W8N4", 'common')` and `AI.getCostMatrixDebugger().clear()`
 
 ### Creeps
 

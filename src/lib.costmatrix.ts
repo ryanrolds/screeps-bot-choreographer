@@ -1,3 +1,4 @@
+import {stringify} from "querystring";
 import {getRegion} from "./lib.flood_fill";
 import {Tracer} from "./lib.tracing";
 import {Colony} from "./org.colony";
@@ -143,67 +144,50 @@ export const createPartyCostMatrix = (roomName: string, trace: Tracer): CostMatr
 
 export const createOpenSpaceMatrix = (roomName: string, trace: Tracer): [CostMatrix, number, RoomPosition] => {
   trace = trace.begin('createOpenSpaceMatrix');
+
   const costMatrix = new PathFinder.CostMatrix();
+  const seen: Record<string, boolean> = {};
 
-  const positions = {};
-  let distance = -1;
+  let pass = 0;
+  const passes: RoomPosition[][] = [];
+  passes[pass] = [];
 
-  const edges = [];
+  // Add walls and room positions near edges to initial pass
+  // Mark each position as seen
   const terrain = Game.map.getRoomTerrain(roomName);
   for (let x = 0; x <= 49; x++) {
     for (let y = 0; y <= 49; y++) {
-      const mask = terrain.get(x, y);
-      if (mask === TERRAIN_MASK_WALL) {
-        edges.push(new RoomPosition(x, y, roomName));
-        positions[x + ',' + y] = distance;
-        costMatrix.set(x, y, -1);
-      }
-
-      if (x < 3 || y < 3 || x > 46 || y > 46) {
-        edges.push(new RoomPosition(x, y, roomName));
-        positions[x + ',' + y] = distance;
-        costMatrix.set(x, y, distance);
+      if (x < 3 || y < 3 || x > 46 || y > 46 || terrain.get(x, y) === TERRAIN_MASK_WALL) {
+        passes[pass].push(new RoomPosition(x, y, roomName));
+        seen[x + ',' + y] = true;
+        costMatrix.set(x, y, pass);
       }
     }
   }
 
-  trace.notice('edges', {numEdges: edges.length});
+  do {
+    const currentPass = passes[pass];
+    pass++;
+    passes[pass] = [];
 
-  return [costMatrix, null, null];
+    currentPass.forEach((centerPos: RoomPosition) => {
+      getAdjacentPositions(centerPos).forEach((pos) => {
+        if (seen[pos.x + ',' + pos.y]) {
+          return;
+        }
 
-  const distances = [];
-
-  distance++;
-
-  for (let i = 0; i < edges.length; i++) {
-    const center = edges[i];
-    const adjacent = getAdjacentPositions(center);
-    trace.notice('adjacent', {center: center.toString(), numAdjacent: adjacent.length});
-
-    adjacent.forEach((pos) => {
-      if (typeof positions[pos.x + ',' + pos.y] !== 'undefined') {
-        return;
-      }
-
-      positions[pos.x + ',' + pos.y] = distance;
-      costMatrix.set(pos.x, pos.y, distance);
-
-      if (!distances[distance]) {
-        distances[distance] = [];
-      }
-
-      distances[distance].push(pos);
+        passes[pass].push(pos);
+        seen[pos.x + ',' + pos.y] = true;
+        costMatrix.set(pos.x, pos.y, pass);
+      });
     });
-  }
+  } while (passes[pass].length);
 
-  const maxSpace = distances.length;
-  const position = distances[maxSpace - 1][0];
+  const position = passes[pass - 1][0];
+  const cpuTime = trace.end();
+  trace.log('results', {cpuTime, pass, position});
 
-  trace.end();
-
-  trace.notice('maxSpace', {maxSpace, position});
-
-  return [costMatrix, maxSpace, position];
+  return [costMatrix, pass, position];
 };
 
 // get position surrounding a room position
