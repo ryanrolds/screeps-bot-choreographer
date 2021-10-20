@@ -2,7 +2,10 @@ import {Process, Runnable, RunnableResult, running, sleeping, terminate} from ".
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
 import {AllowedCostMatrixTypes} from "./lib.costmatrix_cache";
-import {createCommonCostMatrix, createDefenderCostMatrix, createPartyCostMatrix} from "./lib.costmatrix";
+import {
+  createCommonCostMatrix, createDefenderCostMatrix,
+  createPartyCostMatrix, createOpenSpaceMatrix
+} from "./lib.costmatrix";
 
 
 export default class CostMatrixDebugger {
@@ -44,8 +47,11 @@ export default class CostMatrixDebugger {
       case AllowedCostMatrixTypes.BASE_DEFENSE:
         costMatrix = createDefenderCostMatrix(roomId, trace);
         break;
+      case AllowedCostMatrixTypes.OPEN_SPACE:
+        [costMatrix] = createOpenSpaceMatrix(roomId, trace);
+        break;
       default:
-        trace.log('unexpected matrix type', {matrixType: costMatrixType})
+        trace.error('unexpected matrix type', {matrixType: costMatrixType})
     }
 
     if (typeof (costMatrix) !== "boolean") {

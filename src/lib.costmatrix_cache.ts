@@ -1,4 +1,7 @@
-import {createCommonCostMatrix, createDefenderCostMatrix, createPartyCostMatrix} from "./lib.costmatrix";
+import {
+  createCommonCostMatrix, createDefenderCostMatrix,
+  createPartyCostMatrix, createOpenSpaceMatrix
+} from "./lib.costmatrix";
 import {Tracer} from "./lib.tracing";
 import {Kingdom} from "./org.kingdom";
 
@@ -8,6 +11,7 @@ export enum AllowedCostMatrixTypes {
   PARTY = 'party',
   COMMON = 'common',
   BASE_DEFENSE = 'base',
+  OPEN_SPACE = 'open_space',
 };
 
 export class CostMatrixCacheItem {
@@ -38,6 +42,10 @@ export class CostMatrixCacheItem {
       case AllowedCostMatrixTypes.BASE_DEFENSE:
         costMatrix = createDefenderCostMatrix(this.roomId, trace);
         break;
+      case AllowedCostMatrixTypes.OPEN_SPACE:
+        [costMatrix] = createOpenSpaceMatrix(this.roomId, trace);
+      default:
+        trace.error('unknown cost matrix type', {type: this.costMatrixType})
     }
 
     this.costMatrix = costMatrix;

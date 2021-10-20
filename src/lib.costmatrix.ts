@@ -139,7 +139,92 @@ export const createPartyCostMatrix = (roomName: string, trace: Tracer): CostMatr
   */
 
   return costMatrix;
-}
+};
+
+export const createOpenSpaceMatrix = (roomName: string, trace: Tracer): [CostMatrix, number, RoomPosition] => {
+  trace = trace.begin('createOpenSpaceMatrix');
+  const costMatrix = new PathFinder.CostMatrix();
+
+  const positions = {};
+  let distance = -1;
+
+  const edges = [];
+  const terrain = Game.map.getRoomTerrain(roomName);
+  for (let x = 0; x <= 49; x++) {
+    for (let y = 0; y <= 49; y++) {
+      const mask = terrain.get(x, y);
+      if (mask === TERRAIN_MASK_WALL) {
+        edges.push(new RoomPosition(x, y, roomName));
+        positions[x + ',' + y] = distance;
+        costMatrix.set(x, y, -1);
+      }
+
+      if (x < 3 || y < 3 || x > 46 || y > 46) {
+        edges.push(new RoomPosition(x, y, roomName));
+        positions[x + ',' + y] = distance;
+        costMatrix.set(x, y, distance);
+      }
+    }
+  }
+
+  trace.notice('edges', {numEdges: edges.length});
+
+  return [costMatrix, null, null];
+
+  const distances = [];
+
+  distance++;
+
+  for (let i = 0; i < edges.length; i++) {
+    const center = edges[i];
+    const adjacent = getAdjacentPositions(center);
+    trace.notice('adjacent', {center: center.toString(), numAdjacent: adjacent.length});
+
+    adjacent.forEach((pos) => {
+      if (typeof positions[pos.x + ',' + pos.y] !== 'undefined') {
+        return;
+      }
+
+      positions[pos.x + ',' + pos.y] = distance;
+      costMatrix.set(pos.x, pos.y, distance);
+
+      if (!distances[distance]) {
+        distances[distance] = [];
+      }
+
+      distances[distance].push(pos);
+    });
+  }
+
+  const maxSpace = distances.length;
+  const position = distances[maxSpace - 1][0];
+
+  trace.end();
+
+  trace.notice('maxSpace', {maxSpace, position});
+
+  return [costMatrix, maxSpace, position];
+};
+
+// get position surrounding a room position
+const getAdjacentPositions = (center: RoomPosition): RoomPosition[] => {
+  const positions = [];
+  for (let x = center.x - 1; x <= center.x + 1; x++) {
+    for (let y = center.y - 1; y <= center.y + 1; y++) {
+      if (x === center.x && y === center.y) {
+        continue;
+      }
+
+      if (x < 0 || y < 0 || x > 49 || y > 49) {
+        continue;
+      }
+
+      positions.push(new RoomPosition(x, y, center.roomName));
+    }
+  }
+
+  return positions;
+};
 
 const get255CostMatrix = (): CostMatrix => {
   if (costMatrix255) {
