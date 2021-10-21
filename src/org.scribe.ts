@@ -13,7 +13,6 @@ const WRITE_MEMORY_INTERVAL = 50;
 type Journal = {
   rooms: Record<string, RoomEntry>;
   creeps: Record<string, Creep>;
-
 };
 
 type PortalEntry = {
@@ -23,8 +22,15 @@ type PortalEntry = {
   destinationRoom: string;
 };
 
+// NE = +,+
+type RoomCoordinates = {
+  x: number;
+  y: number;
+}
+
 export type RoomEntry = {
   id: Id<Room>,
+  coordinates: RoomCoordinates,
   lastUpdated: number;
   controller?: {
     owner: string;
@@ -72,6 +78,7 @@ export class Scribe extends OrgBase {
   private journal: Journal;
   costMatrix255: CostMatrix;
   threadWriteMemory: ThreadFunc;
+  threadUpdateClaimCount: ThreadFunc;
 
   constructor(parent, trace) {
     super(parent, 'scribe', trace);
@@ -82,7 +89,8 @@ export class Scribe extends OrgBase {
       colonyCostMatrices: {},
     };
 
-    this.threadWriteMemory = thread('write_memory', WRITE_MEMORY_INTERVAL)(this.writeMemory.bind(this))
+    this.threadWriteMemory = thread('write_memory', WRITE_MEMORY_INTERVAL)(this.writeMemory.bind(this));
+    this.threadUpdateClaimCount = thread('claim_count', WRITE_MEMORY_INTERVAL)(this.updateClaimCount.bind(this));
   }
 
   writeMemory(trace: Tracer) {
@@ -95,6 +103,18 @@ export class Scribe extends OrgBase {
     Memory['scribe'] = this.journal;
   }
 
+  updateClaimCount(trace: Tracer) {
+    const localMemory = this.getLocalShardMemory();
+    localMemory.claimed_rooms = _.reduce(Game.rooms, (acc, room) => {
+      if (room.controller && room.controller.my) {
+        acc++;
+      }
+
+      return acc
+    }, 0);
+    this.setLocalShardMemory(localMemory);
+  };
+
   update(trace) {
     const updateTrace = trace.begin('update');
 
@@ -106,6 +126,7 @@ export class Scribe extends OrgBase {
     });
 
     this.threadWriteMemory(updateTrace);
+    this.threadUpdateClaimCount(updateTrace);
 
     updateTrace.end();
   }
@@ -247,6 +268,7 @@ export class Scribe extends OrgBase {
   updateRoom(kingdom: Kingdom, roomObject: Room) {
     const room: RoomEntry = {
       id: roomObject.name as Id<Room>,
+      coordinates: getRoomCoordinates(roomObject.name),
       lastUpdated: Game.time,
       controller: null,
       hasSpawns: false,
@@ -442,5 +464,20 @@ export class Scribe extends OrgBase {
 
     return null;
   }
+
+  getRoomsWithinRange(roomId: string, range: number): string[] {
+    const rooms: string[] = [];
+
+    const center = getRoomCoordinates(roomId);
+
+    return rooms;
+  }
 }
+
+const getRoomCoordinates = (roomName: string): RoomCoordinates => {
+  const parsedName = roomName.match(/^([WE])([0-9]+)([NS])([0-9]+)$/);
+  console.log(parsedName);
+
+  return {x: 0, y: 0};
+};
 

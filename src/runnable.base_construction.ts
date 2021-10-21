@@ -154,7 +154,7 @@ export default class BaseConstructionRunnable {
     });
 
     if (!layout) {
-      trace.notice('no layout');
+      trace.log('no layout');
       trace.end();
       return sleeping(CONSTRUCTION_INTERVAL);
     }

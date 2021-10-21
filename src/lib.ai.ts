@@ -13,6 +13,7 @@ import BufferManager from './runnable.manager.buffer';
 import PathDebugger from './runnable.path_debugger';
 import CostMatrixDebugger from './runnable.costmatrix_debug';
 import InvaderManager from './runnable.manager.invaders';
+import ExpansionManager from './runnable.manager.expansion';
 
 
 let lastMemoryTick: number = 0;
@@ -71,11 +72,17 @@ export class AI {
     this.scheduler.registerProcess(new Process(warManagerId, 'war_manager',
       Priorities.ATTACK, warManager));
 
-    // Buffer manager
+    // Invader manager
     const invaderManagerId = 'invader_manager';
     const invaderManager = new InvaderManager(invaderManagerId, this.scheduler, trace);
     this.scheduler.registerProcess(new Process(invaderManagerId, 'invader_manager',
       Priorities.ATTACK, invaderManager));
+
+    // Expansion manager
+    const expansionManagerId = 'expansion_manager';
+    const expansionManager = new ExpansionManager(expansionManagerId, trace);
+    this.scheduler.registerProcess(new Process(expansionManagerId, 'expansion_manager',
+      Priorities.EXPLORATION, expansionManager));
 
     // Path debugger
     const pathDebuggerId = 'path_debugger';
