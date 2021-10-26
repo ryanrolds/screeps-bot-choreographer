@@ -156,7 +156,7 @@ export const createOpenSpaceMatrix = (roomName: string, trace: Tracer): [CostMat
       if (mask === TERRAIN_MASK_WALL) {
         edges.push(new RoomPosition(x, y, roomName));
         positions[x + ',' + y] = distance;
-        costMatrix.set(x, y, -1);
+        costMatrix.set(x, y, distance);
       }
 
       if (x < 3 || y < 3 || x > 46 || y > 46) {
