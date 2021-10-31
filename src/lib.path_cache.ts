@@ -186,7 +186,7 @@ export class PathCache {
 
     if (this.listCount > this.maxSize) {
       const toRemove = this.tail.next;
-      if (toRemove) {
+      if (toRemove && this.originGoalToPathMap[toRemove.originId]) {
         delete this.originGoalToPathMap[toRemove.originId][toRemove.goalId];
         toRemove.remove();
         this.listCount -= 1;
