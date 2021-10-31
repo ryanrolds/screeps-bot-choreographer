@@ -2,7 +2,6 @@ import {FindPathPolicy, getPath} from "./lib.pathing";
 import {Tracer} from "./lib.tracing";
 import {Kingdom} from "./org.kingdom";
 
-
 const CACHE_ITEM_TTL = 1000;
 
 export class PathCacheItem {
@@ -23,6 +22,7 @@ export class PathCacheItem {
     this.next = null;
     this.prev = null;
   }
+
   add(item: PathCacheItem) {
     if (this.prev) {
       this.prev.next = item;
@@ -32,10 +32,12 @@ export class PathCacheItem {
     this.prev = item;
     item.next = this;
   }
+
   remove() {
     this.next.prev = this.prev;
     this.prev.next = this.next;
   }
+
   isExpired(time: number) {
     return time - this.time > CACHE_ITEM_TTL;
   }
