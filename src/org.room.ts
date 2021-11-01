@@ -387,7 +387,7 @@ export default class OrgRoom extends OrgBase {
       return;
     }
 
-    this.updateStats();
+    this.updateStats(trace);
 
     processTrace.end();
   }
@@ -644,7 +644,7 @@ export default class OrgRoom extends OrgBase {
     });
   }
 
-  updateStats() {
+  updateStats(trace: Tracer) {
     const room = this.room;
 
     const roomStats: any = {

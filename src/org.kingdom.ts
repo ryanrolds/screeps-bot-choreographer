@@ -15,6 +15,7 @@ import OrgRoom from './org.room';
 import WarManager from './runnable.manager.war';
 import {WORKER_HAULER} from './constants.creeps';
 import {CostMatrixCache} from './lib.costmatrix_cache';
+import {getPath} from './lib.pathing';
 
 const UPDATE_ORG_TTL = 1;
 
@@ -69,7 +70,7 @@ export class Kingdom extends OrgBase {
 
     this.scribe = new Scribe(this, setupTrace);
 
-    this.pathCache = new PathCache(this, 250);
+    this.pathCache = new PathCache(this, 250, getPath);
     // this.pathCache.loadFromMemory(setupTrace);
     // this.threadStoreSavePathCacheToMemory = thread(SAVE_PATH_CACHE_TTL)((trace) => {
     //  this.pathCache.saveToMemory(trace);
@@ -273,7 +274,7 @@ export class Kingdom extends OrgBase {
   getStats(): any {
     return this.stats;
   }
-  updateStats() {
+  updateStats(trace: Tracer) {
     const stats = this.getStats();
 
     stats.time = Game.time;
@@ -296,7 +297,7 @@ export class Kingdom extends OrgBase {
 
     stats.topics = this.topics.getCounts();
 
-    stats.path_cache = this.getPathCache().getStats();
+    stats.path_cache = this.getPathCache().getStats(trace);
 
     stats.scribe = this.getScribe().getStats();
 

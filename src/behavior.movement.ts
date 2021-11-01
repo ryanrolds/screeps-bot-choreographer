@@ -172,7 +172,7 @@ const updateCreepCachedPath = (kingdom: Kingdom, creep: Creep, destination: Room
   trace.log('keys', {originKey, destKey});
 
   if (originKey && destKey) {
-    path = pathCache.getCachedPath(originKey, destKey);
+    path = pathCache.getCachedPath(originKey, destKey, trace);
   }
 
   if (path) {

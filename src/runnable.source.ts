@@ -79,7 +79,7 @@ export default class SourceRunnable {
     this.threadRequestUpgraders(trace, kingdom, colony, room, source);
     this.threadRequestHauling(trace, colony);
 
-    this.updateStats(kingdom);
+    this.updateStats(kingdom, trace);
 
     return running();
   }
@@ -284,7 +284,7 @@ export default class SourceRunnable {
     }
   }
 
-  updateStats(kingdom: Kingdom) {
+  updateStats(kingdom: Kingdom, trace: Tracer) {
     const source = Game.getObjectById(this.sourceId);
     if (!source || !(source instanceof Source)) {
       return;

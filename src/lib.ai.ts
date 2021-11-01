@@ -115,7 +115,7 @@ export class AI {
 
     if (Game.time % 5 === 0) {
       const statsTrace = trace.begin('stats');
-      this.kingdom.updateStats();
+      this.kingdom.updateStats(statsTrace);
 
       // Set stats in memory for pulling and display in Grafana
       (Memory as any).stats = this.kingdom.getStats();

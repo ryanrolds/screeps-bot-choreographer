@@ -179,7 +179,7 @@ export class Colony extends OrgBase {
 
     if (this.primaryRoom) {
       const updateHaulerPID = updateTrace.begin('update_hauler_pid');
-      this.pidDesiredHaulers = PID.update(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS,
+      this.pidDesiredHaulers = PID.update(this.primaryRoomId, this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS,
         numHaulTasks, Game.time, updateHaulerPID);
       updateHaulerPID.log('desired haulers', {desired: this.pidDesiredHaulers});
       updateHaulerPID.end();
@@ -212,7 +212,7 @@ export class Colony extends OrgBase {
     trace = trace.asId(this.id);
     const processTrace = trace.begin('process');
 
-    this.updateStats();
+    this.updateStats(processTrace);
 
     const roomTrace = processTrace.begin('rooms');
     Object.values(this.roomMap).forEach((room) => {
@@ -333,7 +333,7 @@ export class Colony extends OrgBase {
   getAvgHaulerCapacity() {
     return this.avgHaulerCapacity;
   }
-  updateStats() {
+  updateStats(trace: Tracer) {
     const topicCounts = this.topics.getCounts();
 
     const colonyStats = {
