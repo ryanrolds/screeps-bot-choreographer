@@ -44,6 +44,10 @@ export default class NukerRunnable {
       return terminate();
     }
 
+    if (!nuker.isActive()) {
+      return sleeping(100);
+    }
+
     let readyToFire = !nuker.cooldown;
 
     const neededEnergy = nuker.store.getFreeCapacity(RESOURCE_ENERGY);

@@ -37,7 +37,7 @@ export default class SpawnManager {
     this.threadUpdateSpawnList = thread('update_spawn_list_thread', UPDATE_SPAWN_LIST_TTL)((trace) => {
       trace.log('updating spawn list');
       this.spawnIds = roomObject.find<StructureSpawn>(FIND_MY_STRUCTURES, {
-        filter: structure => structure.structureType === STRUCTURE_SPAWN,
+        filter: structure => structure.structureType === STRUCTURE_SPAWN && structure.isActive(),
       }).map(spawn => spawn.id);
     })
   }

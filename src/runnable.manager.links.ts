@@ -47,7 +47,7 @@ export default class LinkManager {
     if (roomObject.storage) {
       this.storageLink = roomObject.storage.pos.findInRange<StructureLink>(FIND_STRUCTURES, 3, {
         filter: (structure) => {
-          return structure.structureType === STRUCTURE_LINK;
+          return structure.structureType === STRUCTURE_LINK && structure.isActive();
         }
       })[0]?.id;
     }
@@ -56,7 +56,7 @@ export default class LinkManager {
     this.sourceLinks = sources.map((source) => {
       return source.pos.findInRange<StructureLink>(FIND_STRUCTURES, 2, {
         filter: (structure) => {
-          return structure.structureType === STRUCTURE_LINK;
+          return structure.structureType === STRUCTURE_LINK && structure.isActive();
         }
       })[0]?.id;
     }).filter(value => value);
@@ -65,7 +65,7 @@ export default class LinkManager {
     if (controller) {
       this.sinkLinks = controller.pos.findInRange<StructureLink>(FIND_STRUCTURES, 4, {
         filter: (structure) => {
-          return structure.structureType === STRUCTURE_LINK;
+          return structure.structureType === STRUCTURE_LINK && structure.isActive();
         }
       }).map((link) => {
         return link.id;

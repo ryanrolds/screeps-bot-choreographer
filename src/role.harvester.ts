@@ -16,7 +16,7 @@ const behavior = behaviorTree.sequenceNode(
     behaviorCommute.setCommuteDuration,
     behaviorHarvest.harvest,
     behaviorTree.selectorNode(
-      'dump_or_build',
+      'dump_or_build_or_upgrade',
       [
         behaviorTree.sequenceNode(
           'dump_energy',
@@ -62,6 +62,40 @@ const behavior = behaviorTree.sequenceNode(
             behaviorBuild.selectSite,
             behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 1, common),
             behaviorBuild.build,
+          ],
+        ),
+        behaviorTree.sequenceNode(
+          'upgrade_controller',
+          [
+            behaviorTree.leafNode(
+              'pick_room_controller',
+              (creep) => {
+                behaviorMovement.setDestination(creep, creep.room.controller.id);
+                return behaviorTree.SUCCESS;
+              },
+            ),
+            behaviorMovement.moveToDestination(3, false, 25, 1000),
+            behaviorCommute.setCommuteDuration,
+            behaviorTree.repeatUntilSuccess(
+              'upgrade_until_empty',
+              behaviorTree.leafNode(
+                'upgrade_controller',
+                (creep, trace, kingdom) => {
+                  const result = creep.upgradeController(creep.room.controller);
+                  trace.log("upgrade result", {result})
+
+                  if (result == ERR_NOT_ENOUGH_RESOURCES) {
+                    return behaviorTree.SUCCESS;
+                  }
+
+                  if (result != OK) {
+                    return behaviorTree.SUCCESS;
+                  }
+
+                  return behaviorTree.RUNNING;
+                },
+              ),
+            ),
           ],
         ),
       ],

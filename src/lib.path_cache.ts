@@ -187,7 +187,7 @@ export class PathCache {
         break;
       }
 
-      if (count > 1000) {
+      if (count > CACHE_ITEM_TTL + 20) {
         trace.notice('aborting count, too large')
         break;
       }

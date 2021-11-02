@@ -68,6 +68,10 @@ export default class TerminalRunnable {
       return terminate();
     }
 
+    if (terminal.isActive()) {
+      return sleeping(10);
+    }
+
     this.threadHaulOldSellOrders(trace, terminal);
     this.threadUpdateEnergyValue(trace);
 
