@@ -13,6 +13,7 @@ export class PathCacheItem {
   goalId: string
   value: PathFinderPath
   time: number
+  hits: number
 
   next: PathCacheItem
   prev: PathCacheItem
@@ -22,6 +23,7 @@ export class PathCacheItem {
     this.goalId = goalId;
     this.value = path;
     this.time = time;
+    this.hits = 0;
 
     this.next = null;
     this.prev = null;
@@ -154,6 +156,7 @@ export class PathCache {
     }
 
     this.hits += 1;
+    item.hits += 1;
 
     item.remove();
     this.listCount -= 1;
@@ -164,7 +167,7 @@ export class PathCache {
     }
 
     this.head.add(item);
-    this.listCount -= 1;
+    this.listCount += 1;
 
     return item;
   }
@@ -187,7 +190,7 @@ export class PathCache {
         break;
       }
 
-      if (count > CACHE_ITEM_TTL + 20) {
+      if (count > this.maxSize * 1.1) {
         trace.notice('aborting count, too large')
         break;
       }
@@ -207,7 +210,6 @@ export class PathCache {
 
     const memory = Memory['path_cache'] || {};
     const paths = memory.paths || [];
-    const rooms = memory.rooms || [];
 
     paths.forEach((path) => {
       path.value.path = path.value.path.map((position) => {
@@ -263,5 +265,14 @@ export class PathCache {
       listCount: this.listCount,
       size: this.getSize(trace),
     };
+  }
+
+  debug() {
+    console.log(this.listCount);
+    let node = this.head;
+    while (node.prev) {
+      console.log(node.originId, node.goalId, node.hits, Game.time - node.time, node?.value?.path.length);
+      node = node.prev;
+    }
   }
 }

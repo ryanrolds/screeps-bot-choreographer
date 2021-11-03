@@ -190,13 +190,13 @@ let config: KingdomConfig = {
       */
     },
     'Ryans-MacBook-Pro.local': {
-      'W3N8-Private': {
-        id: 'W3N8-Private',
-        primary: 'W3N8',
+      'W6N1-Private': {
+        id: 'W6N1-Private',
+        primary: 'W6N1',
         isPublic: false,
-        rooms: ['W3N8'],
+        rooms: ['W6N1'],
         automated: true,
-        origin: new RoomPosition(31, 17, 'W3N8'),
+        origin: new RoomPosition(34, 18, 'W6N1'),
       },
     }
   },
