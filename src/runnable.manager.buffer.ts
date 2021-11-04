@@ -119,6 +119,11 @@ function getHostileRoomsByColony(kingdom: Kingdom, trace: Tracer): HostileRoomsB
   // TODO replace with lib.pathing
   weakRooms.forEach((room) => {
     const colony = getClosestColonyByPath(kingdom, room.controllerPos, policy, trace)
+    if (!colony) {
+      trace.notice('closest colony', {room, policy});
+      return;
+    }
+
     if (!hostileRoomsByColony[colony.id]) {
       hostileRoomsByColony[colony.id] = [];
     }
