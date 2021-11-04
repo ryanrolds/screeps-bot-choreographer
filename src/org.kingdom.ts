@@ -70,7 +70,7 @@ export class Kingdom extends OrgBase {
 
     this.scribe = new Scribe(this, setupTrace);
 
-    this.pathCache = new PathCache(this, 250, getPath);
+    this.pathCache = new PathCache(this, 25, getPath);
     // this.pathCache.loadFromMemory(setupTrace);
     // this.threadStoreSavePathCacheToMemory = thread(SAVE_PATH_CACHE_TTL)((trace) => {
     //  this.pathCache.saveToMemory(trace);

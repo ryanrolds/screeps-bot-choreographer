@@ -30,18 +30,22 @@ export class PathCacheItem {
   }
 
   add(item: PathCacheItem) {
+    item.next = this
+
     if (this.prev) {
-      this.prev.next = item;
-      item.prev = this.prev;
+      item.prev = this.prev
+      this.prev.next = item
     }
 
     this.prev = item;
-    item.next = this;
   }
 
   remove() {
     this.next.prev = this.prev;
     this.prev.next = this.next;
+
+    this.next = null;
+    this.prev = null;
   }
 
   isExpired(time: number) {
@@ -72,8 +76,8 @@ export class PathCache {
     this.listCount = 0;
 
     this.originGoalToPathMap = {};
-    this.head = new PathCacheItem(null, null, null, null);
-    this.tail = new PathCacheItem(null, null, null, null);
+    this.head = new PathCacheItem(null, null, null, Game.time);
+    this.tail = new PathCacheItem(null, null, null, Game.time);
     this.head.add(this.tail);
 
     this.hits = 0;
@@ -268,11 +272,14 @@ export class PathCache {
   }
 
   debug() {
-    console.log(this.listCount);
+
     let node = this.head;
+    let count = 0;
     while (node.prev) {
-      console.log(node.originId, node.goalId, node.hits, Game.time - node.time, node?.value?.path.length);
+      console.log(`O:${node.originId}\tG:${node.goalId}\tH:${node.hits}\tA:${Game.time - node.time}\tL:${node?.value?.path.length || 0}`);
       node = node.prev;
+      count++;
     }
+    console.log(this.listCount, count);
   }
 }

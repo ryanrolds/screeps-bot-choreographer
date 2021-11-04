@@ -487,17 +487,17 @@ export default class RoomRunnable {
     const reserveEnergy = orgRoom.getAmountInReserve(RESOURCE_ENERGY, false);
     const reserveBuffer = orgRoom.getReserveBuffer();
 
-    trace.notice('reserver energy', {reserveEnergy, reserveBuffer});
+    trace.log('reserver energy', {reserveEnergy, reserveBuffer});
 
     if (!room.controller.my) {
-      trace.notice('not my room')
+      trace.log('not my room')
       desiredUpgraders = 0;
     } else if (room.controller.level === 8) {
-      trace.notice('max level room')
+      trace.log('max level room')
       parts = (reserveEnergy - reserveBuffer) / 1500;
       desiredUpgraders = 1;
     } else if (orgRoom.hasStorage) {
-      trace.notice('has storage');
+      trace.log('has storage');
 
       const roomCapacity = room.energyCapacityAvailable;
       maxParts = Math.floor(roomCapacity / 200);
@@ -505,7 +505,7 @@ export default class RoomRunnable {
         maxParts = 15;
       }
 
-      trace.notice('max parts', {maxParts});
+      trace.log('max parts', {maxParts});
 
       if (room.storage?.isActive() && reserveEnergy > reserveBuffer) {
         parts = (reserveEnergy - reserveBuffer) / 1500;
@@ -513,7 +513,7 @@ export default class RoomRunnable {
         parts = reserveEnergy - 1000 / 1500;
       }
 
-      trace.notice('parts', {parts});
+      trace.log('parts', {parts});
 
       desiredUpgraders = Math.ceil(parts / maxParts);
     } else if (!orgRoom.hasSpawns) {
@@ -530,7 +530,7 @@ export default class RoomRunnable {
       desiredUpgraders = MAX_UPGRADERS;
     }
 
-    trace.notice('request upgrader', {
+    trace.log('request upgrader', {
       desiredUpgraders,
       numUpgraders,
       energyLimit,

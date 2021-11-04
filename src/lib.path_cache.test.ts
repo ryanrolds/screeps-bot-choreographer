@@ -4,7 +4,7 @@ import * as _ from "lodash";
 import Sinon, * as sinon from 'sinon';
 import {stubObject, StubbedInstance} from "ts-sinon";
 import {setup, mockGlobal, mockInstanceOf} from "screeps-test-helper";
-import {CACHE_ITEM_TTL, PathCache, PathProvider} from './lib.path_cache';
+import {CACHE_ITEM_TTL, PathCache, PathCacheItem, PathProvider} from './lib.path_cache';
 import {Kingdom} from './org.kingdom';
 import {Scheduler} from './os.scheduler';
 import {KingdomConfig} from './config';
@@ -206,6 +206,60 @@ describe('Path Cache', function () {
       expect(otherCachedItem.value).to.equal(otherPath);
 
       expect(cache.getSize(trace)).to.equal(2);
+    });
+  });
+
+  describe('detailed linked list tests', () => {
+    it("should correctly update the linked list", () => {
+      const head = new PathCacheItem(null, null, null, Game.time);
+      const tail = new PathCacheItem(null, null, null, Game.time);
+      head.add(tail);
+
+      expect(head.prev).to.equal(tail);
+      expect(head.next).to.equal(null);
+      expect(tail.next).to.equal(head);
+      expect(tail.prev).to.equal(null);
+
+      const newNode = new PathCacheItem(null, null, null, Game.time);
+      head.add(newNode);
+
+      expect(head.prev).to.equal(newNode);
+      expect(head.next).to.equal(null);
+      expect(newNode.next).to.equal(head);
+      expect(newNode.prev).to.equal(tail);
+      expect(tail.next).to.equal(newNode);
+      expect(tail.prev).to.equal(null);
+
+      tail.next.remove();
+
+      expect(head.prev).to.equal(tail);
+      expect(head.next).to.equal(null);
+      expect(tail.next).to.equal(head);
+      expect(tail.prev).to.equal(null);
+
+      const anotherNode = new PathCacheItem(null, null, null, Game.time);
+      head.add(anotherNode);
+
+      const yetAnotherNode = new PathCacheItem(null, null, null, Game.time);
+      head.add(yetAnotherNode);
+
+      const andAnotherNode = new PathCacheItem(null, null, null, Game.time);
+      head.add(andAnotherNode);
+
+      yetAnotherNode.remove();
+      head.add(yetAnotherNode);
+
+      expect(head.prev).to.equal(yetAnotherNode);
+      expect(yetAnotherNode.prev).to.equal(andAnotherNode);
+      expect(andAnotherNode.prev).to.equal(anotherNode);
+      expect(anotherNode.prev).to.equal(tail);
+      expect(tail.prev).to.equal(null);
+
+      expect(tail.next).to.equal(anotherNode);
+      expect(anotherNode.next).to.equal(andAnotherNode);
+      expect(andAnotherNode.next).to.equal(yetAnotherNode);
+      expect(yetAnotherNode.next).to.equal(head);
+      expect(head.next).to.equal(null);
     });
   });
 });
