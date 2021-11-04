@@ -162,6 +162,14 @@ let config: KingdomConfig = {
         automated: true,
         origin: new RoomPosition(17, 17, 'W8N3'),
       },
+      'W6N1-Private': {
+        id: 'W6N1-Private',
+        primary: 'W6N1',
+        isPublic: false,
+        rooms: ['W6N1'],
+        automated: true,
+        origin: new RoomPosition(35, 14, 'W6N1'),
+      },
       /*
       'W3N1-Private': {
         id: 'W3N1-Private',
@@ -178,14 +186,6 @@ let config: KingdomConfig = {
         rooms: ['W3N7'],
         automated: true,
         origin: new RoomPosition(35, 18, 'W3N7'),
-      },
-      'W6N1-Private': {
-        id: 'W6N1-Private',
-        primary: 'W6N1',
-        isPublic: false,
-        rooms: ['W6N1'],
-        automated: true,
-        origin: new RoomPosition(32, 22, 'W6N1'),
       },
       */
     },
