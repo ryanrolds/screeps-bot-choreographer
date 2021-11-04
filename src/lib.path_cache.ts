@@ -113,15 +113,15 @@ export class PathCache {
   setCachedPath(originKey: string, destKey: string, value: PathFinderPath, time: number,
     trace: Tracer): PathCacheItem {
     const item = new PathCacheItem(originKey, destKey, value, time);
+
+    // TODO move to add logic
     this.head.add(item);
     this.listCount += 1;
-
     // Add path to cache
     const origins = this.originGoalToPathMap[originKey];
     if (!origins) {
       this.originGoalToPathMap[originKey] = {};
     }
-
     this.originGoalToPathMap[originKey][destKey] = item;
 
     trace.notice('set cache path', {originKey, destKey});
@@ -136,6 +136,7 @@ export class PathCache {
         destKey: toRemove.goalId
       });
 
+      // TODO use remove logic
       if (toRemove && this.originGoalToPathMap[toRemove.originId]) {
         delete this.originGoalToPathMap[toRemove.originId][toRemove.goalId];
         toRemove.remove();
@@ -147,12 +148,12 @@ export class PathCache {
   }
 
   getCachedPath(originKey: string, destKey: string, trace: Tracer): PathCacheItem {
+    // TODO move to hash lookup method
     const destinations = this.originGoalToPathMap[originKey];
     if (!destinations) {
       this.misses += 1;
       return null;
     }
-
     const item = destinations[destKey];
     if (!item) {
       this.misses += 1;
@@ -162,7 +163,13 @@ export class PathCache {
     this.hits += 1;
     item.hits += 1;
 
+    // TOOO move to remove logic
+    // Remove from linked list
     item.remove();
+    // Remove from hash map
+    if (this.originGoalToPathMap[item.originId] && this.originGoalToPathMap[item.originId][item.goalId]) {
+      delete this.originGoalToPathMap[item.originId][item.goalId];
+    }
     this.listCount -= 1;
 
     if (item.isExpired(Game.time)) {
@@ -170,7 +177,14 @@ export class PathCache {
       return null;
     }
 
+    // TODO move to add logic
+    // Add to linked list
     this.head.add(item);
+    // Add to hash map
+    if (!this.originGoalToPathMap[item.originId]) {
+      this.originGoalToPathMap[item.originId] = {};
+    }
+    this.originGoalToPathMap[item.originId][item.goalId] = item;
     this.listCount += 1;
 
     return item;
