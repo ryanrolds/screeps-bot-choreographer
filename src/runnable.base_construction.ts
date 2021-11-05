@@ -201,8 +201,13 @@ export default class BaseConstructionRunnable {
         const pos = getConstructionPosition({x, y}, origin, layout);
         const structure = pos.lookFor(LOOK_STRUCTURES)[0];
         if (structure) {
-          // TODO check type and destroy if wrong
           trace.log('structure present', {structure: structure.structureType});
+
+          if (structure.structureType !== buildingCodes[code]) {
+            trace.log('wrong site, remove', {existing: structure.structureType, expected: buildingCodes[code]});
+            structure.destroy();
+          }
+
           continue;
         }
 
