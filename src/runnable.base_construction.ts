@@ -108,6 +108,7 @@ const buildingCodes = {
   'C': STRUCTURE_CONTAINER,
   'T': STRUCTURE_TOWER,
   'S': STRUCTURE_STORAGE,
+  'L': STRUCTURE_LINK,
 }
 
 export default class BaseConstructionRunnable {
