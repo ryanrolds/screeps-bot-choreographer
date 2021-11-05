@@ -18,12 +18,12 @@ type BaseLayout = {
 }
 
 const layouts: BaseLayout[] = [
-  {
+  { // RCL0
     origin: {x: 0, y: 0},
     parking: {x: 0, y: 0},
     buildings: []
   },
-  {
+  { // RCL1
     origin: {x: 0, y: 4},
     parking: {x: 0, y: 4},
     buildings: [
@@ -34,7 +34,7 @@ const layouts: BaseLayout[] = [
       [' '],
     ]
   },
-  {
+  { // RCL2
     origin: {x: 2, y: 5},
     parking: {x: 2, y: 6},
     buildings: [
@@ -47,7 +47,7 @@ const layouts: BaseLayout[] = [
       [' ', ' ', 'R', ' ', ' '],
     ]
   },
-  {
+  { // RCL3
     origin: {x: 2, y: 5},
     parking: {x: 5, y: 7},
     buildings: [
@@ -60,12 +60,12 @@ const layouts: BaseLayout[] = [
       [' ', 'E', 'R', ' ', ' '],
     ]
   },
-  {
+  { // RCL4
     origin: {x: 3, y: 6},
     parking: {x: 6, y: 9},
     buildings: [
       [' ', 'E', 'R', 'E', 'R', 'E', ' '],
-      [' ', 'R', 'E', 'R', 'E', 'R', 'R'],
+      ['R', 'R', 'E', 'R', 'E', 'R', 'R'],
       [' ', 'E', 'R', 'P', 'R', 'E', ' '],
       [' ', 'E', 'R', 'C', 'R', 'E', ' '],
       [' ', ' ', 'R', 'C', 'R', 'E', ' '],
@@ -75,8 +75,27 @@ const layouts: BaseLayout[] = [
       [' ', ' ', 'R', ' ', 'R', 'R', 'R'],
       [' ', 'E', 'R', 'E', 'R', 'R', ' '],
       [' ', 'E', 'R', ' ', 'R', 'R', 'R'],
-      [' ', 'R', 'E', 'R', 'E', 'R', ' '],
+      ['R', 'R', 'E', 'R', 'E', 'R', 'R'],
       [' ', 'E', 'R', 'E', 'R', ' ', ' '],
+    ]
+  },
+  { // RCL5
+    origin: {x: 3, y: 6},
+    parking: {x: 6, y: 9},
+    buildings: [
+      ['E', 'E', 'R', 'E', 'R', 'E', 'E'],
+      ['R', 'R', 'E', 'R', 'E', 'R', 'R'],
+      ['E', 'E', 'R', 'P', 'R', 'E', 'E'],
+      ['E', 'E', 'R', 'E', 'R', 'E', 'E'],
+      [' ', ' ', 'R', ' ', 'R', ' ', ' '],
+      [' ', 'R', 'T', 'R', 'E', 'R', ' '],
+      ['R', ' ', 'R', 'S', 'R', 'L', 'R'],
+      [' ', 'R', 'E', 'R', 'T', 'R', ' '],
+      [' ', ' ', 'R', ' ', 'R', 'R', 'R'],
+      ['E', 'E', 'R', 'E', 'R', 'R', ' '],
+      ['E', 'E', 'R', ' ', 'R', 'R', 'R'],
+      ['R', 'R', 'E', 'R', 'E', 'R', 'R'],
+      ['E', 'E', 'R', 'E', 'R', 'E', 'E'],
     ]
   },
 ]

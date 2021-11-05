@@ -50,6 +50,10 @@ export type FindPathPolicy = {
   path: PathPolicy;
 };
 
+interface RouteCallback {
+  (roomName: string, fromRoomName: string): any;
+}
+
 interface RoomCallbackFunc {
   (roomName: string): (boolean | CostMatrix);
 }
@@ -62,12 +66,34 @@ export const getPath = (kingdom: Kingdom, origin: RoomPosition, destination: Roo
     policy,
   });
 
+  // Get list of rooms on the way to destination
+  const roomRoute = Game.map.findRoute(origin.roomName, destination.roomName, {
+    routeCallback: getRoomRouteCallback(kingdom, policy.room, trace),
+  });
+
+  // If we have no route, return null
+  if (roomRoute === ERR_NO_PATH) {
+    trace.log('not route through rooms', {origin, destination});
+    return null;
+  }
+
+  trace.log('found path through rooms', {route: roomRoute.map((room) => room.room)});
+
+  // Map findRoute results to map of names for fast lookup
+  const allowedRooms: Record<string, boolean> = _.reduce(roomRoute, (acc, room) => {
+    acc[room.room] = true;
+    return acc;
+  }, {});
+
+  // Add origin room to list of allowed room
+  allowedRooms[origin.roomName] = true;
+
   const result = PathFinder.search(origin, {
     pos: destination,
     range: policy.destination.range
   }, {
     maxRooms: policy.path.maxSearchRooms,
-    roomCallback: getRoomCallback(kingdom, policy.room, trace),
+    roomCallback: getRoomCallback(kingdom, policy.room, allowedRooms, trace),
     maxOps: policy.path.maxOps,
     plainCost: policy.path.plainCost || 2,
     swampCost: policy.path.swampCost || 5,
@@ -171,8 +197,35 @@ const getOriginPosition = (kingdom: Kingdom, colony: Colony, policy: ColonyPolic
   return null;
 }
 
-const getRoomCallback = (kingdom: Kingdom, policy: RoomPolicy, trace: Tracer): RoomCallbackFunc => {
+const getRoomRouteCallback = (kingdom: Kingdom, policy: RoomPolicy, trace: Tracer): RouteCallback => {
+  return (fromRoom: string, toRoom: string): number => {
+    const roomEntry = kingdom.getScribe().getRoomById(toRoom);
+    // If we have not scanned the room, dont enter it
+    if (!roomEntry && policy.avoidUnloggedRooms) {
+      trace.log('room not logged', {toRoom});
+      return Infinity;
+    }
+
+    if (roomEntry) {
+      const allow = applyRoomCallbackPolicy(kingdom, roomEntry, policy, trace);
+      if (!allow) {
+        trace.log('room not allowed', {toRoom});
+        return Infinity;
+      }
+    }
+
+    return 1;
+  }
+}
+
+const getRoomCallback = (kingdom: Kingdom, policy: RoomPolicy, allowedRooms: Record<string, boolean>,
+  trace: Tracer): RoomCallbackFunc => {
   return (roomName: string): (boolean | CostMatrix) => {
+    if (!allowedRooms[roomName]) {
+      trace.log('room not allowed', {roomName});
+      return false;
+    }
+
     const roomEntry = kingdom.getScribe().getRoomById(roomName);
     // If we have not scanned the room, dont enter it
     if (!roomEntry && policy.avoidUnloggedRooms) {
