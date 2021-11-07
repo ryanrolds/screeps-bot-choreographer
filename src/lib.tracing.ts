@@ -60,7 +60,7 @@ export class Tracer {
     return trace;
   }
 
-  end() {
+  end(): number {
     if (!isActive) {
       return;
     }
@@ -68,6 +68,8 @@ export class Tracer {
     const end = Game.cpu.getUsed();
     const cpuTime = end - this.start;
     metrics.push({key: this.name, value: cpuTime});
+
+    return cpuTime;
   }
 }
 

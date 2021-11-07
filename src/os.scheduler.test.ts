@@ -34,7 +34,7 @@ describe('Scheduler', () => {
           return 0;
         }
       },
-    })
+    });
 
     mockGlobal<Memory>('Memory', {
       scribe: undefined,

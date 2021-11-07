@@ -89,11 +89,11 @@ class Resources extends OrgBase {
 
     const processTrace = trace.begin('process');
 
-    this.updateStats();
+    this.updateStats(processTrace);
 
     processTrace.end();
   }
-  updateStats() {
+  updateStats(trace) {
     const stats = this.getStats();
     stats.resources = this.resources;
 

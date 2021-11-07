@@ -3,6 +3,7 @@ import {getRegion, Position} from './lib.flood_fill'
 import {Kingdom} from './org.kingdom';
 import {Colony} from './org.colony';
 import {thread, ThreadFunc} from './os.thread';
+import {Tracer} from './lib.tracing';
 
 const COST_MATRIX_TTL = 1500;
 const COST_DEFENDER_NOT_BASE = 6;
@@ -12,14 +13,7 @@ const WRITE_MEMORY_INTERVAL = 50;
 type Journal = {
   rooms: Record<string, RoomEntry>;
   creeps: Record<string, Creep>;
-  defenderCostMatrices: Record<string, CostMatrixEntry>;
-  colonyCostMatrices: Record<string, CostMatrixEntry>;
-};
 
-type CostMatrixEntry = {
-  id: Id<Room>;
-  costs: CostMatrix;
-  ttl: number;
 };
 
 type PortalEntry = {
@@ -39,9 +33,14 @@ export type RoomEntry = {
     safeModeAvailable: number;
     pos: RoomPosition;
   };
+  hasSpawns: boolean;
+  spawnLocation: RoomPosition;
   numSources: number;
   hasHostiles: boolean;
   hasKeepers: boolean;
+  invaderCorePos: RoomPosition;
+  invaderCoreLevel: number;
+  invaderCoreTime: number;
   numTowers: number;
   numKeyStructures: number;
   mineral: MineralConstant;
@@ -70,7 +69,7 @@ export type TargetRoom = {
 };
 
 export class Scribe extends OrgBase {
-  journal: Journal;
+  private journal: Journal;
   costMatrix255: CostMatrix;
   threadWriteMemory: ThreadFunc;
 
@@ -86,8 +85,9 @@ export class Scribe extends OrgBase {
     this.threadWriteMemory = thread('write_memory', WRITE_MEMORY_INTERVAL)(this.writeMemory.bind(this))
   }
 
-  writeMemory() {
+  writeMemory(trace: Tracer) {
     if (Game.cpu.bucket < 1000) {
+      trace.notice('clearing journal from memory to reduce CPU load')
       Memory['scribe'] = null;
       return
     }
@@ -109,12 +109,44 @@ export class Scribe extends OrgBase {
 
     updateTrace.end();
   }
-  process(trace) {
 
+  process(trace) {
+    const username = this.getKingdom().config.username;
+    const friends = this.getKingdom().config.friends;
+    const visual = Game.map.visual;
+    this.getRooms().forEach((room) => {
+      const age = Game.time - room.lastUpdated;
+      const owner = room.controller?.owner || null;
+
+      visual.text(age.toString(), new RoomPosition(49, 47, room.id), {
+        align: 'right',
+        fontSize: 4,
+      });
+
+      let roomPosture = '';
+      if (owner && owner !== username) {
+        roomPosture += '⚔️';
+      }
+      if (owner === username) {
+        roomPosture += '🟢';
+      }
+      if (room.controller?.safeMode > 0) {
+        roomPosture += '💢';
+      }
+
+      visual.text(roomPosture, new RoomPosition(0, 4, room.id), {
+        align: 'left',
+        fontSize: 6,
+      });
+    });
   }
 
   removeStaleJournalEntries() {
 
+  }
+
+  getRooms(): RoomEntry[] {
+    return Object.values(this.journal.rooms);
   }
 
   getStats() {
@@ -127,8 +159,6 @@ export class Scribe extends OrgBase {
       rooms: rooms.length,
       oldestRoom: oldestId,
       oldestAge: oldestAge,
-      colonyCostMatrices: Object.keys(this.journal.colonyCostMatrices).length,
-      defenderCostMatrices: Object.keys(this.journal.defenderCostMatrices).length,
     };
   }
 
@@ -246,9 +276,14 @@ export class Scribe extends OrgBase {
       id: roomObject.name as Id<Room>,
       lastUpdated: Game.time,
       controller: null,
+      hasSpawns: false,
+      spawnLocation: null,
       numSources: 0,
       hasHostiles: false,
       hasKeepers: false,
+      invaderCorePos: null,
+      invaderCoreLevel: null,
+      invaderCoreTime: null,
       numTowers: 0,
       numKeyStructures: 0,
       mineral: null,
@@ -270,6 +305,14 @@ export class Scribe extends OrgBase {
         safeModeAvailable: roomObject.controller.safeModeAvailable,
         pos: roomObject.controller.pos,
       };
+
+      const spawns = roomObject.find(FIND_STRUCTURES, {
+        filter: (structure) => {
+          return structure.structureType === STRUCTURE_SPAWN;
+        },
+      });
+      room.hasSpawns = spawns.length > 0;
+      room.spawnLocation = spawns[0]?.pos
     }
 
     room.numSources = roomObject.find(FIND_SOURCES).length;
@@ -288,6 +331,17 @@ export class Scribe extends OrgBase {
       return owner === 'Source Keeper';
     });
     room.hasKeepers = keepers.length > 0;
+
+    let invaderCores: StructureInvaderCore[] = roomObject.find(FIND_HOSTILE_STRUCTURES, {
+      filter: (structure) => {
+        return structure.structureType === STRUCTURE_INVADER_CORE;
+      }
+    });
+    if (invaderCores.length) {
+      room.invaderCorePos = invaderCores[0].pos;
+      room.invaderCoreLevel = invaderCores[0].level
+      room.invaderCoreTime = invaderCores[0].effects[EFFECT_COLLAPSE_TIMER]?.ticksRemaining;
+    }
 
     room.numTowers = roomObject.find(FIND_HOSTILE_STRUCTURES, {
       filter: (structure) => {
@@ -359,14 +413,26 @@ export class Scribe extends OrgBase {
   }
 
   getLocalShardMemory(): any {
+    if (typeof (InterShardMemory) === 'undefined') {
+      return {} as any;
+    }
+
     return JSON.parse(InterShardMemory.getLocal() || '{}');
   }
 
   setLocalShardMemory(memory: any) {
+    if (typeof (InterShardMemory) === 'undefined') {
+      return;
+    }
+
     return InterShardMemory.setLocal(JSON.stringify(memory));
   }
 
   getRemoteShardMemory(shardName: string) {
+    if (typeof (InterShardMemory) === 'undefined') {
+      return {} as any;
+    }
+
     return JSON.parse(InterShardMemory.getRemote(shardName) || '{}');
   }
 
@@ -403,97 +469,5 @@ export class Scribe extends OrgBase {
 
     return null;
   }
-
-  createDefenderCostMatric(room: Room, spawn: RoomPosition): CostMatrix {
-    const costs = new PathFinder.CostMatrix();
-
-    return costs;
-  }
-
-  getDefenderCostMatrix(room: Room, spawn: RoomPosition): CostMatrix {
-    const costMatrixEntry = this.journal.defenderCostMatrices[room.name];
-    if (costMatrixEntry && costMatrixEntry.ttl <= Game.time) {
-      return
-    }
-
-    const costs = this.createDefenderCostMatric(room, spawn);
-
-    this.journal.defenderCostMatrices[room.name] = {
-      id: room.name as Id<Room>,
-      costs,
-      ttl: Game.time + COST_MATRIX_TTL,
-    };
-
-    return costs;
-  }
-
-  /*
-  getColonyCostMatrix(colony: Colony): CostMatrix {
-    const costMatrixEntry = this.journal.defenderCostMatrices[room.name];
-    if (costMatrixEntry && costMatrixEntry.ttl <= Game.time) {
-      return
-    }
-
-    const costs = this.createDefenderCostMatric(room, spawn);
-
-    this.journal.defenderCostMatrices[room.name] = {
-      id: room.name as Id<Room>,
-      costs,
-      ttl: Game.time + COST_MATRIX_TTL,
-    };
-
-    return costs;
-  }
-  */
-
-  createColonyCostMatrix(colony: Colony): CostMatrix {
-    const room = colony.primaryRoom;
-    const spawn = room.find(FIND_STRUCTURES, {
-      filter: structure => structure.structureType === STRUCTURE_SPAWN
-    })[0];
-
-
-    if (!spawn) {
-      // No spawn, return a cost matrix with 0s
-      return new PathFinder.CostMatrix();
-    }
-
-    const costs = this.get255CostMatrix();
-
-    // Set every position in base to 0
-    const regionValues = Object.values(getRegion(room, spawn.pos));
-    regionValues.forEach((pos: Position) => {
-      costs.set(pos.x, pos.y, 0);
-    });
-
-    return costs;
-  }
-
-  get255CostMatrix(): CostMatrix {
-    if (this.costMatrix255) {
-      return this.costMatrix255.clone();
-    }
-
-    const costs = new PathFinder.CostMatrix();
-    for (let x = 0; x <= 49; x++) {
-      for (let y = 0; y <= 49; y++) {
-        costs.set(x, y, 255);
-      }
-    }
-
-    this.costMatrix255 = costs;
-
-    return costs.clone();
-  }
-
-  visualizeCostMatrix(roomName: string, costMatrix: CostMatrix) {
-    const visual = new RoomVisual(roomName);
-
-    for (let x = 0; x <= 49; x++) {
-      for (let y = 0; y <= 49; y++) {
-        const cost = costMatrix.get(x, y);
-        visual.text((cost / 5).toString(), x, y);
-      }
-    }
-  }
 }
+

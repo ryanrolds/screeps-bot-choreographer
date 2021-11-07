@@ -2,6 +2,8 @@ const behaviorTree = require('./lib.behaviortree');
 const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
 const behaviorHarvest = require('./behavior.harvest');
 const behaviorMovement = require('./behavior.movement');
+const {MEMORY_SOURCE, MEMORY_DESTINATION} = require('./constants.memory');
+const {common} = require('./lib.pathing_policies');
 
 const pickupDroppedEnergy = behaviorTree.leafNode(
   'janitor',
@@ -100,7 +102,7 @@ const selectStorage = behaviorTree.leafNode(
 
     behaviorMovement.setDestination(creep, null);
 
-    trace.log('did not find reserver with energy');
+    trace.log('did not find reserve with energy', {roomName: creep.room.name});
     return FAILURE;
   },
 );
@@ -126,7 +128,7 @@ const selectContainer = behaviorTree.leafNode(
 
     behaviorMovement.setDestination(creep, null);
 
-    trace.log('did not find an energy source');
+    trace.log('did not find a container with energy');
     return FAILURE;
   },
 );
@@ -136,7 +138,7 @@ const selectMoveFill = (selector) => {
     'fill_from_selector',
     [
       selector,
-      behaviorMovement.moveToDestination(1),
+      behaviorMovement.cachedMoveToMemoryObjectId(MEMORY_DESTINATION, 1, common),
       behaviorTree.leafNode(
         'fill_creep',
         (creep, trace) => {
@@ -152,13 +154,13 @@ const fillCreepFromSource = behaviorTree.sequenceNode(
   'fill_from_source',
   [
     behaviorHarvest.selectHarvestSource,
-    behaviorHarvest.moveToHarvest,
+    behaviorMovement.cachedMoveToMemoryObjectId(MEMORY_SOURCE, 1, common),
     behaviorHarvest.harvest,
   ],
 );
 
-module.exports.getSomeEnergy = behaviorTree.repeatUntilConditionMet(
-  'get_energy_until_success',
+module.exports.getSomeEnergy = behaviorTree.runUntilConditionMet(
+  'get_some_energy_until_success',
   (creep, trace, kingdom) => {
     const freeCapacity = creep.store.getFreeCapacity(RESOURCE_ENERGY);
     trace.log('creep free capacity', {freeCapacity});
@@ -186,8 +188,8 @@ module.exports.getEnergy = behaviorTree.repeatUntilConditionMet(
   behaviorTree.selectorNode(
     'select_and_fill_with_energy',
     [
-      selectMoveFill(selectNearbyLink),
       selectMoveFill(selectStorage),
+      selectMoveFill(selectNearbyLink),
       selectMoveFill(selectContainer),
       pickupDroppedEnergy,
       fillCreepFromSource,
@@ -256,7 +258,7 @@ module.exports.recycleCreep = behaviorTree.leafNode(
     const spawn = spawns[0];
     if (creep.pos.inRangeTo(spawn, 1)) {
       const result = spawn.recycleCreep(creep);
-      trace.log('recycled creep', {result});
+      trace.notice('recycled creep', {result});
       return RUNNING;
     }
 

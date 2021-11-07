@@ -8,6 +8,8 @@ export interface ColonyConfig {
   isPublic: boolean;
   primary: string;
   rooms: string[];
+  automated: boolean;
+  origin: RoomPosition;
 }
 
 export interface KingdomConfig {

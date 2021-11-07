@@ -9,9 +9,12 @@ import {WORKER_HARVESTER, WORKER_MINER, WORKER_UPGRADER} from "./constants.creep
 import {PRIORITY_HARVESTER, PRIORITY_MINER, PRIORITY_UPGRADER} from "./constants.priorities";
 import * as PRIORITIES from "./constants.priorities"
 import {Colony} from './org.colony';
+import {thread, ThreadFunc} from "./os.thread";
+import {AI} from "./lib.ai";
 const {creepIsFresh} = require('./behavior.commute');
 
-const PROCESS_TTL = 250;
+const STRUCTURE_TTL = 20;
+const DROPOFF_TTL = 200;
 const REQUEST_WORKER_TTL = 50;
 const REQUEST_HAULING_TTL = 20;
 
@@ -30,19 +33,58 @@ export default class SourceRunnable {
   linkId: Id<StructureLink>;
   dropoffId: Id<Structure>;
 
-  desiredNumWorkers: number;
-  desiredWorkerType: string;
-  desiredWorkerPriority: number;
+  threadUpdateStructures: ThreadFunc;
+  threadUpdateDropoff: ThreadFunc;
+  threadRequestWorkers: ThreadFunc;
+  threadRequestUpgraders: ThreadFunc;
+  threadRequestHauling: ThreadFunc;
 
   constructor(room: OrgRoom, source: (Source | Mineral)) {
     this.orgRoom = room;
     this.sourceId = source.id;
     this.position = source.pos;
-    this.prevTime = Game.time;
-    this.ttl = PROCESS_TTL;
-    this.workerTTL = 0;
-    this.haulingTTL = 0;
 
+    this.threadUpdateStructures = thread('update_structures', STRUCTURE_TTL)(this.updateStructures.bind(this));
+    this.threadUpdateDropoff = thread('update_dropoff', DROPOFF_TTL)(this.updateDropoff.bind(this));
+    this.threadRequestWorkers = thread('request_workers', REQUEST_WORKER_TTL)(this.requestWorkers.bind(this));
+    this.threadRequestUpgraders = thread('request_upgraders', REQUEST_WORKER_TTL)(this.requestUpgraders.bind(this));
+    this.threadRequestHauling = thread('reqeust_hauling', REQUEST_HAULING_TTL)(this.requestHauling.bind(this));
+  }
+
+  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+    trace = trace.asId(this.sourceId);
+    trace.log('source run', {roomId: this.orgRoom.id, sourceId: this.sourceId});
+
+    const colony = this.orgRoom.getColony();
+    if (!colony) {
+      trace.error('no colony');
+      return terminate();
+    }
+
+    const room = this.orgRoom.getRoomObject();
+    if (!room) {
+      trace.error('terminate source: no room', {id: this.id, roomId: this.orgRoom.id});
+      return terminate();
+    }
+
+    const source: Source | Mineral = Game.getObjectById(this.sourceId);
+    if (!source) {
+      trace.error('source not found', {id: this.sourceId});
+      return terminate();
+    }
+
+    this.threadUpdateStructures(trace, source);
+    this.threadUpdateDropoff(trace, colony);
+    this.threadRequestWorkers(trace, kingdom, colony, room, source);
+    this.threadRequestUpgraders(trace, kingdom, colony, room, source);
+    this.threadRequestHauling(trace, colony);
+
+    this.updateStats(kingdom, trace);
+
+    return running();
+  }
+
+  updateStructures(trace: Tracer, source: Source | Mineral) {
     // Pick container
     const containers = source.pos.findInRange<StructureContainer>(FIND_STRUCTURES, 2, {
       filter: (structure) => {
@@ -51,156 +93,163 @@ export default class SourceRunnable {
     });
     this.containerId = source.pos.findClosestByRange<StructureContainer>(containers)?.id;
 
-    // Pink link
+    // Pick link
     const links = source.pos.findInRange<StructureLink>(FIND_STRUCTURES, 2, {
       filter: (structure) => {
         return structure.structureType === STRUCTURE_LINK;
       },
     });
     this.linkId = source.pos.findClosestByRange<StructureLink>(links)?.id;
+  }
 
-    const colony: Colony = (this.orgRoom as any).getColony();
-    const primaryRoom: OrgRoom = colony.getPrimaryRoom();
+  updateDropoff(trace: Tracer, colony: Colony) {
+    const primaryRoom = colony.getPrimaryRoom();
     this.dropoffId = primaryRoom.getReserveStructureWithRoomForResource(RESOURCE_ENERGY)?.id;
-
-    this.desiredNumWorkers = 0;
-    this.desiredWorkerPriority = 0;
-    this.desiredWorkerType = WORKER_HARVESTER;
-
-    if (primaryRoom.hasStorage) {
-      if (source instanceof Mineral) {
-        // if mineral && storage, 1 harvester
-        this.desiredNumWorkers = 1;
-        this.desiredWorkerType = WORKER_HARVESTER;
-        this.desiredWorkerPriority = PRIORITY_HARVESTER;
-
-        if (!source.mineralAmount) {
-          this.desiredNumWorkers = 0;
-        }
-      } else if (this.containerId) {
-        // if container && storage, 1 miner
-        this.desiredNumWorkers = 1;
-        this.desiredWorkerType = WORKER_MINER;
-        this.desiredWorkerPriority = PRIORITY_MINER;
-      } else {
-        // 3 harvesters
-        this.desiredNumWorkers = 3;
-        this.desiredWorkerType = WORKER_HARVESTER;
-        this.desiredWorkerPriority = PRIORITY_HARVESTER;
-      }
-    } else {
-      // no storage, 3 upgraders
-      this.desiredNumWorkers = 3;
-      this.desiredWorkerType = WORKER_UPGRADER;
-      this.desiredWorkerPriority = PRIORITY_UPGRADER;
-    }
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    trace = trace.asId(this.sourceId);
-
-    const ticks = Game.time - this.prevTime;
-    this.prevTime = Game.time;
-
-    trace.log('source run', {
-      workerTTL: this.workerTTL,
-      haulingTTL: this.haulingTTL,
-    });
-
-    const room = this.orgRoom.getRoomObject();
-    if (!room) {
-      trace.error('terminate source: no room', {id: this.id, roomId: this.orgRoom.id});
-      return terminate();
-    }
-
-    this.updateStats(kingdom);
-
-    this.ttl -= ticks;
-    this.workerTTL -= ticks;
-    this.haulingTTL -= ticks;
-
-    if (this.workerTTL < 0) {
-      this.workerTTL = REQUEST_WORKER_TTL;
-
-      if (this.desiredNumWorkers) {
-        this.requestWorkers(room, trace)
-      }
-    }
-
-    if (this.haulingTTL <= 0 && this.containerId) {
-      this.haulingTTL = REQUEST_HAULING_TTL;
-      this.requestHauling(trace);
-    }
-
-    if (this.ttl < 0) {
-      trace.log('source ttl expired', {id: this.id, roomId: this.orgRoom.id});
-      return terminate();
-    }
-
-    return running();
-  }
-
-  updateStats(kingdom: Kingdom) {
-    const source = Game.getObjectById(this.sourceId);
-    if (!source || !(source instanceof Source)) {
+  requestUpgraders(trace: Tracer, kingdom: Kingdom, colony: Colony, room: Room, source: Source | Mineral) {
+    if (room.controller?.owner && room.controller.owner.username !== kingdom.config.username) {
+      trace.notice('room owned by someone else', {roomId: room.name, owner: room.controller?.owner?.username});
       return;
     }
 
-    const container = Game.getObjectById(this.containerId);
+    if (room.controller?.reservation && room.controller.reservation.username !== kingdom.config.username) {
+      trace.notice('room reserved by someone else', {roomId: room.name, username: room.controller.reservation.username});
+      return;
+    }
 
-    const stats = kingdom.getStats();
-    const sourceStats = {
-      energy: source.energy,
-      capacity: source.energyCapacity,
-      regen: source.ticksToRegeneration,
-      containerFree: (container != null) ? container.store.getFreeCapacity() : null,
-    };
+    if (source instanceof Mineral) {
+      return;
+    }
 
-    const conlonyId = (this.orgRoom as any).getColony().id;
-    const roomId = (this.orgRoom as any).id;
-    stats.colonies[conlonyId].rooms[roomId].sources[this.sourceId] = sourceStats;
-  }
+    let desiredNum = 0;
 
-  requestWorkers(room: Room, trace: Tracer) {
-    const colonyCreeps = this.orgRoom.getColony().getCreeps();
-    const numWorkers = colonyCreeps.filter((creep) => {
+    const primaryRoom = colony.getPrimaryRoom();
+    if (primaryRoom.hasStorage) {
+      return;
+    } else {
+      // no storage, 2 upgraders
+      desiredNum = 2;
+      if (this.orgRoom.getRoomLevel() >= 3) {
+        desiredNum = 1;
+      }
+    }
+
+    const colonyCreeps = colony.getCreeps();
+    const numUpgraders = colonyCreeps.filter((creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
-      return role === this.desiredWorkerType &&
+      return role === WORKER_UPGRADER &&
         creep.memory[MEMORY.MEMORY_SOURCE] === this.sourceId &&
         creepIsFresh(creep);
     }).length;
 
-    for (let i = numWorkers; i < this.desiredNumWorkers; i++) {
-      let priority = this.desiredWorkerPriority;
+    for (let i = numUpgraders; i < desiredNum; i++) {
+      let priority = PRIORITY_UPGRADER;
 
       const positionStr = [this.position.x, this.position.y, this.position.roomName].join(',');
       const details = {
-        role: this.desiredWorkerType,
+        role: WORKER_UPGRADER,
         memory: {
-          [MEMORY.MEMORY_HARVEST_CONTAINER]: this.containerId,
           [MEMORY.MEMORY_SOURCE]: this.sourceId,
           [MEMORY.MEMORY_SOURCE_CONTAINER]: this.containerId,
           [MEMORY.MEMORY_SOURCE_POSITION]: positionStr,
           [MEMORY.MEMORY_ASSIGN_ROOM]: room.name,
-          [MEMORY.MEMORY_COLONY]: (this.orgRoom as any).getColony().id,
+          [MEMORY.MEMORY_COLONY]: this.orgRoom.getColony().id,
         },
       }
 
-      trace.notice('requesting worker', {details});
+      trace.log('requesting worker', {roomId: room.name, sourceId: this.sourceId, details});
 
-      this.orgRoom.requestSpawn(priority, details, REQUEST_WORKER_TTL);
+      colony.getPrimaryRoom().requestSpawn(priority, details, REQUEST_WORKER_TTL);
     }
   }
 
-  requestHauling(trace: Tracer) {
-    const haulers = (this.orgRoom as any).getColony().getHaulers();
+  requestWorkers(trace: Tracer, kingdom: Kingdom, colony: Colony, room: Room, source: Source | Mineral) {
+    if (room.controller?.owner && room.controller.owner.username !== kingdom.config.username) {
+      trace.notice('room owned by someone else', {roomId: room.name, owner: room.controller?.owner?.username});
+      return;
+    }
+
+    if (room.controller?.reservation && room.controller.reservation.username !== kingdom.config.username) {
+      trace.notice('room reserved by someone else', {roomId: room.name, username: room.controller.reservation.username});
+      return;
+    }
+
+    let desiredNumWorkers = 0;
+    let desiredWorkerPriority = 0;
+    let desiredWorkerType = WORKER_HARVESTER;
+
+    const primaryRoom = colony.getPrimaryRoom();
+    if (primaryRoom.hasStorage) {
+      if (source instanceof Mineral) {
+        // if mineral && storage, 1 harvester
+        desiredNumWorkers = 1;
+        desiredWorkerType = WORKER_HARVESTER;
+        desiredWorkerPriority = PRIORITY_HARVESTER;
+
+        if (!source.mineralAmount) {
+          desiredNumWorkers = 0;
+        }
+      } else if (this.containerId) {
+        // if container && storage, 1 miner
+        desiredNumWorkers = 1;
+        desiredWorkerType = WORKER_MINER;
+        desiredWorkerPriority = PRIORITY_MINER;
+      } else {
+        // 3 harvesters
+        desiredNumWorkers = 3;
+        desiredWorkerType = WORKER_HARVESTER;
+        desiredWorkerPriority = PRIORITY_HARVESTER;
+      }
+    } else {
+      // no storage, 2 harvesters
+      desiredNumWorkers = 2;
+      if (this.orgRoom.getRoomLevel() >= 3) {
+        desiredNumWorkers = 1;
+      }
+
+      desiredWorkerType = WORKER_HARVESTER;
+      desiredWorkerPriority = PRIORITY_HARVESTER;
+    }
+
+    const colonyCreeps = colony.getCreeps();
+    const numWorkers = colonyCreeps.filter((creep) => {
+      const role = creep.memory[MEMORY.MEMORY_ROLE];
+      return role === desiredWorkerType &&
+        creep.memory[MEMORY.MEMORY_SOURCE] === this.sourceId &&
+        creepIsFresh(creep);
+    }).length;
+
+    for (let i = numWorkers; i < desiredNumWorkers; i++) {
+      let priority = desiredWorkerPriority;
+
+      const positionStr = [this.position.x, this.position.y, this.position.roomName].join(',');
+      const details = {
+        role: desiredWorkerType,
+        memory: {
+          [MEMORY.MEMORY_SOURCE]: this.sourceId,
+          [MEMORY.MEMORY_SOURCE_CONTAINER]: this.containerId,
+          [MEMORY.MEMORY_SOURCE_POSITION]: positionStr,
+          [MEMORY.MEMORY_ASSIGN_ROOM]: room.name,
+          [MEMORY.MEMORY_COLONY]: this.orgRoom.getColony().id,
+        },
+      }
+
+      trace.log('requesting worker', {roomId: room.name, sourceId: this.sourceId, details});
+
+      colony.getPrimaryRoom().requestSpawn(priority, details, REQUEST_WORKER_TTL);
+    }
+  }
+
+  requestHauling(trace: Tracer, colony: Colony) {
+    const haulers = colony.getHaulers();
     const haulersWithTask = haulers.filter((creep) => {
       const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
       const pickup = creep.memory[MEMORY.MEMORY_HAUL_PICKUP];
       return task === TASKS.TASK_HAUL && pickup === this.containerId;
     });
 
-    const avgHaulerCapacity = (this.orgRoom as any).getColony().getAvgHaulerCapacity();
+    const avgHaulerCapacity = colony.getAvgHaulerCapacity();
 
     const haulerCapacity = haulersWithTask.reduce((total, hauler) => {
       return total += hauler.store.getFreeCapacity();
@@ -208,7 +257,6 @@ export default class SourceRunnable {
 
     const container = Game.getObjectById(this.containerId);
     if (!container) {
-      this.ttl = -1;
       return;
     }
 
@@ -232,7 +280,28 @@ export default class SourceRunnable {
 
       trace.log('requesting hauling', {sourceId: this.sourceId});
 
-      (this.orgRoom as any).sendRequest(TOPICS.TOPIC_HAUL_TASK, loadPriority, details, REQUEST_HAULING_TTL);
+      colony.sendRequest(TOPICS.TOPIC_HAUL_TASK, loadPriority, details, REQUEST_HAULING_TTL);
     }
+  }
+
+  updateStats(kingdom: Kingdom, trace: Tracer) {
+    const source = Game.getObjectById(this.sourceId);
+    if (!source || !(source instanceof Source)) {
+      return;
+    }
+
+    const container = Game.getObjectById(this.containerId);
+
+    const stats = kingdom.getStats();
+    const sourceStats = {
+      energy: source.energy,
+      capacity: source.energyCapacity,
+      regen: source.ticksToRegeneration,
+      containerFree: (container != null) ? container.store.getFreeCapacity() : null,
+    };
+
+    const conlonyId = this.orgRoom.getColony().id;
+    const roomId = this.orgRoom.id;
+    stats.colonies[conlonyId].rooms[roomId].sources[this.sourceId] = sourceStats;
   }
 }

@@ -387,7 +387,7 @@ export default class OrgRoom extends OrgBase {
       return;
     }
 
-    this.updateStats();
+    this.updateStats(trace);
 
     processTrace.end();
   }
@@ -477,11 +477,11 @@ export default class OrgRoom extends OrgBase {
       return [];
     }
 
-    if (this.room.storage) {
+    if (this.room.storage?.isActive()) {
       reserveStructures.push(this.room.storage);
     }
 
-    if (includeTerminal && this.room.terminal) {
+    if (includeTerminal && this.room.terminal?.isActive()) {
       reserveStructures.push(this.room.terminal);
     }
 
@@ -490,7 +490,7 @@ export default class OrgRoom extends OrgBase {
     }
 
     const spawns = this.myStructures.filter((structure) => {
-      return structure.structureType === STRUCTURE_SPAWN;
+      return structure.structureType === STRUCTURE_SPAWN && structure.isActive();
     });
 
     if (!spawns.length) {
@@ -500,6 +500,10 @@ export default class OrgRoom extends OrgBase {
     const stores = _.reduce(spawns, (acc, spawn) => {
       const containers = spawn.pos.findInRange(FIND_STRUCTURES, 9, {
         filter: (structure) => {
+          if (!structure.isActive()) {
+            return false;
+          }
+
           if (structure.structureType !== STRUCTURE_CONTAINER) {
             return false;
           }
@@ -644,7 +648,7 @@ export default class OrgRoom extends OrgBase {
     });
   }
 
-  updateStats() {
+  updateStats(trace: Tracer) {
     const room = this.room;
 
     const roomStats: any = {

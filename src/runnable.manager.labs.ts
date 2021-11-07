@@ -74,11 +74,12 @@ export class LabsManager {
       return;
     }
 
-    // Get list of labs in rooms
+    // Get list of active labs in rooms
     let unassignedLabs = this.orgRoom.getLabs();
-    this.labIds = unassignedLabs.map(lab => lab.id);
+    let activeLabs = _.filter(unassignedLabs, lab => lab.isActive());
+    this.labIds = activeLabs.map(lab => lab.id);
 
-    trace.log('unassigned labs', {labIds: this.labIds});
+    trace.log('active unassigned labs', {labIds: this.labIds});
 
     // Find lab closest to spawn
     const spawns = this.orgRoom.getSpawns();

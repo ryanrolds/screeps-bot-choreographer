@@ -1,22 +1,20 @@
 // Spawn requests
-export const PRIORITY_MINER = 16;
-export const PRIORITY_DISTRIBUTOR = 15;
-export const PRIORITY_HAULER = 14;
-export const PRIORITY_DEFENDER = 13;
+export const PRIORITY_MINER = 18;
+export const PRIORITY_HARVESTER = 17;
+export const PRIORITY_DISTRIBUTOR = 16;
+export const PRIORITY_HAULER = 15;
+export const PRIORITY_DEFENDER = 14;
+export const PRIORITY_UPGRADER = 13;
 export const PRIORITY_REMOTE_MINER = 12;
-export const PRIORITY_REMOTE_HAULER = 11;
+export const PRIORITY_REPAIRER_URGENT = 11.5;
 export const PRIORITY_RESERVER = 11;
 export const PRIORITY_CLAIMER = 11;
 export const DISTRIBUTOR_NO_RESERVE = 10;
 export const PRIORITY_ATTACKER = 10;
-export const PRIORITY_HARVESTER = 9;
-export const PRIORITY_REPAIRER_URGENT = 8.5;
-export const PRIORITY_UPGRADER = 8;
+export const PRIORITY_REPAIRER = 8;
 export const PRIORITY_BUFFER_PATROL = 7;
 export const PRIORITY_REMOTE_HARVESTER = 7;
-export const PRIORITY_REPAIRER = 6;
 export const PRIORITY_BUILDER = 5;
-
 export const EXPLORER = 2;
 
 // Prioritize setting up additional colonies

@@ -4,45 +4,38 @@ import behaviorCommute from "./behavior.commute";
 import behaviorStorage from "./behavior.storage";
 import * as behaviorMovement from "./behavior.movement";
 import behaviorBuild from "./behavior.build";
-import behaviorHarvest from "./behavior.harvest";
+import * as behaviorHarvest from "./behavior.harvest";
 import {behaviorBoosts} from "./behavior.boosts";
 import * as MEMORY from "./constants.memory";
-import {PathFinderPolicy} from "./lib.path_cache";
-
-const policy: PathFinderPolicy = {
-  avoidFriendlyRooms: false,
-  avoidHostiles: true,
-  avoidOwnedRooms: true,
-  maxOps: 1000,
-}
+import {common} from "./lib.pathing_policies";
 
 const behavior = behaviorTree.sequenceNode(
   'haul_energy',
   [
-    // behaviorHarvest.moveToHarvestRoom,
-    // behaviorHarvest.moveToHarvest,
-    behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_SOURCE_POSITION, 1, policy),
+    behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_SOURCE_POSITION, 1, common),
     behaviorCommute.setCommuteDuration,
     behaviorHarvest.harvest,
     behaviorTree.selectorNode(
-      'dump_or_build',
+      'dump_or_build_or_upgrade',
       [
         behaviorTree.sequenceNode(
           'dump_energy',
           [
             behaviorStorage.selectRoomDropoff,
-            behaviorMovement.moveToDestinationRoom,
-            behaviorMovement.moveToDestination(1, true, 50, 2000),
+            behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 1, common),
             behaviorTree.leafNode(
               'empty_creep',
-              (creep) => {
-                const destination = Game.getObjectById<Id<(Creep | Structure<StructureConstant>)>>(creep.memory[MEMORY.MEMORY_DESTINATION]);
+              (creep, trace, kingdom) => {
+                const destination = Game.getObjectById<Id<Structure<StructureConstant>>>(creep.memory[MEMORY.MEMORY_DESTINATION]);
                 if (!destination) {
+                  trace.log('no destination', {destination: creep.memory[MEMORY.MEMORY_DESTINATION]});
                   return FAILURE;
                 }
 
                 const resource = Object.keys(creep.store).pop();
                 const result = creep.transfer(destination, resource as ResourceConstant);
+                trace.log('transfer', {result, resource});
+
                 if (result === ERR_FULL) {
                   // We still have energy to transfer, fail so we find another
                   // place to dump
@@ -67,9 +60,42 @@ const behavior = behaviorTree.sequenceNode(
           'build_construction_site',
           [
             behaviorBuild.selectSite,
-            behaviorMovement.moveToDestinationRoom,
-            behaviorMovement.moveToDestination(1, true, 50, 2000),
+            behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 1, common),
             behaviorBuild.build,
+          ],
+        ),
+        behaviorTree.sequenceNode(
+          'upgrade_controller',
+          [
+            behaviorTree.leafNode(
+              'pick_room_controller',
+              (creep) => {
+                behaviorMovement.setDestination(creep, creep.room.controller.id);
+                return behaviorTree.SUCCESS;
+              },
+            ),
+            behaviorMovement.moveToDestination(3, false, 25, 1000),
+            behaviorCommute.setCommuteDuration,
+            behaviorTree.repeatUntilSuccess(
+              'upgrade_until_empty',
+              behaviorTree.leafNode(
+                'upgrade_controller',
+                (creep, trace, kingdom) => {
+                  const result = creep.upgradeController(creep.room.controller);
+                  trace.log("upgrade result", {result})
+
+                  if (result == ERR_NOT_ENOUGH_RESOURCES) {
+                    return behaviorTree.SUCCESS;
+                  }
+
+                  if (result != OK) {
+                    return behaviorTree.SUCCESS;
+                  }
+
+                  return behaviorTree.RUNNING;
+                },
+              ),
+            ),
           ],
         ),
       ],

@@ -16,7 +16,6 @@ export const PATH_CACHE = 'path_cache';
 export const MEMORY_DESTINATION_POS = 'destination_pos';
 
 // Long term memory IDs
-export const MEMORY_HARVEST_CONTAINER = 'harvest_container';
 export const MEMORY_WITHDRAW = 'withdraw';
 export const MEMORY_WITHDRAW_ROOM = 'withdraw_room';
 export const MEMORY_DROPOFF = 'transfer';

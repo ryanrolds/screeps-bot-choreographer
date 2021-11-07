@@ -5,17 +5,9 @@ import * as behaviorMovement from "./behavior.movement";
 import behaviorHaul from "./behavior.haul";
 import behaviorRoom from "./behavior.room";
 import {behaviorBoosts} from "./behavior.boosts";
-
 import * as MEMORY from "./constants.memory";
 import * as TOPICS from "./constants.topics";
-import {PathFinderPolicy} from "./lib.path_cache";
-
-const policy: PathFinderPolicy = {
-  avoidOwnedRooms: true,
-  avoidHostiles: true,
-  avoidFriendlyRooms: false,
-  maxOps: 2000,
-};
+import {common} from "./lib.pathing_policies";
 
 const emptyCreep = behaviorTree.repeatUntilConditionMet(
   'transfer_until_empty',
@@ -29,7 +21,7 @@ const emptyCreep = behaviorTree.repeatUntilConditionMet(
   behaviorTree.sequenceNode(
     'dump_energy',
     [
-      behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_DROPOFF, 1, policy),
+      behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_DROPOFF, 1, common),
       behaviorTree.leafNode(
         'empty_creep',
         (creep, trace, kingdom) => {
@@ -80,6 +72,8 @@ const behavior = behaviorTree.sequenceNode(
       'pick_something',
       [
         behaviorHaul.getHaulTaskFromTopic(TOPICS.TOPIC_HAUL_TASK),
+        behaviorRoom.parkingLot,
+        /*
         behaviorTree.tripIfCalledXTimes(
           'recycle_if_parked_too_long',
           200,
@@ -103,8 +97,10 @@ const behavior = behaviorTree.sequenceNode(
             ],
           ),
         ),
+        */
       ],
     ),
+    //behaviorTree.resetTripCounter('clear_parked_counter', 'recycle_if_parked_too_long'),
     behaviorTree.repeatUntilConditionMet(
       'pickup_loads_until_full_or_no_tasks',
       (creep, trace, kingdom) => {
@@ -127,7 +123,7 @@ const behavior = behaviorTree.sequenceNode(
       behaviorTree.sequenceNode(
         'pickup_load',
         [
-          behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_PICKUP, 1, policy),
+          behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_PICKUP, 1, common),
           behaviorHaul.loadCreep,
           behaviorHaul.clearTask,
           behaviorTree.returnSuccess(

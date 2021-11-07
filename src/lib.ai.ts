@@ -1,9 +1,7 @@
 import {Kingdom} from './org.kingdom';
-import * as tracing from './lib.tracing';
 import {KingdomConfig, ShardConfig} from './config'
 import {Tracer} from './lib.tracing';
 import {Scheduler, Priorities} from './os.scheduler';
-import * as featureFlags from './lib.feature_flags'
 import {Process} from './os.process';
 import {CreepManager} from './runnable.manager.creeps';
 import WarManager from './runnable.manager.war';
@@ -12,8 +10,8 @@ import KingdomModelRunnable from './runnable.kingdom_model';
 import KingdomGovernorRunnable from './runnable.kingdom_governor'
 import DefenseManager from './runnable.manager.defense';
 import BufferManager from './runnable.manager.buffer';
-import {MEMORY_COLONY, MEMORY_SOURCE} from './constants.memory';
 import PathDebugger from './runnable.path_debugger';
+import CostMatrixDebugger from './runnable.costmatrix_debug';
 import InvaderManager from './runnable.manager.invaders';
 
 
@@ -85,6 +83,12 @@ export class AI {
     this.scheduler.registerProcess(new Process(pathDebuggerId, 'path_debugger',
       Priorities.DEBUG, pathDebugger));
 
+    // CostMatrix debugger
+    const costMatrixDebuggerId = 'costmatrix_debugger';
+    const costMatrixDebugger = new CostMatrixDebugger(costMatrixDebuggerId, this.kingdom);
+    this.scheduler.registerProcess(new Process(costMatrixDebuggerId, 'costmatrix_debugger',
+      Priorities.DEBUG, costMatrixDebugger));
+
     trace.end();
   }
 
@@ -111,7 +115,7 @@ export class AI {
 
     if (Game.time % 5 === 0) {
       const statsTrace = trace.begin('stats');
-      this.kingdom.updateStats();
+      this.kingdom.updateStats(statsTrace);
 
       // Set stats in memory for pulling and display in Grafana
       (Memory as any).stats = this.kingdom.getStats();
@@ -127,5 +131,9 @@ export class AI {
 
   getPathDebugger(): PathDebugger {
     return this.scheduler.getProcess('path_debugger').runnable as PathDebugger;
+  }
+
+  getCostMatrixDebugger(): CostMatrixDebugger {
+    return this.scheduler.getProcess('costmatrix_debugger').runnable as CostMatrixDebugger;
   }
 }

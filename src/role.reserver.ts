@@ -6,14 +6,7 @@ import * as behaviorMovement from "./behavior.movement";
 import {behaviorBoosts} from "./behavior.boosts";
 import behaviorRoom from "./behavior.room";
 import * as MEMORY from "./constants.memory";
-import {PathFinderPolicy} from './lib.path_cache';
-
-const policy: PathFinderPolicy = {
-  avoidHostiles: true,
-  avoidOwnedRooms: true,
-  avoidFriendlyRooms: false,
-  maxOps: 2000,
-}
+import {common} from './lib.pathing_policies';
 
 const behavior = behaviorTree.sequenceNode(
   'reserver_root',
@@ -34,7 +27,7 @@ const behavior = behaviorTree.sequenceNode(
 
       return behaviorTree.SUCCESS
     }),
-    behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_ASSIGN_ROOM_POS, 1, policy),
+    behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_ASSIGN_ROOM_POS, 1, common),
     behaviorTree.repeatUntilSuccess(
       'move_to_rc',
       behaviorTree.leafNode(
@@ -75,7 +68,7 @@ const behavior = behaviorTree.sequenceNode(
             return behaviorTree.FAILURE;
           }
 
-          const unowned = !room.controller || !room.controller.owner;
+          const unowned = !room.controller?.owner && !room.controller?.reservation;
           const claimedByMe = room.controller && room.controller.my;
           const reservedByMe = room.controller && room.controller.reservation &&
             room.controller.reservation.username === kingdom.config.username;

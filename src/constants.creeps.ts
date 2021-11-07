@@ -38,7 +38,7 @@ export const DEFINITIONS = {
   },
   [WORKER_DEFENDER]: {
     energyLimit: null,
-    energyMinimum: 2000,
+    energyMinimum: 1000,
     parts: [MOVE, HEAL, MOVE, RANGED_ATTACK, MOVE, RANGED_ATTACK, MOVE, TOUGH, MOVE, RANGED_ATTACK],
     base: [MOVE, RANGED_ATTACK],
     boosts: ['rangedAttack'],
@@ -88,7 +88,7 @@ export const DEFINITIONS = {
   },
   [WORKER_ATTACKER]: {
     energyLimit: null,
-    energyMinimum: 6000,
+    energyMinimum: 3000,
     parts: [WORK, TOUGH, MOVE, HEAL, MOVE, HEAL, MOVE, RANGED_ATTACK, WORK],
     base: [TOUGH, MOVE, MOVE, MOVE, MOVE, MOVE, HEAL, HEAL, HEAL, HEAL, HEAL, RANGED_ATTACK, WORK, WORK],
     //boosts: ['dismantle', 'heal', 'damage'],

@@ -8,6 +8,36 @@ import * as TOPICS from './constants.topics';
 import {thread, ThreadFunc} from './os.thread';
 import {TargetRoom} from './org.scribe';
 import {ATTACK_ROOM_TTL, AttackRequest, AttackStatus} from './constants.attack';
+import {FindColonyPathPolicy, getClosestColonyByPath} from './lib.pathing';
+import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
+
+const policy: FindColonyPathPolicy = {
+  colony: {
+    start: 'spawn',
+    maxLinearDistance: 5,
+    minRoomLevel: 0,
+    hasSpawn: true,
+  },
+  room: {
+    avoidHostileRooms: true,
+    avoidFriendlyRooms: true,
+    avoidRoomsWithKeepers: false,
+    avoidRoomsWithTowers: false,
+    avoidUnloggedRooms: false,
+    sameRoomStatus: true,
+    costMatrixType: AllowedCostMatrixTypes.PARTY,
+  },
+  destination: {
+    range: 1,
+  },
+  path: {
+    allowIncomplete: false,
+    maxSearchRooms: 16,
+    maxOps: 5000,
+    maxPathRooms: 10,
+    ignoreCreeps: true,
+  },
+};
 
 export default class BufferManager {
   id: string;
@@ -34,7 +64,7 @@ export default class BufferManager {
 
 function enforceBuffer(trace: Tracer, kingdom: Kingdom) {
   const hostileRoomsByColony = getHostileRoomsByColony(kingdom, trace);
-  trace.notice('hostile rooms by colony', {hostileRoomsByColony});
+  trace.log('hostile rooms by colony', {hostileRoomsByColony});
 
   _.forEach(hostileRoomsByColony, (rooms, colonyId) => {
     if (rooms.length < 1) {
@@ -81,8 +111,27 @@ function getHostileRoomsByColony(kingdom: Kingdom, trace: Tracer): HostileRoomsB
     numRooms: kingdom.getScribe().getRoomsUpdatedRecently().length,
   });
 
-  const hostileRoomsByColony = {};
+  const hostileRoomsByColony: Record<string, TargetRoom[]> = {};
 
+  // TODO fix this
+  policy.colony.maxLinearDistance = kingdom.config.buffer;
+
+  // TODO replace with lib.pathing
+  weakRooms.forEach((room) => {
+    const colony = getClosestColonyByPath(kingdom, room.controllerPos, policy, trace)
+    if (!colony) {
+      trace.log('no nearby colony', {roomId: room.id, policy});
+      return;
+    }
+
+    if (!hostileRoomsByColony[colony.id]) {
+      hostileRoomsByColony[colony.id] = [];
+    }
+
+    hostileRoomsByColony[colony.id].push(room);
+  });
+
+  /*
   const colonies = kingdom.getColonies().filter(colony => colony.primaryRoom?.controller?.level >= 6)
   colonies.forEach((colony) => {
     const nearByWeakRooms = weakRooms.filter((room) => {
@@ -106,15 +155,15 @@ function getHostileRoomsByColony(kingdom: Kingdom, trace: Tracer): HostileRoomsB
         return false;
       }
 
-      const originSpawn = colony.primaryOrgRoom.getSpawns()[0];
-      if (!originSpawn) {
-        trace.log('no origin spawn', {colonyId: colony.id});
+      const spawnPos = colony.getSpawnPos();
+      if (!spawnPos) {
+        trace.log('colony has no spawn pos', {colonyId: colony.id});
         return false;
       }
 
       const destinationController = room.controllerPos;
 
-      const result = PathFinder.search(originSpawn.pos, {pos: destinationController, range: 5}, {
+      const result = PathFinder.search(spawnPos, {pos: destinationController, range: 5}, {
         maxRooms: 8,
         roomCallback: (roomName): (CostMatrix | false) => {
           const roomDetails = kingdom.getScribe().getRoomById(roomName);
@@ -165,6 +214,7 @@ function getHostileRoomsByColony(kingdom: Kingdom, trace: Tracer): HostileRoomsB
 
     hostileRoomsByColony[colony.id] = nearByWeakRooms;
   });
+  */
 
   return hostileRoomsByColony;
 }

@@ -37,7 +37,7 @@ export default class SpawnManager {
     this.threadUpdateSpawnList = thread('update_spawn_list_thread', UPDATE_SPAWN_LIST_TTL)((trace) => {
       trace.log('updating spawn list');
       this.spawnIds = roomObject.find<StructureSpawn>(FIND_MY_STRUCTURES, {
-        filter: structure => structure.structureType === STRUCTURE_SPAWN,
+        filter: structure => structure.structureType === STRUCTURE_SPAWN && structure.isActive(),
       }).map(spawn => spawn.id);
     })
   }
@@ -119,7 +119,7 @@ export default class SpawnManager {
         trace.log('spawn idle', {spawnTopicSize, numCreeps, energy, minEnergy, spawnTopicBackPressure});
 
         if (energy < minEnergy) {
-          trace.notice("low energy, not spawning", {id: this.id, energy, minEnergy})
+          trace.log("low energy, not spawning", {id: this.id, energy, minEnergy})
           return;
         }
 
@@ -128,6 +128,7 @@ export default class SpawnManager {
           const role = request.details.role;
           const definition = DEFINITIONS[role];
           if (definition.energyMinimum && energy < definition.energyMinimum) {
+            trace.notice('not enough energy', {energy, request, definition});
             return;
           }
 
@@ -138,7 +139,7 @@ export default class SpawnManager {
 
           const minEnergy = request.details[MEMORY.SPAWN_MIN_ENERGY] || 0;
           if (energy < minEnergy) {
-            trace.notice('colony does not have energy', {minEnergy, energy});
+            trace.log('colony does not have energy', {minEnergy, energy});
             return;
           }
 
@@ -206,7 +207,7 @@ export default class SpawnManager {
 
               const distance = Game.map.getRoomLinearDistance((this.orgRoom as any).id, destinationRoom);
               if (distance > 5) {
-                trace.notice('distance', {distance, message});
+                trace.log('distance', {distance, message});
                 return false;
               }
 

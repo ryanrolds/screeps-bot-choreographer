@@ -95,8 +95,7 @@ module.exports.tick = (kingdom, trace) => {
     }
 
     if (creep.memory.role == CREEPS.WORKER_EXPLORER) {
-      creep.suicide();
-      // roleExplorer.run(creep, trace, kingdom);
+      roleExplorer.run(creep, trace, kingdom);
       return;
     }
   });

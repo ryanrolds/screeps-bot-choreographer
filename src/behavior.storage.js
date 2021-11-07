@@ -57,7 +57,6 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.select
           return SUCCESS;
         }
 
-
         return FAILURE;
       },
     ),
@@ -74,7 +73,8 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.select
         const targets = creep.pos.findInRange(FIND_STRUCTURES, 2, {
           filter: (structure) => {
             return structure.structureType == STRUCTURE_CONTAINER &&
-              structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+              structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0 &&
+              structure.isActive();
           },
         });
 
@@ -98,7 +98,8 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.select
           filter: (structure) => {
             // TODO things seeking to gain energy should use another function
             return structure.structureType == STRUCTURE_LINK &&
-              structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+              structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0 &&
+              structure.isActive();
           },
         });
 
@@ -132,7 +133,7 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.select
           return FAILURE;
         }
 
-        if (!room.room.storage) {
+        if (!room.room.storage?.isActive()) {
           return FAILURE;
         }
 

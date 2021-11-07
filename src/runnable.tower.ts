@@ -52,6 +52,10 @@ export default class TowerRunnable {
       return terminate();
     }
 
+    if (!tower.isActive()) {
+      return sleeping(100);
+    }
+
     this.haulTTL -= ticks;
     this.repairTTL -= ticks;
 

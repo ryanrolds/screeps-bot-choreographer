@@ -22,12 +22,13 @@ import * as CREEPS from './constants.creeps';
 import * as TOPICS from './constants.topics';
 import * as TASKS from './constants.tasks';
 import {DEFENSE_STATUS} from './defense';
+import BaseConstructionRunnable from "./runnable.base_construction";
 
 const MIN_ENERGY = 100000;
 const CREDIT_RESERVE = 100000;
 
 const MIN_UPGRADERS = 1;
-const MAX_UPGRADERS = 5;
+const MAX_UPGRADERS = 6;
 const UPGRADER_ENERGY = 25000;
 
 const MIN_DISTRIBUTORS = 1;
@@ -170,7 +171,17 @@ export default class RoomRunnable {
 
       // Towers
       room.find<StructureTower>(FIND_MY_STRUCTURES, {
-        filter: structure => structure.structureType === STRUCTURE_TOWER,
+        filter: (structure) => {
+          if (structure.structureType === STRUCTURE_TOWER) {
+            trace.log('tower', {
+              id: structure.id,
+              structureType: structure.structureType,
+              active: structure.isActive()
+            });
+          }
+
+          return structure.structureType === STRUCTURE_TOWER && structure.isActive()
+        },
       }).forEach((tower) => {
         const towerId = `${tower.id}`
         if (!this.scheduler.hasProcess(towerId)) {
@@ -182,7 +193,7 @@ export default class RoomRunnable {
       });
 
       room.find<StructureNuker>(FIND_MY_STRUCTURES, {
-        filter: structure => structure.structureType === STRUCTURE_NUKER,
+        filter: structure => structure.structureType === STRUCTURE_NUKER && structure.isActive(),
       }).forEach((nuker) => {
         const nukeId = `${nuker.id}`
         if (!this.scheduler.hasProcess(nukeId)) {
@@ -191,7 +202,7 @@ export default class RoomRunnable {
         }
       });
 
-      if (room.terminal) {
+      if (room.terminal?.isActive()) {
         // Terminal runnable
         const terminalId = room.terminal.id;
         if (!this.scheduler.hasProcess(terminalId)) {
@@ -215,6 +226,13 @@ export default class RoomRunnable {
       }
 
       // Observer runnable
+
+      // Construction
+      const constructionId = `construction_${this.id}`;
+      if (!this.scheduler.hasProcess(constructionId)) {
+        this.scheduler.registerProcess(new Process(constructionId, 'construction', Priorities.CORE_LOGISTICS,
+          new BaseConstructionRunnable(constructionId, orgRoom)));
+      }
     }
 
     if (room.controller?.my || !room.controller?.owner?.username) {
@@ -270,27 +288,35 @@ export default class RoomRunnable {
       return creep.memory[MEMORY.MEMORY_ROLE] === CREEPS.WORKER_REPAIRER && creepIsFresh(creep);
     }).length;
 
+    trace.log('need repairers?', {id: this.id, hitsPercentage, numRepairers});
+
     // Repairer requests
     let desiredRepairers = 0;
     let repairerPriority = PRIORITIES.PRIORITY_REPAIRER;
     if (hitsPercentage < 0.8) {
+      trace.log('need more repairers', {id: this.id, hitsPercentage});
       desiredRepairers = 1;
     }
 
     if (hitsPercentage < 0.6) {
+      trace.log('need more repairers', {id: this.id, hitsPercentage});
       desiredRepairers = 2;
       repairerPriority = PRIORITIES.PRIORITY_REPAIRER_URGENT;
     }
 
     if (Game.cpu.bucket < 1000) {
+      trace.log('bucket low', {bucket: Game.cpu.bucket});
       desiredRepairers = 0;
     }
 
     if (numRepairers >= desiredRepairers) {
+      trace.log('already have enough repairers', {id: this.id, numRepairers, desiredRepairers});
       return;
     }
 
-    (orgRoom as any).requestSpawn(repairerPriority, {
+    trace.log('request repairers', {id: this.id, desiredRepairers, numRepairers});
+
+    orgRoom.requestSpawn(repairerPriority, {
       role: CREEPS.WORKER_REPAIRER,
       memory: {
         [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
@@ -467,28 +493,37 @@ export default class RoomRunnable {
     let parts = 1;
     let desiredUpgraders = MIN_UPGRADERS;
     let maxParts = 15;
-    let roomCapacity = 300;
 
     const reserveEnergy = orgRoom.getAmountInReserve(RESOURCE_ENERGY, false);
     const reserveBuffer = orgRoom.getReserveBuffer();
 
+    trace.log('reserver energy', {reserveEnergy, reserveBuffer});
+
     if (!room.controller.my) {
+      trace.log('not my room')
       desiredUpgraders = 0;
     } else if (room.controller.level === 8) {
+      trace.log('max level room')
       parts = (reserveEnergy - reserveBuffer) / 1500;
       desiredUpgraders = 1;
     } else if (orgRoom.hasStorage) {
-      roomCapacity = room.energyCapacityAvailable;
-      maxParts = (roomCapacity - 300) / 200;
+      trace.log('has storage');
+
+      const roomCapacity = room.energyCapacityAvailable;
+      maxParts = Math.floor(roomCapacity / 200);
       if (maxParts > 15) {
         maxParts = 15;
       }
 
-      if (room.storage && reserveEnergy > reserveBuffer) {
+      trace.log('max parts', {maxParts});
+
+      if (room.storage?.isActive() && reserveEnergy > reserveBuffer) {
         parts = (reserveEnergy - reserveBuffer) / 1500;
       } else if (!room.storage && reserveEnergy > 1000) {
         parts = reserveEnergy - 1000 / 1500;
       }
+
+      trace.log('parts', {parts});
 
       desiredUpgraders = Math.ceil(parts / maxParts);
     } else if (!orgRoom.hasSpawns) {
@@ -505,8 +540,15 @@ export default class RoomRunnable {
       desiredUpgraders = MAX_UPGRADERS;
     }
 
+    trace.log('request upgrader', {
+      desiredUpgraders,
+      numUpgraders,
+      energyLimit,
+      upgraderPriority,
+    });
+
     for (let i = 0; i < desiredUpgraders - numUpgraders; i++) {
-      (orgRoom as any).requestSpawn(upgraderPriority, {
+      orgRoom.requestSpawn(upgraderPriority, {
         role: CREEPS.WORKER_UPGRADER,
         energyLimit: energyLimit,
         memory: {
@@ -528,7 +570,8 @@ export default class RoomRunnable {
       filter: (structure) => {
         return (structure.structureType === STRUCTURE_EXTENSION ||
           structure.structureType === STRUCTURE_SPAWN) &&
-          structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0
+          structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0 &&
+          structure.isActive();
       }
     });
 

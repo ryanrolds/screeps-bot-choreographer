@@ -4,20 +4,13 @@ import {behaviorBoosts} from "./behavior.boosts";
 import * as behaviorMovement from "./behavior.movement";
 import behaviorCommute from "./behavior.commute";
 import * as MEMORY from "./constants.memory";
-import {PathFinderPolicy} from "./lib.path_cache";
-
-const policy: PathFinderPolicy = {
-  avoidFriendlyRooms: true,
-  avoidHostiles: true,
-  avoidOwnedRooms: true,
-  maxOps: 2000,
-}
+import {common} from "./lib.pathing_policies";
 
 const selectSource = behaviorTree.leafNode(
   'selectSource',
   (creep, trace, kingdom) => {
     const source = Game.getObjectById<Id<Source>>(creep.memory[MEMORY.MEMORY_SOURCE]);
-    const container = Game.getObjectById<Id<StructureContainer>>(creep.memory[MEMORY.MEMORY_HARVEST_CONTAINER]);
+    const container = Game.getObjectById<Id<StructureContainer>>(creep.memory[MEMORY.MEMORY_SOURCE_CONTAINER]);
     if (source && container) {
       behaviorMovement.setSource(creep, source.id);
       behaviorMovement.setDestination(creep, container.id);
@@ -185,7 +178,7 @@ const behavior = behaviorTree.sequenceNode(
   'mine_energy',
   [
     selectSource,
-    behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 0, policy),
+    behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 0, common),
     behaviorCommute.setCommuteDuration,
     behaviorTree.repeatUntilFailure(
       'mine_until_failure',

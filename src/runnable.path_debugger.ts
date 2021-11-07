@@ -1,7 +1,7 @@
 import {Process, Runnable, RunnableResult, running, sleeping, terminate} from "./os.process";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
-import {PathFinderPolicy} from "./lib.path_cache";
+import {FindPathPolicy, getPath} from "./lib.pathing";
 
 export default class PathDebugger {
   id: string;
@@ -15,7 +15,7 @@ export default class PathDebugger {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    trace.log("path bebugger", {path: this.results})
+    trace.log("path debugger", {path: this.results})
 
     if (this.results) {
       // Display on the map
@@ -41,9 +41,9 @@ export default class PathDebugger {
     return running();
   }
 
-  debug(origin: RoomPosition, goal: RoomPosition, range: number, policy: PathFinderPolicy) {
+  debug(origin: RoomPosition, goal: RoomPosition, range: number, policy: FindPathPolicy) {
     const trace = new Tracer('debug', 'path_debugger.debug')
-    const path = this.kingdom.getPathCache().calculatePath(origin, goal, range, policy, trace);
+    const path = getPath(this.kingdom, origin, goal, policy, trace);
 
     trace.notice('path', {origin, goal, range, policy, path});
     this.results = path;

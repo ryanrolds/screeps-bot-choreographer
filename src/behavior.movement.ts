@@ -3,9 +3,11 @@ import {FAILURE, SUCCESS, RUNNING, NodeTickResult} from "./lib.behaviortree";
 
 import * as MEMORY from "./constants.memory";
 import {MEMORY_ORIGIN, MEMORY_SOURCE} from "./constants.memory";
-import {PathCache, PathCacheItem, PathFinderPolicy} from "./lib.path_cache";
+import {PathCache, PathCacheItem} from "./lib.path_cache";
 import {Tracer} from "./lib.tracing";
 import {Kingdom} from "./org.kingdom";
+import {FindPathPolicy} from "./lib.pathing";
+import {common} from "./lib.pathing_policies";
 
 const MAX_POSITION_TTL = 5;
 const MEMORY_MOVE_POS_TTL = 'move_pos_ttl';
@@ -145,7 +147,7 @@ const getDestinationFromMemory = (creep: Creep, memoryId: string): RoomPosition 
 };
 
 const getAndSetCreepPath = (pathCache: PathCache, creep: Creep, destination: RoomPosition,
-  range: number, policy: PathFinderPolicy, trace: Tracer): [PathFinderPath, string, string] => {
+  range: number, policy: FindPathPolicy, trace: Tracer): [PathFinderPath, string, string] => {
   const path = pathCache.getPath(creep.pos, destination, range, policy, trace);
   const originKey = pathCache.getKey(creep.pos, 0);
   const destKey = pathCache.getKey(destination, range);
@@ -160,7 +162,7 @@ const clearMovementCache = (creep) => {
 };
 
 const updateCreepCachedPath = (kingdom: Kingdom, creep: Creep, destination: RoomPosition,
-  range: number, policy: PathFinderPolicy, trace: Tracer): PathFinderPath => {
+  range: number, policy: FindPathPolicy, trace: Tracer): PathFinderPath => {
   const pathCache = kingdom.getPathCache();
 
   let path: PathCacheItem = null;
@@ -170,7 +172,7 @@ const updateCreepCachedPath = (kingdom: Kingdom, creep: Creep, destination: Room
   trace.log('keys', {originKey, destKey});
 
   if (originKey && destKey) {
-    path = pathCache.getCachedPath(originKey, destKey);
+    path = pathCache.getCachedPath(originKey, destKey, trace);
   }
 
   if (path) {
@@ -197,7 +199,7 @@ const updateCreepCachedPath = (kingdom: Kingdom, creep: Creep, destination: Room
   return null;
 }
 
-export const cachedMoveToMemoryPos = (memoryId: string, range: number = 1, policy: PathFinderPolicy) => {
+export const cachedMoveToMemoryPos = (memoryId: string, range: number = 1, policy: FindPathPolicy) => {
   return behaviorTree.leafNode(
     'cached_move_to_position',
     (creep, trace, kingdom) => {
@@ -213,7 +215,7 @@ export const cachedMoveToMemoryPos = (memoryId: string, range: number = 1, polic
   );
 };
 
-export const cachedMoveToMemoryObjectId = (memoryId: string, range: number = 1, policy: PathFinderPolicy) => {
+export const cachedMoveToMemoryObjectId = (memoryId: string, range: number = 1, policy: FindPathPolicy) => {
   return behaviorTree.leafNode(
     'cached_move_to_object_id',
     (creep, trace, kingdom) => {
@@ -230,7 +232,7 @@ export const cachedMoveToMemoryObjectId = (memoryId: string, range: number = 1, 
 };
 
 const cachedMoveToPosition = (kingdom: Kingdom, creep: Creep, destination: RoomPosition,
-  range: number = 1, policy: PathFinderPolicy, trace: Tracer) => {
+  range: number = 1, policy: FindPathPolicy, trace: Tracer) => {
 
   // Check if creep has arrived
   if (creep.pos.inRangeTo(destination, range)) {
@@ -245,14 +247,18 @@ const cachedMoveToPosition = (kingdom: Kingdom, creep: Creep, destination: RoomP
 
   if (!stuck) {
     const pathfinderResult = updateCreepCachedPath(kingdom, creep, destination, range, policy, trace)
-    trace.log('pathfinder result', {path: pathfinderResult.path});
+    trace.log('pathfinder result', {result: pathfinderResult, creepName: creep.name, destination, range, policy});
+    if (!pathfinderResult) {
+      trace.log('no path found', {destination, range});
+      return FAILURE;
+    }
 
     result = creep.moveByPath(pathfinderResult.path);
     trace.log('move by path result', {result, path: pathfinderResult.path});
   } else {
-    const moveOpts = getMoveOpts(false, 50, policy.maxOps);
+    const moveOpts = getMoveOpts(false, 50, policy.path.maxOps);
     result = creep.moveTo(destination, moveOpts);
-    trace.log('move result', {result, origin: creep.pos, destination});
+    trace.log('stuck move result', {result, origin: creep.pos, destination});
   }
 
   if (result === ERR_NO_PATH) {
@@ -357,13 +363,6 @@ export const fillCreepFromDestination = (creep, trace) => {
 };
 
 export const moveToShard = (shardMemoryKey) => {
-  const policy: PathFinderPolicy = {
-    avoidHostiles: false,
-    avoidOwnedRooms: true,
-    avoidFriendlyRooms: false,
-    maxOps: 2500,
-  };
-
   return behaviorTree.repeatUntilConditionMet(
     'moveToShard',
     (creep, trace, kingdom) => {
@@ -412,7 +411,7 @@ export const moveToShard = (shardMemoryKey) => {
             return SUCCESS;
           },
         ),
-        cachedMoveToMemoryPos(MEMORY.MEMORY_DESTINATION_POS, 0, policy),
+        cachedMoveToMemoryPos(MEMORY.MEMORY_DESTINATION_POS, 0, common),
       ],
     ),
   );

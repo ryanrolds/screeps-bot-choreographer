@@ -45,6 +45,8 @@ export class Colony extends OrgBase {
 
   observer: Observer;
   isPublic: boolean;
+  automated: boolean;
+  origin: RoomPosition;
 
   assignedCreeps: Creep[];
   numCreeps: number;
@@ -65,6 +67,7 @@ export class Colony extends OrgBase {
   threadHandleDefenderRequest: ThreadFunc;
   threadRequestReserversForMissingRooms: ThreadFunc;
   threadRequestHaulers: ThreadFunc;
+  threadRequestExplorer: ThreadFunc;
 
   constructor(parent: Kingdom, colony: ColonyConfig, trace: Tracer) {
     super(parent, colony.id, trace);
@@ -77,10 +80,12 @@ export class Colony extends OrgBase {
     this.desiredRooms = colony.rooms;
     this.primaryRoom = Game.rooms[this.primaryRoomId];
     this.isPublic = colony.isPublic || false;
+    this.automated = colony.automated;
+    this.origin = colony.origin;
 
     this.pidDesiredHaulers = 0;
     if (this.primaryRoom) {
-      PID.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, 0, 0.2, 0.0001, 0);
+      PID.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, 0, 0.2, 0.001, 0);
     }
 
     this.roomMap = {};
@@ -153,6 +158,10 @@ export class Colony extends OrgBase {
       this.requestHaulers();
     });
 
+    this.threadRequestExplorer = thread('request_explorers_thread', REQUEST_EXPLORER_TTL)(() => {
+      this.requestExplorer();
+    });
+
     setupTrace.end();
   }
   update(trace) {
@@ -175,8 +184,9 @@ export class Colony extends OrgBase {
 
     if (this.primaryRoom) {
       const updateHaulerPID = updateTrace.begin('update_hauler_pid');
-      this.pidDesiredHaulers = PID.update(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS,
-        numHaulTasks, Game.time);
+      this.pidDesiredHaulers = PID.update(this.primaryRoomId, this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS,
+        numHaulTasks, Game.time, updateHaulerPID);
+      updateHaulerPID.log('desired haulers', {desired: this.pidDesiredHaulers});
       updateHaulerPID.end();
     }
 
@@ -197,9 +207,9 @@ export class Colony extends OrgBase {
       this.threadRequestHaulers(updateTrace);
     }
 
-    // if (this.threadRequestExplorer) {
-    //  this.threadRequestExplorer();
-    // }
+    if (this.threadRequestExplorer) {
+      this.threadRequestExplorer(trace);
+    }
 
     updateTrace.end();
   }
@@ -207,7 +217,7 @@ export class Colony extends OrgBase {
     trace = trace.asId(this.id);
     const processTrace = trace.begin('process');
 
-    this.updateStats();
+    this.updateStats(processTrace);
 
     const roomTrace = processTrace.begin('rooms');
     Object.values(this.roomMap).forEach((room) => {
@@ -241,9 +251,28 @@ export class Colony extends OrgBase {
   getPrimaryRoom(): OrgRoom {
     return this.primaryOrgRoom;
   }
+
   getRoomByID(roomId) {
     return this.roomMap[roomId] || null;
   }
+
+  isAutomated(): boolean {
+    return this.automated;
+  }
+
+  getOrigin(): RoomPosition {
+    return this.origin;
+  }
+
+  getSpawnPos(): RoomPosition {
+    const originSpawn = this.primaryOrgRoom.getSpawns()[0];
+    if (!originSpawn) {
+      return null;
+    }
+
+    return originSpawn.pos;
+  }
+
   getCreeps() {
     return this.assignedCreeps;
   }
@@ -309,7 +338,7 @@ export class Colony extends OrgBase {
   getAvgHaulerCapacity() {
     return this.avgHaulerCapacity;
   }
-  updateStats() {
+  updateStats(trace: Tracer) {
     const topicCounts = this.topics.getCounts();
 
     const colonyStats = {
@@ -368,6 +397,7 @@ export class Colony extends OrgBase {
       }
     }
   }
+
   requestExplorer() {
     if (!this.primaryRoom) {
       return;
@@ -385,6 +415,7 @@ export class Colony extends OrgBase {
       }, REQUEST_EXPLORER_TTL);
     }
   }
+
   requestReserverForMissingRooms(trace: Tracer) {
     trace.log("missing rooms", {missingRooms: this.missingRooms});
     this.missingRooms.forEach((roomID) => {
@@ -471,10 +502,10 @@ export class Colony extends OrgBase {
         }
       }
     } else if (this.primaryRoom) {
-      // this.threadRequestExplorer = thread(REQUEST_EXPLORER_TTL,
-      //  this.primaryRoom.memory, 'request_explorer')(() => {
-      //    this.requestExplorer();
-      //  });
+
+
+
+
     }
 
     updateOrgTrace.end();

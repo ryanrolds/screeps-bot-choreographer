@@ -215,6 +215,63 @@ interface ConditionFunc {
   (creep: Creep, trace: Tracer, kingdom: Kingdom): boolean
 }
 
+export const runUntilConditionMet = (id: string, condition: ConditionFunc,
+  node: TreeNode): TreeNode => {
+  return {
+    id,
+    node,
+    condition,
+    tick: function (creep, trace, kingdom) {
+      trace = trace.begin(this.id);
+
+      // if previous tick set that it was running, then skip condition check
+      const isRunning = getState(creep, this.id, trace);
+
+      // clear running state, so we can set it again if needed
+      clearState(creep, this.id, trace);
+
+      if (isRunning) {
+        trace.log('previous tick returned running, so dont check condition and tick node');
+      } else {
+        trace.log('checking condition', {id: this.id});
+        const conditionResult = this.condition(creep, trace, kingdom);
+        if (conditionResult) {
+          // We made it through the condition, clear that branches state so that
+          // next time around we start from scratch
+          this.clear(creep, trace);
+
+          trace.log('condition met', {id: this.id});
+          trace.end();
+
+          // We are done, move on
+          return SUCCESS;
+        }
+
+        trace.log('condition not met, tick node', {id: this.id});
+      }
+
+      const result = this.node.tick(creep, trace, kingdom);
+      trace.log('result', {result});
+
+      if (result === FAILURE) {
+        return FAILURE;
+      }
+
+      // if result is running then set state to running
+      if (result === RUNNING) {
+        setState(creep, this.id, true, trace);
+      }
+
+      // if the condition is not met and it didnt fail, we return running
+      return RUNNING;
+    },
+    clear: function (creep, trace) {
+      clearState(creep, this.id, trace);
+      this.node.clear(creep, trace);
+    },
+  } as TreeNode;
+};
+
 export const repeatUntilConditionMet = (id: string, condition: ConditionFunc,
   node: TreeNode): TreeNode => {
   return {
@@ -278,6 +335,24 @@ export const tripIfCalledXTimes = (id: string, limit: number, regular: TreeNode,
     clear: function (creep, trace): void {
       clearState(creep, this.id, trace);
       this.node.clear(creep, trace);
+    },
+  } as TreeNode;
+}
+
+export const resetTripCounter = (id: string, counterId: string): TreeNode => {
+  return {
+    id,
+    counterId,
+    tick: function (creep, trace, kingdom): NodeTickResult {
+      // Clear the counter
+      trace.notice("clear trip counter", {counter: creep.memory[this.counterId]});
+      clearState(creep, this.counterId, trace);
+      trace.notice("clear trip counter", {counter: creep.memory[this.counterId]});
+
+      return SUCCESS;
+    },
+    clear: function (creep, trace) {
+      clearState(creep, this.id, trace);
     },
   } as TreeNode;
 }

@@ -4,16 +4,8 @@ import * as behaviorMovement from "./behavior.movement";
 import behaviorCommute from "./behavior.commute";
 import {behaviorBoosts} from "./behavior.boosts";
 import behaviorRoom from "./behavior.room";
-
-const policy: PathFinderPolicy = {
-  avoidHostiles: true,
-  avoidOwnedRooms: true,
-  avoidFriendlyRooms: false,
-  maxOps: 2000,
-}
-
 import * as MEMORY from "./constants.memory";
-import {PathFinderPolicy} from "./lib.path_cache";
+import {common} from "./lib.pathing_policies";
 
 const behavior = behaviorTree.sequenceNode(
   'upgrader_root',
@@ -35,7 +27,7 @@ const behavior = behaviorTree.sequenceNode(
 
       return behaviorTree.SUCCESS;
     }),
-    behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_ASSIGN_ROOM_POS, 3, policy),
+    behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_ASSIGN_ROOM_POS, 3, common),
     behaviorTree.leafNode(
       'pick_room_controller',
       (creep) => {
