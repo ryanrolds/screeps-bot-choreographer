@@ -171,7 +171,17 @@ export default class RoomRunnable {
 
       // Towers
       room.find<StructureTower>(FIND_MY_STRUCTURES, {
-        filter: structure => structure.structureType === STRUCTURE_TOWER && structure.isActive(),
+        filter: (structure) => {
+          if (structure.structureType === STRUCTURE_TOWER) {
+            trace.log('tower', {
+              id: structure.id,
+              structureType: structure.structureType,
+              active: structure.isActive()
+            });
+          }
+
+          return structure.structureType === STRUCTURE_TOWER && structure.isActive()
+        },
       }).forEach((tower) => {
         const towerId = `${tower.id}`
         if (!this.scheduler.hasProcess(towerId)) {

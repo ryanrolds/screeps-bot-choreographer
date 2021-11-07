@@ -158,7 +158,7 @@ export default class SourceRunnable {
         },
       }
 
-      trace.notice('requesting worker', {roomId: room.name, sourceId: this.sourceId, details});
+      trace.log('requesting worker', {roomId: room.name, sourceId: this.sourceId, details});
 
       colony.getPrimaryRoom().requestSpawn(priority, details, REQUEST_WORKER_TTL);
     }
@@ -235,7 +235,7 @@ export default class SourceRunnable {
         },
       }
 
-      trace.notice('requesting worker', {roomId: room.name, sourceId: this.sourceId, details});
+      trace.log('requesting worker', {roomId: room.name, sourceId: this.sourceId, details});
 
       colony.getPrimaryRoom().requestSpawn(priority, details, REQUEST_WORKER_TTL);
     }

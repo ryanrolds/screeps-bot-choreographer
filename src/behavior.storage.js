@@ -133,7 +133,7 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.select
           return FAILURE;
         }
 
-        if (!room.room.storage || !room.room.storage.isActive()) {
+        if (!room.room.storage?.isActive()) {
           return FAILURE;
         }
 

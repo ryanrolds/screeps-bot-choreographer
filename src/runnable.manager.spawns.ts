@@ -207,7 +207,7 @@ export default class SpawnManager {
 
               const distance = Game.map.getRoomLinearDistance((this.orgRoom as any).id, destinationRoom);
               if (distance > 5) {
-                trace.notice('distance', {distance, message});
+                trace.log('distance', {distance, message});
                 return false;
               }
 

@@ -170,14 +170,6 @@ let config: KingdomConfig = {
         automated: true,
         origin: new RoomPosition(35, 14, 'W6N1'),
       },
-      'W7N6-Private': {
-        id: 'W7N6-Private',
-        primary: 'W7N6',
-        isPublic: false,
-        rooms: ['W7N6'],
-        automated: false,
-        origin: null,
-      },
       'W5N8-Private': {
         id: 'W5N8-Private',
         primary: 'W5N8',
@@ -194,24 +186,22 @@ let config: KingdomConfig = {
         automated: true,
         origin: new RoomPosition(31, 30, 'W3N1'),
       },
-      /*
-      'W3N1-Private': {
-        id: 'W3N1-Private',
-        primary: 'W3N1',
+      'W5N3-Private': {
+        id: 'W5N3-Private',
+        primary: 'W5N3',
         isPublic: false,
-        rooms: ['W3N1'],
+        rooms: ['W5N3'],
         automated: true,
-        origin: new RoomPosition(32, 26, 'W3N1'),
+        origin: new RoomPosition(14, 41, 'W5N3'),
       },
-      'W3N7-Private': {
-        id: 'W3N7-Private',
-        primary: 'W3N7',
+      'W2N5-Private': {
+        id: 'W2N5-Private',
+        primary: 'W2N5',
         isPublic: false,
-        rooms: ['W3N7'],
+        rooms: ['W2N5'],
         automated: true,
-        origin: new RoomPosition(35, 18, 'W3N7'),
+        origin: new RoomPosition(17, 12, 'W2N5'),
       },
-      */
     },
     'Ryans-MacBook-Pro.local': {
       'W6N1-Private': {

@@ -68,7 +68,7 @@ export const getPath = (kingdom: Kingdom, origin: RoomPosition, destination: Roo
 
   // Get list of rooms on the way to destination
   const roomRoute = Game.map.findRoute(origin.roomName, destination.roomName, {
-    routeCallback: getRoomRouteCallback(kingdom, policy.room, trace),
+    routeCallback: getRoomRouteCallback(kingdom, destination.roomName, policy.room, trace),
   });
 
   // If we have no route, return null
@@ -93,7 +93,7 @@ export const getPath = (kingdom: Kingdom, origin: RoomPosition, destination: Roo
     range: policy.destination.range
   }, {
     maxRooms: policy.path.maxSearchRooms,
-    roomCallback: getRoomCallback(kingdom, policy.room, allowedRooms, trace),
+    roomCallback: getRoomCallback(kingdom, destination.roomName, policy.room, allowedRooms, trace),
     maxOps: policy.path.maxOps,
     plainCost: policy.path.plainCost || 2,
     swampCost: policy.path.swampCost || 5,
@@ -123,6 +123,10 @@ export const getClosestColonyByPath = (kingdom: Kingdom, destination: RoomPositi
   colonies.forEach((colony) => {
     // Get the origin position from the colony by apply the colony policy
     const originPosition = getOriginPosition(kingdom, colony, policy.colony, trace);
+    if (!originPosition) {
+      trace.log("no origin position", {colony: colony.id});
+      return;
+    }
 
     trace.log('checking colony', {
       colony: colony.id,
@@ -197,9 +201,16 @@ const getOriginPosition = (kingdom: Kingdom, colony: Colony, policy: ColonyPolic
   return null;
 }
 
-const getRoomRouteCallback = (kingdom: Kingdom, policy: RoomPolicy, trace: Tracer): RouteCallback => {
-  return (fromRoom: string, toRoom: string): number => {
+const getRoomRouteCallback = (kingdom: Kingdom, destRoom: string, policy: RoomPolicy, trace: Tracer): RouteCallback => {
+  return (toRoom: string, fromRoom: string): number => {
+    // Always allow entry to destination room
+    if (destRoom === toRoom) {
+      return 1;
+    }
+
     const roomEntry = kingdom.getScribe().getRoomById(toRoom);
+    trace.log('room route entry', {fromRoom, toRoom, roomEntry});
+
     // If we have not scanned the room, dont enter it
     if (!roomEntry && policy.avoidUnloggedRooms) {
       trace.log('room not logged', {toRoom});
@@ -218,26 +229,30 @@ const getRoomRouteCallback = (kingdom: Kingdom, policy: RoomPolicy, trace: Trace
   }
 }
 
-const getRoomCallback = (kingdom: Kingdom, policy: RoomPolicy, allowedRooms: Record<string, boolean>,
-  trace: Tracer): RoomCallbackFunc => {
+const getRoomCallback = (kingdom: Kingdom, destRoom: string, policy: RoomPolicy,
+  allowedRooms: Record<string, boolean>, trace: Tracer): RoomCallbackFunc => {
   return (roomName: string): (boolean | CostMatrix) => {
-    if (!allowedRooms[roomName]) {
-      trace.log('room not allowed', {roomName});
-      return false;
-    }
-
-    const roomEntry = kingdom.getScribe().getRoomById(roomName);
-    // If we have not scanned the room, dont enter it
-    if (!roomEntry && policy.avoidUnloggedRooms) {
-      trace.log('room not logged', {roomName});
-      return false;
-    }
-
-    if (roomEntry) {
-      const allow = applyRoomCallbackPolicy(kingdom, roomEntry, policy, trace);
-      if (!allow) {
+    if (destRoom !== roomName) {
+      if (!allowedRooms[roomName]) {
         trace.log('room not allowed', {roomName});
         return false;
+      }
+
+      const roomEntry = kingdom.getScribe().getRoomById(roomName);
+      trace.log('room route entry', {roomName, roomEntry});
+
+      // If we have not scanned the room, dont enter it
+      if (!roomEntry && policy.avoidUnloggedRooms) {
+        trace.log('room not logged', {roomName});
+        return false;
+      }
+
+      if (roomEntry) {
+        const allow = applyRoomCallbackPolicy(kingdom, roomEntry, policy, trace);
+        if (!allow) {
+          trace.log('room not allowed by policy', {roomName});
+          return false;
+        }
       }
     }
 
@@ -250,7 +265,8 @@ const getRoomCallback = (kingdom: Kingdom, policy: RoomPolicy, allowedRooms: Rec
   }
 }
 
-const applyRoomCallbackPolicy = (kingdom: Kingdom, roomEntry: RoomEntry, policy: RoomPolicy, trace: Tracer): boolean => {
+const applyRoomCallbackPolicy = (kingdom: Kingdom, roomEntry: RoomEntry,
+  policy: RoomPolicy, trace: Tracer): boolean => {
   const owner = roomEntry.controller?.owner;
   const ownerIsNotMe = owner !== 'ENETDOWN';
   const isFriendly = kingdom.config.friends.includes(owner)

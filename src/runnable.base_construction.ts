@@ -38,70 +38,137 @@ const layouts: BaseLayout[] = [
     origin: {x: 2, y: 5},
     parking: {x: 2, y: 6},
     buildings: [
-      [' ', ' ', 'R', 'E', ' '],
+      ['X', 'X', 'R', 'E', 'X'],
       ['E', 'R', 'P', 'R', 'E'],
       ['E', 'R', 'C', 'R', 'E'],
-      [' ', 'R', 'C', 'R', ' '],
-      [' ', ' ', 'R', ' ', ' '],
-      [' ', 'R', ' ', 'R', ' '],
-      [' ', ' ', 'R', ' ', ' '],
+      ['X', 'R', 'C', 'R', 'X'],
+      ['X', 'X', 'R', 'X', 'X'],
+      ['X', 'R', 'X', 'R', 'X'],
+      ['X', 'X', 'R', 'X', 'X'],
     ]
   },
   { // RCL3
     origin: {x: 2, y: 5},
     parking: {x: 5, y: 7},
     buildings: [
-      [' ', 'E', 'R', 'E', ' '],
+      ['X', 'E', 'R', 'E', 'X'],
       ['E', 'R', 'P', 'R', 'E'],
       ['E', 'R', 'C', 'R', 'E'],
       ['E', 'R', 'C', 'R', 'E'],
       ['R', 'T', 'R', 'E', 'R'],
-      [' ', 'R', ' ', 'R', ' '],
-      [' ', 'E', 'R', ' ', ' '],
+      ['X', 'R', 'X', 'R', 'X'],
+      ['X', 'E', 'R', 'X', 'X'],
     ]
   },
   { // RCL4
     origin: {x: 3, y: 6},
     parking: {x: 6, y: 9},
     buildings: [
-      [' ', 'E', 'R', 'E', 'R', 'E', ' '],
+      ['X', 'E', 'R', 'E', 'R', 'E', 'X'],
       ['R', 'R', 'E', 'R', 'E', 'R', 'R'],
-      [' ', 'E', 'R', 'P', 'R', 'E', ' '],
-      [' ', 'E', 'R', 'C', 'R', 'E', ' '],
-      [' ', ' ', 'R', 'C', 'R', 'E', ' '],
-      [' ', 'R', 'T', 'R', 'E', 'R', ' '],
-      ['R', ' ', 'R', 'S', 'R', ' ', 'R'],
-      [' ', 'R', 'E', 'R', 'E', 'R', ' '],
-      [' ', ' ', 'R', ' ', 'R', 'R', 'R'],
-      [' ', 'E', 'R', 'E', 'R', 'R', ' '],
-      [' ', 'E', 'R', ' ', 'R', 'R', 'R'],
+      ['X', 'E', 'R', 'P', 'R', 'E', 'X'],
+      ['X', 'E', 'R', 'C', 'R', 'E', 'X'],
+      ['X', 'X', 'R', 'C', 'R', 'E', 'X'],
+      ['X', 'R', 'T', 'R', 'E', 'R', 'X'],
+      ['R', 'X', 'R', 'S', 'R', 'X', 'R'],
+      ['X', 'R', 'E', 'R', 'E', 'R', 'X'],
+      ['X', 'X', 'R', 'X', 'R', 'R', 'R'],
+      ['X', 'E', 'R', 'E', 'R', 'R', 'X'],
+      ['X', 'E', 'R', 'X', 'R', 'R', 'R'],
       ['R', 'R', 'E', 'R', 'E', 'R', 'R'],
-      [' ', 'E', 'R', 'E', 'R', ' ', ' '],
+      ['X', 'E', 'R', 'E', 'R', 'X', 'X'],
     ]
   },
   { // RCL5
-    origin: {x: 3, y: 6},
-    parking: {x: 6, y: 9},
+    origin: {x: 3, y: 7},
+    parking: {x: 6, y: 10},
     buildings: [
       ['E', 'E', 'R', 'E', 'R', 'E', 'E'],
       ['R', 'R', 'E', 'R', 'E', 'R', 'R'],
       ['E', 'E', 'R', 'P', 'R', 'E', 'E'],
       ['E', 'E', 'R', 'E', 'R', 'E', 'E'],
-      [' ', ' ', 'R', ' ', 'R', ' ', ' '],
-      [' ', 'R', 'T', 'R', 'E', 'R', ' '],
-      ['R', ' ', 'R', 'S', 'R', 'L', 'R'],
-      [' ', 'R', 'E', 'R', 'T', 'R', ' '],
-      [' ', ' ', 'R', ' ', 'R', 'R', 'R'],
-      ['E', 'E', 'R', 'E', 'R', 'R', ' '],
-      ['E', 'E', 'R', ' ', 'R', 'R', 'R'],
+      ['X', 'X', 'R', 'X', 'R', 'X', 'X'],
+      ['X', 'R', 'T', 'R', 'E', 'R', 'X'],
+      ['R', 'X', 'R', 'S', 'R', 'L', 'R'],
+      ['X', 'R', 'E', 'R', 'T', 'R', 'X'],
+      ['X', 'X', 'R', 'X', 'R', 'R', 'R'],
+      ['E', 'E', 'R', 'E', 'R', 'R', 'X'],
+      ['E', 'E', 'R', 'X', 'R', 'R', 'R'],
       ['R', 'R', 'E', 'R', 'E', 'R', 'R'],
       ['E', 'E', 'R', 'E', 'R', 'E', 'E'],
     ]
   },
+  { // RCL6
+    origin: {x: 6, y: 7},
+    parking: {x: 9, y: 10},
+    buildings: [
+      ['.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.'],
+      ['.', '.', '.', 'E', 'E', 'R', 'E', 'R', 'E', 'E', '.', '.', '.'],
+      ['.', '.', 'E', 'R', 'R', 'E', 'R', 'E', 'R', 'R', 'E', '.', '.'],
+      ['.', '.', 'R', 'E', 'E', 'R', 'P', 'R', 'E', 'E', 'R', '.', '.'],
+      ['.', '.', 'E', 'E', 'E', 'R', 'E', 'R', 'E', 'E', 'E', '.', '.'],
+      ['.', '.', 'E', 'B', 'B', 'R', 'X', 'R', 'X', 'X', 'E', '.', '.'],
+      ['.', '.', 'R', 'B', 'R', 'T', 'R', 'E', 'R', 'X', 'R', '.', '.'],
+      ['.', '.', '.', 'R', 'M', 'R', 'S', 'R', 'L', 'R', '.', '.', '.'],
+      ['.', '.', 'R', 'X', 'R', 'E', 'R', 'T', 'R', 'X', 'R', '.', '.'],
+      ['.', '.', 'E', 'X', 'X', 'R', 'X', 'R', 'R', 'R', 'R', '.', '.'],
+      ['.', '.', 'E', 'E', 'E', 'R', 'E', 'R', 'R', 'X', 'R', '.', '.'],
+      ['.', '.', 'R', 'E', 'E', 'R', 'X', 'R', 'R', 'R', 'R', '.', '.'],
+      ['.', '.', 'E', 'R', 'R', 'E', 'R', 'E', 'R', 'R', 'E', '.', '.'],
+      ['.', '.', '.', 'E', 'E', 'R', 'E', 'R', 'E', 'E', '.', '.', '.'],
+      ['.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.'],
+    ]
+  },
+  { // RCL7
+    origin: {x: 6, y: 7},
+    parking: {x: 9, y: 10},
+    buildings: [
+      ['.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.'],
+      ['.', '.', '.', 'E', 'E', 'R', 'E', 'R', 'E', 'E', '.', '.', '.'],
+      ['.', '.', 'E', 'R', 'R', 'E', 'R', 'E', 'R', 'R', 'E', '.', '.'],
+      ['.', 'E', 'R', 'E', 'E', 'R', 'P', 'R', 'E', 'E', 'R', 'E', '.'],
+      ['.', 'R', 'E', 'E', 'E', 'R', 'E', 'R', 'E', 'E', 'E', 'R', '.'],
+      ['.', 'R', 'E', 'B', 'B', 'R', 'X', 'R', 'B', 'B', 'E', 'R', '.'],
+      ['.', 'E', 'R', 'B', 'R', 'T', 'R', 'X', 'R', 'B', 'R', 'E', '.'],
+      ['.', 'R', 'E', 'R', 'M', 'R', 'S', 'R', 'L', 'R', 'E', 'R', '.'],
+      ['.', 'E', 'R', 'X', 'R', 'T', 'R', 'T', 'R', 'E', 'R', 'E', '.'],
+      ['.', 'R', 'E', 'X', 'X', 'R', 'X', 'R', 'R', 'R', 'R', 'R', '.'],
+      ['.', 'R', 'E', 'E', 'E', 'R', 'E', 'R', 'R', 'E', 'R', 'R', '.'],
+      ['.', 'E', 'R', 'E', 'E', 'R', 'P', 'R', 'R', 'R', 'R', 'E', '.'],
+      ['.', '.', 'E', 'R', 'R', 'E', 'R', 'E', 'R', 'R', 'E', '.', '.'],
+      ['.', '.', '.', 'E', 'E', 'R', 'E', 'R', 'E', 'E', '.', '.', '.'],
+      ['.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.'],
+    ]
+  },
+  { // RCL8
+    origin: {x: 6, y: 7},
+    parking: {x: 9, y: 10},
+    buildings: [
+      ['.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.'],
+      ['.', '.', '.', 'E', 'E', 'R', 'O', 'R', 'E', 'E', '.', '.', '.'],
+      ['.', 'E', 'E', 'R', 'R', 'E', 'R', 'E', 'R', 'R', 'E', 'E', '.'],
+      ['.', 'E', 'R', 'E', 'E', 'R', 'P', 'R', 'E', 'E', 'R', 'E', '.'],
+      ['E', 'R', 'E', 'E', 'E', 'R', 'E', 'R', 'E', 'E', 'E', 'R', 'E'],
+      ['E', 'R', 'E', 'B', 'B', 'R', 'T', 'R', 'B', 'B', 'E', 'R', 'E'],
+      ['R', 'E', 'R', 'B', 'R', 'T', 'R', 'T', 'R', 'B', 'R', 'E', 'R'],
+      ['E', 'R', 'E', 'R', 'M', 'R', 'S', 'R', 'L', 'R', 'P', 'R', 'E'],
+      ['R', 'E', 'R', 'B', 'R', 'T', 'R', 'T', 'R', 'X', 'R', 'E', 'R'],
+      ['E', 'R', 'E', 'B', 'B', 'R', 'T', 'R', 'R', 'R', 'R', 'R', 'E'],
+      ['E', 'R', 'E', 'E', 'N', 'R', 'E', 'R', 'R', 'E', 'R', 'R', 'E'],
+      ['.', 'E', 'R', 'E', 'E', 'R', 'P', 'R', 'R', 'R', 'R', 'E', '.'],
+      ['.', 'E', 'E', 'R', 'R', 'E', 'R', 'E', 'R', 'R', 'E', 'E', '.'],
+      ['.', '.', '.', 'E', 'E', 'R', 'E', 'R', 'E', 'E', '.', '.', '.'],
+      ['.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.'],
+    ]
+  },
 ]
 
+const EMPTY = 'empty';
+const ANY = 'any';
+
 const buildingCodes = {
-  ' ': null,
+  'X': EMPTY,
+  '.': ANY,
   'R': STRUCTURE_ROAD,
   'P': STRUCTURE_SPAWN,
   'E': STRUCTURE_EXTENSION,
@@ -109,6 +176,10 @@ const buildingCodes = {
   'T': STRUCTURE_TOWER,
   'S': STRUCTURE_STORAGE,
   'L': STRUCTURE_LINK,
+  'M': STRUCTURE_TERMINAL,
+  'B': STRUCTURE_LAB,
+  'O': STRUCTURE_OBSERVER,
+  'N': STRUCTURE_NUKER,
 }
 
 export default class BaseConstructionRunnable {
@@ -125,7 +196,7 @@ export default class BaseConstructionRunnable {
 
     const roomLevel = this.orgRoom.getRoomLevel();
     if (roomLevel < 1) {
-      trace.notice('room level low', {roomLevel});
+      trace.log('room level low', {roomLevel});
       trace.end();
       return sleeping(CONSTRUCTION_INTERVAL);
     }
@@ -138,14 +209,14 @@ export default class BaseConstructionRunnable {
 
     const isAutomated = colony.isAutomated();
     if (!isAutomated) {
-      trace.notice('not automated');
+      trace.log('not automated');
       trace.end();
       return sleeping(CONSTRUCTION_INTERVAL);
     }
 
     const origin = colony.getOrigin();
     if (!origin) {
-      trace.notice('no origin');
+      trace.log('no origin');
       trace.end();
       return sleeping(CONSTRUCTION_INTERVAL);
     }
@@ -156,25 +227,9 @@ export default class BaseConstructionRunnable {
       return sleeping(CONSTRUCTION_INTERVAL);
     }
 
-    const layout = layouts.find((layout, level) => {
-      // Dont try to build a layout if we are not at the right level
-      if (roomLevel < level) {
-        trace.log('room level too low', {roomLevel, level});
-        return false;
-      }
-
-      // Dont build a layout that is already done
-      if (this.layoutComplete(layout, room, origin, trace)) {
-        trace.log('layout complete', {level, layout});
-        return false;
-      }
-
-      trace.log('layout not done', {level, layout});
-      return true;
-    });
-
+    const layout = this.selectLayout(roomLevel, room, origin, trace);
     if (!layout) {
-      trace.notice('no layout');
+      trace.log('no layout');
       trace.end();
       return sleeping(CONSTRUCTION_INTERVAL);
     }
@@ -185,16 +240,27 @@ export default class BaseConstructionRunnable {
     return sleeping(CONSTRUCTION_INTERVAL);
   }
 
+  selectLayout(roomLevel: number, room: Room, origin: RoomPosition, trace: Tracer): BaseLayout {
+    const layout = layouts[roomLevel];
+
+    // Dont build a layout that is already done
+    if (this.layoutComplete(layout, room, origin, trace)) {
+      trace.log('layout complete', {roomLevel, layout});
+      return null;
+    }
+
+    return layout;
+  }
+
   buildLayout(layout: BaseLayout, room: Room, origin: RoomPosition, trace: Tracer): void {
-    trace.notice('building layout', {roomId: room.name, layout});
+    trace.log('building layout', {roomId: room.name, layout});
 
     const roomVisual = new RoomVisual(room.name);
     for (let y = 0; y < layout.buildings.length; y++) {
       const row = layout.buildings[y];
       for (let x = 0; x < row.length; x++) {
         const code = row[x];
-        if (code === ' ') {
-          trace.log('empty spot', {x, y});
+        if (buildingCodes[code] === ANY) {
           continue;
         }
 
@@ -222,14 +288,14 @@ export default class BaseConstructionRunnable {
         }
 
         const structureType = buildingCodes[code];
-        if (!structureType) {
+        if (!structureType || structureType === EMPTY) {
           continue;
         }
 
         // roomVisual.text(code, pos.x, pos.y);
 
         const result = room.createConstructionSite(pos, structureType);
-        if (result !== OK) {
+        if (result !== OK && result !== ERR_FULL) {
           trace.error('failed to build structure', {structureType, pos, result});
         }
       }

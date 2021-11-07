@@ -52,7 +52,9 @@ export default class InvaderManager {
     const rooms = getRoomEntriesWithInvaderBases(kingdom, trace);
 
     trace.notice('found defeatable invader bases', {
-      rooms: rooms.map((roomEntry) => roomEntry.id)
+      rooms: rooms.map((roomEntry) => {
+        return {id: roomEntry.id, pos: roomEntry.invaderCorePos}
+      }),
     });
 
     rooms.forEach((roomEntry) => {

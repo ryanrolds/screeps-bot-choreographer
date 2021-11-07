@@ -34,7 +34,7 @@ const policy: FindColonyPathPolicy = {
     allowIncomplete: false,
     maxSearchRooms: 16,
     maxOps: 5000,
-    maxPathRooms: 5,
+    maxPathRooms: 10,
     ignoreCreeps: true,
   },
 };
@@ -64,7 +64,7 @@ export default class BufferManager {
 
 function enforceBuffer(trace: Tracer, kingdom: Kingdom) {
   const hostileRoomsByColony = getHostileRoomsByColony(kingdom, trace);
-  trace.notice('hostile rooms by colony', {hostileRoomsByColony});
+  trace.log('hostile rooms by colony', {hostileRoomsByColony});
 
   _.forEach(hostileRoomsByColony, (rooms, colonyId) => {
     if (rooms.length < 1) {
@@ -120,7 +120,7 @@ function getHostileRoomsByColony(kingdom: Kingdom, trace: Tracer): HostileRoomsB
   weakRooms.forEach((room) => {
     const colony = getClosestColonyByPath(kingdom, room.controllerPos, policy, trace)
     if (!colony) {
-      trace.notice('closest colony', {roomId: room.id, policy});
+      trace.log('no nearby colony', {roomId: room.id, policy});
       return;
     }
 

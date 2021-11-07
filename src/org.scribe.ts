@@ -111,7 +111,34 @@ export class Scribe extends OrgBase {
   }
 
   process(trace) {
+    const username = this.getKingdom().config.username;
+    const friends = this.getKingdom().config.friends;
+    const visual = Game.map.visual;
+    this.getRooms().forEach((room) => {
+      const age = Game.time - room.lastUpdated;
+      const owner = room.controller?.owner || null;
 
+      visual.text(age.toString(), new RoomPosition(49, 47, room.id), {
+        align: 'right',
+        fontSize: 4,
+      });
+
+      let roomPosture = '';
+      if (owner && owner !== username) {
+        roomPosture += '⚔️';
+      }
+      if (owner === username) {
+        roomPosture += '🟢';
+      }
+      if (room.controller?.safeMode > 0) {
+        roomPosture += '💢';
+      }
+
+      visual.text(roomPosture, new RoomPosition(0, 4, room.id), {
+        align: 'left',
+        fontSize: 6,
+      });
+    });
   }
 
   removeStaleJournalEntries() {

@@ -124,12 +124,12 @@ export class PathCache {
     }
     this.originGoalToPathMap[originKey][destKey] = item;
 
-    trace.notice('set cache path', {originKey, destKey});
+    trace.log('set cache path', {originKey, destKey});
 
     if (this.listCount > this.maxSize) {
       const toRemove = this.tail.next;
 
-      trace.notice('over max', {
+      trace.log('over max', {
         count: this.listCount,
         max: this.maxSize,
         originKey: toRemove.originId,

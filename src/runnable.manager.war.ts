@@ -1,20 +1,18 @@
 import * as _ from 'lodash';
 
 import {Priorities, Scheduler} from "./os.scheduler";
-import {Process, Runnable, RunnableResult, running, sleeping} from "./os.process";
+import {Process, RunnableResult, sleeping} from "./os.process";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
 import WarPartyRunnable from './runnable.warparty';
 import * as TOPICS from './constants.topics';
 import {Colony} from './org.colony';
-import {ATTACK_ROOM_TTL, AttackRequest, AttackStatus, Phase} from './constants.attack';
-import {Position} from './lib.flood_fill';
+import {AttackStatus, Phase} from './constants.attack';
 import * as MEMORY from './constants.memory';
 import * as CREEPS from './constants.creeps';
 import * as PRIORITIES from './constants.priorities';
 import {creepIsFresh} from './behavior.commute';
 
-const WAR_PARTY_PROCESS_PRIORITY = 2;
 const WAR_PARTY_RUN_TTL = 20;
 const COLONY_ATTACK_RANGE = 5;
 const MAX_WAR_PARTIES_PER_COLONY = 1;
@@ -129,6 +127,15 @@ export default class WarManager {
 
     // If we have a target, create war parties and attack
     if (this.targetRoom) {
+      // Send reserver to block controller if room is clear
+      const roomEntry = kingdom.getScribe().getRoomById(this.targetRoom);
+      if (roomEntry.controller?.safeMode) {
+        trace.log("controller is in safe mode, stopping attack", {targetRoom: this.targetRoom});
+        this.targetRoom = null;
+        return sleeping(WAR_PARTY_RUN_TTL);
+      }
+
+
       // Locate nearby colonies and spawn war parties
       kingdom.getColonies().forEach((colony) => {
         const distance = Game.map.getRoomLinearDistance(colony.primaryRoomId, this.targetRoom)
@@ -139,7 +146,7 @@ export default class WarManager {
             return party.colony === colony;
           }).length;
 
-          trace.log("found parties", {
+          trace.log("colony parties", {
             colonyId: colony.id,
             numColonyWarParties,
             max: MAX_WAR_PARTIES_PER_COLONY
@@ -151,8 +158,6 @@ export default class WarManager {
         }
       });
 
-      // Send reserver to block controller if room is clear
-      const roomEntry = kingdom.getScribe().getRoomById(this.targetRoom);
       if (roomEntry && roomEntry.numTowers === 0 && roomEntry.controller?.level > 0) {
         const numReservers = _.filter(Game.creeps, (creep) => {
           const role = creep.memory[MEMORY.MEMORY_ROLE];
@@ -202,7 +207,7 @@ export default class WarManager {
     const flagId = `rally_${colony.primaryRoomId}`;
     const flag = Game.flags[flagId];
     if (!flag) {
-      trace.notice(`not creating war party, no rally flag (${flagId})`);
+      trace.log(`not creating war party, no rally flag (${flagId})`);
       return null;
     }
 

@@ -67,6 +67,7 @@ export class Colony extends OrgBase {
   threadHandleDefenderRequest: ThreadFunc;
   threadRequestReserversForMissingRooms: ThreadFunc;
   threadRequestHaulers: ThreadFunc;
+  threadRequestExplorer: ThreadFunc;
 
   constructor(parent: Kingdom, colony: ColonyConfig, trace: Tracer) {
     super(parent, colony.id, trace);
@@ -157,6 +158,10 @@ export class Colony extends OrgBase {
       this.requestHaulers();
     });
 
+    this.threadRequestExplorer = thread('request_explorers_thread', REQUEST_EXPLORER_TTL)(() => {
+      this.requestExplorer();
+    });
+
     setupTrace.end();
   }
   update(trace) {
@@ -202,9 +207,9 @@ export class Colony extends OrgBase {
       this.threadRequestHaulers(updateTrace);
     }
 
-    // if (this.threadRequestExplorer) {
-    //  this.threadRequestExplorer();
-    // }
+    if (this.threadRequestExplorer) {
+      this.threadRequestExplorer(trace);
+    }
 
     updateTrace.end();
   }
@@ -392,6 +397,7 @@ export class Colony extends OrgBase {
       }
     }
   }
+
   requestExplorer() {
     if (!this.primaryRoom) {
       return;
@@ -409,6 +415,7 @@ export class Colony extends OrgBase {
       }, REQUEST_EXPLORER_TTL);
     }
   }
+
   requestReserverForMissingRooms(trace: Tracer) {
     trace.log("missing rooms", {missingRooms: this.missingRooms});
     this.missingRooms.forEach((roomID) => {
@@ -495,10 +502,10 @@ export class Colony extends OrgBase {
         }
       }
     } else if (this.primaryRoom) {
-      // this.threadRequestExplorer = thread(REQUEST_EXPLORER_TTL,
-      //  this.primaryRoom.memory, 'request_explorer')(() => {
-      //    this.requestExplorer();
-      //  });
+
+
+
+
     }
 
     updateOrgTrace.end();

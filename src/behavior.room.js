@@ -89,20 +89,20 @@ const selectStorage = behaviorTree.leafNode(
   (creep, trace, kingdom) => {
     const room = kingdom.getRoomByName(creep.room.name);
     if (!room) {
-      trace.notice('unable to get creep org room', {roomName: creep.room.name});
+      trace.log('unable to get creep org room', {roomName: creep.room.name});
       return FAILURE;
     }
 
     const energyReserve = room.getReserveStructureWithMostOfAResource(RESOURCE_ENERGY, false);
     if (energyReserve && energyReserve.store.getUsedCapacity(RESOURCE_ENERGY) >= 0) {
-      trace.notice('selecting reserve', {id: energyReserve.id});
+      trace.log('selecting reserve', {id: energyReserve.id});
       behaviorMovement.setDestination(creep, energyReserve.id);
       return SUCCESS;
     }
 
     behaviorMovement.setDestination(creep, null);
 
-    trace.notice('did not find reserve with energy');
+    trace.log('did not find reserve with energy', {roomName: creep.room.name});
     return FAILURE;
   },
 );
