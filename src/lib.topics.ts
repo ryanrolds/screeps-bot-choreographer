@@ -10,7 +10,7 @@ export class Topics {
     this.topics = {};
   }
 
-  getTopic(key: TopicKey) {
+  getTopic(key: TopicKey): Topic {
     if (!this.topics[key]) {
       return null;
     }

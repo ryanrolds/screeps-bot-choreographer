@@ -38,6 +38,7 @@ export default class WarManager {
   memory: WarMemory;
   warParties: WarPartyRunnable[];
   targetRoom: string;
+  targets: string[] = [];
 
   updateWarPartiesThread: ThreadFunc;
   processEventsThread: ThreadFunc;
@@ -74,6 +75,27 @@ export default class WarManager {
 
   processEvents(trace: Tracer, kingdom: Kingdom) {
     // Process events
+    let targets: string[] = [];
+    const topic = kingdom.getTopics().getTopic(TOPICS.ATTACK_ROOM);
+    trace.log("processing events", {length: topic.length});
+    topic.forEach((event) => {
+      switch (event.details.status) {
+        case AttackStatus.REQUESTED:
+          targets.push(event.details.roomId);
+          break;
+        case AttackStatus.COMPLETED:
+          kingdom.getScribe().clearRoom(this.targetRoom);
+          targets = targets.filter(target => target !== this.targetRoom);
+          break;
+        default:
+          throw new Error(`invalid status ${event.details.status}`);
+      }
+    });
+
+    trace.notice(`targets: ${targets}`);
+
+    // ================================================================
+
     let request: any = null;
     while (request = kingdom.getNextRequest(TOPICS.ATTACK_ROOM)) {
       trace.log("attack room request", {request});
@@ -103,63 +125,65 @@ export default class WarManager {
       this.restoreFromMemory(kingdom, trace);
     }
 
-    // Load war parties
+    // Update list of war parties
     this.warParties = this.warParties.filter((party) => {
       return this.scheduler.hasProcess(party.id);
     });
 
-    // If we have a target, create war parties and attack
-    if (this.targetRoom) {
-      // Send reserver to block controller if room is clear
-      const roomEntry = kingdom.getScribe().getRoomById(this.targetRoom);
-      if (roomEntry.controller?.safeMode) {
-        trace.log("controller is in safe mode, stopping attack", {targetRoom: this.targetRoom});
-        this.targetRoom = null;
+
+    if (!this.targetRoom) {
+      trace.log("no target room");
+      return;
+    }
+
+    // Send reserver to block controller if room is clear
+    const roomEntry = kingdom.getScribe().getRoomById(this.targetRoom);
+
+    const targetsByColony = this.getTargetsByColony(kingdom, this.targets, trace);
+    trace.log("targets by colony", {targetsByColony});
+
+    // Locate nearby colonies and spawn war parties
+    kingdom.getColonies().forEach((colony) => {
+      const linearDistance = Game.map.getRoomLinearDistance(colony.primaryRoomId, this.targetRoom)
+      trace.log("linear distance", {linearDistance});
+
+      if (linearDistance > COLONY_ATTACK_RANGE) {
         return;
       }
 
-      // Locate nearby colonies and spawn war parties
-      kingdom.getColonies().forEach((colony) => {
-        const linearDistance = Game.map.getRoomLinearDistance(colony.primaryRoomId, this.targetRoom)
-        trace.log("linear distance", {linearDistance});
+      const numColonyWarParties = this.warParties.filter((party) => {
+        return party.colony === colony;
+      }).length;
 
-        if (linearDistance > COLONY_ATTACK_RANGE) {
-          return;
-        }
-
-        const numColonyWarParties = this.warParties.filter((party) => {
-          return party.colony === colony;
-        }).length;
-
-        trace.log("colony parties", {
-          colonyId: colony.id,
-          numColonyWarParties,
-          max: MAX_WAR_PARTIES_PER_COLONY
-        });
-
-        if (numColonyWarParties < MAX_WAR_PARTIES_PER_COLONY) {
-          this.createNewWarParty(kingdom, colony, trace);
-        }
+      trace.log("colony parties", {
+        colonyId: colony.id,
+        numColonyWarParties,
+        max: MAX_WAR_PARTIES_PER_COLONY
       });
 
-      if (roomEntry && roomEntry.numTowers === 0 && roomEntry.controller?.level > 0) {
-        const numReservers = _.filter(Game.creeps, (creep) => {
-          const role = creep.memory[MEMORY.MEMORY_ROLE];
-          return (role === CREEPS.WORKER_RESERVER) &&
-            creep.memory[MEMORY.MEMORY_ASSIGN_ROOM] === this.targetRoom && creepIsFresh(creep);
-        }).length;
+      if (numColonyWarParties < MAX_WAR_PARTIES_PER_COLONY) {
+        this.createNewWarParty(kingdom, colony, trace);
+      }
+    });
 
-        if (numReservers < 1) {
-          const details = {
-            role: CREEPS.WORKER_RESERVER,
-            memory: {
-              [MEMORY.MEMORY_ASSIGN_ROOM]: this.targetRoom,
-            },
-          }
+    // Send reservers to block if no towers
+    if (roomEntry && roomEntry.numTowers === 0 && roomEntry.controller?.level > 0) {
+      const numReservers = _.filter(Game.creeps, (creep) => {
+        const role = creep.memory[MEMORY.MEMORY_ROLE];
+        return (role === CREEPS.WORKER_RESERVER) &&
+          creep.memory[MEMORY.MEMORY_ASSIGN_ROOM] === this.targetRoom && creepIsFresh(creep);
+      }).length;
 
-          kingdom.sendRequest(TOPICS.TOPIC_SPAWN, PRIORITIES.PRIORITY_RESERVER,
-            details, WAR_PARTY_RUN_TTL);
+      if (numReservers < 1) {
+        const details = {
+          role: CREEPS.WORKER_RESERVER,
+          memory: {
+            [MEMORY.MEMORY_ASSIGN_ROOM]: this.targetRoom,
+          },
         }
+
+        kingdom.sendRequest(TOPICS.TOPIC_SPAWN, PRIORITIES.PRIORITY_RESERVER,
+          details, WAR_PARTY_RUN_TTL);
       }
     }
 
@@ -190,6 +214,12 @@ export default class WarManager {
         fontSize: 20,
       });
     }
+  }
+
+  getTargetsByColony(kingdom: Kingdom, targets: string[], trace: Tracer): Record<string, string[]> {
+    const targetsByColony = _.groupBy(targets)
+
+    return targetsByColony;
   }
 
   getTargetRoom(): string {
