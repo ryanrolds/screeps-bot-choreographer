@@ -111,6 +111,7 @@ export class Scribe extends OrgBase {
   }
 
   process(trace) {
+    /*
     const username = this.getKingdom().config.username;
     const friends = this.getKingdom().config.friends;
     const visual = Game.map.visual;
@@ -139,6 +140,7 @@ export class Scribe extends OrgBase {
         fontSize: 6,
       });
     });
+    */
   }
 
   removeStaleJournalEntries() {

@@ -280,8 +280,10 @@ export class PathCache {
     return {
       cacheHits: this.hits,
       cacheMisses: this.misses,
+      cacheExpired: this.expired,
       listCount: this.listCount,
       size: this.getSize(trace),
+      max: this.maxSize,
     };
   }
 
