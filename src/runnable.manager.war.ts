@@ -77,6 +77,11 @@ export default class WarManager {
     // Process events
     let targets: string[] = [];
     const topic = kingdom.getTopics().getTopic(TOPICS.ATTACK_ROOM);
+    if (!topic) {
+      trace.log("no attack room topic");
+      return;
+    }
+
     trace.log("processing events", {length: topic.length});
     topic.forEach((event) => {
       switch (event.details.status) {
