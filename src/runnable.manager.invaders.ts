@@ -5,6 +5,9 @@ import {Scheduler} from "./os.scheduler";
 import {RoomEntry} from "./org.scribe";
 import {FindColonyPathPolicy, getClosestColonyByPath} from "./lib.pathing";
 import {AllowedCostMatrixTypes} from "./lib.costmatrix_cache";
+import {AttackRequest, AttackStatus, ATTACK_ROOM_TTL} from "./constants.attack";
+import {Topics} from "./lib.topics";
+import {ATTACK_ROOM} from "./constants.topics";
 
 const RUN_TTL = 50;
 const MAX_BASE_LEVEL = 1;
@@ -60,11 +63,20 @@ export default class InvaderManager {
     rooms.forEach((roomEntry) => {
       const destination = roomEntry.invaderCorePos;
       const colony = getClosestColonyByPath(kingdom, destination, colonyPathingPolicy, trace);
-      if (colony) {
-        trace.log("attack invader base", {room: roomEntry.id, colony: colony.id});
-      } else {
+      if (!colony) {
         trace.log("no colony to attack invader base", {room: roomEntry.id});
+        return;
       }
+
+      trace.log("requesting attack", {roomId: roomEntry.id})
+
+      const attackRequest: AttackRequest = {
+        status: AttackStatus.REQUESTED,
+        colonyId: colony.id,
+        roomId: roomEntry.id,
+      };
+
+      kingdom.sendRequest(ATTACK_ROOM, 1, attackRequest, ATTACK_ROOM_TTL);
     });
 
     trace.end();

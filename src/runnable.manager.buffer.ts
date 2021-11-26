@@ -34,7 +34,7 @@ const policy: FindColonyPathPolicy = {
     allowIncomplete: false,
     maxSearchRooms: 16,
     maxOps: 5000,
-    maxPathRooms: 10,
+    maxPathRooms: 5,
     ignoreCreeps: true,
   },
 };
@@ -116,7 +116,6 @@ function getHostileRoomsByColony(kingdom: Kingdom, trace: Tracer): HostileRoomsB
   // TODO fix this
   policy.colony.maxLinearDistance = kingdom.config.buffer;
 
-  // TODO replace with lib.pathing
   weakRooms.forEach((room) => {
     const colony = getClosestColonyByPath(kingdom, room.controllerPos, policy, trace)
     if (!colony) {
@@ -130,91 +129,6 @@ function getHostileRoomsByColony(kingdom: Kingdom, trace: Tracer): HostileRoomsB
 
     hostileRoomsByColony[colony.id].push(room);
   });
-
-  /*
-  const colonies = kingdom.getColonies().filter(colony => colony.primaryRoom?.controller?.level >= 6)
-  colonies.forEach((colony) => {
-    const nearByWeakRooms = weakRooms.filter((room) => {
-      trace.log('checking if room should be attacked', {colonyId: colony.id, weakRoom: room.id});
-
-      // First narrow to linear distance to reduce the number of rooms to findRoute on
-      const linearDistance = Game.map.getRoomLinearDistance(room.id, colony.primaryRoomId);
-      if (linearDistance > kingdom.config.buffer) {
-        // trace.log('weak room not near colony', {
-        //   roomId: room.id,
-        //   distance: linearDistance,
-        //   colonyId: colony.id,
-        // });
-        return false;
-      }
-
-      const originStatus = Game.map.getRoomStatus(colony.primaryRoomId);
-      const destinationStatus = Game.map.getRoomStatus(room.id);
-      if (originStatus.status != destinationStatus.status) {
-        trace.log('rooms are different statues', {originStatus, destinationStatus});
-        return false;
-      }
-
-      const spawnPos = colony.getSpawnPos();
-      if (!spawnPos) {
-        trace.log('colony has no spawn pos', {colonyId: colony.id});
-        return false;
-      }
-
-      const destinationController = room.controllerPos;
-
-      const result = PathFinder.search(spawnPos, {pos: destinationController, range: 5}, {
-        maxRooms: 8,
-        roomCallback: (roomName): (CostMatrix | false) => {
-          const roomDetails = kingdom.getScribe().getRoomById(roomName);
-          // If we have not scanned the room, dont enter it
-          if (!roomDetails) {
-            trace.log('room not logged', {roomName});
-            return false;
-          }
-
-          // If owned by someone else and its not the target room, dont enter it
-          trace.log('check if room owned and not destination', {
-            roomName,
-            roomId: room.id,
-            isDestination: roomName === room.id,
-            owner: roomDetails.controller?.owner,
-          });
-
-          const roomStatus = Game.map.getRoomStatus(room.id);
-          if (originStatus.status != roomStatus.status) {
-            trace.log('intermediate room is different statues', {originStatus, roomStatus});
-            return false;
-          }
-
-          const owner = roomDetails.controller?.owner;
-          const ownerIsNotMe = owner !== 'ENETDOWN';
-          if (owner && ownerIsNotMe && roomName !== room.id) {
-            trace.log('room owned by someone', {roomName, owner});
-            return false;
-          }
-
-          return new PathFinder.CostMatrix();
-        },
-      });
-
-      if (result.incomplete) {
-        trace.log('path incomplete', {result});
-        return false;
-      }
-
-      const roomsInPath = _.uniq(result.path.map((pos) => pos.roomName));
-      if (roomsInPath.length > kingdom.config.buffer + 1) {
-        trace.log('too many rooms in path', {roomsInPath});
-        return false;
-      }
-
-      return true;
-    });
-
-    hostileRoomsByColony[colony.id] = nearByWeakRooms;
-  });
-  */
 
   return hostileRoomsByColony;
 }
