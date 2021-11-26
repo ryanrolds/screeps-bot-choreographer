@@ -216,10 +216,13 @@ let config: KingdomConfig = {
   },
 };
 
+
+
 console.log('***** STARTING AI *****');
 const ai = new AI(config);
 global.AI = ai; // So we can access it from the console
-let previousTick = 0;
+
+let previousTick = 0; // Track previous tick time for display
 
 export const loop = function () {
   const trace = new tracing.Tracer('loop', 'loop');
@@ -230,7 +233,7 @@ export const loop = function () {
     tracing.setInactive();
   }
 
-  console.log('======== TICK', Game.time, Game.shard.name, '==== prev cpu: ', previousTick);
+  console.log('======== TICK', Game.time, Game.shard.name, '==== prev cpu:', previousTick);
 
   const aiTrace = trace.begin('ai');
   ai.tick(aiTrace);
@@ -238,6 +241,7 @@ export const loop = function () {
 
   // console.log('--------------------------------');
 
-  previousTick = trace.end();
   tracing.report();
+
+  previousTick = Game.cpu.getUsed();
 };

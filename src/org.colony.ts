@@ -165,7 +165,6 @@ export class Colony extends OrgBase {
     setupTrace.end();
   }
   update(trace) {
-    trace = trace.asId(this.id);
     const updateTrace = trace.begin('update');
 
     const removeStale = updateTrace.begin('remove_stale');
@@ -214,7 +213,6 @@ export class Colony extends OrgBase {
     updateTrace.end();
   }
   process(trace: Tracer) {
-    trace = trace.asId(this.id);
     const processTrace = trace.begin('process');
 
     this.updateStats(processTrace);

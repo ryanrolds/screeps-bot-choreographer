@@ -27,7 +27,7 @@ export class Tracer {
   constructor(id: string, name: string) {
     this.id = id;
     this.name = name;
-    this.start = Game.cpu.getUsed();
+    this.start = 0;
   }
 
   asId(id: string) {
@@ -67,7 +67,7 @@ export class Tracer {
 
   end(): number {
     // If tracing not active minimize the overhead of the tracer
-    if (!isActive) {
+    if (!isActive && !this.start) {
       return 0;
     }
 
