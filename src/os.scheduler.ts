@@ -3,8 +3,6 @@ import {Process} from './os.process';
 import {Kingdom} from './org.kingdom';
 import * as _ from 'lodash';
 
-const TIME_LIMIT_FACTOR = 1.0;
-
 export const Priorities = {
   CRITICAL: 0,
   CORE_LOGISTICS: 1,
@@ -49,6 +47,11 @@ export class Scheduler {
     this.updateProcessMap();
   }
 
+  outOfTime(process: Process) {
+    process.skip();
+    this.ranOutOfTime++;
+  }
+
   isOutOfTime(): boolean {
     const timeUsed = Game.cpu.getUsed();
     if (timeUsed >= this.timeLimit) {
@@ -72,14 +75,16 @@ export class Scheduler {
 
   private updateTimeLimit() {
     if (Game.shard.name === 'shard3') {
-      this.timeLimit = 20 * TIME_LIMIT_FACTOR;
+      this.timeLimit = 20;
       return;
     }
 
-    this.timeLimit = Game.cpu.limit * TIME_LIMIT_FACTOR;
+    this.timeLimit = Game.cpu.limit;
   }
 
   tick(kingdom: Kingdom, trace: Tracer) {
+    trace = trace.begin('scheduler_tick');
+
     // Time limit change between ticks
     this.updateTimeLimit();
 
@@ -98,24 +103,31 @@ export class Scheduler {
 
     // Iterate processes and act on their status
     this.processTable.forEach((process) => {
+      // If bucket is low only run the most critical processes, should keep the bucket away from 0
       if (Game.cpu.bucket < 1000 && process.priority >= LOW_BUCKET_MIN_PRIORITY) {
-        this.ranOutOfTime++;
+        this.outOfTime(process);
         return;
       }
 
+      // If tick out of time, skip if process can be skipped
       if (this.isOutOfTime() && process.canSkip()) {
-        process.skip();
-        this.ranOutOfTime++;
+        this.outOfTime(process);
         return;
       }
-
-      const startProcessCpu = Game.cpu.getUsed();
 
       if (process.isRunning()) {
+        const startProcessCpu = Game.cpu.getUsed();
+
         let processTrace = trace.begin(process.type);
         // Run the process
         process.run(kingdom, processTrace);
         processTrace.end();
+
+        if (!processCpu[process.type]) {
+          processCpu[process.type] = 0;
+        }
+
+        processCpu[process.type] += Game.cpu.getUsed() - startProcessCpu;
       } else if (process.isSleeping()) {
         if (process.shouldWake()) {
           process.setRunning();
@@ -123,12 +135,6 @@ export class Scheduler {
       } else if (process.isTerminated()) {
         toRemove.push(process);
       }
-
-      if (!processCpu[process.type]) {
-        processCpu[process.type] = 0;
-      }
-
-      processCpu[process.type] += Game.cpu.getUsed() - startProcessCpu;
     });
 
     toRemove.forEach((remove) => {
@@ -150,6 +156,8 @@ export class Scheduler {
       created: this.created,
       terminated: this.terminated
     };
+
+    trace.end();
   };
 }
 

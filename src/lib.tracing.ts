@@ -55,14 +55,20 @@ export class Tracer {
   }
 
   begin(name: string) {
+    // If tracing not active minimize the overhead of the tracer
+    if (!isActive) {
+      return this;
+    }
+
     const trace = startTrace(this.id, `${this.name}.${name}`);
     trace.start = Game.cpu.getUsed();
     return trace;
   }
 
   end(): number {
+    // If tracing not active minimize the overhead of the tracer
     if (!isActive) {
-      return;
+      return 0;
     }
 
     const end = Game.cpu.getUsed();

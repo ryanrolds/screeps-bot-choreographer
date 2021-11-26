@@ -65,17 +65,19 @@ export class AI {
     this.scheduler.registerProcess(new Process(bufferManagerId, 'buffer_manager',
       Priorities.DEFENCE, bufferManager));
 
+    // Invader manager
+    const invaderManagerId = 'invader_manager';
+    const invaderManager = new InvaderManager(invaderManagerId, this.scheduler, trace);
+    this.scheduler.registerProcess(new Process(invaderManagerId, 'invader_manager',
+      Priorities.ATTACK, invaderManager));
+
     // War manager
     const warManagerId = 'war_manager';
     const warManager = new WarManager(this.kingdom, warManagerId, this.scheduler, trace);
     this.scheduler.registerProcess(new Process(warManagerId, 'war_manager',
       Priorities.ATTACK, warManager));
 
-    // Buffer manager
-    const invaderManagerId = 'invader_manager';
-    const invaderManager = new InvaderManager(invaderManagerId, this.scheduler, trace);
-    this.scheduler.registerProcess(new Process(invaderManagerId, 'invader_manager',
-      Priorities.ATTACK, invaderManager));
+    // ======= Debugging tools ========
 
     // Path debugger
     const pathDebuggerId = 'path_debugger';
@@ -89,6 +91,8 @@ export class AI {
     this.scheduler.registerProcess(new Process(costMatrixDebuggerId, 'costmatrix_debugger',
       Priorities.DEBUG, costMatrixDebugger));
 
+    // ======= ========================
+
     trace.end();
   }
 
@@ -97,7 +101,7 @@ export class AI {
 
     const memoryHack = trace.begin('memory_hack');
     // memory hack from Dissi
-    if (lastMemoryTick && lastMemory && Game.time == (lastMemoryTick + 1)) {
+    if (lastMemoryTick && lastMemory && Game.time === (lastMemoryTick + 1)) {
       delete global.Memory
       global.Memory = lastMemory;
       (RawMemory as any)._parsed = lastMemory
