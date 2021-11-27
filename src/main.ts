@@ -247,8 +247,10 @@ export const loop = function () {
   previousTick = Game.cpu.getUsed();
 
   // Collect CPU stats
-  (Memory as any).stats.cpu = {};
-  (Memory as any).stats.cpu.bucket = Game.cpu.bucket;
-  (Memory as any).stats.cpu.limit = Game.cpu.limit;
-  (Memory as any).stats.cpu.used = previousTick;
+  if (Game.time % 5 === 0) {
+    (Memory as any).stats.cpu = {};
+    (Memory as any).stats.cpu.bucket = Game.cpu.bucket;
+    (Memory as any).stats.cpu.limit = Game.cpu.limit;
+    (Memory as any).stats.cpu.used = previousTick;
+  }
 };
