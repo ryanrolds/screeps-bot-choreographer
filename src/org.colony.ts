@@ -206,9 +206,9 @@ export class Colony extends OrgBase {
       this.threadRequestHaulers(updateTrace);
     }
 
-    if (this.threadRequestExplorer) {
-      this.threadRequestExplorer(trace);
-    }
+    // if (this.threadRequestExplorer) {
+    //  this.threadRequestExplorer(trace);
+    // }
 
     updateTrace.end();
   }

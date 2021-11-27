@@ -51,7 +51,7 @@ export default class TerminalRunnable {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    trace = trace.asId(this.terminalId).begin('terminal_run');
+    trace = trace.begin('terminal_run');
 
     const ticks = Game.time - this.prevTime;
     this.prevTime = Game.time;

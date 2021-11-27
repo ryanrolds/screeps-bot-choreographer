@@ -74,7 +74,7 @@ export default class LinkManager {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    trace = trace.asId(this.id);
+    trace = trace.begin('link_manager_run');
 
     const ticks = Game.time - this.prevTime;
     this.prevTime = Game.time;
@@ -83,6 +83,7 @@ export default class LinkManager {
 
     const room = this.orgRoom.getRoomObject();
     if (!room) {
+      trace.end();
       return terminate();
     }
 
@@ -100,6 +101,7 @@ export default class LinkManager {
     const storageLink = Game.getObjectById<StructureLink>(this.storageLink);
     if (!this.storageId || !storageLink) {
       trace.log("exiting due to missing storage or storage link", {});
+      trace.end();
       return terminate();
     }
 
@@ -116,6 +118,7 @@ export default class LinkManager {
       if (!link) {
         trace.log("should terminate due to missing source link", {linkId});
         shouldTerminate = true;
+        trace.end();
         return null;
       }
 
@@ -132,7 +135,6 @@ export default class LinkManager {
       const link = Game.getObjectById<StructureLink>(linkId);
       if (!link) {
         trace.log("should terminate due to missing sink link", {linkId});
-        shouldTerminate = true;
         return null;
       }
 
@@ -193,8 +195,11 @@ export default class LinkManager {
     // TODO change in links or storage should cause termination; then remove ttl
     if (shouldTerminate) {
       trace.log('terminating link process', {});
+      trace.end();
       return terminate();
     }
+
+    trace.end();
 
     return sleeping(TICK_STEP);
   }

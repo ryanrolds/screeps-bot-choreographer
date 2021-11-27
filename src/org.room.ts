@@ -329,7 +329,7 @@ export default class OrgRoom extends OrgBase {
   }
 
   update(trace) {
-    trace = trace.asId(this.id).begin('update');
+    trace = trace.begin('update');
 
     trace.log('room update', {roomId: this.id});
 
@@ -378,7 +378,6 @@ export default class OrgRoom extends OrgBase {
     trace.end();
   }
   process(trace: Tracer) {
-    trace = trace.asId(this.id);
     const processTrace = trace.begin('process');
 
     processTrace.log('room process', {roomId: this.id});

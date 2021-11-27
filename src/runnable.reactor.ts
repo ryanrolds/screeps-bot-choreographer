@@ -47,7 +47,7 @@ export default class ReactorRunnable {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    trace = trace.asId(this.id).begin('reactor_run');
+    trace = trace.begin('reactor_run');
 
     const ticks = Game.time - this.prevTime;
     this.prevTime = Game.time;

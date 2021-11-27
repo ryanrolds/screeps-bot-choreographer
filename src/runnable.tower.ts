@@ -37,22 +37,25 @@ export default class TowerRunnable {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    trace = trace.asId(this.towerId);
+    trace = trace.begin('tower_run');
 
     const ticks = Game.time - this.prevTime;
     this.prevTime = Game.time;
 
     const room = this.orgRoom.getRoomObject()
     if (!room) {
+      trace.end();
       return terminate();
     }
 
     const tower = Game.getObjectById(this.towerId);
     if (!tower) {
+      trace.end();
       return terminate();
     }
 
     if (!tower.isActive()) {
+      trace.end();
       return sleeping(100);
     }
 
@@ -92,6 +95,7 @@ export default class TowerRunnable {
       const target = Game.getObjectById<Id<Creep>>(targets[0].details.id)
       const result = tower.attack(target);
       trace.log('attacking', {target: targets[0].id, result})
+      trace.end();
       return running();
     }
 
@@ -107,6 +111,7 @@ export default class TowerRunnable {
       } else {
         const result = tower.heal(creep);
         trace.log('healing', {target: creep.id, result})
+        trace.end();
         return running();
       }
     }
@@ -114,11 +119,13 @@ export default class TowerRunnable {
     // Not above attack/heal reserve, skip repair logic
     if (towerUsed < EMERGENCY_RESERVE) {
       trace.log('skipping repairs low energy', {towerUsed});
+      trace.end();
       return running();
     }
 
     // If low on CPU bucket, stop repairing
     if (Game.cpu.bucket < 1000) {
+      trace.end();
       return running();
     }
 
@@ -150,6 +157,7 @@ export default class TowerRunnable {
     if (this.orgRoom.resources[RESOURCE_ENERGY] < minRepairEnergy) {
       this.repairTarget = null;
       this.repairTTL = 0;
+      trace.end();
       return running();
     }
 
@@ -180,6 +188,7 @@ export default class TowerRunnable {
     // If no repair target sleep for a bit
     if (!this.repairTarget) {
       trace.log('no repair repair', {});
+      trace.end();
       return sleeping(5);
     }
 
@@ -188,11 +197,14 @@ export default class TowerRunnable {
       trace.log('repair target missing', {target});
       this.repairTarget = null;
       this.repairTTL = 0;
+      trace.end();
       return running();
     }
 
     const result = tower.repair(target);
     trace.log('repair', {target, result, ttl: this.repairTTL});
+
+    trace.end();
 
     return running();
   }

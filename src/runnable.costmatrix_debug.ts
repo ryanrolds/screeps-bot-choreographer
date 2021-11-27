@@ -32,7 +32,7 @@ export default class CostMatrixDebugger {
   }
 
   debug(roomId: string, costMatrixType: AllowedCostMatrixTypes) {
-    const trace = new Tracer('debug', 'costmatrix_debugger.debug')
+    const trace = new Tracer('costmatrix_debugger_debug', {}, 0)
     trace.log('debug matrix', {roomId, costMatrixType})
 
     let costMatrix: CostMatrix | boolean = new PathFinder.CostMatrix();

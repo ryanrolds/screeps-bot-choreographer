@@ -25,11 +25,11 @@ export class LabsManager {
     this.labIds = [];
     this.reactorsIds = [];
     this.boosterIds = [];
-    this.assignLabs(orgRoom, trace.asId(this.id));
+    this.assignLabs(orgRoom, trace);
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    trace = trace.asId(this.id);
+    trace = trace.begin('labs_manager_run')
 
     trace.log('labs manager run', {
       labIds: this.labIds,
@@ -41,6 +41,7 @@ export class LabsManager {
     const labIds: Id<StructureLab>[] = this.orgRoom.getLabs().map(lab => lab.id);
     if (!_.isEqual(_.sortBy(this.labIds), _.sortBy(labIds))) {
       trace.log('labs changed - terminating', {});
+      trace.end();
       return terminate();
     }
 
@@ -65,12 +66,17 @@ export class LabsManager {
       }
     }
 
+    trace.end();
+
     return sleeping(50);
   }
 
   assignLabs(orgRoom: Room, trace: Tracer) {
+    trace = trace.begin('assign_labs');
+
     const room = orgRoom.getRoomObject();
     if (!room) {
+      trace.end();
       return;
     }
 
@@ -85,6 +91,7 @@ export class LabsManager {
     const spawns = this.orgRoom.getSpawns();
     if (!spawns.length) {
       trace.log('no spawns');
+      trace.end();
       return;
     }
 
@@ -125,5 +132,7 @@ export class LabsManager {
         }
       }
     }
+
+    trace.end();
   }
 }

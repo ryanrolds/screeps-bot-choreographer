@@ -1,4 +1,5 @@
 import * as tracing from './lib.tracing';
+import {Tracer} from './lib.tracing';
 import {AI} from './lib.ai';
 import {KingdomConfig} from './config'
 
@@ -217,16 +218,12 @@ let config: KingdomConfig = {
 };
 
 
-
-console.log('***** STARTING AI *****');
-const ai = new AI(config);
-global.AI = ai; // So we can access it from the console
-
+let ai: AI = null
+global.AI = null; // So we can access it from the console
 let previousTick = 0; // Track previous tick time for display
 
 export const loop = function () {
-  const trace = new tracing.Tracer('loop', 'loop');
-
+  const trace = new Tracer('tick', {shard: Game.shard.name}, 0);
   if (global.TRACING_ACTIVE === true) {
     tracing.setActive();
   } else {
@@ -235,9 +232,13 @@ export const loop = function () {
 
   console.log('======== TICK', Game.time, Game.shard.name, '==== prev cpu:', previousTick);
 
-  const aiTrace = trace.begin('ai');
-  ai.tick(aiTrace);
-  aiTrace.end();
+  if (!ai) {
+    console.log('***** STARTING AI *****');
+    ai = new AI(config, trace);
+    global.AI = ai;
+  }
+
+  ai.tick(trace);
 
   // console.log('--------------------------------');
 

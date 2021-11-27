@@ -7,6 +7,7 @@ globalAny.TRACING_FILTER = null;
 interface Metric {
   key: string;
   value: number;
+  fields: TracerFields;
 }
 
 interface MetricRollup {
@@ -19,52 +20,80 @@ interface MetricRollup {
 let isActive: boolean = false;
 let metrics: Metric[] = [];
 
+type TracerFields = Record<string, string>;
+type TimerEndFunc = () => number;
+
 export class Tracer {
-  id: string;
   name: string;
+  kv: TracerFields;
   start: number;
 
-  constructor(id: string, name: string) {
-    this.id = id;
+  constructor(name: string, kv: TracerFields, start: number) {
     this.name = name;
+    this.kv = kv;
     this.start = 0;
   }
 
-  asId(id: string) {
-    return startTrace(id, this.name);
+  as(name: string) {
+    const trace = this.clone();
+    trace.name = `${this.name}.${name}`;
+    return trace;
   }
 
-  with(name: string) {
-    return startTrace(this.id, `${this.name}.${name}`);
+  withFields(fields: TracerFields): Tracer {
+    let child = this.clone()
+    //child.kv = _.assign({}, this.kv, fields)
+    return child;
   }
 
   log(message: string, details: Object = {}): void {
-    if (this.id !== globalAny.LOG_WHEN_ID) {
+    if (this.kv['id'] !== globalAny.LOG_WHEN_ID) {
       return;
     }
 
-    console.log(this.id, this.name, message, JSON.stringify(details));
+    console.log(this.name, message, JSON.stringify(details), JSON.stringify(this.kv));
   }
 
   notice(message: string, details: Object = {}): void {
-    console.log(`[NOTICE] `, this.id, this.name, message, JSON.stringify(details));
+    console.log(`[NOTICE]`, this.name, '::', message, JSON.stringify(details), JSON.stringify(this.kv));
   }
 
   error(message: string, details: Object = {}): void {
-    console.log(`[ERROR] `, this.id, this.name, message, JSON.stringify(details));
+    console.log(`[ERROR]`, this.name, '::', message, JSON.stringify(details), JSON.stringify(this.kv));
   }
 
-  begin(name: string) {
-    // If tracing not active minimize the overhead of the tracer
+  startTimer(metric: string): TimerEndFunc {
     if (!isActive) {
-      return this;
+      return () => null;
     }
 
-    const trace = startTrace(this.id, `${this.name}.${name}`);
+    const start = Game.cpu.getUsed();
+    return (): number => {
+      // If tracing not active minimize the overhead of the tracer
+      if (!isActive || !start) {
+        return 0;
+      }
+
+      const end = Game.cpu.getUsed();
+      const cpuTime = end - start;
+      metrics.push({key: `${this.name}:${metric}`, value: cpuTime, fields: this.kv});
+
+      return cpuTime;
+    }
+  }
+
+  private clone() {
+    return new Tracer(this.name, this.kv, this.start);
+  }
+
+  // deprecated (use startTimer)
+  begin(name: string) {
+    const trace = this.clone().as(name);
     trace.start = Game.cpu.getUsed();
     return trace;
   }
 
+  // deprecated (use startTimer)
   end(): number {
     // If tracing not active minimize the overhead of the tracer
     if (!isActive && !this.start) {
@@ -73,7 +102,7 @@ export class Tracer {
 
     const end = Game.cpu.getUsed();
     const cpuTime = end - this.start;
-    metrics.push({key: this.name, value: cpuTime});
+    metrics.push({key: this.name, value: cpuTime, fields: this.kv});
 
     return cpuTime;
   }
@@ -92,10 +121,6 @@ export const setActive = () => {
 export const setInactive = () => {
   isActive = false;
   reset();
-};
-
-export const startTrace = (id: string, name: string): Tracer => {
-  return new Tracer(id, name);
 };
 
 export const report = () => {

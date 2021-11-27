@@ -28,7 +28,7 @@ export default class DefensePartyRunnable {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    trace = trace.asId(this.id);
+    trace = trace.begin('defense_party_run')
 
     trace.log("defense party run top", {id: this.id})
 
@@ -38,6 +38,7 @@ export default class DefensePartyRunnable {
     if (!flag) {
       trace.notice("no flag with that id, terminating", {flagId: this.flagId});
       prep.end();
+      trace.end();
       return terminate();
     }
 
@@ -45,6 +46,7 @@ export default class DefensePartyRunnable {
     if (!colony) {
       trace.error("no colony with that id, terminating");
       prep.end();
+      trace.end();
       return terminate();
     }
 
@@ -122,8 +124,11 @@ export default class DefensePartyRunnable {
 
     if (partyResult.status === STATUS_TERMINATED) {
       trace.notice('party terminated, terminate this');
+      trace.end();
       return partyResult;
     }
+
+    trace.end();
 
     return running();
   }

@@ -106,7 +106,7 @@ export default class RoomRunnable {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    trace = trace.asId(this.id).begin('room_run');
+    trace = trace.begin('room_run');
 
     const ticks = Game.time - this.prevTime;
     this.prevTime = Game.time;

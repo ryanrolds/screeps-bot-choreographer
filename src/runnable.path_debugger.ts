@@ -42,7 +42,7 @@ export default class PathDebugger {
   }
 
   debug(origin: RoomPosition, goal: RoomPosition, range: number, policy: FindPathPolicy) {
-    const trace = new Tracer('debug', 'path_debugger.debug')
+    const trace = new Tracer('path_debugger_debug', {}, 0)
     const path = getPath(this.kingdom, origin, goal, policy, trace);
 
     trace.notice('path', {origin, goal, range, policy, path});

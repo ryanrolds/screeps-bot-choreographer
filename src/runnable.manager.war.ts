@@ -55,7 +55,6 @@ export default class WarManager {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    trace = trace.asId(this.id);
     trace = trace.begin('war_manager_run');
 
     this.processEventsThread(trace, kingdom);

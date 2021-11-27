@@ -67,7 +67,7 @@ export default class PartyRunnable {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    trace = trace.asId(this.id).begin('party_run');
+    trace = trace.begin('party_run');
 
     // TODO possible race condition with outer layer and this
     const creeps = this.getAssignedCreeps();

@@ -40,7 +40,7 @@ describe('Scheduler', () => {
       scribe: undefined,
     });
 
-    trace = new Tracer('test', 'scheduler_test');
+    trace = new Tracer('scheduler_test', {}, 0);
 
     runnable = {
       run: (trace: Tracer): RunnableResult => {
@@ -96,7 +96,7 @@ describe('Scheduler', () => {
   })
 
   it('should execute skipped processes next tick', () => {
-    const tracer = new Tracer('test', 'scheduler');
+    const tracer = new Tracer('scheduler', {}, 0);
 
     const scheduler = new Scheduler();
     const kingdom = new Kingdom({} as KingdomConfig, scheduler, trace);

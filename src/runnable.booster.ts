@@ -80,7 +80,7 @@ export default class BoosterRunnable {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    trace = trace.asId(this.id);
+    trace = trace.begin('booster_run')
 
     const ticks = Game.time - this.prevTime;
     this.prevTime = Game.time;
@@ -88,6 +88,7 @@ export default class BoosterRunnable {
     let labs = this.getLabs();
     if (labs.length !== 3) {
       trace.log('not right number of labs - terminating', {num: labs.length})
+      trace.end();
       return terminate();
     }
 
@@ -124,6 +125,8 @@ export default class BoosterRunnable {
       sleepFor = REQUEST_UNLOAD_TTL;
       this.rebalanceLabs(trace);
     }
+
+    trace.end();
 
     return sleeping(sleepFor);
   }

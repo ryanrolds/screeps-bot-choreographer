@@ -43,7 +43,7 @@ export default class SpawnManager {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    trace = trace.asId(this.id).begin('spawn_manager_run');
+    trace = trace.begin('spawn_manager_run');
 
     const ticks = Game.time - this.prevTime;
     this.prevTime = Game.time;

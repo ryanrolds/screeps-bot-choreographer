@@ -73,7 +73,7 @@ class Resources extends OrgBase {
     setupTrace.end();
   }
   update(trace) {
-    trace = trace.asId(this.id).begin('resource_governor_run');
+    trace = trace.begin('resource_governor_run');
 
     this.threadUpdateResources(trace);
     this.threadRequestReactions(trace);
@@ -85,8 +85,6 @@ class Resources extends OrgBase {
     trace.end();
   }
   process(trace) {
-    trace = trace.asId(this.id);
-
     const processTrace = trace.begin('process');
 
     this.updateStats(processTrace);

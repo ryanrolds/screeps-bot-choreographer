@@ -47,7 +47,7 @@ describe('Path Cache', function () {
 
     const config: KingdomConfig = {} as KingdomConfig;
     const scheduler = new Scheduler();
-    trace = new Tracer('test', 'test');
+    trace = new Tracer('test', {}, 0);
     kingdom = new Kingdom(config, scheduler, trace);
 
     pathProvider = sandbox.stub().callsFake(() => path);

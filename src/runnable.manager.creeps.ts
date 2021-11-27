@@ -33,7 +33,6 @@ export class CreepManager {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    trace = trace.asId(this.id);
     trace = trace.begin('creep_manager_run');
 
     // Create processes for any creeps that do not have a process
@@ -116,8 +115,6 @@ export class CreepManager {
           trace.log("creep not found; terminating process", {})
           return terminate();
         }
-
-        trace = trace.asId(creep.id)
 
         if (creep.spawning) {
           // TODO sleep for whoever mich longer it will take to spawn

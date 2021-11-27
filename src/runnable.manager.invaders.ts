@@ -50,7 +50,7 @@ export default class InvaderManager {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    trace = trace.asId(this.id).begin('invader_manager_run');
+    trace = trace.begin('invader_manager_run');
 
     const rooms = getRoomEntriesWithInvaderBases(kingdom, trace);
 
@@ -61,8 +61,13 @@ export default class InvaderManager {
     });
 
     rooms.forEach((roomEntry) => {
+      const end = trace.startTimer('find_closest_colony');
+
       const destination = roomEntry.invaderCorePos;
       const colony = getClosestColonyByPath(kingdom, destination, colonyPathingPolicy, trace);
+
+      end();
+
       if (!colony) {
         trace.log("no colony to attack invader base", {room: roomEntry.id});
         return;
@@ -86,7 +91,9 @@ export default class InvaderManager {
 }
 
 const getRoomEntriesWithInvaderBases = (kingdom: Kingdom, trace: Tracer): RoomEntry[] => {
-  return kingdom.getScribe().getRooms().filter((roomEntry) => {
+  const end = trace.startTimer('getRoomEntriesWithInvaderBases');
+
+  const weakRooms = kingdom.getScribe().getRooms().filter((roomEntry) => {
     if (!roomEntry.invaderCoreLevel) {
       return false;
     }
@@ -108,4 +115,8 @@ const getRoomEntriesWithInvaderBases = (kingdom: Kingdom, trace: Tracer): RoomEn
 
     return true;
   });
+
+  end();
+
+  return weakRooms;
 }

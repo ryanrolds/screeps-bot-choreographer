@@ -13,26 +13,33 @@ import BufferManager from './runnable.manager.buffer';
 import PathDebugger from './runnable.path_debugger';
 import CostMatrixDebugger from './runnable.costmatrix_debug';
 import InvaderManager from './runnable.manager.invaders';
+import {CentralPlanning} from './runnable.central_planning';
 
 
 let lastMemoryTick: number = 0;
 let lastMemory: Memory = null;
 
 export class AI {
-  config: KingdomConfig;
   scheduler: Scheduler;
+  config: KingdomConfig;
   kingdom: Kingdom;
+  planning: CentralPlanning;
   gameMapExport: string;
 
-  constructor(config: KingdomConfig) {
-    const trace = new Tracer('ai', 'ai_constructor');
+  constructor(config: KingdomConfig, trace: Tracer) {
+    trace = trace.begin('ai_constructor');
 
     this.config = config;
     this.scheduler = new Scheduler();
-    this.kingdom = new Kingdom(config, this.scheduler, trace);
+
+    // Central planning, tracks relationships, policies, and colonies
+    this.planning = new CentralPlanning(config);
+    this.scheduler.registerProcess(new Process('central_planning', 'planning',
+      Priorities.CRITICAL, this.planning));
 
     // Kingdom Model & Messaging process
     // Pump messages through kingdom, colonies, room, ect...
+    this.kingdom = new Kingdom(config, this.scheduler, trace);
     const kingdomModelId = 'kingdom_model';
     this.scheduler.registerProcess(new Process(kingdomModelId, 'kingdom_model',
       Priorities.CRITICAL, new KingdomModelRunnable(kingdomModelId)));
@@ -97,9 +104,7 @@ export class AI {
   }
 
   tick(trace: Tracer) {
-    trace = trace.begin('tick');
-
-    const memoryHack = trace.begin('memory_hack');
+    const end = trace.startTimer('memory_hack');
     // memory hack from Dissi
     if (lastMemoryTick && lastMemory && Game.time === (lastMemoryTick + 1)) {
       delete global.Memory
@@ -110,20 +115,18 @@ export class AI {
       lastMemory = (RawMemory as any)._parsed
     }
     lastMemoryTick = Game.time
-    memoryHack.end();
+    end();
 
     // Run the scheduler
-    const schedulerTrace = trace.begin('scheduler');
-    this.scheduler.tick(this.kingdom, schedulerTrace);
-    schedulerTrace.end();
+    this.scheduler.tick(this.kingdom, trace);
 
     if (Game.time % 5 === 0) {
-      const statsTrace = trace.begin('stats');
-      this.kingdom.updateStats(statsTrace);
+      const end = trace.startTimer('update_stats');
+      this.kingdom.updateStats(trace);
 
       // Set stats in memory for pulling and display in Grafana
       (Memory as any).stats = this.kingdom.getStats();
-      statsTrace.end();
+      end();
     }
 
     trace.end();

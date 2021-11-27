@@ -52,24 +52,27 @@ export default class SourceRunnable {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    trace = trace.asId(this.sourceId);
+    trace = trace.begin('source_run')
     trace.log('source run', {roomId: this.orgRoom.id, sourceId: this.sourceId});
 
     const colony = this.orgRoom.getColony();
     if (!colony) {
       trace.error('no colony');
+      trace.end();
       return terminate();
     }
 
     const room = this.orgRoom.getRoomObject();
     if (!room) {
       trace.error('terminate source: no room', {id: this.id, roomId: this.orgRoom.id});
+      trace.end();
       return terminate();
     }
 
     const source: Source | Mineral = Game.getObjectById(this.sourceId);
     if (!source) {
       trace.error('source not found', {id: this.sourceId});
+      trace.end();
       return terminate();
     }
 
@@ -80,6 +83,8 @@ export default class SourceRunnable {
     this.threadRequestHauling(trace, colony);
 
     this.updateStats(kingdom, trace);
+
+    trace.end();
 
     return running();
   }

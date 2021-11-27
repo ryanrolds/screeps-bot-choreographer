@@ -13,35 +13,45 @@ export class OrgBase {
   constructor(parent: OrgBase, id: string, trace: Tracer) {
     this.parent = parent;
     this.id = id;
-    this.trace = trace.with(this.constructor.name);
+    this.trace = trace;
   }
+
   getID(): string {
     return this.id;
   }
+
   getParent(): OrgBase {
     return this.parent;
   }
+
   getKingdom(): Kingdom {
     return this.getParent().getKingdom();
   }
+
   getColony(): Colony {
     return this.getParent().getColony();
   }
+
   getRoom(): OrgRoom {
     return this.getParent().getRoom();
   }
+
   getCreeps(): Creep[] {
     return this.getParent().getCreeps();
   }
+
   getTopics(): Topics {
     return this.getParent().getTopics();
   }
+
   getStats() {
     return this.getParent().getStats();
   }
+
   getScheduler(): Scheduler {
     return this.getParent().getScheduler();
   }
+
   sendRequest(topic, priority, request, ttl) {
     const parent = this.getParent();
     if (!parent) {
@@ -50,6 +60,7 @@ export class OrgBase {
 
     parent.sendRequest(topic, priority, request, ttl);
   }
+
   peekNextRequest(topic: string) {
     const parent = this.getParent();
     if (!parent) {
@@ -58,6 +69,7 @@ export class OrgBase {
 
     return parent.peekNextRequest(topic);
   }
+
   getNextRequest(topic: string) {
     const parent = this.getParent();
     if (!parent) {
@@ -66,6 +78,7 @@ export class OrgBase {
 
     return parent.getNextRequest(topic);
   }
+
   getTopicLength(topic: string) {
     const parent = this.getParent();
     if (!parent) {
@@ -74,6 +87,7 @@ export class OrgBase {
 
     return parent.getTopicLength(topic);
   }
+
   getFilteredRequests(topicId: string, filter: (arg: any) => boolean): any[] {
     const parent = this.getParent();
     if (!parent) {
@@ -83,5 +97,3 @@ export class OrgBase {
     return parent.getFilteredRequests(topicId, filter);
   }
 }
-
-

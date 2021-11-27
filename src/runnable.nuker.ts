@@ -27,7 +27,7 @@ export default class NukerRunnable {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    trace = trace.asId(this.id);
+    trace = trace.begin('nuker_run');
 
     const ticks = Game.time - this.prevTime;
     this.prevTime = Game.time;
@@ -36,15 +36,18 @@ export default class NukerRunnable {
 
     const room = this.orgRoom.getRoomObject()
     if (!room) {
+      trace.end();
       return terminate();
     }
 
     const nuker = Game.getObjectById(this.id);
     if (!nuker) {
+      trace.end();
       return terminate();
     }
 
     if (!nuker.isActive()) {
+      trace.end();
       return sleeping(100);
     }
 
@@ -86,6 +89,8 @@ export default class NukerRunnable {
         }
       }
     }
+
+    trace.end();
 
     return sleeping(REQUEST_RESOURCES_TTL);
   }

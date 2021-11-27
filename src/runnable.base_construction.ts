@@ -192,7 +192,7 @@ export default class BaseConstructionRunnable {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    trace = trace.asId(this.id).begin('base_construction_run');
+    trace = trace.begin('base_construction_run');
 
     const roomLevel = this.orgRoom.getRoomLevel();
     if (roomLevel < 1) {

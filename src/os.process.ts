@@ -101,12 +101,9 @@ export class Process {
   }
 
   run(kingdom: Kingdom, trace: Tracer) {
-    trace = trace.begin('process_run')
-
     this.lastRun = Game.time;
 
     const result = this.runnable.run(kingdom, trace);
-
     switch (result.status) {
       case STATUS_RUNNING:
         this.setRunning();
@@ -120,7 +117,5 @@ export class Process {
     }
 
     this.adjustedPriority = this.priority;
-
-    trace.end();
   }
 }

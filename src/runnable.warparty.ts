@@ -154,7 +154,7 @@ export default class WarPartyRunnable {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    trace = trace.asId(this.id);
+    trace = trace.begin('warparty_run')
 
     this.kingdom = kingdom
 
@@ -245,12 +245,15 @@ export default class WarPartyRunnable {
     const partyResult = this.party.run(kingdom, trace);
     if (partyResult.status === STATUS_TERMINATED) {
       trace.log('party terminated');
+      trace.end();
       return partyResult;
     }
 
     if (global.LOG_WHEN_ID === this.id) {
       this.visualizePathToTarget(this.position, this.destination, trace);
     }
+
+    trace.end();
 
     return running();
   }
