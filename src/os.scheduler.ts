@@ -126,7 +126,7 @@ export class Scheduler {
 
         // We want to report slow processes
         if (processTime > SLOW_PROCESS_THRESHOLD) {
-          trace.notice(`${process.type} took ${processTime}ms`, {pid: process.id, time: processTime})
+          trace.notice('slow process', {id: process.id, type: process.type, time: processTime})
         }
 
         // Track time spent on each process by type

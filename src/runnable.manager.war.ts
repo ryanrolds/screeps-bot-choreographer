@@ -99,6 +99,7 @@ export default class WarManager {
     trace.notice(`targets: ${targets}`);
 
     // ================================================================
+    // In process of moving to multiple targets
 
     let request: any = null;
     while (request = kingdom.getNextRequest(TOPICS.ATTACK_ROOM)) {
