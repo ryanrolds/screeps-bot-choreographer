@@ -285,12 +285,6 @@ export class Kingdom extends OrgBase {
     stats.gcl.progressTotal = Game.gcl.progressTotal;
     stats.gcl.level = Game.gcl.level;
 
-    // Collect CPU stats
-    stats.cpu = {};
-    stats.cpu.bucket = Game.cpu.bucket;
-    stats.cpu.limit = Game.cpu.limit;
-    stats.cpu.used = Game.cpu.getUsed();
-
     stats.creeps = _.countBy(Game.creeps, (creep) => {
       return creep.memory[MEMORY.MEMORY_ROLE];
     });

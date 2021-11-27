@@ -244,4 +244,10 @@ export const loop = function () {
   tracing.report();
 
   previousTick = Game.cpu.getUsed();
+
+  // Collect CPU stats
+  (Memory as any).stats.cpu = {};
+  (Memory as any).stats.cpu.bucket = Game.cpu.bucket;
+  (Memory as any).stats.cpu.limit = Game.cpu.limit;
+  (Memory as any).stats.cpu.used = previousTick;
 };

@@ -123,11 +123,16 @@ export class Scheduler {
         process.run(kingdom, processTrace);
         processTrace.end();
 
+        const processTime = Game.cpu.getUsed() - startProcessCpu;
+        if (processTime > 5) {
+          trace.notice('process ran for more than 5 cpu', {type: process.type, time: processTime})
+        }
+
+
         if (!processCpu[process.type]) {
           processCpu[process.type] = 0;
         }
-
-        processCpu[process.type] += Game.cpu.getUsed() - startProcessCpu;
+        processCpu[process.type] += processTime;
       } else if (process.isSleeping()) {
         if (process.shouldWake()) {
           process.setRunning();
