@@ -97,18 +97,20 @@ Statistics for the dashboards are written to memory under `stats`. Its setup to 
 
 The AI will focus on establishing an economy, build, repair, and defend the colonies. The build manager will spawn at least one Upgrader and will add more if there is energy above the defense reserve.
 
-There are a couple of helpful global variables:
-
-* `LOG_WHEN_ID='<name>'` - `trace.log(<name>)` calls will be output to the console
-* `TRACING_ACTIVE=true` - Will output tracing metric data to the console
-* `TRACING_FILTER=<prefix>` - only print traces with a key that stats with the prefix
-* `RESET_PIDS=true` - will reset the PID controllers
-
 There are some debugging tools built into the project:
 
 * Run and draw path - `AI.getPathDebugger().debug(new RoomPosition(43, 13, 'E21S48'), new RoomPosition(25,25,'E26S51'), 3, {avoidHostiles: true, avoidOwnedRooms: true, avoidFriendlyRooms: false, maxOps: 2000})`
 * Run and draw cost matrix - `AI.getCostMatrixDebugger().debug("W8N4", 'open_space')` and `AI.getCostMatrixDebugger().clear()`\
 * Get debug info on path cache - `AI.kingdom.getPathCache().debug()`
+
+There are a couple of helpful global variables:
+
+> TODO all these global variables should be replaced with a at runtime configurable process accessible through AI
+
+* `METRIC_FILTER=<prefix>` - Will cause Tracer to report metrics for metrics that start with `<prefix>`
+* `METRIC_MIN=<min ms>` - (default 0.5ms) Will cause Tracer to report metrics that are greater than `<min ms>`
+* `LOG_WHEN_ID='<prefix>'` - Logs with tracers matching the prefix will be output to the console
+* `RESET_PIDS=true` - Will reset the PID controllers - useful when PID controllers are spawning too many haulers
 
 ### Creeps
 

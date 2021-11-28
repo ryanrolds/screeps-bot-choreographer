@@ -16,10 +16,10 @@ const MAX_SELL_AMOUNT = 25000;
 const MIN_ROOM_ENERGY = 100000;
 const ENERGY_BALANCE_AMOUNT = 5000;
 
-const UPDATE_RESOURCES_TTL = 10;
-const REQUEST_REACTION_TTL = 500;
+const UPDATE_RESOURCES_TTL = 50;
+const REQUEST_REACTION_TTL = 250;
 const REQUEST_SELL_TTL = 500;
-const REQUEST_DISTRIBUTE_BOOSTS = 30;
+const REQUEST_DISTRIBUTE_BOOSTS = 250;
 const CONSUME_STATUS_TTL = 20;
 const BALANCE_ENERGY_TTL = 50;
 
@@ -512,18 +512,24 @@ class Resources extends OrgBase {
     trace.log('balancing boosts');
 
     this.getKingdom().getColonies().forEach((colony) => {
+      const colonyTrace = trace.withFields({colony: colony.id});
+      const colonyEnd = colonyTrace.startTimer('colony');
+
       const primaryRoom = colony.getPrimaryRoom();
       if (!primaryRoom) {
+        colonyEnd();
         return;
       }
 
       const room = primaryRoom.getRoomObject();
       if (!room || !room.terminal || !room.storage) {
+        colonyEnd();
         return;
       }
 
       const boosterPos = primaryRoom.getBoosterPosition();
       if (!boosterPos) {
+        colonyEnd();
         return;
       }
 
@@ -538,9 +544,16 @@ class Resources extends OrgBase {
       Object.entries(CRITICAL_EFFECTS).forEach(([effectName, compounds]) => {
         const effect = allEffects[effectName];
         if (!effect) {
-          trace.log('missing effect', {effectName});
+          effectTrace.log('missing effect', {effectName});
+          effectsEnd();
           return;
         }
+
+        const effectTrace = colonyTrace.withFields({
+          'effect': effectName,
+          'compounds': compounds.length,
+        });
+        const effectsEnd = effectTrace.startTimer('effect');
 
         const bestCompound = compounds[0];
         const roomReserve = primaryRoom.getReserveResources(true);
@@ -548,7 +561,7 @@ class Resources extends OrgBase {
 
         const availableEffect = availableEffects[effectName];
         if (!availableEffect || currentAmount < MIN_CRITICAL_COMPOUND) {
-          trace.log('maybe request/buy best compound', {
+          effectTrace.log('maybe request/buy best compound', {
             colonyId: colony.id,
             bestCompound,
             currentAmount,
@@ -562,17 +575,21 @@ class Resources extends OrgBase {
           }
 
           const requested = this.requestResource(primaryRoom, bestCompound, minimumCritical - currentAmount,
-            REQUEST_DISTRIBUTE_BOOSTS, trace);
+            REQUEST_DISTRIBUTE_BOOSTS, effectTrace);
 
           // If we couldnt request resource, try buying
           if (!requested && Game.market.credits > MIN_BOOST_CREDITS) {
             this.buyResource(primaryRoom, bestCompound, minimumCritical - currentAmount,
-              REQUEST_DISTRIBUTE_BOOSTS, trace);
+              REQUEST_DISTRIBUTE_BOOSTS, effectTrace);
           }
         } else {
-          trace.log('have booster', {colonyId: colony.id, effectName, bestCompound, currentAmount});
+          effectTrace.log('have booster', {colonyId: colony.id, effectName, bestCompound, currentAmount});
         }
+
+        effectsEnd();
       });
+
+      colonyEnd();
     });
   }
 

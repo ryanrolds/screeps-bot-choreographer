@@ -1,6 +1,5 @@
 import OrgRoom from './org.room';
 import {OrgBase} from './org.base';
-import {Observer} from './org.observer';
 import {Topics} from './lib.topics';
 import * as PID from './lib.pid';
 import {thread, ThreadFunc} from './os.thread';
@@ -43,7 +42,6 @@ export class Colony extends OrgBase {
   primaryRoom: Room;
   primaryOrgRoom: OrgRoom;
 
-  observer: Observer;
   isPublic: boolean;
   automated: boolean;
   origin: RoomPosition;
@@ -90,7 +88,6 @@ export class Colony extends OrgBase {
 
     this.roomMap = {};
     this.primaryOrgRoom = null;
-    this.observer = null;
     this.threadUpdateOrg = thread('update_org_thread', UPDATE_ROOM_TTL)(this.updateOrg.bind(this));
 
     this.assignedCreeps = [];
@@ -191,13 +188,9 @@ export class Colony extends OrgBase {
 
     const roomTrace = updateTrace.begin('rooms');
     Object.values(this.roomMap).forEach((room) => {
-      room.update(roomTrace);
+      room.update(roomTrace.withFields({room: room.id}));
     });
     roomTrace.end();
-
-    if (this.observer) {
-      this.observer.update(updateTrace);
-    }
 
     this.threadRequestReserversForMissingRooms(updateTrace);
     this.threadHandleDefenderRequest(updateTrace);
@@ -222,11 +215,6 @@ export class Colony extends OrgBase {
       room.process(roomTrace);
     });
     roomTrace.end();
-
-    if (this.observer) {
-      this.observer.process(processTrace);
-    }
-
     processTrace.end();
   }
   toString() {
@@ -486,25 +474,6 @@ export class Colony extends OrgBase {
     });
 
     this.primaryOrgRoom = this.roomMap[this.primaryRoomId];
-
-    if (this.primaryRoom && this.primaryRoom.controller.level === 8) {
-      if (!this.observer) {
-        const observerStructures = this.primaryRoom.find<StructureObserver>(FIND_MY_STRUCTURES, {
-          filter: (structure) => {
-            return structure.structureType === STRUCTURE_OBSERVER;
-          },
-        });
-
-        if (observerStructures.length) {
-          this.observer = new Observer(this, observerStructures[0], trace);
-        }
-      }
-    } else if (this.primaryRoom) {
-
-
-
-
-    }
 
     updateOrgTrace.end();
   }

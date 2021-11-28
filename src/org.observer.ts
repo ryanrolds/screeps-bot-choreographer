@@ -1,16 +1,16 @@
 import {Tracer} from './lib.tracing';
 import {OrgBase} from './org.base';
-import {Colony} from './org.colony';
+import {Kingdom} from './org.kingdom';
 import {Scribe} from './org.scribe';
 
 export class Observer extends OrgBase {
   observer: StructureObserver;
-  inRangeRooms: string[];
+  inRangeRooms: Id<Room>[];
   justObserved: Id<Room>;
 
   scribe: Scribe;
 
-  constructor(parent: Colony, observer: StructureObserver, trace: Tracer) {
+  constructor(parent: Kingdom, observer: StructureObserver, trace: Tracer) {
     super(parent, observer.id, trace);
 
     const setupTrace = this.trace.begin('constructor');
@@ -35,18 +35,19 @@ export class Observer extends OrgBase {
 
     updateTrace.log('next room', {nextRoom});
 
-    if (nextRoom) {
-      const observeRoomTrace = updateTrace.begin('observe_room');
-      const result = this.observer.observeRoom(nextRoom);
-      observeRoomTrace.end();
+    if (!nextRoom) {
+      updateTrace.end();
+      return;
+    }
 
-      updateTrace.log('observe room result', {nextRoom, result});
+    const observeRoomTrace = updateTrace.begin('observe_room');
+    const result = this.observer.observeRoom(nextRoom);
+    observeRoomTrace.end();
 
-      if (result === OK) {
-        this.justObserved = nextRoom as Id<Room>;
-      } else {
-        this.justObserved = null;
-      }
+    if (result === OK) {
+      this.justObserved = nextRoom as Id<Room>;
+    } else {
+      this.justObserved = null;
     }
 
     updateTrace.end();
@@ -64,7 +65,7 @@ export class Observer extends OrgBase {
   }
 }
 
-const inRangeRoomNames = (centerRoomName: string): string[] => {
+const inRangeRoomNames = (centerRoomName: string): Id<Room>[] => {
   const roomsInRange = [];
   const centerRoomXY = roomNameToXY(centerRoomName);
   const topLeft = [centerRoomXY[0] - 10, centerRoomXY[1] - 10];
@@ -82,7 +83,7 @@ const inRangeRoomNames = (centerRoomName: string): string[] => {
 };
 
 // https://github.com/screeps/engine/blob/master/src/utils.js
-const roomNameFromXY = (x, y) => {
+const roomNameFromXY = (x, y): Id<Room> => {
   if (x < 0) {
     x = 'W' + (-x - 1);
   } else {
@@ -93,11 +94,11 @@ const roomNameFromXY = (x, y) => {
   } else {
     y = 'S' + (y);
   }
-  return '' + x + y;
+  return ('' + x + y) as Id<Room>;
 };
 
 // https://github.com/screeps/engine/blob/master/src/utils.js
-const roomNameToXY = (name: string) => {
+const roomNameToXY = (name: string): [number, number] => {
   let xx = parseInt(name.substr(1), 10);
   let verticalPos = 2;
   if (xx >= 100) {

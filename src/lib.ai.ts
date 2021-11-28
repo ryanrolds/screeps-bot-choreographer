@@ -14,6 +14,7 @@ import PathDebugger from './runnable.path_debugger';
 import CostMatrixDebugger from './runnable.costmatrix_debug';
 import InvaderManager from './runnable.manager.invaders';
 import {CentralPlanning} from './runnable.central_planning';
+import {ColonyManager} from './runnable.manager.colony';
 
 
 let lastMemoryTick: number = 0;
@@ -48,13 +49,19 @@ export class AI {
     this.scheduler.registerProcess(new Process('kingdom_governor', 'kingdom_governor',
       Priorities.CRITICAL, new KingdomGovernorRunnable('kingdom_governor')));
 
-    // Room Processes
+    // Colony manager
+    const colonyManagerId = 'colony_manager';
+    const colonyManager = new ColonyManager(colonyManagerId, this.planning, this.scheduler);
+    this.scheduler.registerProcess(new Process(colonyManagerId, 'colony_manager',
+      Priorities.CRITICAL, colonyManager));
+
+    // Room manager
     const roomManagerId = 'room_manager';
     const roomManager = new RoomManager(roomManagerId, this.scheduler);
     this.scheduler.registerProcess(new Process(roomManagerId, 'room_manager',
       Priorities.CRITICAL, roomManager));
 
-    // Creep processes
+    // Creep manager
     const creepManagerId = 'creeps_manager';
     const creepManager = new CreepManager(creepManagerId, this.scheduler)
     this.scheduler.registerProcess(new Process(creepManagerId, 'creeps_manager',

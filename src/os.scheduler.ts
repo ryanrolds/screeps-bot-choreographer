@@ -105,7 +105,7 @@ export class Scheduler {
 
     // Iterate processes and act on their status
     this.processTable.forEach((process) => {
-      trace = trace.withFields({pid: process.id});
+      const processTrace = trace.as(process.type).withFields({pid: process.id});
 
       // If bucket is low only run the most critical processes, should keep the bucket away from 0
       if (Game.cpu.bucket < 1000 && process.priority >= LOW_BUCKET_MIN_PRIORITY) {
@@ -121,12 +121,12 @@ export class Scheduler {
 
       if (process.isRunning()) {
         const startProcessCpu = Game.cpu.getUsed();
-        process.run(kingdom, trace);
+        process.run(kingdom, processTrace);
         const processTime = Game.cpu.getUsed() - startProcessCpu;
 
         // We want to report slow processes
         if (processTime > SLOW_PROCESS_THRESHOLD) {
-          trace.notice('slow process', {id: process.id, type: process.type, time: processTime})
+          processTrace.notice(`slow process - ${processTrace.name}`, {id: process.id, type: process.type, time: processTime})
         }
 
         // Track time spent on each process by type

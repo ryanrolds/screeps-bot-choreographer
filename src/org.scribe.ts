@@ -11,9 +11,8 @@ const JOURNAL_ENTRY_TTL = 250;
 const WRITE_MEMORY_INTERVAL = 50;
 
 type Journal = {
-  rooms: Record<string, RoomEntry>;
-  creeps: Record<string, Creep>;
-
+  rooms: Record<Id<Room>, RoomEntry>;
+  creeps: Record<Id<Creep>, Creep>;
 };
 
 type PortalEntry = {
@@ -152,7 +151,7 @@ export class Scribe extends OrgBase {
   }
 
   getStats() {
-    const rooms = Object.keys(this.journal.rooms);
+    const rooms = Object.keys(this.journal.rooms) as Id<Room>[];
     const oldestId = this.getOldestRoomInList(rooms);
     const oldestRoom = this.getRoomById(oldestId);
     const oldestAge = oldestRoom ? Game.time - oldestRoom.lastUpdated : 0;
@@ -164,9 +163,9 @@ export class Scribe extends OrgBase {
     };
   }
 
-  getOldestRoomInList(rooms: string[]) {
-    const knownRooms = Object.keys(this.journal.rooms);
-    const missingRooms = _.difference(rooms, knownRooms)
+  getOldestRoomInList(rooms: Id<Room>[]): Id<Room> {
+    const knownRooms = _.keys(this.journal.rooms) as Id<Room>[];
+    const missingRooms = _.difference<Id<Room>>(rooms, knownRooms);
     if (missingRooms.length) {
       return _.shuffle(missingRooms)[0];
     }

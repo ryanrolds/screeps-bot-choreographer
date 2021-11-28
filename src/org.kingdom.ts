@@ -98,7 +98,7 @@ export class Kingdom extends OrgBase {
 
     const coloniesTrace = updateTrace.begin('colonies');
     Object.values(this.colonies).forEach((colony) => {
-      colony.update(coloniesTrace);
+      colony.update(coloniesTrace.withFields({colonyId: colony.id}));
     });
     coloniesTrace.end();
 
