@@ -44,11 +44,15 @@ const REQUEST_DEFENDERS_TTL = 20;
 const REQUEST_DEFENDERS_DELAY = 20;
 const HOSTILE_PRESENCE_TTL = 200;
 
+const RESERVE_RESOURCES_TTL = 5;
+
 enum RoomAlertLevel {
   GREEN = "green",
   YELLOW = "yellow",
   RED = "red",
 };
+
+export type ResourceCounts = Partial<Record<ResourceConstant, number>>;
 
 export default class OrgRoom extends OrgBase {
   room: Room;
@@ -64,7 +68,7 @@ export default class OrgRoom extends OrgBase {
   hostileStructures: Structure[];
   parkingLot: Flag;
   hasSpawns: boolean;
-  resources: Partial<Record<ResourceConstant, number>>;
+  resources: ResourceCounts;
   hasStorage: boolean;
 
   hostileTime: number;
@@ -101,7 +105,7 @@ export default class OrgRoom extends OrgBase {
   boosterAllEffects: EffectSet;
   boosterEffects: EffectSet;
   boosterPosition: RoomPosition;
-  boosterLabs: LabsByResource;;
+  boosterLabs: LabsByResource;
 
   constructor(parent: Colony, room: Room, trace: Tracer) {
     super(parent, room.name, trace);
@@ -138,12 +142,12 @@ export default class OrgRoom extends OrgBase {
     });
 
     // Resources / logistics
-    this.resources = {};
+    this.resources = null;
     this.hasStorage = false;
     this.threadUpdateResources = thread('update_resource', UPDATE_RESOURCES_TTL)((trace) => {
       // Storage
       this.hasStorage = this.getReserveStructures(false).length > 0;
-      this.resources = this.getReserveResources(true);
+      this.resources = this.updateReserveResources();
     });
 
     // Defense status
@@ -164,11 +168,6 @@ export default class OrgRoom extends OrgBase {
     this.boosterAllEffects = null;
     this.boosterLabs = null;
     this.threadUpdateBoosters = thread('update_booster_thread', UPDATE_BOOSTER_TTL)((trace, room, kingdom) => {
-      this.boosterPosition = null;
-      this.boosterEffects = null;
-      this.boosterAllEffects = null;
-      this.boosterLabs = null;
-
       const topic = this.getTopics().getTopic(TOPIC_ROOM_BOOSTS);
       if (!topic) {
         trace.log('no topic', {room: this.id});
@@ -226,7 +225,7 @@ export default class OrgRoom extends OrgBase {
 
       // If energy in reserve is less then we need to sustain a max ugprader,
       // then limit the amount our defense hits
-      const reserveEnergy = this.getAmountInReserve(RESOURCE_ENERGY, false);
+      const reserveEnergy = this.getAmountInReserve(RESOURCE_ENERGY);
       const reserveBuffer = this.getReserveBuffer();
       if (reserveEnergy < reserveBuffer + UPGRADER_BUFFER) {
         this.defenseHitsLimit = _.min([this.defenseHitsLimit, MAX_WALL_HITS]);
@@ -535,9 +534,9 @@ export default class OrgRoom extends OrgBase {
 
     return stores.used / stores.capacity;
   }
-  getReserveResources(includeTerminal) {
-    const structures = this.getReserveStructures(includeTerminal);
 
+  updateReserveResources(): ResourceCounts {
+    const structures = this.getReserveStructures(true);
     return structures.reduce((acc, structure) => {
       Object.keys(structure.store).forEach((resource: ResourceConstant) => {
         const current = acc[resource] || 0;
@@ -547,9 +546,20 @@ export default class OrgRoom extends OrgBase {
       return acc;
     }, {});
   }
-  getAmountInReserve(resource, includeTerminal) {
-    return this.getReserveResources(includeTerminal)[resource] || 0;
+
+  getReserveResources(): ResourceCounts {
+    // During initial ticks after a restart the cache may not be built, so build it
+    if (!this.resources) {
+      this.resources = this.updateReserveResources();
+    }
+
+    return this.resources;
   }
+
+  getAmountInReserve(resource) {
+    return this.getReserveResources()[resource] || 0;
+  }
+
   getReserveStructureWithRoomForResource(resource) {
     let structures = this.getReserveStructures(false);
     if (!structures.length) {
@@ -661,7 +671,7 @@ export default class OrgRoom extends OrgBase {
     roomStats.controllerProgress = room.controller.progress;
     roomStats.controllerProgressTotal = room.controller.progressTotal;
     roomStats.controllerLevel = room.controller.level;
-    roomStats.resources = this.resources;
+    roomStats.resources = this.getReserveResources();
 
     const stats = this.getStats();
     stats.colonies[this.getColony().id].rooms[this.id] = roomStats;

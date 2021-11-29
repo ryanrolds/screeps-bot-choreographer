@@ -1,7 +1,7 @@
 import {Process, Runnable, RunnableResult, running, sleeping, terminate} from "./os.process";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
-import OrgRoom, {TOPIC_ROOM_KEYVALUE} from "./org.room";
+import OrgRoom, {ResourceCounts, TOPIC_ROOM_KEYVALUE} from "./org.room";
 import * as MEMORY from "./constants.memory"
 import * as TASKS from "./constants.tasks"
 import * as TOPICS from "./constants.topics"
@@ -19,8 +19,6 @@ const REQUEST_LOAD_TTL = 5;
 const REQUEST_ENERGY_TTL = 5;
 const REQUEST_REBALANCE_TTL = 10;
 const UPDATE_ROOM_BOOSTER_INTERVAL = 5;
-
-
 
 export const TOPIC_ROOM_BOOSTS = "room_boosts";
 export type BoosterDetails = {
@@ -94,9 +92,10 @@ export default class BoosterRunnable {
 
     trace.log('booster run', {labId: labs.map(lab => lab.id)});
 
-    const availableEffects = this.getAvailableEffects();
+    const resourceEnd = trace.startTimer("resource");
     const loadedEffects = this.getLoadedEffects();
     const desiredEffects = this.getDesiredEffects();
+    resourceEnd();
 
     const [needToLoad, couldUnload, emptyLabs] = this.getNeeds(loadedEffects, desiredEffects, trace);
     this.updateStats(loadedEffects, couldUnload, needToLoad, trace);
@@ -104,7 +103,6 @@ export default class BoosterRunnable {
     trace.log('room status', {
       loaded: loadedEffects,
       desired: desiredEffects,
-      availableEffects: availableEffects,
     });
 
     trace.log('booster needs', {
@@ -162,9 +160,11 @@ export default class BoosterRunnable {
   }
 
   updateRoomBooster(trace: Tracer) {
+    const resourceEnd = trace.startTimer("resources");
     const allEffects = this.getEffects();
     const availableEffects = this.getAvailableEffects();
     const labsByResource = this.getLabsByResource();
+    resourceEnd();
 
     const details: BoosterDetails = {
       roomId: this.orgRoom.id,
@@ -177,9 +177,13 @@ export default class BoosterRunnable {
     trace.log('publishing room boosts', {
       room: this.orgRoom.id,
       position: this.boostPosition,
-      labsByResource,
+      labsByResource: _.reduce(labsByResource, (labs, lab) => {
+        labs[lab.id] = lab.mineralType;
+        return labs;
+      }, {}),
       availableEffects
     });
+
     this.orgRoom.sendRequest(TOPIC_ROOM_BOOSTS, 1, details, UPDATE_ROOM_BOOSTER_INTERVAL);
   }
 
@@ -259,7 +263,7 @@ export default class BoosterRunnable {
 
     return null;
   }
-  getLabResources() {
+  getLabResources(): ResourceCounts {
     const labs = this.getLabs();
     return labs.reduce((acc, lab) => {
       if (lab.mineralType) {
@@ -318,8 +322,11 @@ export default class BoosterRunnable {
   }
 
   getAvailableEffects(): EffectSet {
-    const availableResources = this.orgRoom.getReserveResources(true);
-    return this.getEffects(availableResources);
+    const availableResources = this.orgRoom.getReserveResources();
+    const loadedResource = this.getLabResources();
+
+    // TODO the merge does not sum values
+    return this.getEffects(_.assign(availableResources, loadedResource));
   }
 
   getDesiredEffects(): EffectSet {
@@ -466,7 +473,7 @@ export default class BoosterRunnable {
     });
   }
   requestMaterialsForLabs(desiredEffects, needToLoad, trace: Tracer) {
-    const reserveResources = this.orgRoom.getReserveResources(true);
+    const reserveResources = this.orgRoom.getReserveResources();
 
     needToLoad.forEach((toLoad) => {
       trace.log('need to load', {toLoad})

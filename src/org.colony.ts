@@ -293,19 +293,19 @@ export class Colony extends OrgBase {
 
     return this.primaryOrgRoom.getReserveStructures(false);
   }
-  getReserveResources(includeTerminal) {
+  getReserveResources() {
     if (!this.primaryOrgRoom) {
       return {};
     }
 
-    return this.primaryOrgRoom.getReserveResources(includeTerminal);
+    return this.primaryOrgRoom.getReserveResources();
   }
-  getAmountInReserve(resource, includeTerminal) {
+  getAmountInReserve(resource) {
     if (!this.primaryOrgRoom) {
       return 0;
     }
 
-    return this.primaryOrgRoom.getAmountInReserve(resource, includeTerminal);
+    return this.primaryOrgRoom.getAmountInReserve(resource);
   }
   getReserveStructureWithMostOfAResource(resource) {
     if (!this.primaryOrgRoom) {

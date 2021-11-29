@@ -79,8 +79,10 @@ export const MEMORY_POSITION_ROOM = 'position_room';
 
 // Reaction status
 export const REACTION_STATUS_ROOM = 'reaction_room';
+export const REACTION_STATUS_LAB = 'reaction_lab';
 export const REACTION_STATUS_RESOURCE = 'reaction_resource';
 export const REACTION_STATUS_RESOURCE_AMOUNT = 'reaction_resource_amount';
+export const REACTION_STATUS_PHASE = 'reaction_status_phase';
 
 // Room status
 export const ROOM_STATUS_NAME = 'room_status_name';

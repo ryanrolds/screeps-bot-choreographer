@@ -5,12 +5,18 @@ type Topic = Array<any>;
 
 export class Topics {
   topics: Record<TopicKey, Topic>;
+  lastCleanup: number;
 
   constructor() {
     this.topics = {};
+    this.lastCleanup = 0;
   }
 
   getTopic(key: TopicKey): Topic {
+    if (this.lastCleanup < Game.time) {
+      this.removeStale();
+    }
+
     if (!this.topics[key]) {
       return null;
     }
@@ -34,6 +40,7 @@ export class Topics {
         return request.ttl >= Game.time;
       });
     });
+    this.lastCleanup = Game.time;
   }
   createTopic(key: TopicKey) {
     this.topics[key] = [];

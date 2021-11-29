@@ -9,8 +9,9 @@ import * as TOPICS from "./constants.topics"
 import * as CREEPS from "./constants.creeps"
 import * as PRIORITIES from "./constants.priorities"
 
+const TASK_PHASE_START = 'phase_start';
 const TASK_PHASE_LOAD = 'phase_transfer_resources';
-const TASK_PHASE_REACT = 'phase_react';
+export const TASK_PHASE_REACT = 'phase_react';
 const TASK_PHASE_UNLOAD = 'phase_unload';
 const TASK_TTL = 25;
 
@@ -22,12 +23,6 @@ const NEW_TASK_SLEEP = 10;
 const PRODUCE_STATUS_TTL = 25;
 
 export const REACTION_UPDATE_TOPIC = 'reaction_updates';
-
-export type ReactionUpdateMessage = {
-  id: Id<StructureLab>;
-  compound: MineralConstant | MineralCompoundConstant;
-  amount: number;
-}
 
 export default class ReactorRunnable {
   id: string;
@@ -83,11 +78,7 @@ export default class ReactorRunnable {
       trace.log('got new task', {task})
     }
 
-    if (task) {
-
-      this.threadProduceStatus(trace, task.details[MEMORY.REACTOR_OUTPUT],
-        labs[0]?.store.getUsedCapacity(task.details[MEMORY.REACTOR_OUTPUT]));
-    }
+    this.threadProduceStatus(trace, labs, task);
 
     trace.log('reactor run', {
       labIds: this.labIds,
@@ -142,9 +133,12 @@ export default class ReactorRunnable {
     const inputA = task.details[MEMORY.REACTOR_INPUT_A];
     const amount = task.details[MEMORY.REACTOR_AMOUNT];
     const inputB = task.details[MEMORY.REACTOR_INPUT_B];
-    const phase = task[MEMORY.TASK_PHASE] || TASK_PHASE_LOAD;
+    const phase = task[MEMORY.TASK_PHASE] || TASK_PHASE_START;
 
     switch (phase) {
+      case TASK_PHASE_START:
+        trace.notice('starting task', {task});
+        room.memory[this.getTaskMemoryId()][MEMORY.TASK_PHASE] = TASK_PHASE_LOAD;
       case TASK_PHASE_LOAD:
         // Maintain task TTL. We want to abort hard to perform tasks
         let ttl = task[MEMORY.REACTOR_TTL];
@@ -293,11 +287,17 @@ export default class ReactorRunnable {
     }, REQUEST_LOAD_TTL);
   }
 
-  produceStatus(trace: Tracer, resource: ResourceConstant, amount: number) {
+  produceStatus(trace: Tracer, labs: StructureLab[], task) {
+    const resource = task.details[MEMORY.REACTOR_OUTPUT] || null;
+    const phase = task[MEMORY.TASK_PHASE] || null;
+    const amount = labs[0]?.store.getUsedCapacity(task.details[MEMORY.REACTOR_OUTPUT]) || 0;
+
     const status = {
       [MEMORY.REACTION_STATUS_ROOM]: this.orgRoom.id,
+      [MEMORY.REACTION_STATUS_LAB]: labs[0].id,
       [MEMORY.REACTION_STATUS_RESOURCE]: resource,
       [MEMORY.REACTION_STATUS_RESOURCE_AMOUNT]: amount,
+      [MEMORY.REACTION_STATUS_PHASE]: phase,
     };
 
     trace.log('producing reactor status', {status});

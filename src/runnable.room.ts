@@ -413,11 +413,11 @@ export default class RoomRunnable {
     }
 
     let distributorPriority = PRIORITIES.PRIORITY_DISTRIBUTOR;
-    if (orgRoom.getAmountInReserve(RESOURCE_ENERGY, false) === 0) {
+    if (orgRoom.getAmountInReserve(RESOURCE_ENERGY) === 0) {
       distributorPriority = PRIORITIES.DISTRIBUTOR_NO_RESERVE;
     }
 
-    if (orgRoom.getAmountInReserve(RESOURCE_ENERGY, false) > 25000) {
+    if (orgRoom.getAmountInReserve(RESOURCE_ENERGY) > 25000) {
       distributorPriority += 3;
     }
 
@@ -494,7 +494,7 @@ export default class RoomRunnable {
     let desiredUpgraders = MIN_UPGRADERS;
     let maxParts = 15;
 
-    const reserveEnergy = orgRoom.getAmountInReserve(RESOURCE_ENERGY, false);
+    const reserveEnergy = orgRoom.getAmountInReserve(RESOURCE_ENERGY);
     const reserveBuffer = orgRoom.getReserveBuffer();
 
     trace.log('reserver energy', {reserveEnergy, reserveBuffer});
@@ -824,7 +824,7 @@ export default class RoomRunnable {
   }
 
   produceStatus(trace: Tracer, orgRoom: OrgRoom) {
-    const resources = orgRoom.getReserveResources(false);
+    const resources = orgRoom.getReserveResources();
 
     const status = {
       [MEMORY.ROOM_STATUS_NAME]: orgRoom.id,

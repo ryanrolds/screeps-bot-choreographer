@@ -69,6 +69,7 @@ export default class TerminalRunnable {
     }
 
     if (!terminal.isActive()) {
+      trace.end();
       return sleeping(100);
     }
 
@@ -538,7 +539,7 @@ export default class TerminalRunnable {
     const currentEnergy = terminal.store.getUsedCapacity(RESOURCE_ENERGY);
     if (currentEnergy < amount) {
       // If we are low on energy don't take any from reserve
-      if (this.orgRoom.getAmountInReserve(RESOURCE_ENERGY, false) > 20000) {
+      if (this.orgRoom.getAmountInReserve(RESOURCE_ENERGY) > 20000) {
         const pickup = this.orgRoom.getReserveStructureWithMostOfAResource(RESOURCE_ENERGY, false);
         if (!pickup) {
           return false;

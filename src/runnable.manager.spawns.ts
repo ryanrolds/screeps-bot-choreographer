@@ -143,7 +143,7 @@ export default class SpawnManager {
             return;
           }
 
-          trace.notice("colony spawn request", {id: this.id, energy, energyLimit, request});
+          trace.notice("colony spawn request", {id: this.id, role, energy, energyLimit});
 
           this.createCreep(spawn, request.details.role, request.details.memory, energy, energyLimit);
           return;
@@ -223,7 +223,7 @@ export default class SpawnManager {
 
 
         if (request) {
-          trace.notice('kingdom spawn request', {roomName: this.orgRoom.id, request});
+          trace.notice('kingdom spawn request', {roomName: this.orgRoom.id, role: request?.details?.role});
           this.createCreep(spawn, request.details.role, request.details.memory, energy, energyLimit);
           return;
         }

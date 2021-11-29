@@ -154,7 +154,7 @@ export default class TowerRunnable {
 
     // Do not repair secondary structures or roads if room is low on energy
     const minRepairEnergy = room.storage ? 10000 : 2000;
-    if (this.orgRoom.resources[RESOURCE_ENERGY] < minRepairEnergy) {
+    if (this.orgRoom.getAmountInReserve(RESOURCE_ENERGY) < minRepairEnergy) {
       this.repairTarget = null;
       this.repairTTL = 0;
       trace.end();

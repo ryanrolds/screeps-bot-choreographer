@@ -6,6 +6,7 @@ const PRIORITIES = require('./constants.priorities');
 const {thread} = require('./os.thread');
 const {SigmoidPricing} = require('./lib.sigmoid_pricing');
 const {PRICES} = require('./constants.market');
+const {TASK_PHASE_REACT} = require('./runnable.reactor');
 
 const RESERVE_LIMIT = 20000;
 const REACTION_BATCH_SIZE = 1000;
@@ -20,7 +21,7 @@ const UPDATE_RESOURCES_TTL = 50;
 const REQUEST_REACTION_TTL = 250;
 const REQUEST_SELL_TTL = 500;
 const REQUEST_DISTRIBUTE_BOOSTS = 250;
-const CONSUME_STATUS_TTL = 20;
+const CONSUME_STATUS_TTL = 25;
 const BALANCE_ENERGY_TTL = 50;
 
 // Try to ensure that all colonies are ready to
@@ -48,9 +49,10 @@ class Resources extends OrgBase {
     this.availableReactions = {};
     this.reactorStatuses = [];
     this.roomStatuses = [];
+    this.reactionStats = {};
 
     this.threadUpdateResources = thread('update_resources_thread', UPDATE_RESOURCES_TTL)((trace) => {
-      this.resources = this.getReserveResources(true);
+      this.resources = this.getReserveResources();
       this.sharedResources = this.getSharedResources();
     });
 
@@ -94,10 +96,11 @@ class Resources extends OrgBase {
   updateStats(trace) {
     const stats = this.getStats();
     stats.resources = this.resources;
+    stats.reactions = this.reactionStats;
 
     const colonies = this.getKingdom().getColonies();
     stats.critical_resources = colonies.reduce((acc, colony) => {
-      const colonyResources = colony.getReserveResources(true);
+      const colonyResources = colony.getReserveResources();
       acc[colony.id] = Object.values(CRITICAL_EFFECTS).reduce((totalScore, effectResources) => {
         for (let i = 0; i < effectResources.length; i++) {
           if (colonyResources[effectResources[i]] >= MIN_CRITICAL_COMPOUND) {
@@ -188,7 +191,7 @@ class Resources extends OrgBase {
         return;
       }
 
-      const roomResources = room.getReserveResources(true);
+      const roomResources = room.getReserveResources();
       Object.keys(roomResources).forEach((resource) => {
         const isCritical = Object.values(CRITICAL_EFFECTS).reduce((isCritical, compounds) => {
           if (isCritical) {
@@ -222,14 +225,14 @@ class Resources extends OrgBase {
 
     return sharedResources;
   }
-  getReserveResources(includeTerminal) {
+  getReserveResources() {
     return this.getKingdom().getColonies().reduce((acc, colony) => {
       // If colony doesn't have a terminal don't include it
       if (!colony.getPrimaryRoom() || !colony.getPrimaryRoom().hasTerminal()) {
         return acc;
       }
 
-      const colonyResources = colony.getReserveResources(includeTerminal);
+      const colonyResources = colony.getReserveResources();
       Object.keys(colonyResources).forEach((resource) => {
         const current = acc[resource] || 0;
         acc[resource] = colonyResources[resource] + current;
@@ -319,13 +322,12 @@ class Resources extends OrgBase {
     return nextReactions;
   }
   prioritizeReactions(reactions) {
-    // Sorts reactions based on hard coded priorities, if kingdom has more
-    // than reserve limit, reduce priority by 3
     return _.sortBy(Object.values(reactions), (reaction) => {
       let priority = PRIORITIES.REACTION_PRIORITIES[reaction['output']];
-      if (this.resources[reaction['output']] >= RESERVE_LIMIT) {
-        priority = priority - 3;
-      }
+
+      // Reduce priority linearly based on amount of resource (more = lower priority)
+      const amount = this.resources[reaction['output']] || 0;
+      priority = priority * _.max([0, 1 - (amount / RESERVE_LIMIT * 2)]);
 
       return priority;
     });
@@ -458,7 +460,7 @@ class Resources extends OrgBase {
     const result = Game.market.createOrder(order);
     trace.log('create order result', {order, result});
   }
-  requestReactions() {
+  requestReactions(trace) {
     this.availableReactions.forEach((reaction) => {
       const priority = PRIORITIES.REACTION_PRIORITIES[reaction['output']];
       const details = {
@@ -470,6 +472,8 @@ class Resources extends OrgBase {
       };
       this.getKingdom().sendRequest(TOPICS.TASK_REACTION, priority, details, REQUEST_REACTION_TTL);
     });
+
+    trace.notice('requested reactions', {reactions: this.availableReactions.map((r) => r['output'])});
   }
   requestSellResource() {
     Object.entries(this.sharedResources).forEach(([resource, amount]) => {
@@ -542,6 +546,12 @@ class Resources extends OrgBase {
       const rallyFlagRoom = Game.flags['rally']?.pos.roomName;
 
       Object.entries(CRITICAL_EFFECTS).forEach(([effectName, compounds]) => {
+        const effectTrace = colonyTrace.withFields({
+          'effect': effectName,
+          'compounds': compounds.length,
+        });
+        const effectsEnd = effectTrace.startTimer('effect');
+
         const effect = allEffects[effectName];
         if (!effect) {
           effectTrace.log('missing effect', {effectName});
@@ -549,14 +559,8 @@ class Resources extends OrgBase {
           return;
         }
 
-        const effectTrace = colonyTrace.withFields({
-          'effect': effectName,
-          'compounds': compounds.length,
-        });
-        const effectsEnd = effectTrace.startTimer('effect');
-
         const bestCompound = compounds[0];
-        const roomReserve = primaryRoom.getReserveResources(true);
+        const roomReserve = primaryRoom.getReserveResources();
         const currentAmount = roomReserve[bestCompound] || 0;
 
         const availableEffect = availableEffects[effectName];
@@ -599,6 +603,20 @@ class Resources extends OrgBase {
     const reactorStatuses = this.getKingdom().getTopics().getTopic(TOPICS.ACTIVE_REACTIONS) || [];
     this.reactorStatuses = reactorStatuses;
     trace.log('reactor statuses', {length: reactorStatuses.length});
+
+    this.reactionStats = reactorStatuses.reduce((acc, status) => {
+      const resource = status.details[MEMORY.REACTION_STATUS_RESOURCE];
+      if (!acc[resource]) {
+        acc[resource] = 0;
+      }
+
+      const phase = status.details[MEMORY.REACTION_STATUS_PHASE];
+      if (phase === TASK_PHASE_REACT) {
+        acc[resource] += 1;
+      }
+
+      return acc;
+    }, {});
 
     const roomStatuses = this.getKingdom().getTopics().getTopic(TOPICS.ROOM_STATUES) || [];
     this.roomStatuses = roomStatuses;

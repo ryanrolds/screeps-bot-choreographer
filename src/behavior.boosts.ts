@@ -61,25 +61,26 @@ export const behaviorBoosts = (behaviorNode) => {
             case BOOST_PHASE_READY:
               // Request boosts
               const loadedEffects = room.getLoadedEffects();
-              desiredBoosts.forEach((desiredEffect) => {
-                const effect = loadedEffects[desiredEffect];
-                if (!effect) {
+              desiredBoosts.forEach((desiredBoost) => {
+                const boost = loadedEffects[desiredBoost];
+                if (!boost) {
+                  trace.log(`no boost ${desiredBoost}`);
                   return;
                 }
 
                 // Find loaded compound
-                const compound = effect.compounds.find((compound) => {
+                const compound = boost.compounds.find((compound) => {
                   return room.getBoosterLabByResource(compound.name);
                 });
                 if (!compound) {
-                  trace.error(`no compound for ${desiredEffect}`, {room: room.id, effect, compound});
+                  trace.error(`no compound for ${desiredBoost}`, {room: room.id, boost, compound});
                   return;
                 }
 
                 // Get lab for loaded compound
                 const lab = room.getBoosterLabByResource(compound.name)
                 if (!lab) {
-                  trace.error('loaded effects out of date', {room: room.id, effect, compound})
+                  trace.error('loaded boost out of date', {room: room.id, boost, compound})
                   return;
                 }
 

@@ -56,7 +56,7 @@ export class Tracer {
   }
 
   log(message: string, details: Object = {}): void {
-    if (this.kv['id'] !== globalAny.LOG_WHEN_ID) {
+    if (this.kv['pid'] !== globalAny.LOG_WHEN_ID) {
       return;
     }
 

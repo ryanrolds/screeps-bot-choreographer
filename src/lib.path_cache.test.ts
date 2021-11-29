@@ -126,7 +126,6 @@ describe('Path Cache', function () {
 
       for (let i = 0; i < 10; i++) {
         cache.setCachedPath(`${originKey}_${i % 3}`, `${destKey}_${i}`, path, CACHE_ITEM_TTL, trace);
-        console.log(cache.listCount)
       }
 
       expect(cache.getSize(trace)).to.equal(maxItems);

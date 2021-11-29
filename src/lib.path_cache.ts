@@ -288,7 +288,6 @@ export class PathCache {
   }
 
   debug() {
-
     let node = this.head;
     let count = 0;
     while (node.prev) {
