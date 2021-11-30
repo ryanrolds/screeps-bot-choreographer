@@ -4,7 +4,7 @@ const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
 const behaviorMovement = require('./behavior.movement');
 const MEMORY = require('./constants.memory');
 
-const {MEMORY_ROLE, MEMORY_DESTINATION, MEMORY_ORIGIN} = require('./constants.memory');
+const {MEMORY_ROLE, MEMORY_DESTINATION} = require('./constants.memory');
 const {WORKER_DISTRIBUTOR, WORKER_HAULER} = require('./constants.creeps');
 
 const spawnContainerCache = {};
@@ -62,7 +62,7 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.select
     ),
     behaviorTree.leafNode(
       'pick_adjacent_container',
-      (creep) => {
+      (creep, trace, kingdom) => {
         const role = creep.memory[MEMORY_ROLE];
         // haulers should pick containers near the spawner
         // TODO this is hacky and feels bad
@@ -88,7 +88,7 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.select
     ),
     behaviorTree.leafNode(
       'pick_adjacent_link',
-      (creep) => {
+      (creep, trace, kingdom) => {
         const role = creep.memory[MEMORY_ROLE];
         if (role && role === WORKER_DISTRIBUTOR) {
           return FAILURE;
@@ -157,28 +157,22 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.select
           return FAILURE;
         }
 
-        const originID = creep.memory[MEMORY_ORIGIN];
-        if (!originID) {
+        const colony = kingdom.getCreepColony(creep);
+        if (!colony) {
           return FAILURE;
         }
 
-        const room = Game.rooms[originID];
-        if (!room) {
+        if (!colony.primaryRoom) {
           return FAILURE;
         }
 
-        const distributors = room.find(FIND_MY_CREEPS, {
+        const distributors = colony.primaryRoom.find(FIND_MY_CREEPS, {
           filter: (creep) => {
             return creep.memory[MEMORY_ROLE] === WORKER_DISTRIBUTOR;
           },
         });
 
         if (!distributors.length) {
-          return FAILURE;
-        }
-
-        const colony = kingdom.getCreepColony(creep);
-        if (!colony) {
           return FAILURE;
         }
 
@@ -193,18 +187,17 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.select
     ),
     behaviorTree.leafNode(
       'pick_spawner_extension',
-      (creep) => {
-        const originID = creep.memory[MEMORY_ORIGIN];
-        if (!originID) {
+      (creep, trace, kingdom) => {
+        const colony = kingdom.getCreepColony(creep);
+        if (!colony) {
           return FAILURE;
         }
 
-        const room = Game.rooms[originID];
-        if (!room) {
+        if (!colony.primaryRoom) {
           return FAILURE;
         }
 
-        const targets = room.find(FIND_STRUCTURES, {
+        const targets = colony.primaryRoom.find(FIND_STRUCTURES, {
           filter: (structure) => {
             return (structure.structureType == STRUCTURE_EXTENSION ||
               structure.structureType == STRUCTURE_SPAWN) &&

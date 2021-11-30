@@ -56,7 +56,7 @@ export class Tracer {
   }
 
   log(message: string, details: Object = {}): void {
-    if (this.kv['pid'] !== globalAny.LOG_WHEN_ID) {
+    if (!this.shouldLog()) {
       return;
     }
 
@@ -73,7 +73,7 @@ export class Tracer {
 
   startTimer(metric: string): TimerEndFunc {
     // If tracing not active minimize the overhead of the tracer
-    if (!this.shouldTrace()) {
+    if (!this.shouldTrace() && !this.shouldLog()) {
       return () => 0
     }
 
@@ -120,6 +120,10 @@ export class Tracer {
     return globalAny.METRIC_FILTER && this.name.startsWith(globalAny.METRIC_FILTER)
   }
 
+  private shouldLog(): boolean {
+    return globalAny.LOG_WHEN_ID === this.kv['pid']
+  }
+
   /**
    * @deprecated The method is being replaced with startTimer
    */
@@ -134,7 +138,7 @@ export class Tracer {
    */
   end(): number {
     // If tracing not active minimize the overhead of the tracer
-    if (!this.start || !this.shouldTrace()) {
+    if (!this.start || (!this.shouldTrace() && !this.shouldLog())) {
       return 0
     }
 
@@ -143,6 +147,11 @@ export class Tracer {
 
     const item = {start: this.start, key: this.name, value: cpuTime, fields: this.kv}
     this.metrics.push(item);
+
+    if (this.shouldLog()) {
+      console.log(`${cpuTime.toFixed(2).padStart(5, ' ')}ms: ${this.name} at ${this.start}`,
+        JSON.stringify(this.kv));
+    }
 
     return cpuTime;
   }

@@ -15,14 +15,16 @@ export const MEMORY_DESTINATION_SHARD = 'destination_shard';
 export const PATH_CACHE = 'path_cache';
 export const MEMORY_DESTINATION_POS = 'destination_pos';
 
+// Used for debugging, don't use for decision making, use MEMORY_COLONY instead
+export const MEMORY_ORIGIN_SHARD = 'shard';
+export const MEMORY_ORIGIN = 'origin';
+
 // Long term memory IDs
 export const MEMORY_WITHDRAW = 'withdraw';
 export const MEMORY_WITHDRAW_ROOM = 'withdraw_room';
 export const MEMORY_DROPOFF = 'transfer';
 export const MEMORY_CLAIM = 'claim';
 export const MEMORY_RESERVE = 'reserve';
-export const MEMORY_ORIGIN_SHARD = 'shard';
-export const MEMORY_ORIGIN = 'origin';
 export const MEMORY_FLAG = 'flag';
 export const MEMORY_COLONY = 'colony';
 export const MEMORY_START_TICK = 'start_tick';

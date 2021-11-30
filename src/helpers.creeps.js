@@ -132,8 +132,10 @@ module.exports.createCreep = (colony, room, spawn, role, memory, energy, energyL
     memory[MEMORY_COLONY] = colony;
   }
 
+  // Used for debugging, don't use for decision making, use MEMORY_COLONY instead
   memory[MEMORY_ORIGIN_SHARD] = Game.shard.name;
   memory[MEMORY_ORIGIN] = room;
+
   memory[MEMORY_ROLE] = role;
   memory[MEMORY.MEMORY_START_TICK] = Game.time;
   memory[MEMORY.DESIRED_BOOSTS] = definition.boosts;

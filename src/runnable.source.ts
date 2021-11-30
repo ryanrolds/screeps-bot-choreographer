@@ -143,10 +143,11 @@ export default class SourceRunnable {
     const colonyCreeps = colony.getCreeps();
     const numUpgraders = colonyCreeps.filter((creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
-      return role === WORKER_UPGRADER &&
-        creep.memory[MEMORY.MEMORY_SOURCE] === this.sourceId &&
+      return role === WORKER_UPGRADER && creep.memory[MEMORY.MEMORY_SOURCE] === this.sourceId &&
         creepIsFresh(creep);
     }).length;
+
+    trace.log('desired upgraders', {desiredNum, numUpgraders});
 
     for (let i = numUpgraders; i < desiredNum; i++) {
       let priority = PRIORITY_UPGRADER;
@@ -163,7 +164,7 @@ export default class SourceRunnable {
         },
       }
 
-      trace.log('requesting worker', {roomId: room.name, sourceId: this.sourceId, details});
+      trace.log('requesting upgrader', {roomId: room.name, sourceId: this.sourceId, details});
 
       colony.getPrimaryRoom().requestSpawn(priority, details, REQUEST_WORKER_TTL);
     }
@@ -224,6 +225,8 @@ export default class SourceRunnable {
         creep.memory[MEMORY.MEMORY_SOURCE] === this.sourceId &&
         creepIsFresh(creep);
     }).length;
+
+    trace.log('desired workers', {desiredNumWorkers, numWorkers});
 
     for (let i = numWorkers; i < desiredNumWorkers; i++) {
       let priority = desiredWorkerPriority;

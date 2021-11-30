@@ -13,6 +13,7 @@ import {thread, ThreadFunc} from "./os.thread";
 const PROCESS_TTL = 500;
 const REQUEST_BOOSTS_TTL = 1;
 const UPDATE_SPAWN_LIST_TTL = 20;
+const MAX_COLONY_SPAWN_DISTANCE = 3;
 
 export default class SpawnManager {
   orgRoom: OrgRoom;
@@ -206,7 +207,7 @@ export default class SpawnManager {
               }
 
               const distance = Game.map.getRoomLinearDistance((this.orgRoom as any).id, destinationRoom);
-              if (distance > 5) {
+              if (distance > MAX_COLONY_SPAWN_DISTANCE) {
                 trace.log('distance', {distance, message});
                 return false;
               }

@@ -274,9 +274,9 @@ export default class TerminalRunnable {
     const resources = this.orgRoom.getKingdom().getResourceGovernor().getSharedResources();
     const reserveAmount = resources[resource] || 0;
 
-    const sellPrice = this.pricer.getPrice(ORDER_SELL, resource, reserveAmount);
-    if (!sellOrder || sellOrder.price > sellPrice) {
-      trace.log('sell orders too expensive: creating buy order', {resource, orderPrice: sellOrder?.price, sellPrice});
+    const maxBuyPrice = this.pricer.getPrice(ORDER_BUY, resource, reserveAmount);
+    if (!sellOrder || sellOrder.price > maxBuyPrice) {
+      trace.notice('sell orders too expensive: creating buy order', {resource, orderPrice: sellOrder?.price, maxBuyPrice});
       this.createBuyOrder(terminal, resource, amount, trace);
       this.clearTask(trace);
       return;
@@ -350,11 +350,11 @@ export default class TerminalRunnable {
         // Get desired purchase price based on current stockpile
         const resources = this.orgRoom.getKingdom().getResourceGovernor().getSharedResources();
         const currentAmount = resources[resource] || 0;
-        const price = this.pricer.getPrice(ORDER_SELL, resource, currentAmount);
+        const minSellPrice = this.pricer.getPrice(ORDER_SELL, resource, currentAmount);
 
         // If no buy orders or price is too low, create a sell order
-        if (!buyOrder || buyOrder.price < price) {
-          trace.log('no orders or sell prices too low, creating sell order')
+        if (!buyOrder || buyOrder.price < minSellPrice) {
+          trace.notice('no orders or sell prices too low, creating sell order')
           this.createSellOrder(terminal, resource, amount, trace);
           this.clearTask(trace);
           return;
@@ -594,7 +594,7 @@ export default class TerminalRunnable {
 
   updateEnergyValue(trace: Tracer) {
     const energyHistory = Game.market.getHistory(RESOURCE_ENERGY)
-    trace.notice('updating energy value', {energyHistory});
+    trace.log('updating energy value', {energyHistory});
 
     // private servers can return energyHistory as an empty object
     if (!energyHistory || !Array.isArray(energyHistory) || !energyHistory.length) {

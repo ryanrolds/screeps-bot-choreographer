@@ -10,7 +10,7 @@ const {TASK_PHASE_REACT} = require('./runnable.reactor');
 
 const RESERVE_LIMIT = 20000;
 const REACTION_BATCH_SIZE = 1000;
-const MIN_CREDITS = 25000;
+const MIN_CREDITS = 200000;
 const MIN_BOOST_CREDITS = 1000000;
 const MIN_SELL_ORDER_SIZE = 1000;
 const MAX_SELL_AMOUNT = 25000;
@@ -225,6 +225,7 @@ class Resources extends OrgBase {
 
     return sharedResources;
   }
+
   getReserveResources() {
     return this.getKingdom().getColonies().reduce((acc, colony) => {
       // If colony doesn't have a terminal don't include it
@@ -241,11 +242,13 @@ class Resources extends OrgBase {
       return acc;
     }, {});
   }
+
   getAmountInReserve(resource) {
     return this.getKingdom().getColonies().reduce((acc, colony) => {
       return acc + colony.getAmountInReserve(resource);
     }, 0);
   }
+
   getReactions(trace) {
     let availableReactions = {};
     let missingOneInput = {};
@@ -254,10 +257,10 @@ class Resources extends OrgBase {
     const firstInputs = Object.keys(REACTIONS);
     firstInputs.forEach((inputA) => {
       // If we don't have a full batch, move onto next
-      if (!this.sharedResources[inputA] || this.sharedResources[inputA] < REACTION_BATCH_SIZE) {
+      if (!this.resources[inputA] || this.resources[inputA] < REACTION_BATCH_SIZE) {
         trace.log('dont have enough of first resource', {
           inputA,
-          amountA: this.sharedResources[inputA] || 0,
+          amountA: this.resources[inputA] || 0,
           REACTION_BATCH_SIZE,
         });
 
@@ -269,13 +272,13 @@ class Resources extends OrgBase {
         const output = REACTIONS[inputA][inputB];
 
         // If we don't have a full batch if input mark missing one and go to next
-        if (!this.sharedResources[inputB] || this.sharedResources[inputB] < REACTION_BATCH_SIZE) {
+        if (!this.resources[inputB] || this.resources[inputB] < REACTION_BATCH_SIZE) {
           if (!missingOneInput[output]) {
             trace.log('dont have enough of second resource', {
               inputA,
               inputB,
-              amountA: this.sharedResources[inputA] || 0,
-              amountB: this.sharedResources[inputB] || 0,
+              amountA: this.resources[inputA] || 0,
+              amountB: this.resources[inputB] || 0,
               output,
               REACTION_BATCH_SIZE,
             });
@@ -287,7 +290,7 @@ class Resources extends OrgBase {
         }
 
         // Check if we need more of the output
-        if (this.sharedResources[output] > RESERVE_LIMIT && !overReserve[output]) {
+        if (this.resources[output] > RESERVE_LIMIT && !overReserve[output]) {
           // overReserve[output] = {inputA, inputB, output};
           return;
         }
@@ -297,8 +300,8 @@ class Resources extends OrgBase {
           trace.log('adding available reaction', {
             inputA,
             inputB,
-            amountA: this.sharedResources[inputA] || 0,
-            amountB: this.sharedResources[inputB] || 0,
+            amountA: this.resources[inputA] || 0,
+            amountB: this.resources[inputB] || 0,
             output,
           });
 
@@ -307,9 +310,9 @@ class Resources extends OrgBase {
       });
     });
 
-    availableReactions = this.prioritizeReactions(availableReactions);
-    missingOneInput = this.prioritizeReactions(missingOneInput);
-    // overReserve = this.prioritizeReactions(overReserve);
+    availableReactions = this.prioritizeReactions(availableReactions, 0);
+    missingOneInput = this.prioritizeReactions(missingOneInput, 5);
+    // overReserve = this.prioritizeReactions(overReserve, 10);
 
     const nextReactions = [].concat(availableReactions);
     if (missingOneInput.length && Game.market.credits > MIN_CREDITS) {
@@ -321,17 +324,22 @@ class Resources extends OrgBase {
 
     return nextReactions;
   }
-  prioritizeReactions(reactions) {
+
+  prioritizeReactions(reactions, penalty) {
     return _.sortBy(Object.values(reactions), (reaction) => {
       let priority = PRIORITIES.REACTION_PRIORITIES[reaction['output']];
 
       // Reduce priority linearly based on amount of resource (more = lower priority)
       const amount = this.resources[reaction['output']] || 0;
-      priority = priority * _.max([0, 1 - (amount / RESERVE_LIMIT * 2)]);
+      priority = priority * _.max([0, 1 - (amount / (RESERVE_LIMIT * 2))]);
+      priority -= penalty;
+
+      reaction['priority'] = priority;
 
       return priority;
     });
   }
+
   getDesiredCompound(effect, reserve) {
     // Returns fist compound (assumes sorted by priority) that has more
     // than minimum, or the compound with the most available
@@ -460,9 +468,9 @@ class Resources extends OrgBase {
     const result = Game.market.createOrder(order);
     trace.log('create order result', {order, result});
   }
+
   requestReactions(trace) {
     this.availableReactions.forEach((reaction) => {
-      const priority = PRIORITIES.REACTION_PRIORITIES[reaction['output']];
       const details = {
         [MEMORY.REACTOR_TASK_TYPE]: TASKS.REACTION,
         [MEMORY.REACTOR_INPUT_A]: reaction['inputA'],
@@ -470,11 +478,21 @@ class Resources extends OrgBase {
         [MEMORY.REACTOR_OUTPUT]: reaction['output'],
         [MEMORY.REACTOR_AMOUNT]: REACTION_BATCH_SIZE,
       };
-      this.getKingdom().sendRequest(TOPICS.TASK_REACTION, priority, details, REQUEST_REACTION_TTL);
+
+      this.getKingdom().sendRequest(TOPICS.TASK_REACTION, reaction['priority'], details, REQUEST_REACTION_TTL);
     });
 
-    trace.notice('requested reactions', {reactions: this.availableReactions.map((r) => r['output'])});
+    const reactions = this.getKingdom().getTopics().getTopic(TOPICS.TASK_REACTION);
+    trace.log('requested reactions', {
+      reactions: reactions.map((r) => {
+        return {
+          output: r.details[MEMORY.REACTOR_OUTPUT],
+          priority: r.priority,
+        };
+      }),
+    });
   }
+
   requestSellResource() {
     Object.entries(this.sharedResources).forEach(([resource, amount]) => {
       if (resource === RESOURCE_ENERGY) {
@@ -512,6 +530,7 @@ class Resources extends OrgBase {
         details, REQUEST_SELL_TTL);
     });
   }
+
   distributeBoosts(trace) {
     trace.log('balancing boosts');
 

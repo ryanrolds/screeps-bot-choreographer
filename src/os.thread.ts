@@ -21,6 +21,8 @@ export const thread = (name: string, ttl: number) => (action: ActionFunc): Threa
       actionTrace.end();
 
       return result;
+    } else {
+      trace.log(`thread ${name} sleeping for ${lastCall + ttl - Game.time}`)
     }
 
     return null;

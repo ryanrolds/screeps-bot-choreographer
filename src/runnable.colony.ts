@@ -24,6 +24,10 @@ export default class ColonyRunnable {
       return terminate();
     }
 
+    if (!colony.primaryRoom) {
+      return sleeping(20);
+    }
+
     const observerStructures = colony.primaryRoom.find<StructureObserver>(FIND_MY_STRUCTURES, {
       filter: (structure) => {
         return structure.structureType === STRUCTURE_OBSERVER;

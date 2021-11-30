@@ -118,7 +118,7 @@ export default class BoosterRunnable {
 
     if (Object.keys(desiredEffects).length) {
       sleepFor = REQUEST_LOAD_TTL;
-      this.sendHaulRequests(loadedEffects, desiredEffects, needToLoad, emptyLabs, couldUnload, trace);
+      this.sendHaulRequests(loadedEffects, needToLoad, emptyLabs, couldUnload, trace);
     } else {
       sleepFor = REQUEST_UNLOAD_TTL;
       this.rebalanceLabs(trace);
@@ -282,7 +282,7 @@ export default class BoosterRunnable {
 
   getEffects(availableResources = null): EffectSet {
     // If we are after all events and they are already cached, then return the cache
-    if (availableResources === null && this.allEffects) {
+    if (!availableResources && this.allEffects) {
       return this.allEffects;
     }
 
@@ -309,7 +309,8 @@ export default class BoosterRunnable {
     });
 
     // If all effects are not already cached, cache them.
-    if (!this.allEffects) {
+    // Do not cache if we are checking against available resources.
+    if (!this.allEffects && !availableResources) {
       this.allEffects = allEffects;
     }
 
@@ -372,14 +373,14 @@ export default class BoosterRunnable {
     return [needToLoad, couldUnload, emptyLabs]
   }
 
-  sendHaulRequests(loadedEffects, desiredEffects, needToLoad, emptyLabs, couldUnload, trace: Tracer) {
+  sendHaulRequests(loadedEffects, needToLoad, emptyLabs, couldUnload, trace: Tracer) {
     const numToLoad = needToLoad.length;
     const numEmpty = emptyLabs.length;
 
     if (numEmpty && numToLoad) {
       const numReadyToLoad = _.min([numEmpty, numToLoad]);
       const load = needToLoad.slice(0, numReadyToLoad);
-      this.requestMaterialsForLabs(desiredEffects, load, trace);
+      this.requestMaterialsForLabs(load, trace);
     }
 
     if (numToLoad > numEmpty) {
@@ -472,12 +473,12 @@ export default class BoosterRunnable {
         details, REQUEST_UNLOAD_TTL);
     });
   }
-  requestMaterialsForLabs(desiredEffects, needToLoad, trace: Tracer) {
+  requestMaterialsForLabs(needToLoad, trace: Tracer) {
     const reserveResources = this.orgRoom.getReserveResources();
 
     needToLoad.forEach((toLoad) => {
       trace.log('need to load', {toLoad})
-      const effect = desiredEffects[toLoad];
+      const effect = this.allEffects[toLoad];
       if (!effect) {
         trace.log('not able to find desired effect', {toLoad});
         return;

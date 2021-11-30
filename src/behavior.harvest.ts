@@ -8,6 +8,11 @@ import {numEnemeiesNearby, numOfSourceSpots} from "./helpers.proximity";
 export const selectHarvestSource = behaviorTree.leafNode(
   'bt.harvest.selectHarvestSource',
   (creep, trace, kingdom) => {
+    // If creep already has source assigned, use that
+    if (creep.memory[MEMORY_SOURCE]) {
+      return SUCCESS;
+    }
+
     let sources = creep.room.find(FIND_SOURCES);
     sources = _.filter(sources, (source) => {
       // Do not send creeps to sources with hostiles near by
@@ -87,6 +92,10 @@ export const harvest = behaviorTree.leafNode(
       return FAILURE;
     }
 
+    if (destination.energy === 0) {
+      return RUNNING;
+    }
+
     const result = creep.harvest(destination);
     trace.log('harvest', {result});
 
@@ -96,7 +105,7 @@ export const harvest = behaviorTree.leafNode(
 
     // NOTICE switched this to FAILURE from RUNNING, this may cause problems
     if (result === ERR_NOT_ENOUGH_RESOURCES) {
-      return FAILURE;
+      return RUNNING;
     }
 
     if (result === OK) {

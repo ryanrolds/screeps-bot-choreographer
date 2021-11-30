@@ -443,30 +443,3 @@ export const moveToDestinationRoom = behaviorTree.repeatUntilSuccess(
     },
   ),
 );
-
-export const moveToOriginRoom = behaviorTree.repeatUntilSuccess(
-  'goto_origin_room',
-  behaviorTree.leafNode(
-    'move_to_exit',
-    (creep) => {
-      const room = creep.memory[MEMORY_ORIGIN];
-      // If creep doesn't have a harvest room assigned, we are done
-      if (!room) {
-        return SUCCESS;
-      }
-
-      // If the creep reaches the room we are done
-      if (creep.room.name === room) {
-        return SUCCESS;
-      }
-
-      const opts = getMoveOpts();
-      const result = creep.moveTo(new RoomPosition(25, 25, room), opts);
-      if (result === ERR_NO_PATH) {
-        return FAILURE;
-      }
-
-      return RUNNING;
-    },
-  ),
-);

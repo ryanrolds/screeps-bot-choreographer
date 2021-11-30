@@ -204,6 +204,40 @@ TODO - Add additional context around the current design
 6. Behaviors - Individual creep behaviors
 7. Topics - IPC
 
+### Processes
+
+| Process | ID  | Priority | Description |
+| ------- | --- | -------- | ----------- |
+| Central Planning |
+| Kingdom | kingdom_model |
+| Kingdom Governor |
+| Colony Manager |
+| Room Manager |
+| Defense Manager |
+| Buffer Manager |
+| Invader Manager |
+| War Manager |
+| Creep Manager |
+| Path Debugger |
+| Cost Matrix Debugger |
+| Observer | <id>
+| Colony | <colony id>        |
+| Room | <room name>
+| Spawn Manager |
+| Tower |
+| Nuker |
+| Link Manager |
+| Lab Manager |
+| Reactor |
+| Booster |
+| Source |
+| Mineral |
+| Construction |
+| War Party |
+| Defense Party |
+| Creep | <name> |
+
+
 ### Topics
 
 The codebase is currently of two minds. Previous generations of the code (org.*) allowed direct access to each other's data. Initially this wasn't a major issue, but as complexity and the scheduler was introduced keeping data up-to-date for other logic became problematic. Also, the tightly coupling was a major problem.
