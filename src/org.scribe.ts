@@ -4,11 +4,14 @@ import {Kingdom} from './org.kingdom';
 import {Colony} from './org.colony';
 import {thread, ThreadFunc} from './os.thread';
 import {Tracer} from './lib.tracing';
+import {NumericDictionary} from 'lodash';
 
 const COST_MATRIX_TTL = 1500;
 const COST_DEFENDER_NOT_BASE = 6;
 const JOURNAL_ENTRY_TTL = 250;
+const MAX_JOURAL_TTL = 500;
 const WRITE_MEMORY_INTERVAL = 50;
+const REMOVE_STALE_ENTRIES_INTERVAL = 100;
 
 type Journal = {
   rooms: Record<Id<Room>, RoomEntry>;
@@ -70,7 +73,9 @@ export type TargetRoom = {
 export class Scribe extends OrgBase {
   private journal: Journal;
   costMatrix255: CostMatrix;
+
   threadWriteMemory: ThreadFunc;
+  threadRemoveStaleJournalEntries: ThreadFunc;
 
   constructor(parent, trace) {
     super(parent, 'scribe', trace);
@@ -81,6 +86,7 @@ export class Scribe extends OrgBase {
       colonyCostMatrices: {},
     };
 
+    this.threadRemoveStaleJournalEntries = thread('remove_stale', REMOVE_STALE_ENTRIES_INTERVAL)(this.removeStaleJournalEntries.bind(this));
     this.threadWriteMemory = thread('write_memory', WRITE_MEMORY_INTERVAL)(this.writeMemory.bind(this))
   }
 
@@ -103,6 +109,8 @@ export class Scribe extends OrgBase {
         this.updateRoom(this.getKingdom(), room);
       }
     });
+
+    this.removeStaleJournalEntries();
 
     this.threadWriteMemory(updateTrace);
 
@@ -143,7 +151,9 @@ export class Scribe extends OrgBase {
   }
 
   removeStaleJournalEntries() {
-
+    this.journal.rooms = _.pick(this.journal.rooms, (room) => {
+      return Game.time - room.lastUpdated < MAX_JOURAL_TTL;
+    });
   }
 
   getRooms(): RoomEntry[] {
@@ -187,7 +197,7 @@ export class Scribe extends OrgBase {
     });
   }
 
-  getRoomsWithPowerBanks() {
+  getRoomsWithPowerBanks(): [Id<Room>, number, number][] {
     return Object.values(this.journal.rooms).filter((room) => {
       if (!room.powerBanks) {
         return false;
@@ -199,15 +209,15 @@ export class Scribe extends OrgBase {
     });
   }
 
-  getRoomsWithInvaderBases() {
+  getRoomsWithInvaderBases(): [Id<Room>, number][] {
     return Object.values(this.journal.rooms).filter((room) => {
       return false;
     }).map((room) => {
-      return [room.id, Game.time - room.lastUpdated, room.powerBanks[0].ttl];
+      return [room.id, Game.time - room.lastUpdated];
     });
   }
 
-  getRoomsWithHostileTowers() {
+  getRoomsWithHostileTowers(): [Id<Room>, number, string][] {
     return Object.values(this.journal.rooms).filter((room) => {
       if (!room.controller || room.controller.owner === 'ENETDOWN') {
         return false;
@@ -223,7 +233,7 @@ export class Scribe extends OrgBase {
     });
   }
 
-  getRoomsWithPortals() {
+  getRoomsWithPortals(): [Id<Room>, number, string[]][] {
     return Object.values(this.journal.rooms).filter((room) => {
       if (!room.portals) {
         return false;
