@@ -15,6 +15,7 @@ import CostMatrixDebugger from './runnable.costmatrix_debug';
 import InvaderManager from './runnable.manager.invaders';
 import {CentralPlanning} from './runnable.central_planning';
 import {ColonyManager} from './runnable.manager.colony';
+import {EventBroker} from './lib.event_broker';
 
 
 let lastMemoryTick: number = 0;
@@ -25,6 +26,7 @@ export class AI {
   config: KingdomConfig;
   kingdom: Kingdom;
   planning: CentralPlanning;
+  broker: EventBroker;
   gameMapExport: string;
 
   constructor(config: KingdomConfig, trace: Tracer) {
@@ -37,10 +39,16 @@ export class AI {
     this.planning = new CentralPlanning(config);
     this.scheduler.registerProcess(new Process('central_planning', 'planning',
       Priorities.CRITICAL, this.planning));
+    this.broker = new EventBroker();
+
+    // Remove old messages from broker
+    if (Game.time % 25 === 0) {
+      this.broker.removeConsumed();
+    }
 
     // Kingdom Model & Messaging process
     // Pump messages through kingdom, colonies, room, ect...
-    this.kingdom = new Kingdom(config, this.scheduler, trace);
+    this.kingdom = new Kingdom(config, this.scheduler, this.broker, trace);
     const kingdomModelId = 'kingdom_model';
     this.scheduler.registerProcess(new Process(kingdomModelId, 'kingdom_model',
       Priorities.CRITICAL, new KingdomModelRunnable(kingdomModelId)));

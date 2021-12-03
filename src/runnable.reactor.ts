@@ -8,6 +8,7 @@ import * as TASKS from "./constants.tasks"
 import * as TOPICS from "./constants.topics"
 import * as CREEPS from "./constants.creeps"
 import * as PRIORITIES from "./constants.priorities"
+import {Event} from "./lib.event_broker";
 
 const TASK_PHASE_START = 'phase_start';
 const TASK_PHASE_LOAD = 'phase_transfer_resources';
@@ -22,7 +23,13 @@ const NO_SLEEP = 0;
 const NEW_TASK_SLEEP = 10;
 const PRODUCE_STATUS_TTL = 25;
 
+// Deprecated
 export const REACTION_UPDATE_TOPIC = 'reaction_updates';
+
+export const REACTION_STATUS_STREAM = 'stream_reaction_status';
+export const REACTION_STATUS_START = 'reaction_status_start';
+export const REACTION_STATUS_UPDATE = 'reaction_status_update';
+export const REACTION_STATUS_STOP = 'reaction_status_stop';
 
 export default class ReactorRunnable {
   id: string;
@@ -38,7 +45,7 @@ export default class ReactorRunnable {
     this.labIds = labIds;
     this.prevTime = Game.time;
 
-    this.threadProduceStatus = thread('produce_status_thread', PRODUCE_STATUS_TTL)(this.produceStatus.bind(this));
+    this.threadProduceStatus = thread('produce_status_thread', PRODUCE_STATUS_TTL)(this.produceUpdateStatus.bind(this));
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
@@ -287,10 +294,10 @@ export default class ReactorRunnable {
     }, REQUEST_LOAD_TTL);
   }
 
-  produceStatus(trace: Tracer, labs: StructureLab[], task) {
-    const resource = task.details[MEMORY.REACTOR_OUTPUT] || null;
+  produceUpdateStatus(trace: Tracer, labs: StructureLab[], task) {
+    const resource = task?.details[MEMORY.REACTOR_OUTPUT] || null;
     const phase = task[MEMORY.TASK_PHASE] || null;
-    const amount = labs[0]?.store.getUsedCapacity(task.details[MEMORY.REACTOR_OUTPUT]) || 0;
+    const amount = labs[0]?.store.getUsedCapacity(task?.details[MEMORY.REACTOR_OUTPUT]) || 0;
 
     const status = {
       [MEMORY.REACTION_STATUS_ROOM]: this.orgRoom.id,
@@ -303,5 +310,13 @@ export default class ReactorRunnable {
     trace.log('producing reactor status', {status});
 
     this.orgRoom.getKingdom().sendRequest(TOPICS.ACTIVE_REACTIONS, 1, status, PRODUCE_STATUS_TTL);
+
+    if (resource) {
+      this.orgRoom.getKingdom().getBroker().getStream(REACTION_STATUS_STREAM).
+        publish(new Event(this.id, REACTION_STATUS_UPDATE, status));
+    } else {
+      this.orgRoom.getKingdom().getBroker().getStream(REACTION_STATUS_STREAM).
+        publish(new Event(this.id, REACTION_STATUS_STOP, {}));
+    }
   }
 }

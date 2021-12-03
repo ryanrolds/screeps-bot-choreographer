@@ -6,7 +6,8 @@ const PRIORITIES = require('./constants.priorities');
 const {thread} = require('./os.thread');
 const {SigmoidPricing} = require('./lib.sigmoid_pricing');
 const {PRICES} = require('./constants.market');
-const {TASK_PHASE_REACT} = require('./runnable.reactor');
+const {TASK_PHASE_REACT, REACTION_STATUS_STREAM, REACTION_STATUS_START,
+  REACTION_STATUS_UPDATE} = require('./runnable.reactor');
 
 const RESERVE_LIMIT = 20000;
 const REACTION_BATCH_SIZE = 1000;
@@ -50,6 +51,9 @@ class Resources extends OrgBase {
     this.reactorStatuses = [];
     this.roomStatuses = [];
     this.reactionStats = {};
+    this.reactionStatuses = {};
+    this.reactionStatusStreamConsumer = this.getKingdom().getBroker().
+      getStream(REACTION_STATUS_STREAM).addConsumer('resource_governor');
 
     this.threadUpdateResources = thread('update_resources_thread', UPDATE_RESOURCES_TTL)((trace) => {
       this.resources = this.getReserveResources();
@@ -70,7 +74,10 @@ class Resources extends OrgBase {
     });
 
     this.threadConsumeStatuses = thread('statuses_thread', CONSUME_STATUS_TTL)(this.consumeStatuses.bind(this));
-    this.threadBalanceEnergy = thread('balance_energy_thread', BALANCE_ENERGY_TTL)(this.balanceEnergy.bind(this));
+    this.threadConsumeReactionStatusStream = thread('reaction_stream',
+      CONSUME_STATUS_TTL)(this.consumeReactionStatusStream.bind(this));
+    this.threadBalanceEnergy = thread('balance_energy_thread',
+      BALANCE_ENERGY_TTL)(this.balanceEnergy.bind(this));
 
     setupTrace.end();
   }
@@ -82,6 +89,7 @@ class Resources extends OrgBase {
     this.threadRequestSellExtraResources(trace);
     this.threadDistributeBoosts(trace);
     this.threadConsumeStatuses(trace);
+    this.threadConsumeReactionStatusStream(trace);
     this.threadBalanceEnergy(trace);
 
     trace.end();
@@ -96,7 +104,21 @@ class Resources extends OrgBase {
   updateStats(trace) {
     const stats = this.getStats();
     stats.resources = this.resources;
-    stats.reactions = this.reactionStats;
+    stats.reactions = _.reduce(this.reactionStatuses, (acc, reaction) => {
+      if (reaction) {
+        const resource = reaction[MEMORY.REACTION_STATUS_RESOURCE] || null;
+        const phase = reaction[MEMORY.REACTION_STATUS_PHASE] || null;
+        if (resource && phase === TASK_PHASE_REACT) {
+          if (!acc[resource]) {
+            acc[resource] = 0;
+          }
+
+          acc[resource]++;
+        }
+      }
+
+      return acc;
+    }, {});
 
     const colonies = this.getKingdom().getColonies();
     stats.critical_resources = colonies.reduce((acc, colony) => {
@@ -613,6 +635,26 @@ class Resources extends OrgBase {
       });
 
       colonyEnd();
+    });
+  }
+
+  consumeReactionStatusStream(trace) {
+    const events = this.reactionStatusStreamConsumer.getEvents();
+
+    trace.log('reaction status events', {events});
+
+    events.forEach((event) => {
+      switch (event.type) {
+        case REACTION_STATUS_START:
+        case REACTION_STATUS_UPDATE:
+          this.reactionStatuses[event.key] = event.data;
+          break;
+        case REACTION_STATUS_END:
+          delete this.reactionStatuses[event.key];
+          break;
+        default:
+          throw new Error(`Unknown reaction status event type: ${event.type}`);
+      }
     });
   }
 

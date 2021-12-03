@@ -8,9 +8,11 @@ import {expect} from 'chai';
 import * as sinon from 'sinon';
 import {Kingdom} from './org.kingdom';
 import {KingdomConfig} from './config';
+import {EventBroker} from './lib.event_broker';
 
 describe('Scheduler', () => {
   let trace = null;
+  let broker = null;
   let kingdom = null;
   let sandbox = null;
   let runnable = null;
@@ -42,6 +44,8 @@ describe('Scheduler', () => {
 
     trace = new Tracer('scheduler_test', {}, 0);
 
+    broker = new EventBroker();
+
     runnable = {
       run: (trace: Tracer): RunnableResult => {
         return running();
@@ -71,7 +75,7 @@ describe('Scheduler', () => {
 
   it('should run the process', () => {
     const scheduler = new Scheduler();
-    const kingdom = new Kingdom({} as KingdomConfig, scheduler, trace);
+    const kingdom = new Kingdom({} as KingdomConfig, scheduler, broker, trace);
 
     scheduler.registerProcess(process);
     scheduler.tick(kingdom, trace);
@@ -86,7 +90,7 @@ describe('Scheduler', () => {
     };
 
     const scheduler = new Scheduler();
-    const kingdom = new Kingdom({} as KingdomConfig, scheduler, trace);
+    const kingdom = new Kingdom({} as KingdomConfig, scheduler, broker, trace);
 
     scheduler.registerProcess(process);
     scheduler.tick(kingdom, trace);
@@ -99,7 +103,7 @@ describe('Scheduler', () => {
     const tracer = new Tracer('scheduler', {}, 0);
 
     const scheduler = new Scheduler();
-    const kingdom = new Kingdom({} as KingdomConfig, scheduler, trace);
+    const kingdom = new Kingdom({} as KingdomConfig, scheduler, broker, trace);
 
     scheduler.registerProcess(process);
 
@@ -144,7 +148,7 @@ describe('Scheduler', () => {
 
   it("should remove and not run terminated processes", () => {
     const scheduler = new Scheduler();
-    const kingdom = new Kingdom({} as KingdomConfig, scheduler, trace);
+    const kingdom = new Kingdom({} as KingdomConfig, scheduler, broker, trace);
 
     scheduler.registerProcess(process);
 

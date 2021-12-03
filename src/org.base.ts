@@ -4,6 +4,8 @@ import {Kingdom} from './org.kingdom';
 import OrgRoom from './org.room';
 import {Colony} from './org.colony';
 import {Scheduler} from './os.scheduler';
+import {EventBroker} from './lib.event_broker';
+import Resources from './org.resource_governor';
 
 export class OrgBase {
   parent: OrgBase;
@@ -22,6 +24,14 @@ export class OrgBase {
 
   getParent(): OrgBase {
     return this.parent;
+  }
+
+  getBroker(): EventBroker {
+    return this.parent.getBroker();
+  }
+
+  getResourceGovernor(): Resources {
+    return this.getParent().getResourceGovernor();
   }
 
   getKingdom(): Kingdom {

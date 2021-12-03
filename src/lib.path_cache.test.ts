@@ -10,6 +10,7 @@ import {Scheduler} from './os.scheduler';
 import {KingdomConfig} from './config';
 import {Tracer} from './lib.tracing';
 import {common} from './lib.pathing_policies';
+import {EventBroker} from './lib.event_broker';
 
 describe('Path Cache', function () {
   let sandbox: Sinon.SinonSandbox = null;
@@ -47,8 +48,9 @@ describe('Path Cache', function () {
 
     const config: KingdomConfig = {} as KingdomConfig;
     const scheduler = new Scheduler();
+    const broker = new EventBroker();
     trace = new Tracer('test', {}, 0);
-    kingdom = new Kingdom(config, scheduler, trace);
+    kingdom = new Kingdom(config, scheduler, broker, trace);
 
     pathProvider = sandbox.stub().callsFake(() => path);
   });

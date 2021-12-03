@@ -16,12 +16,14 @@ import WarManager from './runnable.manager.war';
 import {WORKER_HAULER} from './constants.creeps';
 import {CostMatrixCache} from './lib.costmatrix_cache';
 import {getPath} from './lib.pathing';
+import {EventBroker} from './lib.event_broker';
 
 const UPDATE_ORG_TTL = 1;
 
 export class Kingdom extends OrgBase {
   config: KingdomConfig;
   scheduler: Scheduler;
+  broker: EventBroker;
   topics: Topics;
 
   stats: any; // TODO
@@ -39,13 +41,14 @@ export class Kingdom extends OrgBase {
 
   threadUpdateOrg: ThreadFunc;
 
-  constructor(config: KingdomConfig, scheduler: Scheduler, trace: Tracer) {
+  constructor(config: KingdomConfig, scheduler: Scheduler, broker: EventBroker, trace: Tracer) {
     super(null, 'kingdom', trace);
 
     const setupTrace = this.trace.begin('constructor');
 
     this.config = config;
     this.scheduler = scheduler;
+    this.broker = broker;
     this.topics = new Topics();
 
     this.stats = {
@@ -133,12 +136,20 @@ export class Kingdom extends OrgBase {
 
     processTrace.end();
   }
+
   getParent(): Kingdom {
     return this;
   }
+
   getKingdom(): Kingdom {
     return this;
   }
+
+  getBroker(): EventBroker {
+    return this.broker;
+  }
+
+  // TODO move to planner
   getFriends(): string[] {
     return this.config.friends;
   }
@@ -151,6 +162,7 @@ export class Kingdom extends OrgBase {
   getShardConfig(shardName: string): ShardConfig {
     return this.config.shards[shardName] || null;
   }
+
   getResourceGovernor(): ResourceGovernor {
     return this.resourceGovernor;
   }
@@ -290,6 +302,8 @@ export class Kingdom extends OrgBase {
     });
 
     stats.topics = this.topics.getCounts();
+
+    stats.streams = this.getBroker().getStats();
 
     stats.path_cache = this.getPathCache().getStats(trace);
 
