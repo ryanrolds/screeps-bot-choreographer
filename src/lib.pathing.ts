@@ -52,6 +52,7 @@ export type FindPathPolicy = {
 export type PathSearchDetails = {
   tries: number;
   passes: number;
+  searchedRooms: Record<string, boolean>;
   blockedRooms: Record<string, boolean>;
   incompletePaths: PathFinderPath[];
 };
@@ -75,6 +76,7 @@ export const getPath = (kingdom: Kingdom, origin: RoomPosition, destination: Roo
   const pathDetails: PathSearchDetails = {
     tries: 3,
     passes: 0,
+    searchedRooms: {},
     blockedRooms: {},
     incompletePaths: [],
   }
@@ -237,6 +239,8 @@ const getOriginPosition = (kingdom: Kingdom, colony: Colony, policy: ColonyPolic
 const getRoomRouteCallback = (kingdom: Kingdom, destRoom: string, policy: RoomPolicy,
   searchDetails: PathSearchDetails, trace: Tracer): RouteCallback => {
   return (toRoom: string, fromRoom: string): number => {
+    searchDetails.searchedRooms[toRoom] = true;
+
     // Always allow entry to destination room
     if (destRoom === toRoom) {
       return 1;

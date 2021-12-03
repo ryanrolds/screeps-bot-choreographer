@@ -337,12 +337,9 @@ export default class WarPartyRunnable {
       if (targets.length) {
         trace.log('target', targets[0]);
         destination = targets[0].pos;
-      } else if (room.controller?.my || room.controller?.level < 1) {
-        trace.log("no targets");
-        return true;
       } else {
-        // TODO set strength baseed on the threat
-        this.party.setRole(WORKER_ATTACKER)
+        trace.log("no targets, done");
+        return true;
       }
     }
 
@@ -595,12 +592,17 @@ export default class WarPartyRunnable {
     if (!path) {
       // Cant find where we are going, freeze
       // TODO maybe suicide
-      trace.notice('warparty stuck', {id: this.id})
+      trace.notice('warparty stuck', {id: this.id});
       return [currentPosition, this.direction, []];
     }
 
     // We know where we are going and the path
     trace.log("path found", {pathLength: path.length, currentPosition, destination});
+
+    if (path.length === 0) {
+      trace.notice('no path', {id: this.id, path});
+      return [currentPosition, this.direction, []];
+    }
 
     // Work out the closest position along the path and it's distance
     // Scan path and find closest position, use that as as position on path

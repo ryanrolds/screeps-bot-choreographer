@@ -144,35 +144,40 @@ export default class WarManager {
     // Send reserver to block controller if room is clear
     const roomEntry = kingdom.getScribe().getRoomById(this.targetRoom);
 
-    const targetsByColony = this.getTargetsByColony(kingdom, this.targets, trace);
-    trace.log("targets by colony", {targetsByColony});
+    // Send war parties if there are important structures
+    if (roomEntry.numKeyStructures > 0) {
+      // Locate nearby colonies and spawn war parties
+      kingdom.getColonies().forEach((colony) => {
+        // TODO check for path to target
+        const linearDistance = Game.map.getRoomLinearDistance(colony.primaryRoomId, this.targetRoom)
+        trace.log("linear distance", {linearDistance});
 
-    // Locate nearby colonies and spawn war parties
-    kingdom.getColonies().forEach((colony) => {
-      const linearDistance = Game.map.getRoomLinearDistance(colony.primaryRoomId, this.targetRoom)
-      trace.log("linear distance", {linearDistance});
+        if (linearDistance > COLONY_ATTACK_RANGE) {
+          return;
+        }
 
-      if (linearDistance > COLONY_ATTACK_RANGE) {
-        return;
-      }
+        const numColonyWarParties = this.warParties.filter((party) => {
+          return party.colony === colony;
+        }).length;
 
-      const numColonyWarParties = this.warParties.filter((party) => {
-        return party.colony === colony;
-      }).length;
+        trace.log("colony parties", {
+          colonyId: colony.id,
+          numColonyWarParties,
+          max: MAX_WAR_PARTIES_PER_COLONY
+        });
 
-      trace.log("colony parties", {
-        colonyId: colony.id,
-        numColonyWarParties,
-        max: MAX_WAR_PARTIES_PER_COLONY
+        if (numColonyWarParties < MAX_WAR_PARTIES_PER_COLONY) {
+          this.createNewWarParty(kingdom, colony, trace);
+        }
       });
-
-      if (numColonyWarParties < MAX_WAR_PARTIES_PER_COLONY) {
-        this.createNewWarParty(kingdom, colony, trace);
-      }
-    });
+    } else {
+      trace.log("no key structures, war parties not needed");
+    }
 
     // Send reservers to block if no towers
     if (roomEntry && roomEntry.numTowers === 0 && roomEntry.controller?.level > 0) {
+      trace.log('no towers and still claimed, send reserver')
+
       const numReservers = _.filter(Game.creeps, (creep) => {
         const role = creep.memory[MEMORY.MEMORY_ROLE];
         return (role === CREEPS.WORKER_RESERVER) &&
@@ -186,6 +191,8 @@ export default class WarManager {
             [MEMORY.MEMORY_ASSIGN_ROOM]: this.targetRoom,
           },
         }
+
+        trace.log("requesting reserver", {details});
 
         kingdom.sendRequest(TOPICS.TOPIC_SPAWN, PRIORITIES.PRIORITY_RESERVER,
           details, WAR_PARTY_RUN_TTL);

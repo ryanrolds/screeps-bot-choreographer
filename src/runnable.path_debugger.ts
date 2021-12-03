@@ -40,8 +40,13 @@ export default class PathDebugger {
         new RoomVisual(key).poly(value);
       });
 
-      _.each(this.resultsDebug.blockedRooms, (blocked, roomName) => {
-        Game.map.visual.text('X', new RoomPosition(25, 25, roomName), {color: '#ff0000'});
+      _.each(this.resultsDebug.searchedRooms, (blocked, roomName) => {
+        if (this.resultsDebug.blockedRooms[roomName]) {
+          Game.map.visual.text('X', new RoomPosition(25, 25, roomName), {color: '#ff0000'});
+          return;
+        }
+
+        Game.map.visual.text('0', new RoomPosition(25, 25, roomName), {color: '#ff0000'});
       });
 
       _.each(this.resultsDebug.incompletePaths, (path) => {

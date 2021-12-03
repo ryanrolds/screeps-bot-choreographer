@@ -47,7 +47,7 @@ export default class SourceRunnable {
     this.threadUpdateStructures = thread('update_structures', STRUCTURE_TTL)(this.updateStructures.bind(this));
     this.threadUpdateDropoff = thread('update_dropoff', DROPOFF_TTL)(this.updateDropoff.bind(this));
     this.threadRequestWorkers = thread('request_workers', REQUEST_WORKER_TTL)(this.requestWorkers.bind(this));
-    this.threadRequestUpgraders = thread('request_upgraders', REQUEST_WORKER_TTL)(this.requestUpgraders.bind(this));
+    // this.threadRequestUpgraders = thread('request_upgraders', REQUEST_WORKER_TTL)(this.requestUpgraders.bind(this));
     this.threadRequestHauling = thread('reqeust_hauling', REQUEST_HAULING_TTL)(this.requestHauling.bind(this));
   }
 
@@ -79,7 +79,7 @@ export default class SourceRunnable {
     this.threadUpdateStructures(trace, source);
     this.threadUpdateDropoff(trace, colony);
     this.threadRequestWorkers(trace, kingdom, colony, room, source);
-    this.threadRequestUpgraders(trace, kingdom, colony, room, source);
+    // this.threadRequestUpgraders(trace, kingdom, colony, room, source);
     this.threadRequestHauling(trace, colony);
 
     this.updateStats(kingdom, trace);
@@ -135,9 +135,11 @@ export default class SourceRunnable {
     } else {
       // no storage, 2 upgraders
       desiredNum = 2;
+      /* trying no upgrader approach
       if (this.orgRoom.getRoomLevel() >= 3) {
         desiredNum = 1;
       }
+      */
     }
 
     const colonyCreeps = colony.getCreeps();
