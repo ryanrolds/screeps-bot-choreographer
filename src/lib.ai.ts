@@ -16,6 +16,7 @@ import InvaderManager from './runnable.manager.invaders';
 import {CentralPlanning} from './runnable.central_planning';
 import {ColonyManager} from './runnable.manager.colony';
 import {EventBroker} from './lib.event_broker';
+import {traceDeprecation} from 'process';
 
 
 let lastMemoryTick: number = 0;
@@ -40,11 +41,6 @@ export class AI {
     this.scheduler.registerProcess(new Process('central_planning', 'planning',
       Priorities.CRITICAL, this.planning));
     this.broker = new EventBroker();
-
-    // Remove old messages from broker
-    if (Game.time % 25 === 0) {
-      this.broker.removeConsumed();
-    }
 
     // Kingdom Model & Messaging process
     // Pump messages through kingdom, colonies, room, ect...
@@ -131,6 +127,11 @@ export class AI {
     }
     lastMemoryTick = Game.time
     end();
+
+    // Remove old messages from broker
+    if (Game.time % 25 === 0) {
+      this.broker.removeConsumed();
+    }
 
     // Run the scheduler
     this.scheduler.tick(this.kingdom, trace);
