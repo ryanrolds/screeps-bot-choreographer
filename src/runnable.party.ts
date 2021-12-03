@@ -161,6 +161,24 @@ export default class PartyRunnable {
         });
         inPosition = false;
 
+        /*
+        if (creep.pos.getRangeTo(this.position) < 5) {
+          trace.log("not ready: out of position", {
+            creepName: creep.name,
+            creepPos: creep.pos,
+            desired: {x, y, roomName},
+          });
+
+          inPosition = false;
+        } else {
+          trace.log("far out of position, not halting", {
+            creepName: creep.name,
+            creepPos: creep.pos,
+            desired: {x, y, roomName},
+          });
+        }
+        */
+
         if (showVisuals) {
           visual.text("O", creep.pos.x, creep.pos.y + 0.5);
         }

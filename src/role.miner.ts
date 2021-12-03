@@ -4,7 +4,7 @@ import {behaviorBoosts} from "./behavior.boosts";
 import * as behaviorMovement from "./behavior.movement";
 import behaviorCommute from "./behavior.commute";
 import * as MEMORY from "./constants.memory";
-import {common} from "./lib.pathing_policies";
+import {commonPolicy} from "./lib.pathing_policies";
 
 const selectSource = behaviorTree.leafNode(
   'selectSource',
@@ -178,7 +178,7 @@ const behavior = behaviorTree.sequenceNode(
   'mine_energy',
   [
     selectSource,
-    behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 0, common),
+    behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 0, commonPolicy),
     behaviorCommute.setCommuteDuration,
     behaviorTree.repeatUntilFailure(
       'mine_until_failure',

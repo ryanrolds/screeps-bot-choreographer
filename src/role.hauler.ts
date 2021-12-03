@@ -7,7 +7,7 @@ import behaviorRoom from "./behavior.room";
 import {behaviorBoosts} from "./behavior.boosts";
 import * as MEMORY from "./constants.memory";
 import * as TOPICS from "./constants.topics";
-import {common} from "./lib.pathing_policies";
+import {commonPolicy} from "./lib.pathing_policies";
 
 const emptyCreep = behaviorTree.repeatUntilConditionMet(
   'transfer_until_empty',
@@ -21,7 +21,7 @@ const emptyCreep = behaviorTree.repeatUntilConditionMet(
   behaviorTree.sequenceNode(
     'dump_energy',
     [
-      behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_DROPOFF, 1, common),
+      behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_DROPOFF, 1, commonPolicy),
       behaviorTree.leafNode(
         'empty_creep',
         (creep, trace, kingdom) => {
@@ -123,7 +123,7 @@ const behavior = behaviorTree.sequenceNode(
       behaviorTree.sequenceNode(
         'pickup_load',
         [
-          behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_PICKUP, 1, common),
+          behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_PICKUP, 1, commonPolicy),
           behaviorHaul.loadCreep,
           behaviorHaul.clearTask,
           behaviorTree.returnSuccess(

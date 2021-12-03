@@ -3,7 +3,7 @@ const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
 const behaviorHarvest = require('./behavior.harvest');
 const behaviorMovement = require('./behavior.movement');
 const {MEMORY_SOURCE, MEMORY_DESTINATION} = require('./constants.memory');
-const {common} = require('./lib.pathing_policies');
+const {commonPolicy} = require('./lib.pathing_policies');
 
 const pickupDroppedEnergy = behaviorTree.leafNode(
   'janitor',
@@ -138,7 +138,7 @@ const selectMoveFill = (selector) => {
     'fill_from_selector',
     [
       selector,
-      behaviorMovement.cachedMoveToMemoryObjectId(MEMORY_DESTINATION, 1, common),
+      behaviorMovement.cachedMoveToMemoryObjectId(MEMORY_DESTINATION, 1, commonPolicy),
       behaviorTree.leafNode(
         'fill_creep',
         (creep, trace) => {
@@ -154,7 +154,7 @@ const fillCreepFromSource = behaviorTree.sequenceNode(
   'fill_from_source',
   [
     behaviorHarvest.selectHarvestSource,
-    behaviorMovement.cachedMoveToMemoryObjectId(MEMORY_SOURCE, 1, common),
+    behaviorMovement.cachedMoveToMemoryObjectId(MEMORY_SOURCE, 1, commonPolicy),
     behaviorHarvest.harvest,
   ],
 );

@@ -44,7 +44,7 @@ let config: KingdomConfig = {
         rooms: ['E22S49'],
         automated: false,
         origin: null,
-      }/*,
+      },
       'E23S45-Shard2': {
         id: 'E23S45-Shard2',
         primary: 'E23S45',
@@ -60,7 +60,7 @@ let config: KingdomConfig = {
         rooms: ['E22S45'],
         automated: false,
         origin: null,
-      },
+      }/*,
       'E23S47-Shard2': {
         id: 'E23S47-Shard2',
         primary: 'E23S47',

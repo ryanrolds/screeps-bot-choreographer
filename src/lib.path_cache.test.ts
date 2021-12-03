@@ -9,7 +9,7 @@ import {Kingdom} from './org.kingdom';
 import {Scheduler} from './os.scheduler';
 import {KingdomConfig} from './config';
 import {Tracer} from './lib.tracing';
-import {common} from './lib.pathing_policies';
+import {commonPolicy} from './lib.pathing_policies';
 import {EventBroker} from './lib.event_broker';
 
 describe('Path Cache', function () {
@@ -52,7 +52,7 @@ describe('Path Cache', function () {
     trace = new Tracer('test', {}, 0);
     kingdom = new Kingdom(config, scheduler, broker, trace);
 
-    pathProvider = sandbox.stub().callsFake(() => path);
+    pathProvider = sandbox.stub().callsFake(() => [path, {}]);
   });
 
   afterEach(() => {
@@ -68,7 +68,7 @@ describe('Path Cache', function () {
     const origin = new RoomPosition(25, 25, 'N0E0');
     const dest = new RoomPosition(25, 25, 'N0E1');
     const range = 0;
-    const policy = common;
+    const policy = commonPolicy;
 
     it('should calculate path and cache', () => {
       const cache = new PathCache(kingdom, 10, pathProvider);

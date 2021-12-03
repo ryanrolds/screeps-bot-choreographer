@@ -353,7 +353,7 @@ class Resources extends OrgBase {
 
       // Reduce priority linearly based on amount of resource (more = lower priority)
       const amount = this.resources[reaction['output']] || 0;
-      priority = priority * _.max([0, 1 - (amount / (RESERVE_LIMIT * 2))]);
+      priority = priority * _.max([0, 1 - (amount / RESERVE_LIMIT)]);
       priority -= penalty;
 
       reaction['priority'] = priority;

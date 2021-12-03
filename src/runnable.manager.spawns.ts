@@ -161,6 +161,13 @@ export default class SpawnManager {
           }
         }
 
+        const resources = this.orgRoom.getColony().getReserveResources()
+        const reserveEnergy = resources[RESOURCE_ENERGY] || 0;
+        if (reserveEnergy < 300000) {
+          trace.log('reserve energy too low, dont handle requests from other colonies', {reserveEnergy});
+          return;
+        }
+
         // Check inter-colony requests if the colony has spawns
         request = (this.orgRoom as any).getKingdom().getTopics()
           .getMessageOfMyChoice(TOPICS.TOPIC_SPAWN, (messages) => {
@@ -206,6 +213,7 @@ export default class SpawnManager {
                 return false;
               }
 
+              // TODO Replace with a room distance check
               const distance = Game.map.getRoomLinearDistance((this.orgRoom as any).id, destinationRoom);
               if (distance > MAX_COLONY_SPAWN_DISTANCE) {
                 trace.log('distance', {distance, message});

@@ -1,4 +1,4 @@
-import {FindPathPolicy, getPath} from "./lib.pathing";
+import {FindPathPolicy, getPath, PathSearchDetails} from "./lib.pathing";
 import {Tracer} from "./lib.tracing";
 import {Kingdom} from "./org.kingdom";
 
@@ -6,7 +6,7 @@ import {Kingdom} from "./org.kingdom";
 export const CACHE_ITEM_TTL = 1000;
 
 export type PathProvider = (kingdrom: Kingdom, origin: RoomPosition, goal: RoomPosition,
-  policy: FindPathPolicy, trace: Tracer) => PathFinderPath;
+  policy: FindPathPolicy, trace: Tracer) => [PathFinderPath, PathSearchDetails];
 
 export class PathCacheItem {
   originId: string
@@ -99,7 +99,7 @@ export class PathCache {
       const getPolicy = _.cloneDeep(policy);
       getPolicy.destination.range = range;
 
-      const result = this.pathProvider(this.kingdom, origin, goal, getPolicy, trace);
+      const [result, debug] = this.pathProvider(this.kingdom, origin, goal, getPolicy, trace);
       if (!result) {
         return null;
       }

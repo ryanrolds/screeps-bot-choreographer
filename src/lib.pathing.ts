@@ -36,7 +36,6 @@ type PathPolicy = {
   swampCost?: number;
 }
 
-
 export type FindColonyPathPolicy = {
   colony: ColonyPolicy;
   room: RoomPolicy;
@@ -50,6 +49,13 @@ export type FindPathPolicy = {
   path: PathPolicy;
 };
 
+export type PathSearchDetails = {
+  tries: number;
+  passes: number;
+  blockedRooms: Record<string, boolean>;
+  incompletePaths: PathFinderPath[];
+};
+
 interface RouteCallback {
   (roomName: string, fromRoomName: string): any;
 }
@@ -59,54 +65,81 @@ interface RoomCallbackFunc {
 }
 
 export const getPath = (kingdom: Kingdom, origin: RoomPosition, destination: RoomPosition,
-  policy: FindPathPolicy, trace: Tracer): PathFinderPath => {
+  policy: FindPathPolicy, trace: Tracer): [PathFinderPath, PathSearchDetails] => {
   trace.log('get path', {
     origin,
     destination,
     policy,
   });
 
-  // Get list of rooms on the way to destination
-  const roomRoute = Game.map.findRoute(origin.roomName, destination.roomName, {
-    routeCallback: getRoomRouteCallback(kingdom, destination.roomName, policy.room, trace),
-  });
-
-  // If we have no route, return null
-  if (roomRoute === ERR_NO_PATH) {
-    trace.log('not route through rooms', {origin, destination});
-    return null;
+  const pathDetails: PathSearchDetails = {
+    tries: 3,
+    passes: 0,
+    blockedRooms: {},
+    incompletePaths: [],
   }
 
-  trace.log('found path through rooms', {route: roomRoute.map((room) => room.room)});
+  for (; pathDetails.passes < pathDetails.tries; pathDetails.passes++) {
+    // Get list of rooms on the way to destination
+    const roomRoute = Game.map.findRoute(origin.roomName, destination.roomName, {
+      routeCallback: getRoomRouteCallback(kingdom, destination.roomName, policy.room,
+        pathDetails, trace),
+    });
 
-  // Map findRoute results to map of names for fast lookup
-  const allowedRooms: Record<string, boolean> = _.reduce(roomRoute, (acc, room) => {
-    acc[room.room] = true;
-    return acc;
-  }, {});
+    // If we have no route, return null
+    if (roomRoute === ERR_NO_PATH) {
+      trace.log('not route through rooms', {origin, destination});
+      return [null, pathDetails];
+    }
 
-  // Add origin room to list of allowed room
-  allowedRooms[origin.roomName] = true;
+    trace.log('found path through rooms', {route: roomRoute.map((room) => room.room)});
 
-  const result = PathFinder.search(origin, {
-    pos: destination,
-    range: policy.destination.range
-  }, {
-    maxRooms: policy.path.maxSearchRooms,
-    roomCallback: getRoomCallback(kingdom, destination.roomName, policy.room, allowedRooms, trace),
-    maxOps: policy.path.maxOps,
-    plainCost: policy.path.plainCost || 2,
-    swampCost: policy.path.swampCost || 5,
-  });
+    // Map findRoute results to map of names for fast lookup
+    const allowedRooms: Record<string, boolean> = _.reduce(roomRoute, (acc, room) => {
+      acc[room.room] = true;
+      return acc;
+    }, {});
 
-  trace.log('path result', {result})
+    // Add origin room to list of allowed room
+    allowedRooms[origin.roomName] = true;
 
-  if (!policy.path.allowIncomplete && result.incomplete) {
-    trace.log('path is incomplete', {result});
-    return null;
+    const result = PathFinder.search(origin, {
+      pos: destination,
+      range: policy.destination.range
+    }, {
+      maxRooms: policy.path.maxSearchRooms,
+      roomCallback: getRoomCallback(kingdom, destination.roomName, policy.room, allowedRooms, trace),
+      maxOps: policy.path.maxOps,
+      plainCost: policy.path.plainCost || 2,
+      swampCost: policy.path.swampCost || 5,
+    });
+
+    trace.log('path result', {result})
+
+    // If route is complete or we don't care, go with it
+    if (result.incomplete === false || policy.path.allowIncomplete) {
+      trace.log('success', {incomplete: result.incomplete, allowIncomplete: policy.path.allowIncomplete});
+      return [result, pathDetails];
+    }
+
+    // If route has no where to go, fail
+    if (result.path.length <= 1) {
+      trace.log('path length <= 1', {result});
+      return [null, pathDetails];
+    }
+
+    // Add last room to blocked and try again if allowed
+    const lastRoom = result.path[result.path.length - 1].roomName;
+    trace.log('blocking last room', {
+      lastRoom,
+      attempt: pathDetails.passes,
+      tries: pathDetails.tries
+    });
+    pathDetails.blockedRooms[lastRoom] = true;
+    pathDetails.incompletePaths.push(result);
   }
 
-  return result;
+  return [null, pathDetails];
 }
 
 export const getClosestColonyByPath = (kingdom: Kingdom, destination: RoomPosition,
@@ -137,7 +170,7 @@ export const getClosestColonyByPath = (kingdom: Kingdom, destination: RoomPositi
     });
 
     // Find the path from the origin to the destination
-    const result = getPath(kingdom, originPosition, destination, policy, trace);
+    const [result, debug] = getPath(kingdom, originPosition, destination, policy, trace);
     if (!result) {
       trace.log("null result", {originPosition, destination, policy, trace});
       return;
@@ -201,11 +234,17 @@ const getOriginPosition = (kingdom: Kingdom, colony: Colony, policy: ColonyPolic
   return null;
 }
 
-const getRoomRouteCallback = (kingdom: Kingdom, destRoom: string, policy: RoomPolicy, trace: Tracer): RouteCallback => {
+const getRoomRouteCallback = (kingdom: Kingdom, destRoom: string, policy: RoomPolicy,
+  searchDetails: PathSearchDetails, trace: Tracer): RouteCallback => {
   return (toRoom: string, fromRoom: string): number => {
     // Always allow entry to destination room
     if (destRoom === toRoom) {
       return 1;
+    }
+
+    if (searchDetails.blockedRooms[toRoom]) {
+      trace.log('room is blocked', {toRoom});
+      return Infinity;
     }
 
     const roomEntry = kingdom.getScribe().getRoomById(toRoom);

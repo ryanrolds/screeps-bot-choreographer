@@ -67,10 +67,12 @@ export const createCommonCostMatrix = (roomName: string, trace: Tracer): CostMat
 export const createPartyCostMatrix = (roomName: string, trace: Tracer): CostMatrix | boolean => {
   const costMatrix = new PathFinder.CostMatrix();
 
+  /*
   const room = Game.rooms[roomName];
   if (!room) {
     return costMatrix;
   }
+  */
 
   const terrain = Game.map.getRoomTerrain(roomName);
 
@@ -80,18 +82,22 @@ export const createPartyCostMatrix = (roomName: string, trace: Tracer): CostMatr
       if (mask) {
         const maskValue = (mask === TERRAIN_MASK_WALL) ? 255 : 5;
 
+        // center
         if (costMatrix.get(x, y) < maskValue) {
           costMatrix.set(x, y, maskValue);
         }
 
-        if (x !== 0 && costMatrix.get(x - 1, y) < maskValue) {
-          costMatrix.set(x - 1, y, maskValue);
-        }
-
-        if (y < 49 && costMatrix.get(x, y + 1) < maskValue) {
+        // down
+        if (x !== 0 && costMatrix.get(x, y + 1) < maskValue) {
           costMatrix.set(x, y + 1, maskValue);
         }
 
+        // left
+        if (y < 49 && costMatrix.get(x - 1, y) < maskValue) {
+          costMatrix.set(x - 1, y, maskValue);
+        }
+
+        // down left
         if (x !== 0 && y < 49 && costMatrix.get(x - 1, y + 1) < maskValue) {
           costMatrix.set(x - 1, y + 1, maskValue);
         }
@@ -99,11 +105,13 @@ export const createPartyCostMatrix = (roomName: string, trace: Tracer): CostMatr
         continue;
       }
 
+      /*
       if (x <= 1 || y <= 1 || x >= 48 || y >= 48) {
         if (costMatrix.get(x, y) < 25) {
           costMatrix.set(x, y, 25);
         }
       }
+      */
     }
   }
 

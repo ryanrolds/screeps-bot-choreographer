@@ -88,7 +88,7 @@ const ADJACENT_SIDES: Record<DirectionConstant, DirectionConstant[]> = {
 }
 
 
-const policy: FindPathPolicy = {
+export const warPartyPolicy: FindPathPolicy = {
   room: {
     avoidHostileRooms: true,
     avoidFriendlyRooms: true,
@@ -102,9 +102,9 @@ const policy: FindPathPolicy = {
     range: 1,
   },
   path: {
-    allowIncomplete: true,
+    allowIncomplete: false,
     maxSearchRooms: 16,
-    maxOps: 5000,
+    maxOps: 6000,
     maxPathRooms: 5,
     ignoreCreeps: true,
   },
@@ -537,8 +537,20 @@ export default class WarPartyRunnable {
       return;
     }
 
-    const visual = new RoomVisual()
-    visual.poly(path);
+    const pathByRooms = path.reduce((acc, pos) => {
+      if (!acc[pos.roomName]) {
+        acc[pos.roomName] = [];
+      }
+
+      acc[pos.roomName].push(pos);
+
+      return acc;
+    }, {} as Record<string, RoomPosition[]>);
+
+    // Display in the rooms
+    Object.entries(pathByRooms).forEach(([key, value]) => {
+      new RoomVisual(key).poly(value);
+    });
   }
 
   getPath(origin: RoomPosition, destination: RoomPosition, trace: Tracer) {
@@ -554,7 +566,7 @@ export default class WarPartyRunnable {
     this.pathComplete = false;
     this.pathTime = Game.time;
 
-    const result = getPath(this.kingdom, origin, destination, policy, trace);
+    const [result, debug] = getPath(this.kingdom, origin, destination, warPartyPolicy, trace);
 
     trace.log('search', {
       origin: origin,
@@ -562,10 +574,15 @@ export default class WarPartyRunnable {
       result,
     });
 
-    // Add origin to beginning so we have our current position as start/rally point
-    //this.path = [origin].concat(result.path);
-    this.path = result.path;
-    this.pathComplete = !result.incomplete;
+    if (!result) {
+      this.path = [];
+      this.pathComplete = true;
+    } else {
+      // Add origin to beginning so we have our current position as start/rally point
+      //this.path = [origin].concat(result.path);
+      this.path = result.path;
+      this.pathComplete = !result.incomplete;
+    }
 
     return this.path;
   }

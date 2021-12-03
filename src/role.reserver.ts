@@ -6,7 +6,7 @@ import * as behaviorMovement from "./behavior.movement";
 import {behaviorBoosts} from "./behavior.boosts";
 import behaviorRoom from "./behavior.room";
 import * as MEMORY from "./constants.memory";
-import {common} from './lib.pathing_policies';
+import {commonPolicy} from './lib.pathing_policies';
 
 const behavior = behaviorTree.sequenceNode(
   'reserver_root',
@@ -27,7 +27,7 @@ const behavior = behaviorTree.sequenceNode(
 
       return behaviorTree.SUCCESS
     }),
-    behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_ASSIGN_ROOM_POS, 1, common),
+    behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_ASSIGN_ROOM_POS, 1, commonPolicy),
     behaviorTree.repeatUntilSuccess(
       'move_to_rc',
       behaviorTree.leafNode(

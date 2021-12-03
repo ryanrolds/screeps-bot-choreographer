@@ -7,7 +7,7 @@ import {PathCache, PathCacheItem} from "./lib.path_cache";
 import {Tracer} from "./lib.tracing";
 import {Kingdom} from "./org.kingdom";
 import {FindPathPolicy} from "./lib.pathing";
-import {common} from "./lib.pathing_policies";
+import {commonPolicy} from "./lib.pathing_policies";
 
 const MAX_POSITION_TTL = 5;
 const MEMORY_MOVE_POS_TTL = 'move_pos_ttl';
@@ -411,7 +411,7 @@ export const moveToShard = (shardMemoryKey) => {
             return SUCCESS;
           },
         ),
-        cachedMoveToMemoryPos(MEMORY.MEMORY_DESTINATION_POS, 0, common),
+        cachedMoveToMemoryPos(MEMORY.MEMORY_DESTINATION_POS, 0, commonPolicy),
       ],
     ),
   );

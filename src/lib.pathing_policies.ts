@@ -1,7 +1,7 @@
 import {FindPathPolicy} from "./lib.pathing";
 import {AllowedCostMatrixTypes} from "./lib.costmatrix_cache";
 
-export const common: FindPathPolicy = {
+export const commonPolicy: FindPathPolicy = {
   room: {
     avoidHostileRooms: true,
     avoidFriendlyRooms: false,
