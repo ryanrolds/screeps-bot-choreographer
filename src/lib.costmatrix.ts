@@ -88,30 +88,28 @@ export const createPartyCostMatrix = (roomName: string, trace: Tracer): CostMatr
         }
 
         // down
-        if (x !== 0 && costMatrix.get(x, y + 1) < maskValue) {
+        if (x >= 0 && x <= 49 && y + 1 >= 0 && y + 1 <= 48 && costMatrix.get(x, y + 1) < maskValue) {
           costMatrix.set(x, y + 1, maskValue);
         }
 
         // left
-        if (y < 49 && costMatrix.get(x - 1, y) < maskValue) {
+        if (x - 1 >= 0 && x - 1 <= 49 && y >= 0 && y <= 48 && costMatrix.get(x - 1, y) < maskValue) {
           costMatrix.set(x - 1, y, maskValue);
         }
 
         // down left
-        if (x !== 0 && y < 49 && costMatrix.get(x - 1, y + 1) < maskValue) {
+        if (x - 1 >= 0 && x - 1 <= 49 && y + 1 >= 0 && y + 1 <= 48 && costMatrix.get(x - 1, y + 1) < maskValue) {
           costMatrix.set(x - 1, y + 1, maskValue);
         }
 
         continue;
       }
 
-      /*
       if (x <= 1 || y <= 1 || x >= 48 || y >= 48) {
-        if (costMatrix.get(x, y) < 25) {
-          costMatrix.set(x, y, 25);
+        if (costMatrix.get(x, y) < 5) {
+          costMatrix.set(x, y, 5);
         }
       }
-      */
     }
   }
 

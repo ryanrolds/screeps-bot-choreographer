@@ -13,7 +13,7 @@ import * as CREEPS from './constants.creeps';
 import * as PRIORITIES from './constants.priorities';
 import {creepIsFresh} from './behavior.commute';
 import {thread, ThreadFunc} from './os.thread';
-import {getPath} from './lib.pathing';
+import {RoomEntry} from './org.scribe';
 
 const WAR_PARTY_RUN_TTL = 20;
 const COLONY_ATTACK_RANGE = 5;
@@ -25,6 +25,7 @@ interface StoredWarParty {
   position: RoomPosition;
   colony: string;
   phase: Phase;
+  role: string;
 }
 
 interface WarMemory {
@@ -66,6 +67,7 @@ export default class WarManager {
     // Write post event status
     trace.log("war manager state", {
       targetRoom: this.targetRoom,
+      targets: this.targets,
       warPartyIds: this.warParties.map(warParty => warParty.id)
     });
 
@@ -82,6 +84,7 @@ export default class WarManager {
     }
 
     trace.log("processing events", {length: topic.length});
+
     topic.forEach((event) => {
       switch (event.details.status) {
         case AttackStatus.REQUESTED:
@@ -143,6 +146,13 @@ export default class WarManager {
 
     // Send reserver to block controller if room is clear
     const roomEntry = kingdom.getScribe().getRoomById(this.targetRoom);
+    if (!roomEntry) {
+      trace.log("no room entry");
+      return;
+    }
+
+    const targetsByColony = this.getTargetsByColony(kingdom, this.targets, trace);
+    trace.log("targets by colony", {targetsByColony});
 
     // Send war parties if there are important structures
     if (roomEntry.numKeyStructures > 0) {
@@ -167,7 +177,7 @@ export default class WarManager {
         });
 
         if (numColonyWarParties < MAX_WAR_PARTIES_PER_COLONY) {
-          this.createNewWarParty(kingdom, colony, trace);
+          this.createNewWarParty(kingdom, colony, roomEntry, trace);
         }
       });
     } else {
@@ -175,7 +185,7 @@ export default class WarManager {
     }
 
     // Send reservers to block if no towers
-    if (roomEntry && roomEntry.numTowers === 0 && roomEntry.controller?.level > 0) {
+    if (roomEntry.numTowers === 0 && roomEntry.controller?.level > 0) {
       trace.log('no towers and still claimed, send reserver')
 
       const numReservers = _.filter(Game.creeps, (creep) => {
@@ -207,6 +217,7 @@ export default class WarManager {
           id: party.id,
           target: party.targetRoom,
           phase: party.phase,
+          role: party.role,
           flagId: party.flagId,
           colony: party.getColony().id,
           position: party.getPosition(),
@@ -238,7 +249,7 @@ export default class WarManager {
     return this.targetRoom || null;
   }
 
-  createNewWarParty(kingdom: Kingdom, colony: Colony, trace: Tracer) {
+  createNewWarParty(kingdom: Kingdom, colony: Colony, targetRoom: RoomEntry, trace: Tracer) {
     const flagId = `rally_${colony.primaryRoomId}`;
     const flag = Game.flags[flagId];
     if (!flag) {
@@ -246,18 +257,43 @@ export default class WarManager {
       return null;
     }
 
+    let role = CREEPS.WORKER_ATTACKER;
+    switch (targetRoom.numTowers) {
+      case 0:
+        role = CREEPS.WORKER_ATTACKER;
+        break;
+      case 1:
+        role = CREEPS.WORKER_ATTACKER_1TOWER;
+        break;
+      case 2:
+        role = CREEPS.WORKER_ATTACKER_2TOWER;
+        break;
+      case 3:
+        role = CREEPS.WORKER_ATTACKER_3TOWER;
+        break;
+      case 4:
+      case 5:
+      case 6:
+        role = CREEPS.WORKER_ATTACKER_6TOWER;
+        break;
+      default:
+        throw new Error(`invalid number of towers ${targetRoom.numTowers}`);
+    }
+
     const partyId = `war_party_${this.targetRoom}_${colony.primaryRoomId}_${Game.time}`;
     trace.notice("creating war party", {target: this.targetRoom, partyId, flagId});
+
     const warParty = this.createAndScheduleWarParty(colony, partyId, this.targetRoom,
-      Phase.PHASE_MARSHAL, flag.pos, flag.name, trace);
+      Phase.PHASE_MARSHAL, flag.pos, flag.name, role, trace);
+
     if (warParty) {
       this.warParties.push(warParty);
     }
   }
 
   createAndScheduleWarParty(colony: Colony, id: string, target: string, phase: Phase,
-    position: RoomPosition, flagId: string, trace: Tracer): WarPartyRunnable {
-    const party = new WarPartyRunnable(id, colony, flagId, position, target, phase);
+    position: RoomPosition, flagId: string, role: string, trace: Tracer): WarPartyRunnable {
+    const party = new WarPartyRunnable(id, colony, flagId, position, target, role, phase);
     const process = new Process(id, 'war_party', Priorities.OFFENSE, party);
     process.setSkippable(false);
     this.scheduler.registerProcess(process);
@@ -281,7 +317,8 @@ export default class WarManager {
     this.targetRoom = (Memory as any).war?.targetRoom || null;
     this.warParties = this.memory.parties.map((party) => {
       trace.log("restoring party", {party});
-      if (!party.id || !party.target || !party.position || !party.colony || !party.flagId) {
+      if (!party.id || !party.target || !party.position || !party.colony || !party.flagId
+        || !party.role) {
         return null;
       }
 
@@ -293,7 +330,7 @@ export default class WarManager {
       }
 
       return this.createAndScheduleWarParty(colony, party.id, party.target, party.phase,
-        position, party.flagId, trace);
+        position, party.flagId, party.role, trace);
     }).filter((party) => {
       return party;
     });

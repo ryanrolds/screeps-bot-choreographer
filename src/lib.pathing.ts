@@ -313,6 +313,7 @@ const applyRoomCallbackPolicy = (kingdom: Kingdom, roomEntry: RoomEntry,
   const owner = roomEntry.controller?.owner;
   const ownerIsNotMe = owner !== 'ENETDOWN';
   const isFriendly = kingdom.config.friends.includes(owner)
+
   trace.log('room owner', {roomId: roomEntry.id, owner, ownerIsNotMe, isFriendly});
 
   if (owner && ownerIsNotMe && policy.avoidFriendlyRooms && isFriendly) {
@@ -345,6 +346,8 @@ const applyRoomCallbackPolicy = (kingdom: Kingdom, roomEntry: RoomEntry,
     }
     */
   }
+
+  trace.log('room allowed', {roomName: roomEntry.id});
 
   return true;
 }

@@ -9,6 +9,7 @@ import * as sinon from 'sinon';
 import {Kingdom} from './org.kingdom';
 import {KingdomConfig} from './config';
 import {EventBroker} from './lib.event_broker';
+import {CentralPlanning} from './runnable.central_planning';
 
 describe('Scheduler', () => {
   let trace = null;
@@ -40,6 +41,7 @@ describe('Scheduler', () => {
 
     mockGlobal<Memory>('Memory', {
       scribe: undefined,
+      shard: {},
     });
 
     trace = new Tracer('scheduler_test', {}, 0);
@@ -74,8 +76,10 @@ describe('Scheduler', () => {
   })
 
   it('should run the process', () => {
+    const config = {} as KingdomConfig;
     const scheduler = new Scheduler();
-    const kingdom = new Kingdom({} as KingdomConfig, scheduler, broker, trace);
+    const planner = new CentralPlanning(config, trace)
+    const kingdom = new Kingdom(config, scheduler, broker, planner, trace);
 
     scheduler.registerProcess(process);
     scheduler.tick(kingdom, trace);
@@ -89,8 +93,10 @@ describe('Scheduler', () => {
       return Game.cpu.limit * 1.1;
     };
 
+    const config = {} as KingdomConfig;
     const scheduler = new Scheduler();
-    const kingdom = new Kingdom({} as KingdomConfig, scheduler, broker, trace);
+    const planner = new CentralPlanning(config, trace)
+    const kingdom = new Kingdom(config, scheduler, broker, planner, trace);;
 
     scheduler.registerProcess(process);
     scheduler.tick(kingdom, trace);
@@ -102,8 +108,10 @@ describe('Scheduler', () => {
   it('should execute skipped processes next tick', () => {
     const tracer = new Tracer('scheduler', {}, 0);
 
+    const config = {} as KingdomConfig;
     const scheduler = new Scheduler();
-    const kingdom = new Kingdom({} as KingdomConfig, scheduler, broker, trace);
+    const planner = new CentralPlanning(config, trace)
+    const kingdom = new Kingdom(config, scheduler, broker, planner, trace);
 
     scheduler.registerProcess(process);
 
@@ -147,8 +155,10 @@ describe('Scheduler', () => {
   });
 
   it("should remove and not run terminated processes", () => {
+    const config = {} as KingdomConfig;
     const scheduler = new Scheduler();
-    const kingdom = new Kingdom({} as KingdomConfig, scheduler, broker, trace);
+    const planner = new CentralPlanning(config, trace)
+    const kingdom = new Kingdom(config, scheduler, broker, planner, trace);
 
     scheduler.registerProcess(process);
 

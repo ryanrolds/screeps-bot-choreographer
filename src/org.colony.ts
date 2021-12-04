@@ -28,7 +28,7 @@ const UPDATE_HAULERS_TTL = 5;
 const REQUEST_MISSING_ROOMS_TTL = 25;
 const REQUEST_HAULER_TTL = 20;
 const REQUEST_DEFENDER_TTL = 5;
-const REQUEST_EXPLORER_TTL = 3000;
+const REQUEST_EXPLORER_TTL = 50;
 
 export class Colony extends OrgBase {
   topics: Topics;
@@ -155,8 +155,8 @@ export class Colony extends OrgBase {
       this.requestHaulers();
     });
 
-    this.threadRequestExplorer = thread('request_explorers_thread', REQUEST_EXPLORER_TTL)(() => {
-      this.requestExplorer();
+    this.threadRequestExplorer = thread('request_explorers_thread', REQUEST_EXPLORER_TTL)((trace) => {
+      this.requestExplorer(trace);
     });
 
     setupTrace.end();
@@ -199,9 +199,9 @@ export class Colony extends OrgBase {
       this.threadRequestHaulers(updateTrace);
     }
 
-    // if (this.threadRequestExplorer) {
-    //  this.threadRequestExplorer(trace);
-    // }
+    if (this.threadRequestExplorer) {
+      this.threadRequestExplorer(trace);
+    }
 
     updateTrace.end();
   }
@@ -384,7 +384,7 @@ export class Colony extends OrgBase {
     }
   }
 
-  requestExplorer() {
+  requestExplorer(trace: Tracer) {
     if (!this.primaryRoom) {
       return;
     }
@@ -395,10 +395,14 @@ export class Colony extends OrgBase {
     }).length;
 
     if (numExplorers < MAX_EXPLORERS) {
+      trace.notice('requesting explorer');
+
       this.sendRequest(TOPIC_SPAWN, PRIORITIES.EXPLORER, {
         role: CREEPS.WORKER_EXPLORER,
         memory: {},
       }, REQUEST_EXPLORER_TTL);
+    } else {
+      trace.notice('not requesting explorer', {numExplorers});
     }
   }
 

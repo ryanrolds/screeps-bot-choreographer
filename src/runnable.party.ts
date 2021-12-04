@@ -16,6 +16,7 @@ import {Tracer} from './lib.tracing';
 import {TOPIC_SPAWN} from './constants.topics';
 import * as MEMORY from './constants.memory'
 import {Colony} from './org.colony';
+import {WarPartyTarget} from './runnable.warparty';
 
 const REQUEST_PARTY_MEMBER_TTL = 25;
 const MAX_PARTY_SIZE = 4;
@@ -44,6 +45,7 @@ export default class PartyRunnable {
   formation: {x: number, y: number}[];
   position: RoomPosition;
   role: string;
+  minEnergy: number;
   priority: number;
   requestCreepTTL: number;
   isDone: boolean;
@@ -51,10 +53,12 @@ export default class PartyRunnable {
 
   threadRequestCreeps: ThreadFunc;
 
-  constructor(id: string, colony: Colony, position: RoomPosition, role: string, priority: number, ttl: number) {
+  constructor(id: string, colony: Colony, position: RoomPosition, role: string, minEnergy: number,
+    priority: number, ttl: number) {
     this.id = id;
     this.colony = colony;
     this.role = role;
+    this.minEnergy = minEnergy;
     this.priority = priority;
     this.requestCreepTTL = ttl;
     this.isDone = false;
@@ -229,8 +233,8 @@ export default class PartyRunnable {
     return structures.length > 0;
   }
 
-  getBlockingStructures(direction: DirectionConstant, position: RoomPosition, trace: Tracer): Structure[] {
-    let structures: Structure[] = [];
+  getBlockingObjects(direction: DirectionConstant, position: RoomPosition, trace: Tracer): WarPartyTarget[] {
+    let objects: WarPartyTarget[] = [];
 
     let positions = this.formation.map((offset) => {
       const x = _.min([_.max([position.x + offset.x, 0]), 49]);
@@ -242,14 +246,21 @@ export default class PartyRunnable {
     // We cannot lookFor in a room that is not loaded
     if (Game.rooms[position.roomName]) {
       positions.forEach((position) => {
-        structures = structures.concat(position.lookFor(LOOK_STRUCTURES))
-          .filter((structure) => {
+        // Structures can block
+        objects = objects.concat(position.lookFor(LOOK_STRUCTURES))
+          .filter((structure: Structure) => {
             return structure.structureType !== STRUCTURE_ROAD;
+          });
+
+        // Creeps not in the party can block
+        objects = objects.concat(position.lookFor(LOOK_CREEPS))
+          .filter((creep: Creep) => {
+            return this.getAssignedCreeps().indexOf(creep) === -1;
           });
       });
     }
 
-    return structures;
+    return objects;
   }
 
   setRole(role: string) {
@@ -260,11 +271,15 @@ export default class PartyRunnable {
     this.formation = formation;
   }
 
+  setMinEnergy(minEnergy: number) {
+    this.minEnergy = minEnergy;
+  }
+
   setPosition(position: RoomPosition) {
     this.position = position;
   }
 
-  setTarget(targets: (Creep | Structure)[], trace: Tracer): (Creep | Structure) {
+  setTarget(targets: WarPartyTarget[], trace: Tracer): WarPartyTarget {
     const target = _.find(targets, (target) => {
       return this.position.getRangeTo(target) <= 3;
     });
@@ -398,7 +413,7 @@ export default class PartyRunnable {
 
     const details = {
       role: this.role,
-      [MEMORY.SPAWN_MIN_ENERGY]: 4000, // TODO add to constructor
+      [MEMORY.SPAWN_MIN_ENERGY]: 2000, // TODO add to constructor
       memory: {
         [MEMORY.MEMORY_PARTY_ID]: this.id,
         // Tell creep to move to it's rally point position

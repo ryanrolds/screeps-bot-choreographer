@@ -5,7 +5,7 @@ import {Kingdom} from "./org.kingdom";
 
 export const CACHE_ITEM_TTL = 1000;
 
-export type PathProvider = (kingdrom: Kingdom, origin: RoomPosition, goal: RoomPosition,
+export type PathProvider = (kingdom: Kingdom, origin: RoomPosition, goal: RoomPosition,
   policy: FindPathPolicy, trace: Tracer) => [PathFinderPath, PathSearchDetails];
 
 export class PathCacheItem {
@@ -54,7 +54,6 @@ export class PathCacheItem {
 }
 
 export class PathCache {
-  kingdom: Kingdom
   pathProvider: PathProvider
 
   maxSize: number
@@ -68,8 +67,7 @@ export class PathCache {
   misses: number
   expired: number
 
-  constructor(kingdom: Kingdom, maxSize: number, pathProvider: PathProvider) {
-    this.kingdom = kingdom;
+  constructor(maxSize: number, pathProvider: PathProvider) {
     this.pathProvider = pathProvider;
 
     this.maxSize = maxSize;
@@ -85,7 +83,7 @@ export class PathCache {
     this.expired = 0;
   }
 
-  getPath(origin: RoomPosition, goal: RoomPosition, range: number, policy: FindPathPolicy,
+  getPath(kingdom: Kingdom, origin: RoomPosition, goal: RoomPosition, range: number, policy: FindPathPolicy,
     trace: Tracer): PathFinderPath {
     const originId = this.getKey(origin, 0);
     const goalId = this.getKey(goal, range);
@@ -99,7 +97,7 @@ export class PathCache {
       const getPolicy = _.cloneDeep(policy);
       getPolicy.destination.range = range;
 
-      const [result, debug] = this.pathProvider(this.kingdom, origin, goal, getPolicy, trace);
+      const [result, debug] = this.pathProvider(kingdom, origin, goal, getPolicy, trace);
       if (!result) {
         return null;
       }

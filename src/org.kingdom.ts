@@ -17,6 +17,7 @@ import {WORKER_HAULER} from './constants.creeps';
 import {CostMatrixCache} from './lib.costmatrix_cache';
 import {getPath} from './lib.pathing';
 import {EventBroker} from './lib.event_broker';
+import {CentralPlanning} from './runnable.central_planning';
 
 const UPDATE_ORG_TTL = 1;
 
@@ -25,6 +26,7 @@ export class Kingdom extends OrgBase {
   scheduler: Scheduler;
   broker: EventBroker;
   topics: Topics;
+  planner: CentralPlanning;
 
   stats: any; // TODO
 
@@ -41,7 +43,8 @@ export class Kingdom extends OrgBase {
 
   threadUpdateOrg: ThreadFunc;
 
-  constructor(config: KingdomConfig, scheduler: Scheduler, broker: EventBroker, trace: Tracer) {
+  constructor(config: KingdomConfig, scheduler: Scheduler, broker: EventBroker,
+    planner: CentralPlanning, trace: Tracer) {
     super(null, 'kingdom', trace);
 
     const setupTrace = this.trace.begin('constructor');
@@ -49,6 +52,7 @@ export class Kingdom extends OrgBase {
     this.config = config;
     this.scheduler = scheduler;
     this.broker = broker;
+    this.planner = planner;
     this.topics = new Topics();
 
     this.stats = {
@@ -73,7 +77,7 @@ export class Kingdom extends OrgBase {
 
     this.scribe = new Scribe(this, setupTrace);
 
-    this.pathCache = new PathCache(this, 250, getPath);
+    this.pathCache = new PathCache(250, getPath);
     // this.pathCache.loadFromMemory(setupTrace);
     // this.threadStoreSavePathCacheToMemory = thread(SAVE_PATH_CACHE_TTL)((trace) => {
     //  this.pathCache.saveToMemory(trace);
@@ -149,18 +153,8 @@ export class Kingdom extends OrgBase {
     return this.broker;
   }
 
-  // TODO move to planner
-  getFriends(): string[] {
-    return this.config.friends;
-  }
-  getAvoid(): string[] {
-    return this.config.avoid;
-  }
-  getKOS(): string[] {
-    return this.config.kos;
-  }
-  getShardConfig(shardName: string): ShardConfig {
-    return this.config.shards[shardName] || null;
+  getPlanner(): CentralPlanning {
+    return this.planner;
   }
 
   getResourceGovernor(): ResourceGovernor {
@@ -380,7 +374,7 @@ export class Kingdom extends OrgBase {
   }
 
   updateColonies(trace: Tracer) {
-    const shardConfig = this.getShardConfig(Game.shard.name);
+    const shardConfig = this.getPlanner().getShardConfig();
     if (!shardConfig) {
       return;
     }

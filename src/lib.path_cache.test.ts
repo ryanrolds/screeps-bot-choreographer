@@ -11,6 +11,7 @@ import {KingdomConfig} from './config';
 import {Tracer} from './lib.tracing';
 import {commonPolicy} from './lib.pathing_policies';
 import {EventBroker} from './lib.event_broker';
+import {CentralPlanning} from './runnable.central_planning';
 
 describe('Path Cache', function () {
   let sandbox: Sinon.SinonSandbox = null;
@@ -32,6 +33,7 @@ describe('Path Cache', function () {
       shard: {
         name: 'shard0',
       },
+      spawns: {},
       cpu: {
         limit: 20,
         tickLimit: 50,
@@ -42,15 +44,16 @@ describe('Path Cache', function () {
       },
     });
 
-    mockGlobal<Memory>('Memory', {
-      scribe: undefined,
-    });
+    mockGlobal<Memory>('Memory', {}, true);
+
+    trace = new Tracer('test', {}, 0);
 
     const config: KingdomConfig = {} as KingdomConfig;
+    const planner = new CentralPlanning(config, trace);
     const scheduler = new Scheduler();
     const broker = new EventBroker();
-    trace = new Tracer('test', {}, 0);
-    kingdom = new Kingdom(config, scheduler, broker, trace);
+
+    kingdom = new Kingdom(config, scheduler, broker, planner, trace);
 
     pathProvider = sandbox.stub().callsFake(() => [path, {}]);
   });
@@ -60,7 +63,7 @@ describe('Path Cache', function () {
   })
 
   it('should create empty path cache', () => {
-    const cache = new PathCache(kingdom, 10, pathProvider);
+    const cache = new PathCache(10, pathProvider);
     expect(cache.getSize(trace)).to.equal(0);
   });
 
@@ -71,9 +74,9 @@ describe('Path Cache', function () {
     const policy = commonPolicy;
 
     it('should calculate path and cache', () => {
-      const cache = new PathCache(kingdom, 10, pathProvider);
+      const cache = new PathCache(10, pathProvider);
 
-      const result = cache.getPath(origin, dest, range, policy, trace);
+      const result = cache.getPath(kingdom, origin, dest, range, policy, trace);
       expect(result).to.equal(path);
       expect(cache.getSize(trace)).to.equal(1);
 
@@ -88,12 +91,12 @@ describe('Path Cache', function () {
     });
 
     it('should only calculate the path once', () => {
-      const cache = new PathCache(kingdom, 10, pathProvider);
+      const cache = new PathCache(10, pathProvider);
 
-      let result = cache.getPath(origin, dest, range, policy, trace);
+      let result = cache.getPath(kingdom, origin, dest, range, policy, trace);
       expect(result).to.equal(path);
 
-      result = cache.getPath(origin, dest, range, policy, trace);
+      result = cache.getPath(kingdom, origin, dest, range, policy, trace);
       expect(result).to.equal(path);
 
       expect(cache.getSize(trace)).to.equal(1);
@@ -105,13 +108,13 @@ describe('Path Cache', function () {
 
   describe('setCachedPath', () => {
     it('should add a path', () => {
-      const cache = new PathCache(kingdom, 10, pathProvider);
+      const cache = new PathCache(10, pathProvider);
       cache.setCachedPath(originKey, destKey, path, CACHE_ITEM_TTL, trace);
       expect(cache.getSize(trace)).to.equal(1);
     });
 
     it('should handle two cached paths with same origin', () => {
-      const cache = new PathCache(kingdom, 10, pathProvider);
+      const cache = new PathCache(10, pathProvider);
       cache.setCachedPath(originKey, destKey, path, CACHE_ITEM_TTL, trace);
       cache.setCachedPath(originKey, otherDestKey, otherPath, CACHE_ITEM_TTL, trace);
       expect(cache.getSize(trace)).to.equal(2);
@@ -124,7 +127,7 @@ describe('Path Cache', function () {
 
     it('should limit the number of items in the cache', () => {
       const maxItems = 5;
-      const cache = new PathCache(kingdom, maxItems, pathProvider);
+      const cache = new PathCache(maxItems, pathProvider);
 
       for (let i = 0; i < 10; i++) {
         cache.setCachedPath(`${originKey}_${i % 3}`, `${destKey}_${i}`, path, CACHE_ITEM_TTL, trace);
@@ -137,13 +140,13 @@ describe('Path Cache', function () {
 
   describe('getCachedPath', () => {
     it('should return null if path not cached', () => {
-      const cache = new PathCache(kingdom, 10, pathProvider);
+      const cache = new PathCache(10, pathProvider);
       const path = cache.getCachedPath(originKey, destKey, trace);
       expect(path).to.equal(null);
     });
 
     it('should return cached path', () => {
-      const cache = new PathCache(kingdom, 10, pathProvider);
+      const cache = new PathCache(10, pathProvider);
       cache.setCachedPath(originKey, destKey, path, CACHE_ITEM_TTL, trace);
 
       const cachedItem = cache.getCachedPath(originKey, destKey, trace);
@@ -152,7 +155,7 @@ describe('Path Cache', function () {
     });
 
     it('should not return cached path that is expired', () => {
-      const cache = new PathCache(kingdom, 10, pathProvider);
+      const cache = new PathCache(10, pathProvider);
       cache.setCachedPath(originKey, destKey, path, 0, trace);
       expect(cache.getSize(trace)).to.equal(1);
 
@@ -162,7 +165,7 @@ describe('Path Cache', function () {
     });
 
     it('should handle first expiring', () => {
-      const cache = new PathCache(kingdom, 10, pathProvider);
+      const cache = new PathCache(10, pathProvider);
       cache.setCachedPath(originKey, destKey, path, 0, trace);
       cache.setCachedPath(originKey, otherDestKey, otherPath, CACHE_ITEM_TTL, trace);
       expect(cache.getSize(trace)).to.equal(2);
@@ -176,7 +179,7 @@ describe('Path Cache', function () {
     });
 
     it('should handle last expiring', () => {
-      const cache = new PathCache(kingdom, 10, pathProvider);
+      const cache = new PathCache(10, pathProvider);
       cache.setCachedPath(originKey, destKey, path, CACHE_ITEM_TTL, trace);
       cache.setCachedPath(originKey, otherDestKey, otherPath, 0, trace);
       expect(cache.getSize(trace)).to.equal(2);
@@ -193,7 +196,7 @@ describe('Path Cache', function () {
       const anotherDestKey = 'another';
       const anotherPath = {} as PathFinderPath;
 
-      const cache = new PathCache(kingdom, 10, pathProvider);
+      const cache = new PathCache(10, pathProvider);
       cache.setCachedPath(originKey, destKey, path, CACHE_ITEM_TTL, trace);
       cache.setCachedPath(originKey, anotherDestKey, anotherPath, 0, trace);
       cache.setCachedPath(originKey, otherDestKey, otherPath, CACHE_ITEM_TTL, trace);

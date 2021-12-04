@@ -40,7 +40,7 @@ export default class PathDebugger {
         new RoomVisual(key).poly(value);
       });
 
-      _.each(this.resultsDebug.searchedRooms, (blocked, roomName) => {
+      _.each(this.resultsDebug.searchedRooms, (searched, roomName) => {
         if (this.resultsDebug.blockedRooms[roomName]) {
           Game.map.visual.text('X', new RoomPosition(25, 25, roomName), {color: '#ff0000'});
           return;
@@ -60,7 +60,7 @@ export default class PathDebugger {
   }
 
   debug(origin: RoomPosition, goal: RoomPosition, range: number, policyName: string) {
-    const trace = new Tracer('path_debugger_debug', {}, 0);
+    const trace = new Tracer('path_debugger_debug', {pid: 'path_debugger'}, 0);
 
     let policy: FindPathPolicy = null;
     switch (policyName) {

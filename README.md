@@ -99,7 +99,7 @@ The AI will focus on establishing an economy, build, repair, and defend the colo
 
 There are some debugging tools built into the project:
 
-* Run and draw path - `AI.getPathDebugger().debug(new RoomPosition(43, 13, 'E21S48'), new RoomPosition(25,25,'E18S45'), 1, 'warparty')`
+* Run and draw path - `AI.getPathDebugger().debug(new RoomPosition(11, 12, 'W8N4'), new RoomPosition(25,25,'W7N6'), 1, 'warparty')`
 * Clear path - `AI.getPathDebugger().clear()`
 * Run and draw cost matrix - `AI.getCostMatrixDebugger().debug("W8N4", 'open_space')` and `AI.getCostMatrixDebugger().clear()`
 * Cost matrix clear - `AI.getCostMatrixDebugger().clear()`

@@ -22,7 +22,8 @@ export class RoomManager {
     trace.log('room manager run');
 
     // If any defined colonies don't exist, run it
-    const shardConfig = kingdom.getShardConfig(Game.shard.name);
+    // const shardConfig = kingdom.getShardConfig(Game.shard.name);
+    const shardConfig = kingdom.getPlanner().getShardConfig();
     Object.values<ColonyConfig>(shardConfig).forEach((colony) => {
       const hasProcess = this.scheduler.hasProcess(colony.primary);
       if (hasProcess) {

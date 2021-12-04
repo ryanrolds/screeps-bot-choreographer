@@ -37,14 +37,14 @@ export class AI {
     this.scheduler = new Scheduler();
 
     // Central planning, tracks relationships, policies, and colonies
-    this.planning = new CentralPlanning(config);
+    this.planning = new CentralPlanning(config, trace);
     this.scheduler.registerProcess(new Process('central_planning', 'planning',
       Priorities.CRITICAL, this.planning));
     this.broker = new EventBroker();
 
     // Kingdom Model & Messaging process
     // Pump messages through kingdom, colonies, room, ect...
-    this.kingdom = new Kingdom(config, this.scheduler, this.broker, trace);
+    this.kingdom = new Kingdom(config, this.scheduler, this.broker, this.planning, trace);
     const kingdomModelId = 'kingdom_model';
     this.scheduler.registerProcess(new Process(kingdomModelId, 'kingdom_model',
       Priorities.CRITICAL, new KingdomModelRunnable(kingdomModelId)));

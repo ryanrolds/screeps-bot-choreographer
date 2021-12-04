@@ -3,7 +3,7 @@ import {Kingdom} from './org.kingdom';
 import {Colony} from './org.colony';
 import {RunnableResult, running, sleeping, terminate, STATUS_TERMINATED} from "./os.process";
 import {Tracer} from './lib.tracing';
-import {WORKER_DEFENDER_DRONE} from './constants.creeps'
+import {DEFINITIONS, WORKER_DEFENDER_DRONE} from './constants.creeps'
 import {PRIORITY_BUFFER_PATROL} from "./constants.priorities";
 import * as TOPICS from './constants.topics';
 import Room from './org.room';
@@ -18,12 +18,14 @@ export default class DefensePartyRunnable {
   flagId: string;
   party: PartyRunnable;
   noTargetTTL: number;
+  minEnergy: number;
 
   constructor(id: string, colony: Colony, flagId: string, position: RoomPosition, trace: Tracer) {
     this.id = id;
     this.flagId = flagId;
     this.noTargetTTL = 0;
-    this.party = new PartyRunnable(id, colony, position, WORKER_DEFENDER_DRONE, PRIORITY_BUFFER_PATROL,
+    this.minEnergy = 0;
+    this.party = new PartyRunnable(id, colony, position, WORKER_DEFENDER_DRONE, this.minEnergy, PRIORITY_BUFFER_PATROL,
       REQUEST_PARTY_MEMBER_TTL);
   }
 
