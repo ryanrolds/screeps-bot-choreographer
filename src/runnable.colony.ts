@@ -18,17 +18,19 @@ export default class ColonyRunnable {
 
     // TODO we maybe should not depend on getting the colony from the kingdom
     // TODO switch to central planning
-    const colony = kingdom.getColonyById(this.id);
+    const colony = kingdom.getPlanner().getColonyConfigById(this.id);
     if (!colony) {
       trace.error('missing colony', {id: this.id});
       return terminate();
     }
 
-    if (!colony.primaryRoom) {
+    const room = Game.rooms[colony.primary];
+
+    if (!room) {
       return sleeping(20);
     }
 
-    const observerStructures = colony.primaryRoom.find<StructureObserver>(FIND_MY_STRUCTURES, {
+    const observerStructures = room.find<StructureObserver>(FIND_MY_STRUCTURES, {
       filter: (structure) => {
         return structure.structureType === STRUCTURE_OBSERVER;
       },

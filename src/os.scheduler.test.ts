@@ -29,6 +29,7 @@ describe('Scheduler', () => {
       shard: {
         name: 'shard0',
       },
+      spawns: {},
       cpu: {
         limit: 20,
         tickLimit: 50,
@@ -42,7 +43,7 @@ describe('Scheduler', () => {
     mockGlobal<Memory>('Memory', {
       scribe: undefined,
       shard: {},
-    });
+    }, true);
 
     trace = new Tracer('scheduler_test', {}, 0);
 
@@ -78,7 +79,7 @@ describe('Scheduler', () => {
   it('should run the process', () => {
     const config = {} as KingdomConfig;
     const scheduler = new Scheduler();
-    const planner = new CentralPlanning(config, trace)
+    const planner = new CentralPlanning(config, scheduler, trace)
     const kingdom = new Kingdom(config, scheduler, broker, planner, trace);
 
     scheduler.registerProcess(process);
@@ -95,7 +96,7 @@ describe('Scheduler', () => {
 
     const config = {} as KingdomConfig;
     const scheduler = new Scheduler();
-    const planner = new CentralPlanning(config, trace)
+    const planner = new CentralPlanning(config, scheduler, trace)
     const kingdom = new Kingdom(config, scheduler, broker, planner, trace);;
 
     scheduler.registerProcess(process);
@@ -110,7 +111,7 @@ describe('Scheduler', () => {
 
     const config = {} as KingdomConfig;
     const scheduler = new Scheduler();
-    const planner = new CentralPlanning(config, trace)
+    const planner = new CentralPlanning(config, scheduler, trace)
     const kingdom = new Kingdom(config, scheduler, broker, planner, trace);
 
     scheduler.registerProcess(process);
@@ -157,7 +158,7 @@ describe('Scheduler', () => {
   it("should remove and not run terminated processes", () => {
     const config = {} as KingdomConfig;
     const scheduler = new Scheduler();
-    const planner = new CentralPlanning(config, trace)
+    const planner = new CentralPlanning(config, scheduler, trace)
     const kingdom = new Kingdom(config, scheduler, broker, planner, trace);
 
     scheduler.registerProcess(process);

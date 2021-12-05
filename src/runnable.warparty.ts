@@ -11,6 +11,7 @@ import {ATTACK_ROOM_TTL, AttackRequest, AttackStatus, Phase} from './constants.a
 import * as TOPICS from './constants.topics';
 import {FindPathPolicy, getPath} from './lib.pathing';
 import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
+import {ColonyConfig} from './config';
 
 const REQUEST_ATTACKER_TTL = 30;
 
@@ -114,7 +115,7 @@ export const warPartyPolicy: FindPathPolicy = {
 
 export default class WarPartyRunnable {
   id: string;
-  colony: Colony;
+  colonyConfig: ColonyConfig;
   flagId: string; // Starting position
   targetRoom: string; // Destination room
   role: string;
@@ -135,10 +136,10 @@ export default class WarPartyRunnable {
 
   kingdom: Kingdom;
 
-  constructor(id: string, colony: Colony, flagId: string, position: RoomPosition, targetRoom: string,
+  constructor(id: string, colonyConfig: ColonyConfig, flagId: string, position: RoomPosition, targetRoom: string,
     role: string, phase: Phase) {
     this.id = id;
-    this.colony = colony;
+    this.colonyConfig = colonyConfig;
     this.flagId = flagId;
     this.targetRoom = targetRoom;
     this.role = role;
@@ -149,7 +150,7 @@ export default class WarPartyRunnable {
     this.destination = new RoomPosition(25, 25, targetRoom);
     this.direction = TOP;
 
-    this.party = new PartyRunnable(id, colony, position, role, this.minEnergy, PRIORITY_ATTACKER,
+    this.party = new PartyRunnable(id, colonyConfig, position, role, this.minEnergy, PRIORITY_ATTACKER,
       REQUEST_ATTACKER_TTL);
 
     this.kingdom = null;
@@ -162,7 +163,7 @@ export default class WarPartyRunnable {
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
     trace = trace.begin('warparty_run')
 
-    this.kingdom = kingdom
+    this.kingdom = kingdom;
 
     const targetRoom = kingdom.getWarManager().getTargetRoom();
     const flag = this.getFlag();
@@ -184,8 +185,8 @@ export default class WarPartyRunnable {
       trace.log('war party run', {
         id: this.id,
         flag: flag.name,
-        colonyId: this.getColony().id,
-        primaryRoomId: this.getColony().primaryRoomId,
+        colonyId: this.colonyConfig.id,
+        primaryRoomId: this.colonyConfig.primary,
         targetRoom,
         phase: this.phase,
         position: this.position,
@@ -226,7 +227,14 @@ export default class WarPartyRunnable {
           this.position.findClosestByRange(creeps)?.pos.getRangeTo(this.position) > 5) {
           this.phase = Phase.PHASE_MARSHAL;
 
-          this.minEnergy = _.min([this.minEnergy + 1000, this.colony.primaryRoom.energyCapacityAvailable]);
+          const roomName = this.colonyConfig.primary;
+          const roomObject = Game.rooms[roomName];
+          if (!roomObject) {
+            trace.error(`no room object for ${roomName}`);
+          }
+
+          const energyCapacityAvailable = roomObject.energyCapacityAvailable;
+          this.minEnergy = _.min([this.minEnergy + 1000, energyCapacityAvailable]);
           this.party.setMinEnergy(this.minEnergy);
 
           trace.log('moving to marshal phase', {phase: this.phase});
@@ -239,7 +247,7 @@ export default class WarPartyRunnable {
             const attackUpdate: AttackRequest = {
               status: AttackStatus.COMPLETED,
               roomId: targetRoom,
-              colonyId: this.colony.id,
+              colonyId: this.colonyConfig.id,
             };
             this.kingdom.sendRequest(TOPICS.ATTACK_ROOM, 1, attackUpdate, ATTACK_ROOM_TTL);
 
@@ -534,10 +542,6 @@ export default class WarPartyRunnable {
     });
 
     return lowHealth;
-  }
-
-  getColony(): Colony {
-    return this.party.getColony();
   }
 
   visualizePathToTarget(origin: RoomPosition, destination: RoomPosition, trace) {

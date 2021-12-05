@@ -64,7 +64,7 @@ export class Kingdom extends OrgBase {
       defense: {},
     };
 
-    this.colonies = {};
+    // this.colonies = {};
     this.roomNameToOrgRoom = {};
     this.creeps = [];
     this.creepsByRoom = {};
@@ -181,17 +181,20 @@ export class Kingdom extends OrgBase {
     // TODO stop doing this, use a topic
     return this.scheduler.processMap['war_manager'].runnable as WarManager;
   }
+
   getColonies(): Colony[] {
     return Object.values(this.colonies);
   }
+
   getColonyById(colonyId: string): Colony {
-    return this.colonies[colonyId];
+    return this.getColonyById(colonyId);
   }
+
   getClosestColonyInRange(roomName: string, range: Number = 5): Colony {
     let selectedColony = null;
     let selectedColonyDistance = 99999;
 
-    this.getColonies().forEach((colony) => {
+    Object.values(this.colonies).forEach((colony) => {
       const distance = Game.map.getRoomLinearDistance(colony.primaryRoomId, roomName)
       if (distance <= range && selectedColonyDistance > distance) {
         selectedColony = colony;
@@ -201,17 +204,17 @@ export class Kingdom extends OrgBase {
 
     return selectedColony;
   }
-  getColony(): Colony {
-    throw new Error('a kingdom is not a colony');
-  }
+
   getRoom(): OrgRoom {
     throw new Error('a kingdom is not a room');
   }
+
   getRoomColony(roomName: string): Colony {
     return _.find(this.colonies, (colony) => {
       return colony.desiredRooms.indexOf(roomName) > -1;
     });
   }
+
   getRoomByName(name: string): OrgRoom {
     return this.roomNameToOrgRoom[name] || null;
   }
@@ -236,6 +239,7 @@ export class Kingdom extends OrgBase {
 
     return this.getColonyById(colonyId);
   }
+
   getCreepAssignedRoom(creep: Creep): OrgRoom {
     const colony = this.getCreepColony(creep);
     if (!colony) {
@@ -256,6 +260,7 @@ export class Kingdom extends OrgBase {
 
     return room;
   }
+
   getCreepRoom(creep: Creep): OrgRoom {
     const colony = this.getCreepColony(creep);
     if (!colony) {
@@ -333,10 +338,6 @@ export class Kingdom extends OrgBase {
     const colonyCreepsTrace = trace.begin('colony_creeps');
     this.updateColonyCreeps(colonyCreepsTrace);
     colonyCreepsTrace.end();
-
-    const updateColoniesTrace = trace.begin('colony_colonies');
-    this.updateColonies(updateColoniesTrace);
-    updateColoniesTrace.end();
   }
 
   updateRoomCreeps(trace: Tracer) {
@@ -373,6 +374,7 @@ export class Kingdom extends OrgBase {
     }, {} as Record<string, Creep[]>);
   }
 
+  // TODO replace all need for Colony with IPC
   updateColonies(trace: Tracer) {
     const shardConfig = this.getPlanner().getShardConfig();
     if (!shardConfig) {

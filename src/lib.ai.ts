@@ -37,7 +37,7 @@ export class AI {
     this.scheduler = new Scheduler();
 
     // Central planning, tracks relationships, policies, and colonies
-    this.planning = new CentralPlanning(config, trace);
+    this.planning = new CentralPlanning(config, this.scheduler, trace);
     this.scheduler.registerProcess(new Process('central_planning', 'planning',
       Priorities.CRITICAL, this.planning));
     this.broker = new EventBroker();
@@ -52,12 +52,6 @@ export class AI {
     // Kingdom Governor
     this.scheduler.registerProcess(new Process('kingdom_governor', 'kingdom_governor',
       Priorities.CRITICAL, new KingdomGovernorRunnable('kingdom_governor')));
-
-    // Colony manager
-    const colonyManagerId = 'colony_manager';
-    const colonyManager = new ColonyManager(colonyManagerId, this.planning, this.scheduler);
-    this.scheduler.registerProcess(new Process(colonyManagerId, 'colony_manager',
-      Priorities.CRITICAL, colonyManager));
 
     // Room manager
     const roomManagerId = 'room_manager';

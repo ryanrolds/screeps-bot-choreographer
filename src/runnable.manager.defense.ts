@@ -91,15 +91,22 @@ export default class DefenseManager {
       return;
     }
 
+    // TODO replace this with planner usage
     const colony = kingdom.getClosestColonyInRange(flag.pos.roomName, 5);
     if (!colony) {
       trace.notice('could not find colony in range, not creating defense party', {roomName: flag.pos.roomName});
       return;
     }
 
+    const colonyConfig = kingdom.getPlanner().getColonyConfigById(colony.id);
+    if (!colonyConfig) {
+      trace.log('not create defense party, cannot find colony config', {colonyId: colony.id});
+      return null;
+    }
+
     trace.notice("creating defense party", {id, position, flagId, colonyId: colony.id});
 
-    const party = new DefensePartyRunnable(id, colony, flagId, position, trace)
+    const party = new DefensePartyRunnable(id, colonyConfig, flagId, position, trace)
     const process = new Process(id, 'defense_party', Priorities.DEFENCE, {
       run(kingdom: Kingdom, trace: Tracer): RunnableResult {
         return party.run(kingdom, trace);
@@ -158,11 +165,6 @@ export default class DefenseManager {
     // Update memory
     (Memory as any).defense = {
       parties: this.defenseParties.map((party): StoredDefenseParty => {
-        if (!party.getColony()) {
-          trace.notice("missing colony");
-          return null;
-        }
-
         if (!Game.flags[party.flagId]) {
           trace.notice("missing flag", {flagId: party.flagId});
           return null;
@@ -201,7 +203,7 @@ function getHostilesByColony(kingdom: Kingdom, rooms: Room[], trace: Tracer): Ho
     // Add any hostiles
     let hostiles = room.find(FIND_HOSTILE_CREEPS);
     hostiles = hostiles.filter((hostile) => {
-      const isFriendly = kingdom.getFriends().indexOf(hostile.owner.username) > -1;
+      const isFriendly = kingdom.config.friends.indexOf(hostile.owner.username) > -1;
       if (isFriendly) {
         const hostilePart = _.find(hostile.body, (part): boolean => {
           // If hostile has work part and near wall/rampart then view as hostile

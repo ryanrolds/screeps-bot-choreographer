@@ -1,6 +1,6 @@
+import {ColonyConfig} from "./config";
 import {AllowedCostMatrixTypes} from "./lib.costmatrix_cache";
 import {Tracer} from "./lib.tracing";
-import {Colony} from "./org.colony";
 import {Kingdom} from "./org.kingdom";
 import {RoomEntry} from "./org.scribe";
 
@@ -145,26 +145,26 @@ export const getPath = (kingdom: Kingdom, origin: RoomPosition, destination: Roo
 }
 
 export const getClosestColonyByPath = (kingdom: Kingdom, destination: RoomPosition,
-  policy: FindColonyPathPolicy, trace: Tracer): Colony => {
+  policy: FindColonyPathPolicy, trace: Tracer): ColonyConfig => {
   const roomEntry = kingdom.getScribe().getRoomById(destination.roomName);
 
-  let selectedColony = null;
+  let selectedColony: ColonyConfig = null;
   let selectedPathLength = 99999;
 
   // Get colonies and filter by the policy
-  let colonies = kingdom.getColonies();
-  colonies = applyAllowedColonyPolicy(colonies, roomEntry, policy.colony, trace);
+  let colonyConfigs = kingdom.getPlanner().getColonyConfigs();
+  colonyConfigs = applyAllowedColonyPolicy(colonyConfigs, roomEntry, policy.colony, trace);
   // Iterate colonies and find the closest one within the policies
-  colonies.forEach((colony) => {
+  colonyConfigs.forEach((config) => {
     // Get the origin position from the colony by apply the colony policy
-    const originPosition = getOriginPosition(kingdom, colony, policy.colony, trace);
+    const originPosition = getOriginPosition(kingdom, config, policy.colony, trace);
     if (!originPosition) {
-      trace.log("no origin position", {colony: colony.id});
+      trace.log("no origin position", {colony: config.id});
       return;
     }
 
     trace.log('checking colony', {
-      colony: colony.id,
+      colony: config.id,
       origin: originPosition,
       dest: destination,
       policy: policy.colony,
@@ -183,54 +183,69 @@ export const getClosestColonyByPath = (kingdom: Kingdom, destination: RoomPositi
       trace.log('path is too long', {
         length: result.path.length,
         roomId: roomEntry.id,
-        colonyId: colony.id,
+        colonyId: config.id,
       });
       return;
     }
 
+    // If path has more rooms then allowed, skip
     const roomsInPath = _.uniq(result.path.map((pos) => pos.roomName));
     if (roomsInPath.length > policy.path.maxPathRooms) {
       trace.log('too many rooms in path', {roomsInPath});
-      return false;
+      return;
     }
 
     trace.log('setting path', {
       length: result.path.length,
       roomId: roomEntry.id,
-      colonyId: colony.id,
+      colonyId: config.id,
     })
 
     // Update the selected colony and path
-    selectedColony = colony;
+    selectedColony = config;
     selectedPathLength = result.path.length;
   });
 
   return selectedColony;
 }
 
-const applyAllowedColonyPolicy = (colonies: Colony[], destRoomEntry: RoomEntry, policy: ColonyPolicy,
-  trace: Tracer): Colony[] => {
+const applyAllowedColonyPolicy = (colonyConfigs: ColonyConfig[], destRoomEntry: RoomEntry,
+  policy: ColonyPolicy, trace: Tracer): ColonyConfig[] => {
+
+  // Do not search colonies below the minimum level
   if (policy.minRoomLevel) {
     trace.log('applying min room level', {minRoomLevel: policy.minRoomLevel});
-    colonies = colonies.filter((colony) => colony.primaryRoom?.controller?.level >= policy.minRoomLevel);
-  }
 
-  if (policy.maxLinearDistance) {
-    // Narrow to linear distance to reduce the number of rooms to findRoute on
-    trace.log('applying linear distance filter', {maxLinearDistance: policy.maxLinearDistance});
-    colonies = colonies.filter((colony) => {
-      return Game.map.getRoomLinearDistance(destRoomEntry.id, colony.primaryRoomId) <= policy.maxLinearDistance;
+    colonyConfigs = colonyConfigs.filter((config) => {
+      const room = Game.rooms[config.primary];
+      if (!room) {
+        trace.log('room not found', {room: config.primary});
+        return false;
+      }
+
+      return _.get(config, 'controller.level', 0) >= policy.minRoomLevel;
     });
   }
 
-  trace.log('filtered colonies', {colonies: colonies.map((colony) => colony.id)});
+  // Do not search colonies further than the max linear distance
+  if (policy.maxLinearDistance) {
+    trace.log('applying linear distance filter', {maxLinearDistance: policy.maxLinearDistance});
 
-  return colonies
+    colonyConfigs = colonyConfigs.filter((config) => {
+      return Game.map.getRoomLinearDistance(destRoomEntry.id, config.primary) <= policy.maxLinearDistance;
+    });
+  }
+
+  trace.log('filtered colonies', {colonies: colonyConfigs.map((colony) => colony.id)});
+
+  return colonyConfigs
 }
 
-const getOriginPosition = (kingdom: Kingdom, colony: Colony, policy: ColonyPolicy, trace: Tracer): RoomPosition => {
+const getOriginPosition = (kingdom: Kingdom, colonyConfig: ColonyConfig, policy: ColonyPolicy,
+  trace: Tracer): RoomPosition => {
+
   if (policy.start === "spawn") {
-    return colony.getSpawnPos();
+    return colonyConfig.origin;
   }
 
   return null;

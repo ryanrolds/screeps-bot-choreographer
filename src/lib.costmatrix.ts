@@ -113,38 +113,6 @@ export const createPartyCostMatrix = (roomName: string, trace: Tracer): CostMatr
     }
   }
 
-  /*
-  const structures = room.find<Structure>(FIND_STRUCTURES, {
-    filter: structure => structure.structureType
-  });
-  structures.forEach((structure) => {
-    if (structure.structureType === STRUCTURE_ROAD) {
-      return;
-    }
-
-    let wallValue = 255;
-    costMatrix.set(structure.pos.x, structure.pos.y, wallValue);
-    costMatrix.set(structure.pos.x - 1, structure.pos.y, wallValue);
-    costMatrix.set(structure.pos.x - 1, structure.pos.y + 1, wallValue);
-    costMatrix.set(structure.pos.x, structure.pos.y + 1, wallValue);
-  });
-
-  const walls = room.find<StructureWall>(FIND_STRUCTURES, {
-    filter: structure => structure.structureType === STRUCTURE_WALL
-  });
-  walls.forEach((wall) => {
-    let wallValue = 255;
-    if (room.controller?.owner?.username !== 'ENETDOWN') {
-      wallValue == 25 + (wall.hits / 300000000 * 100);
-    }
-
-    costMatrix.set(wall.pos.x, wall.pos.y, wallValue);
-    costMatrix.set(wall.pos.x - 1, wall.pos.y, wallValue);
-    costMatrix.set(wall.pos.x - 1, wall.pos.y + 1, wallValue);
-    costMatrix.set(wall.pos.x, wall.pos.y + 1, wallValue);
-  });
-  */
-
   return costMatrix;
 };
 

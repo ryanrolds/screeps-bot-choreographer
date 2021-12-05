@@ -9,24 +9,28 @@ import * as TOPICS from './constants.topics';
 import Room from './org.room';
 import PartyRunnable from './runnable.party';
 import {find} from 'lodash';
+import {ColonyConfig} from './config';
 
 const REQUEST_PARTY_MEMBER_TTL = 30;
 const NO_TARGET_TTL = 20;
 
 export default class DefensePartyRunnable {
   id: string;
+  colonyConfig: ColonyConfig;
   flagId: string;
   party: PartyRunnable;
   noTargetTTL: number;
   minEnergy: number;
 
-  constructor(id: string, colony: Colony, flagId: string, position: RoomPosition, trace: Tracer) {
+  constructor(id: string, colonyConfig: ColonyConfig, flagId: string, position: RoomPosition,
+    trace: Tracer) {
     this.id = id;
+    this.colonyConfig = colonyConfig;
     this.flagId = flagId;
     this.noTargetTTL = 0;
     this.minEnergy = 0;
-    this.party = new PartyRunnable(id, colony, position, WORKER_DEFENDER_DRONE, this.minEnergy, PRIORITY_BUFFER_PATROL,
-      REQUEST_PARTY_MEMBER_TTL);
+    this.party = new PartyRunnable(id, colonyConfig, position, WORKER_DEFENDER_DRONE,
+      this.minEnergy, PRIORITY_BUFFER_PATROL, REQUEST_PARTY_MEMBER_TTL);
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
@@ -39,14 +43,6 @@ export default class DefensePartyRunnable {
     let flag = this.getFlag();
     if (!flag) {
       trace.notice("no flag with that id, terminating", {flagId: this.flagId});
-      prep.end();
-      trace.end();
-      return terminate();
-    }
-
-    let colony = this.getColony();
-    if (!colony) {
-      trace.error("no colony with that id, terminating");
       prep.end();
       trace.end();
       return terminate();
@@ -80,7 +76,8 @@ export default class DefensePartyRunnable {
         return 50 - creep.getActiveBodyparts(ATTACK);
       });
 
-      if (!flag.room.controller?.my && flag.room.controller?.reservation?.username !== kingdom.config.username) {
+      const username = kingdom.getPlanner().getUsername();
+      if (!flag.room.controller?.my && flag.room.controller?.reservation?.username !== username) {
         targetStructures = flag.room.find(FIND_STRUCTURES, {
           filter: (structure) => {
             return structure.structureType === STRUCTURE_CONTAINER;
@@ -141,10 +138,6 @@ export default class DefensePartyRunnable {
 
   inPosition(position: RoomPosition, trace: Tracer) {
     return this.party.inPosition(position, trace);
-  }
-
-  getColony(): Colony {
-    return this.party.getColony();
   }
 
   getFlag() {

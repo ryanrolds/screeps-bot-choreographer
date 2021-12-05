@@ -146,9 +146,9 @@ const getDestinationFromMemory = (creep: Creep, memoryId: string): RoomPosition 
   return dest.pos;
 };
 
-const getAndSetCreepPath = (pathCache: PathCache, creep: Creep, destination: RoomPosition,
+const getAndSetCreepPath = (kingdom: Kingdom, pathCache: PathCache, creep: Creep, destination: RoomPosition,
   range: number, policy: FindPathPolicy, trace: Tracer): [PathFinderPath, string, string] => {
-  const path = pathCache.getPath(creep.pos, destination, range, policy, trace);
+  const path = pathCache.getPath(kingdom, creep.pos, destination, range, policy, trace);
   const originKey = pathCache.getKey(creep.pos, 0);
   const destKey = pathCache.getKey(destination, range);
 
@@ -182,7 +182,7 @@ const updateCreepCachedPath = (kingdom: Kingdom, creep: Creep, destination: Room
 
   if (!path) {
     trace.log('heap cache miss', {originKey, destKey});
-    const getSetResult = getAndSetCreepPath(pathCache, creep, destination, range, policy, trace);
+    const getSetResult = getAndSetCreepPath(kingdom, pathCache, creep, destination, range, policy, trace);
     originKey = getSetResult[1];
     destKey = getSetResult[2];
 

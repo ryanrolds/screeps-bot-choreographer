@@ -4,7 +4,6 @@ import {AI} from './lib.ai';
 import {KingdomConfig} from './config'
 
 let config: KingdomConfig = {
-  'username': 'ENETDOWN',
   'buffer': 3,
   'friends': [
     'PythonBeatJava',

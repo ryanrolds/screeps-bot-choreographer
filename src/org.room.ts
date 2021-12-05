@@ -21,7 +21,6 @@ const MAX_DEFENDERS = 8;
 
 const WALL_LEVEL = 1000;
 const RAMPART_LEVEL = 1000;
-const MY_USERNAME = 'ENETDOWN';
 const PER_LEVEL_ENERGY = 100000;
 const UPGRADER_BUFFER = 25000;
 // TODO increase this later, we should be able to sustain at least one nuke
@@ -131,8 +130,8 @@ export default class OrgRoom extends OrgBase {
     this.roomStructures = [];
     this.hostileStructures = [];
     this.parkingLot = null;
-    this.threadUpdateRoom = thread('update_room_thread', UPDATE_ROOM_TTL)((trace) => {
-      this.updateRoom(trace);
+    this.threadUpdateRoom = thread('update_room_thread', UPDATE_ROOM_TTL)((trace, kingdom) => {
+      this.updateRoom(trace, kingdom);
     });
 
     // Primary room
@@ -739,18 +738,21 @@ export default class OrgRoom extends OrgBase {
       this.getKingdom().sendRequest(TOPIC_SPAWN, priority, details, ttl);
     }
   }
-  updateRoom(trace) {
+  updateRoom(trace: Tracer, kingdom: Kingdom) {
     trace = trace.begin('common_room');
 
     const room = this.room;
 
     this.claimedByMe = room.controller.my || false;
     this.reservedByMe = false;
-    if (room.controller.reservation && room.controller.reservation.username === MY_USERNAME) {
+
+    const username = kingdom.getPlanner().getUsername()
+    const reservedBy = _.get(room, 'controller.reservation.username', null);
+    if (reservedBy === username) {
       this.reservedByMe = true;
     }
 
-    this.unowned = !this.room.controller.reservation && !this.room.controller.owner;
+    this.unowned = !this.room.controller?.reservation && !this.room.controller?.owner;
 
     // Parking lot
     this.parkingLot = null;

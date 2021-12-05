@@ -70,8 +70,9 @@ const behavior = behaviorTree.sequenceNode(
 
           const unowned = !room.controller?.owner && !room.controller?.reservation;
           const claimedByMe = room.controller && room.controller.my;
+          const username = kingdom.getPlanner().getUsername();
           const reservedByMe = room.controller && room.controller.reservation &&
-            room.controller.reservation.username === kingdom.config.username;
+            room.controller.reservation.username === username;
           const isPrimary = orgRoom && orgRoom.isPrimary;
           const controller = room.controller;
 

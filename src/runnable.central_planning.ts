@@ -1,18 +1,29 @@
 import {ColonyConfig, KingdomConfig, ShardConfig} from "./config";
 import {AI} from "./lib.ai";
 import {Tracer} from "./lib.tracing";
+import {Colony} from "./org.colony";
 import {Kingdom} from "./org.kingdom";
-import {RunnableResult, running} from "./os.process";
+import {Process, RunnableResult, running, sleeping} from "./os.process";
+import {Priorities, Scheduler} from "./os.scheduler";
+import {ColonyManager} from "./runnable.manager.colony";
+
+const RUN_TTL = 20;
 
 export class CentralPlanning {
-  config: KingdomConfig;
-  username: string;
-  buffer: number;
-  shard: ShardConfig;
-  colonies: Record<string, ColonyConfig>;
+  private config: KingdomConfig;
+  private scheduler: Scheduler;
+  private shard: ShardConfig;
+  private shards: string[];
 
-  constructor(config: KingdomConfig, trace: Tracer) {
+  private colonyConfigs: Record<string, ColonyConfig>;
+
+  private username: string;
+  private buffer: number;
+
+  constructor(config: KingdomConfig, scheduler: Scheduler, trace: Tracer) {
     this.config = config;
+    this.scheduler = scheduler;
+    this.shards = [];
 
     const memory = (Memory as any).shard || null;
     if (memory) {
@@ -27,8 +38,10 @@ export class CentralPlanning {
       this.shard = {};
     }
 
+    this.shards.push(Game.shard.name);
+
     // Check for spawns without colonies
-    _.forEach(Game.spawns, (spawn) => {
+    Object.values(Game.spawns).forEach((spawn) => {
       const roomName = spawn.room.name;
       const origin = spawn.pos;
       origin.x + 4;
@@ -38,7 +51,27 @@ export class CentralPlanning {
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    return running();
+    // Colony manager
+    const colonyManagerId = 'colony_manager';
+    if (!this.scheduler.hasProcess(colonyManagerId)) {
+      const colonyManager = new ColonyManager(colonyManagerId, this, this.scheduler);
+      this.scheduler.registerProcess(new Process(colonyManagerId, 'colony_manager',
+        Priorities.CRITICAL, colonyManager));
+    }
+
+    return sleeping(RUN_TTL);
+  }
+
+  getShards(): string[] {
+    return this.shards;
+  }
+
+  getColonyConfigs(): ColonyConfig[] {
+    return _.values(this.colonyConfigs);
+  }
+
+  getColonyConfigById(colonyId: string): ColonyConfig {
+    return this.colonyConfigs[colonyId];
   }
 
   getShardConfig(): ShardConfig {
@@ -46,7 +79,16 @@ export class CentralPlanning {
   }
 
   getUsername() {
+    if (!this.username) {
+      const spawn = _.first(_.values<StructureSpawn>(Game.spawns));
+      if (spawn) {
+        throw new Error('not implemented');
+      }
 
+      this.username = spawn.owner.username;
+    }
+
+    return this.username;
   }
 
   // TODO move to planner
@@ -70,26 +112,26 @@ export class CentralPlanning {
 
   }
 
-  addColony(roomName: string, isPublic: boolean, origin: RoomPosition, automated: boolean,
+  addColony(colonyId: string, isPublic: boolean, origin: RoomPosition, automated: boolean,
     trace: Tracer) {
-    if (this.shard.colonies[roomName]) {
-      trace.error('colony already exists', {roomName});
+    if (this.colonyConfigs[colonyId]) {
+      trace.error('colony already exists', {colonyId});
       return;
     }
 
-    trace.log('adding colony', {roomName, isPublic, origin, automated});
+    trace.log('adding colony', {colonyId, isPublic, origin, automated});
 
-    this.shard.colonies[roomName] = {
-      id: roomName,
+    this.colonyConfigs[colonyId] = {
+      id: colonyId,
       isPublic: isPublic,
-      primary: roomName,
-      rooms: [roomName],
+      primary: colonyId,
+      rooms: [colonyId],
       automated: automated,
       origin: origin,
     };
   }
 
-  removeColony() {
-
+  removeColony(colonyId: string, trace: Tracer) {
+    delete this.shard.colonyConfigs[colonyId];
   }
 }

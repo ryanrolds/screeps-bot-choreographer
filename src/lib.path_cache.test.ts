@@ -31,7 +31,7 @@ describe('Path Cache', function () {
     mockGlobal<Game>('Game', {
       time: CACHE_ITEM_TTL + 1,
       shard: {
-        name: 'shard0',
+        name: 'test',
       },
       spawns: {},
       cpu: {
@@ -48,10 +48,19 @@ describe('Path Cache', function () {
 
     trace = new Tracer('test', {}, 0);
 
-    const config: KingdomConfig = {} as KingdomConfig;
-    const planner = new CentralPlanning(config, trace);
+    const config: KingdomConfig = {
+      shards: {
+        'test': {},
+      },
+      buffer: 0,
+      friends: [],
+      neutral: [],
+      avoid: [],
+      kos: [],
+    } as KingdomConfig;
     const scheduler = new Scheduler();
     const broker = new EventBroker();
+    const planner = new CentralPlanning(config, scheduler, trace);
 
     kingdom = new Kingdom(config, scheduler, broker, planner, trace);
 

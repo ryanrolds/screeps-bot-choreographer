@@ -4,16 +4,15 @@ export interface ShardConfig {
 }
 
 export interface ColonyConfig {
-  id: string;
+  id: NonNullable<string>;
+  primary: NonNullable<string>;
+  rooms: NonNullable<string[]>;
+  origin: NonNullable<RoomPosition>;
   isPublic: boolean;
-  primary: string;
-  rooms: string[];
   automated: boolean;
-  origin: RoomPosition;
 }
 
 export interface KingdomConfig {
-  username: string;
   buffer: number;
   friends: string[];
   neutral: string[];

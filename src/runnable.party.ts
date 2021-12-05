@@ -15,8 +15,8 @@ import {thread, ThreadFunc} from './os.thread';
 import {Tracer} from './lib.tracing';
 import {TOPIC_SPAWN} from './constants.topics';
 import * as MEMORY from './constants.memory'
-import {Colony} from './org.colony';
 import {WarPartyTarget} from './runnable.warparty';
+import {ColonyConfig} from './config';
 
 const REQUEST_PARTY_MEMBER_TTL = 25;
 const MAX_PARTY_SIZE = 4;
@@ -41,7 +41,7 @@ const DIRECTION_OFFSET = {
 
 export default class PartyRunnable {
   id: string;
-  colony: Colony;
+  colonyConfig: ColonyConfig;
   formation: {x: number, y: number}[];
   position: RoomPosition;
   role: string;
@@ -53,10 +53,10 @@ export default class PartyRunnable {
 
   threadRequestCreeps: ThreadFunc;
 
-  constructor(id: string, colony: Colony, position: RoomPosition, role: string, minEnergy: number,
-    priority: number, ttl: number) {
+  constructor(id: string, colonyConfig: ColonyConfig, position: RoomPosition, role: string,
+    minEnergy: number, priority: number, ttl: number) {
     this.id = id;
-    this.colony = colony;
+    this.colonyConfig = colonyConfig;
     this.role = role;
     this.minEnergy = minEnergy;
     this.priority = priority;
@@ -354,12 +354,15 @@ export default class PartyRunnable {
     return [].concat(quad, creeps.slice(4));
   }
 
-  getColony(): Colony {
-    return this.colony;
-  }
-
   requestCreeps(trace: Tracer, kingdom: Kingdom) {
-    const spawns = Game.rooms[this.colony.primaryRoomId]?.find(FIND_MY_STRUCTURES, {
+    const colonyRoom = this.colonyConfig.primary;
+    const room = Game.rooms[colonyRoom];
+    if (!room) {
+      trace.log('colony room not visible', {colonyRoom});
+      return;
+    }
+
+    const spawns = room.find(FIND_MY_STRUCTURES, {
       filter: structure => structure.structureType === STRUCTURE_SPAWN,
     });
     if (!spawns || !spawns.length) {
@@ -424,7 +427,7 @@ export default class PartyRunnable {
     };
 
     trace.log('requesting creep', {
-      colonyId: this.colony.id,
+      colonyId: this.colonyConfig.id,
       role: this.role,
       priority: this.priority,
       deployTicks: this.deployTicks,
@@ -432,6 +435,8 @@ export default class PartyRunnable {
       details,
     });
 
-    (this.colony as any).sendRequest(TOPIC_SPAWN, this.priority, details, this.requestCreepTTL);
+    // TODO move to directly topic request
+    const colony = kingdom.getColonyById(this.colonyConfig.id);
+    colony.sendRequest(TOPIC_SPAWN, this.priority, details, this.requestCreepTTL);
   }
 }

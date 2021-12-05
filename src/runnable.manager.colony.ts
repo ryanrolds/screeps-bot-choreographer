@@ -2,10 +2,9 @@
 import * as _ from 'lodash';
 
 import {Scheduler, Priorities} from "./os.scheduler";
-import {Process, Runnable, RunnableResult, running, sleeping, terminate} from "./os.process";
+import {Process, RunnableResult, sleeping} from "./os.process";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
-import {ColonyConfig} from './config';
 import ColonyRunnable from './runnable.colony';
 import {CentralPlanning} from './runnable.central_planning';
 
@@ -27,8 +26,8 @@ export class ColonyManager {
 
     // If any defined colonies don't exist, run it
     // TODO switch to central planning
-    const shardConfig = kingdom.getShardConfig(Game.shard.name);
-    Object.values<ColonyConfig>(shardConfig).forEach((colony) => {
+    const colonies = kingdom.getPlanner().getColonyConfigs();
+    colonies.forEach((colony) => {
       const hasProcess = this.scheduler.hasProcess(colony.id);
       if (hasProcess) {
         return;

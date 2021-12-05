@@ -9,7 +9,6 @@ import * as TOPICS from './constants.topics';
 import * as PRIORITIES from './constants.priorities';
 
 const REQUEST_TTL = 1;
-const shardsNames = ['shard0', 'shard1', 'shard2', 'shard3'];
 
 interface CreepRequest {
   shard: string;
@@ -42,12 +41,13 @@ export default class KingdomGovernor {
     localMemory = this.requestClaimersFromOtherShards(kingdom, localMemory, trace);
     localMemory = this.requestBuildersFromOtherShards(kingdom, localMemory, trace);
 
-    shardsNames.forEach((shardName) => {
+    kingdom.getPlanner().getShards().forEach((shardName) => {
       if (shardName === Game.shard.name) {
         return;
       }
 
-      const shardConfig: ShardConfig = kingdom.getShardConfig(shardName);
+      /*
+      const shardConfig: ShardConfig = kingdom.getPlanner().getShardConfig(shardName);
       if (!shardConfig) {
         return;
       }
@@ -61,12 +61,16 @@ export default class KingdomGovernor {
 
       trace.log('kingdom governor colony', {shardName, primaryColony})
 
+     */
+
       let shardMemory = kingdom.getScribe().getRemoteShardMemory(shardName);
       trace.log('shard memory', {shardName, shardMemory})
 
+      /*
       if (!shardMemory.ttl) {
         shardMemory = this.sendClaimer(shardName, primaryColony.primary, shardMemory, trace);
       }
+      */
 
       this.handleClaimerRequests(kingdom, shardMemory.request_claimer || {}, trace);
       this.handleBuilderRequests(kingdom, shardMemory.request_builder || {}, trace);

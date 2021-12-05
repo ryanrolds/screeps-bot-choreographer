@@ -113,12 +113,13 @@ export default class SourceRunnable {
   }
 
   requestUpgraders(trace: Tracer, kingdom: Kingdom, colony: Colony, room: Room, source: Source | Mineral) {
-    if (room.controller?.owner && room.controller.owner.username !== kingdom.config.username) {
+    const username = kingdom.getPlanner().getUsername();
+    if (room.controller?.owner && room.controller.owner.username !== username) {
       trace.notice('room owned by someone else', {roomId: room.name, owner: room.controller?.owner?.username});
       return;
     }
 
-    if (room.controller?.reservation && room.controller.reservation.username !== kingdom.config.username) {
+    if (room.controller?.reservation && room.controller.reservation.username !== username) {
       trace.notice('room reserved by someone else', {roomId: room.name, username: room.controller.reservation.username});
       return;
     }
@@ -173,12 +174,14 @@ export default class SourceRunnable {
   }
 
   requestWorkers(trace: Tracer, kingdom: Kingdom, colony: Colony, room: Room, source: Source | Mineral) {
-    if (room.controller?.owner && room.controller.owner.username !== kingdom.config.username) {
+    const username = kingdom.getPlanner().getUsername();
+
+    if (room.controller?.owner && room.controller.owner.username !== username) {
       trace.notice('room owned by someone else', {roomId: room.name, owner: room.controller?.owner?.username});
       return;
     }
 
-    if (room.controller?.reservation && room.controller.reservation.username !== kingdom.config.username) {
+    if (room.controller?.reservation && room.controller.reservation.username !== username) {
       trace.notice('room reserved by someone else', {roomId: room.name, username: room.controller.reservation.username});
       return;
     }
