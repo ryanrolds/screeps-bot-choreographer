@@ -60,7 +60,6 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks("grunt-eslint");
   grunt.loadNpmTasks('grunt-mocha-test');
   grunt.loadNpmTasks('grunt-contrib-clean')
-  grunt.loadNpmTasks('grunt-contrib-copy')
 
   grunt.registerTask('check', ['eslint', 'mochaTest']);
   grunt.registerTask("build", ["clean", "ts"]);
