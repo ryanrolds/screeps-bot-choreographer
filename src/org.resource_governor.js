@@ -505,6 +505,11 @@ class Resources extends OrgBase {
     });
 
     const reactions = this.getKingdom().getTopics().getTopic(TOPICS.TASK_REACTION);
+    if (!reactions || !reactions.length) {
+      trace.log('no reactions to request');
+      return;
+    }
+
     trace.log('requested reactions', {
       reactions: reactions.map((r) => {
         return {

@@ -24,24 +24,49 @@ module.exports = function(grunt) {
         tsconfig: './tsconfig.json'
       }
     },
+    clean: {
+      'built': ['built']
+    },
     screeps: {
-      options: {
-        email: config.email,
-        password: config.password,
-        branch: config.branch,
-        ptr: config.ptr
+      mmo: {
+        options: {
+          email: config.email,
+          password: config.password,
+          branch: config.branch,
+          ptr: config.ptr
+        },
+        src: ['built/*.js']
       },
-      dist: {
+      private: {
+        options: {
+          server: {
+            host: 'localhost',
+            port: 21025,
+            path: '/api/user/code',
+            http: true
+          },
+          email: config.private.username,
+          password: config.private.password,
+          branch: config.private.branch,
+          ptr: false
+        },
         src: ['built/*.js']
       }
-    }
+    },
   });
 
   grunt.loadNpmTasks('grunt-screeps');
   grunt.loadNpmTasks("grunt-ts");
   grunt.loadNpmTasks("grunt-eslint");
   grunt.loadNpmTasks('grunt-mocha-test');
+  grunt.loadNpmTasks('grunt-contrib-clean')
+  grunt.loadNpmTasks('grunt-contrib-copy')
 
-  grunt.registerTask("default", ["eslint", "mochaTest", "ts"]);
-  grunt.registerTask("upload", ["default", "screeps"]);
+  grunt.registerTask('check', ['eslint', 'mochaTest']);
+  grunt.registerTask("build", ["clean", "ts"]);
+  grunt.registerTask("default", ["check", "build"]);
+
+  // Tasks for uploading to specific servers
+  grunt.registerTask("mmo", ["default", "screeps:mmo"]);
+  grunt.registerTask("private", ["default", "screeps:private"]);
 }

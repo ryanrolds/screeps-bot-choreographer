@@ -1,4 +1,4 @@
-import {Process, Runnable, RunnableResult, running, sleeping, terminate} from "./os.process";
+import {RunnableResult, running, sleeping, terminate} from "./os.process";
 import {thread, ThreadFunc} from './os.thread';
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
@@ -6,7 +6,6 @@ import OrgRoom from "./org.room";
 import * as MEMORY from "./constants.memory"
 import * as TASKS from "./constants.tasks"
 import * as TOPICS from "./constants.topics"
-import * as CREEPS from "./constants.creeps"
 import * as PRIORITIES from "./constants.priorities"
 import {Event} from "./lib.event_broker";
 

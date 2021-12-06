@@ -64,7 +64,7 @@ export class Kingdom extends OrgBase {
       defense: {},
     };
 
-    // this.colonies = {};
+    this.colonies = {};
     this.roomNameToOrgRoom = {};
     this.creeps = [];
     this.creepsByRoom = {};
@@ -187,7 +187,7 @@ export class Kingdom extends OrgBase {
   }
 
   getColonyById(colonyId: string): Colony {
-    return this.getColonyById(colonyId);
+    return this.colonies[colonyId];
   }
 
   getClosestColonyInRange(roomName: string, range: Number = 5): Colony {
@@ -338,6 +338,10 @@ export class Kingdom extends OrgBase {
     const colonyCreepsTrace = trace.begin('colony_creeps');
     this.updateColonyCreeps(colonyCreepsTrace);
     colonyCreepsTrace.end();
+
+    const updateColoniesTrace = trace.begin('colony_colonies');
+    this.updateColonies(updateColoniesTrace);
+    updateColoniesTrace.end();
   }
 
   updateRoomCreeps(trace: Tracer) {
@@ -376,18 +380,18 @@ export class Kingdom extends OrgBase {
 
   // TODO replace all need for Colony with IPC
   updateColonies(trace: Tracer) {
-    const shardConfig = this.getPlanner().getShardConfig();
-    if (!shardConfig) {
-      return;
-    }
+    const colonyConfigs = this.getPlanner().getColonyConfigMap();
 
     // Colonies
-    const configIds = Object.keys(shardConfig);
+    const configIds = _.reduce(colonyConfigs, (acc, config) => {
+      return acc.concat(config.id);
+    }, [] as string[]);
+
     const orgIds = Object.keys(this.colonies);
 
     const missingColonyIds = _.difference(configIds, orgIds);
     missingColonyIds.forEach((id) => {
-      this.colonies[id] = new Colony(this, shardConfig[id], trace);
+      this.colonies[id] = new Colony(this, colonyConfigs[id], trace);
     });
 
     const extraColonyIds = _.difference(orgIds, configIds);

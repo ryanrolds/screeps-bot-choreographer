@@ -5,37 +5,35 @@ import {Colony} from "./org.colony";
 import {Kingdom} from "./org.kingdom";
 import {Process, RunnableResult, running, sleeping} from "./os.process";
 import {Priorities, Scheduler} from "./os.scheduler";
+import {thread, ThreadFunc} from "./os.thread";
 import {ColonyManager} from "./runnable.manager.colony";
 
 const RUN_TTL = 20;
+const REMOTE_MINING_TTL = 20;
 
 export class CentralPlanning {
   private config: KingdomConfig;
   private scheduler: Scheduler;
-  private shard: ShardConfig;
-  private shards: string[];
-
-  private colonyConfigs: Record<string, ColonyConfig>;
-
   private username: string;
-  private buffer: number;
+  private shards: string[];
+  private colonyConfigs: Record<string, ColonyConfig>;
+  private remoteMiningThread: ThreadFunc;
+  private roomByColonyId: Record<string, string>;
 
   constructor(config: KingdomConfig, scheduler: Scheduler, trace: Tracer) {
     this.config = config;
     this.scheduler = scheduler;
     this.shards = [];
+    this.colonyConfigs = {};
+    this.roomByColonyId = {};
 
     const memory = (Memory as any).shard || null;
     if (memory) {
       trace.notice('found shard memory', {memory});
-      this.shard = memory;
     } else if (config && config.shards && config.shards[Game.shard.name]) {
       trace.notice('found shard config', {config});
-      const shardConfig = config.shards[Game.shard.name];
-      this.shard = shardConfig;
     } else {
       trace.error('no shard config found');
-      this.shard = {};
     }
 
     this.shards.push(Game.shard.name);
@@ -43,11 +41,14 @@ export class CentralPlanning {
     // Check for spawns without colonies
     Object.values(Game.spawns).forEach((spawn) => {
       const roomName = spawn.room.name;
-      const origin = spawn.pos;
-      origin.x + 4;
+      const origin = new RoomPosition(spawn.pos.x, spawn.pos.y + 4, spawn.pos.roomName);
 
-      this.addColony(roomName, false, origin, false, trace);
+      if (!this.colonyConfigs[roomName]) {
+        this.addColonyConfig(roomName, false, origin, true, trace);
+      }
     });
+
+    this.remoteMiningThread = thread('remote_mining', REMOTE_MINING_TTL)(this.remoteMining.bind(this));
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
@@ -59,6 +60,8 @@ export class CentralPlanning {
         Priorities.CRITICAL, colonyManager));
     }
 
+    this.remoteMiningThread(trace, kingdom)
+
     return sleeping(RUN_TTL);
   }
 
@@ -66,23 +69,35 @@ export class CentralPlanning {
     return this.shards;
   }
 
+  getColonyConfig(colonyId: string): ColonyConfig {
+    return this.colonyConfigs[colonyId];
+  }
+
   getColonyConfigs(): ColonyConfig[] {
     return _.values(this.colonyConfigs);
+  }
+
+  getColonyConfigList(): ColonyConfig[] {
+    return _.values(this.colonyConfigs);
+  }
+
+  getColonyConfigMap(): Record<string, ColonyConfig> {
+    return this.colonyConfigs;
   }
 
   getColonyConfigById(colonyId: string): ColonyConfig {
     return this.colonyConfigs[colonyId];
   }
 
-  getShardConfig(): ShardConfig {
-    return this.shard;
+  setColonyAutomation(colonyId: string, automated: boolean) {
+    this.colonyConfigs[colonyId].automated = automated;
   }
 
   getUsername() {
     if (!this.username) {
       const spawn = _.first(_.values<StructureSpawn>(Game.spawns));
-      if (spawn) {
-        throw new Error('not implemented');
+      if (!spawn) {
+        throw new Error('no spawns found');
       }
 
       this.username = spawn.owner.username;
@@ -104,15 +119,7 @@ export class CentralPlanning {
     return this.config.kos;
   }
 
-  getBuffer() {
-
-  }
-
-  setBuffer() {
-
-  }
-
-  addColony(colonyId: string, isPublic: boolean, origin: RoomPosition, automated: boolean,
+  addColonyConfig(colonyId: string, isPublic: boolean, origin: RoomPosition, automated: boolean,
     trace: Tracer) {
     if (this.colonyConfigs[colonyId]) {
       trace.error('colony already exists', {colonyId});
@@ -129,9 +136,141 @@ export class CentralPlanning {
       automated: automated,
       origin: origin,
     };
+    this.roomByColonyId[colonyId] = colonyId;
   }
 
   removeColony(colonyId: string, trace: Tracer) {
-    delete this.shard.colonyConfigs[colonyId];
+    delete this.colonyConfigs[colonyId];
   }
+
+  private remoteMining(trace: Tracer, kingdom: Kingdom) {
+    this.getColonyConfigList().forEach((colonyConfig) => {
+      trace.log('checking remote mining', {colonyConfig});
+
+      const room = Game.rooms[colonyConfig.primary];
+      if (!room) {
+        trace.log('no room found', {colonyConfig});
+        return;
+      }
+
+      const level = room?.controller?.level || 0;
+      let numDesired = desiredRemotes(level);
+      const numCurrent = colonyConfig.rooms.length - 1;
+      if (numDesired <= numCurrent) {
+        trace.log('remote mining not needed', {numDesired, numCurrent});
+        return;
+      }
+
+      let exits = colonyConfig.rooms.reduce((acc, roomName) => {
+        const exits = Game.map.describeExits(roomName);
+        return acc.concat(Object.values(exits));
+      }, [] as string[]);
+
+
+      let adjacentRooms: string[] = _.uniq(exits);
+
+      const scribe = kingdom.getScribe();
+      adjacentRooms = _.filter(adjacentRooms, (roomName) => {
+        // filter rooms already belonging to a colony
+        const colonyConfig = this.getColonyConfigByRoom(roomName);
+        if (colonyConfig) {
+          trace.log('room already assigned to colony', {roomName});
+          return false;
+        }
+
+        const roomEntry = scribe.getRoomById(roomName);
+
+        // filter out rooms we have not seen
+        if (!roomEntry) {
+          trace.log('no room entry found', {roomName});
+          return false
+        }
+
+        // filter out rooms that do not have a source
+        if (roomEntry.numSources === 0) {
+          trace.log('room has no sources', {roomName});
+          return false;
+        }
+
+        return true;
+      });
+
+      if (adjacentRooms.length === 0) {
+        trace.log('no adjacent rooms found', {adjacentRooms, exits, colonyConfig});
+        return;
+      }
+
+      adjacentRooms = _.sortBy(adjacentRooms, (roomName) => {
+        const route = Game.map.findRoute(colonyConfig.primary, roomName) || [];
+        if (route === ERR_NO_PATH) {
+          return 9999;
+        }
+
+        return route.length;
+      });
+
+      trace.log('adding remote', {room: adjacentRooms[0], colonyConfig});
+
+      this.addRoom(colonyConfig.id, adjacentRooms[0], trace);
+    });
+  }
+
+  private getColonyConfigByRoom(roomName: string): ColonyConfig {
+    const colonyId = this.roomByColonyId[roomName];
+    if (!colonyId) {
+      return null;
+    }
+
+    return this.getColonyConfig(colonyId);
+  }
+
+  addRoom(colonyId: string, roomName: string, trace: Tracer) {
+    let colonyConfig = this.getColonyConfigByRoom(roomName);
+    if (colonyConfig) {
+      trace.error('room already assigned', {colonyId, roomName});
+      return;
+    }
+
+    colonyConfig = this.getColonyConfig(colonyId);
+    if (!colonyConfig) {
+      trace.error('no colony found', {roomName});
+      return;
+    }
+
+    if (colonyConfig.rooms.indexOf(roomName) !== -1) {
+      trace.error('room already exists', {roomName});
+      return;
+    }
+
+    colonyConfig.rooms.push(roomName);
+    this.roomByColonyId[roomName] = colonyId;
+  }
+}
+
+function desiredRemotes(level: number): number {
+  let desiredRemotes = 0;
+  switch (level) {
+    case 0:
+    case 1:
+      break;
+    case 2:
+      desiredRemotes = 2;
+      break;
+    case 3:
+      desiredRemotes = 2;
+      break;
+    case 4:
+      desiredRemotes = 3;
+      break;
+    case 5:
+    case 6:
+    case 7:
+    case 8:
+      desiredRemotes = 4;
+      break;
+    default:
+      throw new Error('unexpected controller level');
+  }
+
+  return desiredRemotes;
 }

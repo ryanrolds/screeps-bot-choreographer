@@ -6,7 +6,6 @@ import {Process, Runnable, RunnableResult, running, terminate} from "./os.proces
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
 import RoomRunnable from './runnable.room';
-import {ColonyConfig} from './config';
 
 export class RoomManager {
   id: string;

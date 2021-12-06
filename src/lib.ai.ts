@@ -12,12 +12,8 @@ import DefenseManager from './runnable.manager.defense';
 import BufferManager from './runnable.manager.buffer';
 import PathDebugger from './runnable.path_debugger';
 import CostMatrixDebugger from './runnable.costmatrix_debug';
-import InvaderManager from './runnable.manager.invaders';
 import {CentralPlanning} from './runnable.central_planning';
-import {ColonyManager} from './runnable.manager.colony';
 import {EventBroker} from './lib.event_broker';
-import {traceDeprecation} from 'process';
-
 
 let lastMemoryTick: number = 0;
 let lastMemory: Memory = null;

@@ -1,7 +1,5 @@
 import * as _ from 'lodash';
 import {Kingdom} from "./org.kingdom";
-import {Colony} from './org.colony';
-import {RoomEntry} from './org.scribe';
 import {RunnableResult, running, sleeping, terminate, STATUS_TERMINATED} from "./os.process";
 import {Tracer} from './lib.tracing';
 import {DEFINITIONS, WORKER_ATTACKER, WORKER_ATTACKER_3TOWER} from './constants.creeps'

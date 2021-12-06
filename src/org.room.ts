@@ -1,6 +1,5 @@
 import {OrgBase} from './org.base';
 import {Colony} from './org.colony';
-
 import * as CREEPS from './constants.creeps';
 import * as MEMORY from './constants.memory';
 import * as TOPICS from './constants.topics';
@@ -8,7 +7,6 @@ import * as PRIORITIES from './constants.priorities';
 import {creepIsFresh} from './behavior.commute';
 import {thread, ThreadFunc} from './os.thread';
 import {Tracer} from './lib.tracing'
-
 import {TOPIC_SPAWN} from './constants.topics';
 import {Kingdom} from './org.kingdom';
 import {BoosterDetails, EffectSet, LabsByResource, TOPIC_ROOM_BOOSTS} from './runnable.booster';
@@ -358,7 +356,7 @@ export default class OrgRoom extends OrgBase {
 
     this.threadUpdateCreeps(trace, this.getKingdom());
     this.threadUpdateDefenseStatus(trace, room, this.getKingdom());
-    this.threadUpdateRoom(trace);
+    this.threadUpdateRoom(trace, this.getKingdom());
 
     if (this.isPrimary) {
       this.threadUpdatePrimary(trace);

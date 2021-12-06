@@ -1,10 +1,8 @@
 import * as _ from 'lodash';
-
 import {Priorities, Scheduler} from "./os.scheduler";
 import {Process, Runnable, RunnableResult, running, sleeping} from "./os.process";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
-import OrgRoom from './org.room';
 import DefensePartyRunnable from './runnable.defense_party';
 import * as TOPICS from './constants.topics';
 import * as CREEPS from './constants.creeps';
