@@ -27,6 +27,7 @@ let config: KingdomConfig = {
         rooms: ['E21S48'],
         automated: false,
         origin: null,
+        parking: null,
       },
       'E22S48-Shard2': {
         id: 'E22S48-Shard2',
@@ -35,6 +36,7 @@ let config: KingdomConfig = {
         rooms: ['E22S48', 'E22S47', 'E22S46'/*, 'E21S46'*/],
         automated: false,
         origin: null,
+        parking: null,
       },
       'E22S49-Shard2': {
         id: 'E22S49-Shard2',
@@ -43,6 +45,7 @@ let config: KingdomConfig = {
         rooms: ['E22S49'],
         automated: false,
         origin: null,
+        parking: null,
       },
       'E23S45-Shard2': {
         id: 'E23S45-Shard2',
@@ -51,6 +54,7 @@ let config: KingdomConfig = {
         rooms: ['E23S45'],
         automated: false,
         origin: null,
+        parking: null,
       },
       'E22S45-Shard2': {
         id: 'E22S45-Shard2',
@@ -59,6 +63,7 @@ let config: KingdomConfig = {
         rooms: ['E22S45'],
         automated: false,
         origin: null,
+        parking: null,
       }/*,
       'E23S47-Shard2': {
         id: 'E23S47-Shard2',
@@ -86,6 +91,7 @@ let config: KingdomConfig = {
         rooms: ['E18S48'],
         automated: false,
         origin: null,
+        parking: null,
       },
       'E18S47-Shard3': {
         id: 'E18S47-Shard3',
@@ -95,6 +101,7 @@ let config: KingdomConfig = {
         // rooms: ['E18S47', 'E19S46'],
         automated: false,
         origin: null,
+        parking: null,
       },
       'E18S45-Shard3': {
         id: 'E18S45-Shard3',
@@ -103,6 +110,7 @@ let config: KingdomConfig = {
         rooms: ['E18S45'],
         automated: false,
         origin: null,
+        parking: null,
       },
       'E17S49-Shard3': {
         id: 'E17S49-Shard3',
@@ -111,6 +119,7 @@ let config: KingdomConfig = {
         rooms: ['E17S49'],
         automated: false,
         origin: null,
+        parking: null,
       },
       'E15S48-Shard3': {
         id: 'E15S48-Shard3',
@@ -120,6 +129,7 @@ let config: KingdomConfig = {
         // rooms: ['E15S48', 'E16S48', 'E14S48'],
         automated: false,
         origin: null,
+        parking: null,
       },
       'E12S49-Shard3': {
         id: 'E12S49-Shard3',
@@ -129,6 +139,7 @@ let config: KingdomConfig = {
         //rooms: ['E12S49', 'E13S49'],
         automated: false,
         origin: null,
+        parking: null,
       },
       'E19S51-Shard3': {
         id: 'E19S51-Shard3',
@@ -137,6 +148,7 @@ let config: KingdomConfig = {
         rooms: ['E19S51'],
         automated: false,
         origin: null,
+        parking: null,
       },
       'E13S49-Shard3': {
         id: 'E13S49-Shard3',
@@ -145,6 +157,7 @@ let config: KingdomConfig = {
         rooms: ['E13S49'],
         automated: false,
         origin: null,
+        parking: null,
       },
     },
   },

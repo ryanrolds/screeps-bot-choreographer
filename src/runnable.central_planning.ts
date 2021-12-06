@@ -135,6 +135,7 @@ export class CentralPlanning {
       rooms: [colonyId],
       automated: automated,
       origin: origin,
+      parking: new RoomPosition(origin.x + 4, origin.y, origin.roomName),
     };
     this.roomByColonyId[colonyId] = colonyId;
   }

@@ -8,8 +8,9 @@ export interface ColonyConfig {
   primary: NonNullable<string>;
   rooms: NonNullable<string[]>;
   origin: NonNullable<RoomPosition>;
-  isPublic: boolean;
-  automated: boolean;
+  parking: RoomPosition;
+  isPublic: NonNullable<boolean>;
+  automated: NonNullable<boolean>;
 }
 
 export interface KingdomConfig {

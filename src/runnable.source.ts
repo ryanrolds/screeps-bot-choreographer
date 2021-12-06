@@ -13,10 +13,12 @@ import {thread, ThreadFunc} from "./os.thread";
 import {AI} from "./lib.ai";
 const {creepIsFresh} = require('./behavior.commute');
 
-const STRUCTURE_TTL = 20;
+const STRUCTURE_TTL = 50;
 const DROPOFF_TTL = 200;
 const REQUEST_WORKER_TTL = 50;
 const REQUEST_HAULING_TTL = 20;
+const ROADS_TTL = 250;
+const CONTAINER_TTL = 250;
 
 export default class SourceRunnable {
   id: string;
@@ -38,6 +40,8 @@ export default class SourceRunnable {
   threadRequestWorkers: ThreadFunc;
   threadRequestUpgraders: ThreadFunc;
   threadRequestHauling: ThreadFunc;
+  threadBuildContainer: ThreadFunc;
+  threadBuildRoads: ThreadFunc;
 
   constructor(room: OrgRoom, source: (Source | Mineral)) {
     this.orgRoom = room;
@@ -49,6 +53,8 @@ export default class SourceRunnable {
     this.threadRequestWorkers = thread('request_workers', REQUEST_WORKER_TTL)(this.requestWorkers.bind(this));
     // this.threadRequestUpgraders = thread('request_upgraders', REQUEST_WORKER_TTL)(this.requestUpgraders.bind(this));
     this.threadRequestHauling = thread('reqeust_hauling', REQUEST_HAULING_TTL)(this.requestHauling.bind(this));
+    this.threadBuildContainer = thread('build_container', CONTAINER_TTL)(this.buildContainer.bind(this));
+    this.threadBuildRoads = thread('roads', ROADS_TTL)(this.buildRoads.bind(this));
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
@@ -81,6 +87,8 @@ export default class SourceRunnable {
     this.threadRequestWorkers(trace, kingdom, colony, room, source);
     // this.threadRequestUpgraders(trace, kingdom, colony, room, source);
     this.threadRequestHauling(trace, colony);
+    this.threadBuildContainer(trace, kingdom);
+    this.threadBuildRoads(trace, kingdom);
 
     this.updateStats(kingdom, trace);
 
@@ -316,5 +324,135 @@ export default class SourceRunnable {
     const conlonyId = this.orgRoom.getColony().id;
     const roomId = this.orgRoom.id;
     stats.colonies[conlonyId].rooms[roomId].sources[this.sourceId] = sourceStats;
+  }
+
+  buildContainer(trace: Tracer, kingdom: Kingdom) {
+    const colonyId = this.orgRoom.getColony().id;
+    const colonyConfig = kingdom.getPlanner().getColonyConfigById(colonyId);
+    if (!colonyConfig) {
+      trace.error('no colony config', {colonyId});
+      return;
+    }
+
+    if (!colonyConfig.automated) {
+      trace.log('colony not automated', {colonyId});
+      return;
+    }
+
+    const colonyRoom = Game.rooms[colonyConfig.primary];
+    if (!colonyRoom) {
+      trace.error('colony room not found', {colonyId});
+      return;
+    }
+
+    if (colonyRoom.controller?.level < 3) {
+      trace.log('colony room controller level too low', {colonyId, level: colonyRoom.controller.level});
+      return;
+    }
+
+    const source: Source | Mineral = Game.getObjectById(this.sourceId);
+    if (!source) {
+      trace.error('source not found', {id: this.sourceId});
+      return;
+    }
+
+    const colonyPos = new RoomPosition(colonyConfig.origin.x, colonyConfig.origin.y - 1, colonyConfig.origin.roomName);
+
+    const path = PathFinder.search(source.pos, colonyPos);
+    trace.log('path found', {colonyPos, source: source.pos, path});
+
+    const containerPos = path.path[0];
+
+    const container = containerPos.lookFor(LOOK_STRUCTURES).find((s) => {
+      return s.structureType === STRUCTURE_CONTAINER;
+    });
+
+    if (container) {
+      trace.log('container found', {container});
+      return;
+    }
+
+    const sites = containerPos.lookFor(LOOK_CONSTRUCTION_SITES);
+    if (sites) {
+      const containerSite = sites.find((s) => {
+        return s.structureType === STRUCTURE_CONTAINER;
+      });
+
+      if (containerSite) {
+        trace.log('container site found', {containerSite});
+        return;
+      }
+    }
+
+    const result = containerPos.createConstructionSite(STRUCTURE_CONTAINER);
+    trace.log('container created', {result});
+  }
+
+  buildRoads(trace: Tracer, kingdom: Kingdom) {
+    const colonyId = this.orgRoom.getColony().id;
+    const colonyConfig = kingdom.getPlanner().getColonyConfigById(colonyId);
+    if (!colonyConfig) {
+      trace.error('no colony config', {colonyId});
+      return;
+    }
+
+    if (!colonyConfig.automated) {
+      trace.log('colony not automated', {colonyId});
+      return;
+    }
+
+    const colonyPos = new RoomPosition(colonyConfig.origin.x, colonyConfig.origin.y - 1, colonyConfig.origin.roomName);
+
+    const source: Source | Mineral = Game.getObjectById(this.sourceId);
+    if (!source) {
+      trace.error('source not found', {id: this.sourceId});
+      return;
+    }
+
+    trace.log('building roads', {colonyConfig, colonyPos, source: source.pos});
+
+    const pathResult = PathFinder.search(colonyPos, {pos: source.pos, range: 1}, {
+      plainCost: 1,
+      swampCost: 1,
+    });
+
+    trace.log('path found', {colonyPos, source: source.pos, pathResult});
+
+    const path = pathResult.path;
+
+    let roadSites = 0;
+    for (let i = 0; i < path.length; i++) {
+      if (roadSites >= 10) {
+        trace.log('we have 10 road sites, stop adding', {i, roadSites});
+        return;
+      }
+
+      const pos = path[i];
+      const road = pos.lookFor(LOOK_STRUCTURES).find((s) => {
+        return s.structureType === STRUCTURE_ROAD;
+      });
+
+      if (road) {
+        trace.log('road found', {road});
+        continue;
+      }
+
+      const sites = pos.lookFor(LOOK_CONSTRUCTION_SITES);
+      if (sites.length) {
+        const roadSite = sites.find((s) => {
+          return s.structureType === STRUCTURE_ROAD;
+        });
+
+        if (roadSite) {
+          trace.log('site found', {roadSite});
+          roadSites++;
+          continue;
+        }
+      }
+
+      const result = pos.createConstructionSite(STRUCTURE_ROAD);
+      trace.log('building road', {result});
+      roadSites++;
+    }
   }
 }
