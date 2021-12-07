@@ -129,7 +129,7 @@ export class CentralPlanning {
     trace.log('adding colony', {colonyId, isPublic, origin, automated});
 
     this.colonyConfigs[colonyId] = {
-      id: colonyId,
+      id: `${colonyId}`,
       isPublic: isPublic,
       primary: colonyId,
       rooms: [colonyId],
@@ -158,6 +158,8 @@ export class CentralPlanning {
       let numDesired = desiredRemotes(level);
       const numCurrent = colonyConfig.rooms.length - 1;
       if (numDesired <= numCurrent) {
+        colonyConfig.rooms = colonyConfig.rooms.slice(0, numDesired + 1);
+
         trace.log('remote mining not needed', {numDesired, numCurrent});
         return;
       }

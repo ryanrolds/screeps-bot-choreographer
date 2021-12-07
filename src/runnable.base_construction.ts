@@ -67,14 +67,14 @@ const layouts: BaseLayout[] = [
       ['R', 'X', 'R', 'S', 'R', 'X', 'R'],
       ['X', 'R', 'E', 'R', 'E', 'R', 'X'],
       ['X', 'X', 'R', 'X', 'R', 'R', 'R'],
-      ['X', 'E', 'R', 'E', 'R', 'R', 'K'],
+      ['X', 'E', 'R', 'E', 'R', 'R', ' '],
       ['X', 'E', 'R', 'X', 'R', 'R', 'R'],
       ['R', 'R', 'E', 'R', 'E', 'R', 'R'],
       ['X', 'E', 'R', 'E', 'R', 'X', 'X'],
     ]
   },
   { // RCL5
-    origin: {x: 3, y: 7},
+    origin: {x: 3, y: 6},
     parking: {x: 6, y: 10},
     buildings: [
       ['E', 'E', 'R', 'E', 'R', 'E', 'E'],
@@ -86,7 +86,7 @@ const layouts: BaseLayout[] = [
       ['R', 'X', 'R', 'S', 'R', 'L', 'R'],
       ['X', 'R', 'E', 'R', 'T', 'R', 'X'],
       ['X', 'X', 'R', 'X', 'R', 'R', 'R'],
-      ['E', 'E', 'R', 'E', 'R', 'R', 'K'],
+      ['E', 'E', 'R', 'E', 'R', 'R', ' '],
       ['E', 'E', 'R', 'X', 'R', 'R', 'R'],
       ['R', 'R', 'E', 'R', 'E', 'R', 'R'],
       ['E', 'E', 'R', 'E', 'R', 'E', 'E'],
@@ -106,7 +106,7 @@ const layouts: BaseLayout[] = [
       ['.', '.', '.', 'R', 'M', 'R', 'S', 'R', 'L', 'R', '.', '.', '.'],
       ['.', '.', 'R', 'X', 'R', 'E', 'R', 'T', 'R', 'X', 'R', '.', '.'],
       ['.', '.', 'E', 'X', 'X', 'R', 'X', 'R', 'R', 'R', 'R', '.', '.'],
-      ['.', '.', 'E', 'E', 'E', 'R', 'E', 'R', 'R', 'K', 'R', '.', '.'],
+      ['.', '.', 'E', 'E', 'E', 'R', 'E', 'R', 'R', ' ', 'R', '.', '.'],
       ['.', '.', 'R', 'E', 'E', 'R', 'X', 'R', 'R', 'R', 'R', '.', '.'],
       ['.', '.', 'E', 'R', 'R', 'E', 'R', 'E', 'R', 'R', 'E', '.', '.'],
       ['.', '.', '.', 'E', 'E', 'R', 'E', 'R', 'E', 'E', '.', '.', '.'],
@@ -127,7 +127,7 @@ const layouts: BaseLayout[] = [
       ['.', 'R', 'E', 'R', 'M', 'R', 'S', 'R', 'L', 'R', 'E', 'R', '.'],
       ['.', 'E', 'R', 'X', 'R', 'T', 'R', 'T', 'R', 'E', 'R', 'E', '.'],
       ['.', 'R', 'E', 'X', 'X', 'R', 'X', 'R', 'R', 'R', 'R', 'R', '.'],
-      ['.', 'R', 'E', 'E', 'E', 'R', 'E', 'R', 'R', 'K', 'R', 'R', '.'],
+      ['.', 'R', 'E', 'E', 'E', 'R', 'E', 'R', 'R', ' ', 'R', 'R', '.'],
       ['.', 'E', 'R', 'E', 'E', 'R', 'P', 'R', 'R', 'R', 'R', 'E', '.'],
       ['.', '.', 'E', 'R', 'R', 'E', 'R', 'E', 'R', 'R', 'E', '.', '.'],
       ['.', '.', '.', 'E', 'E', 'R', 'E', 'R', 'E', 'E', '.', '.', '.'],
@@ -146,7 +146,7 @@ const layouts: BaseLayout[] = [
       ['E', 'R', 'E', 'B', 'B', 'R', 'T', 'R', 'B', 'B', 'E', 'R', 'E'],
       ['R', 'E', 'R', 'B', 'R', 'T', 'R', 'T', 'R', 'B', 'R', 'E', 'R'],
       ['E', 'R', 'E', 'R', 'M', 'R', 'S', 'R', 'L', 'R', 'P', 'R', 'E'],
-      ['R', 'E', 'R', 'B', 'R', 'T', 'R', 'T', 'R', 'X', 'R', 'E', 'R'],
+      ['R', 'E', 'R', 'B', 'R', 'T', 'R', 'T', 'R', ' ', 'R', 'E', 'R'],
       ['E', 'R', 'E', 'B', 'B', 'R', 'T', 'R', 'R', 'R', 'R', 'R', 'E'],
       ['E', 'R', 'E', 'E', 'N', 'R', 'E', 'R', 'R', 'K', 'R', 'R', 'E'],
       ['.', 'E', 'R', 'E', 'E', 'R', 'P', 'R', 'R', 'R', 'R', 'E', '.'],
@@ -164,7 +164,6 @@ const PARKING = 'parking';
 const buildingCodes = {
   'X': EMPTY,
   '.': ANY,
-  'K': PARKING,
   'R': STRUCTURE_ROAD,
   'P': STRUCTURE_SPAWN,
   'E': STRUCTURE_EXTENSION,
@@ -261,11 +260,6 @@ export default class BaseConstructionRunnable {
         }
 
         const pos = getConstructionPosition({x, y}, origin, layout);
-
-        if (buildingCodes[code] === PARKING) {
-          // TODO notify of parking
-          continue;
-        }
 
         const structure = pos.lookFor(LOOK_STRUCTURES)[0];
         if (structure) {

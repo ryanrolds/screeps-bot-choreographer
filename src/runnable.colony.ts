@@ -24,8 +24,9 @@ export default class ColonyRunnable {
       return terminate();
     }
 
-    const room = Game.rooms[colony.primary];
+    trace.notice("colony config", {colony});
 
+    const room = Game.rooms[colony.primary];
     if (!room) {
       return sleeping(20);
     }

@@ -25,15 +25,15 @@ export class ColonyManager {
     trace = trace.as('colony_manager_run');
 
     // If any defined colonies don't exist, run it
-    // TODO switch to central planning
     const colonies = kingdom.getPlanner().getColonyConfigs();
     colonies.forEach((colony) => {
-      const hasProcess = this.scheduler.hasProcess(colony.id);
+      const colonyProcessId = `colony_${colony.id}`;
+      const hasProcess = this.scheduler.hasProcess(colonyProcessId);
       if (hasProcess) {
         return;
       }
 
-      this.scheduler.registerProcess(new Process(colony.id, 'colony', Priorities.CRITICAL,
+      this.scheduler.registerProcess(new Process(colonyProcessId, 'colony', Priorities.CRITICAL,
         new ColonyRunnable(colony.id, this.scheduler)));
     });
 
