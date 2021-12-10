@@ -164,17 +164,30 @@ export default class TowerRunnable {
     // Repair damaged secondary structures
     if (!this.repairTarget && this.orgRoom.damagedSecondaryStructures.length) {
       let nextRepairTarget = null;
-      do {
-        let id = this.orgRoom.damagedSecondaryStructures.shift();
-        nextRepairTarget = Game.getObjectById(id);
-      } while (!nextRepairTarget && this.orgRoom.damagedSecondaryStructures.length);
+      let nextReapirTargetId = null;
+      for (let i = 0; i < this.orgRoom.damagedSecondaryStructures.length; i++) {
+        nextReapirTargetId = this.orgRoom.damagedSecondaryStructures[0];
+
+        trace.notice('damaged secondary structure', {nextReapirTargetId, length: this.orgRoom.damagedSecondaryStructures.length});
+
+        nextRepairTarget = Game.getObjectById(nextReapirTargetId);
+        if (!nextRepairTarget) {
+          trace.notice('damaged secondary structure not found', {nextReapirTargetId});
+          continue;
+        }
+
+        trace.notice('damaged secondary structure', {nextReapirTargetId, nextRepairTarget});
+        break;
+      }
 
       if (nextRepairTarget) {
-        if (nextRepairTarget.hitsMax - nextRepairTarget.hits < 100000) {
+        if (nextRepairTarget.hitsMax - nextRepairTarget.hits < 100000 && this.orgRoom.damagedSecondaryStructures.length) {
           this.repairTarget = this.orgRoom.damagedSecondaryStructures.shift();
         } else {
-          this.repairTarget = this.orgRoom.damagedSecondaryStructures[0];
+          this.repairTarget = nextReapirTargetId;
         }
+
+        trace.notice('repair damaged secondary target', {target: this.repairTarget});
         this.repairTTL = 10;
       }
     }
@@ -194,7 +207,7 @@ export default class TowerRunnable {
 
     const target = Game.getObjectById(this.repairTarget);
     if (!target) {
-      trace.log('repair target missing', {target});
+      trace.error('repair target missing', {target});
       this.repairTarget = null;
       this.repairTTL = 0;
       trace.end();
@@ -202,7 +215,7 @@ export default class TowerRunnable {
     }
 
     const result = tower.repair(target);
-    trace.log('repair', {target, result, ttl: this.repairTTL});
+    trace.notice('repair', {target, result, ttl: this.repairTTL});
 
     trace.end();
 

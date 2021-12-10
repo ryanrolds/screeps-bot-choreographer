@@ -145,7 +145,7 @@ export default class WarManager {
     const roomEntry = kingdom.getScribe().getRoomById(this.targetRoom);
 
     // Send war parties if there are important structures
-    if (roomEntry.numKeyStructures > 0) {
+    if (roomEntry && roomEntry.numKeyStructures > 0) {
       // Locate nearby colonies and spawn war parties
       kingdom.getColonies().forEach((colony) => {
         // TODO check for path to target
