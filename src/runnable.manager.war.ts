@@ -82,7 +82,8 @@ export default class WarManager {
     }
 
     trace.log("processing events", {length: topic.length});
-    topic.forEach((event) => {
+    let event = null;
+    while (event = topic.shift()) {
       switch (event.details.status) {
         case AttackStatus.REQUESTED:
           trace.notice("requested", {target: event.details.target});
@@ -97,9 +98,11 @@ export default class WarManager {
         default:
           throw new Error(`invalid status ${event.details.status}`);
       }
-    });
+    }
 
-    trace.notice(`targets: ${targets}`);
+    trace.notice(`targets: ${targets} `);
+
+    // TODO spread targets across colonies
     this.targets = targets;
 
     if (!this.targetRoom && this.targets.length) {
@@ -222,14 +225,14 @@ export default class WarManager {
   }
 
   createNewWarParty(kingdom: Kingdom, colony: Colony, trace: Tracer) {
-    const flagId = `rally_${colony.primaryRoomId}`;
+    const flagId = `rally_${colony.primaryRoomId} `;
     const flag = Game.flags[flagId];
     if (!flag) {
-      trace.log(`not creating war party, no rally flag (${flagId})`);
+      trace.log(`not creating war party, no rally flag(${flagId})`);
       return null;
     }
 
-    const partyId = `war_party_${this.targetRoom}_${colony.primaryRoomId}_${Game.time}`;
+    const partyId = `war_party_${this.targetRoom}_${colony.primaryRoomId}_${Game.time} `;
     trace.notice("creating war party", {target: this.targetRoom, partyId, flagId});
     const warParty = this.createAndScheduleWarParty(colony, partyId, this.targetRoom,
       Phase.PHASE_MARSHAL, flag.pos, flag.name, trace);

@@ -295,6 +295,11 @@ export default class ReactorRunnable {
   }
 
   produceUpdateStatus(trace: Tracer, labs: StructureLab[], task) {
+    if (!task) {
+      trace.log('no task', {});
+      return;
+    }
+
     const resource = task?.details[MEMORY.REACTOR_OUTPUT] || null;
     const phase = task[MEMORY.TASK_PHASE] || null;
     const amount = labs[0]?.store.getUsedCapacity(task?.details[MEMORY.REACTOR_OUTPUT]) || 0;

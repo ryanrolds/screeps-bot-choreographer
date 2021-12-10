@@ -146,6 +146,11 @@ export default class BoosterRunnable {
       toUnload: toUnLoad.length,
       toLoad: toLoad.length,
       boostedCreeps: (colony.getCreeps() as Creep[]).reduce((total, creep) => {
+        // stale creeps are possible
+        if (!Game.creeps[creep.name]) {
+          return;
+        }
+
         if (_.find(creep.body, part => {return !!part.boost;})) {
           return total + 1;
         }
