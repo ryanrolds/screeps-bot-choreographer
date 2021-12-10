@@ -84,47 +84,32 @@ export default class WarManager {
     }
 
     trace.log("processing events", {length: topic.length});
-
-    topic.forEach((event) => {
+    let event = null;
+    while (event = topic.shift()) {
       switch (event.details.status) {
         case AttackStatus.REQUESTED:
+          trace.notice("requested", {target: event.details.target});
           targets.push(event.details.roomId);
           break;
         case AttackStatus.COMPLETED:
+          trace.notice('attack completed', {roomId: event.details.roomId});
           kingdom.getScribe().clearRoom(this.targetRoom);
           targets = targets.filter(target => target !== this.targetRoom);
+          this.targetRoom = null;
           break;
         default:
           throw new Error(`invalid status ${event.details.status}`);
       }
-    });
+    }
 
-    trace.notice(`targets: ${targets}`);
+    trace.notice(`targets: ${targets} `);
 
-    // ================================================================
-    // In process of moving to multiple targets
+    // TODO spread targets across colonies
+    this.targets = targets;
 
-    let request: any = null;
-    while (request = kingdom.getNextRequest(TOPICS.ATTACK_ROOM)) {
-      trace.log("attack room request", {request});
-
-      switch (request.details.status) {
-        case AttackStatus.REQUESTED:
-          if (!this.targetRoom) {
-            trace.notice("setting targeting room", {targetRoom: this.targetRoom});
-            this.targetRoom = request.details.roomId;
-          }
-          break;
-        case AttackStatus.COMPLETED:
-          if (this.targetRoom === request.details.roomId) {
-            trace.notice('attack completed', {targetRoom: this.targetRoom});
-            kingdom.getScribe().clearRoom(this.targetRoom);
-            this.targetRoom = null;
-          }
-          break;
-        default:
-          throw new Error(`invalid status ${request.details.status}`);
-      }
+    if (!this.targetRoom && this.targets.length) {
+      trace.notice("setting target room", {target: this.targets[0]});
+      this.targetRoom = this.targets[0];
     }
   }
 
@@ -155,7 +140,7 @@ export default class WarManager {
     trace.log("targets by colony", {targetsByColony});
 
     // Send war parties if there are important structures
-    if (roomEntry.numKeyStructures > 0) {
+    if (roomEntry && roomEntry.numKeyStructures > 0) {
       // Locate nearby colonies and spawn war parties
       kingdom.getPlanner().getColonyConfigs().forEach((colonyConfig) => {
         // TODO check for path to target
@@ -253,7 +238,7 @@ export default class WarManager {
     const flagId = `rally_${colonyConfig.primary}`;
     const flag = Game.flags[flagId];
     if (!flag) {
-      trace.log(`not creating war party, no rally flag (${flagId})`);
+      trace.log(`not creating war party, no rally flag(${flagId})`);
       return null;
     }
 

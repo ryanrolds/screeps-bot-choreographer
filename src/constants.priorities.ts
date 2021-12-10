@@ -46,16 +46,16 @@ export const HAUL_NUKER = 0.8;
 
 // Reactions
 export const REACTION_PRIORITIES = {
-  G: 11,
-  OH: 12,
+  G: 12,
+  OH: 13,
   ZK: 9,
   UL: 9,
   LH: 1, // repair/build
   ZH: 6, // dismantle
   KH: 4, // carry
   UH: 6, // attack
-  GH: 13, // upgrade controller
-  LO: 11, // heal
+  GH: 14, // upgrade controller
+  LO: 9, // heal
   ZO: 1, // fatigue
   KO: 6, // ranged attack
   UO: 1, // harvest
@@ -64,8 +64,8 @@ export const REACTION_PRIORITIES = {
   KH2O: 5, // carry
   ZH2O: 6, // dismantle
   UH2O: 7, // attack
-  GH2O: 14, // upgrade controller
-  LHO2: 12, // heal
+  GH2O: 15, // upgrade controller
+  LHO2: 10, // heal
   UHO2: 1, // harvest
   KHO2: 6, // ranged attack
   ZHO2: 1, // fatigue
@@ -74,8 +74,8 @@ export const REACTION_PRIORITIES = {
   XKH2O: 6, // carry
   XZH2O: 8, // dismantle
   XUH2O: 8, // attack
-  XGH2O: 15, // upgrade controller
-  XLHO2: 13, // heal
+  XGH2O: 16, // upgrade controller
+  XLHO2: 11, // heal
   XUHO2: 1, // harvest
   XKHO2: 7, // ranged attack
   XZHO2: 1, // fatigue
