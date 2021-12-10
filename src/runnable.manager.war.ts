@@ -85,11 +85,14 @@ export default class WarManager {
     topic.forEach((event) => {
       switch (event.details.status) {
         case AttackStatus.REQUESTED:
+          trace.notice("requested", {target: event.details.target});
           targets.push(event.details.roomId);
           break;
         case AttackStatus.COMPLETED:
+          trace.notice('attack completed', {roomId: event.details.roomId});
           kingdom.getScribe().clearRoom(this.targetRoom);
           targets = targets.filter(target => target !== this.targetRoom);
+          this.targetRoom = null;
           break;
         default:
           throw new Error(`invalid status ${event.details.status}`);
@@ -97,31 +100,11 @@ export default class WarManager {
     });
 
     trace.notice(`targets: ${targets}`);
+    this.targets = targets;
 
-    // ================================================================
-    // In process of moving to multiple targets
-
-    let request: any = null;
-    while (request = kingdom.getNextRequest(TOPICS.ATTACK_ROOM)) {
-      trace.log("attack room request", {request});
-
-      switch (request.details.status) {
-        case AttackStatus.REQUESTED:
-          if (!this.targetRoom) {
-            trace.notice("setting targeting room", {targetRoom: this.targetRoom});
-            this.targetRoom = request.details.roomId;
-          }
-          break;
-        case AttackStatus.COMPLETED:
-          if (this.targetRoom === request.details.roomId) {
-            trace.notice('attack completed', {targetRoom: this.targetRoom});
-            kingdom.getScribe().clearRoom(this.targetRoom);
-            this.targetRoom = null;
-          }
-          break;
-        default:
-          throw new Error(`invalid status ${request.details.status}`);
-      }
+    if (!this.targetRoom && this.targets.length) {
+      trace.notice("setting target room", {target: this.targets[0]});
+      this.targetRoom = this.targets[0];
     }
   }
 

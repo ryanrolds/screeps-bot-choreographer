@@ -168,15 +168,15 @@ export default class TowerRunnable {
       for (let i = 0; i < this.orgRoom.damagedSecondaryStructures.length; i++) {
         nextReapirTargetId = this.orgRoom.damagedSecondaryStructures[0];
 
-        trace.notice('damaged secondary structure', {nextReapirTargetId, length: this.orgRoom.damagedSecondaryStructures.length});
+        trace.log('damaged secondary structure', {nextReapirTargetId, length: this.orgRoom.damagedSecondaryStructures.length});
 
         nextRepairTarget = Game.getObjectById(nextReapirTargetId);
         if (!nextRepairTarget) {
-          trace.notice('damaged secondary structure not found', {nextReapirTargetId});
+          trace.log('damaged secondary structure not found', {nextReapirTargetId});
           continue;
         }
 
-        trace.notice('damaged secondary structure', {nextReapirTargetId, nextRepairTarget});
+        trace.log('damaged secondary structure', {nextReapirTargetId, nextRepairTarget});
         break;
       }
 
@@ -187,7 +187,7 @@ export default class TowerRunnable {
           this.repairTarget = nextReapirTargetId;
         }
 
-        trace.notice('repair damaged secondary target', {target: this.repairTarget});
+        trace.log('repair damaged secondary target', {target: this.repairTarget});
         this.repairTTL = 10;
       }
     }
@@ -215,7 +215,7 @@ export default class TowerRunnable {
     }
 
     const result = tower.repair(target);
-    trace.notice('repair', {target, result, ttl: this.repairTTL});
+    trace.log('repair', {target, result, ttl: this.repairTTL});
 
     trace.end();
 

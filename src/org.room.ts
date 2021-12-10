@@ -244,7 +244,7 @@ export default class OrgRoom extends OrgBase {
       });
 
       this.damagedSecondaryStructures = _.map(damagedSecondaryStructures, 'id');
-      trace.notice('damaged secondary structures', {
+      trace.log('damaged secondary structures', {
         room: this.id,
         defenseHitsLimit: this.defenseHitsLimit,
         damagedSecondaryStructures: this.damagedSecondaryStructures
