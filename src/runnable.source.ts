@@ -7,10 +7,10 @@ import * as TASKS from "./constants.tasks"
 import * as TOPICS from "./constants.topics"
 import {WORKER_HARVESTER, WORKER_MINER, WORKER_UPGRADER} from "./constants.creeps"
 import {PRIORITY_HARVESTER, PRIORITY_MINER, PRIORITY_UPGRADER} from "./constants.priorities";
-import * as PRIORITIES from "./constants.priorities"
 import {Colony} from './org.colony';
 import {thread, ThreadFunc} from "./os.thread";
-import {AI} from "./lib.ai";
+import {FindPathPolicy, getPath} from "./lib.pathing";
+import {AllowedCostMatrixTypes} from "./lib.costmatrix_cache";
 const {creepIsFresh} = require('./behavior.commute');
 
 const STRUCTURE_TTL = 50;
@@ -19,6 +19,28 @@ const REQUEST_WORKER_TTL = 50;
 const REQUEST_HAULING_TTL = 20;
 const ROADS_TTL = 250;
 const CONTAINER_TTL = 250;
+
+export const roadPolicy: FindPathPolicy = {
+  room: {
+    avoidHostileRooms: true,
+    avoidFriendlyRooms: false,
+    avoidRoomsWithKeepers: true,
+    avoidRoomsWithTowers: false,
+    avoidUnloggedRooms: false,
+    sameRoomStatus: true,
+    costMatrixType: AllowedCostMatrixTypes.SOURCE_ROAD,
+  },
+  destination: {
+    range: 1,
+  },
+  path: {
+    allowIncomplete: true,
+    maxSearchRooms: 12,
+    maxOps: 5000,
+    maxPathRooms: 6,
+    ignoreCreeps: true,
+  },
+};
 
 export default class SourceRunnable {
   id: string;
@@ -411,10 +433,14 @@ export default class SourceRunnable {
 
     trace.log('building roads', {colonyConfig, colonyPos, source: source.pos});
 
+    const [pathResult, details] = getPath(kingdom, colonyPos, source.pos, roadPolicy, trace);
+
+    /*
     const pathResult = PathFinder.search(colonyPos, {pos: source.pos, range: 1}, {
       plainCost: 1,
       swampCost: 1,
     });
+    */
 
     trace.log('path found', {colonyPos, source: source.pos, pathResult});
 

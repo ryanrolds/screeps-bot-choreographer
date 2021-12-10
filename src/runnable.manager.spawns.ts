@@ -163,7 +163,7 @@ export default class SpawnManager {
 
         const resources = this.orgRoom.getColony().getReserveResources()
         const reserveEnergy = resources[RESOURCE_ENERGY] || 0;
-        if (reserveEnergy < 300000) {
+        if (reserveEnergy < 100000) {
           trace.log('reserve energy too low, dont handle requests from other colonies', {reserveEnergy});
           return;
         }

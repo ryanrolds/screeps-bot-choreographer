@@ -12,6 +12,7 @@ import {commonPolicy} from "./lib.pathing_policies";
 const MAX_POSITION_TTL = 5;
 const MEMORY_MOVE_POS_TTL = 'move_pos_ttl';
 const MEMORY_MOVE_PREV_POS = 'move_prev_pos';
+const MEMORY_MOVE_STUCK_COUNT = 'move_stuck_count';
 
 const PATH_ORIGIN_KEY = 'path_origin_id';
 const PATH_DESTINATION_KEY = 'path_dest_key';
@@ -91,6 +92,12 @@ export const setDestination = (creep, destinationId, roomId = null, shardName = 
 };
 
 export const isStuck = (creep) => {
+  const wasStuck = creep.memory[MEMORY_MOVE_STUCK_COUNT] || 0;
+  if (wasStuck > 0) {
+    creep.memory[MEMORY_MOVE_STUCK_COUNT] = wasStuck - 1;
+    return true;
+  }
+
   let prevPos = creep.memory[MEMORY_MOVE_PREV_POS] || null;
   if (prevPos != null) {
     prevPos = new RoomPosition(prevPos.x, prevPos.y, prevPos.roomName);
@@ -107,6 +114,7 @@ export const isStuck = (creep) => {
     // Creep is stuck, clear cached path, and get new path factoring in creeps
     if (creep.memory[MEMORY_MOVE_POS_TTL] > MAX_POSITION_TTL) {
       clearMovementCache(creep);
+      creep.memory[MEMORY_MOVE_STUCK_COUNT] = 5;
       return true;
     }
   } else {

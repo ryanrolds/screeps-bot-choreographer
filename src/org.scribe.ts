@@ -6,8 +6,6 @@ import {thread, ThreadFunc} from './os.thread';
 import {Tracer} from './lib.tracing';
 import {NumericDictionary} from 'lodash';
 
-const COST_MATRIX_TTL = 1500;
-const COST_DEFENDER_NOT_BASE = 6;
 const JOURNAL_ENTRY_TTL = 250;
 const MAX_JOURAL_TTL = 500;
 const WRITE_MEMORY_INTERVAL = 50;
@@ -80,7 +78,7 @@ export class Scribe extends OrgBase {
   constructor(parent, trace) {
     super(parent, 'scribe', trace);
 
-    this.journal = Memory['scribe'] || {
+    this.journal = (Memory as any).scribe || {
       rooms: {},
       defenderCostMatrices: {},
       colonyCostMatrices: {},
@@ -91,13 +89,15 @@ export class Scribe extends OrgBase {
   }
 
   writeMemory(trace: Tracer) {
+    trace.log('write_memory', {cpu: Game.cpu});
+
     if (Game.cpu.bucket < 1000) {
-      trace.notice('clearing journal from memory to reduce CPU load')
-      Memory['scribe'] = null;
+      trace.log('clearing journal from memory to reduce CPU load');
+      (Memory as any).scribe = null;
       return
     }
 
-    Memory['scribe'] = this.journal;
+    (Memory as any).scribe = this.journal;
   }
 
   update(trace) {

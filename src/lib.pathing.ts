@@ -314,7 +314,7 @@ const getRoomCallback = (kingdom: Kingdom, destRoom: string, policy: RoomPolicy,
       }
     }
 
-    const costMatrix = kingdom.getCostMatrixCache().getCostMatrix(roomName, policy.costMatrixType, trace)
+    const costMatrix = kingdom.getCostMatrixCache().getCostMatrix(kingdom, roomName, policy.costMatrixType, trace)
     if (typeof (costMatrix) !== 'boolean') {
       trace.log("cost matrix", {roomName, matrix: costMatrix.serialize()});
     }

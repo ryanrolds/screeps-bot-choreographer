@@ -4,8 +4,9 @@ import {Kingdom} from "./org.kingdom";
 import {AllowedCostMatrixTypes} from "./lib.costmatrix_cache";
 import {
   createCommonCostMatrix, createDefenderCostMatrix,
-  createPartyCostMatrix, createOpenSpaceMatrix
+  createPartyCostMatrix, createOpenSpaceMatrix, createSourceRoadMatrix
 } from "./lib.costmatrix";
+import {AI} from "./lib.ai";
 
 
 export default class CostMatrixDebugger {
@@ -32,6 +33,7 @@ export default class CostMatrixDebugger {
   }
 
   debug(roomId: string, costMatrixType: AllowedCostMatrixTypes) {
+    const kingdom = global.AI.getKingdom();
     const trace = new Tracer('costmatrix_debugger_debug', {}, 0)
     trace.log('debug matrix', {roomId, costMatrixType})
 
@@ -46,6 +48,9 @@ export default class CostMatrixDebugger {
         break;
       case AllowedCostMatrixTypes.BASE_DEFENSE:
         costMatrix = createDefenderCostMatrix(roomId, trace);
+        break;
+      case AllowedCostMatrixTypes.SOURCE_ROAD:
+        costMatrix = createSourceRoadMatrix(kingdom, roomId, trace);
         break;
       case AllowedCostMatrixTypes.OPEN_SPACE:
         [costMatrix] = createOpenSpaceMatrix(roomId, trace);

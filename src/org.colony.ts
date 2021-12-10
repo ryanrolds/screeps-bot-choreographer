@@ -19,7 +19,7 @@ import {Kingdom} from './org.kingdom';
 import {ColonyConfig} from './config';
 import {Tracer} from './lib.tracing';
 
-const MAX_EXPLORERS = 1;
+const MAX_EXPLORERS = 3;
 
 const UPDATE_ROOM_TTL = 1;
 const UPDATE_CREEPS_TTL = 1;
@@ -28,7 +28,7 @@ const UPDATE_HAULERS_TTL = 5;
 const REQUEST_MISSING_ROOMS_TTL = 25;
 const REQUEST_HAULER_TTL = 20;
 const REQUEST_DEFENDER_TTL = 5;
-const REQUEST_EXPLORER_TTL = 50;
+const REQUEST_EXPLORER_TTL = 200;
 
 export class Colony extends OrgBase {
   topics: Topics;
@@ -58,6 +58,7 @@ export class Colony extends OrgBase {
   defenders: Creep[];
 
   pidDesiredHaulers: number;
+  pidSetup: boolean;
 
   threadUpdateOrg: ThreadFunc;
   threadUpdateCreeps: ThreadFunc;
@@ -82,9 +83,7 @@ export class Colony extends OrgBase {
     this.origin = config.origin;
 
     this.pidDesiredHaulers = 0;
-    if (this.primaryRoom) {
-      PID.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, 0, 0.2, 0.001, 0);
-    }
+    this.pidSetup = false;
 
     this.roomMap = {};
     this.primaryOrgRoom = null;
@@ -161,6 +160,7 @@ export class Colony extends OrgBase {
 
     setupTrace.end();
   }
+
   update(trace) {
     const updateTrace = trace.begin('update');
 
@@ -179,6 +179,12 @@ export class Colony extends OrgBase {
     numHaulTasks -= this.idleHaulers;
 
     if (this.primaryRoom) {
+      if (!this.pidSetup) {
+        trace.log('setting up pid', {pidDesiredHaulers: this.pidDesiredHaulers});
+        this.pidSetup = true;
+        PID.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, 0, 0.2, 0.001, 0);
+      }
+
       const updateHaulerPID = updateTrace.begin('update_hauler_pid');
       this.pidDesiredHaulers = PID.update(this.primaryRoomId, this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS,
         numHaulTasks, Game.time, updateHaulerPID);
@@ -205,6 +211,7 @@ export class Colony extends OrgBase {
 
     updateTrace.end();
   }
+
   process(trace: Tracer) {
     const processTrace = trace.begin('process');
 

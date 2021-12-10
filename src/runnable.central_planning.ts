@@ -1,7 +1,7 @@
 import {ColonyConfig, KingdomConfig, ShardConfig} from "./config";
-import {AI} from "./lib.ai";
+import {createOpenSpaceMatrix} from "./lib.costmatrix";
+import {AllowedCostMatrixTypes} from "./lib.costmatrix_cache";
 import {Tracer} from "./lib.tracing";
-import {Colony} from "./org.colony";
 import {Kingdom} from "./org.kingdom";
 import {Process, RunnableResult, running, sleeping} from "./os.process";
 import {Priorities, Scheduler} from "./os.scheduler";
@@ -10,6 +10,8 @@ import {ColonyManager} from "./runnable.manager.colony";
 
 const RUN_TTL = 20;
 const REMOTE_MINING_TTL = 20;
+const EXPAND_TTL = 20;
+const MIN_DISTANCE_FOR_ORIGIN = 7;
 
 export class CentralPlanning {
   private config: KingdomConfig;
@@ -17,8 +19,9 @@ export class CentralPlanning {
   private username: string;
   private shards: string[];
   private colonyConfigs: Record<string, ColonyConfig>;
-  private remoteMiningThread: ThreadFunc;
   private roomByColonyId: Record<string, string>;
+  private remoteMiningThread: ThreadFunc;
+  private expandThread: ThreadFunc;
 
   constructor(config: KingdomConfig, scheduler: Scheduler, trace: Tracer) {
     this.config = config;
@@ -49,6 +52,7 @@ export class CentralPlanning {
     });
 
     this.remoteMiningThread = thread('remote_mining', REMOTE_MINING_TTL)(this.remoteMining.bind(this));
+    this.expandThread = thread('expand', EXPAND_TTL)(this.expand.bind(this));
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
@@ -60,7 +64,10 @@ export class CentralPlanning {
         Priorities.CRITICAL, colonyManager));
     }
 
-    this.remoteMiningThread(trace, kingdom)
+    trace.notice('running central planning', {configs: this.getColonyConfigs()});
+
+    this.remoteMiningThread(trace, kingdom);
+    this.expandThread(trace, kingdom);
 
     return sleeping(RUN_TTL);
   }
@@ -126,7 +133,7 @@ export class CentralPlanning {
       return;
     }
 
-    trace.log('adding colony', {colonyId, isPublic, origin, automated});
+    trace.notice('adding colony', {colonyId, isPublic, origin, automated});
 
     this.colonyConfigs[colonyId] = {
       id: `${colonyId}`,
@@ -141,7 +148,142 @@ export class CentralPlanning {
   }
 
   removeColony(colonyId: string, trace: Tracer) {
+    trace.notice('removing colony', {colonyId});
+
+    const colonyConfig = this.getColonyConfig(colonyId);
+    const rooms = colonyConfig.rooms;
+    rooms.forEach((roomName) => {
+      this.removeRoom(roomName, trace);
+    });
+
     delete this.colonyConfigs[colonyId];
+  }
+
+  private expand(trace: Tracer, kingdom: Kingdom) {
+    const colonyConfigs = this.getColonyConfigList();
+    const numColonies = colonyConfigs.length;
+    const maxColonies = Game.gcl.level;
+
+    if (maxColonies <= numColonies) {
+      trace.notice('max colonies reached', {maxColonies, numColonies});
+      return;
+    }
+
+    let candidates: Record<string, boolean> = {};
+    let claimed: Record<string, boolean> = {};
+    let dismissed: Record<string, boolean> = {};
+
+    colonyConfigs.forEach((colonyConfig) => {
+      claimed[colonyConfig.primary] = true;
+      trace.log('adding colony claims', {colonyConfig});
+      // Build map of claimed rooms
+      colonyConfig.rooms.forEach((roomName) => {
+        claimed[roomName] = true;
+      });
+
+      trace.log('claimed rooms', {claimedRooms: _.keys(claimed)});
+
+      const colonyCandidates: Record<string, boolean> = {};
+
+      let nextPass = [colonyConfig.primary];
+      for (let i = 0; i <= 3; i++) {
+        const found = [];
+
+        nextPass.forEach((roomName) => {
+          _.forEach(Game.map.describeExits(roomName), (adjRoom, key) => {
+            // Check room in next pass
+            found.push(adjRoom);
+
+            const roomEntry = kingdom.getScribe().getRoomById(roomName);
+            if (!roomEntry) {
+              trace.log('no room entry', {roomName});
+              return;
+            }
+
+            if (!roomEntry.controller) {
+              trace.log('dismiss candidate, no controller', {roomName, roomEntry});
+              return;
+            }
+
+            if (!roomEntry.controller.pos) {
+              trace.log('dismiss candidate, no controller position', {roomName, roomEntry});
+              return;
+            }
+
+            if (roomEntry.controller.owner) {
+              trace.log('dismissed room owned', {roomName, roomEntry});
+              claimed[roomName] = true;
+              return;
+            }
+
+            if (dismissed[adjRoom]) {
+              trace.log('room already dismissed', {roomName, adjRoom});
+              return;
+            }
+
+            if (claimed[adjRoom]) {
+              trace.log('room is claimed', {roomName, adjRoom});
+              return;
+            }
+
+            // If previous room was claimed, do not build as this room is too close to another colony
+            if (claimed[roomName]) {
+              dismissed[adjRoom] = true;
+              trace.log('dismissing room, parent claimed', {roomName, adjRoom});
+              return;
+            }
+
+            trace.log('adding room to candidates', {roomName, adjRoom});
+            colonyCandidates[adjRoom] = true;
+          });
+        });
+
+        nextPass = found;
+      }
+
+      candidates = _.assign(candidates, colonyCandidates);
+    });
+
+    let candidateList = _.keys(candidates);
+    const claimedList = _.keys(claimed);
+    const dismissedList = _.keys(dismissed);
+
+    trace.log('claimed', {claimedList});
+    trace.log('dismissed', {dismissedList});
+    trace.log('pre-filter candidates', {candidateList});
+
+    candidateList = _.sortByOrder(candidateList,
+      (roomName) => {
+        const roomEntry = kingdom.getScribe().getRoomById(roomName);
+        if (!roomEntry) {
+          trace.error('no room entry', {roomName});
+          return 0;
+        }
+
+        trace.log('room source', {roomName, numSources: roomEntry.numSources, roomEntry});
+        return roomEntry.numSources;
+      },
+      ['desc']
+    );
+
+    trace.log('sorted candidates', {candidateList, claimedList});
+
+    if (candidateList.length < 5) {
+      trace.notice('not enough candidates', {candidateList});
+      return;
+    }
+
+    for (let i = 0; i < candidateList.length; i++) {
+      const roomName = candidateList[i];
+      const [costMatrix, distance, origin] = createOpenSpaceMatrix(roomName, trace);
+      trace.log('open space matrix', {roomName, distance, origin});
+
+      if (distance >= MIN_DISTANCE_FOR_ORIGIN) {
+        trace.log('selected room, adding colony', {roomName, distance, origin});
+        this.addColonyConfig(roomName, false, origin, true, trace);
+        return;
+      }
+    }
   }
 
   private remoteMining(trace: Tracer, kingdom: Kingdom) {
@@ -168,7 +310,6 @@ export class CentralPlanning {
         const exits = Game.map.describeExits(roomName);
         return acc.concat(Object.values(exits));
       }, [] as string[]);
-
 
       let adjacentRooms: string[] = _.uniq(exits);
 
@@ -248,6 +389,12 @@ export class CentralPlanning {
     colonyConfig.rooms.push(roomName);
     this.roomByColonyId[roomName] = colonyId;
   }
+
+  removeRoom(roomName: string, trace: Tracer) {
+    const colonyConfig = this.getColonyConfigByRoom(roomName);
+    colonyConfig.rooms = _.without(colonyConfig.rooms, roomName);
+    delete this.roomByColonyId[roomName];
+  }
 }
 
 function desiredRemotes(level: number): number {
@@ -255,19 +402,19 @@ function desiredRemotes(level: number): number {
   switch (level) {
     case 0:
     case 1:
-      break;
+      break; // 0
     case 2:
-      desiredRemotes = 2;
-      break;
     case 3:
-      desiredRemotes = 2;
-      break;
     case 4:
-      desiredRemotes = 3;
+      desiredRemotes = 2;
       break;
     case 5:
     case 6:
+      // Increased size of haulers causes spawning bottleneck
+      desiredRemotes = 1;
+      break;
     case 7:
+      desiredRemotes = 3;
     case 8:
       desiredRemotes = 4;
       break;

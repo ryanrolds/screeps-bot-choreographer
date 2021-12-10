@@ -149,4 +149,8 @@ export class AI {
   getCostMatrixDebugger(): CostMatrixDebugger {
     return this.scheduler.getProcess('costmatrix_debugger').runnable as CostMatrixDebugger;
   }
+
+  getTracer(): Tracer {
+    return new Tracer('tracer', {}, Game.time);
+  }
 }

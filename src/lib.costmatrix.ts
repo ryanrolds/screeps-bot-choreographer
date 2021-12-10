@@ -1,7 +1,5 @@
-import {stringify} from "querystring";
 import {getRegion} from "./lib.flood_fill";
 import {Tracer} from "./lib.tracing";
-import {Colony} from "./org.colony";
 import {Kingdom} from "./org.kingdom";
 
 let costMatrix255 = null;
@@ -60,6 +58,78 @@ export const createCommonCostMatrix = (roomName: string, trace: Tracer): CostMat
 
   // TODO avoid sources
   // TODO avoid room controllers
+
+  return costMatrix;
+}
+
+export const createSourceRoadMatrix = (kingdom: Kingdom, roomName: string, trace: Tracer): CostMatrix => {
+  let costMatrix = new PathFinder.CostMatrix();
+
+  // If room is not visible then use empty matrix
+  const room = Game.rooms[roomName];
+  if (!room) {
+    trace.log('room not visible', {roomName: roomName});
+    return costMatrix;
+  }
+
+  const terrain = Game.map.getRoomTerrain(roomName);
+
+  const structures = room.find(FIND_STRUCTURES);
+  trace.log('found structures', {numStructures: structures.length});
+
+  structures.forEach(function (struct) {
+    if (struct.structureType === STRUCTURE_ROAD) {
+      // Favor roads over plain tiles
+      costMatrix.set(struct.pos.x, struct.pos.y, 1);
+    } else if (struct.structureType === STRUCTURE_CONTROLLER) {
+      const controllerPos = struct.pos;
+      for (let x = controllerPos.x - 2; x < controllerPos.x + 3; x++) {
+        for (let y = controllerPos.y - 2; y < controllerPos.y + 3; y++) {
+          if (x < 0 || x < 0 || y > 49 || y > 49 || terrain.get(x, y) === TERRAIN_MASK_WALL) {
+            continue;
+          }
+
+          costMatrix.set(x, y, 5);
+        }
+      }
+    } else if (struct.structureType !== STRUCTURE_CONTAINER &&
+      (struct.structureType !== STRUCTURE_RAMPART || !struct.my)) {
+      // Can't walk through non-walkable buildings
+      costMatrix.set(struct.pos.x, struct.pos.y, 255);
+    }
+  });
+
+  const sources = room.find(FIND_SOURCES);
+  trace.log('found sources', {numStructures: sources.length});
+
+  sources.forEach(function (source) {
+    const pos = source.pos;
+    for (let x = pos.x - 2; x < pos.x + 3; x++) {
+      for (let y = pos.y - 2; y < pos.y + 3; y++) {
+        if (x < 0 || x < 0 || y > 49 || y > 49 || terrain.get(x, y) === TERRAIN_MASK_WALL) {
+          continue;
+        }
+
+        costMatrix.set(x, y, 5);
+      }
+    }
+  });
+
+  const orgRoom = kingdom.getRoomColony(roomName)?.getRoomByID(roomName);
+  if (orgRoom) {
+    const parking = orgRoom.getParkingLot();
+    if (parking) {
+      for (let x = parking.pos.x - 2; x < parking.pos.x + 3; x++) {
+        for (let y = parking.pos.y - 2; y < parking.pos.y + 3; y++) {
+          if (x < 0 || x < 0 || y > 49 || y > 49 || terrain.get(x, y) === TERRAIN_MASK_WALL) {
+            continue;
+          }
+
+          costMatrix.set(x, y, 10);
+        }
+      }
+    }
+  }
 
   return costMatrix;
 }

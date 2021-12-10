@@ -1,6 +1,6 @@
 import {
   createCommonCostMatrix, createDefenderCostMatrix,
-  createPartyCostMatrix, createOpenSpaceMatrix
+  createPartyCostMatrix, createOpenSpaceMatrix, createSourceRoadMatrix
 } from "./lib.costmatrix";
 import {Tracer} from "./lib.tracing";
 import {Kingdom} from "./org.kingdom";
@@ -12,6 +12,7 @@ export enum AllowedCostMatrixTypes {
   COMMON = 'common',
   BASE_DEFENSE = 'base',
   OPEN_SPACE = 'open_space',
+  SOURCE_ROAD = ' source_road',
 };
 
 export class CostMatrixCacheItem {
@@ -27,7 +28,7 @@ export class CostMatrixCacheItem {
     this.time = 0;
   }
 
-  update(trace) {
+  update(kingdom: Kingdom, trace: Tracer) {
     let costMatrix: CostMatrix | boolean = new PathFinder.CostMatrix();
 
     trace.log('updating', {room: this.roomId, type: this.costMatrixType});
@@ -42,8 +43,12 @@ export class CostMatrixCacheItem {
       case AllowedCostMatrixTypes.BASE_DEFENSE:
         costMatrix = createDefenderCostMatrix(this.roomId, trace);
         break;
+      case AllowedCostMatrixTypes.SOURCE_ROAD:
+        costMatrix = createSourceRoadMatrix(kingdom, this.roomId, trace);
+        break;
       case AllowedCostMatrixTypes.OPEN_SPACE:
         [costMatrix] = createOpenSpaceMatrix(this.roomId, trace);
+        break;
       default:
         trace.error('unknown cost matrix type', {type: this.costMatrixType})
     }
@@ -52,14 +57,14 @@ export class CostMatrixCacheItem {
     this.time = Game.time;
   }
 
-  getCostMatrix(trace: Tracer) {
+  getCostMatrix(kingdom: Kingdom, trace: Tracer) {
     if (!this.costMatrix || this.isExpired(Game.time)) {
       trace.log('cache miss/expired', {
         room: this.roomId,
         type: this.costMatrixType,
         expired: this.isExpired(Game.time)
       });
-      this.update(trace);
+      this.update(kingdom, trace);
     } else {
       trace.log('cache hit', {room: this.roomId, type: this.costMatrixType})
     }
@@ -79,7 +84,7 @@ export class CostMatrixCache {
     this.rooms = {};
   }
 
-  getCostMatrix(roomId: string, costMatrixType: AllowedCostMatrixTypes, trace: Tracer): CostMatrix | boolean {
+  getCostMatrix(kingdom: Kingdom, roomId: string, costMatrixType: AllowedCostMatrixTypes, trace: Tracer): CostMatrix | boolean {
     trace.log('get cost matrix', {roomId, costMatrixType});
 
     if (!this.rooms[roomId]) {
@@ -94,7 +99,7 @@ export class CostMatrixCache {
       this.rooms[roomId][costMatrixType] = roomMatrix;
     }
 
-    return roomMatrix.getCostMatrix(trace);
+    return roomMatrix.getCostMatrix(kingdom, trace);
   }
 
   getStats() {
