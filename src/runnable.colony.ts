@@ -24,7 +24,7 @@ export default class ColonyRunnable {
       return terminate();
     }
 
-    trace.notice("colony config", {colony});
+    trace.log("colony config", {colony});
 
     const room = Game.rooms[colony.primary];
     if (!room) {

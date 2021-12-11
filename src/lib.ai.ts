@@ -14,6 +14,7 @@ import PathDebugger from './runnable.path_debugger';
 import CostMatrixDebugger from './runnable.costmatrix_debug';
 import {CentralPlanning} from './runnable.central_planning';
 import {EventBroker} from './lib.event_broker';
+import ExpandDebugger from './runnable.expand_debugger';
 
 let lastMemoryTick: number = 0;
 let lastMemory: Memory = null;
@@ -99,6 +100,12 @@ export class AI {
     this.scheduler.registerProcess(new Process(costMatrixDebuggerId, 'costmatrix_debugger',
       Priorities.DEBUG, costMatrixDebugger));
 
+    // Expansion debugger
+    const expandDebuggerId = 'expand_debugger';
+    const expandDebugger = new ExpandDebugger(expandDebuggerId, this.kingdom);
+    this.scheduler.registerProcess(new Process(expandDebuggerId, 'expand_debugger',
+      Priorities.DEBUG, expandDebugger));
+
     // ======= ========================
 
     trace.end();
@@ -148,6 +155,10 @@ export class AI {
 
   getCostMatrixDebugger(): CostMatrixDebugger {
     return this.scheduler.getProcess('costmatrix_debugger').runnable as CostMatrixDebugger;
+  }
+
+  getExpandDebugger(): ExpandDebugger {
+    return this.scheduler.getProcess('expand_debugger').runnable as ExpandDebugger;
   }
 
   getTracer(): Tracer {

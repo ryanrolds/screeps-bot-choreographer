@@ -20,11 +20,12 @@ export const selectHarvestSource = behaviorTree.leafNode(
     });
 
     const room = kingdom.getCreepRoom(creep);
-    if (!room) {
-      return FAILURE;
-    }
 
     sources = _.sortByAll(sources, (source) => {
+      if (!room) {
+        return 0;
+      }
+
       const numAssigned = _.filter(room.assignedCreeps, (creep) => {
         return creep.memory[MEMORY_SOURCE] === source.id;
       }).length;

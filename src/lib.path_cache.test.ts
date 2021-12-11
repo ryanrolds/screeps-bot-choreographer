@@ -57,6 +57,7 @@ describe('Path Cache', function () {
       neutral: [],
       avoid: [],
       kos: [],
+      maxColonies: 1,
     } as KingdomConfig;
     const scheduler = new Scheduler();
     const broker = new EventBroker();

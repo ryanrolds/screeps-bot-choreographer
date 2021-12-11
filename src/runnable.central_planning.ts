@@ -1,6 +1,7 @@
 import {ColonyConfig, KingdomConfig, ShardConfig} from "./config";
 import {createOpenSpaceMatrix} from "./lib.costmatrix";
 import {AllowedCostMatrixTypes} from "./lib.costmatrix_cache";
+import {pickExpansion} from "./lib.expand";
 import {Tracer} from "./lib.tracing";
 import {Kingdom} from "./org.kingdom";
 import {Process, RunnableResult, running, sleeping} from "./os.process";
@@ -30,16 +31,18 @@ export class CentralPlanning {
     this.colonyConfigs = {};
     this.roomByColonyId = {};
 
-    const memory = (Memory as any).shard || null;
-    if (memory) {
-      trace.notice('found shard memory', {memory});
+    this.shards.push(Game.shard.name);
+
+    const colonies = (Memory as any).colonies || null;
+    if (colonies) {
+      trace.notice('found shard memory', {colonies});
+      this.colonyConfigs = colonies;
     } else if (config && config.shards && config.shards[Game.shard.name]) {
       trace.notice('found shard config', {config});
+      this.colonyConfigs = config.shards[Game.shard.name];
     } else {
-      trace.error('no shard config found');
+      trace.notice('no shard config found, bootstraping?');
     }
-
-    this.shards.push(Game.shard.name);
 
     // Check for spawns without colonies
     Object.values(Game.spawns).forEach((spawn) => {
@@ -68,6 +71,8 @@ export class CentralPlanning {
 
     this.remoteMiningThread(trace, kingdom);
     this.expandThread(trace, kingdom);
+
+    (Memory as any).colonies = this.colonyConfigs;
 
     return sleeping(RUN_TTL);
   }
@@ -160,130 +165,38 @@ export class CentralPlanning {
   }
 
   private expand(trace: Tracer, kingdom: Kingdom) {
-    const colonyConfigs = this.getColonyConfigList();
+    const scribe = kingdom.getScribe();
+    const globalColonyCount = scribe.getGlobalColonyCount();
+    if (!globalColonyCount) {
+      trace.notice('do not know global colony count yet');
+      return;
+    }
+
+    const allowedColonies = Game.gcl.level;
+    if (globalColonyCount >= allowedColonies) {
+      trace.notice('max GCL colonies reached', {globalColonyCount, allowedColonies});
+      return;
+    }
+
+    const colonyConfigs = this.getColonyConfigs();
     const numColonies = colonyConfigs.length;
-    const maxColonies = Game.gcl.level;
-
-    if (maxColonies <= numColonies) {
-      trace.notice('max colonies reached', {maxColonies, numColonies});
+    const shardColonyMax = (this.config.maxColonies || 9999);
+    if (numColonies >= shardColonyMax) {
+      trace.notice('max config colonies reached', {numColonies, shardColonyMax});
       return;
     }
 
-    let candidates: Record<string, boolean> = {};
-    let claimed: Record<string, boolean> = {};
-    let dismissed: Record<string, boolean> = {};
-
-    colonyConfigs.forEach((colonyConfig) => {
-      claimed[colonyConfig.primary] = true;
-      trace.log('adding colony claims', {colonyConfig});
-      // Build map of claimed rooms
-      colonyConfig.rooms.forEach((roomName) => {
-        claimed[roomName] = true;
-      });
-
-      trace.log('claimed rooms', {claimedRooms: _.keys(claimed)});
-
-      const colonyCandidates: Record<string, boolean> = {};
-
-      let nextPass = [colonyConfig.primary];
-      for (let i = 0; i <= 3; i++) {
-        const found = [];
-
-        nextPass.forEach((roomName) => {
-          _.forEach(Game.map.describeExits(roomName), (adjRoom, key) => {
-            // Check room in next pass
-            found.push(adjRoom);
-
-            const roomEntry = kingdom.getScribe().getRoomById(roomName);
-            if (!roomEntry) {
-              trace.log('no room entry', {roomName});
-              return;
-            }
-
-            if (!roomEntry.controller) {
-              trace.log('dismiss candidate, no controller', {roomName, roomEntry});
-              return;
-            }
-
-            if (!roomEntry.controller.pos) {
-              trace.log('dismiss candidate, no controller position', {roomName, roomEntry});
-              return;
-            }
-
-            if (roomEntry.controller.owner) {
-              trace.log('dismissed room owned', {roomName, roomEntry});
-              claimed[roomName] = true;
-              return;
-            }
-
-            if (dismissed[adjRoom]) {
-              trace.log('room already dismissed', {roomName, adjRoom});
-              return;
-            }
-
-            if (claimed[adjRoom]) {
-              trace.log('room is claimed', {roomName, adjRoom});
-              return;
-            }
-
-            // If previous room was claimed, do not build as this room is too close to another colony
-            if (claimed[roomName]) {
-              dismissed[adjRoom] = true;
-              trace.log('dismissing room, parent claimed', {roomName, adjRoom});
-              return;
-            }
-
-            trace.log('adding room to candidates', {roomName, adjRoom});
-            colonyCandidates[adjRoom] = true;
-          });
-        });
-
-        nextPass = found;
-      }
-
-      candidates = _.assign(candidates, colonyCandidates);
-    });
-
-    let candidateList = _.keys(candidates);
-    const claimedList = _.keys(claimed);
-    const dismissedList = _.keys(dismissed);
-
-    trace.log('claimed', {claimedList});
-    trace.log('dismissed', {dismissedList});
-    trace.log('pre-filter candidates', {candidateList});
-
-    candidateList = _.sortByOrder(candidateList,
-      (roomName) => {
-        const roomEntry = kingdom.getScribe().getRoomById(roomName);
-        if (!roomEntry) {
-          trace.error('no room entry', {roomName});
-          return 0;
-        }
-
-        trace.log('room source', {roomName, numSources: roomEntry.numSources, roomEntry});
-        return roomEntry.numSources;
-      },
-      ['desc']
-    );
-
-    trace.log('sorted candidates', {candidateList, claimedList});
-
-    if (candidateList.length < 5) {
-      trace.notice('not enough candidates', {candidateList});
+    const results = pickExpansion(kingdom, trace);
+    if (results.selected) {
+      const roomName = results.selected;
+      const distance = results.distance;
+      const origin = results.origin;
+      trace.log('selected room, adding colony', {roomName, distance, origin});
+      this.addColonyConfig(roomName, false, origin, true, trace);
       return;
     }
 
-    for (let i = 0; i < candidateList.length; i++) {
-      const roomName = candidateList[i];
-      const [costMatrix, distance, origin] = createOpenSpaceMatrix(roomName, trace);
-      trace.log('open space matrix', {roomName, distance, origin});
-
-      if (distance >= MIN_DISTANCE_FOR_ORIGIN) {
-        trace.log('selected room, adding colony', {roomName, distance, origin});
-        this.addColonyConfig(roomName, false, origin, true, trace);
-        return;
-      }
-    }
+    trace.log('no expansion selected');
   }
 
   private remoteMining(trace: Tracer, kingdom: Kingdom) {

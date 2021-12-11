@@ -6,28 +6,20 @@ import * as MEMORY from './constants.memory';
 import * as WORKERS from './constants.creeps';
 import * as TOPICS from './constants.topics';
 import * as PRIORITIES from './constants.priorities';
+import {thread, ThreadFunc} from "./os.thread";
+import {CreepRequest, ShardMemory} from "./org.scribe";
 
-const REQUEST_TTL = 1;
-
-interface CreepRequest {
-  shard: string;
-  colony: string;
-  room: string;
-  ttl: number;
-}
-
-interface ShardMemory {
-  ttl: number;
-  request_claimer: Record<string, CreepRequest>,
-  request_builder: Record<string, CreepRequest>,
-  creep_backups: Record<string, CreepMemory>,
-}
+const SHARD_MEMORY_TTL = 50;
 
 export default class KingdomGovernor {
   id: string;
 
+  threadUpdateShardMemory: ThreadFunc;
+
   constructor(id: string) {
     this.id = id;
+
+    this.threadUpdateShardMemory = thread('update_shard_memory', SHARD_MEMORY_TTL)(this.updateShardMemory.bind(this));
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
@@ -35,15 +27,39 @@ export default class KingdomGovernor {
 
     trace.log('kingdom governor run', {})
 
-    let localMemory = kingdom.getScribe().getLocalShardMemory();
-    localMemory.ttl = Game.time;
-    localMemory = this.requestClaimersFromOtherShards(kingdom, localMemory, trace);
-    localMemory = this.requestBuildersFromOtherShards(kingdom, localMemory, trace);
+    this.threadUpdateShardMemory(trace, kingdom);
+
+    trace.end();
+
+    return sleeping(SHARD_MEMORY_TTL);
+  }
+
+  updateShardMemory(trace: Tracer, kingdom: Kingdom) {
+    trace.log('update_shard_memory');
+
+    const scribe = kingdom.getScribe();
+
+    let shardMemory = scribe.getLocalShardMemory();
+
+    const colonyConfigs = kingdom.getPlanner().getColonyConfigs();
+    shardMemory.status = {
+      numColonies: colonyConfigs.length,
+    };
+
+    shardMemory.time = Game.time;
+    shardMemory = this.requestClaimersFromOtherShards(kingdom, shardMemory, trace);
+    shardMemory = this.requestBuildersFromOtherShards(kingdom, shardMemory, trace);
 
     kingdom.getPlanner().getShards().forEach((shardName) => {
       if (shardName === Game.shard.name) {
         return;
       }
+
+      let shardMemory = kingdom.getScribe().getRemoteShardMemory(shardName);
+      trace.notice('shard memory', {shardName, shardMemory});
+
+      this.handleClaimerRequests(kingdom, shardMemory.request_claimer || {}, trace);
+      this.handleBuilderRequests(kingdom, shardMemory.request_builder || {}, trace);
 
       /*
       const shardConfig: ShardConfig = kingdom.getPlanner().getShardConfig(shardName);
@@ -59,29 +75,18 @@ export default class KingdomGovernor {
       }
 
       trace.log('kingdom governor colony', {shardName, primaryColony})
-
      */
 
-      let shardMemory = kingdom.getScribe().getRemoteShardMemory(shardName);
-      trace.log('shard memory', {shardName, shardMemory})
-
-      /*
+      /* TODO
       if (!shardMemory.ttl) {
         shardMemory = this.sendClaimer(shardName, primaryColony.primary, shardMemory, trace);
       }
       */
-
-      this.handleClaimerRequests(kingdom, shardMemory.request_claimer || {}, trace);
-      this.handleBuilderRequests(kingdom, shardMemory.request_builder || {}, trace);
     });
 
-    trace.log('setting local memory', {localMemory})
+    trace.log('setting local memory', {shardMemory})
 
-    kingdom.getScribe().setLocalShardMemory(localMemory);
-
-    trace.end();
-
-    return sleeping(REQUEST_TTL);
+    scribe.setLocalShardMemory(shardMemory);
   }
 
   findCreeps(needle: any): Creep[] {
@@ -145,7 +150,7 @@ export default class KingdomGovernor {
           [MEMORY.MEMORY_ASSIGN_ROOM]: request.room,
           [MEMORY.MEMORY_COLONY]: request.colony,
         },
-      }, REQUEST_TTL);
+      }, SHARD_MEMORY_TTL);
 
       trace.log('relaying claimer request from remote shard', {request})
     });
@@ -226,7 +231,7 @@ export default class KingdomGovernor {
           [MEMORY.MEMORY_ASSIGN_ROOM]: request.room,
           [MEMORY.MEMORY_COLONY]: request.colony,
         },
-      }, REQUEST_TTL);
+      }, SHARD_MEMORY_TTL);
 
       trace.log('relaying builder request from remote shard', {request})
     });

@@ -350,15 +350,14 @@ export class Colony extends OrgBase {
   handleDefenderRequest(request, trace) {
     trace.log('request details', {
       hasSpawns: this.primaryOrgRoom ? this.primaryOrgRoom.hasSpawns : null,
-      controllerLevel: this.primaryRoom.controller ? this.primaryRoom.controller : null,
+      controllerLevel: this.primaryRoom?.controller ? this.primaryRoom?.controller : null,
       request,
     });
 
     if (request.details.spawn) {
       // If the colony has spawners and is of sufficient size spawn own defenders,
       // otherwise ask for help from other colonies
-      if (this.primaryOrgRoom && this.primaryOrgRoom.hasSpawns &&
-        (this.primaryRoom && this.primaryRoom.controller.level > 3)) {
+      if (this.primaryOrgRoom?.hasSpawns && this.primaryRoom?.controller?.level > 3) {
         trace.log('requesting from colony');
         this.sendRequest(TOPIC_SPAWN, PRIORITY_DEFENDER, request.details, REQUEST_DEFENDER_TTL);
       } else {
@@ -453,7 +452,7 @@ export class Colony extends OrgBase {
     this.visibleRooms = Object.keys(Game.rooms);
 
     // If primary room is not owned by me, count as missing
-    if (!this.primaryRoom || !this.primaryRoom.controller.my) {
+    if (!this.primaryRoom?.controller?.my) {
       this.visibleRooms = this.visibleRooms.filter((roomId) => {
         return roomId !== this.primaryRoomId;
       });

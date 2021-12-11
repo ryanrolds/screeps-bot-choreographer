@@ -10,6 +10,7 @@ const JOURNAL_ENTRY_TTL = 250;
 const MAX_JOURAL_TTL = 500;
 const WRITE_MEMORY_INTERVAL = 50;
 const REMOVE_STALE_ENTRIES_INTERVAL = 100;
+const UPDATE_COLONY_COUNT = 50;
 
 type Journal = {
   rooms: Record<Id<Room>, RoomEntry>;
@@ -68,12 +69,39 @@ export type TargetRoom = {
   controllerPos: RoomPosition;
 };
 
+export type ShardMemory = {
+  time: number;
+  status: RemoteStatus;
+  creep_backups: Record<string, CreepBackup>;
+  request_claimer: Record<string, CreepRequest>,
+  request_builder: Record<string, CreepRequest>,
+};
+
+export type RemoteStatus = {
+  numColonies: number;
+};
+
+export type CreepBackup = {
+  name: string;
+  memory: any;
+  ttl: number;
+};
+
+export type CreepRequest = {
+  shard: string;
+  colony: string;
+  room: string;
+  ttl: number;
+}
+
 export class Scribe extends OrgBase {
   private journal: Journal;
   costMatrix255: CostMatrix;
+  globalColonyCount: number;
 
   threadWriteMemory: ThreadFunc;
   threadRemoveStaleJournalEntries: ThreadFunc;
+  threadUpdateColonyCount: ThreadFunc;
 
   constructor(parent, trace) {
     super(parent, 'scribe', trace);
@@ -84,8 +112,11 @@ export class Scribe extends OrgBase {
       colonyCostMatrices: {},
     };
 
+    this.globalColonyCount = -2;
+
     this.threadRemoveStaleJournalEntries = thread('remove_stale', REMOVE_STALE_ENTRIES_INTERVAL)(this.removeStaleJournalEntries.bind(this));
-    this.threadWriteMemory = thread('write_memory', WRITE_MEMORY_INTERVAL)(this.writeMemory.bind(this))
+    this.threadWriteMemory = thread('write_memory', WRITE_MEMORY_INTERVAL)(this.writeMemory.bind(this));
+    this.threadUpdateColonyCount = thread('update_colony_count', UPDATE_COLONY_COUNT)(this.updateColonyCount.bind(this));
   }
 
   writeMemory(trace: Tracer) {
@@ -100,6 +131,46 @@ export class Scribe extends OrgBase {
     (Memory as any).scribe = this.journal;
   }
 
+  updateColonyCount(trace) {
+    if (this.globalColonyCount === -2) {
+      // skip the first time, we want to give shards time to update their remote memory
+      trace.notice('skipping updateColonyCount');
+      this.globalColonyCount = -1;
+      return;
+    }
+
+    const colonyConfigs = this.getKingdom().getPlanner().getColonyConfigs();
+    let colonyCount = colonyConfigs.length;
+    this.getShardList().forEach((shard) => {
+      if (shard === Game.shard.name) {
+        return;
+      }
+
+      const shardMemory = this.getRemoteShardMemory(shard);
+      colonyCount += shardMemory?.status?.numColonies || 0;
+    });
+
+    trace.notice('update_colony_count', {colonyCount});
+
+    this.globalColonyCount = colonyCount;
+  }
+
+  getShardList(): string[] {
+    if (Game.shard.name.startsWith('shard')) {
+      return ['shard3', 'shard2', 'shard1', 'shard0'];
+    }
+
+    return [Game.shard.name];
+  }
+
+  getGlobalColonyCount() {
+    if (this.globalColonyCount < 0) {
+      return null;
+    }
+
+    return this.globalColonyCount;
+  };
+
   update(trace) {
     const updateTrace = trace.begin('update');
 
@@ -113,6 +184,7 @@ export class Scribe extends OrgBase {
     this.removeStaleJournalEntries();
 
     this.threadWriteMemory(updateTrace);
+    this.threadUpdateColonyCount(updateTrace);
 
     updateTrace.end();
   }
@@ -309,6 +381,10 @@ export class Scribe extends OrgBase {
         owner = roomObject.controller.owner.username;
       }
 
+      if (roomObject.controller?.reservation?.username) {
+        owner = roomObject.controller.reservation.username;
+      }
+
       room.controller = {
         owner: owner,
         level: roomObject.controller.level,
@@ -423,15 +499,15 @@ export class Scribe extends OrgBase {
     return this.journal.rooms[roomId] || null;
   }
 
-  getLocalShardMemory(): any {
+  getLocalShardMemory(): ShardMemory {
     if (typeof (InterShardMemory) === 'undefined') {
-      return {} as any;
+      return {} as ShardMemory;
     }
 
     return JSON.parse(InterShardMemory.getLocal() || '{}');
   }
 
-  setLocalShardMemory(memory: any) {
+  setLocalShardMemory(memory: ShardMemory) {
     if (typeof (InterShardMemory) === 'undefined') {
       return;
     }
@@ -439,7 +515,7 @@ export class Scribe extends OrgBase {
     return InterShardMemory.setLocal(JSON.stringify(memory));
   }
 
-  getRemoteShardMemory(shardName: string) {
+  getRemoteShardMemory(shardName: string): ShardMemory {
     if (typeof (InterShardMemory) === 'undefined') {
       return {} as any;
     }

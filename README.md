@@ -105,6 +105,7 @@ There are some debugging tools built into the project:
 * Cost matrix clear - `AI.getCostMatrixDebugger().clear()`
 * Get debug info on path cache - `AI.kingdom.getPathCache().debug()`
 * Attack a room (requires rally_<room> flag) - `AI.scheduler.processMap['war_manager'].runnable.targetRoom = 'E16S51'`
+* Look at expand results - `AI.getExpandDebugger().debug()`
 
 There are a couple of helpful global variables:
 

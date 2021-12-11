@@ -19,5 +19,6 @@ export interface KingdomConfig {
   neutral: string[];
   avoid: string[];
   kos: string[];
+  maxColonies: number;
   shards: Record<string, ShardConfig>;
 }

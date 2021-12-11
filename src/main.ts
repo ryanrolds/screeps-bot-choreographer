@@ -16,6 +16,7 @@ let config: KingdomConfig = {
   ],
   'avoid': [],
   'kos': [],
+  'maxColonies': 8, // TODO make this specific to the shard - this will bite me in the ass
   'shards': {
     'shard0': {},
     'shard1': {},

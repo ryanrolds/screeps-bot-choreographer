@@ -42,6 +42,12 @@ const selectSite = behaviorTree.leafNode(
       }
     }, (site) => {
       const room = kingdom.getCreepRoom(creep);
+      if (!room) {
+        const colony = kingdom.getCreepColony(creep);
+        trace.error('creep has no room', {creep: creep.name, colony: colony?.id, room: creep.room.name});
+        return 0;
+      }
+
       if (!room.hasSpawns) {
         return 0;
       }

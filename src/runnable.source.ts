@@ -64,6 +64,7 @@ export default class SourceRunnable {
   threadRequestHauling: ThreadFunc;
   threadBuildContainer: ThreadFunc;
   threadBuildRoads: ThreadFunc;
+  threadBuildExtractor: ThreadFunc;
 
   constructor(room: OrgRoom, source: (Source | Mineral)) {
     this.orgRoom = room;
@@ -77,6 +78,7 @@ export default class SourceRunnable {
     this.threadRequestHauling = thread('reqeust_hauling', REQUEST_HAULING_TTL)(this.requestHauling.bind(this));
     this.threadBuildContainer = thread('build_container', CONTAINER_TTL)(this.buildContainer.bind(this));
     this.threadBuildRoads = thread('roads', ROADS_TTL)(this.buildRoads.bind(this));
+    this.threadBuildExtractor = thread('build_extractor', CONTAINER_TTL)(this.buildExtractor.bind(this));
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
@@ -111,6 +113,7 @@ export default class SourceRunnable {
     this.threadRequestHauling(trace, colony);
     this.threadBuildContainer(trace, kingdom);
     this.threadBuildRoads(trace, kingdom);
+    this.threadBuildExtractor(trace, room);
 
     this.updateStats(kingdom, trace);
 
@@ -348,7 +351,51 @@ export default class SourceRunnable {
     stats.colonies[conlonyId].rooms[roomId].sources[this.sourceId] = sourceStats;
   }
 
+  buildExtractor(trace: Tracer, room: Room) {
+    const source: Source | Mineral = Game.getObjectById(this.sourceId);
+    if (!source) {
+      trace.error('source not found', {id: this.sourceId});
+      return;
+    }
+
+    if (source instanceof Source) {
+      trace.log('sources do not get extractors', {id: this.sourceId});
+      return;
+    }
+
+    if (room.controller?.level < 6) {
+      trace.log('room too low for extractor', {id: this.sourceId});
+      return;
+    }
+
+    const extractor = source.pos.lookFor(LOOK_STRUCTURES).find((structure) => {
+      return structure.structureType === STRUCTURE_EXTRACTOR;
+    });
+
+    if (!extractor) {
+      const site = source.pos.lookFor(LOOK_CONSTRUCTION_SITES).find((site) => {
+        return site.structureType === STRUCTURE_EXTRACTOR;
+      });
+
+      if (!site) {
+        trace.log('building extractor', {id: this.sourceId});
+        room.createConstructionSite(source.pos, STRUCTURE_EXTRACTOR);
+      }
+    }
+  }
+
   buildContainer(trace: Tracer, kingdom: Kingdom) {
+    const source: Source | Mineral = Game.getObjectById(this.sourceId);
+    if (!source) {
+      trace.error('source not found', {id: this.sourceId});
+      return;
+    }
+
+    if (source instanceof Mineral) {
+      trace.log('minerals do not get containers', {id: this.sourceId});
+      return;
+    }
+
     const colonyId = this.orgRoom.getColony().id;
     const colonyConfig = kingdom.getPlanner().getColonyConfigById(colonyId);
     if (!colonyConfig) {
@@ -369,12 +416,6 @@ export default class SourceRunnable {
 
     if (colonyRoom.controller?.level < 3) {
       trace.log('colony room controller level too low', {colonyId, level: colonyRoom.controller.level});
-      return;
-    }
-
-    const source: Source | Mineral = Game.getObjectById(this.sourceId);
-    if (!source) {
-      trace.error('source not found', {id: this.sourceId});
       return;
     }
 
