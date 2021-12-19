@@ -224,7 +224,7 @@ export default class WarManager {
   }
 
   createNewWarParty(kingdom: Kingdom, colony: Colony, trace: Tracer) {
-    const flagId = `rally_${colony.primaryRoomId} `;
+    const flagId = `rally_${colony.primaryRoomId}`;
     const flag = Game.flags[flagId];
     if (!flag) {
       trace.log(`not creating war party, no rally flag(${flagId})`);
