@@ -85,13 +85,6 @@ export const createCommonCostMatrix = (roomName: string, trace: Tracer): CostMat
 export const createPartyCostMatrix = (roomName: string, trace: Tracer): CostMatrix | boolean => {
   const costMatrix = new PathFinder.CostMatrix();
 
-  /*
-  const room = Game.rooms[roomName];
-  if (!room) {
-    return costMatrix;
-  }
-  */
-
   const terrain = Game.map.getRoomTerrain(roomName);
 
   for (let x = 0; x <= 49; x++) {
@@ -106,17 +99,17 @@ export const createPartyCostMatrix = (roomName: string, trace: Tracer): CostMatr
         }
 
         // down
-        if (x !== 0 && costMatrix.get(x, y + 1) < maskValue) {
+        if (y < 49 && costMatrix.get(x, y + 1) < maskValue) {
           costMatrix.set(x, y + 1, maskValue);
         }
 
         // left
-        if (y < 49 && costMatrix.get(x - 1, y) < maskValue) {
+        if (x > 0 && costMatrix.get(x - 1, y) < maskValue) {
           costMatrix.set(x - 1, y, maskValue);
         }
 
         // down left
-        if (x !== 0 && y < 49 && costMatrix.get(x - 1, y + 1) < maskValue) {
+        if (x > 0 && y < 49 && costMatrix.get(x - 1, y + 1) < maskValue) {
           costMatrix.set(x - 1, y + 1, maskValue);
         }
 
@@ -148,22 +141,49 @@ export const createPartyCostMatrix = (roomName: string, trace: Tracer): CostMatr
     costMatrix.set(structure.pos.x - 1, structure.pos.y + 1, wallValue);
     costMatrix.set(structure.pos.x, structure.pos.y + 1, wallValue);
   });
-
-  const walls = room.find<StructureWall>(FIND_STRUCTURES, {
-    filter: structure => structure.structureType === STRUCTURE_WALL
-  });
-  walls.forEach((wall) => {
-    let wallValue = 255;
-    if (room.controller?.owner?.username !== 'ENETDOWN') {
-      wallValue == 25 + (wall.hits / 300000000 * 100);
-    }
-
-    costMatrix.set(wall.pos.x, wall.pos.y, wallValue);
-    costMatrix.set(wall.pos.x - 1, wall.pos.y, wallValue);
-    costMatrix.set(wall.pos.x - 1, wall.pos.y + 1, wallValue);
-    costMatrix.set(wall.pos.x, wall.pos.y + 1, wallValue);
-  });
   */
+
+  const room = Game.rooms[roomName];
+  if (room) {
+    const walls = room.find<StructureWall | StructureRampart>(FIND_STRUCTURES, {
+      filter: structure => structure.structureType === STRUCTURE_WALL ||
+        structure.structureType === STRUCTURE_RAMPART
+    });
+    walls.forEach((wall) => {
+      if (wall.structureType === STRUCTURE_RAMPART) {
+        return;
+      }
+
+      let wallValue = 255;
+      if (room.controller?.owner?.username !== 'ENETDOWN') {
+        wallValue = 10 + (wall.hits / 300000000 * 100);
+      }
+
+      const x = wall.pos.x;
+      const y = wall.pos.y;
+
+      // center
+      if (costMatrix.get(x, y) < wallValue) {
+        costMatrix.set(x, y, wallValue);
+      }
+
+      // down
+      if (y < 49 && costMatrix.get(x, y + 1) < wallValue) {
+        costMatrix.set(x, y + 1, wallValue);
+      }
+
+      // left
+      if (x > 0 && costMatrix.get(x - 1, y) < wallValue) {
+        costMatrix.set(x - 1, y, wallValue);
+      }
+
+      // down left
+      if (x > 0 && y < 49 && costMatrix.get(x - 1, y + 1) < wallValue) {
+        costMatrix.set(x - 1, y + 1, wallValue);
+      }
+    });
+  }
+
 
   return costMatrix;
 };

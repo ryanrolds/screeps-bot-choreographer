@@ -101,7 +101,7 @@ There are some debugging tools built into the project:
 
 * Run and draw path - `AI.getPathDebugger().debug(new RoomPosition(43, 13, 'E21S48'), new RoomPosition(25,25,'E18S45'), 1, 'warparty')`
 * Clear path - `AI.getPathDebugger().clear()`
-* Run and draw cost matrix - `AI.getCostMatrixDebugger().debug("W8N4", 'open_space')` and `AI.getCostMatrixDebugger().clear()`
+* Run and draw cost matrix - `AI.getCostMatrixDebugger().debug("W8N4", 'open_space')`
 * Cost matrix clear - `AI.getCostMatrixDebugger().clear()`
 * Get debug info on path cache - `AI.kingdom.getPathCache().debug()`
 * Attack a room (requires rally_<room> flag) - `AI.scheduler.processMap['war_manager'].runnable.targetRoom = 'E16S51'`

@@ -189,13 +189,31 @@ export default class WarPartyRunnable {
 
       this.setHeal(trace);
 
+      let targetPosition = new RoomPosition(25, 25, this.targetRoom);
+
+      const roomEntry = this.kingdom.getScribe().getRoomById(this.targetRoom);
+      if (!roomEntry) {
+        trace.log(`no room entry for ${this.targetRoom}, using center of room`);
+        // TODO should probably delay until we have a room entry
+      } else if (roomEntry.spawnLocation) {
+        trace.log('setting spawn as target position', {pos: roomEntry.spawnLocation});
+        // TODO fix issue with restored from memory room positions not having functions
+        targetPosition = new RoomPosition(roomEntry.spawnLocation.x, roomEntry.spawnLocation.y,
+          roomEntry.spawnLocation.roomName);
+      } else if (roomEntry.controller?.pos) {
+        trace.log('setting controller as target position', {pos: roomEntry.controller.pos});
+        // TODO fix issue with restored from memory room positions not having functions
+        targetPosition = new RoomPosition(roomEntry.controller.pos.x, roomEntry.controller.pos.y,
+          roomEntry.controller.pos.roomName);
+      }
+
       if (this.phase === Phase.PHASE_MARSHAL) {
         // If we have at least 4 creeps and they are in position, begin deployment
         if (this.inPosition(this.position, trace) && creeps.length >= 4) {
           this.phase = Phase.PHASE_EN_ROUTE;
           trace.log('moving to deploy phase', {phase: this.phase});
         } else {
-          this.destination = new RoomPosition(25, 25, this.targetRoom);
+          this.destination = targetPosition;
           this.position = flag.pos;
           this.marshal(this.position, creeps, trace);
         }
@@ -210,7 +228,7 @@ export default class WarPartyRunnable {
           this.phase = Phase.PHASE_ATTACK;
           trace.log('moving to attack phase', {phase: this.phase});
         } else {
-          this.destination = new RoomPosition(25, 25, this.targetRoom);
+          this.destination = targetPosition;
           this.deploy(kingdom, positionRoomObject, targetRoom, creeps, trace);
         }
       }
@@ -546,11 +564,15 @@ export default class WarPartyRunnable {
 
     // Display in the rooms
     Object.entries(pathByRooms).forEach(([key, value]) => {
-      new RoomVisual(key).poly(value);
+      new RoomVisual(key).poly(value, {stroke: '#00ff00'});
     });
+
+    Game.map.visual.poly(path, {stroke: '#00ff00'});
   }
 
   getPath(origin: RoomPosition, destination: RoomPosition, trace: Tracer) {
+    trace.notice('get path', {path: this.path, pathDestination: this.pathDestination, destination});
+
     if (this.path && this.pathDestination && this.pathDestination.isEqualTo(destination) &&
       Game.time - this.pathTime < 50) {
       trace.log('path cache hit', {pathLength: this.path.length, ttl: Game.time - this.pathTime, origin, destination});
@@ -600,7 +622,7 @@ export default class WarPartyRunnable {
     trace.log("path found", {pathLength: path.length, currentPosition, destination});
 
     if (path.length === 0) {
-      trace.notice('no path', {id: this.id, path});
+      trace.notice('no path', {id: this.id, currentPosition, destination, path});
       return [currentPosition, this.direction, []];
     }
 

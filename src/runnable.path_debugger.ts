@@ -25,21 +25,12 @@ export default class PathDebugger {
       // Display on the map
       Game.map.visual.poly(this.results.path);
 
-      const pathByRooms = this.results.path.reduce((acc, pos) => {
-        if (!acc[pos.roomName]) {
-          acc[pos.roomName] = [];
-        }
+      // Display paths in rooms
+      displayRoomPaths(this.results.path, {stroke: '#00ff00'})
+      Game.map.visual.poly(this.results.path, {stroke: '#00ff00'});
+    }
 
-        acc[pos.roomName].push(pos);
-
-        return acc;
-      }, {} as Record<string, RoomPosition[]>);
-
-      // Display in the rooms
-      Object.entries(pathByRooms).forEach(([key, value]) => {
-        new RoomVisual(key).poly(value);
-      });
-
+    if (this.resultsDebug) {
       _.each(this.resultsDebug.searchedRooms, (blocked, roomName) => {
         if (this.resultsDebug.blockedRooms[roomName]) {
           Game.map.visual.text('X', new RoomPosition(25, 25, roomName), {color: '#ff0000'});
@@ -50,10 +41,9 @@ export default class PathDebugger {
       });
 
       _.each(this.resultsDebug.incompletePaths, (path) => {
+        displayRoomPaths(path.path, {stroke: '#ff0000'})
         Game.map.visual.poly(path.path, {stroke: '#ff0000'});
       });
-
-      Game.map.visual.poly(this.results.path, {stroke: '#ffffff'});
     }
 
     return running();
@@ -85,4 +75,21 @@ export default class PathDebugger {
   clear() {
     this.results = null;
   }
+}
+
+export const displayRoomPaths = (path: RoomPosition[], style: PolyStyle) => {
+  const pathByRooms = path.reduce((acc, pos) => {
+    if (!acc[pos.roomName]) {
+      acc[pos.roomName] = [];
+    }
+
+    acc[pos.roomName].push(pos);
+
+    return acc;
+  }, {} as Record<string, RoomPosition[]>);
+
+  // Display in the rooms
+  Object.entries(pathByRooms).forEach(([key, value]) => {
+    new RoomVisual(key).poly(value, style);
+  });
 }

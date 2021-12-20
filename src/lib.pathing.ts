@@ -132,13 +132,21 @@ export const getPath = (kingdom: Kingdom, origin: RoomPosition, destination: Roo
 
     // Add last room to blocked and try again if allowed
     const lastRoom = result.path[result.path.length - 1].roomName;
-    trace.log('blocking last room', {
-      lastRoom,
-      attempt: pathDetails.passes,
-      tries: pathDetails.tries
-    });
-    pathDetails.blockedRooms[lastRoom] = true;
-    pathDetails.incompletePaths.push(result);
+    if (lastRoom === destination.roomName) {
+      trace.log('last room is destination, do not try more passes', {lastRoom});
+      return [null, pathDetails];
+    }
+
+    if (lastRoom != destination.roomName) {
+      trace.log('blocking last room', {
+        lastRoom,
+        attempt: pathDetails.passes,
+        tries: pathDetails.tries
+      });
+
+      pathDetails.blockedRooms[lastRoom] = true;
+      pathDetails.incompletePaths.push(result);
+    }
   }
 
   return [null, pathDetails];

@@ -100,7 +100,7 @@ export default class WarManager {
       }
     }
 
-    trace.notice(`targets: ${targets} `);
+    trace.notice(`targets: ${targets}`);
 
     // TODO spread targets across colonies
     this.targets = targets;
