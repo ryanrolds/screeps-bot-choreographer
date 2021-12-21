@@ -37,10 +37,25 @@ module.exports = function(grunt) {
         },
         src: ['built/*.js']
       },
-      private: {
+      local: {
         options: {
           server: {
             host: 'localhost',
+            port: 21025,
+            path: '/api/user/code',
+            http: true
+          },
+          email: config.private.username,
+          password: config.private.password,
+          branch: config.private.branch,
+          ptr: false
+        },
+        src: ['built/*.js']
+      },
+      private: {
+        options: {
+          server: {
+            host: '192.168.1.23',
             port: 21025,
             path: '/api/user/code',
             http: true
@@ -67,5 +82,6 @@ module.exports = function(grunt) {
 
   // Tasks for uploading to specific servers
   grunt.registerTask("mmo", ["default", "screeps:mmo"]);
+  grunt.registerTask("local", ["default", "screeps:local"]);
   grunt.registerTask("private", ["default", "screeps:private"]);
 }
