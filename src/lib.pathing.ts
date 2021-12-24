@@ -74,7 +74,7 @@ export const getPath = (kingdom: Kingdom, origin: RoomPosition, destination: Roo
   });
 
   const pathDetails: PathSearchDetails = {
-    tries: 3,
+    tries: 1,
     passes: 0,
     searchedRooms: {},
     blockedRooms: {},
