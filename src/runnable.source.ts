@@ -1,52 +1,37 @@
-import {Process, Runnable, RunnableResult, running, sleeping, terminate} from "./os.process";
+import {creepIsFresh} from './behavior.commute';
+import {ColonyConfig} from './config';
+import {WORKER_HARVESTER, WORKER_MINER} from "./constants.creeps";
+import * as MEMORY from "./constants.memory";
+import {PRIORITY_HARVESTER, PRIORITY_MINER} from "./constants.priorities";
+import * as TASKS from "./constants.tasks";
+import * as TOPICS from "./constants.topics";
+import {Event} from "./lib.event_broker";
+import {getPath} from "./lib.pathing";
+import {roadPolicy} from "./lib.pathing_policies";
 import {Tracer} from './lib.tracing';
+import {Colony} from './org.colony';
 import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
-import * as MEMORY from "./constants.memory"
-import * as TASKS from "./constants.tasks"
-import * as TOPICS from "./constants.topics"
-import {WORKER_HARVESTER, WORKER_MINER, WORKER_UPGRADER} from "./constants.creeps"
-import {PRIORITY_HARVESTER, PRIORITY_MINER, PRIORITY_UPGRADER} from "./constants.priorities";
-import {Colony} from './org.colony';
+import {PersistentMemory} from "./os.memory";
+import {running, terminate} from "./os.process";
+import {Runnable, RunnableResult} from "./os.runnable";
 import {thread, ThreadFunc} from "./os.thread";
-import {FindPathPolicy, getPath} from "./lib.pathing";
-import {AllowedCostMatrixTypes} from "./lib.costmatrix_cache";
-const {creepIsFresh} = require('./behavior.commute');
+import {getLogisticsTopic, LogisticsEventData, LogisticsEventType} from "./runnable.logistics";
 
 const STRUCTURE_TTL = 50;
 const DROPOFF_TTL = 200;
 const REQUEST_WORKER_TTL = 50;
 const REQUEST_HAULING_TTL = 20;
-const ROADS_TTL = 250;
+const PRODUCE_EVENTS_TTL = 20;
+
 const CONTAINER_TTL = 250;
 
-export const roadPolicy: FindPathPolicy = {
-  room: {
-    avoidHostileRooms: true,
-    avoidFriendlyRooms: false,
-    avoidRoomsWithKeepers: true,
-    avoidRoomsWithTowers: false,
-    avoidUnloggedRooms: false,
-    sameRoomStatus: true,
-    costMatrixType: AllowedCostMatrixTypes.SOURCE_ROAD,
-  },
-  destination: {
-    range: 1,
-  },
-  path: {
-    allowIncomplete: true,
-    maxSearchRooms: 12,
-    maxOps: 5000,
-    maxPathRooms: 6,
-    ignoreCreeps: true,
-  },
-};
-
-export default class SourceRunnable {
+export default class SourceRunnable extends PersistentMemory implements Runnable {
   id: string;
   orgRoom: OrgRoom;
   sourceId: Id<Source | Mineral>;
   position: RoomPosition;
+  creepPosition: RoomPosition | null;
   prevTime: number;
 
   ttl: number;
@@ -57,34 +42,64 @@ export default class SourceRunnable {
   linkId: Id<StructureLink>;
   dropoffId: Id<Structure>;
 
+  threadProduceEvents: ThreadFunc;
   threadUpdateStructures: ThreadFunc;
   threadUpdateDropoff: ThreadFunc;
   threadRequestWorkers: ThreadFunc;
-  threadRequestUpgraders: ThreadFunc;
+  //threadRequestUpgraders: ThreadFunc;
   threadRequestHauling: ThreadFunc;
   threadBuildContainer: ThreadFunc;
-  threadBuildRoads: ThreadFunc;
   threadBuildExtractor: ThreadFunc;
 
   constructor(room: OrgRoom, source: (Source | Mineral)) {
+    super(source.id);
+
     this.orgRoom = room;
     this.sourceId = source.id;
     this.position = source.pos;
+    this.creepPosition = null;
 
+    this.threadProduceEvents = thread('consume_events', PRODUCE_EVENTS_TTL)(this.produceEvents.bind(this));
     this.threadUpdateStructures = thread('update_structures', STRUCTURE_TTL)(this.updateStructures.bind(this));
     this.threadUpdateDropoff = thread('update_dropoff', DROPOFF_TTL)(this.updateDropoff.bind(this));
     this.threadRequestWorkers = thread('request_workers', REQUEST_WORKER_TTL)(this.requestWorkers.bind(this));
     // this.threadRequestUpgraders = thread('request_upgraders', REQUEST_WORKER_TTL)(this.requestUpgraders.bind(this));
     this.threadRequestHauling = thread('reqeust_hauling', REQUEST_HAULING_TTL)(this.requestHauling.bind(this));
     this.threadBuildContainer = thread('build_container', CONTAINER_TTL)(this.buildContainer.bind(this));
-    this.threadBuildRoads = thread('roads', ROADS_TTL)(this.buildRoads.bind(this));
+
     this.threadBuildExtractor = thread('build_extractor', CONTAINER_TTL)(this.buildExtractor.bind(this));
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
     trace = trace.begin('source_run')
-    trace.log('source run', {roomId: this.orgRoom.id, sourceId: this.sourceId});
 
+    trace.log('source run', {
+      roomId: this.orgRoom.id,
+      sourceId: this.sourceId,
+      containerId: this.containerId,
+      linkId: this.linkId,
+      creepPosition: this.creepPosition,
+    });
+
+    const source: Source | Mineral = Game.getObjectById(this.sourceId);
+    if (!source) {
+      trace.error('source not found', {id: this.sourceId});
+      trace.end();
+      return terminate();
+    }
+
+    const colonyConfig = kingdom.getPlanner().getColonyConfigByRoom(source.room.name);
+    if (!colonyConfig) {
+      trace.error('no colony config', {room: source.room.name});
+      trace.end();
+      return terminate();
+    }
+
+    if (!this.creepPosition) {
+      this.populateCreepPosition(trace, kingdom, colonyConfig, source);
+    }
+
+    // TODO try to remove the need for this
     const colony = this.orgRoom.getColony();
     if (!colony) {
       trace.error('no colony');
@@ -99,22 +114,14 @@ export default class SourceRunnable {
       return terminate();
     }
 
-    const source: Source | Mineral = Game.getObjectById(this.sourceId);
-    if (!source) {
-      trace.error('source not found', {id: this.sourceId});
-      trace.end();
-      return terminate();
-    }
-
+    this.produceEvents(trace, kingdom, source);
     this.threadUpdateStructures(trace, source);
     this.threadUpdateDropoff(trace, colony);
     this.threadRequestWorkers(trace, kingdom, colony, room, source);
     // this.threadRequestUpgraders(trace, kingdom, colony, room, source);
     this.threadRequestHauling(trace, colony);
     this.threadBuildContainer(trace, kingdom);
-    this.threadBuildRoads(trace, kingdom);
     this.threadBuildExtractor(trace, room);
-
     this.updateStats(kingdom, trace);
 
     trace.end();
@@ -122,22 +129,77 @@ export default class SourceRunnable {
     return running();
   }
 
-  updateStructures(trace: Tracer, source: Source | Mineral) {
+  produceEvents(trace: Tracer, kingdom: Kingdom, source: Source | Mineral) {
+    const creepPosition = this.creepPosition;
+    if (!creepPosition) {
+      trace.error('no creep position', {room: source.room.name});
+      return;
+    }
+
+    const colonyConfig = kingdom.getPlanner().getColonyConfigByRoom(source.room.name);
+    if (!colonyConfig) {
+      trace.error('no colony config', {room: source.room.name});
+      return;
+    }
+
+    const data: LogisticsEventData = {
+      id: source.id,
+      position: creepPosition,
+    };
+
+    kingdom.getBroker().getStream(getLogisticsTopic(colonyConfig.id)).
+      publish(new Event(this.id, Game.time, LogisticsEventType.RequestRoad, data));
+  }
+
+  populateCreepPosition(trace: Tracer, kingdom: Kingdom, colony: ColonyConfig, source: Source | Mineral) {
+    trace.log('populate creep position', {room: source.room.name});
+
+    const memory = this.getMemory() || {};
+
+    // Check memory for creep position
+    const creepPosition = memory.creepPosition;
+    if (creepPosition) {
+      trace.log('creep position in memory', {room: source.room.name});
+      this.creepPosition = new RoomPosition(creepPosition.x, creepPosition.y, creepPosition.roomName);
+      return;
+    }
+
+    const colonyPos = new RoomPosition(colony.origin.x, colony.origin.y - 1,
+      colony.origin.roomName);
+
+    const [pathResult, details] = getPath(kingdom, source.pos, colonyPos, roadPolicy, trace);
+    trace.log('path found', {origin: source.pos, dest: colonyPos, pathResult});
+
+    if (!pathResult) {
+      trace.error('path not found', {colonyPos, source: source.pos});
+      return;
+    }
+
+    trace.log('creep position set', {creepPosition: this.creepPosition});
+    this.creepPosition = pathResult.path[0];
+
+    // Update memory
+    memory.creepPosition = this.creepPosition;
+    this.setMemory(memory);
+  }
+
+  updateStructures(trace: Tracer) {
+    if (!this.creepPosition) {
+      trace.error('creep position not set', {creepPosition: this.creepPosition});
+      return;
+    }
+
     // Pick container
-    const containers = source.pos.findInRange<StructureContainer>(FIND_STRUCTURES, 2, {
-      filter: (structure) => {
-        return structure.structureType === STRUCTURE_CONTAINER;
-      },
+    const container = this.creepPosition.lookFor(LOOK_STRUCTURES).find((s) => {
+      return s.structureType === STRUCTURE_CONTAINER;
     });
-    this.containerId = source.pos.findClosestByRange<StructureContainer>(containers)?.id;
+    this.containerId = container?.id as Id<StructureContainer>;
 
     // Pick link
-    const links = source.pos.findInRange<StructureLink>(FIND_STRUCTURES, 2, {
-      filter: (structure) => {
-        return structure.structureType === STRUCTURE_LINK;
-      },
+    const link = this.creepPosition.findInRange(FIND_STRUCTURES, 1).find((s) => {
+      return s.structureType === STRUCTURE_LINK;
     });
-    this.linkId = source.pos.findClosestByRange<StructureLink>(links)?.id;
+    this.linkId = link?.id as Id<StructureLink>;
   }
 
   updateDropoff(trace: Tracer, colony: Colony) {
@@ -145,6 +207,7 @@ export default class SourceRunnable {
     this.dropoffId = primaryRoom.getReserveStructureWithRoomForResource(RESOURCE_ENERGY)?.id;
   }
 
+  /* TODO remove if not used Dec 2021
   requestUpgraders(trace: Tracer, kingdom: Kingdom, colony: Colony, room: Room, source: Source | Mineral) {
     const username = kingdom.getPlanner().getUsername();
     if (room.controller?.owner && room.controller.owner.username !== username) {
@@ -169,11 +232,10 @@ export default class SourceRunnable {
     } else {
       // no storage, 2 upgraders
       desiredNum = 2;
-      /* trying no upgrader approach
-      if (this.orgRoom.getRoomLevel() >= 3) {
-        desiredNum = 1;
-      }
-      */
+      // trying no upgrader approach
+      //if (this.orgRoom.getRoomLevel() >= 3) {
+      //  desiredNum = 1;
+      //}
     }
 
     const colonyCreeps = colony.getCreeps();
@@ -202,11 +264,17 @@ export default class SourceRunnable {
 
       trace.log('requesting upgrader', {roomId: room.name, sourceId: this.sourceId, details});
 
-      colony.getPrimaryRoom().requestSpawn(priority, details, REQUEST_WORKER_TTL);
+      colony.getPrimaryRoom().requestSpawn(priority, details, REQUEST_WORKER_TTL, trace);
     }
   }
+  */
 
   requestWorkers(trace: Tracer, kingdom: Kingdom, colony: Colony, room: Room, source: Source | Mineral) {
+    if (!this.creepPosition) {
+      trace.error('creep position not set', {creepPosition: this.creepPosition});
+      return;
+    }
+
     const username = kingdom.getPlanner().getUsername();
 
     if (room.controller?.owner && room.controller.owner.username !== username) {
@@ -241,19 +309,29 @@ export default class SourceRunnable {
         desiredWorkerPriority = PRIORITY_MINER;
       } else {
         // 3 harvesters
-        desiredNumWorkers = 3;
-        desiredWorkerType = WORKER_HARVESTER;
-        desiredWorkerPriority = PRIORITY_HARVESTER;
+        //desiredNumWorkers = 3;
+        //desiredWorkerType = WORKER_HARVESTER;
+        //desiredWorkerPriority = PRIORITY_HARVESTER;
+
+        // trying only miners approach
+        desiredNumWorkers = 1;
+        desiredWorkerType = WORKER_MINER;
+        desiredWorkerPriority = PRIORITY_MINER;
       }
     } else {
       // no storage, 2 harvesters
-      desiredNumWorkers = 2;
-      if (this.orgRoom.getRoomLevel() >= 3) {
-        desiredNumWorkers = 1;
-      }
+      //desiredNumWorkers = 2;
+      //if (this.orgRoom.getRoomLevel() >= 3) {
+      //  desiredNumWorkers = 1;
+      //}
 
-      desiredWorkerType = WORKER_HARVESTER;
-      desiredWorkerPriority = PRIORITY_HARVESTER;
+      //desiredWorkerType = WORKER_HARVESTER;
+      //desiredWorkerPriority = PRIORITY_HARVESTER;
+
+      // trying only miners approach
+      desiredNumWorkers = 1;
+      desiredWorkerType = WORKER_MINER;
+      desiredWorkerPriority = PRIORITY_MINER;
     }
 
     const colonyCreeps = colony.getCreeps();
@@ -269,7 +347,8 @@ export default class SourceRunnable {
     for (let i = numWorkers; i < desiredNumWorkers; i++) {
       let priority = desiredWorkerPriority;
 
-      const positionStr = [this.position.x, this.position.y, this.position.roomName].join(',');
+      let positionStr = [this.creepPosition.x, this.creepPosition.y, this.creepPosition.roomName].join(',');
+
       const details = {
         role: desiredWorkerType,
         memory: {
@@ -283,7 +362,7 @@ export default class SourceRunnable {
 
       trace.log('requesting worker', {roomId: room.name, sourceId: this.sourceId, details});
 
-      colony.getPrimaryRoom().requestSpawn(priority, details, REQUEST_WORKER_TTL);
+      colony.getPrimaryRoom().requestSpawn(priority, details, REQUEST_WORKER_TTL, trace);
     }
   }
 
@@ -385,48 +464,12 @@ export default class SourceRunnable {
   }
 
   buildContainer(trace: Tracer, kingdom: Kingdom) {
-    const source: Source | Mineral = Game.getObjectById(this.sourceId);
-    if (!source) {
-      trace.error('source not found', {id: this.sourceId});
+    if (!this.creepPosition) {
+      trace.log('no creep position', {id: this.sourceId});
       return;
     }
 
-    if (source instanceof Mineral) {
-      trace.log('minerals do not get containers', {id: this.sourceId});
-      return;
-    }
-
-    const colonyId = this.orgRoom.getColony().id;
-    const colonyConfig = kingdom.getPlanner().getColonyConfigById(colonyId);
-    if (!colonyConfig) {
-      trace.error('no colony config', {colonyId});
-      return;
-    }
-
-    if (!colonyConfig.automated) {
-      trace.log('colony not automated', {colonyId});
-      return;
-    }
-
-    const colonyRoom = Game.rooms[colonyConfig.primary];
-    if (!colonyRoom) {
-      trace.error('colony room not found', {colonyId});
-      return;
-    }
-
-    if (colonyRoom.controller?.level < 3) {
-      trace.log('colony room controller level too low', {colonyId, level: colonyRoom.controller.level});
-      return;
-    }
-
-    const colonyPos = new RoomPosition(colonyConfig.origin.x, colonyConfig.origin.y - 1, colonyConfig.origin.roomName);
-
-    const path = PathFinder.search(source.pos, colonyPos);
-    trace.log('path found', {colonyPos, source: source.pos, path});
-
-    const containerPos = path.path[0];
-
-    const container = containerPos.lookFor(LOOK_STRUCTURES).find((s) => {
+    const container = this.creepPosition.lookFor(LOOK_STRUCTURES).find((s) => {
       return s.structureType === STRUCTURE_CONTAINER;
     });
 
@@ -435,7 +478,7 @@ export default class SourceRunnable {
       return;
     }
 
-    const sites = containerPos.lookFor(LOOK_CONSTRUCTION_SITES);
+    const sites = this.creepPosition.lookFor(LOOK_CONSTRUCTION_SITES);
     if (sites) {
       const containerSite = sites.find((s) => {
         return s.structureType === STRUCTURE_CONTAINER;
@@ -447,79 +490,7 @@ export default class SourceRunnable {
       }
     }
 
-    const result = containerPos.createConstructionSite(STRUCTURE_CONTAINER);
+    const result = this.creepPosition.createConstructionSite(STRUCTURE_CONTAINER);
     trace.log('container created', {result});
-  }
-
-  buildRoads(trace: Tracer, kingdom: Kingdom) {
-    const colonyId = this.orgRoom.getColony().id;
-    const colonyConfig = kingdom.getPlanner().getColonyConfigById(colonyId);
-    if (!colonyConfig) {
-      trace.error('no colony config', {colonyId});
-      return;
-    }
-
-    if (!colonyConfig.automated) {
-      trace.log('colony not automated', {colonyId});
-      return;
-    }
-
-    const colonyPos = new RoomPosition(colonyConfig.origin.x, colonyConfig.origin.y - 1, colonyConfig.origin.roomName);
-
-    const source: Source | Mineral = Game.getObjectById(this.sourceId);
-    if (!source) {
-      trace.error('source not found', {id: this.sourceId});
-      return;
-    }
-
-    trace.log('building roads', {colonyConfig, colonyPos, source: source.pos});
-
-    const [pathResult, details] = getPath(kingdom, colonyPos, source.pos, roadPolicy, trace);
-
-    /*
-    const pathResult = PathFinder.search(colonyPos, {pos: source.pos, range: 1}, {
-      plainCost: 1,
-      swampCost: 1,
-    });
-    */
-
-    trace.log('path found', {colonyPos, source: source.pos, pathResult});
-
-    const path = pathResult.path;
-
-    let roadSites = 0;
-    for (let i = 0; i < path.length; i++) {
-      if (roadSites >= 10) {
-        trace.log('we have 10 road sites, stop adding', {i, roadSites});
-        return;
-      }
-
-      const pos = path[i];
-      const road = pos.lookFor(LOOK_STRUCTURES).find((s) => {
-        return s.structureType === STRUCTURE_ROAD;
-      });
-
-      if (road) {
-        trace.log('road found', {road});
-        continue;
-      }
-
-      const sites = pos.lookFor(LOOK_CONSTRUCTION_SITES);
-      if (sites.length) {
-        const roadSite = sites.find((s) => {
-          return s.structureType === STRUCTURE_ROAD;
-        });
-
-        if (roadSite) {
-          trace.log('site found', {roadSite});
-          roadSites++;
-          continue;
-        }
-      }
-
-      const result = pos.createConstructionSite(STRUCTURE_ROAD);
-      trace.log('building road', {result});
-      roadSites++;
-    }
   }
 }

@@ -7,6 +7,7 @@ const {behaviorBoosts} = require('./behavior.boosts');
 
 const MEMORY = require('./constants.memory');
 const TOPICS = require('./constants.topics');
+const {roadWorker} = require('./behavior.logistics');
 
 const selectNextTaskOrPark = behaviorTree.selectorNode(
   'pick_something',
@@ -302,5 +303,5 @@ const behavior = behaviorTree.sequenceNode(
 );
 
 module.exports = {
-  run: behaviorTree.rootNode('distributor', behaviorBoosts(behavior)),
+  run: behaviorTree.rootNode('distributor', behaviorBoosts(roadWorker(behavior))),
 };

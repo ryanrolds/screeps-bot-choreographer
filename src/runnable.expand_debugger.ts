@@ -1,7 +1,11 @@
-import {RunnableResult, running} from "./os.process";
+import {
+  DismissedReasonAdjacentClaimed, DismissedReasonNoController, DismissedReasonNoRoomEntry,
+  DismissedReasonOwned, ExpandResults, pickExpansion
+} from "./lib.expand";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
-import {DismissedReasonAdjacentClaimed, DismissedReasonNoController, DismissedReasonNoRoomEntry, DismissedReasonOwned, ExpandResults, pickExpansion} from "./lib.expand";
+import {running} from "./os.process";
+import {RunnableResult} from "./os.runnable";
 
 
 export default class ExpandDebugger {

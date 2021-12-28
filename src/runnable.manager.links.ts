@@ -1,11 +1,12 @@
-import {Process, Runnable, RunnableResult, running, sleeping, terminate} from "./os.process";
+import * as MEMORY from "./constants.memory";
+import * as PRIORITIES from "./constants.priorities";
+import * as TASKS from "./constants.tasks";
+import * as TOPICS from "./constants.topics";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
-import * as MEMORY from "./constants.memory"
-import * as TASKS from "./constants.tasks"
-import * as TOPICS from "./constants.topics"
-import * as PRIORITIES from "./constants.priorities"
+import {sleeping, terminate} from "./os.process";
+import {RunnableResult} from "./os.runnable";
 
 const TICK_STEP = 2;
 const PROCESS_TTL = 250;

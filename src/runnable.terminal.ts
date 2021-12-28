@@ -1,4 +1,4 @@
-import {Process, Runnable, RunnableResult, running, sleeping, terminate} from "./os.process";
+import {Process, running, sleeping, terminate} from "./os.process";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
@@ -9,6 +9,7 @@ import {PRICES} from "./constants.market"
 import * as PRIORITIES from "./constants.priorities"
 import {thread, ThreadFunc} from "./os.thread";
 import {ResourcePricer, SigmoidPricing} from './lib.sigmoid_pricing';
+import {RunnableResult} from "./os.runnable";
 
 const TASK_PHASE_HAUL_RESOURCE = 'phase_transfer_resource';
 const TASK_PHASE_TRANSACT = 'phase_transact';

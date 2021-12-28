@@ -1,13 +1,13 @@
-import {Process, Runnable, RunnableResult, running, sleeping, terminate} from "./os.process";
+import * as WORKERS from './constants.creeps';
+import * as MEMORY from './constants.memory';
+import * as PRIORITIES from './constants.priorities';
+import * as TOPICS from './constants.topics';
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
-
-import * as MEMORY from './constants.memory';
-import * as WORKERS from './constants.creeps';
-import * as TOPICS from './constants.topics';
-import * as PRIORITIES from './constants.priorities';
-import {thread, ThreadFunc} from "./os.thread";
 import {CreepRequest, ShardMemory} from "./org.scribe";
+import {sleeping} from "./os.process";
+import {RunnableResult} from "./os.runnable";
+import {thread, ThreadFunc} from "./os.thread";
 
 const SHARD_MEMORY_TTL = 50;
 

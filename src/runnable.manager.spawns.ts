@@ -1,13 +1,13 @@
-import {Process, Runnable, RunnableResult, running, sleeping, terminate} from "./os.process";
+import * as CREEPS from "./constants.creeps";
+import {DEFINITIONS} from './constants.creeps';
+import * as MEMORY from "./constants.memory";
+import * as TOPICS from "./constants.topics";
+import {createCreep} from "./helpers.creeps";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
-import * as MEMORY from "./constants.memory"
-import * as TASKS from "./constants.tasks"
-import * as TOPICS from "./constants.topics"
-import * as CREEPS from "./constants.creeps"
-import {createCreep} from "./helpers.creeps"
-import {DEFINITIONS} from './constants.creeps'
+import {running, terminate} from "./os.process";
+import {RunnableResult} from "./os.runnable";
 import {thread, ThreadFunc} from "./os.thread";
 
 const PROCESS_TTL = 500;
@@ -117,7 +117,8 @@ export default class SpawnManager {
 
         minEnergy = _.max([300, minEnergy]);
 
-        trace.log('spawn idle', {spawnTopicSize, numCreeps, energy, minEnergy, spawnTopicBackPressure});
+        const next = this.orgRoom.getTopics().peekNextRequest(TOPICS.TOPIC_SPAWN);
+        trace.log('spawn idle', {spawnTopicSize, numCreeps, energy, minEnergy, spawnTopicBackPressure, next});
 
         if (energy < minEnergy) {
           trace.log("low energy, not spawning", {id: this.id, energy, minEnergy})

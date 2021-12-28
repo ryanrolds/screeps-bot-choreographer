@@ -1,17 +1,14 @@
-import 'mocha';
 import {expect} from 'chai';
+import 'mocha';
+import {mockGlobal, mockInstanceOf, setup} from "screeps-test-helper";
 import * as sinon from 'sinon';
-import {stubObject, StubbedInstance} from "ts-sinon";
-import {setup, mockGlobal, mockInstanceOf} from "screeps-test-helper";
-
-
-import {Scheduler} from './os.scheduler';
-import {Process, terminate} from './os.process';
-import {CreepManager} from './runnable.manager.creeps';
-import {Tracer} from './lib.tracing';
-import * as MEMORY from './constants.memory';
 import * as CREEPS from './constants.creeps';
+import * as MEMORY from './constants.memory';
+import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
+import {Process} from './os.process';
+import {Scheduler} from './os.scheduler';
+import {CreepManager} from './runnable.manager.creeps';
 
 describe('Creeps Manager', () => {
   let kingdom: Kingdom = null;

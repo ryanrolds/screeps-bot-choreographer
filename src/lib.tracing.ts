@@ -117,7 +117,8 @@ export class Tracer {
   }
 
   private shouldTrace(): boolean {
-    return globalAny.METRIC_FILTER && this.name.startsWith(globalAny.METRIC_FILTER)
+    return (globalAny.METRIC_FILTER && this.name.startsWith(globalAny.METRIC_FILTER)) ||
+      (globalAny.TRACING_ACTIVE && this.name.startsWith(globalAny.TRACING_FILTER));
   }
 
   private shouldLog(): boolean {
@@ -156,3 +157,70 @@ export class Tracer {
     return cpuTime;
   }
 }
+
+export const reset = () => {
+  metrics = [];
+};
+
+export const setActive = () => {
+  isActive = true;
+};
+
+export const setInactive = () => {
+  isActive = false;
+  reset();
+};
+
+export const report = () => {
+  if (!isActive) {
+    return;
+  }
+
+  let summary = _.reduce(metrics, (acc, timing) => {
+    const rollup = acc[timing.key] || {
+      key: timing.key,
+      total: 0,
+      count: 0,
+      max: 0,
+    };
+
+    rollup.count++;
+    rollup.total += timing.value;
+    if (timing.value > rollup.max) {
+      rollup.max = timing.value;
+    }
+
+    acc[timing.key] = rollup;
+    return acc;
+  }, {} as Record<string, MetricRollup>);
+
+  let summaryArray = _.reduce(summary, (result, metric) => {
+    result.push(metric);
+    return result;
+  }, []);
+
+  summaryArray = _.sortBy(summaryArray, (metric) => {
+    return metric.total;
+    // return metric.total / metric.count;
+  });
+
+  console.log('------- CPU Usage report --------');
+
+  console.log('= Time Avg, Count, Total time, Max Time');
+
+  // slice to 75 so that we don't overflow the console in the game
+  summaryArray.reverse().filter((metric) => {
+    if (!globalAny.TRACING_FILTER) {
+      return true;
+    }
+
+    if (metric.key.startsWith(globalAny.TRACING_FILTER)) {
+      return true;
+    }
+
+    return false;
+  }).slice(0, 75).forEach((metric) => {
+    console.log(`* ${(metric.total / metric.count).toFixed(2)}, ${metric.count.toFixed(0)}, ` +
+      `${metric.total.toFixed(2)}, ${metric.max.toFixed(2)} - ${metric.key}`);
+  });
+};

@@ -1,7 +1,5 @@
-import * as _ from 'lodash';
-
 import {Priorities, Scheduler} from "./os.scheduler";
-import {Process, RunnableResult, running, sleeping} from "./os.process";
+import {Process, running} from "./os.process";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
 import WarPartyRunnable from './runnable.warparty';
@@ -14,6 +12,7 @@ import {creepIsFresh} from './behavior.commute';
 import {thread, ThreadFunc} from './os.thread';
 import {RoomEntry} from './org.scribe';
 import {ColonyConfig} from './config';
+import {RunnableResult} from "./os.runnable";
 
 const WAR_PARTY_RUN_TTL = 20;
 const COLONY_ATTACK_RANGE = 5;

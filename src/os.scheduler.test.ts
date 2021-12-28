@@ -1,15 +1,16 @@
-import {Scheduler} from './os.scheduler';
-import {Process, RunnableResult, running} from './os.process';
-import {Tracer} from './lib.tracing';
-import {mockGlobal} from "screeps-test-helper";
-
-import 'mocha';
 import {expect} from 'chai';
+import 'mocha';
+import {mockGlobal} from "screeps-test-helper";
 import * as sinon from 'sinon';
-import {Kingdom} from './org.kingdom';
 import {KingdomConfig} from './config';
 import {EventBroker} from './lib.event_broker';
+import {Tracer} from './lib.tracing';
+import {Kingdom} from './org.kingdom';
+import {Process, running} from './os.process';
+import {RunnableResult} from './os.runnable';
+import {Scheduler} from './os.scheduler';
 import {CentralPlanning} from './runnable.central_planning';
+
 
 describe('Scheduler', () => {
   let trace = null;

@@ -1,4 +1,4 @@
-import {Process, Runnable, RunnableResult, running, sleeping, terminate} from "./os.process";
+import {running, sleeping, terminate} from "./os.process";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
@@ -6,6 +6,7 @@ import * as MEMORY from "./constants.memory"
 import * as TASKS from "./constants.tasks"
 import * as TOPICS from "./constants.topics"
 import * as PRIORITIES from "./constants.priorities";
+import {RunnableResult} from "./os.runnable";
 
 const REQUEST_ENERGY_TTL = 10;
 const REQUEST_ENERGY_THRESHOLD = 500;
@@ -190,12 +191,6 @@ export default class TowerRunnable {
         trace.log('repair damaged secondary target', {target: this.repairTarget});
         this.repairTTL = 10;
       }
-    }
-
-    // Repair damaged roads
-    if (!this.repairTarget && this.orgRoom.damagedRoads.length) {
-      this.repairTarget = this.orgRoom.damagedRoads.shift();
-      this.repairTTL = 0;
     }
 
     // If no repair target sleep for a bit

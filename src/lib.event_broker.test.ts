@@ -50,7 +50,7 @@ describe('Event Broker', function () {
       const stream = broker.getStream('test');
       const consumer = stream.addConsumer('test');
 
-      stream.publish(new Event('test', 'test', {}));
+      stream.publish(new Event('test', 1, 'test', {}));
 
       expect(stream.getLength()).to.equal(1);
       expect(consumer.getOffset()).to.equal(0);
@@ -80,7 +80,7 @@ describe('Event Broker', function () {
       const test = broker.getStream('test');
       const consumer = test.addConsumer('test');
 
-      test.publish(new Event('test', 'test', {}));
+      test.publish(new Event('test', 1, 'test', {}));
 
       const events = consumer.getEvents()
       expect(events).to.be.an.instanceOf(Array);

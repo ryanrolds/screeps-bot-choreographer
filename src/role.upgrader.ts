@@ -6,6 +6,7 @@ import {behaviorBoosts} from "./behavior.boosts";
 import behaviorRoom from "./behavior.room";
 import * as MEMORY from "./constants.memory";
 import {commonPolicy} from "./lib.pathing_policies";
+import {roadWorker} from "./behavior.logistics";
 
 const behavior = behaviorTree.sequenceNode(
   'upgrader_root',
@@ -62,5 +63,5 @@ const behavior = behaviorTree.sequenceNode(
 
 
 export const roleUpgrader = {
-  run: behaviorTree.rootNode('upgrader', behaviorBoosts(behavior)),
+  run: behaviorTree.rootNode('upgrader', behaviorBoosts(roadWorker(behavior))),
 };

@@ -1,7 +1,8 @@
-import {Process, Runnable, RunnableResult, running, sleeping, terminate} from "./os.process";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
 import {Observer} from "./org.observer";
+import {running, terminate} from "./os.process";
+import {RunnableResult} from "./os.runnable";
 
 export default class ObserverRunnable {
   id: Id<StructureObserver>;

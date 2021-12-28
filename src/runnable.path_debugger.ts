@@ -1,9 +1,10 @@
-import {Process, Runnable, RunnableResult, running, sleeping, terminate} from "./os.process";
+import {FindPathPolicy, getPath, PathSearchDetails, visualizePath} from "./lib.pathing";
+import {commonPolicy} from "./lib.pathing_policies";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
-import {FindPathPolicy, getPath, PathSearchDetails} from "./lib.pathing";
+import {running} from "./os.process";
+import {RunnableResult} from "./os.runnable";
 import {warPartyPolicy} from "./runnable.warparty";
-import {commonPolicy} from "./lib.pathing_policies";
 
 export default class PathDebugger {
   id: string;
@@ -22,23 +23,7 @@ export default class PathDebugger {
     trace.log("path debugger", {path: this.results})
 
     if (this.results) {
-      // Display on the map
-      Game.map.visual.poly(this.results.path);
-
-      const pathByRooms = this.results.path.reduce((acc, pos) => {
-        if (!acc[pos.roomName]) {
-          acc[pos.roomName] = [];
-        }
-
-        acc[pos.roomName].push(pos);
-
-        return acc;
-      }, {} as Record<string, RoomPosition[]>);
-
-      // Display in the rooms
-      Object.entries(pathByRooms).forEach(([key, value]) => {
-        new RoomVisual(key).poly(value);
-      });
+      visualizePath(this.results.path, trace);
 
       _.each(this.resultsDebug.searchedRooms, (searched, roomName) => {
         if (this.resultsDebug.blockedRooms[roomName]) {

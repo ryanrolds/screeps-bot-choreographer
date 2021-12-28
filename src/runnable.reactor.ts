@@ -1,13 +1,14 @@
-import {RunnableResult, running, sleeping, terminate} from "./os.process";
-import {thread, ThreadFunc} from './os.thread';
+import * as MEMORY from "./constants.memory";
+import * as PRIORITIES from "./constants.priorities";
+import * as TASKS from "./constants.tasks";
+import * as TOPICS from "./constants.topics";
+import {Event} from "./lib.event_broker";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
-import * as MEMORY from "./constants.memory"
-import * as TASKS from "./constants.tasks"
-import * as TOPICS from "./constants.topics"
-import * as PRIORITIES from "./constants.priorities"
-import {Event} from "./lib.event_broker";
+import {running, sleeping, terminate} from "./os.process";
+import {RunnableResult} from "./os.runnable";
+import {thread, ThreadFunc} from './os.thread';
 
 const TASK_PHASE_START = 'phase_start';
 const TASK_PHASE_LOAD = 'phase_transfer_resources';
@@ -317,10 +318,10 @@ export default class ReactorRunnable {
 
     if (resource) {
       this.orgRoom.getKingdom().getBroker().getStream(REACTION_STATUS_STREAM).
-        publish(new Event(this.id, REACTION_STATUS_UPDATE, status));
+        publish(new Event(this.id, Game.time, REACTION_STATUS_UPDATE, status));
     } else {
       this.orgRoom.getKingdom().getBroker().getStream(REACTION_STATUS_STREAM).
-        publish(new Event(this.id, REACTION_STATUS_STOP, {}));
+        publish(new Event(this.id, Game.time, REACTION_STATUS_STOP, {}));
     }
   }
 }

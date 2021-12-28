@@ -1,12 +1,13 @@
 
 import * as _ from 'lodash';
-import {Scheduler, Priorities} from "./os.scheduler";
-import {Process, Runnable, RunnableResult, running, sleeping, terminate} from "./os.process";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
 import Room from './org.room';
-import ReactorRunnable from './runnable.reactor';
+import {Process, sleeping, terminate} from "./os.process";
+import {RunnableResult} from './os.runnable';
+import {Priorities, Scheduler} from "./os.scheduler";
 import BoosterRunnable from './runnable.booster';
+import ReactorRunnable from './runnable.reactor';
 
 export class LabsManager {
   id: string;

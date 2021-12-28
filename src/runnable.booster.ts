@@ -1,4 +1,4 @@
-import {Process, Runnable, RunnableResult, running, sleeping, terminate} from "./os.process";
+import {Process, running, sleeping, terminate} from "./os.process";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
 import OrgRoom, {ResourceCounts, TOPIC_ROOM_KEYVALUE} from "./org.room";
@@ -8,6 +8,7 @@ import * as TOPICS from "./constants.topics"
 import * as CREEPS from "./constants.creeps"
 import * as PRIORITIES from "./constants.priorities"
 import {thread, ThreadFunc} from "./os.thread";
+import {RunnableResult} from "./os.runnable";
 
 const MIN_COMPOUND = 500;
 const MAX_COMPOUND = 2000;

@@ -1,11 +1,12 @@
 import * as _ from 'lodash';
-import {Kingdom} from './org.kingdom';
-import {RunnableResult, running, sleeping, terminate, STATUS_TERMINATED} from "./os.process";
-import {Tracer} from './lib.tracing';
-import {WORKER_DEFENDER_DRONE} from './constants.creeps'
-import {PRIORITY_BUFFER_PATROL} from "./constants.priorities";
-import PartyRunnable from './runnable.party';
 import {ColonyConfig} from './config';
+import {WORKER_DEFENDER_DRONE} from './constants.creeps';
+import {PRIORITY_BUFFER_PATROL} from "./constants.priorities";
+import {Tracer} from './lib.tracing';
+import {Kingdom} from './org.kingdom';
+import {running, STATUS_TERMINATED, terminate} from "./os.process";
+import {RunnableResult} from './os.runnable';
+import PartyRunnable from './runnable.party';
 
 const REQUEST_PARTY_MEMBER_TTL = 30;
 const NO_TARGET_TTL = 20;

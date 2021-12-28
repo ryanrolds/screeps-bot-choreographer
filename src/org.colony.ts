@@ -26,7 +26,7 @@ const UPDATE_CREEPS_TTL = 1;
 const UPDATE_HAULERS_TTL = 5;
 
 const REQUEST_MISSING_ROOMS_TTL = 25;
-const REQUEST_HAULER_TTL = 20;
+const REQUEST_HAULER_TTL = 25;
 const REQUEST_DEFENDER_TTL = 5;
 const REQUEST_EXPLORER_TTL = 200;
 
@@ -150,8 +150,8 @@ export class Colony extends OrgBase {
       this.requestReserverForMissingRooms(trace);
     });
 
-    this.threadRequestHaulers = thread('request_haulers_thread', REQUEST_HAULER_TTL)(() => {
-      this.requestHaulers();
+    this.threadRequestHaulers = thread('request_haulers_thread', REQUEST_HAULER_TTL)((trace: Tracer) => {
+      this.requestHaulers(trace);
     });
 
     this.threadRequestExplorer = thread('request_explorers_thread', REQUEST_EXPLORER_TTL)((trace) => {
@@ -205,9 +205,7 @@ export class Colony extends OrgBase {
       this.threadRequestHaulers(updateTrace);
     }
 
-    if (this.threadRequestExplorer) {
-      this.threadRequestExplorer(trace);
-    }
+    this.threadRequestExplorer(trace);
 
     updateTrace.end();
   }
@@ -374,15 +372,18 @@ export class Colony extends OrgBase {
       defender.memory[MEMORY.MEMORY_ASSIGN_ROOM_POS] = request.details.memory[MEMORY.MEMORY_ASSIGN_ROOM_POS];
     });
   }
-  requestHaulers() {
+  requestHaulers(trace: Tracer) {
     if (this.primaryRoom) {
       if (Game.cpu.bucket < 2000) {
+        trace.notice('bucket is low, not requesting haulers', {bucket: Game.cpu.bucket});
         return;
       }
 
       // PID approach
       if (this.numHaulers < this.pidDesiredHaulers) {
-        this.sendRequest(TOPIC_SPAWN, PRIORITY_HAULER, {
+        const priority = PRIORITY_HAULER + this.pidDesiredHaulers - this.numHaulers;
+        trace.notice('requesting hauler', {priority});
+        this.sendRequest(TOPIC_SPAWN, priority, {
           role: CREEPS.WORKER_HAULER,
           memory: {},
         }, REQUEST_HAULER_TTL);
@@ -446,6 +447,7 @@ export class Colony extends OrgBase {
       }
     });
   }
+
   updateOrg(trace: Tracer) {
     const updateOrgTrace = trace.begin('update_org');
 
@@ -469,6 +471,7 @@ export class Colony extends OrgBase {
     missingOrgColonyIds.forEach((id) => {
       const room = Game.rooms[id];
       if (!room) {
+        trace.error('missing room not found', {id});
         return;
       }
 
@@ -483,7 +486,11 @@ export class Colony extends OrgBase {
       delete this.getKingdom().roomNameToOrgRoom[id];
     });
 
-    this.primaryOrgRoom = this.roomMap[this.primaryRoomId];
+    if (this.roomMap[this.primaryRoomId]) {
+      this.primaryOrgRoom = this.roomMap[this.primaryRoomId];
+    } else {
+      trace.error('primary room not found', {primaryRoomId: this.primaryRoomId});
+    }
 
     updateOrgTrace.end();
   }

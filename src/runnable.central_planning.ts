@@ -1,16 +1,16 @@
 import {ColonyConfig, KingdomConfig, ShardConfig} from "./config";
-import {createOpenSpaceMatrix} from "./lib.costmatrix";
-import {AllowedCostMatrixTypes} from "./lib.costmatrix_cache";
 import {pickExpansion} from "./lib.expand";
+import {findNextRemoteRoom} from "./lib.remote_room";
 import {Tracer} from "./lib.tracing";
 import {Kingdom} from "./org.kingdom";
-import {Process, RunnableResult, running, sleeping} from "./os.process";
+import {Process, sleeping} from "./os.process";
+import {RunnableResult} from "./os.runnable";
 import {Priorities, Scheduler} from "./os.scheduler";
 import {thread, ThreadFunc} from "./os.thread";
 import {ColonyManager} from "./runnable.manager.colony";
 
 const RUN_TTL = 50;
-const REMOTE_MINING_TTL = 50;
+const REMOTE_MINING_TTL = 100;
 const EXPAND_TTL = 250;
 const MIN_DISTANCE_FOR_ORIGIN = 7;
 
@@ -21,8 +21,9 @@ export class CentralPlanning {
   private shards: string[];
   private colonyConfigs: Record<string, ColonyConfig>;
   private roomByColonyId: Record<string, string>;
+  private remoteMiningIterator: Generator<any, void, {kingdom: Kingdom, trace: Tracer}>;
   private remoteMiningThread: ThreadFunc;
-  private expandThread: ThreadFunc;
+  private expandColoniesThread: ThreadFunc;
 
   constructor(config: KingdomConfig, scheduler: Scheduler, trace: Tracer) {
     this.config = config;
@@ -33,29 +34,43 @@ export class CentralPlanning {
 
     this.shards.push(Game.shard.name);
 
-    const colonies = (Memory as any).colonies || null;
-    if (colonies) {
-      trace.notice('found shard memory', {colonies});
-      this.colonyConfigs = colonies;
+    let colonies: ShardConfig = {};
+    if ((Memory as any).colonies) {
+      trace.notice('found shard memory', {colonies: (Memory as any).colonies});
+      colonies = (Memory as any).colonies;
     } else if (config && config.shards && config.shards[Game.shard.name]) {
       trace.notice('found shard config', {config});
-      this.colonyConfigs = config.shards[Game.shard.name];
+      colonies = config.shards[Game.shard.name];
     } else {
       trace.notice('no shard config found, bootstraping?');
     }
+
+    // Setup known colonies
+    Object.values(colonies).forEach((colony) => {
+      trace.notice('setting up colony', {colony});
+      this.addColonyConfig(colony.id, colony.isPublic, colony.origin, colony.automated,
+        colony.rooms, trace);
+    });
 
     // Check for spawns without colonies
     Object.values(Game.spawns).forEach((spawn) => {
       const roomName = spawn.room.name;
       const origin = new RoomPosition(spawn.pos.x, spawn.pos.y + 4, spawn.pos.roomName);
-
       if (!this.colonyConfigs[roomName]) {
-        this.addColonyConfig(roomName, false, origin, true, trace);
+        trace.notice('found spawn without colony', {roomName});
+        this.addColonyConfig(roomName, false, origin, true, [], trace);
       }
     });
 
-    this.remoteMiningThread = thread('remote_mining', REMOTE_MINING_TTL)(this.remoteMining.bind(this));
-    this.expandThread = thread('expand', EXPAND_TTL)(this.expand.bind(this));
+    trace.notice('colony configs', {colonyConfigs: this.colonyConfigs});
+
+    this.remoteMiningIterator = this.remoteMiningGenerator();
+    this.remoteMiningThread = thread('remote_mining', REMOTE_MINING_TTL)((trace: Tracer, kingdom: Kingdom) => {
+      this.remoteMiningIterator.next({kingdom, trace});
+    });
+
+    // TODO make this an iterator
+    this.expandColoniesThread = thread('expand', EXPAND_TTL)(this.expandColonies.bind(this));
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
@@ -67,10 +82,8 @@ export class CentralPlanning {
         Priorities.CRITICAL, colonyManager));
     }
 
-    trace.notice('running central planning', {configs: this.getColonyConfigs()});
-
     this.remoteMiningThread(trace, kingdom);
-    this.expandThread(trace, kingdom);
+    this.expandColoniesThread(trace, kingdom);
 
     (Memory as any).colonies = this.colonyConfigs;
 
@@ -99,6 +112,15 @@ export class CentralPlanning {
 
   getColonyConfigById(colonyId: string): ColonyConfig {
     return this.colonyConfigs[colonyId];
+  }
+
+  getColonyConfigByRoom(roomName: string): ColonyConfig {
+    const colonyId = this.roomByColonyId[roomName];
+    if (!colonyId) {
+      return null;
+    }
+
+    return this.getColonyConfig(colonyId);
   }
 
   setColonyAutomation(colonyId: string, automated: boolean) {
@@ -131,30 +153,35 @@ export class CentralPlanning {
     return this.config.kos;
   }
 
-  addColonyConfig(colonyId: string, isPublic: boolean, origin: RoomPosition, automated: boolean,
-    trace: Tracer) {
-    if (this.colonyConfigs[colonyId]) {
-      trace.error('colony already exists', {colonyId});
+  addColonyConfig(primaryRoom: string, isPublic: boolean, origin: RoomPosition, automated: boolean,
+    rooms: string[], trace: Tracer) {
+    if (this.colonyConfigs[primaryRoom]) {
+      trace.error('colony already exists', {primaryRoom});
       return;
     }
 
-    trace.notice('adding colony', {colonyId, isPublic, origin, automated});
-
-    this.colonyConfigs[colonyId] = {
-      id: `${colonyId}`,
+    this.colonyConfigs[primaryRoom] = {
+      id: primaryRoom,
       isPublic: isPublic,
-      primary: colonyId,
-      rooms: [colonyId],
+      primary: primaryRoom,
+      rooms: [],
       automated: automated,
       origin: origin,
       parking: new RoomPosition(origin.x + 4, origin.y, origin.roomName),
     };
-    this.roomByColonyId[colonyId] = colonyId;
+
+    this.roomByColonyId[primaryRoom] = primaryRoom;
+
+    // Add colony room
+    this.addRoom(primaryRoom, primaryRoom, trace);
+
+    // Add any additional rooms
+    rooms.forEach((roomName) => {
+      this.addRoom(primaryRoom, roomName, trace)
+    });
   }
 
   removeColony(colonyId: string, trace: Tracer) {
-    trace.notice('removing colony', {colonyId});
-
     const colonyConfig = this.getColonyConfig(colonyId);
     const rooms = colonyConfig.rooms;
     rooms.forEach((roomName) => {
@@ -164,7 +191,32 @@ export class CentralPlanning {
     delete this.colonyConfigs[colonyId];
   }
 
-  private expand(trace: Tracer, kingdom: Kingdom) {
+  addRoom(colonyId: string, roomName: string, trace: Tracer) {
+    trace.notice('adding room', {colonyId, roomName});
+
+    const colonyConfig = this.getColonyConfig(colonyId);
+    if (!colonyConfig) {
+      trace.error('no colony found', {roomName});
+      return;
+    }
+    this.roomByColonyId[roomName] = colonyId;
+
+    if (colonyConfig.rooms.indexOf(roomName) !== -1) {
+      trace.error('room already exists', {roomName});
+      return;
+    }
+    colonyConfig.rooms.push(roomName);
+  }
+
+  removeRoom(roomName: string, trace: Tracer) {
+    trace.notice('removing room', {roomName});
+
+    const colonyConfig = this.getColonyConfigByRoom(roomName);
+    colonyConfig.rooms = _.without(colonyConfig.rooms, roomName);
+    delete this.roomByColonyId[roomName];
+  }
+
+  private expandColonies(trace: Tracer, kingdom: Kingdom) {
     const scribe = kingdom.getScribe();
     const globalColonyCount = scribe.getGlobalColonyCount();
     if (!globalColonyCount) {
@@ -192,57 +244,44 @@ export class CentralPlanning {
       const distance = results.distance;
       const origin = results.origin;
       trace.log('selected room, adding colony', {roomName, distance, origin});
-      this.addColonyConfig(roomName, false, origin, true, trace);
+      this.addColonyConfig(roomName, false, origin, true, [], trace);
       return;
     }
 
     trace.log('no expansion selected');
   }
 
-  private remoteMining(trace: Tracer, kingdom: Kingdom) {
+  private remoteMining(kingdom: Kingdom, colonyId: string, trace: Tracer) {
+    trace.log('remote mining', {colonyId});
 
+    const colonyConfig = this.getColonyConfigById(colonyId);
+    const nextRemote = findNextRemoteRoom(kingdom, colonyConfig, trace);
 
-
-    trace.log('adding remote', {room: adjacentRooms[0], colonyConfig});
-
-    this.addRoom(colonyConfig.id, adjacentRooms[0], trace);
-  }
-
-  private getColonyConfigByRoom(roomName: string): ColonyConfig {
-    const colonyId = this.roomByColonyId[roomName];
-    if (!colonyId) {
-      return null;
-    }
-
-    return this.getColonyConfig(colonyId);
-  }
-
-  addRoom(colonyId: string, roomName: string, trace: Tracer) {
-    let colonyConfig = this.getColonyConfigByRoom(roomName);
-    if (colonyConfig) {
-      trace.error('room already assigned', {colonyId, roomName});
+    if (!nextRemote) {
+      trace.notice('no remote room found', {colonyId});
       return;
     }
 
-    colonyConfig = this.getColonyConfig(colonyId);
-    if (!colonyConfig) {
-      trace.error('no colony found', {roomName});
-      return;
-    }
-
-    if (colonyConfig.rooms.indexOf(roomName) !== -1) {
-      trace.error('room already exists', {roomName});
-      return;
-    }
-
-    colonyConfig.rooms.push(roomName);
-    this.roomByColonyId[roomName] = colonyId;
+    trace.notice('adding remote', {room: nextRemote, colonyConfig});
+    this.addRoom(colonyConfig.id, nextRemote, trace);
   }
 
-  removeRoom(roomName: string, trace: Tracer) {
-    const colonyConfig = this.getColonyConfigByRoom(roomName);
-    colonyConfig.rooms = _.without(colonyConfig.rooms, roomName);
-    delete this.roomByColonyId[roomName];
+  private * remoteMiningGenerator(): Generator<any, void, {kingdom: Kingdom, trace: Tracer}> {
+    let colonies: string[] = []
+    while (true) {
+      const details: {kingdom: Kingdom, trace: Tracer} = yield;
+      const kingdom = details.kingdom;
+      const trace = details.trace;
+
+      if (!colonies.length) {
+        colonies = this.getColonyConfigs().map((colony) => colony.id);
+      }
+
+      const colony = colonies.shift();
+      if (colony) {
+        this.remoteMining(kingdom, colony, trace);
+      }
+    }
   }
 }
 

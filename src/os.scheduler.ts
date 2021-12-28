@@ -2,6 +2,8 @@ import {Tracer} from './lib.tracing';
 import {Process} from './os.process';
 import {Kingdom} from './org.kingdom';
 import * as _ from 'lodash';
+import {prepareMemory, removeOldMemoryObjects} from './os.memory';
+import {thread, ThreadFunc} from './os.thread';
 
 export const Priorities = {
   CRITICAL: 0,
@@ -18,6 +20,7 @@ export const Priorities = {
 
 const SLOW_PROCESS_THRESHOLD = 5;
 const LOW_BUCKET_MIN_PRIORITY = Priorities.RESOURCES;
+const MEMORY_CLEANUP_TTL = 1000;
 
 export class Scheduler {
   processTable: Process[];
@@ -27,6 +30,8 @@ export class Scheduler {
   created: number;
   terminated: number;
 
+  threadMemoryCleanup: ThreadFunc;
+
   constructor() {
     this.processTable = [];
     this.processMap = {};
@@ -35,6 +40,11 @@ export class Scheduler {
     this.created = 0;
     this.terminated = 0;
     this.updateTimeLimit();
+
+    // Prepare memory for runnables
+    prepareMemory()
+
+    this.threadMemoryCleanup = thread('cleanup_memory', MEMORY_CLEANUP_TTL)(removeOldMemoryObjects);
   }
 
   registerProcess(process) {
@@ -126,7 +136,7 @@ export class Scheduler {
 
         // We want to report slow processes
         if (processTime > SLOW_PROCESS_THRESHOLD) {
-          processTrace.notice(`slow process - ${processTrace.name}`, {id: process.id, type: process.type, time: processTime})
+          //processTrace.notice(`slow process - ${processTrace.name}`, {id: process.id, type: process.type, time: processTime})
         }
 
         // Track time spent on each process by type
@@ -146,6 +156,8 @@ export class Scheduler {
     toRemove.forEach((remove) => {
       this.unregisterProcess(remove);
     })
+
+    this.threadMemoryCleanup(trace);
 
     const schedulerCpu = Game.cpu.getUsed() - startCpu;
 

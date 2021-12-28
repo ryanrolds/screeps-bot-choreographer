@@ -22,3 +22,25 @@ export const commonPolicy: FindPathPolicy = {
     ignoreCreeps: true,
   },
 };
+
+export const roadPolicy: FindPathPolicy = {
+  room: {
+    avoidHostileRooms: true,
+    avoidFriendlyRooms: false,
+    avoidRoomsWithKeepers: true,
+    avoidRoomsWithTowers: false,
+    avoidUnloggedRooms: false,
+    sameRoomStatus: true,
+    costMatrixType: AllowedCostMatrixTypes.SOURCE_ROAD,
+  },
+  destination: {
+    range: 0,
+  },
+  path: {
+    allowIncomplete: true,
+    maxSearchRooms: 12,
+    maxOps: 5000,
+    maxPathRooms: 6,
+    ignoreCreeps: true,
+  },
+};

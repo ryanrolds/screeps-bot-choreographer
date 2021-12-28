@@ -1,12 +1,11 @@
 
-import * as _ from 'lodash';
-
-import {Scheduler, Priorities} from "./os.scheduler";
-import {Process, RunnableResult, sleeping} from "./os.process";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
-import ColonyRunnable from './runnable.colony';
+import {Process, sleeping} from "./os.process";
+import {RunnableResult} from './os.runnable';
+import {Priorities, Scheduler} from "./os.scheduler";
 import {CentralPlanning} from './runnable.central_planning';
+import ColonyRunnable from './runnable.colony';
 
 const TTL = 25;
 

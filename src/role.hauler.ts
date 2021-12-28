@@ -8,6 +8,7 @@ import {behaviorBoosts} from "./behavior.boosts";
 import * as MEMORY from "./constants.memory";
 import * as TOPICS from "./constants.topics";
 import {commonPolicy} from "./lib.pathing_policies";
+import {roadWorker} from "./behavior.logistics";
 
 const emptyCreep = behaviorTree.repeatUntilConditionMet(
   'transfer_until_empty',
@@ -73,7 +74,7 @@ const behavior = behaviorTree.sequenceNode(
       [
         behaviorHaul.getHaulTaskFromTopic(TOPICS.TOPIC_HAUL_TASK),
         behaviorRoom.parkingLot,
-        /*
+        /* TODO remove if not used Dec 2021
         behaviorTree.tripIfCalledXTimes(
           'recycle_if_parked_too_long',
           200,
@@ -114,7 +115,8 @@ const behavior = behaviorTree.sequenceNode(
           return true;
         }
 
-        if (creep.store.getFreeCapacity() === 0) {
+        const percentFull = creep.store.getUsedCapacity() / creep.store.getCapacity();
+        if (percentFull > 0.5) {
           return true;
         }
 
@@ -138,5 +140,5 @@ const behavior = behaviorTree.sequenceNode(
 );
 
 export const roleHauler = {
-  run: behaviorTree.rootNode('hauler', behaviorBoosts(behavior)),
+  run: behaviorTree.rootNode('hauler', behaviorBoosts(roadWorker(behavior))),
 };

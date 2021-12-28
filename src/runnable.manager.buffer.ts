@@ -1,15 +1,15 @@
 import * as _ from 'lodash';
-
-import {Priorities, Scheduler} from "./os.scheduler";
-import {Process, Runnable, RunnableResult, running, sleeping} from "./os.process";
+import {AttackRequest, AttackStatus, ATTACK_ROOM_TTL} from './constants.attack';
+import * as TOPICS from './constants.topics';
+import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
+import {FindColonyPathPolicy, getClosestColonyByPath} from './lib.pathing';
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
-import * as TOPICS from './constants.topics';
-import {thread, ThreadFunc} from './os.thread';
 import {TargetRoom} from './org.scribe';
-import {ATTACK_ROOM_TTL, AttackRequest, AttackStatus} from './constants.attack';
-import {FindColonyPathPolicy, getClosestColonyByPath} from './lib.pathing';
-import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
+import {running} from "./os.process";
+import {RunnableResult} from './os.runnable';
+import {Scheduler} from "./os.scheduler";
+import {thread, ThreadFunc} from './os.thread';
 
 const policy: FindColonyPathPolicy = {
   colony: {

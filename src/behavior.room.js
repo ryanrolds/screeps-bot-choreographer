@@ -133,6 +133,33 @@ const selectContainer = behaviorTree.leafNode(
   },
 );
 
+
+const selectDroppedEnergy = behaviorTree.leafNode(
+  'select_dropped_energy',
+  (creep, trace, kingdom) => {
+    const droppedEnergy = creep.pos.findClosestByRange(FIND_DROPPED_RESOURCES, {
+      filter: (resource) => {
+        if (resource.resourceType !== RESOURCE_ENERGY) {
+          return false;
+        }
+
+        return resource.amount > 0;
+      },
+    });
+
+    if (droppedEnergy) {
+      trace.notice('selecting dropped energy in room', {id: droppedEnergy.id});
+      behaviorMovement.setDestination(creep, droppedEnergy.id);
+      return SUCCESS;
+    }
+
+    behaviorMovement.setDestination(creep, null);
+
+    trace.notice('did not find any dropped energy');
+    return FAILURE;
+  },
+);
+
 const selectMoveFill = (selector) => {
   return behaviorTree.sequenceNode(
     'fill_from_selector',
@@ -172,6 +199,7 @@ module.exports.getSomeEnergy = behaviorTree.runUntilConditionMet(
       selectMoveFill(selectNearbyLink),
       selectMoveFill(selectStorage),
       selectMoveFill(selectContainer),
+      selectMoveFill(selectDroppedEnergy),
       fillCreepFromSource,
     ],
   ),
@@ -190,6 +218,7 @@ module.exports.getEnergy = behaviorTree.repeatUntilConditionMet(
       selectMoveFill(selectStorage),
       selectMoveFill(selectNearbyLink),
       selectMoveFill(selectContainer),
+      selectMoveFill(selectDroppedEnergy),
       fillCreepFromSource,
     ],
   ),

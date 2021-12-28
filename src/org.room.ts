@@ -82,7 +82,6 @@ export default class OrgRoom extends OrgBase {
   damagedStructures: Id<AnyStructure>[];
   defenseHitsLimit: number;
   damagedSecondaryStructures: Id<AnyStructure>[];
-  damagedRoads: Id<AnyStructure>[];
 
   stationFlags: Flag[];
 
@@ -96,7 +95,6 @@ export default class OrgRoom extends OrgBase {
   updateDamagedCreeps: ThreadFunc;
   updateDamagedStructure: ThreadFunc;
   updateDamagedSecondaryStructures: ThreadFunc;
-  updateDamagedRoads: ThreadFunc;
   threadRequestDefenders: ThreadFunc;
 
   boosterAllEffects: EffectSet;
@@ -248,20 +246,6 @@ export default class OrgRoom extends OrgBase {
       });
     });
 
-    this.damagedRoads = [];
-    this.updateDamagedRoads = thread('update_damaged_roads_thread', UPDATE_DAMAGED_ROADS_TTL)(() => {
-      let damagedRoads = this.room.find(FIND_STRUCTURES, {
-        filter: (s) => {
-          return s.hits < s.hitsMax && s.structureType == STRUCTURE_ROAD;
-        },
-      });
-      damagedRoads = _.sortBy(damagedRoads, (structure) => {
-        return structure.hits;
-      });
-
-      this.damagedRoads = _.map(damagedRoads, 'id');
-    });
-
     this.threadRequestDefenders = thread('request_defenders_thread', REQUEST_DEFENDERS_TTL)((trace) => {
       const freshDefenders = this.getColony().defenders.filter((defender) => {
         return creepIsFresh(defender);
@@ -370,7 +354,6 @@ export default class OrgRoom extends OrgBase {
       this.updateDamagedCreeps(trace);
       this.updateDamagedStructure(trace);
       this.updateDamagedSecondaryStructures(trace);
-      this.updateDamagedRoads(trace);
     }
 
     // Request defenders
@@ -734,13 +717,26 @@ export default class OrgRoom extends OrgBase {
     return RoomAlertLevel.GREEN;
   }
 
-  requestSpawn(priority, details, ttl) {
-    if (this.getColony().getPrimaryRoom().hasSpawns) {
+  requestSpawn(priority, details, ttl, trace: Tracer) {
+    const orgColony = this.getColony();
+    if (!orgColony) {
+      trace.error('no colony', {room: this.id});
+      return;
+    }
+
+    const primaryRoom = orgColony.getPrimaryRoom();
+    if (!primaryRoom) {
+      trace.error('no primary room', {room: this.id, colonyId: orgColony.id});
+      return;
+    }
+
+    if (primaryRoom.hasSpawns) {
       this.sendRequest(TOPIC_SPAWN, priority, details, ttl);
     } else {
       this.getKingdom().sendRequest(TOPIC_SPAWN, priority, details, ttl);
     }
   }
+
   updateRoom(trace: Tracer, kingdom: Kingdom) {
     trace = trace.begin('common_room');
 

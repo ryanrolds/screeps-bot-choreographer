@@ -1,6 +1,8 @@
 import {getRegion} from "./lib.flood_fill";
+import {buildingCodes, Layout} from "./lib.layouts";
 import {Tracer} from "./lib.tracing";
 import {Kingdom} from "./org.kingdom";
+import {baseLayouts} from "./runnable.base_construction";
 
 let costMatrix255 = null;
 
@@ -42,6 +44,8 @@ export const createCommonCostMatrix = (roomName: string, trace: Tracer): CostMat
     return costMatrix;
   }
 
+  const terrain = Game.map.getRoomTerrain(roomName);
+
   const structures = room.find(FIND_STRUCTURES);
   trace.log('found structures', {numStructures: structures.length});
 
@@ -49,11 +53,28 @@ export const createCommonCostMatrix = (roomName: string, trace: Tracer): CostMat
     if (struct.structureType === STRUCTURE_ROAD) {
       // Favor roads over plain tiles
       costMatrix.set(struct.pos.x, struct.pos.y, 1);
+    } else if (struct.structureType === STRUCTURE_CONTROLLER) {
+      const controllerPos = struct.pos;
+      for (let x = controllerPos.x - 3; x <= controllerPos.x + 3; x++) {
+        for (let y = controllerPos.y - 3; y <= controllerPos.y + 3; y++) {
+          if (x < 0 || x < 0 || y > 49 || y > 49 || terrain.get(x, y) === TERRAIN_MASK_WALL) {
+            continue;
+          }
+
+          costMatrix.set(x, y, 5);
+        }
+      }
     } else if (struct.structureType !== STRUCTURE_CONTAINER &&
       (struct.structureType !== STRUCTURE_RAMPART || !struct.my)) {
       // Can't walk through non-walkable buildings
       costMatrix.set(struct.pos.x, struct.pos.y, 255);
     }
+  });
+
+  // Also add construction sites to desired path
+  const sites = room.find(FIND_CONSTRUCTION_SITES).filter(site => site.structureType === STRUCTURE_ROAD);
+  sites.forEach((site) => {
+    costMatrix.set(site.pos.x, site.pos.y, 1);
   });
 
   // TODO avoid sources
@@ -77,23 +98,29 @@ export const createSourceRoadMatrix = (kingdom: Kingdom, roomName: string, trace
   const structures = room.find(FIND_STRUCTURES);
   trace.log('found structures', {numStructures: structures.length});
 
-  structures.forEach(function (struct) {
-    if (struct.structureType === STRUCTURE_ROAD) {
-      // Favor roads over plain tiles
-      costMatrix.set(struct.pos.x, struct.pos.y, 1);
-    } else if (struct.structureType === STRUCTURE_CONTROLLER) {
+  structures.filter((s) => s.structureType !== STRUCTURE_ROAD).forEach(function (struct) {
+    if (struct.structureType === STRUCTURE_CONTROLLER) {
       const controllerPos = struct.pos;
-      for (let x = controllerPos.x - 2; x < controllerPos.x + 3; x++) {
-        for (let y = controllerPos.y - 2; y < controllerPos.y + 3; y++) {
+      for (let x = controllerPos.x - 3; x <= controllerPos.x + 3; x++) {
+        for (let y = controllerPos.y - 3; y <= controllerPos.y + 3; y++) {
           if (x < 0 || x < 0 || y > 49 || y > 49 || terrain.get(x, y) === TERRAIN_MASK_WALL) {
             continue;
           }
 
-          costMatrix.set(x, y, 5);
+          // Dont override roads
+          if (costMatrix.get(x, y) === 0) {
+            costMatrix.set(x, y, 5);
+          }
         }
       }
     } else if (struct.structureType !== STRUCTURE_CONTAINER &&
       (struct.structureType !== STRUCTURE_RAMPART || !struct.my)) {
+
+      // Controller links dont count as obstacle, otherwise controller pad will shift around
+      if (struct.structureType === STRUCTURE_LINK && room.controller.pos.inRangeTo(struct.pos, 2)) {
+        return;
+      }
+
       // Can't walk through non-walkable buildings
       costMatrix.set(struct.pos.x, struct.pos.y, 255);
     }
@@ -110,17 +137,51 @@ export const createSourceRoadMatrix = (kingdom: Kingdom, roomName: string, trace
           continue;
         }
 
-        costMatrix.set(x, y, 5);
+        // Dont override roads
+        if (costMatrix.get(x, y) === 0) {
+          costMatrix.set(x, y, 5);
+        }
       }
     }
   });
 
+  // Add existing roads
+  structures.filter((s) => s.structureType === STRUCTURE_ROAD).forEach(function (struct) {
+    const cost = costMatrix.get(struct.pos.x, struct.pos.y);
+    if (cost >= 5 && cost != 255) {
+      costMatrix.set(struct.pos.x, struct.pos.y, cost - 2);
+      return;
+    }
+
+    costMatrix.set(struct.pos.x, struct.pos.y, 1);
+  });
+
+  // Add roads in base final base layout
+  const colonyConfig = kingdom.getPlanner().getColonyConfigById(roomName);
+  if (colonyConfig) {
+    const layout: Layout = baseLayouts[8];
+    const buildings = layout.buildings;
+
+    for (let i = 0; i < buildings.length; i++) {
+      for (let j = 0; j < buildings[i].length; j++) {
+        if (buildingCodes[buildings[i][j]] === STRUCTURE_ROAD) {
+
+          const y = colonyConfig.origin.y - layout.origin.y + i;
+          const x = colonyConfig.origin.x - layout.origin.x + j;
+
+          costMatrix.set(x, y, 1);
+        }
+      }
+    }
+  }
+
+  // Marking parking lot as avoid
   const orgRoom = kingdom.getRoomColony(roomName)?.getRoomByID(roomName);
   if (orgRoom) {
     const parking = orgRoom.getParkingLot();
     if (parking) {
-      for (let x = parking.pos.x - 2; x < parking.pos.x + 3; x++) {
-        for (let y = parking.pos.y - 2; y < parking.pos.y + 3; y++) {
+      for (let x = parking.pos.x - 1; x <= parking.pos.x + 1; x++) {
+        for (let y = parking.pos.y - 1; y <= parking.pos.y + 1; y++) {
           if (x < 0 || x < 0 || y > 49 || y > 49 || terrain.get(x, y) === TERRAIN_MASK_WALL) {
             continue;
           }
@@ -269,4 +330,22 @@ const get255CostMatrix = (): CostMatrix => {
   costMatrix255 = costs;
 
   return costs.clone();
+}
+
+export const visualizeCostMatrix = (roomName: string, costMatrix: CostMatrix, trace: Tracer) => {
+  if (typeof (costMatrix) === "boolean") {
+    trace.log('costmatrix is boolean', {roomName})
+    return;
+  }
+
+  trace.log('show matrix', {roomName})
+
+  const visual = new RoomVisual(roomName);
+
+  for (let x = 0; x <= 49; x++) {
+    for (let y = 0; y <= 49; y++) {
+      const cost = costMatrix.get(x, y);
+      visual.text((cost).toString(), x, y);
+    }
+  }
 }

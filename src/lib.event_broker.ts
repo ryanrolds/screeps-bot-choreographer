@@ -4,11 +4,13 @@ export const NotAttachedError = new Error('Consumer not attached to stream');
 
 export class Event {
   key: string;
+  time: number;
   type: string;
   data: any;
 
-  constructor(key: string, type: string, data: any) {
+  constructor(key: string, time: number, type: string, data: any) {
     this.key = key;
+    this.time = time;
     this.type = type;
     this.data = data;
   }

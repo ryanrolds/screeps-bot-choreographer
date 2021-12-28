@@ -6,8 +6,12 @@ import {Kingdom} from "./org.kingdom";
 
 
 export const findNextRemoteRoom = (kingdom: Kingdom, colonyConfig: ColonyConfig, trace: Tracer): string => {
-
   trace.log('checking remote mining', {colonyConfig});
+
+  if (!colonyConfig.automated) {
+    trace.log('not automated', {colonyConfig});
+    return null;
+  }
 
   const room = Game.rooms[colonyConfig.primary];
   if (!room) {
@@ -31,11 +35,14 @@ export const findNextRemoteRoom = (kingdom: Kingdom, colonyConfig: ColonyConfig,
   }, [] as string[]);
 
   let adjacentRooms: string[] = _.uniq(exits);
+  adjacentRooms = _.difference(adjacentRooms, colonyConfig.rooms);
+
+  trace.log('adjacent rooms', {adjacentRooms});
 
   const scribe = kingdom.getScribe();
   adjacentRooms = _.filter(adjacentRooms, (roomName) => {
     // filter rooms already belonging to a colony
-    const colonyConfig = this.getColonyConfigByRoom(roomName);
+    const colonyConfig = kingdom.getPlanner().getColonyConfigByRoom(roomName);
     if (colonyConfig) {
       trace.log('room already assigned to colony', {roomName});
       return false;
@@ -72,6 +79,14 @@ export const findNextRemoteRoom = (kingdom: Kingdom, colonyConfig: ColonyConfig,
     return route.length;
   });
 
+  if (adjacentRooms.length !== 0) {
+    const nextRoom = adjacentRooms[0];
+    trace.log('next room', {nextRoom});
+    return nextRoom;
+  }
+
+  trace.log('no adjacent rooms found', {adjacentRooms, exits, colonyConfig});
+
   return null;
 }
 
@@ -94,9 +109,9 @@ function desiredRemotes(level: number): number {
       desiredRemotes = 2;
       break;
     case 7:
-      desiredRemotes = 3;
-    case 8:
       desiredRemotes = 4;
+    case 8:
+      desiredRemotes = 6;
       break;
     default:
       throw new Error('unexpected controller level');

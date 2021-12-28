@@ -366,3 +366,21 @@ const applyRoomCallbackPolicy = (kingdom: Kingdom, roomEntry: RoomEntry,
 
   return true;
 }
+
+
+export const visualizePath = (path: RoomPosition[], trace: Tracer) => {
+  const pathByRooms = path.reduce((acc, pos) => {
+    if (!acc[pos.roomName]) {
+      acc[pos.roomName] = [];
+    }
+
+    acc[pos.roomName].push(pos);
+
+    return acc;
+  }, {} as Record<string, RoomPosition[]>);
+
+  // Display in the rooms
+  Object.entries(pathByRooms).forEach(([key, value]) => {
+    new RoomVisual(key).poly(value);
+  });
+}

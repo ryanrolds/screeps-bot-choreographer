@@ -81,7 +81,7 @@ export const DEFINITIONS = {
   [WORKER_HAULER]: {
     ignoreSpawnEnergyLimit: true,
     parts: [MOVE, CARRY, CARRY],
-    base: [MOVE, CARRY, CARRY, MOVE, CARRY, CARRY],
+    base: [MOVE, WORK, CARRY],
     // boosts: ['capacity'],
     processPriority: Priorities.LOGISTICS,
     skippable: true,

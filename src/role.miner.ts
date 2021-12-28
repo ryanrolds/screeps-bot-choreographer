@@ -11,9 +11,14 @@ const selectSource = behaviorTree.leafNode(
   (creep, trace, kingdom) => {
     const source = Game.getObjectById<Id<Source>>(creep.memory[MEMORY.MEMORY_SOURCE]);
     const container = Game.getObjectById<Id<StructureContainer>>(creep.memory[MEMORY.MEMORY_SOURCE_CONTAINER]);
+
     if (source && container) {
       behaviorMovement.setSource(creep, source.id);
       behaviorMovement.setDestination(creep, container.id);
+      return SUCCESS;
+    } else if (source) {
+      behaviorMovement.setSource(creep, source.id);
+      behaviorMovement.setDestination(creep, source.id);
       return SUCCESS;
     }
 
@@ -87,6 +92,56 @@ const harvest = behaviorTree.leafNode(
     return FAILURE;
   },
 );
+
+const buildNearbySites = behaviorTree.leafNode(
+  'build_nearby_sites',
+  (creep, trace, kingdom) => {
+    if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
+      trace.log('no energy to build container', {});
+      return FAILURE;
+    }
+
+    const sites = creep.pos.findInRange(FIND_CONSTRUCTION_SITES, 1)
+    if (!sites.length) {
+      trace.log('no construction site', {});
+      return FAILURE;
+    }
+
+    const result = creep.build(sites[0]);
+    trace.log('build result', {result});
+
+    return RUNNING;
+  }
+);
+
+const repairContainer = behaviorTree.leafNode(
+  'repair_container',
+  (creep, trace, kingdom) => {
+    if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
+      trace.log('no energy to repair container', {});
+      return FAILURE;
+    }
+
+    const container = creep.pos.lookFor(LOOK_STRUCTURES).find((site) => {
+      return site.structureType === STRUCTURE_CONTAINER;
+    });
+
+    if (!container) {
+      trace.log('no construction site', {});
+      return FAILURE;
+    }
+
+    if (container.hits === container.hitsMax) {
+      trace.log('container full health');
+      return FAILURE;
+    }
+
+    const result = creep.repair(container);
+    trace.log('repair result', {result});
+
+    return RUNNING;
+  }
+)
 
 const moveEnergyToLink = behaviorTree.leafNode(
   'move_energy_to_link',
@@ -177,8 +232,7 @@ const waitUntilSourceReady = behaviorTree.leafNode(
 const behavior = behaviorTree.sequenceNode(
   'mine_energy',
   [
-    selectSource,
-    behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 0, commonPolicy),
+    behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_SOURCE_POSITION, 0, commonPolicy),
     behaviorCommute.setCommuteDuration,
     behaviorTree.repeatUntilFailure(
       'mine_until_failure',
@@ -189,6 +243,8 @@ const behavior = behaviorTree.sequenceNode(
             'get_energy',
             [
               harvest,
+              buildNearbySites,
+              repairContainer,
               moveEnergyToLink,
               waitUntilSourceReady,
             ],

@@ -169,9 +169,17 @@ let ai: AI = null
 global.AI = null; // So we can access it from the console
 let previousTick = 0; // Track previous tick time for display
 
+global.TRACING_ACTIVE = false;
+
 export const loop = function () {
   const fields = {shard: Game.shard.name};
   const trace = new Tracer('tick', fields, 0);
+
+  if (global.TRACING_ACTIVE === true) {
+    tracing.setActive();
+  } else {
+    tracing.setInactive();
+  }
 
   console.log('======== TICK', Game.time, Game.shard.name, '==== prev cpu:', previousTick);
 

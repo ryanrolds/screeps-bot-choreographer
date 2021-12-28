@@ -12,7 +12,7 @@ export enum AllowedCostMatrixTypes {
   COMMON = 'common',
   BASE_DEFENSE = 'base',
   OPEN_SPACE = 'open_space',
-  SOURCE_ROAD = ' source_road',
+  SOURCE_ROAD = 'source_road',
 };
 
 export class CostMatrixCacheItem {

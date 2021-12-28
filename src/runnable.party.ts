@@ -9,14 +9,15 @@
 
 
 import * as _ from 'lodash';
-import {Kingdom} from "./org.kingdom";
-import {RunnableResult, running, terminate} from "./os.process";
-import {thread, ThreadFunc} from './os.thread';
-import {Tracer} from './lib.tracing';
-import {TOPIC_SPAWN} from './constants.topics';
-import * as MEMORY from './constants.memory'
-import {WarPartyTarget} from './runnable.warparty';
 import {ColonyConfig} from './config';
+import * as MEMORY from './constants.memory';
+import {TOPIC_SPAWN} from './constants.topics';
+import {Tracer} from './lib.tracing';
+import {Kingdom} from "./org.kingdom";
+import {running, terminate} from "./os.process";
+import {RunnableResult} from './os.runnable';
+import {thread, ThreadFunc} from './os.thread';
+import {WarPartyTarget} from './runnable.warparty';
 
 const REQUEST_PARTY_MEMBER_TTL = 25;
 const MAX_PARTY_SIZE = 4;

@@ -1,16 +1,17 @@
 import * as _ from 'lodash';
-import {Priorities, Scheduler} from "./os.scheduler";
-import {Process, Runnable, RunnableResult, running, sleeping} from "./os.process";
-import {Tracer} from './lib.tracing';
-import {Kingdom} from './org.kingdom';
-import DefensePartyRunnable from './runnable.defense_party';
-import * as TOPICS from './constants.topics';
 import * as CREEPS from './constants.creeps';
-import * as PRIORITIES from './constants.priorities';
 import * as MEMORY from './constants.memory';
-import {Colony} from './org.colony';
-import {thread, ThreadFunc} from './os.thread';
+import * as PRIORITIES from './constants.priorities';
+import * as TOPICS from './constants.topics';
 import {DEFENSE_STATUS} from './defense';
+import {Tracer} from './lib.tracing';
+import {Colony} from './org.colony';
+import {Kingdom} from './org.kingdom';
+import {Process, sleeping} from "./os.process";
+import {RunnableResult} from './os.runnable';
+import {Priorities, Scheduler} from "./os.scheduler";
+import {thread, ThreadFunc} from './os.thread';
+import DefensePartyRunnable from './runnable.defense_party';
 
 const RUN_INTERVAL = 5;
 const TARGET_REQUEST_TTL = RUN_INTERVAL;

@@ -1,15 +1,16 @@
 import * as _ from 'lodash';
 import {Kingdom} from "./org.kingdom";
-import {RunnableResult, running, sleeping, terminate, STATUS_TERMINATED} from "./os.process";
+import {running, sleeping, terminate, STATUS_TERMINATED} from "./os.process";
 import {Tracer} from './lib.tracing';
 import {DEFINITIONS, WORKER_ATTACKER, WORKER_ATTACKER_3TOWER} from './constants.creeps'
 import {PRIORITY_ATTACKER} from "./constants.priorities";
 import PartyRunnable from './runnable.party';
 import {ATTACK_ROOM_TTL, AttackRequest, AttackStatus, Phase} from './constants.attack';
 import * as TOPICS from './constants.topics';
-import {FindPathPolicy, getPath} from './lib.pathing';
+import {FindPathPolicy, getPath, visualizePath} from './lib.pathing';
 import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
 import {ColonyConfig} from './config';
+import {RunnableResult} from './os.runnable';
 
 const REQUEST_ATTACKER_TTL = 30;
 
@@ -549,20 +550,7 @@ export default class WarPartyRunnable {
       return;
     }
 
-    const pathByRooms = path.reduce((acc, pos) => {
-      if (!acc[pos.roomName]) {
-        acc[pos.roomName] = [];
-      }
-
-      acc[pos.roomName].push(pos);
-
-      return acc;
-    }, {} as Record<string, RoomPosition[]>);
-
-    // Display in the rooms
-    Object.entries(pathByRooms).forEach(([key, value]) => {
-      new RoomVisual(key).poly(value);
-    });
+    visualizePath(path, trace);
   }
 
   getPath(origin: RoomPosition, destination: RoomPosition, trace: Tracer) {

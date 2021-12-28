@@ -6,7 +6,7 @@ import {MEMORY_ORIGIN, MEMORY_SOURCE} from "./constants.memory";
 import {PathCache, PathCacheItem} from "./lib.path_cache";
 import {Tracer} from "./lib.tracing";
 import {Kingdom} from "./org.kingdom";
-import {FindPathPolicy} from "./lib.pathing";
+import {FindPathPolicy, visualizePath} from "./lib.pathing";
 import {commonPolicy} from "./lib.pathing_policies";
 
 const MAX_POSITION_TTL = 5;
@@ -261,6 +261,10 @@ const cachedMoveToPosition = (kingdom: Kingdom, creep: Creep, destination: RoomP
       return FAILURE;
     }
 
+    if ((global as any).LOG_WHEN_ID === creep.name) {
+      visualizePath(pathfinderResult.path, trace)
+    }
+
     result = creep.moveByPath(pathfinderResult.path);
     trace.log('move by path result', {result, path: pathfinderResult.path});
   } else {
@@ -336,7 +340,15 @@ export const fillCreepFromDestination = (creep, trace) => {
   }
 
   if (!destination.store) {
-    trace.log('destination does not have a store');
+    trace.notice('type of destination is not a store', {destination, typeof: typeof destination});
+
+    const result = creep.pickup(destination);
+    if (result !== OK) {
+      trace.log('failed to pick up resource', {result});
+      return FAILURE;
+    }
+
+    trace.log('does not have store', {destination});
     return FAILURE;
   }
 

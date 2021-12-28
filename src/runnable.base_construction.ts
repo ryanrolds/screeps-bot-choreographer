@@ -1,36 +1,19 @@
-import {RunnableResult, sleeping} from "./os.process";
+import {ANY, buildingCodes, EMPTY, getConstructionPosition} from "./lib.layouts";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
+import {sleeping} from "./os.process";
+import {RunnableResult} from "./os.runnable";
 
 const CONSTRUCTION_INTERVAL = 50;
 
-type BaseLayout = {
+export type BaseLayout = {
   origin: {x: number, y: number};
   parking: {x: number, y: number};
   buildings: string[][];
 }
 
-const EMPTY = 'empty';
-const ANY = 'any';
-
-const buildingCodes = {
-  'X': EMPTY,
-  '.': ANY,
-  'R': STRUCTURE_ROAD,
-  'P': STRUCTURE_SPAWN,
-  'E': STRUCTURE_EXTENSION,
-  'C': STRUCTURE_CONTAINER,
-  'T': STRUCTURE_TOWER,
-  'S': STRUCTURE_STORAGE,
-  'L': STRUCTURE_LINK,
-  'M': STRUCTURE_TERMINAL,
-  'B': STRUCTURE_LAB,
-  'O': STRUCTURE_OBSERVER,
-  'N': STRUCTURE_NUKER,
-}
-
-const layouts: BaseLayout[] = [
+export const baseLayouts: BaseLayout[] = [
   { // RCL0
     origin: {x: 0, y: 0},
     parking: {x: 0, y: 0},
@@ -250,7 +233,7 @@ export default class BaseConstructionRunnable {
   }
 
   selectLayout(roomLevel: number, room: Room, origin: RoomPosition, trace: Tracer): BaseLayout {
-    const layout = layouts[roomLevel];
+    const layout = baseLayouts[roomLevel];
 
     // Dont build a layout that is already done
     if (this.layoutComplete(layout, room, origin, trace)) {
@@ -264,7 +247,7 @@ export default class BaseConstructionRunnable {
   buildLayout(kingdom: Kingdom, layout: BaseLayout, room: Room, origin: RoomPosition, trace: Tracer): void {
     trace.log('building layout', {roomId: room.name, layout});
 
-    const roomVisual = new RoomVisual(room.name);
+    // const roomVisual = new RoomVisual(room.name);
     for (let y = 0; y < layout.buildings.length; y++) {
       const row = layout.buildings[y];
       for (let x = 0; x < row.length; x++) {
@@ -339,8 +322,4 @@ export default class BaseConstructionRunnable {
     trace.log('layout complete', {layout});
     return true;
   }
-}
-
-const getConstructionPosition = (pos: {x: number, y: number}, origin: RoomPosition, layout: BaseLayout): RoomPosition => {
-  return new RoomPosition(pos.x + origin.x - layout.origin.x, pos.y + origin.y - layout.origin.y, origin.roomName);
 }

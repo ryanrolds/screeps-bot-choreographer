@@ -40,7 +40,7 @@ export const pickExpansion = (kingdom: Kingdom, trace: Tracer): ExpandResults =>
   let nextPass: string[] = Object.keys(claimed);
   seen = _.clone(claimed);
 
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 4; i++) {
     const found = [];
 
     nextPass.forEach((parentRoom) => {
@@ -116,7 +116,7 @@ export const pickExpansion = (kingdom: Kingdom, trace: Tracer): ExpandResults =>
 
   trace.log('sorted candidates', {candidateList});
 
-  if (candidateList.length < 5) {
+  if (candidateList.length < 3) {
     trace.notice('not enough candidates', {candidateList});
     return {selected: null, distance: null, origin: null, candidates, claimed, dismissed, seen};
   }

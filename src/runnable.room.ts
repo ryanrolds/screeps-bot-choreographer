@@ -1,28 +1,25 @@
-import {Process, Runnable, RunnableResult, running, sleeping, terminate} from "./os.process";
+import {creepIsFresh} from './behavior.commute';
+import * as CREEPS from './constants.creeps';
+import * as MEMORY from './constants.memory';
+import * as PRIORITIES from './constants.priorities';
+import * as TASKS from './constants.tasks';
+import * as TOPICS from './constants.topics';
+import {DEFENSE_STATUS} from './defense';
 import {Tracer} from './lib.tracing';
-import {thread, ThreadFunc} from './os.thread';
-
 import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
-
+import {Process, running, terminate} from "./os.process";
+import {RunnableResult} from "./os.runnable";
 import {Priorities, Scheduler} from "./os.scheduler";
-
-import LinkManager from "./runnable.manager.links"
-import TowerRunnable from "./runnable.tower";
+import {thread, ThreadFunc} from './os.thread';
+import BaseConstructionRunnable from "./runnable.base_construction";
+import {LabsManager} from "./runnable.manager.labs";
+import LinkManager from "./runnable.manager.links";
+import SpawnManager from "./runnable.manager.spawns";
 import NukerRunnable from "./runnable.nuker";
 import SourceRunnable from "./runnable.source";
-import SpawnManager from "./runnable.manager.spawns";
 import TerminalRunnable from "./runnable.terminal";
-import {LabsManager} from "./runnable.manager.labs";
-import {creepIsFresh} from './behavior.commute';
-
-import * as PRIORITIES from './constants.priorities';
-import * as MEMORY from './constants.memory';
-import * as CREEPS from './constants.creeps';
-import * as TOPICS from './constants.topics';
-import * as TASKS from './constants.tasks';
-import {DEFENSE_STATUS} from './defense';
-import BaseConstructionRunnable from "./runnable.base_construction";
+import TowerRunnable from "./runnable.tower";
 
 const MIN_ENERGY = 100000;
 const CREDIT_RESERVE = 100000;
@@ -264,6 +261,11 @@ export default class RoomRunnable {
   }
 
   requestRepairer(trace: Tracer, orgRoom: OrgRoom, room: Room) {
+    if (!orgRoom.isPrimary) {
+      trace.log('not primary room, skipping');
+      return;
+    }
+
     let maxHits = 0;
     let hits = 0;
 
@@ -321,10 +323,15 @@ export default class RoomRunnable {
       memory: {
         [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
       },
-    }, REQUEST_REPAIRER_TTL);
+    }, REQUEST_REPAIRER_TTL, trace);
   }
 
   requestBuilder(trace: Tracer, orgRoom: OrgRoom, room: Room) {
+    if (!orgRoom.isPrimary) {
+      trace.log('not primary room, skipping');
+      return;
+    }
+
     if (!Object.values(Game.spawns).length) {
       // We have no spawns in this shard
       return;
@@ -356,7 +363,7 @@ export default class RoomRunnable {
         [MEMORY.MEMORY_ASSIGN_SHARD]: Game.shard.name,
         [MEMORY.MEMORY_COLONY]: (orgRoom as any).getColony().id,
       },
-    }, REQUEST_BUILDER_TTL);
+    }, REQUEST_BUILDER_TTL, trace);
   }
 
   requestDistributor(trace: Tracer, orgRoom: OrgRoom, room: Room) {
@@ -417,11 +424,15 @@ export default class RoomRunnable {
       distributorPriority = PRIORITIES.DISTRIBUTOR_NO_RESERVE;
     }
 
-    if (orgRoom.getAmountInReserve(RESOURCE_ENERGY) > 25000) {
-      distributorPriority += 3;
+    //if (orgRoom.getAmountInReserve(RESOURCE_ENERGY) > 25000) {
+    //  distributorPriority += 3;
+    //}
+
+    if (numDistributors === 0) {
+      distributorPriority += 10;
     }
 
-    trace.log('request distributor', {desiredDistributors});
+    trace.notice('request distributor', {desiredDistributors, distributorPriority, fullness});
 
     (orgRoom as any).requestSpawn(distributorPriority, {
       role: CREEPS.WORKER_DISTRIBUTOR,
@@ -429,7 +440,7 @@ export default class RoomRunnable {
         [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
         [MEMORY.MEMORY_COLONY]: (orgRoom as any).getColony().id,
       },
-    }, REQUEST_DISTRIBUTOR_TTL);
+    }, REQUEST_DISTRIBUTOR_TTL, trace);
 
   }
 
@@ -475,7 +486,7 @@ export default class RoomRunnable {
         orgRoom.getKingdom().sendRequest(TOPICS.TOPIC_SPAWN, PRIORITIES.PRIORITY_RESERVER,
           details, REQUEST_RESERVER_TTL);
       } else {
-        orgRoom.requestSpawn(PRIORITIES.PRIORITY_RESERVER, details, REQUEST_RESERVER_TTL);
+        orgRoom.requestSpawn(PRIORITIES.PRIORITY_RESERVER, details, REQUEST_RESERVER_TTL, trace);
       }
     }
   }
@@ -555,7 +566,7 @@ export default class RoomRunnable {
           [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
           [MEMORY.MEMORY_COLONY]: (orgRoom as any).getColony().id,
         },
-      }, REQUEST_UPGRADER_TTL);
+      }, REQUEST_UPGRADER_TTL, trace);
     }
   }
 

@@ -1,17 +1,10 @@
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
 import * as _ from 'lodash';
+import {Runnable, RunnableResult} from './os.runnable';
 
-export interface Runnable {
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult;
-}
 
-export interface RunnableResult {
-  status: ProcessStatus;
-  sleepFor?: number;
-}
-
-type ProcessStatus = 'running' | 'sleeping' | 'stopped' | 'terminated';
+export type ProcessStatus = 'running' | 'sleeping' | 'stopped' | 'terminated';
 
 export const STATUS_RUNNING = 'running';
 export const STATUS_SLEEPING = 'sleeping';

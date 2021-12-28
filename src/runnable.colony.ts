@@ -1,7 +1,10 @@
-import {Process, RunnableResult, running, sleeping, terminate} from "./os.process";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
+import {Process, sleeping, terminate} from "./os.process";
+import {RunnableResult} from "./os.runnable";
 import {Priorities, Scheduler} from "./os.scheduler";
+import ControllerRunnable from "./runnable.controller";
+import LogisticsRunnable from "./runnable.logistics";
 import ObserverRunnable from "./runnable.observer";
 
 export default class ColonyRunnable {
@@ -44,6 +47,22 @@ export default class ColonyRunnable {
         this.scheduler.registerProcess(new Process(observerId, 'observer', Priorities.EXPLORATION,
           new ObserverRunnable(observerId)));
       }
+    }
+
+    // Road network
+    const logisticsIds = `logistics_${this.id}`;
+    const hasLogisticsProcess = this.scheduler.hasProcess(logisticsIds);
+    if (!hasLogisticsProcess) {
+      this.scheduler.registerProcess(new Process(logisticsIds, 'logistics', Priorities.LOGISTICS,
+        new LogisticsRunnable(this.id)));
+    }
+
+    // Controller
+    const controllerProcessId = room.controller.id
+    if (!this.scheduler.hasProcess(controllerProcessId)) {
+      const controllerRunnable = new ControllerRunnable(room.controller.id);
+      this.scheduler.registerProcess(new Process(controllerProcessId, 'colony_manager',
+        Priorities.CRITICAL, controllerRunnable));
     }
 
     return sleeping(20);

@@ -1,27 +1,24 @@
 
-import * as _ from 'lodash';
-
-import {Scheduler} from "./os.scheduler";
-import {Process, Runnable, RunnableResult, running, terminate} from "./os.process";
-import {Tracer} from './lib.tracing';
-import {Kingdom} from './org.kingdom';
-
-import {MEMORY_ROLE} from './constants.memory';
 import * as CREEPS from './constants.creeps';
 import {DEFINITIONS} from './constants.creeps';
-
-import {roleHarvester} from './role.harvester';
-import {roleUpgrader} from './role.upgrader';
+import {MEMORY_ROLE} from './constants.memory';
+import {Tracer} from './lib.tracing';
+import {Kingdom} from './org.kingdom';
+import {Process, running, terminate} from "./os.process";
+import {Runnable, RunnableResult} from './os.runnable';
+import {Scheduler} from "./os.scheduler";
+import roleAttacker from './role.attacker';
 import {roleBuilder} from './role.builder';
-import {roleRepairer} from './role.repairer';
-import {roleHauler} from './role.hauler';
-import {roleMiner} from './role.miner';
-import roleDistributor from './role.distributor';
 import roleDefender from './role.defender';
 import roleDefenderDrone from './role.defender_drone';
-import roleAttacker from './role.attacker';
-import {roleReserver} from './role.reserver';
+import roleDistributor from './role.distributor';
 import roleExplorer from './role.explorer';
+import {roleHarvester} from './role.harvester';
+import {roleHauler} from './role.hauler';
+import {roleMiner} from './role.miner';
+import {roleRepairer} from './role.repairer';
+import {roleReserver} from './role.reserver';
+import {roleUpgrader} from './role.upgrader';
 
 export class CreepManager {
   id: string;
