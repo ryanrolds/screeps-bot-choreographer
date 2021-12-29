@@ -294,7 +294,7 @@ export default class WarPartyRunnable {
 
     const [nextPosition, direction, blockers] = this.getNextPosition(this.position, this.destination, trace);
 
-    trace.notice("next position", {targetRoom, nextPosition, blockers: blockers.map(blocker => blocker.id)});
+    trace.log("next position", {targetRoom, nextPosition, blockers: blockers.map(blocker => blocker.id)});
 
     const directionChanged = direction != this.direction;
     if (directionChanged) {

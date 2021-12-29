@@ -220,13 +220,13 @@ export class CentralPlanning {
     const scribe = kingdom.getScribe();
     const globalColonyCount = scribe.getGlobalColonyCount();
     if (!globalColonyCount) {
-      trace.notice('do not know global colony count yet');
+      trace.log('do not know global colony count yet');
       return;
     }
 
     const allowedColonies = Game.gcl.level;
     if (globalColonyCount >= allowedColonies) {
-      trace.notice('max GCL colonies reached', {globalColonyCount, allowedColonies});
+      trace.log('max GCL colonies reached', {globalColonyCount, allowedColonies});
       return;
     }
 
@@ -234,7 +234,7 @@ export class CentralPlanning {
     const numColonies = colonyConfigs.length;
     const shardColonyMax = (this.config.maxColonies || 9999);
     if (numColonies >= shardColonyMax) {
-      trace.notice('max config colonies reached', {numColonies, shardColonyMax});
+      trace.log('max config colonies reached', {numColonies, shardColonyMax});
       return;
     }
 
@@ -243,7 +243,7 @@ export class CentralPlanning {
       const roomName = results.selected;
       const distance = results.distance;
       const origin = results.origin;
-      trace.log('selected room, adding colony', {roomName, distance, origin});
+      trace.notice('selected room, adding colony', {roomName, distance, origin});
       this.addColonyConfig(roomName, false, origin, true, [], trace);
       return;
     }

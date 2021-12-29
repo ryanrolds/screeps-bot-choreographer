@@ -87,11 +87,11 @@ export default class WarManager {
     while (event = topic.shift()) {
       switch (event.details.status) {
         case AttackStatus.REQUESTED:
-          trace.notice("requested", {target: event.details.target});
+          trace.log("requested", {target: event.details.target});
           targets.push(event.details.roomId);
           break;
         case AttackStatus.COMPLETED:
-          trace.notice('attack completed', {roomId: event.details.roomId});
+          trace.log('attack completed', {roomId: event.details.roomId});
           kingdom.getScribe().clearRoom(this.targetRoom);
           targets = targets.filter(target => target !== this.targetRoom);
           this.targetRoom = null;
@@ -101,13 +101,13 @@ export default class WarManager {
       }
     }
 
-    trace.notice(`targets: ${targets} `);
+    trace.log(`targets: ${targets} `);
 
     // TODO spread targets across colonies
     this.targets = targets;
 
     if (!this.targetRoom && this.targets.length) {
-      trace.notice("setting target room", {target: this.targets[0]});
+      trace.log("setting target room", {target: this.targets[0]});
       this.targetRoom = this.targets[0];
     }
   }
@@ -265,7 +265,7 @@ export default class WarManager {
     }
 
     const partyId = `war_party_${this.targetRoom}_${colonyConfig.primary}_${Game.time}`;
-    trace.notice("creating war party", {target: this.targetRoom, partyId, flagId});
+    trace.log("creating war party", {target: this.targetRoom, partyId, flagId});
 
     const warParty = this.createAndScheduleWarParty(colonyConfig, partyId, this.targetRoom,
       Phase.PHASE_MARSHAL, flag.pos, flag.name, role, trace);
@@ -319,7 +319,7 @@ export default class WarManager {
       return party;
     });
 
-    trace.notice("restore complete", {
+    trace.log("restore complete", {
       targetRoom: this.targetRoom,
       warParties: this.warParties.map(warParty => warParty.id),
     });

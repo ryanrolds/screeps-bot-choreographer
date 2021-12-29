@@ -344,11 +344,10 @@ export const fillCreepFromDestination = (creep, trace) => {
 
     const result = creep.pickup(destination);
     if (result !== OK) {
-      trace.log('failed to pick up resource', {result});
+      trace.error('failed to pick up resource', {result});
       return FAILURE;
     }
 
-    trace.log('does not have store', {destination});
     return FAILURE;
   }
 

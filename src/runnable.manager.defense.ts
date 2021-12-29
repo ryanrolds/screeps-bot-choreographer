@@ -70,7 +70,7 @@ export default class DefenseManager {
 
     this.defenseParties = this.memory.parties.map((party) => {
       if (!party.id || !party.position || !party.flagId) {
-        trace.notice("invalid defense party", {party});
+        trace.error("invalid defense party", {party});
         return null;
       }
 
@@ -86,20 +86,20 @@ export default class DefenseManager {
 
     const flag = Game.flags[flagId] || null;
     if (!flag) {
-      trace.notice('flag not found, not creating defense party', {flagId});
+      trace.error('flag not found, not creating defense party', {flagId});
       return;
     }
 
     // TODO replace this with planner usage
     const colony = kingdom.getClosestColonyInRange(flag.pos.roomName, 5);
     if (!colony) {
-      trace.notice('could not find colony in range, not creating defense party', {roomName: flag.pos.roomName});
+      trace.error('could not find colony in range, not creating defense party', {roomName: flag.pos.roomName});
       return;
     }
 
     const colonyConfig = kingdom.getPlanner().getColonyConfigById(colony.id);
     if (!colonyConfig) {
-      trace.log('not create defense party, cannot find colony config', {colonyId: colony.id});
+      trace.error('not create defense party, cannot find colony config', {colonyId: colony.id});
       return null;
     }
 
@@ -165,7 +165,7 @@ export default class DefenseManager {
     (Memory as any).defense = {
       parties: this.defenseParties.map((party): StoredDefenseParty => {
         if (!Game.flags[party.flagId]) {
-          trace.notice("missing flag", {flagId: party.flagId});
+          trace.error("missing flag", {flagId: party.flagId});
           return null;
         }
 
@@ -393,7 +393,7 @@ function checkColonyDefenses(trace: Tracer, kingdom: Kingdom, hostilesByColony: 
         }
       }
 
-      trace.notice('hostiles present', {
+      trace.log('hostiles present', {
         hostileScore,
         defenderScore,
         numNeededDefenders,

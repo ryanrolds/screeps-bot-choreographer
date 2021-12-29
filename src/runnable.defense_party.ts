@@ -39,7 +39,7 @@ export default class DefensePartyRunnable {
     // Check existence of flag
     let flag = this.getFlag();
     if (!flag) {
-      trace.notice("no flag with that id, terminating", {flagId: this.flagId});
+      trace.error("no flag with that id, terminating", {flagId: this.flagId});
       prep.end();
       trace.end();
       return terminate();

@@ -432,7 +432,7 @@ export default class RoomRunnable {
       distributorPriority += 10;
     }
 
-    trace.notice('request distributor', {desiredDistributors, distributorPriority, fullness});
+    trace.log('request distributor', {desiredDistributors, distributorPriority, fullness});
 
     (orgRoom as any).requestSpawn(distributorPriority, {
       role: CREEPS.WORKER_DISTRIBUTOR,

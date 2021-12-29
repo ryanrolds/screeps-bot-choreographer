@@ -101,7 +101,7 @@ There are some debugging tools built into the project:
 
 * Run and draw path - `AI.getPathDebugger().debug(new RoomPosition(11, 12, 'W8N4'), new RoomPosition(25,25,'W7N6'), 1, 'warparty')`
 * Clear path - `AI.getPathDebugger().clear()`
-* Run and draw cost matrix - `AI.getCostMatrixDebugger().debug("W8N4", 'open_space')` and `AI.getCostMatrixDebugger().clear()`
+* Run and draw cost matrix - `AI.getCostMatrixDebugger().debug("W8N4", 'open_space')`
 * Cost matrix clear - `AI.getCostMatrixDebugger().clear()`
 * Get debug info on path cache - `AI.kingdom.getPathCache().debug()`
 * Attack a room (requires rally_<room> flag) - `AI.scheduler.processMap['war_manager'].runnable.targetRoom = 'E16S51'`
@@ -115,6 +115,8 @@ There are a couple of helpful global variables:
 * `METRIC_MIN=<min ms>` - (default 0.5ms) Will cause Tracer to report metrics that are greater than `<min ms>`
 * `LOG_WHEN_ID='<prefix>'` - Logs with tracers matching the prefix will be output to the console
 * `RESET_PIDS=true` - Will reset the PID controllers - useful when PID controllers are spawning too many haulers
+* `TRACING_ACTIVE=true` - Will output tracing metric data to the console
+* `TRACING_FILTER=<prefix>` - only print traces with a key that stats with the prefix
 
 ### Creeps
 

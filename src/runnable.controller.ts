@@ -140,7 +140,7 @@ export default class ControllerRunnable {
     this.nodePosition = pathResult.path[1];
     this.nodeDirection = controller.pos.getDirectionTo(pathResult.path[2]);
 
-    trace.notice('node position', {
+    trace.log('node position', {
       id: this.controllerId,
       position: this.nodePosition,
       direction: this.nodeDirection

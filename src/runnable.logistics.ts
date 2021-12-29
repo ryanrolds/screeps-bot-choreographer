@@ -96,16 +96,11 @@ export default class LogisticsRunnable extends PersistentMemory {
 
     visualizeLegs(Object.values(this.legs), trace);
 
-    trace.notice('selected', {leg: this.selectedLeg});
-    trace.notice('legs', {legs: this.legs})
-
     return sleeping(1)
   }
 
   private consumeEvents(trace: Tracer, kingdom: Kingdom) {
     this.logisticsStreamConsumer.getEvents().forEach((event) => {
-      trace.notice('event', {event});
-
       switch (event.type) {
         case LogisticsEventType.RequestRoad:
           this.requestRoad(kingdom, event.data.id, event.data.position, event.time, trace);
@@ -115,8 +110,6 @@ export default class LogisticsRunnable extends PersistentMemory {
   }
 
   private requestRoad(kingdom: Kingdom, id: string, destination: RoomPosition, time: number, trace: Tracer) {
-    trace.notice('request_road', {id, destination, time});
-
     if (this.legs[id]) {
       const leg = this.legs[id];
       leg.destination = destination;
@@ -144,7 +137,6 @@ export default class LogisticsRunnable extends PersistentMemory {
         legs = this.getLegsToCalculate(trace);
 
         if (!legs.length) {
-          trace.notice('no destinations');
           continue;
         }
       }
@@ -202,13 +194,10 @@ export default class LogisticsRunnable extends PersistentMemory {
       return acc;
     }, 0);
 
-    trace.notice("calculated leg", {remaining, path: pathResult.path});
     return [pathResult.path, remaining];
   }
 
   private buildShortestLeg(trace: Tracer, primaryRoom: string) {
-    trace.notice('passes', {passes: this.passes})
-
     if (this.passes < 1) {
       trace.error('calculate all legs at least once before building shortest leg', {passes: this.passes});
       return;
@@ -237,7 +226,7 @@ export default class LogisticsRunnable extends PersistentMemory {
       return;
     }
 
-    trace.notice('shortest leg',)
+    trace.notice('shortest leg', {leg})
 
     this.selectedLeg = leg;
 

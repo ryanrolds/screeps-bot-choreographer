@@ -197,17 +197,17 @@ export class PathCache {
     let node = this.head;
     while (node.prev) {
       if (node.prev === node) {
-        trace.notice('aborting, hit self referencing node')
+        trace.error('aborting, hit self referencing node')
         break;
       }
 
       if (node.prev.prev === node) {
-        trace.notice('aborting, hit cyclical (3) referencing node')
+        trace.error('aborting, hit cyclical (3) referencing node')
         break;
       }
 
       if (count > this.maxSize * 1.1) {
-        trace.notice('aborting count, too large')
+        trace.error('aborting count, too large')
         break;
       }
 

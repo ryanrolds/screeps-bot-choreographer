@@ -56,7 +56,7 @@ export default class KingdomGovernor {
       }
 
       let shardMemory = kingdom.getScribe().getRemoteShardMemory(shardName);
-      trace.notice('shard memory', {shardName, shardMemory});
+      trace.log('shard memory', {shardName, shardMemory});
 
       this.handleClaimerRequests(kingdom, shardMemory.request_claimer || {}, trace);
       this.handleBuilderRequests(kingdom, shardMemory.request_builder || {}, trace);

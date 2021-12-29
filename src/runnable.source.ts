@@ -278,12 +278,12 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     const username = kingdom.getPlanner().getUsername();
 
     if (room.controller?.owner && room.controller.owner.username !== username) {
-      trace.notice('room owned by someone else', {roomId: room.name, owner: room.controller?.owner?.username});
+      trace.log('room owned by someone else', {roomId: room.name, owner: room.controller?.owner?.username});
       return;
     }
 
     if (room.controller?.reservation && room.controller.reservation.username !== username) {
-      trace.notice('room reserved by someone else', {roomId: room.name, username: room.controller.reservation.username});
+      trace.log('room reserved by someone else', {roomId: room.name, username: room.controller.reservation.username});
       return;
     }
 

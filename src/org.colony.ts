@@ -382,7 +382,7 @@ export class Colony extends OrgBase {
       // PID approach
       if (this.numHaulers < this.pidDesiredHaulers) {
         const priority = PRIORITY_HAULER + this.pidDesiredHaulers - this.numHaulers;
-        trace.notice('requesting hauler', {priority});
+        trace.log('requesting hauler', {priority});
         this.sendRequest(TOPIC_SPAWN, priority, {
           role: CREEPS.WORKER_HAULER,
           memory: {},
@@ -402,14 +402,14 @@ export class Colony extends OrgBase {
     }).length;
 
     if (numExplorers < MAX_EXPLORERS) {
-      trace.notice('requesting explorer');
+      trace.log('requesting explorer');
 
       this.sendRequest(TOPIC_SPAWN, PRIORITIES.EXPLORER, {
         role: CREEPS.WORKER_EXPLORER,
         memory: {},
       }, REQUEST_EXPLORER_TTL);
     } else {
-      trace.notice('not requesting explorer', {numExplorers});
+      trace.log('not requesting explorer', {numExplorers});
     }
   }
 
@@ -439,10 +439,10 @@ export class Colony extends OrgBase {
 
       if (this.primaryOrgRoom && this.primaryOrgRoom.hasSpawns &&
         this.primaryOrgRoom.room.energyCapacityAvailable >= 800) {
-        trace.notice('requesting claimer from colony', {details});
+        trace.log('requesting claimer from colony', {details});
         this.sendRequest(TOPIC_SPAWN, PRIORITY_CLAIMER, details, REQUEST_MISSING_ROOMS_TTL);
       } else {
-        trace.notice('requesting claimer from kingdom', {details});
+        trace.log('requesting claimer from kingdom', {details});
         this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITY_CLAIMER, details, REQUEST_MISSING_ROOMS_TTL);
       }
     });

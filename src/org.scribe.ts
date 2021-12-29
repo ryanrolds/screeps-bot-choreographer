@@ -134,7 +134,7 @@ export class Scribe extends OrgBase {
   updateColonyCount(trace) {
     if (this.globalColonyCount === -2) {
       // skip the first time, we want to give shards time to update their remote memory
-      trace.notice('skipping updateColonyCount');
+      trace.log('skipping updateColonyCount');
       this.globalColonyCount = -1;
       return;
     }
@@ -150,7 +150,7 @@ export class Scribe extends OrgBase {
       colonyCount += shardMemory?.status?.numColonies || 0;
     });
 
-    trace.notice('update_colony_count', {colonyCount});
+    trace.log('update_colony_count', {colonyCount});
 
     this.globalColonyCount = colonyCount;
   }

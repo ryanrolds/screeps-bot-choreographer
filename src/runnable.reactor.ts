@@ -144,7 +144,7 @@ export default class ReactorRunnable {
 
     switch (phase) {
       case TASK_PHASE_START:
-        trace.notice('starting task', {task});
+        trace.log('starting task', {task});
         room.memory[this.getTaskMemoryId()][MEMORY.TASK_PHASE] = TASK_PHASE_LOAD;
       case TASK_PHASE_LOAD:
         // Maintain task TTL. We want to abort hard to perform tasks

@@ -103,13 +103,13 @@ const getRoomEntriesWithInvaderBases = (kingdom: Kingdom, trace: Tracer): RoomEn
     }
 
     if (roomEntry.invaderCoreLevel > MAX_BASE_LEVEL) {
-      trace.notice('invader base too strong', {id: roomEntry.id, level: roomEntry.invaderCoreLevel});
+      trace.log('invader base too strong', {id: roomEntry.id, level: roomEntry.invaderCoreLevel});
       return false;
     }
 
     // TODO remove when we dont have any room entries without the pos
     if (!roomEntry.invaderCorePos) {
-      trace.notice('no position for invader base', {id: roomEntry.id})
+      trace.error('no position for invader base', {id: roomEntry.id})
       return false;
     }
 

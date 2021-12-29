@@ -148,14 +148,14 @@ const selectDroppedEnergy = behaviorTree.leafNode(
     });
 
     if (droppedEnergy) {
-      trace.notice('selecting dropped energy in room', {id: droppedEnergy.id});
+      trace.log('selecting dropped energy in room', {id: droppedEnergy.id});
       behaviorMovement.setDestination(creep, droppedEnergy.id);
       return SUCCESS;
     }
 
     behaviorMovement.setDestination(creep, null);
 
-    trace.notice('did not find any dropped energy');
+    trace.log('did not find any dropped energy');
     return FAILURE;
   },
 );

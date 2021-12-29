@@ -130,7 +130,7 @@ export default class SpawnManager {
           const role = request.details.role;
           const definition = DEFINITIONS[role];
           if (definition.energyMinimum && energy < definition.energyMinimum) {
-            trace.notice('not enough energy', {energy, request, definition});
+            trace.log('not enough energy', {energy, request, definition});
             return;
           }
 
@@ -145,7 +145,7 @@ export default class SpawnManager {
             return;
           }
 
-          trace.notice("colony spawn request", {id: this.id, role, energy, energyLimit});
+          trace.log("colony spawn request", {id: this.id, role, energy, energyLimit});
 
           this.createCreep(spawn, request.details.role, request.details.memory, energy, energyLimit);
           return;
@@ -233,7 +233,7 @@ export default class SpawnManager {
 
 
         if (request) {
-          trace.notice('kingdom spawn request', {roomName: this.orgRoom.id, role: request?.details?.role});
+          trace.log('kingdom spawn request', {roomName: this.orgRoom.id, role: request?.details?.role});
           this.createCreep(spawn, request.details.role, request.details.memory, energy, energyLimit);
           return;
         }

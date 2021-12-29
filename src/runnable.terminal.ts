@@ -224,7 +224,7 @@ export default class TerminalRunnable {
         }
 
         const result = terminal.send(resource, amount, roomName);
-        trace.notice('send resource', {resource, amount, roomName, result});
+        trace.log('send resource', {resource, amount, roomName, result});
         if (result !== OK) {
 
         }
@@ -277,7 +277,7 @@ export default class TerminalRunnable {
 
     const maxBuyPrice = this.pricer.getPrice(ORDER_BUY, resource, reserveAmount);
     if (!sellOrder || sellOrder.price > maxBuyPrice) {
-      trace.notice('sell orders too expensive: creating buy order', {resource, orderPrice: sellOrder?.price, maxBuyPrice});
+      trace.log('sell orders too expensive: creating buy order', {resource, orderPrice: sellOrder?.price, maxBuyPrice});
       this.createBuyOrder(terminal, resource, amount, trace);
       this.clearTask(trace);
       return;
@@ -291,7 +291,7 @@ export default class TerminalRunnable {
     }
 
     const result = Game.market.deal(sellOrder.id, dealAmount, terminal.room.name);
-    trace.notice('buy deal result', {
+    trace.log('buy deal result', {
       orderId: sellOrder.id,
       dealAmount,
       price: sellOrder.price,
@@ -355,7 +355,7 @@ export default class TerminalRunnable {
 
         // If no buy orders or price is too low, create a sell order
         if (!buyOrder || buyOrder.price < minSellPrice) {
-          trace.notice('no orders or sell prices too low, creating sell order')
+          trace.log('no orders or sell prices too low, creating sell order')
           this.createSellOrder(terminal, resource, amount, trace);
           this.clearTask(trace);
           return;
@@ -377,7 +377,7 @@ export default class TerminalRunnable {
         // Transact the deal
         const result = Game.market.deal(buyOrder.id, dealAmount, terminal.room.name);
         if (result == OK) {
-          trace.notice('sold resources', {
+          trace.log('sold resources', {
             orderId: buyOrder.id,
             dealAmount,
             price: buyOrder.price,
@@ -433,7 +433,7 @@ export default class TerminalRunnable {
       roomName: terminal.room.name,
     };
     const result = Game.market.createOrder(buyOrder);
-    trace.notice('create buy order result', {result, buyOrder})
+    trace.log('create buy order result', {result, buyOrder})
   }
 
   createSellOrder(terminal: StructureTerminal, resource: ResourceConstant, amount: number, trace: Tracer) {
@@ -459,7 +459,7 @@ export default class TerminalRunnable {
       roomName: terminal.room.name,
     };
     const result = Game.market.createOrder(order);
-    trace.notice('create sell order result', {result, order});
+    trace.log('create sell order result', {result, order});
   }
 
   updateOrders(terminal: StructureTerminal, trace: Tracer) {
@@ -481,7 +481,7 @@ export default class TerminalRunnable {
         order.resourceType as ResourceConstant, currentAmount);
       if (order.price !== price) {
         Game.market.changeOrderPrice(order.id, price);
-        trace.notice('updating order price', {
+        trace.log('updating order price', {
           orderId: order.id,
           previousPrice: order.price, newPrice: price, resource: order.resourceType,
         });
