@@ -319,19 +319,19 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
         desiredWorkerPriority = PRIORITY_MINER;
       }
     } else {
-      // no storage, 2 harvesters
-      //desiredNumWorkers = 2;
+      // no storage, 3 harvesters
+      desiredNumWorkers = 3;
       //if (this.orgRoom.getRoomLevel() >= 3) {
       //  desiredNumWorkers = 1;
       //}
 
-      //desiredWorkerType = WORKER_HARVESTER;
-      //desiredWorkerPriority = PRIORITY_HARVESTER;
+      desiredWorkerType = WORKER_HARVESTER;
+      desiredWorkerPriority = PRIORITY_HARVESTER;
 
       // trying only miners approach
-      desiredNumWorkers = 1;
-      desiredWorkerType = WORKER_MINER;
-      desiredWorkerPriority = PRIORITY_MINER;
+      //desiredNumWorkers = 1;
+      //desiredWorkerType = WORKER_MINER;
+      //desiredWorkerPriority = PRIORITY_MINER;
     }
 
     const colonyCreeps = colony.getCreeps();
@@ -348,6 +348,10 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       let priority = desiredWorkerPriority;
 
       let positionStr = [this.creepPosition.x, this.creepPosition.y, this.creepPosition.roomName].join(',');
+      if (desiredWorkerType === WORKER_HARVESTER) {
+        positionStr = [source.pos.x, source.pos.y, source.pos.roomName].join(',');
+      }
+
 
       const details = {
         role: desiredWorkerType,

@@ -62,7 +62,7 @@ const behavior = behaviorTree.sequenceNode(
             behaviorRoom.parkingLot,
           ],
         ),
-        behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 1, commonPolicy),
+        behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 3, commonPolicy),
         behaviorBuild.build,
       ],
     ),

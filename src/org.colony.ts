@@ -178,6 +178,8 @@ export class Colony extends OrgBase {
     let numHaulTasks = this.getTopicLength(TOPIC_HAUL_TASK);
     numHaulTasks -= this.idleHaulers;
 
+    trace.notice('num haul tasks', {numHaulTasks})
+
     if (this.primaryRoom) {
       if (!this.pidSetup) {
         trace.log('setting up pid', {pidDesiredHaulers: this.pidDesiredHaulers});

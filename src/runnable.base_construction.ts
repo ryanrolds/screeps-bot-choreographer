@@ -233,15 +233,16 @@ export default class BaseConstructionRunnable {
   }
 
   selectLayout(roomLevel: number, room: Room, origin: RoomPosition, trace: Tracer): BaseLayout {
-    const layout = baseLayouts[roomLevel];
-
-    // Dont build a layout that is already done
-    if (this.layoutComplete(layout, room, origin, trace)) {
-      trace.log('layout complete', {roomLevel, layout});
-      return null;
+    for (let i = 0; i <= roomLevel; i++) {
+      const layout = baseLayouts[i];
+      trace.notice('checking layout', {i})
+      if (!this.layoutComplete(layout, room, origin, trace)) {
+        trace.notice('layout not complete', {roomLevel, layout});
+        return layout;
+      }
     }
 
-    return layout;
+    return null;
   }
 
   buildLayout(kingdom: Kingdom, layout: BaseLayout, room: Room, origin: RoomPosition, trace: Tracer): void {
@@ -297,7 +298,7 @@ export default class BaseConstructionRunnable {
 
   layoutComplete(layout: BaseLayout, room: Room, origin: RoomPosition, trace: Tracer): boolean {
     if (layout.buildings.length === 0) {
-      trace.log('nothing to build', {layout});
+      trace.notice('nothing to build', {layout});
       return true;
     }
 
@@ -308,12 +309,12 @@ export default class BaseConstructionRunnable {
         const structures = pos.lookFor(LOOK_STRUCTURES);
 
         const code = row[x];
-        if (code === ' ') {
+        if (buildingCodes[code] === ANY) {
           continue;
         }
 
         if (!structures.length || structures[0].structureType !== buildingCodes[code]) {
-          trace.log('missing structure', {pos, structures: structures.map(s => s.structureType)});
+          trace.notice('missing structure', {pos, structures: structures.map(s => s.structureType)});
           return false;
         }
       }

@@ -60,7 +60,7 @@ const behavior = behaviorTree.sequenceNode(
           'build_construction_site',
           [
             behaviorBuild.selectSite,
-            behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 1, commonPolicy),
+            behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 3, commonPolicy),
             behaviorBuild.build,
           ],
         ),
