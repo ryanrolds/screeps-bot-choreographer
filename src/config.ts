@@ -1,9 +1,9 @@
 
 export interface ShardConfig {
-  [key: string]: ColonyConfig;
+  [key: string]: BaseConfig;
 }
 
-export interface ColonyConfig {
+export interface BaseConfig {
   id: NonNullable<string>;
   primary: NonNullable<string>;
   rooms: NonNullable<string[]>;

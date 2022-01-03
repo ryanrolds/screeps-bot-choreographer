@@ -7,7 +7,7 @@ const {thread} = require('./os.thread');
 const {SigmoidPricing} = require('./lib.sigmoid_pricing');
 const {PRICES} = require('./constants.market');
 const {TASK_PHASE_REACT, REACTION_STATUS_STREAM, REACTION_STATUS_START,
-  REACTION_STATUS_UPDATE} = require('./runnable.reactor');
+  REACTION_STATUS_UPDATE} = require('./runnable.base_reactor');
 
 const RESERVE_LIMIT = 20000;
 const REACTION_BATCH_SIZE = 1000;

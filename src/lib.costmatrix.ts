@@ -64,6 +64,19 @@ export const createCommonCostMatrix = (roomName: string, trace: Tracer): CostMat
           costMatrix.set(x, y, 5);
         }
       }
+    } else if (struct.structureType === STRUCTURE_STORAGE) {
+      for (let x = struct.pos.x - 1; x <= struct.pos.x + 1; x++) {
+        for (let y = struct.pos.y - 1; y <= struct.pos.y + 1; y++) {
+          if (x < 0 || x < 0 || y > 49 || y > 49 || terrain.get(x, y) === TERRAIN_MASK_WALL) {
+            continue;
+          }
+
+          // Dont override roads
+          if (costMatrix.get(x, y) < 3) {
+            costMatrix.set(x, y, 3);
+          }
+        }
+      }
     } else if (struct.structureType !== STRUCTURE_CONTAINER &&
       (struct.structureType !== STRUCTURE_RAMPART || !struct.my)) {
       // Can't walk through non-walkable buildings
@@ -77,7 +90,9 @@ export const createCommonCostMatrix = (roomName: string, trace: Tracer): CostMat
     costMatrix.set(site.pos.x, site.pos.y, 1);
   });
 
-  // TODO avoid sources
+  // avoid sources
+  applySourceBuffer(room, costMatrix, terrain, 5, trace);
+
   // TODO avoid room controllers
 
   return costMatrix;
@@ -126,24 +141,7 @@ export const createSourceRoadMatrix = (kingdom: Kingdom, roomName: string, trace
     }
   });
 
-  const sources = room.find(FIND_SOURCES);
-  trace.log('found sources', {numStructures: sources.length});
-
-  sources.forEach(function (source) {
-    const pos = source.pos;
-    for (let x = pos.x - 2; x < pos.x + 3; x++) {
-      for (let y = pos.y - 2; y < pos.y + 3; y++) {
-        if (x < 0 || x < 0 || y > 49 || y > 49 || terrain.get(x, y) === TERRAIN_MASK_WALL) {
-          continue;
-        }
-
-        // Dont override roads
-        if (costMatrix.get(x, y) === 0) {
-          costMatrix.set(x, y, 5);
-        }
-      }
-    }
-  });
+  applySourceBuffer(room, costMatrix, terrain, 5, trace);
 
   // Add existing roads
   structures.filter((s) => s.structureType === STRUCTURE_ROAD).forEach(function (struct) {
@@ -157,8 +155,8 @@ export const createSourceRoadMatrix = (kingdom: Kingdom, roomName: string, trace
   });
 
   // Add roads in base final base layout
-  const colonyConfig = kingdom.getPlanner().getColonyConfigById(roomName);
-  if (colonyConfig) {
+  const baseConfig = kingdom.getPlanner().getBaseConfigById(roomName);
+  if (baseConfig) {
     const layout: Layout = baseLayouts[8];
     const buildings = layout.buildings;
 
@@ -166,8 +164,8 @@ export const createSourceRoadMatrix = (kingdom: Kingdom, roomName: string, trace
       for (let j = 0; j < buildings[i].length; j++) {
         if (buildingCodes[buildings[i][j]] === STRUCTURE_ROAD) {
 
-          const y = colonyConfig.origin.y - layout.origin.y + i;
-          const x = colonyConfig.origin.x - layout.origin.x + j;
+          const y = baseConfig.origin.y - layout.origin.y + i;
+          const x = baseConfig.origin.x - layout.origin.x + j;
 
           costMatrix.set(x, y, 1);
         }
@@ -349,3 +347,29 @@ export const visualizeCostMatrix = (roomName: string, costMatrix: CostMatrix, tr
     }
   }
 }
+
+const applySourceBuffer = (room: Room, costMatrix: CostMatrix, terrain: RoomTerrain,
+  cost: number, trace: Tracer) => {
+
+  let sources: (Source | Mineral)[] = room.find(FIND_SOURCES);
+  const minerals = room.find(FIND_MINERALS);
+  sources = sources.concat(minerals);
+
+  trace.log('found sources and minerals', {numStructures: sources.length});
+
+  sources.forEach(function (source) {
+    const pos = source.pos;
+    for (let x = pos.x - 2; x < pos.x + 3; x++) {
+      for (let y = pos.y - 2; y < pos.y + 3; y++) {
+        if (x < 0 || x < 0 || y > 49 || y > 49 || terrain.get(x, y) === TERRAIN_MASK_WALL) {
+          continue;
+        }
+
+        // Dont override roads
+        if (costMatrix.get(x, y) === 0) {
+          costMatrix.set(x, y, cost);
+        }
+      }
+    }
+  });
+};

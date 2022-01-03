@@ -380,11 +380,11 @@ export class Kingdom extends OrgBase {
 
   // TODO replace all need for Colony with IPC
   updateColonies(trace: Tracer) {
-    const colonyConfigs = this.getPlanner().getColonyConfigMap();
-    trace.log('update colonies', {colonyConfigs});
+    const baseConfigs = this.getPlanner().getBaseConfigMap();
+    trace.log('update colonies', {baseConfigs});
 
     // Colonies
-    const configIds = _.reduce(colonyConfigs, (acc, config) => {
+    const configIds = _.reduce(baseConfigs, (acc, config) => {
       return acc.concat(config.id);
     }, [] as string[]);
 
@@ -393,7 +393,7 @@ export class Kingdom extends OrgBase {
     const missingColonyIds = _.difference(configIds, orgIds);
     missingColonyIds.forEach((id) => {
       trace.notice('adding missing colony', {id});
-      this.colonies[id] = new Colony(this, colonyConfigs[id], trace);
+      this.colonies[id] = new Colony(this, baseConfigs[id], trace);
     });
 
     const extraColonyIds = _.difference(orgIds, configIds);

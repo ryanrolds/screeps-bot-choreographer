@@ -139,8 +139,8 @@ export class Scribe extends OrgBase {
       return;
     }
 
-    const colonyConfigs = this.getKingdom().getPlanner().getColonyConfigs();
-    let colonyCount = colonyConfigs.length;
+    const baseConfigs = this.getKingdom().getPlanner().getBaseConfigs();
+    let colonyCount = baseConfigs.length;
     this.getShardList().forEach((shard) => {
       if (shard === Game.shard.name) {
         return;

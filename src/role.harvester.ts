@@ -8,6 +8,7 @@ import * as behaviorHarvest from "./behavior.harvest";
 import {behaviorBoosts} from "./behavior.boosts";
 import * as MEMORY from "./constants.memory";
 import {commonPolicy} from "./lib.pathing_policies";
+import {roadWorker} from "./behavior.logistics";
 
 const behavior = behaviorTree.sequenceNode(
   'haul_energy',
@@ -104,5 +105,5 @@ const behavior = behaviorTree.sequenceNode(
 );
 
 export const roleHarvester = {
-  run: behaviorTree.rootNode('hauler', behaviorBoosts(behavior)),
+  run: behaviorTree.rootNode('hauler', behaviorBoosts(roadWorker(behavior))),
 };

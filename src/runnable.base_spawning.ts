@@ -3,32 +3,31 @@ import {DEFINITIONS} from './constants.creeps';
 import * as MEMORY from "./constants.memory";
 import * as TOPICS from "./constants.topics";
 import {createCreep} from "./helpers.creeps";
+import {Event} from "./lib.event_broker";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
 import {running, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 import {thread, ThreadFunc} from "./os.thread";
+import {getHudStream, HudLine, HudStreamEventSet} from "./runnable.debug_hud";
 
-const PROCESS_TTL = 500;
 const REQUEST_BOOSTS_TTL = 1;
 const UPDATE_SPAWN_LIST_TTL = 20;
 const MAX_COLONY_SPAWN_DISTANCE = 3;
+const PRODUCE_EVENTS_TTL = 20;
 
 export default class SpawnManager {
   orgRoom: OrgRoom;
   id: string;
-  prevTime: number;
-  ttl: number;
   spawnIds: Id<StructureSpawn>[];
 
   threadUpdateSpawnList: ThreadFunc;
+  threadProduceEvents: ThreadFunc;
 
   constructor(id: string, room: OrgRoom) {
     this.id = id;
     this.orgRoom = room;
-    this.prevTime = Game.time;
-    this.ttl = PROCESS_TTL;
 
     const roomObject: Room = this.orgRoom.getRoomObject()
     if (!roomObject) {
@@ -41,15 +40,29 @@ export default class SpawnManager {
         filter: structure => structure.structureType === STRUCTURE_SPAWN && structure.isActive(),
       }).map(spawn => spawn.id);
     })
+
+    this.threadProduceEvents = thread('produce_events_thread', PRODUCE_EVENTS_TTL)((trace: Tracer, kingdom: Kingdom) => {
+      const topic = this.orgRoom.getTopics().getTopic(TOPICS.TOPIC_SPAWN);
+
+      const creeps = topic.map((message) => {
+        return `${message.details[MEMORY.MEMORY_ROLE]}(${message.ttl - Game.time})`;
+      });
+
+      const line: HudLine = {
+        key: `${this.id}`,
+        room: this.orgRoom.id,
+        order: 5,
+        text: `Next spawn: ${creeps.join(',')}`,
+        time: Game.time,
+      };
+      const event = new Event(this.id, Game.time, HudStreamEventSet, line);
+      trace.notice('produce_events', event);
+      kingdom.getBroker().getStream(getHudStream()).publish(event)
+    });
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
     trace = trace.begin('spawn_manager_run');
-
-    const ticks = Game.time - this.prevTime;
-    this.prevTime = Game.time;
-
-    this.ttl -= ticks;
 
     const roomObject: Room = this.orgRoom.getRoomObject()
     if (!roomObject) {
@@ -60,11 +73,11 @@ export default class SpawnManager {
     trace.log('Spawn manager run', {id: this.id, spawnIds: this.spawnIds});
 
     this.threadUpdateSpawnList(trace);
+    this.threadProduceEvents(trace, kingdom);
 
     this.spawnIds.forEach((id) => {
       const spawn = Game.getObjectById(id);
       if (!spawn) {
-        this.ttl = -1;
         return;
       }
 
@@ -239,11 +252,6 @@ export default class SpawnManager {
         }
       }
     });
-
-    if (this.ttl < 0) {
-      trace.end();
-      return terminate();
-    }
 
     trace.end();
     return running();

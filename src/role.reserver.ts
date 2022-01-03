@@ -39,6 +39,10 @@ const behavior = behaviorTree.sequenceNode(
             return behaviorTree.SUCCESS;
           }
 
+          if (!creep.room.controller) {
+            return behaviorTree.SUCCESS;
+          }
+
           return behaviorMovement.moveTo(creep, creep.room.controller.pos, 1, false, 25, 1500);
         },
       ),
@@ -68,8 +72,13 @@ const behavior = behaviorTree.sequenceNode(
             return behaviorTree.FAILURE;
           }
 
+          if (!room.controller) {
+            trace.log('no controller in room');
+            return behaviorTree.FAILURE;
+          }
+
           const unowned = !room.controller?.owner && !room.controller?.reservation;
-          const claimedByMe = room.controller && room.controller.my;
+          const claimedByMe = room.controller?.my || false;
           const username = kingdom.getPlanner().getUsername();
           const reservedByMe = room.controller && room.controller.reservation &&
             room.controller.reservation.username === username;

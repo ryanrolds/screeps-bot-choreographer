@@ -16,7 +16,7 @@ import {TOPIC_SPAWN, TOPIC_DEFENDERS, TOPIC_HAUL_TASK} from './constants.topics'
 import {WORKER_RESERVER, WORKER_DEFENDER} from './constants.creeps';
 import {PRIORITY_CLAIMER, PRIORITY_DEFENDER, PRIORITY_HAULER} from './constants.priorities';
 import {Kingdom} from './org.kingdom';
-import {ColonyConfig} from './config';
+import {BaseConfig} from './config';
 import {Tracer} from './lib.tracing';
 
 const MAX_EXPLORERS = 3;
@@ -68,7 +68,7 @@ export class Colony extends OrgBase {
   threadRequestHaulers: ThreadFunc;
   threadRequestExplorer: ThreadFunc;
 
-  constructor(parent: Kingdom, config: ColonyConfig, trace: Tracer) {
+  constructor(parent: Kingdom, config: BaseConfig, trace: Tracer) {
     super(parent, config.id, trace);
 
     const setupTrace = this.trace.begin('constructor');
@@ -177,8 +177,6 @@ export class Colony extends OrgBase {
     // Fraction of num haul tasks
     let numHaulTasks = this.getTopicLength(TOPIC_HAUL_TASK);
     numHaulTasks -= this.idleHaulers;
-
-    trace.notice('num haul tasks', {numHaulTasks})
 
     if (this.primaryRoom) {
       if (!this.pidSetup) {

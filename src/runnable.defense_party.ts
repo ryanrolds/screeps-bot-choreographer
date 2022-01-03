@@ -1,5 +1,5 @@
 import * as _ from 'lodash';
-import {ColonyConfig} from './config';
+import {BaseConfig} from './config';
 import {WORKER_DEFENDER_DRONE} from './constants.creeps';
 import {PRIORITY_BUFFER_PATROL} from "./constants.priorities";
 import {Tracer} from './lib.tracing';
@@ -13,20 +13,20 @@ const NO_TARGET_TTL = 20;
 
 export default class DefensePartyRunnable {
   id: string;
-  colonyConfig: ColonyConfig;
+  baseConfig: BaseConfig;
   flagId: string;
   party: PartyRunnable;
   noTargetTTL: number;
   minEnergy: number;
 
-  constructor(id: string, colonyConfig: ColonyConfig, flagId: string, position: RoomPosition,
+  constructor(id: string, baseConfig: BaseConfig, flagId: string, position: RoomPosition,
     trace: Tracer) {
     this.id = id;
-    this.colonyConfig = colonyConfig;
+    this.baseConfig = baseConfig;
     this.flagId = flagId;
     this.noTargetTTL = 0;
     this.minEnergy = 0;
-    this.party = new PartyRunnable(id, colonyConfig, position, WORKER_DEFENDER_DRONE,
+    this.party = new PartyRunnable(id, baseConfig, position, WORKER_DEFENDER_DRONE,
       this.minEnergy, PRIORITY_BUFFER_PATROL, REQUEST_PARTY_MEMBER_TTL);
   }
 

@@ -34,7 +34,7 @@ export const roadPolicy: FindPathPolicy = {
     costMatrixType: AllowedCostMatrixTypes.SOURCE_ROAD,
   },
   destination: {
-    range: 0,
+    range: 1,
   },
   path: {
     allowIncomplete: true,

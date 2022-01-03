@@ -1,5 +1,5 @@
 import {creepIsFresh} from './behavior.commute';
-import {ColonyConfig} from './config';
+import {BaseConfig} from './config';
 import {WORKER_HARVESTER, WORKER_MINER} from "./constants.creeps";
 import * as MEMORY from "./constants.memory";
 import {PRIORITY_HARVESTER, PRIORITY_MINER} from "./constants.priorities";
@@ -16,7 +16,8 @@ import {PersistentMemory} from "./os.memory";
 import {running, terminate} from "./os.process";
 import {Runnable, RunnableResult} from "./os.runnable";
 import {thread, ThreadFunc} from "./os.thread";
-import {getLogisticsTopic, LogisticsEventData, LogisticsEventType} from "./runnable.logistics";
+import {getHudStream, HudLine, HudStreamEventSet} from './runnable.debug_hud';
+import {getLogisticsTopic, LogisticsEventData, LogisticsEventType} from "./runnable.base_logistics";
 
 const STRUCTURE_TTL = 50;
 const DROPOFF_TTL = 200;
@@ -32,7 +33,6 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
   sourceId: Id<Source | Mineral>;
   position: RoomPosition;
   creepPosition: RoomPosition | null;
-  prevTime: number;
 
   ttl: number;
   workerTTL: number;
@@ -54,6 +54,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
   constructor(room: OrgRoom, source: (Source | Mineral)) {
     super(source.id);
 
+    this.id = source.id;
     this.orgRoom = room;
     this.sourceId = source.id;
     this.position = source.pos;
@@ -88,15 +89,15 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       return terminate();
     }
 
-    const colonyConfig = kingdom.getPlanner().getColonyConfigByRoom(source.room.name);
-    if (!colonyConfig) {
+    const baseConfig = kingdom.getPlanner().getBaseConfigByRoom(source.room.name);
+    if (!baseConfig) {
       trace.error('no colony config', {room: source.room.name});
       trace.end();
       return terminate();
     }
 
     if (!this.creepPosition) {
-      this.populateCreepPosition(trace, kingdom, colonyConfig, source);
+      this.populateCreepPosition(trace, kingdom, baseConfig, source);
     }
 
     // TODO try to remove the need for this
@@ -114,13 +115,13 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       return terminate();
     }
 
-    this.produceEvents(trace, kingdom, source);
+    this.threadProduceEvents(trace, kingdom, source);
     this.threadUpdateStructures(trace, source);
     this.threadUpdateDropoff(trace, colony);
     this.threadRequestWorkers(trace, kingdom, colony, room, source);
     // this.threadRequestUpgraders(trace, kingdom, colony, room, source);
     this.threadRequestHauling(trace, colony);
-    this.threadBuildContainer(trace, kingdom);
+    this.threadBuildContainer(trace, kingdom, source);
     this.threadBuildExtractor(trace, room);
     this.updateStats(kingdom, trace);
 
@@ -136,8 +137,8 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       return;
     }
 
-    const colonyConfig = kingdom.getPlanner().getColonyConfigByRoom(source.room.name);
-    if (!colonyConfig) {
+    const baseConfig = kingdom.getPlanner().getBaseConfigByRoom(source.room.name);
+    if (!baseConfig) {
       trace.error('no colony config', {room: source.room.name});
       return;
     }
@@ -147,11 +148,23 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       position: creepPosition,
     };
 
-    kingdom.getBroker().getStream(getLogisticsTopic(colonyConfig.id)).
+    kingdom.getBroker().getStream(getLogisticsTopic(baseConfig.id)).
       publish(new Event(this.id, Game.time, LogisticsEventType.RequestRoad, data));
+
+
+    const hudLine: HudLine = {
+      key: `${this.id}`,
+      room: source.room.name,
+      text: `Source(${source.id}) - container: ${this.containerId}, link: ${this.linkId}`,
+      time: Game.time,
+      order: 4,
+    };
+
+    kingdom.getBroker().getStream(getHudStream()).publish(new Event(this.id, Game.time,
+      HudStreamEventSet, hudLine));
   }
 
-  populateCreepPosition(trace: Tracer, kingdom: Kingdom, colony: ColonyConfig, source: Source | Mineral) {
+  populateCreepPosition(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig, source: Source | Mineral) {
     trace.log('populate creep position', {room: source.room.name});
 
     const memory = this.getMemory() || {};
@@ -164,8 +177,8 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       return;
     }
 
-    const colonyPos = new RoomPosition(colony.origin.x, colony.origin.y - 1,
-      colony.origin.roomName);
+    const colonyPos = new RoomPosition(baseConfig.origin.x, baseConfig.origin.y - 1,
+      baseConfig.origin.roomName);
 
     const [pathResult, details] = getPath(kingdom, source.pos, colonyPos, roadPolicy, trace);
     trace.log('path found', {origin: source.pos, dest: colonyPos, pathResult});
@@ -294,6 +307,13 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     const primaryRoom = colony.getPrimaryRoom();
     if (primaryRoom.hasStorage) {
       if (source instanceof Mineral) {
+        const extractor = source.pos.lookFor(LOOK_STRUCTURES).
+          find((s) => s.structureType === STRUCTURE_EXTRACTOR)
+        if (!extractor) {
+          trace.error('no extractor found', {sourceId: source.id});
+          return;
+        }
+
         // if mineral && storage, 1 harvester
         desiredNumWorkers = 1;
         desiredWorkerType = WORKER_HARVESTER;
@@ -467,9 +487,14 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     }
   }
 
-  buildContainer(trace: Tracer, kingdom: Kingdom) {
+  buildContainer(trace: Tracer, kingdom: Kingdom, source: (Source | Mineral)) {
     if (!this.creepPosition) {
       trace.log('no creep position', {id: this.sourceId});
+      return;
+    }
+
+    if (source instanceof Mineral) {
+      trace.log('do not build container for minerals', {id: this.sourceId});
       return;
     }
 

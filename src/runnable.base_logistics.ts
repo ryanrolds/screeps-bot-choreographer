@@ -79,15 +79,15 @@ export default class LogisticsRunnable extends PersistentMemory {
         addConsumer('logistics');
     }
 
-    const colonyConfig = kingdom.getPlanner().getColonyConfigById(this.colonyId);
-    if (!colonyConfig) {
+    const baseConfig = kingdom.getPlanner().getBaseConfigById(this.colonyId);
+    if (!baseConfig) {
       trace.error('missing origin', {id: this.colonyId});
       return sleeping(20);
     }
 
     this.threadConsumeEvents(trace, kingdom);
     this.threadCalculateLeg(trace, kingdom);
-    this.threadBuildShortestLeg(trace, colonyConfig.primary);
+    this.threadBuildShortestLeg(trace, baseConfig.primary);
 
     // CLEANUP add LOG_WHEN_ID_CHECK
     if (this.selectedLeg) {
@@ -160,17 +160,17 @@ export default class LogisticsRunnable extends PersistentMemory {
   }
 
   private calculateLeg(kingdom: Kingdom, leg: Leg, trace: Tracer): [path: RoomPosition[], remaining: number] {
-    const colonyConfig = kingdom.getPlanner().getColonyConfigById(this.colonyId);
-    if (!colonyConfig) {
+    const baseConfig = kingdom.getPlanner().getBaseConfigById(this.colonyId);
+    if (!baseConfig) {
       trace.error('missing origin', {id: this.colonyId});
       return [null, null];
     }
 
-    const [pathResult, details] = getPath(kingdom, colonyConfig.origin, leg.destination, roadPolicy, trace);
-    trace.log('path found', {origin: colonyConfig.origin, dest: leg.destination, pathResult});
+    const [pathResult, details] = getPath(kingdom, baseConfig.origin, leg.destination, roadPolicy, trace);
+    trace.log('path found', {origin: baseConfig.origin, dest: leg.destination, pathResult});
 
     if (!pathResult) {
-      trace.error('path not found', {origin: colonyConfig.origin, dest: leg.destination});
+      trace.error('path not found', {origin: baseConfig.origin, dest: leg.destination});
       return [null, null];
     }
 

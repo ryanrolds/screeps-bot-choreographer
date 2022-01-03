@@ -1,14 +1,13 @@
 // Spawn requests
-export const PRIORITY_MINER = 18;
-export const PRIORITY_HARVESTER = 17;
-export const PRIORITY_DISTRIBUTOR = 16;
+export const PRIORITY_DISTRIBUTOR = 18;
+export const PRIORITY_MINER = 17;
+export const PRIORITY_HARVESTER = 16;
 export const PRIORITY_HAULER = 15;
 export const PRIORITY_DEFENDER = 14;
 export const PRIORITY_UPGRADER = 13;
-export const PRIORITY_REMOTE_MINER = 12;
-export const PRIORITY_REPAIRER_URGENT = 11.5;
-export const PRIORITY_RESERVER = 11;
-export const PRIORITY_CLAIMER = 11;
+export const PRIORITY_REPAIRER_URGENT = 12.5;
+export const PRIORITY_RESERVER = 12;
+export const PRIORITY_CLAIMER = 12;
 export const EXPLORER = 11;
 export const DISTRIBUTOR_NO_RESERVE = 10;
 export const PRIORITY_ATTACKER = 10;

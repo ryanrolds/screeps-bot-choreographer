@@ -5,16 +5,16 @@ import {Scheduler, Priorities} from './os.scheduler';
 import {Process} from './os.process';
 import {CreepManager} from './runnable.manager.creeps';
 import WarManager from './runnable.manager.war';
-import {RoomManager} from './runnable.manager.rooms';
 import KingdomModelRunnable from './runnable.kingdom_model';
 import KingdomGovernorRunnable from './runnable.kingdom_governor'
 import DefenseManager from './runnable.manager.defense';
 import BufferManager from './runnable.manager.buffer';
-import PathDebugger from './runnable.path_debugger';
-import CostMatrixDebugger from './runnable.costmatrix_debug';
+import PathDebugger from './runnable.debug_path';
+import CostMatrixDebugger from './runnable.debug_costmatrix';
 import {CentralPlanning} from './runnable.central_planning';
 import {EventBroker} from './lib.event_broker';
-import ExpandDebugger from './runnable.expand_debugger';
+import ExpandDebugger from './runnable.debug_planner';
+import {HUDRunnable} from './runnable.debug_hud';
 
 let lastMemoryTick: number = 0;
 let lastMemory: Memory = null;
@@ -50,12 +50,6 @@ export class AI {
     this.scheduler.registerProcess(new Process('kingdom_governor', 'kingdom_governor',
       Priorities.CRITICAL, new KingdomGovernorRunnable('kingdom_governor')));
 
-    // Room manager
-    const roomManagerId = 'room_manager';
-    const roomManager = new RoomManager(roomManagerId, this.scheduler);
-    this.scheduler.registerProcess(new Process(roomManagerId, 'room_manager',
-      Priorities.CRITICAL, roomManager));
-
     // Creep manager
     const creepManagerId = 'creeps_manager';
     const creepManager = new CreepManager(creepManagerId, this.scheduler)
@@ -87,6 +81,11 @@ export class AI {
       Priorities.ATTACK, warManager));
 
     // ======= Debugging tools ========
+
+    // Path debugger
+    const hudId = 'hud';
+    const hudRunnable = new HUDRunnable(hudId);
+    this.scheduler.registerProcess(new Process(hudId, 'hud', Priorities.DEBUG, hudRunnable));
 
     // Path debugger
     const pathDebuggerId = 'path_debugger';

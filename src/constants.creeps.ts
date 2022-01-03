@@ -31,7 +31,7 @@ export const DEFINITIONS = {
   [WORKER_DISTRIBUTOR]: {
     energyLimit: 2000,
     parts: [MOVE, CARRY, CARRY],
-    base: [MOVE, CARRY, CARRY, MOVE, CARRY, CARRY],
+    base: [MOVE, WORK, CARRY,],
     // boosts: ['capacity'],
     processPriority: Priorities.CORE_LOGISTICS,
     skippable: true,

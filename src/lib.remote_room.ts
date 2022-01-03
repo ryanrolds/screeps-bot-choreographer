@@ -1,49 +1,26 @@
-import {ColonyConfig} from "./config";
+import {BaseConfig} from "./config";
 import {Tracer} from "./lib.tracing";
+import {Colony} from "./org.colony";
 import {Kingdom} from "./org.kingdom";
 
+export const findNextRemoteRoom = (kingdom: Kingdom, baseConfig: BaseConfig, room: Room, trace: Tracer): string => {
+  trace.log('checking remote mining', {baseConfig});
 
-
-
-export const findNextRemoteRoom = (kingdom: Kingdom, colonyConfig: ColonyConfig, trace: Tracer): string => {
-  trace.log('checking remote mining', {colonyConfig});
-
-  if (!colonyConfig.automated) {
-    trace.log('not automated', {colonyConfig});
-    return null;
-  }
-
-  const room = Game.rooms[colonyConfig.primary];
-  if (!room) {
-    trace.log('no room found', {colonyConfig});
-    return;
-  }
-
-  const level = room?.controller?.level || 0;
-  let numDesired = desiredRemotes(level);
-  const numCurrent = colonyConfig.rooms.length - 1;
-  if (numDesired <= numCurrent) {
-    colonyConfig.rooms = colonyConfig.rooms.slice(0, numDesired + 1);
-
-    trace.log('remote mining not needed', {numDesired, numCurrent});
-    return;
-  }
-
-  let exits = colonyConfig.rooms.reduce((acc, roomName) => {
+  let exits = baseConfig.rooms.reduce((acc, roomName) => {
     const exits = Game.map.describeExits(roomName);
     return acc.concat(Object.values(exits));
   }, [] as string[]);
 
   let adjacentRooms: string[] = _.uniq(exits);
-  adjacentRooms = _.difference(adjacentRooms, colonyConfig.rooms);
+  adjacentRooms = _.difference(adjacentRooms, baseConfig.rooms);
 
   trace.log('adjacent rooms', {adjacentRooms});
 
   const scribe = kingdom.getScribe();
   adjacentRooms = _.filter(adjacentRooms, (roomName) => {
     // filter rooms already belonging to a colony
-    const colonyConfig = kingdom.getPlanner().getColonyConfigByRoom(roomName);
-    if (colonyConfig) {
+    const baseConfig = kingdom.getPlanner().getBaseConfigByRoom(roomName);
+    if (baseConfig) {
       trace.log('room already assigned to colony', {roomName});
       return false;
     }
@@ -62,60 +39,82 @@ export const findNextRemoteRoom = (kingdom: Kingdom, colonyConfig: ColonyConfig,
       return false;
     }
 
+    if (!roomEntry.controller?.pos) {
+      trace.log('has no controller pos', {roomName});
+      return false;
+    }
+
     return true;
   });
 
   if (adjacentRooms.length === 0) {
-    trace.log('no adjacent rooms found', {adjacentRooms, exits, colonyConfig});
+    trace.log('no adjacent rooms found', {adjacentRooms, exits, baseConfig});
     return;
   }
 
-  adjacentRooms = _.sortBy(adjacentRooms, (roomName) => {
-    const route = Game.map.findRoute(colonyConfig.primary, roomName) || [];
-    if (route === ERR_NO_PATH) {
-      return 9999;
-    }
+  adjacentRooms = _.sortByOrder(adjacentRooms,
+    [
+      (roomName) => { // Sort by distance from primary room
+        const route = Game.map.findRoute(baseConfig.primary, roomName) || [];
+        if (route === ERR_NO_PATH) {
+          return 9999;
+        }
 
-    return route.length;
-  });
+        return route.length;
+      },
+      (roomName) => { // Sort by number of sources
+        const roomEntry = scribe.getRoomById(roomName);
+        return roomEntry.numSources;
+      }
+    ],
+    ['asc', 'desc'],
+  );
+
+  trace.notice('next remote mining rooms', {adjacentRooms});
 
   if (adjacentRooms.length !== 0) {
     const nextRoom = adjacentRooms[0];
-    trace.log('next room', {nextRoom});
+    trace.log('next remote mining room', {nextRoom});
     return nextRoom;
   }
 
-  trace.log('no adjacent rooms found', {adjacentRooms, exits, colonyConfig});
-
+  trace.log('no adjacent rooms found', {adjacentRooms, exits, baseConfig});
   return null;
 }
 
+export function desiredRemotes(colony: Colony, level: number): number {
+  const room = colony.primaryRoom;
+  if (!room.storage) {
+    return 2;
+  }
 
-function desiredRemotes(level: number): number {
   let desiredRemotes = 0;
   switch (level) {
     case 0:
     case 1:
-      break; // 0
+      desiredRemotes = 0;
     case 2:
     case 3:
     case 4:
-      desiredRemotes = 2;
-      break;
+      desiredRemotes = 4;
     case 5:
+      // Tried 4 and at level 5 it was choking - Jan 2022
+      desiredRemotes = 3;
+      break;
     case 6:
-      // Increased size of haulers causes spawning bottleneck
-      // ignoring for now
-      desiredRemotes = 2;
+      desiredRemotes = 3;
       break;
     case 7:
-      desiredRemotes = 4;
-    case 8:
       desiredRemotes = 6;
+    case 8:
+      desiredRemotes = 9;
       break;
     default:
       throw new Error('unexpected controller level');
   }
 
-  return desiredRemotes;
+  const energyReserve = colony.getReserveResources()[RESOURCE_ENERGY] || 0;
+  const energyRoomLimit = Math.floor(energyReserve / 50000);
+
+  return _.min([desiredRemotes, energyRoomLimit]);
 }

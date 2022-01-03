@@ -1,4 +1,4 @@
-import {ColonyConfig} from "./config";
+import {BaseConfig} from "./config";
 import {AllowedCostMatrixTypes} from "./lib.costmatrix_cache";
 import {Tracer} from "./lib.tracing";
 import {Kingdom} from "./org.kingdom";
@@ -145,17 +145,17 @@ export const getPath = (kingdom: Kingdom, origin: RoomPosition, destination: Roo
 }
 
 export const getClosestColonyByPath = (kingdom: Kingdom, destination: RoomPosition,
-  policy: FindColonyPathPolicy, trace: Tracer): ColonyConfig => {
+  policy: FindColonyPathPolicy, trace: Tracer): BaseConfig => {
   const roomEntry = kingdom.getScribe().getRoomById(destination.roomName);
 
-  let selectedColony: ColonyConfig = null;
+  let selectedColony: BaseConfig = null;
   let selectedPathLength = 99999;
 
   // Get colonies and filter by the policy
-  let colonyConfigs = kingdom.getPlanner().getColonyConfigs();
-  colonyConfigs = applyAllowedColonyPolicy(colonyConfigs, roomEntry, policy.colony, trace);
+  let baseConfigs = kingdom.getPlanner().getBaseConfigs();
+  baseConfigs = applyAllowedColonyPolicy(baseConfigs, roomEntry, policy.colony, trace);
   // Iterate colonies and find the closest one within the policies
-  colonyConfigs.forEach((config) => {
+  baseConfigs.forEach((config) => {
     // Get the origin position from the colony by apply the colony policy
     const originPosition = getOriginPosition(kingdom, config, policy.colony, trace);
     if (!originPosition) {
@@ -209,14 +209,14 @@ export const getClosestColonyByPath = (kingdom: Kingdom, destination: RoomPositi
   return selectedColony;
 }
 
-const applyAllowedColonyPolicy = (colonyConfigs: ColonyConfig[], destRoomEntry: RoomEntry,
-  policy: ColonyPolicy, trace: Tracer): ColonyConfig[] => {
+const applyAllowedColonyPolicy = (baseConfigs: BaseConfig[], destRoomEntry: RoomEntry,
+  policy: ColonyPolicy, trace: Tracer): BaseConfig[] => {
 
   // Do not search colonies below the minimum level
   if (policy.minRoomLevel) {
     trace.log('applying min room level', {minRoomLevel: policy.minRoomLevel});
 
-    colonyConfigs = colonyConfigs.filter((config) => {
+    baseConfigs = baseConfigs.filter((config) => {
       const room = Game.rooms[config.primary];
       if (!room) {
         trace.log('room not found', {room: config.primary});
@@ -231,21 +231,21 @@ const applyAllowedColonyPolicy = (colonyConfigs: ColonyConfig[], destRoomEntry: 
   if (policy.maxLinearDistance) {
     trace.log('applying linear distance filter', {maxLinearDistance: policy.maxLinearDistance});
 
-    colonyConfigs = colonyConfigs.filter((config) => {
+    baseConfigs = baseConfigs.filter((config) => {
       return Game.map.getRoomLinearDistance(destRoomEntry.id, config.primary) <= policy.maxLinearDistance;
     });
   }
 
-  trace.log('filtered colonies', {colonies: colonyConfigs.map((colony) => colony.id)});
+  trace.log('filtered colonies', {colonies: baseConfigs.map((colony) => colony.id)});
 
-  return colonyConfigs
+  return baseConfigs
 }
 
-const getOriginPosition = (kingdom: Kingdom, colonyConfig: ColonyConfig, policy: ColonyPolicy,
+const getOriginPosition = (kingdom: Kingdom, baseConfig: BaseConfig, policy: ColonyPolicy,
   trace: Tracer): RoomPosition => {
 
   if (policy.start === "spawn") {
-    return colonyConfig.origin;
+    return baseConfig.origin;
   }
 
   return null;

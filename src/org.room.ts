@@ -9,7 +9,7 @@ import {thread, ThreadFunc} from './os.thread';
 import {Tracer} from './lib.tracing'
 import {TOPIC_SPAWN} from './constants.topics';
 import {Kingdom} from './org.kingdom';
-import {BoosterDetails, EffectSet, LabsByResource, TOPIC_ROOM_BOOSTS} from './runnable.booster';
+import {BoosterDetails, EffectSet, LabsByResource, TOPIC_ROOM_BOOSTS} from './runnable.base_booster';
 
 export const TOPIC_ROOM_KEYVALUE = 'room_keyvalue';
 const MEMORY_HOSTILE_TIME = 'hostile_time';
@@ -649,13 +649,15 @@ export default class OrgRoom extends OrgBase {
       sources: {},
     };
 
+    trace.log('Updating stats for room:', room.name);
+
     roomStats.storageEnergy = (room.storage ? room.storage.store.energy : 0);
     roomStats.terminalEnergy = (room.terminal ? room.terminal.store.energy : 0);
     roomStats.energyAvailable = room.energyAvailable;
     roomStats.energyCapacityAvailable = room.energyCapacityAvailable;
-    roomStats.controllerProgress = room.controller.progress;
-    roomStats.controllerProgressTotal = room.controller.progressTotal;
-    roomStats.controllerLevel = room.controller.level;
+    roomStats.controllerProgress = room.controller?.progress || 0;
+    roomStats.controllerProgressTotal = room.controller?.progressTotal || 0;
+    roomStats.controllerLevel = room.controller?.level;
     roomStats.resources = this.getReserveResources();
 
     const stats = this.getStats();
@@ -676,7 +678,7 @@ export default class OrgRoom extends OrgBase {
   }
 
   getReserveBuffer() {
-    if (!this.room.controller.my) {
+    if (!this.room.controller?.my) {
       return 0;
     }
 
@@ -694,7 +696,7 @@ export default class OrgRoom extends OrgBase {
       return 0;
     }
 
-    if (!this.room.controller.my) {
+    if (!this.room.controller?.my) {
       return 0;
     }
 
@@ -706,7 +708,7 @@ export default class OrgRoom extends OrgBase {
       return 0;
     }
 
-    if (!this.room.controller.my) {
+    if (!this.room.controller?.my) {
       return 0;
     }
 
@@ -742,7 +744,7 @@ export default class OrgRoom extends OrgBase {
 
     const room = this.room;
 
-    this.claimedByMe = room.controller.my || false;
+    this.claimedByMe = room.controller?.my || false;
     this.reservedByMe = false;
 
     const username = kingdom.getPlanner().getUsername()

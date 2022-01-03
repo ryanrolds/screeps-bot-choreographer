@@ -41,9 +41,9 @@ export default class KingdomGovernor {
 
     let shardMemory = scribe.getLocalShardMemory();
 
-    const colonyConfigs = kingdom.getPlanner().getColonyConfigs();
+    const baseConfigs = kingdom.getPlanner().getBaseConfigs();
     shardMemory.status = {
-      numColonies: colonyConfigs.length,
+      numColonies: baseConfigs.length,
     };
 
     shardMemory.time = Game.time;
@@ -69,7 +69,7 @@ export default class KingdomGovernor {
 
       trace.log('kingdom governor shard', {shardName, shardConfig})
 
-      const primaryColony: ColonyConfig = Object.values(shardConfig)[0];
+      const primaryColony: BaseConfig = Object.values(shardConfig)[0];
       if (!primaryColony || !primaryColony.primary) {
         return;
       }

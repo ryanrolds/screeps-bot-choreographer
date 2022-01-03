@@ -26,13 +26,13 @@ export const pickExpansion = (kingdom: Kingdom, trace: Tracer): ExpandResults =>
   let dismissed: Record<string, DismissedReason> = {};
   let seen: Record<string, boolean> = {};
 
-  const colonyConfigs = kingdom.getPlanner().getColonyConfigs();
+  const baseConfigs = kingdom.getPlanner().getBaseConfigs();
 
   // First pass through colonies, find all the rooms that are assigned to a colony already
-  colonyConfigs.forEach((colonyConfig) => {
-    claimed[colonyConfig.primary] = true;
+  baseConfigs.forEach((baseConfig) => {
+    claimed[baseConfig.primary] = true;
     // Build map of claimed rooms
-    colonyConfig.rooms.forEach((roomName) => {
+    baseConfig.rooms.forEach((roomName) => {
       claimed[roomName] = true;
     });
   });

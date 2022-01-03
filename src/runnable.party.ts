@@ -9,7 +9,7 @@
 
 
 import * as _ from 'lodash';
-import {ColonyConfig} from './config';
+import {BaseConfig} from './config';
 import * as MEMORY from './constants.memory';
 import {TOPIC_SPAWN} from './constants.topics';
 import {Tracer} from './lib.tracing';
@@ -42,7 +42,7 @@ const DIRECTION_OFFSET = {
 
 export default class PartyRunnable {
   id: string;
-  colonyConfig: ColonyConfig;
+  baseConfig: BaseConfig;
   formation: {x: number, y: number}[];
   position: RoomPosition;
   role: string;
@@ -54,10 +54,10 @@ export default class PartyRunnable {
 
   threadRequestCreeps: ThreadFunc;
 
-  constructor(id: string, colonyConfig: ColonyConfig, position: RoomPosition, role: string,
+  constructor(id: string, baseConfig: BaseConfig, position: RoomPosition, role: string,
     minEnergy: number, priority: number, ttl: number) {
     this.id = id;
-    this.colonyConfig = colonyConfig;
+    this.baseConfig = baseConfig;
     this.role = role;
     this.minEnergy = minEnergy;
     this.priority = priority;
@@ -356,7 +356,7 @@ export default class PartyRunnable {
   }
 
   requestCreeps(trace: Tracer, kingdom: Kingdom) {
-    const colonyRoom = this.colonyConfig.primary;
+    const colonyRoom = this.baseConfig.primary;
     const room = Game.rooms[colonyRoom];
     if (!room) {
       trace.log('colony room not visible', {colonyRoom});
@@ -428,7 +428,7 @@ export default class PartyRunnable {
     };
 
     trace.log('requesting creep', {
-      colonyId: this.colonyConfig.id,
+      colonyId: this.baseConfig.id,
       role: this.role,
       priority: this.priority,
       deployTicks: this.deployTicks,
@@ -437,7 +437,7 @@ export default class PartyRunnable {
     });
 
     // TODO move to directly topic request
-    const colony = kingdom.getColonyById(this.colonyConfig.id);
+    const colony = kingdom.getColonyById(this.baseConfig.id);
     colony.sendRequest(TOPIC_SPAWN, this.priority, details, this.requestCreepTTL);
   }
 }

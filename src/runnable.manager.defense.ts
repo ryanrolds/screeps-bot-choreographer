@@ -97,15 +97,15 @@ export default class DefenseManager {
       return;
     }
 
-    const colonyConfig = kingdom.getPlanner().getColonyConfigById(colony.id);
-    if (!colonyConfig) {
+    const baseConfig = kingdom.getPlanner().getBaseConfigById(colony.id);
+    if (!baseConfig) {
       trace.error('not create defense party, cannot find colony config', {colonyId: colony.id});
       return null;
     }
 
     trace.notice("creating defense party", {id, position, flagId, colonyId: colony.id});
 
-    const party = new DefensePartyRunnable(id, colonyConfig, flagId, position, trace)
+    const party = new DefensePartyRunnable(id, baseConfig, flagId, position, trace)
     const process = new Process(id, 'defense_party', Priorities.DEFENCE, {
       run(kingdom: Kingdom, trace: Tracer): RunnableResult {
         return party.run(kingdom, trace);
