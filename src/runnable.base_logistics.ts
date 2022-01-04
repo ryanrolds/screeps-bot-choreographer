@@ -1,5 +1,6 @@
 import path from "path";
-import {Consumer, Stream} from "./lib.event_broker";
+import {BaseConfig} from "./config";
+import {Consumer, Event, Stream} from "./lib.event_broker";
 import {getPath, visualizePath} from "./lib.pathing";
 import {roadPolicy} from "./lib.pathing_policies";
 import {Tracer} from "./lib.tracing";
@@ -8,10 +9,12 @@ import {PersistentMemory} from "./os.memory";
 import {sleeping} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 import {thread, ThreadFunc} from "./os.thread";
+import {getHudStream, HudLine, HudStreamEventSet} from "./runnable.debug_hud";
 
 const CALCULATE_LEG_TTL = 20;
 const BUILD_SHORTEST_LEG_TTL = 40;
 const CONSUME_EVENTS_TTL = 30;
+const PRODUCE_EVENTS_TTL = 30;
 
 // More sites means more spent per load on road construction & maintenance
 const MAX_ROAD_SITES = 5;
@@ -33,7 +36,7 @@ type Leg = {
   id: string;
   destination: RoomPosition;
   path: RoomPosition[];
-  remaining: number;
+  remaining: RoomPosition[];
   requestedAt: number;
 };
 
@@ -44,6 +47,7 @@ export default class LogisticsRunnable extends PersistentMemory {
   private passes: number;
 
   private threadConsumeEvents: ThreadFunc;
+  private threadProduceEvents: ThreadFunc;
   //threadBuildRoads: ThreadFunc;
   private calculateLegIterator: Generator<any, void, {kingdom: Kingdom, trace: Tracer}>;
   private threadCalculateLeg: ThreadFunc;
@@ -69,6 +73,8 @@ export default class LogisticsRunnable extends PersistentMemory {
 
     // From the calculated legs, select shortest to build and build it
     this.threadBuildShortestLeg = thread('select_leg', BUILD_SHORTEST_LEG_TTL)(this.buildShortestLeg.bind(this));
+
+    this.threadProduceEvents = thread('produce_events', PRODUCE_EVENTS_TTL)(this.produceEvents.bind(this));
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
@@ -89,6 +95,8 @@ export default class LogisticsRunnable extends PersistentMemory {
     this.threadCalculateLeg(trace, kingdom);
     this.threadBuildShortestLeg(trace, baseConfig.primary);
 
+    this.threadProduceEvents(trace, kingdom, baseConfig);
+
     // CLEANUP add LOG_WHEN_ID_CHECK
     if (this.selectedLeg) {
       visualizePath(this.selectedLeg.path, trace);
@@ -107,6 +115,21 @@ export default class LogisticsRunnable extends PersistentMemory {
           break;
       }
     });
+  }
+
+  private produceEvents(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig): void {
+    const hudLine: HudLine = {
+      key: `${this.colonyId}`,
+      room: baseConfig.primary,
+      text: `Logistics - passes: ${this.passes}, legs: ${Object.keys(this.legs).length}, ` +
+        `selected: ${this.selectedLeg?.id}, numRemaining: ${this.selectedLeg.remaining.length}, ` +
+        `end: ${this.selectedLeg?.remaining?.slice(-3, 0)}`,
+      time: Game.time,
+      order: 5,
+    };
+
+    kingdom.getBroker().getStream(getHudStream()).publish(new Event(this.colonyId, Game.time,
+      HudStreamEventSet, hudLine));
   }
 
   private requestRoad(kingdom: Kingdom, id: string, destination: RoomPosition, time: number, trace: Tracer) {
@@ -159,7 +182,7 @@ export default class LogisticsRunnable extends PersistentMemory {
     return Object.values(this.legs);
   }
 
-  private calculateLeg(kingdom: Kingdom, leg: Leg, trace: Tracer): [path: RoomPosition[], remaining: number] {
+  private calculateLeg(kingdom: Kingdom, leg: Leg, trace: Tracer): [path: RoomPosition[], remaining: RoomPosition[]] {
     const baseConfig = kingdom.getPlanner().getBaseConfigById(this.colonyId);
     if (!baseConfig) {
       trace.error('missing origin', {id: this.colonyId});
@@ -174,10 +197,10 @@ export default class LogisticsRunnable extends PersistentMemory {
       return [null, null];
     }
 
-    const remaining = pathResult.path.reduce((acc: number, pos: RoomPosition) => {
+    const remaining = pathResult.path.filter((pos: RoomPosition) => {
       // Do not count edges as we cannot build on them
       if (pos.x === 0 || pos.y === 0 || pos.x === 49 || pos.y === 49) {
-        return acc;
+        return false;
       }
 
       const road = pos.lookFor(LOOK_STRUCTURES).find((s) => {
@@ -186,13 +209,11 @@ export default class LogisticsRunnable extends PersistentMemory {
 
       if (road) {
         trace.log('road found', {road});
-        return acc;
+        return false;
       }
 
-      acc += 1;
-
-      return acc;
-    }, 0);
+      return true;
+    });
 
     return [pathResult.path, remaining];
   }
@@ -206,7 +227,7 @@ export default class LogisticsRunnable extends PersistentMemory {
     // Find shortest unfinished leg
     const legs: Leg[] = _.values(this.legs);
     const unfinishedLegs: Leg[] = legs.filter((leg: Leg) => {
-      return leg.remaining > 0;
+      return leg.remaining.length > 0;
     });
     const sortedLegs: Leg[] = _.sortByAll(unfinishedLegs,
       (leg) => {
@@ -217,7 +238,9 @@ export default class LogisticsRunnable extends PersistentMemory {
 
         return 1;
       },
-      'remaining'
+      (leg) => {
+        return leg.remaining.length;
+      }
     );
 
     const leg = sortedLegs.shift();

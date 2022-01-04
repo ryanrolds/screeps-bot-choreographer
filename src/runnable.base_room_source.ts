@@ -151,11 +151,15 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     kingdom.getBroker().getStream(getLogisticsTopic(baseConfig.id)).
       publish(new Event(this.id, Game.time, LogisticsEventType.RequestRoad, data));
 
+    let sourceType = 'source';
+    if (source instanceof Mineral) {
+      sourceType = 'mineral';
+    }
 
     const hudLine: HudLine = {
       key: `${this.id}`,
       room: source.room.name,
-      text: `Source(${source.id}) - container: ${this.containerId}, link: ${this.linkId}`,
+      text: `${sourceType}(${source.id}) - container: ${this.containerId}, link: ${this.linkId}`,
       time: Game.time,
       order: 4,
     };

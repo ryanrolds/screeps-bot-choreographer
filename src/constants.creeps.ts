@@ -152,7 +152,7 @@ export const DEFINITIONS = {
     parts: [CLAIM, MOVE],
     base: [MOVE, CLAIM],
     // boosts: ['upgradeController'],
-    processPriority: Priorities.EXPLORATION,
+    processPriority: Priorities.RESOURCES,
     skippable: true,
   },
   [WORKER_EXPLORER]: {

@@ -44,6 +44,7 @@ An AI for [Screeps](screeps.com).
 - [x] Move Creeps to scheduler
 - [x] Auto attack of weaker players
 - [x] Intra-shared movement and claiming
+- [ ] Replace references to 'colony' with 'base'
 - [ ] Buff ramparts and walls to withstand nuke
 - [ ] Quads moving coherently 100% of time
 - [ ] Harass remote mining rooms

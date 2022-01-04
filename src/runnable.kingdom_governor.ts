@@ -143,7 +143,7 @@ export default class KingdomGovernor {
         return;
       }
 
-      (kingdom as any).sendRequest(TOPICS.TOPIC_SPAWN, PRIORITIES.PRIORITY_CLAIMER, {
+      (kingdom as any).sendRequest(TOPICS.TOPIC_SPAWN, PRIORITIES.PRIORITY_RESERVER, {
         role: WORKERS.WORKER_RESERVER,
         memory: {
           [MEMORY.MEMORY_ASSIGN_SHARD]: request.shard,

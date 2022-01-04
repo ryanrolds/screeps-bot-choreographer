@@ -50,6 +50,7 @@ export class HUDRunnable {
     _.forEach(_.groupBy(this.lines, 'room'), (lines, room) => {
       let lineNum = 0;
       const roomVisual = new RoomVisual(room);
+
       lines.forEach((line) => {
         lineNum++;
         roomVisual.text(line.text, 49, lineNum, {font: 0.7, align: 'right'});

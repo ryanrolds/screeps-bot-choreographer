@@ -14,7 +14,7 @@ import {creepIsFresh} from './behavior.commute';
 import {MEMORY_ASSIGN_ROOM, MEMORY_ROLE, MEMORY_COLONY} from './constants.memory';
 import {TOPIC_SPAWN, TOPIC_DEFENDERS, TOPIC_HAUL_TASK} from './constants.topics';
 import {WORKER_RESERVER, WORKER_DEFENDER} from './constants.creeps';
-import {PRIORITY_CLAIMER, PRIORITY_DEFENDER, PRIORITY_HAULER} from './constants.priorities';
+import {PRIORITY_DEFENDER, PRIORITY_HAULER} from './constants.priorities';
 import {Kingdom} from './org.kingdom';
 import {BaseConfig} from './config';
 import {Tracer} from './lib.tracing';
@@ -440,10 +440,10 @@ export class Colony extends OrgBase {
       if (this.primaryOrgRoom && this.primaryOrgRoom.hasSpawns &&
         this.primaryOrgRoom.room.energyCapacityAvailable >= 800) {
         trace.log('requesting claimer from colony', {details});
-        this.sendRequest(TOPIC_SPAWN, PRIORITY_CLAIMER, details, REQUEST_MISSING_ROOMS_TTL);
+        this.sendRequest(TOPIC_SPAWN, PRIORITIES.PRIORITY_RESERVER, details, REQUEST_MISSING_ROOMS_TTL);
       } else {
         trace.log('requesting claimer from kingdom', {details});
-        this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITY_CLAIMER, details, REQUEST_MISSING_ROOMS_TTL);
+        this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITIES.PRIORITY_RESERVER, details, REQUEST_MISSING_ROOMS_TTL);
       }
     });
   }

@@ -44,9 +44,12 @@ export default class SpawnManager {
     this.threadProduceEvents = thread('produce_events_thread', PRODUCE_EVENTS_TTL)((trace: Tracer, kingdom: Kingdom) => {
       const topic = this.orgRoom.getTopics().getTopic(TOPICS.TOPIC_SPAWN);
 
-      const creeps = topic.map((message) => {
-        return `${message.details[MEMORY.MEMORY_ROLE]}(${message.ttl - Game.time})`;
-      });
+      let creeps = [];
+      if (topic) {
+        creeps = topic.map((message) => {
+          return `${message.details[MEMORY.MEMORY_ROLE]}(${message.priority},${message.ttl - Game.time})`;
+        });
+      }
 
       const line: HudLine = {
         key: `${this.id}`,
