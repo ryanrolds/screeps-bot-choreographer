@@ -15,6 +15,7 @@ import {CentralPlanning} from './runnable.central_planning';
 import {EventBroker} from './lib.event_broker';
 import ExpandDebugger from './runnable.debug_planner';
 import {HUDRunnable} from './runnable.debug_hud';
+import MinCutDebugger from './runnable.debug_mincut';
 
 let lastMemoryTick: number = 0;
 let lastMemory: Memory = null;
@@ -105,6 +106,12 @@ export class AI {
     this.scheduler.registerProcess(new Process(expandDebuggerId, 'expand_debugger',
       Priorities.DEBUG, expandDebugger));
 
+    // Min cut debugger
+    const minCutDebuggerId = 'mincut_debugger';
+    const minCutDebugger = new MinCutDebugger(minCutDebuggerId, this.kingdom);
+    this.scheduler.registerProcess(new Process(minCutDebuggerId, 'mincut_debugger',
+      Priorities.DEBUG, minCutDebugger));
+
     // ======= ========================
 
     trace.end();
@@ -158,6 +165,10 @@ export class AI {
 
   getExpandDebugger(): ExpandDebugger {
     return this.scheduler.getProcess('expand_debugger').runnable as ExpandDebugger;
+  }
+
+  getMinCutDebugger(): MinCutDebugger {
+    return this.scheduler.getProcess('mincut_debugger').runnable as MinCutDebugger;
   }
 
   getTracer(): Tracer {
