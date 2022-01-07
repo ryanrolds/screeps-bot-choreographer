@@ -19,13 +19,13 @@ class Rectangle {
   y2: number;
 }
 
-const ENTIRE_ROOM_BOUNDS: Rectangle = {x1: 0, y1: 0, x2: 49, y2: 49};
+export const ENTIRE_ROOM_BOUNDS: Rectangle = {x1: 0, y1: 0, x2: 49, y2: 49};
 
-const UNWALKABLE = -1;
-const NORMAL = 0;
-const PROTECTED = 1;
-const TO_EXIT = 2;
-const EXIT = 3;
+export const UNWALKABLE = -1;
+export const NORMAL = 0;
+export const PROTECTED = 1;
+export const TO_EXIT = 2;
+export const EXIT = 3;
 
 export class RoomMatrix {
   roomName: string;
@@ -60,14 +60,8 @@ export class RoomMatrix {
         }
 
         // If edge of boundary, mark as to exit
-        if (i === bounds.x1 || j === bounds.y1 || i === bounds.x2 || j === bounds.y2) {
-          matrix[i][j] = TO_EXIT; // Sink Tiles mark from given bounds
-          continue;
-        }
-
-        // If on the room edge mark was exit
-        if (i === 0 || j === 0 || i === 49 || j === 49) {
-          matrix[i][j] = EXIT; // Exit Tiles mark
+        if (i <= bounds.x1 || j <= bounds.y1 || i >= bounds.x2 || j >= bounds.y2) {
+          matrix[i][j] = EXIT; // Sink Tiles mark from given bounds
           continue;
         }
 
@@ -76,9 +70,8 @@ export class RoomMatrix {
     }
 
     // Marks tiles Near Exits for sink- where you cannot build wall/rampart
-    let y = 1;
     const max = 49;
-    for (; y < max; y++) {
+    for (let y = 1; y < 49; y++) {
       if (matrix[0][y - 1] === EXIT) matrix[1][y] = TO_EXIT;
       if (matrix[0][y] === EXIT) matrix[1][y] = TO_EXIT;
       if (matrix[0][y + 1] === EXIT) matrix[1][y] = TO_EXIT;
@@ -87,8 +80,7 @@ export class RoomMatrix {
       if (matrix[49][y + 1] === EXIT) matrix[48][y] = TO_EXIT;
     }
 
-    let x = 1;
-    for (; x < max; x++) {
+    for (let x = 1; x < 49; x++) {
       if (matrix[x - 1][0] === EXIT) matrix[x][1] = TO_EXIT;
       if (matrix[x][0] === EXIT) matrix[x][1] = TO_EXIT;
       if (matrix[x + 1][0] === EXIT) matrix[x][1] = TO_EXIT;
@@ -98,14 +90,12 @@ export class RoomMatrix {
     }
 
     // mark Border Tiles as not usable
-    y = 1;
-    for (; y < max; y++) {
+    for (let y = 1; y < max; y++) {
       matrix[0][y] == UNWALKABLE;
       matrix[49][y] == UNWALKABLE;
     }
 
-    x = 1;
-    for (; x < max; x++) {
+    for (let x = 1; x < max; x++) {
       matrix[x][0] == UNWALKABLE;
       matrix[x][49] == UNWALKABLE;
     }
@@ -118,7 +108,7 @@ export function testRoomMatrix(roomName: string): RoomMatrix {
   return new RoomMatrix(roomName, ENTIRE_ROOM_BOUNDS);
 }
 
-class Edge {
+export class Edge {
   // vertex_to,res_edge,capacity,flow
   v: number = 0;
   r: number = 0;
@@ -126,7 +116,7 @@ class Edge {
   flow: number = 0;
 }
 
-class Graph {
+export class Graph {
   numVertices: number;
   level: number[];
   edges: Edge[][];
@@ -139,10 +129,22 @@ class Graph {
     this.edges = Array(menge_v).fill(0).map(x => []);
   }
 
+  getTopEdges(x: number, y: number): Edge[] {
+    const pos = y * 50 + x;
+    return this.edges[pos];
+  }
+
+  getBottomEdges(x: number, y: number): Edge[] {
+    const pos = y * 50 + x + 2500;
+    return this.edges[pos];
+  }
+
   newEdge(u: number, v: number, capacity: number) { // Adds new edge from u to v
-    this.edges[u].push({v: v, r: this.edges[v].length, capacity, flow: 0}); // Normal forward Edge
-    this.edges[v].push({v: u, r: this.edges[u].length - 1, capacity: 0, flow: 0}); // reverse Edge for Residal Graph
-  };
+    // Normal forward Edge
+    this.edges[u].push({v: v, r: this.edges[v].length, capacity, flow: 0});
+    // reverse Edge for Residal Graph
+    this.edges[v].push({v: u, r: this.edges[u].length - 1, capacity: 0, flow: 0});
+  }
 
   //this.Bfs = function (s, t) { // calculates Level Graph and if theres a path from s to t
   bfs(s: number, t: number) {
@@ -152,7 +154,8 @@ class Graph {
 
     this.level.fill(-1); // reset old levels
     this.level[s] = 0;
-    let q = [s]; // queue with s as starting point
+    let q = []; // queue with s as starting point
+    q.push(s);
 
     let u = 0;
     let edge = null;
@@ -162,7 +165,7 @@ class Graph {
       const imax = this.edges[u].length;
       for (let i = 0; i < imax; i++) {
         edge = this.edges[u][i];
-        if (this.level[edge.v] < 0 && edge.f < edge.c) {
+        if (this.level[edge.v] < 0 && edge.flow < edge.capacity) {
           this.level[edge.v] = this.level[u] + 1;
           q.push(edge.v);
         }
@@ -171,23 +174,24 @@ class Graph {
     return this.level[t] >= 0; // return if theres a path to t -> no level, no path!
   };
 
-
   // DFS like: send flow at along path from s->t recursivly while increasing the level of the visited vertices by one
   // u vertex, f flow on path, t =Sink , c Array, c[i] saves the count of edges explored from vertex i
   // this.Dfsflow = function (u, f, t, c) {
   dfsFlow(u, f, t, c) {
-    if (u === t) // Sink reached , aboard recursion
+    if (u === t) { // Sink reached , aboard recursion
       return f;
+    }
+
     let edge = null;
     let flow_till_here = 0;
     let flow_to_t = 0;
     while (c[u] < this.edges[u].length) { // Visit all edges of the vertex  one after the other
       edge = this.edges[u][c[u]];
-      if (this.level[edge.v] === this.level[u] + 1 && edge.f < edge.c) { // Edge leads to Vertex with a level one higher, and has flow left
-        flow_till_here = Math.min(f, edge.c - edge.f);
+      if (this.level[edge.v] === this.level[u] + 1 && edge.flow < edge.capacity) { // Edge leads to Vertex with a level one higher, and has flow left
+        flow_till_here = Math.min(f, edge.capacity - edge.flow);
         flow_to_t = this.dfsFlow(edge.v, flow_till_here, t, c);
         if (flow_to_t > 0) {
-          edge.f += flow_to_t; // Add Flow to current edge
+          edge.flow += flow_to_t; // Add Flow to current edge
           this.edges[edge.v][edge.r].flow -= flow_to_t; // subtract from reverse Edge -> Residual Graph neg. Flow to use backward direction of BFS/DFS
           return flow_to_t;
         }
@@ -195,11 +199,11 @@ class Graph {
       c[u]++;
     }
     return 0;
-  };
+  }
 
   // breadth-first-search which uses the level array to mark the vertices reachable from s
   // this.Bfsthecut = function (s) {
-  bfsTheCut(s) {
+  bfsTheCut(s): number[] {
     let e_in_cut = [];
     this.level.fill(-1);
     this.level[s] = 1;
@@ -208,36 +212,40 @@ class Graph {
     let u = 0;
     let edge = null;
     while (q.length) {
-      u = q.splice(0, 1)[0];
-      let i = 0; const imax = this.edges[u].length;
+      u = q.shift();
+      let i = 0;
+      const imax = this.edges[u].length;
       for (; i < imax; i++) {
         edge = this.edges[u][i];
-        if (edge.f < edge.c) {
+        if (edge.flow < edge.capacity) {
           if (this.level[edge.v] < 1) {
             this.level[edge.v] = 1;
             q.push(edge.v);
           }
         }
-        if (edge.f === edge.c && edge.c > 0) { // blocking edge -> could be in min cut
+        if (edge.flow === edge.capacity && edge.capacity > 0) { // blocking edge -> could be in min cut
           edge.u = u;
           e_in_cut.push(edge);
         }
       }
     }
     let min_cut = [];
-    let i = 0; const imax = e_in_cut.length;
+    let i = 0;
+    const imax = e_in_cut.length;
     for (; i < imax; i++) {
       if (this.level[e_in_cut[i].v] === -1) // Only edges which are blocking and lead to from s unreachable vertices are in the min cut
         min_cut.push(e_in_cut[i].u);
     }
     return min_cut;
-  };
+  }
 
   // calculates min-cut graph (Dinic Algorithm)
   // this.Calcmincut = function (s, t) { // calculates min-cut graph (Dinic Algorithm)
   calcMinCut(s, t) {
-    if (s == t)
+    if (s == t) {
       return -1;
+    }
+
     let returnvalue = 0;
     let count = [];
     let flow = 0;
@@ -250,10 +258,10 @@ class Graph {
           returnvalue += flow;
       } while (flow)
     }
+
     return returnvalue;
   }
 }
-
 
 // Removes unneccary cut-tiles if bounds are set to include some 	dead ends
 function delete_tiles_to_dead_ends(roomName: string, cut_tiles_array) {
@@ -309,62 +317,22 @@ function delete_tiles_to_dead_ends(roomName: string, cut_tiles_array) {
   }
 }
 
+const infini = Number.MAX_VALUE;
+const surr = [[0, -1], [-1, -1], [-1, 0], [-1, 1], [0, 1], [1, 1], [1, 0], [1, -1]];
+
 // Function to create Source, Sink, Tiles arrays: takes a rectangle-Array as input for Tiles that are to Protect
 // rects have top-left/bot_right Coordinates {x1,y1,x2,y2}
-function create_graph(roomname, rect, bounds): Graph {
+function create_graph(roomName: string, rect: Rectangle[], bounds: Rectangle): [Graph, RoomMatrix] {
   // An Array with Terrain information: -1 not usable, 2 Sink (Leads to Exit)
-  let roomMatrix = new RoomMatrix(roomname, bounds);
-  // For all Rectangles, set edges as source (to protect area) and area as unused
-  let r = null;
-  let j = 0; const jmax = rect.length;
-  // Check bounds
-  if (bounds.x1 >= bounds.x2 || bounds.y1 >= bounds.y2 || bounds.x1 < 0 || bounds.y1 < 0 || bounds.x2 > 49 || bounds.y2 > 49) {
-    console.log('ERROR: Invalid bounds', JSON.stringify(bounds));
-    return null;
-  }
+  let roomMatrix = new RoomMatrix(roomName, bounds);
 
-  for (; j < jmax; j++) {
-    r = rect[j];
-    // Test sizes of rectangles
-    if (r.x1 >= r.x2 || r.y1 >= r.y2) {
-      console.log('ERROR: Rectangle Nr.', j, JSON.stringify(r), 'invalid.');
-      return null
-    } else if (r.x1 < bounds.x1 || r.x2 > bounds.x2 || r.y1 < bounds.y1 || r.y2 > bounds.y2) {
-      console.log('ERROR: Rectangle Nr.', j, JSON.stringify(r), 'out of bounds:', JSON.stringify(bounds));
-      return null;
-    }
-
-    let x = r.x1; const maxx = r.x2 + 1;
-    let y = r.y1; const maxy = r.y2 + 1;
-    for (; x < maxx; x++) {
-      y = r.y1;
-      for (; y < maxy; y++) {
-        const vertex = roomMatrix.get(x, y);
-        if (x === r.x1 || x === r.x2 || y === r.y1 || y === r.y2) {
-          if (vertex === NORMAL)
-            roomMatrix.set(x, y, PROTECTED);
-        } else
-          roomMatrix.set(x, y, PROTECTED);
-      }
-    }
-
-  }
-  // ********************** Visualisierung
-  if (true) {
-    let visual = new RoomVisual(roomname);
-    let x = 0; let y = 0; const max = 50;
-    for (; x < max; x++) {
-      y = 0;
-      for (; y < max; y++) {
-        const vertex = roomMatrix.get(x, y);
-        if (vertex === UNWALKABLE)
-          visual.circle(x, y, {radius: 0.5, fill: '#111166', opacity: 0.3});
-        else if (vertex === NORMAL)
-          visual.circle(x, y, {radius: 0.5, fill: '#e8e863', opacity: 0.3});
-        else if (vertex === PROTECTED)
-          visual.circle(x, y, {radius: 0.5, fill: '#75e863', opacity: 0.3});
-        else if (vertex === TO_EXIT)
-          visual.circle(x, y, {radius: 0.5, fill: '#b063e8', opacity: 0.3});
+  // Set tiles in matrix to PROTECTED if they are in the given rects
+  const jmax = rect.length;
+  for (let j = 0; j < jmax; j++) {
+    let r = rect[j];
+    for (let x = r.x1; x <= r.x2; x++) {
+      for (let y = r.y1; y <= r.y2; y++) {
+        roomMatrix.set(x, y, PROTECTED);
       }
     }
   }
@@ -372,8 +340,7 @@ function create_graph(roomname, rect, bounds): Graph {
   // initialise graph
   // possible 2*50*50 +2 (st) Vertices (Walls etc set to unused later)
   let g = new Graph(2 * 50 * 50 + 2);
-  let infini = Number.MAX_VALUE;
-  let surr = [[0, -1], [-1, -1], [-1, 0], [-1, 1], [0, 1], [1, 1], [1, 0], [1, -1]];
+
   // per Tile (0 in Array) top + bot with edge of c=1 from top to bott  (use every tile once!)
   // infini edge from bot to top vertices of adjacent tiles if they not protected (array =1) (no reverse edges in normal graph)
   // per prot. Tile (1 in array) Edge from source to this tile with infini cap.
@@ -383,83 +350,84 @@ function create_graph(roomname, rect, bounds): Graph {
   // bot vertices <-> top + 2500
   let source = 2 * 50 * 50;
   let sink = 2 * 50 * 50 + 1;
-  let top = 0;
-  let bot = 0;
-  let dx = 0;
-  let dy = 0;
-  let x = 1; let y = 1; const max = 49;
-  for (; x < max; x++) {
-    y = 1;
-    for (; y < max; y++) {
-      top = y * 50 + x;
-      bot = top + 2500;
+  const max = 49;
+  for (let x = 1; x < max; x++) {
+    for (let y = 1; y < max; y++) {
+      let top = y * 50 + x;
+      let bot = top + 2500;
       const vertex = roomMatrix.get(x, y);
 
-      if (roomMatrix.get(x, y) === NORMAL) { // normal Tile
+      if (vertex === NORMAL) { // normal Tile
         g.newEdge(top, bot, 1);
         for (let i = 0; i < 8; i++) {
-          dx = x + surr[i][0];
-          dy = y + surr[i][1];
+          let dx = x + surr[i][0];
+          let dy = y + surr[i][1];
           const surroundingVertex = roomMatrix.get(dx, dy)
-          if (surroundingVertex === NORMAL || surroundingVertex === TO_EXIT)
+          if (surroundingVertex === NORMAL || surroundingVertex === TO_EXIT) {
             g.newEdge(bot, dy * 50 + dx, infini);
+          }
         }
       } else if (vertex === PROTECTED) { // protected Tile
         g.newEdge(source, top, infini);
         g.newEdge(top, bot, 1);
         for (let i = 0; i < 8; i++) {
-          dx = x + surr[i][0];
-          dy = y + surr[i][1];
+          let dx = x + surr[i][0];
+          let dy = y + surr[i][1];
           const surroundingVertex = roomMatrix.get(dx, dy)
-          if (surroundingVertex === NORMAL || surroundingVertex === TO_EXIT)
+          if (surroundingVertex === NORMAL || surroundingVertex === TO_EXIT) {
             g.newEdge(bot, dy * 50 + dx, infini);
+          }
         }
       } else if (vertex === TO_EXIT) { // near Exit
         g.newEdge(top, sink, infini);
       }
     }
   } // graph finished
-  return g;
+
+  return [g, roomMatrix];
 }
 
 // Function for user: calculate min cut tiles from room, rect[]
-export function getCutTiles(roomname, rect, bounds = {x1: 0, y1: 0, x2: 49, y2: 49}, verbose = false) {
-  let graph = create_graph(roomname, rect, bounds);
+export function getCutTiles(roomName, rect, bounds): [RoomPosition[], RoomMatrix, Graph] {
+  let [graph, matrix] = create_graph(roomName, rect, bounds);
+
+  console.log("graph", JSON.stringify(graph));
+
   let source = 2 * 50 * 50; // Position Source / Sink in Room-Graph
   let sink = 2 * 50 * 50 + 1;
   let count = graph.calcMinCut(source, sink);
-  if (verbose) console.log('NUmber of Tiles in Cut:', count);
+
+  console.log('NUmber of Tiles in Cut:', count);
+
   let positions = [];
   if (count > 0) {
     let cut_edges = graph.bfsTheCut(source);
     // Get Positions from Edge
     let u, x, y;
-    let i = 0; const imax = cut_edges.length;
-    for (; i < imax; i++) {
+
+    const imax = cut_edges.length;
+    for (let i = 0; i < imax; i++) {
       u = cut_edges[i];// x= v % 50  y=v/50 (math.floor?)
       x = u % 50;
       y = Math.floor(u / 50);
       positions.push({"x": x, "y": y});
     }
   }
+
   // if bounds are given,
   // try to dectect islands of walkable tiles, which are not conntected to the exits, and delete them from the cut-tiles
   let whole_room = (bounds.x1 == 0 && bounds.y1 == 0 && bounds.x2 == 49 && bounds.y2 == 49);
-  if (positions.length > 0 && !whole_room)
-    delete_tiles_to_dead_ends(roomname, positions);
-  // Visualise Result
-  if (true && positions.length > 0) {
-    let visual = new RoomVisual(roomname);
-    for (let i = positions.length - 1; i >= 0; i--) {
-      visual.circle(positions[i].x, positions[i].y, {radius: 0.5, fill: '#ff7722', opacity: 0.9});
-    }
+  if (positions.length > 0 && !whole_room) {
+    delete_tiles_to_dead_ends(roomName, positions);
   }
-  return positions;
+
+  return [positions, matrix, graph];
 }
 
 // Example function: demonstrates how to get a min cut with 2 rectangles, which define a "to protect" area
-export function test(roomName: string) {
-  //let room=Game.rooms[roomname];
+/*
+export function test(roomName: string): [RoomPosition[], RoomMatrix] {
+  //let room=Game.rooms[roomName];
   //if (!room)
   //    return 'O noes, no room';
   let cpu = Game.cpu.getUsed();
@@ -470,10 +438,12 @@ export function test(roomName: string) {
   // Boundary Array for Maximum Range
   let bounds = {x1: 0, y1: 0, x2: 49, y2: 49};
   // Get Min cut
-  let positions = getCutTiles(roomName, rect_array, bounds); // Positions is an array where to build walls/ramparts
+  let [positions, matrix] = getCutTiles(roomName, rect_array, bounds); // Positions is an array where to build walls/ramparts
   // Test output
   console.log('Positions returned', positions.length);
   cpu = Game.cpu.getUsed() - cpu;
   console.log('Needed', cpu, ' cpu time');
-  return 'Finished';
+
+  return [positions, matrix];
 }
+*/
