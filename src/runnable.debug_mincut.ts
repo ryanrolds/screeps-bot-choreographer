@@ -80,12 +80,48 @@ export default class MinCutDebugger {
 
     const baseOrigin = baseConfig.origin;
     const baseBounds = {
-      x1: baseOrigin.x - 10, y1: baseOrigin.y - 10,
-      x2: baseOrigin.x + 10, y2: baseOrigin.y + 10,
+      x1: baseOrigin.x - 9, y1: baseOrigin.y - 9,
+      x2: baseOrigin.x + 9, y2: baseOrigin.y + 9,
     };
 
+    const protect = [baseBounds];
+
+    /* In the future we will build walls around key assets
+    Game.rooms[roomName].find(FIND_SOURCES).forEach(source => {
+      protect.push({
+        x1: source.pos.x - 2, y1: source.pos.y - 2,
+        x2: source.pos.x + 2, y2: source.pos.y + 2,
+      });
+    });
+
+    Game.rooms[roomName].find(FIND_STRUCTURES, {
+      filter: (structure) => {
+        return structure.structureType === STRUCTURE_EXTRACTOR ||
+          structure.structureType === STRUCTURE_LINK ||
+          structure.structureType === STRUCTURE_CONTAINER;
+      }
+    }).forEach(structure => {
+      protect.push({
+        x1: structure.pos.x - 2, y1: structure.pos.y - 2,
+        x2: structure.pos.x + 2, y2: structure.pos.y + 2,
+      });
+    })
+
+
+    Game.rooms[roomName].find(FIND_STRUCTURES, {
+      filter: (structure) => {
+        return structure.structureType === STRUCTURE_CONTROLLER;
+      }
+    }).forEach(structure => {
+      protect.push({
+        x1: structure.pos.x - 1, y1: structure.pos.y - 1,
+        x2: structure.pos.x + 1, y2: structure.pos.y + 1,
+      });
+    });
+    */
+
     let cpu = Game.cpu.getUsed();
-    const [cut, matrix, graph] = getCutTiles(roomName, [baseBounds], ENTIRE_ROOM_BOUNDS)
+    const [cut, matrix, graph] = getCutTiles(roomName, protect, ENTIRE_ROOM_BOUNDS)
     this.cut = cut;
     this.matrix = matrix;
     this.graph = graph;

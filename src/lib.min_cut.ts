@@ -325,6 +325,7 @@ const surr = [[0, -1], [-1, -1], [-1, 0], [-1, 1], [0, 1], [1, 1], [1, 0], [1, -
 function create_graph(roomName: string, rect: Rectangle[], bounds: Rectangle): [Graph, RoomMatrix] {
   // An Array with Terrain information: -1 not usable, 2 Sink (Leads to Exit)
   let roomMatrix = new RoomMatrix(roomName, bounds);
+  const terrain = Game.map.getRoomTerrain(roomName);
 
   // Set tiles in matrix to PROTECTED if they are in the given rects
   const jmax = rect.length;
@@ -332,7 +333,13 @@ function create_graph(roomName: string, rect: Rectangle[], bounds: Rectangle): [
     let r = rect[j];
     for (let x = r.x1; x <= r.x2; x++) {
       for (let y = r.y1; y <= r.y2; y++) {
-        roomMatrix.set(x, y, PROTECTED);
+        if (x <= 2 || x >= 48 || y <= 2 || y >= 48) {
+          continue;
+        }
+
+        if (terrain.get(x, y) !== TERRAIN_MASK_WALL) {
+          roomMatrix.set(x, y, PROTECTED);
+        }
       }
     }
   }
@@ -423,27 +430,3 @@ export function getCutTiles(roomName, rect, bounds): [RoomPosition[], RoomMatrix
 
   return [positions, matrix, graph];
 }
-
-// Example function: demonstrates how to get a min cut with 2 rectangles, which define a "to protect" area
-/*
-export function test(roomName: string): [RoomPosition[], RoomMatrix] {
-  //let room=Game.rooms[roomName];
-  //if (!room)
-  //    return 'O noes, no room';
-  let cpu = Game.cpu.getUsed();
-  // Rectangle Array, the Rectangles will be protected by the returned tiles
-  let rect_array = [];
-  rect_array.push({x1: 20, y1: 6, x2: 28, y2: 27});
-  rect_array.push({x1: 29, y1: 13, x2: 34, y2: 16});
-  // Boundary Array for Maximum Range
-  let bounds = {x1: 0, y1: 0, x2: 49, y2: 49};
-  // Get Min cut
-  let [positions, matrix] = getCutTiles(roomName, rect_array, bounds); // Positions is an array where to build walls/ramparts
-  // Test output
-  console.log('Positions returned', positions.length);
-  cpu = Game.cpu.getUsed() - cpu;
-  console.log('Needed', cpu, ' cpu time');
-
-  return [positions, matrix];
-}
-*/
