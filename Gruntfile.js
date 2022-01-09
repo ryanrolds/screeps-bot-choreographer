@@ -31,7 +31,17 @@ module.exports = function(grunt) {
       mmo: {
         options: {
           email: config.email,
-          password: config.password,
+          token: config.token,
+          branch: config.branch,
+          ptr: config.ptr
+        },
+        src: ['built/*.js']
+      },
+      season: {
+        options: {
+          server: 'season',
+          email: config.email,
+          token: config.token,
           branch: config.branch,
           ptr: config.ptr
         },
@@ -82,6 +92,8 @@ module.exports = function(grunt) {
 
   // Tasks for uploading to specific servers
   grunt.registerTask("mmo", ["default", "screeps:mmo"]);
-  grunt.registerTask("local", ["default", "screeps:local"]);
+  grunt.registerTask("season", ["default", "screeps:season"]);
   grunt.registerTask("private", ["default", "screeps:private"]);
+  grunt.registerTask("local", ["default", "screeps:local"]);
+
 }
