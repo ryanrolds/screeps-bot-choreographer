@@ -35,10 +35,9 @@ export default class PathDebugger {
       });
 
       _.each(this.resultsDebug.incompletePaths, (path) => {
+        displayRoomPaths(path.path, {stroke: '#ff0000'})
         Game.map.visual.poly(path.path, {stroke: '#ff0000'});
       });
-
-      Game.map.visual.poly(this.results.path, {stroke: '#ffffff'});
     }
 
     return running();
@@ -70,4 +69,21 @@ export default class PathDebugger {
   clear() {
     this.results = null;
   }
+}
+
+export const displayRoomPaths = (path: RoomPosition[], style: PolyStyle) => {
+  const pathByRooms = path.reduce((acc, pos) => {
+    if (!acc[pos.roomName]) {
+      acc[pos.roomName] = [];
+    }
+
+    acc[pos.roomName].push(pos);
+
+    return acc;
+  }, {} as Record<string, RoomPosition[]>);
+
+  // Display in the rooms
+  Object.entries(pathByRooms).forEach(([key, value]) => {
+    new RoomVisual(key).poly(value, style);
+  });
 }

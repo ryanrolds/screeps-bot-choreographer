@@ -49,6 +49,7 @@ export const createCommonCostMatrix = (roomName: string, trace: Tracer): CostMat
   const structures = room.find(FIND_STRUCTURES);
   trace.log('found structures', {numStructures: structures.length});
 
+  // Favor roads and avoid blocking structures
   structures.forEach(function (struct) {
     if (struct.structureType === STRUCTURE_ROAD) {
       // Favor roads over plain tiles
@@ -93,7 +94,23 @@ export const createCommonCostMatrix = (roomName: string, trace: Tracer): CostMat
   // avoid sources
   applySourceBuffer(room, costMatrix, terrain, 5, trace);
 
-  // TODO avoid room controllers
+  // Avoid controllers
+  structures.filter(structure => structure.structureType === STRUCTURE_CONTROLLER).forEach(structure => {
+    getNearbyPositions(structure.pos, 3).forEach((pos) => {
+      if (terrain.get(pos.x, pos.y) !== TERRAIN_MASK_WALL && costMatrix.get(pos.x, pos.y) < 3) {
+        costMatrix.set(pos.x, pos.y, 3);
+      }
+    });
+  });
+
+  // Avoid sources
+  room.find(FIND_SOURCES).forEach((source) => {
+    getNearbyPositions(source.pos, 2).forEach((pos) => {
+      if (terrain.get(pos.x, pos.y) !== TERRAIN_MASK_WALL && costMatrix.get(pos.x, pos.y) < 5) {
+        costMatrix.set(pos.x, pos.y, 5);
+      }
+    });
+  });
 
   return costMatrix;
 }
@@ -196,13 +213,6 @@ export const createSourceRoadMatrix = (kingdom: Kingdom, roomName: string, trace
 export const createPartyCostMatrix = (roomName: string, trace: Tracer): CostMatrix | boolean => {
   const costMatrix = new PathFinder.CostMatrix();
 
-  /*
-  const room = Game.rooms[roomName];
-  if (!room) {
-    return costMatrix;
-  }
-  */
-
   const terrain = Game.map.getRoomTerrain(roomName);
 
   for (let x = 0; x <= 49; x++) {
@@ -274,7 +284,7 @@ export const createOpenSpaceMatrix = (roomName: string, trace: Tracer): [CostMat
     passes[pass] = [];
 
     currentPass.forEach((centerPos: RoomPosition) => {
-      getAdjacentPositions(centerPos).forEach((pos) => {
+      getNearbyPositions(centerPos, 1).forEach((pos) => {
         if (seen[pos.x + ',' + pos.y]) {
           return;
         }
@@ -294,10 +304,10 @@ export const createOpenSpaceMatrix = (roomName: string, trace: Tracer): [CostMat
 };
 
 // get position surrounding a room position
-const getAdjacentPositions = (center: RoomPosition): RoomPosition[] => {
+const getNearbyPositions = (center: RoomPosition, range: number): RoomPosition[] => {
   const positions = [];
-  for (let x = center.x - 1; x <= center.x + 1; x++) {
-    for (let y = center.y - 1; y <= center.y + 1; y++) {
+  for (let x = center.x - range; x <= center.x + range; x++) {
+    for (let y = center.y - range; y <= center.y + range; y++) {
       if (x === center.x && y === center.y) {
         continue;
       }

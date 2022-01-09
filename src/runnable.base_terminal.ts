@@ -19,7 +19,7 @@ const TASK_TTL = 50;
 const MAX_TERMINAL_ENERGY = 1000;
 
 const PROCESS_TASK_TTL = 10;
-const REQUEST_RETURN_ENERGY_TTL = 10;
+const REQUEST_RETURN_ENERGY_TTL = 20;
 const ORDER_MGMT_TTL = 1000;
 const HAUL_OLD_SELL_ORDER_TTL = 20;
 const UPDATE_ENERGY_VALUE_TTL = 2500;
@@ -101,9 +101,8 @@ export default class TerminalRunnable {
       const terminalAmount = terminal.store.getUsedCapacity(RESOURCE_ENERGY);
       if (terminalAmount > MAX_TERMINAL_ENERGY && this.returnEnergyTTL < 0) {
         this.returnEnergyTTL = REQUEST_RETURN_ENERGY_TTL;
-
         const amountToTransfer = terminalAmount - MAX_TERMINAL_ENERGY;
-        trace.log('send energy to storage', {amountToTransfer})
+        trace.notice('send energy to storage', {amountToTransfer})
         this.sendEnergyToStorage(terminal, amountToTransfer, REQUEST_RETURN_ENERGY_TTL, trace);
       }
     }
@@ -473,7 +472,6 @@ export default class TerminalRunnable {
         trace.log('order is complete; cancelled', {result, orderId: order.id});
         return;
       }
-
 
       const resources = this.orgRoom.getKingdom().getResourceGovernor().getSharedResources();
       const currentAmount = resources[order.resourceType] || 0;

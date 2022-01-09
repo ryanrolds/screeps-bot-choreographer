@@ -34,7 +34,7 @@ const policy: FindColonyPathPolicy = {
     allowIncomplete: false,
     maxSearchRooms: 16,
     maxOps: 5000,
-    maxPathRooms: 5,
+    maxPathRooms: 6,
     ignoreCreeps: true,
   },
 };
@@ -64,23 +64,19 @@ export default class BufferManager {
 
 function enforceBuffer(trace: Tracer, kingdom: Kingdom) {
   const hostileRoomsByColony = getHostileRoomsByColony(kingdom, trace);
-  trace.log('hostile rooms by colony', {hostileRoomsByColony});
 
   _.forEach(hostileRoomsByColony, (rooms, colonyId) => {
     if (rooms.length < 1) {
-      trace.log("no hostile rooms", {colonyId})
       return;
     }
 
     const colony = kingdom.getColonyById(colonyId);
     if (!colony) {
-      trace.log('expect to find colony, but did not', {colonyId});
       return;
     }
 
     const room = _.sortByAll(rooms, ['level', 'id']).shift();
     if (!room) {
-      trace.log("should have room", {rooms, colonyId});
       return;
     }
 
@@ -105,12 +101,6 @@ function getHostileRoomsByColony(kingdom: Kingdom, trace: Tracer): HostileRoomsB
     return dontAttack.indexOf(room.owner) === -1;
   });
 
-  trace.log("hostile rooms", {
-    dontAttack,
-    numWeakRooms: weakRooms.length,
-    numRooms: kingdom.getScribe().getRoomsUpdatedRecently().length,
-  });
-
   const hostileRoomsByColony: Record<string, TargetRoom[]> = {};
 
   // TODO fix this
@@ -119,7 +109,6 @@ function getHostileRoomsByColony(kingdom: Kingdom, trace: Tracer): HostileRoomsB
   weakRooms.forEach((room) => {
     const colony = getClosestColonyByPath(kingdom, room.controllerPos, policy, trace)
     if (!colony) {
-      trace.log('no nearby colony', {roomId: room.id, policy});
       return;
     }
 

@@ -55,7 +55,7 @@ let config: KingdomConfig = {
         id: 'E23S45-Shard2',
         primary: 'E23S45',
         isPublic: false,
-        rooms: ['E23S45'],
+        rooms: ['E23S45', 'E23S44', 'E22S44', 'E23S43', 'E23S46'],
         automated: false,
         origin: null,
         parking: null,

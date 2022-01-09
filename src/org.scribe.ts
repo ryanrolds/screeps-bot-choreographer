@@ -1,10 +1,7 @@
-import {OrgBase} from './org.base';
-import {getRegion, Position} from './lib.flood_fill'
-import {Kingdom} from './org.kingdom';
-import {Colony} from './org.colony';
-import {thread, ThreadFunc} from './os.thread';
 import {Tracer} from './lib.tracing';
-import {NumericDictionary} from 'lodash';
+import {OrgBase} from './org.base';
+import {Kingdom} from './org.kingdom';
+import {thread, ThreadFunc} from './os.thread';
 
 const JOURNAL_ENTRY_TTL = 250;
 const MAX_JOURAL_TTL = 500;
@@ -34,6 +31,8 @@ export type RoomEntry = {
     safeModeAvailable: number;
     pos: RoomPosition;
   };
+  specialRoom: boolean;
+  status: string;
   hasSpawns: boolean;
   spawnLocation: RoomPosition;
   numSources: number;
@@ -325,6 +324,10 @@ export class Scribe extends OrgBase {
         return false;
       }
 
+      if (room.specialRoom) {
+        return false;
+      }
+
       if (room.controller.level >= 7) {
         return false;
       }
@@ -358,6 +361,8 @@ export class Scribe extends OrgBase {
     const room: RoomEntry = {
       id: roomObject.name as Id<Room>,
       lastUpdated: Game.time,
+      specialRoom: false,
+      status: null,
       controller: null,
       hasSpawns: false,
       spawnLocation: null,
@@ -401,6 +406,10 @@ export class Scribe extends OrgBase {
       room.hasSpawns = spawns.length > 0;
       room.spawnLocation = spawns[0]?.pos
     }
+
+    const status = Game.map.getRoomStatus(roomObject.name);
+    room.specialRoom = status.status !== 'normal'
+    room.status = status.status
 
     room.numSources = roomObject.find(FIND_SOURCES).length;
 

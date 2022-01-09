@@ -16,6 +16,7 @@ import {EventBroker} from './lib.event_broker';
 import ExpandDebugger from './runnable.debug_planner';
 import {HUDRunnable} from './runnable.debug_hud';
 import MinCutDebugger from './runnable.debug_mincut';
+import InvaderManager from './runnable.manager.invaders';
 
 let lastMemoryTick: number = 0;
 let lastMemory: Memory = null;
@@ -70,10 +71,12 @@ export class AI {
       Priorities.DEFENCE, bufferManager));
 
     // Invader manager
-    //const invaderManagerId = 'invader_manager';
-    //const invaderManager = new InvaderManager(invaderManagerId, this.scheduler, trace);
-    //this.scheduler.registerProcess(new Process(invaderManagerId, 'invader_manager',
-    //  Priorities.ATTACK, invaderManager));
+    if (Game.shard?.name === 'shard2') {
+      const invaderManagerId = 'invader_manager';
+      const invaderManager = new InvaderManager(invaderManagerId, this.scheduler, trace);
+      this.scheduler.registerProcess(new Process(invaderManagerId, 'invader_manager',
+        Priorities.ATTACK, invaderManager));
+    }
 
     // War manager
     const warManagerId = 'war_manager';
