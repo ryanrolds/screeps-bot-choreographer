@@ -249,7 +249,7 @@ export default class LogisticsRunnable extends PersistentMemory {
       return;
     }
 
-    trace.notice('shortest leg', {leg})
+    trace.log('shortest leg', {leg})
 
     this.selectedLeg = leg;
 

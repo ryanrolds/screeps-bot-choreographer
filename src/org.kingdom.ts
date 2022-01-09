@@ -8,7 +8,7 @@ import {thread, ThreadFunc} from './os.thread';
 import helpersCreeps from './helpers.creeps';
 import * as MEMORY from './constants.memory';
 import * as featureFlags from './lib.feature_flags';
-import {KingdomConfig, ShardConfig} from './config';
+import {BaseConfig, KingdomConfig, ShardConfig} from './config';
 import {Scheduler} from './os.scheduler';
 import {Tracer} from './lib.tracing';
 import OrgRoom from './org.room';
@@ -238,6 +238,15 @@ export class Kingdom extends OrgBase {
     }
 
     return this.getColonyById(colonyId);
+  }
+
+  getCreepBaseConfig(creep: Creep): BaseConfig {
+    const colony = this.getCreepColony(creep);
+    if (!colony) {
+      return null;
+    }
+
+    return this.getPlanner().getBaseConfig(colony.id);
   }
 
   getCreepAssignedRoom(creep: Creep): OrgRoom {

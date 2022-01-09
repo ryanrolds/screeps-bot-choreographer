@@ -340,8 +340,6 @@ export const fillCreepFromDestination = (creep, trace) => {
   }
 
   if (!destination.store) {
-    trace.notice('type of destination is not a store', {destination, typeof: typeof destination});
-
     const result = creep.pickup(destination);
     if (result !== OK) {
       trace.error('failed to pick up resource', {result});

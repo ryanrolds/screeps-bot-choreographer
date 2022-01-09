@@ -330,13 +330,8 @@ export default class BaseRunnable {
   }
 
   requestBuilder(trace: Tracer, orgRoom: OrgRoom, room: Room) {
-    if (!orgRoom.isPrimary) {
-      trace.log('not primary room, skipping');
-      return;
-    }
-
     if (!Object.values(Game.spawns).length) {
-      // We have no spawns in this shard
+      trace.log('no spawns');
       return;
     }
 
@@ -356,7 +351,10 @@ export default class BaseRunnable {
       desiredBuilders = 3;
     }
 
+    trace.log('checking builders', {id: this.id, numConstructionSites, desiredBuilders});
+
     if (builders.length >= desiredBuilders) {
+      trace.log('already have enough builders', {id: this.id, numConstructionSites, desiredBuilders});
       return;
     }
 
@@ -436,7 +434,7 @@ export default class BaseRunnable {
       distributorPriority += 10;
     }
 
-    trace.notice('request distributor', {desiredDistributors, distributorPriority, fullness});
+    trace.log('request distributor', {desiredDistributors, distributorPriority, fullness});
 
     (orgRoom as any).requestSpawn(distributorPriority, {
       role: CREEPS.WORKER_DISTRIBUTOR,

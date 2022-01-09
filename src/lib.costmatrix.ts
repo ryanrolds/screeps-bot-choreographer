@@ -54,18 +54,10 @@ export const createCommonCostMatrix = (roomName: string, trace: Tracer): CostMat
     if (struct.structureType === STRUCTURE_ROAD) {
       // Favor roads over plain tiles
       costMatrix.set(struct.pos.x, struct.pos.y, 1);
-    } else if (struct.structureType === STRUCTURE_CONTROLLER) {
-      const controllerPos = struct.pos;
-      for (let x = controllerPos.x - 3; x <= controllerPos.x + 3; x++) {
-        for (let y = controllerPos.y - 3; y <= controllerPos.y + 3; y++) {
-          if (x < 0 || x < 0 || y > 49 || y > 49 || terrain.get(x, y) === TERRAIN_MASK_WALL) {
-            continue;
-          }
+    }
 
-          costMatrix.set(x, y, 5);
-        }
-      }
-    } else if (struct.structureType === STRUCTURE_STORAGE) {
+
+    if (struct.structureType === STRUCTURE_STORAGE) {
       for (let x = struct.pos.x - 1; x <= struct.pos.x + 1; x++) {
         for (let y = struct.pos.y - 1; y <= struct.pos.y + 1; y++) {
           if (x < 0 || x < 0 || y > 49 || y > 49 || terrain.get(x, y) === TERRAIN_MASK_WALL) {
@@ -78,21 +70,28 @@ export const createCommonCostMatrix = (roomName: string, trace: Tracer): CostMat
           }
         }
       }
-    } else if (struct.structureType !== STRUCTURE_CONTAINER &&
-      (struct.structureType !== STRUCTURE_RAMPART || !struct.my)) {
-      // Can't walk through non-walkable buildings
+    }
+
+
+    if (struct.structureType === STRUCTURE_CONTROLLER) {
+      const controllerPos = struct.pos;
+      for (let x = controllerPos.x - 3; x <= controllerPos.x + 3; x++) {
+        for (let y = controllerPos.y - 3; y <= controllerPos.y + 3; y++) {
+          if (x < 0 || x < 0 || y > 49 || y > 49 || terrain.get(x, y) === TERRAIN_MASK_WALL) {
+            continue;
+          }
+
+          costMatrix.set(x, y, 5);
+        }
+      }
+    }
+
+    // TODO figure out how to not use "any"
+    const isObstacle = OBSTACLE_OBJECT_TYPES.indexOf(struct.structureType as any) > -1;
+    if (isObstacle) {
       costMatrix.set(struct.pos.x, struct.pos.y, 255);
     }
   });
-
-  // Also add construction sites to desired path
-  const sites = room.find(FIND_CONSTRUCTION_SITES).filter(site => site.structureType === STRUCTURE_ROAD);
-  sites.forEach((site) => {
-    costMatrix.set(site.pos.x, site.pos.y, 1);
-  });
-
-  // avoid sources
-  applySourceBuffer(room, costMatrix, terrain, 5, trace);
 
   // Avoid controllers
   structures.filter(structure => structure.structureType === STRUCTURE_CONTROLLER).forEach(structure => {
@@ -103,13 +102,22 @@ export const createCommonCostMatrix = (roomName: string, trace: Tracer): CostMat
     });
   });
 
-  // Avoid sources
-  room.find(FIND_SOURCES).forEach((source) => {
-    getNearbyPositions(source.pos, 2).forEach((pos) => {
-      if (terrain.get(pos.x, pos.y) !== TERRAIN_MASK_WALL && costMatrix.get(pos.x, pos.y) < 5) {
-        costMatrix.set(pos.x, pos.y, 5);
-      }
-    });
+  // avoid sources
+  applySourceBuffer(room, costMatrix, terrain, 5, trace);
+
+  // Also add construction sites to desired path
+  room.find(FIND_CONSTRUCTION_SITES).forEach((site) => {
+    if (site.structureType === STRUCTURE_ROAD) {
+      // Favor roads over plain tiles
+      costMatrix.set(site.pos.x, site.pos.y, 1);
+      return;
+    }
+
+    // TODO figure out how to not use "any"
+    const isObstacle = OBSTACLE_OBJECT_TYPES.indexOf(site.structureType as any) > -1;
+    if (isObstacle) {
+      costMatrix.set(site.pos.x, site.pos.y, 255);
+    }
   });
 
   return costMatrix;

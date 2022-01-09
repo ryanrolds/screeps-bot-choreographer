@@ -1,6 +1,6 @@
 
 import {behaviorBoosts} from "./behavior.boosts";
-import behaviorBuild from "./behavior.build";
+// import behaviorBuild from "./behavior.build";
 import behaviorHaul from "./behavior.haul";
 import {roadWorker} from "./behavior.logistics";
 import * as behaviorMovement from "./behavior.movement";
@@ -19,7 +19,7 @@ const behavior = behaviorTree.sequenceNode(
       'pick_something',
       [
         behaviorHaul.getHaulTaskFromTopic(TOPICS.TOPIC_HAUL_TASK),
-        /*
+        /* Remove if not used in a while - Jan 2022
         behaviorTree.sequenceNode(
           'build_construction_site',
           [

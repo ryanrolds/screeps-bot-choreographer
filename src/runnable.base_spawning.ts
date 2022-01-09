@@ -59,7 +59,7 @@ export default class SpawnManager {
         time: Game.time,
       };
       const event = new Event(this.id, Game.time, HudStreamEventSet, line);
-      trace.notice('produce_events', event);
+      trace.log('produce_events', event);
       kingdom.getBroker().getStream(getHudStream()).publish(event)
     });
   }

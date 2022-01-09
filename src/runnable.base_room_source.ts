@@ -366,7 +366,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
         creepIsFresh(creep);
     }).length;
 
-    trace.log('desired workers', {desiredNumWorkers, numWorkers});
+    trace.log('desired workers', {desiredWorkerType, desiredNumWorkers, numWorkers});
 
     for (let i = numWorkers; i < desiredNumWorkers; i++) {
       let priority = desiredWorkerPriority;
@@ -499,6 +499,17 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
 
     if (source instanceof Mineral) {
       trace.log('do not build container for minerals', {id: this.sourceId});
+      return;
+    }
+
+    const orgRoom = kingdom.getRoomByName(source.room.name);
+    if (!orgRoom) {
+      trace.log('no org room', {id: this.sourceId});
+      return;
+    }
+
+    if (!orgRoom.hasStorage) {
+      trace.log('no storage in room', {id: this.sourceId});
       return;
     }
 

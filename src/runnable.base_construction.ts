@@ -222,7 +222,9 @@ export default class BaseConstructionRunnable {
       return sleeping(CONSTRUCTION_INTERVAL);
     }
 
-    this.buildWalls(kingdom, room, baseConfig, trace);
+    if (roomLevel > 3 && this.orgRoom.hasStorage) {
+      this.buildWalls(kingdom, room, baseConfig, trace);
+    }
 
     trace.end();
     return sleeping(CONSTRUCTION_INTERVAL);
@@ -232,9 +234,7 @@ export default class BaseConstructionRunnable {
     //for (let i = 0; i <= roomLevel; i++) {
     //  const layout = baseLayouts[i];
     const layout = baseLayouts[roomLevel];
-    trace.notice('checking layout', {roomLevel})
     if (!this.layoutComplete(layout, room, origin, trace)) {
-      trace.notice('layout not complete', {roomLevel, layout});
       return layout;
     }
     //}
@@ -370,7 +370,6 @@ export default class BaseConstructionRunnable {
 
   layoutComplete(layout: BaseLayout, room: Room, origin: RoomPosition, trace: Tracer): boolean {
     if (layout.buildings.length === 0) {
-      trace.notice('nothing to build', {layout});
       return true;
     }
 
@@ -404,7 +403,6 @@ export default class BaseConstructionRunnable {
       }
     }
 
-    trace.notice('layout complete', {layout});
     return true;
   }
 }

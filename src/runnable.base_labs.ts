@@ -46,7 +46,7 @@ export class LabsManager {
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
     trace = trace.begin('labs_manager_run');
 
-    trace.notice('labs manager run', {
+    trace.log('labs manager run', {
       reactorsIds: this.reactorsIds,
       boosterIds: this.boosterIds,
     });

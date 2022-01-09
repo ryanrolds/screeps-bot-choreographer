@@ -1,7 +1,7 @@
 import * as behaviorTree from "./lib.behaviortree";
 import behaviorCommute from "./behavior.commute";
 import * as behaviorMovement from "./behavior.movement";
-import behaviorBuild from "./behavior.build";
+import {build, selectSite} from "./behavior.build";
 import behaviorRoom from "./behavior.room";
 import {behaviorBoosts} from "./behavior.boosts";
 
@@ -63,12 +63,12 @@ const behavior = behaviorTree.sequenceNode(
           behaviorTree.selectorNode(
             'pick_something',
             [
-              behaviorBuild.selectSite,
+              selectSite,
               behaviorRoom.parkingLot,
             ],
           ),
           behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 3, commonPolicy),
-          behaviorBuild.build,
+          build,
         ],
       ),
     )

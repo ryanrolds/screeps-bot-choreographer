@@ -572,7 +572,7 @@ export default class WarPartyRunnable {
   }
 
   getPath(origin: RoomPosition, destination: RoomPosition, trace: Tracer) {
-    trace.notice('get path', {path: this.path, pathDestination: this.pathDestination, destination});
+    trace.log('get path', {path: this.path, pathDestination: this.pathDestination, destination});
 
     if (this.path && this.pathDestination && this.pathDestination.isEqualTo(destination) &&
       Game.time - this.pathTime < 50) {
@@ -623,7 +623,7 @@ export default class WarPartyRunnable {
     trace.log("path found", {pathLength: path.length, currentPosition, destination});
 
     if (path.length === 0) {
-      trace.notice('no path', {id: this.id, currentPosition, destination, path});
+      trace.error('no path', {id: this.id, currentPosition, destination, path});
       return [currentPosition, this.direction, []];
     }
 
