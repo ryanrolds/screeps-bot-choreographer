@@ -88,27 +88,38 @@ export function desiredRemotes(colony: Colony, level: number): number {
     return 2;
   }
 
+  const spawns = room.find(FIND_STRUCTURES, {
+    filter: s => s.structureType === STRUCTURE_SPAWN && s.isActive()
+  });
+
   let desiredRemotes = 0;
   switch (level) {
     case 0:
     case 1:
       desiredRemotes = 0;
+      break;
     case 2:
     case 3:
     case 4:
       desiredRemotes = 4;
+      break;
     case 5:
       // Tried 4 and at level 5 it was choking - Jan 2022
       desiredRemotes = 3;
       break;
     case 6:
-      // Tried 3 and at level 6 it was choking - Jan 2022
-      desiredRemotes = 2;
+      // Tried 2 and 3, it was choking - Jan 2022
+      desiredRemotes = 1;
       break;
     case 7:
-      desiredRemotes = 6;
     case 8:
-      desiredRemotes = 9;
+      if (spawns.length < 2) {
+        desiredRemotes = 1;
+      } else if (spawns.length < 3) {
+        desiredRemotes = 3;
+      } else {
+        desiredRemotes = 6;
+      }
       break;
     default:
       throw new Error('unexpected controller level');

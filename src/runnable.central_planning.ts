@@ -1,5 +1,6 @@
 import {BaseConfig, KingdomConfig, ShardConfig} from "./config";
 import {pickExpansion} from "./lib.expand";
+import {ENTIRE_ROOM_BOUNDS, getCutTiles} from "./lib.min_cut";
 import {desiredRemotes, findNextRemoteRoom} from "./lib.remote_room";
 import {Tracer} from "./lib.tracing";
 import {Kingdom} from "./org.kingdom";
@@ -13,7 +14,7 @@ const RUN_TTL = 50;
 const BASE_PROCESSES_TTL = 50;
 const REMOTE_MINING_TTL = 100;
 const EXPAND_TTL = 250;
-const MIN_DISTANCE_FOR_ORIGIN = 7;
+const BASE_WALLS_TTL = 50;
 
 export class CentralPlanning {
   private config: KingdomConfig;
@@ -27,6 +28,9 @@ export class CentralPlanning {
   private remoteMiningIterator: Generator<any, void, {kingdom: Kingdom, trace: Tracer}>;
   private remoteMiningThread: ThreadFunc;
   private expandColoniesThread: ThreadFunc;
+
+  private baseWallsIterator: Generator<any, void, {kingdom: Kingdom, trace: Tracer}>;
+  private baseWallsThread: ThreadFunc;
 
   constructor(config: KingdomConfig, scheduler: Scheduler, trace: Tracer) {
     this.config = config;
@@ -52,7 +56,7 @@ export class CentralPlanning {
     Object.values(bases).forEach((colony) => {
       trace.notice('setting up colony', {colony});
       this.addBaseConfig(colony.id, colony.isPublic, colony.origin, colony.automated,
-        colony.rooms, trace);
+        colony.rooms, colony.walls || [], trace);
     });
 
     // Check for spawns without colonies
@@ -61,7 +65,7 @@ export class CentralPlanning {
       const origin = new RoomPosition(spawn.pos.x, spawn.pos.y + 4, spawn.pos.roomName);
       if (!this.baseConfigs[roomName]) {
         trace.notice('found spawn without colony', {roomName});
-        this.addBaseConfig(roomName, false, origin, true, [], trace);
+        this.addBaseConfig(roomName, false, origin, true, [], [], trace);
       }
     });
 
@@ -76,12 +80,19 @@ export class CentralPlanning {
 
     // TODO make this an iterator
     this.expandColoniesThread = thread('expand', EXPAND_TTL)(this.expandColonies.bind(this));
+
+    // Calculate base walls
+    this.baseWallsIterator = this.baseWallsGenerator();
+    this.baseWallsThread = thread('base_walls', BASE_WALLS_TTL)((trace: Tracer, kingdom: Kingdom) => {
+      this.baseWallsIterator.next({kingdom, trace});
+    });
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
     this.threadBaseProcesses(trace, kingdom);
     this.remoteMiningThread(trace, kingdom);
     this.expandColoniesThread(trace, kingdom);
+    this.baseWallsThread(trace, kingdom);
 
     (Memory as any).colonies = this.baseConfigs;
     (Memory as any).bases = this.baseConfigs;
@@ -153,7 +164,7 @@ export class CentralPlanning {
   }
 
   addBaseConfig(primaryRoom: string, isPublic: boolean, origin: RoomPosition, automated: boolean,
-    rooms: string[], trace: Tracer) {
+    rooms: string[], walls: {x: number, y: number}[], trace: Tracer) {
     if (this.baseConfigs[primaryRoom]) {
       trace.error('colony already exists', {primaryRoom});
       return;
@@ -167,6 +178,7 @@ export class CentralPlanning {
       automated: automated,
       origin: origin,
       parking: new RoomPosition(origin.x + 4, origin.y, origin.roomName),
+      walls: walls,
     };
 
     this.roomByBaseId[primaryRoom] = primaryRoom;
@@ -222,41 +234,6 @@ export class CentralPlanning {
     trace.log('room removed from colony', {colonyId: baseConfig.id, roomName});
   }
 
-  private expandColonies(trace: Tracer, kingdom: Kingdom) {
-    const scribe = kingdom.getScribe();
-    const globalColonyCount = scribe.getGlobalColonyCount();
-    if (!globalColonyCount) {
-      trace.log('do not know global colony count yet');
-      return;
-    }
-
-    const allowedColonies = Game.gcl.level;
-    if (globalColonyCount >= allowedColonies) {
-      trace.log('max GCL colonies reached', {globalColonyCount, allowedColonies});
-      return;
-    }
-
-    const baseConfigs = this.getBaseConfigs();
-    const numColonies = baseConfigs.length;
-    const shardColonyMax = (this.config.maxColonies || 9999);
-    if (numColonies >= shardColonyMax) {
-      trace.log('max config colonies reached', {numColonies, shardColonyMax});
-      return;
-    }
-
-    const results = pickExpansion(kingdom, trace);
-    if (results.selected) {
-      const roomName = results.selected;
-      const distance = results.distance;
-      const origin = results.origin;
-      trace.notice('selected room, adding colony', {roomName, distance, origin});
-      this.addBaseConfig(roomName, false, origin, true, [], trace);
-      return;
-    }
-
-    trace.log('no expansion selected');
-  }
-
   private baseProcesses(trace: Tracer, kingdom: Kingdom) {
     // If any defined colonies don't exist, run it
     const bases = kingdom.getPlanner().getBaseConfigs();
@@ -270,6 +247,24 @@ export class CentralPlanning {
       this.scheduler.registerProcess(new Process(colonyProcessId, 'base', Priorities.CRITICAL,
         new BaseRunnable(colony.id, this.scheduler)));
     });
+  }
+
+  private * remoteMiningGenerator(): Generator<any, void, {kingdom: Kingdom, trace: Tracer}> {
+    let bases: BaseConfig[] = []
+    while (true) {
+      const details: {kingdom: Kingdom, trace: Tracer} = yield;
+      const kingdom = details.kingdom;
+      const trace = details.trace;
+
+      if (!bases.length) {
+        bases = this.getBaseConfigs()
+      }
+
+      const colony = bases.shift();
+      if (colony) {
+        this.remoteMining(kingdom, colony, trace);
+      }
+    }
   }
 
   private remoteMining(kingdom: Kingdom, baseConfig: BaseConfig, trace: Tracer) {
@@ -312,22 +307,68 @@ export class CentralPlanning {
     }
   }
 
-  private * remoteMiningGenerator(): Generator<any, void, {kingdom: Kingdom, trace: Tracer}> {
+  private expandColonies(trace: Tracer, kingdom: Kingdom) {
+    const scribe = kingdom.getScribe();
+    const globalColonyCount = scribe.getGlobalColonyCount();
+    if (!globalColonyCount) {
+      trace.log('do not know global colony count yet');
+      return;
+    }
+
+    const allowedColonies = Game.gcl.level;
+    if (globalColonyCount >= allowedColonies) {
+      trace.log('max GCL colonies reached', {globalColonyCount, allowedColonies});
+      return;
+    }
+
+    const baseConfigs = this.getBaseConfigs();
+    const numColonies = baseConfigs.length;
+    const shardColonyMax = (this.config.maxColonies || 9999);
+    if (numColonies >= shardColonyMax) {
+      trace.log('max config colonies reached', {numColonies, shardColonyMax});
+      return;
+    }
+
+    const results = pickExpansion(kingdom, trace);
+    if (results.selected) {
+      const roomName = results.selected;
+      const distance = results.distance;
+      const origin = results.origin;
+      trace.notice('selected room, adding colony', {roomName, distance, origin});
+      this.addBaseConfig(roomName, false, origin, true, [], [], trace);
+      return;
+    }
+
+    trace.log('no expansion selected');
+  }
+
+  private * baseWallsGenerator(): Generator<any, void, {kingdom: Kingdom, trace: Tracer}> {
     let bases: BaseConfig[] = []
     while (true) {
       const details: {kingdom: Kingdom, trace: Tracer} = yield;
       const kingdom = details.kingdom;
       const trace = details.trace;
 
-      if (!bases.length) {
-        bases = this.getBaseConfigs()
-      }
-
-      const colony = bases.shift();
-      if (colony) {
-        this.remoteMining(kingdom, colony, trace);
+      const needWalls = _.find(this.getBaseConfigs(), (baseConfig) => {
+        return baseConfig.automated && !baseConfig.walls.length;
+      });
+      if (needWalls) {
+        trace.log('need walls', {baseConfig: needWalls});
+        this.updateBaseWalls(kingdom, needWalls, trace);
       }
     }
+  }
+
+  private updateBaseWalls(kingdom: Kingdom, base: BaseConfig, trace: Tracer) {
+    const baseBounds = {
+      x1: base.origin.x - 9, y1: base.origin.y - 9,
+      x2: base.origin.x + 9, y2: base.origin.y + 9,
+    };
+
+    const [walls] = getCutTiles(base.primary, [baseBounds], ENTIRE_ROOM_BOUNDS);
+    base.walls = walls;
+
+    trace.log('created walls', {baseConfig: base});
   }
 }
 

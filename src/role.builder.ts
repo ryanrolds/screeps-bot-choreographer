@@ -52,20 +52,26 @@ const behavior = behaviorTree.sequenceNode(
     ),
     behaviorCommute.setCommuteDuration,
     behaviorRoom.getEnergy,
-    behaviorTree.sequenceNode(
-      'build_construction_site',
-      [
-        behaviorTree.selectorNode(
-          'pick_something',
-          [
-            behaviorBuild.selectSite,
-            behaviorRoom.parkingLot,
-          ],
-        ),
-        behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 3, commonPolicy),
-        behaviorBuild.build,
-      ],
-    ),
+    behaviorTree.repeatUntilConditionMet(
+      'build_sites',
+      (creep, trace, kingdom) => {
+        return creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0;
+      },
+      behaviorTree.sequenceNode(
+        'build_construction_site',
+        [
+          behaviorTree.selectorNode(
+            'pick_something',
+            [
+              behaviorBuild.selectSite,
+              behaviorRoom.parkingLot,
+            ],
+          ),
+          behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 3, commonPolicy),
+          behaviorBuild.build,
+        ],
+      ),
+    )
   ],
 );
 

@@ -1,3 +1,4 @@
+import {BaseConfig} from "./config";
 import {ANY, buildingCodes, EMPTY, getConstructionPosition} from "./lib.layouts";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
@@ -5,7 +6,7 @@ import OrgRoom from "./org.room";
 import {sleeping} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 
-const CONSTRUCTION_INTERVAL = 50;
+const CONSTRUCTION_INTERVAL = 200;
 
 export type BaseLayout = {
   origin: {x: number, y: number};
@@ -211,22 +212,17 @@ export default class BaseConstructionRunnable {
       return sleeping(CONSTRUCTION_INTERVAL);
     }
 
-    // Create/move parking flag
-    // TODO update creeps to not use flag and use layout.parking instead
-    const flagName = `parking_${room.name}`;
-    if (Game.flags[flagName]) {
-      const result = Game.flags[flagName].setPosition(layout.parking.x + origin.x, layout.parking.y + origin.y)
-      if (result !== OK) {
-        trace.error('failed to set parking flag position', {result});
-      }
-    } else {
-      const result = room.createFlag(layout.parking.x + origin.x, layout.parking.y + origin.y, flagName);
-      if (result !== flagName) {
-        trace.error('failed to create parking flag', {result});
-      }
+    this.buildLayout(kingdom, layout, room, origin, trace);
+    this.setParking(kingdom, layout, origin, room, trace);
+
+    const baseConfig = kingdom.getPlanner().getBaseConfigById(this.orgRoom.id);
+    if (!baseConfig) {
+      trace.log('no base config');
+      trace.end();
+      return sleeping(CONSTRUCTION_INTERVAL);
     }
 
-    this.buildLayout(kingdom, layout, room, origin, trace);
+    this.buildWalls(kingdom, room, baseConfig, trace);
 
     trace.end();
     return sleeping(CONSTRUCTION_INTERVAL);
@@ -293,6 +289,81 @@ export default class BaseConstructionRunnable {
         if (result !== OK && result !== ERR_FULL) {
           trace.error('failed to build structure', {structureType, pos, result});
         }
+      }
+    }
+  }
+
+  buildWalls(kingdom: Kingdom, room: Room, baseConfig: BaseConfig, trace: Tracer): void {
+    if (!baseConfig.walls) {
+      return;
+    }
+
+    trace.log('building walls', {roomId: room.name});
+
+    baseConfig.walls.forEach(wall => {
+      const position = new RoomPosition(wall.x, wall.y, room.name)
+
+      const road = position.lookFor(LOOK_STRUCTURES).find(structure => {
+        return structure.structureType === STRUCTURE_ROAD;
+      });
+
+      let expectedStructure: (STRUCTURE_WALL | STRUCTURE_RAMPART) = STRUCTURE_WALL;
+      if (road) {
+        expectedStructure = STRUCTURE_RAMPART;
+      }
+
+      const structure = position.lookFor(LOOK_STRUCTURES).find(structure => {
+        return structure.structureType === expectedStructure;
+      });
+      if (structure) {
+        trace.log('structure present', {structure: structure.structureType});
+        return;
+      }
+
+      let foundSite = false;
+
+      const sites = position.lookFor(LOOK_CONSTRUCTION_SITES)
+      if (sites) {
+        const expectedSite = sites.find(site => {
+          return site.structureType === expectedStructure;
+        });
+
+        if (expectedSite) {
+          trace.log('site present', {site: expectedSite.structureType});
+          foundSite = true;
+        } else {
+          sites.forEach(site => {
+            trace.log('wrong site, remove', {existing: site.structureType, expected: expectedStructure});
+            site.remove();
+          });
+        }
+      }
+
+      if (!foundSite) {
+        trace.log('building site', {wall, structureType: expectedStructure});
+        const result = room.createConstructionSite(wall.x, wall.y, expectedStructure);
+        if (result !== OK) {
+          trace.error('failed to build structure', {result, pos: position, structureType: expectedStructure});
+        }
+      }
+
+      return;
+    });
+  }
+
+  setParking(kingdom: Kingdom, layout: BaseLayout, origin: RoomPosition, room: Room, trace: Tracer): void {
+    // Create/move parking flag
+    // TODO update creeps to not use flag and use layout.parking instead
+    const flagName = `parking_${room.name}`;
+    if (Game.flags[flagName]) {
+      const result = Game.flags[flagName].setPosition(layout.parking.x + origin.x, layout.parking.y + origin.y)
+      if (result !== OK) {
+        trace.error('failed to set parking flag position', {result});
+      }
+    } else {
+      const result = room.createFlag(layout.parking.x + origin.x, layout.parking.y + origin.y, flagName);
+      if (result !== flagName) {
+        trace.error('failed to create parking flag', {result});
       }
     }
   }

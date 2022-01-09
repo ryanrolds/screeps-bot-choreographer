@@ -122,7 +122,7 @@ export default class LogisticsRunnable extends PersistentMemory {
       key: `${this.colonyId}`,
       room: baseConfig.primary,
       text: `Logistics - passes: ${this.passes}, legs: ${Object.keys(this.legs).length}, ` +
-        `selected: ${this.selectedLeg?.id}, numRemaining: ${this.selectedLeg.remaining.length}, ` +
+        `selected: ${this.selectedLeg?.id}, numRemaining: ${this.selectedLeg?.remaining.length}, ` +
         `end: ${this.selectedLeg?.remaining?.slice(-3, 0)}`,
       time: Game.time,
       order: 5,

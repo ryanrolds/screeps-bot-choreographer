@@ -2,70 +2,18 @@ const behaviorTree = require('./lib.behaviortree');
 const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
 const behaviorMovement = require('./behavior.movement');
 const {MEMORY_FLAG} = require('./constants.memory');
+const {getPrioritizedSites} = require('./lib.construction');
 
 const selectSite = behaviorTree.leafNode(
   'selectSite',
   (creep, trace, kingdom) => {
-    let sites = creep.room.find(FIND_MY_CONSTRUCTION_SITES);
-    if (!sites || !sites.length) {
-      return behaviorTree.FAILURE;
+    const sites = getPrioritizedSites(creep.room);
+    if (sites.length === 0) {
+      return FAILURE;
     }
 
-    sites = _.sortByAll(sites, (site) => {
-      switch (site.structureType) {
-        case STRUCTURE_TOWER:
-          return 0 - site.progress / site.progressTotal;
-        case STRUCTURE_SPAWN:
-          return 1 - site.progress / site.progressTotal;
-        case STRUCTURE_STORAGE:
-          return 2 - site.progress / site.progressTotal;
-        case STRUCTURE_EXTENSION:
-          return 3 - site.progress / site.progressTotal;
-        case STRUCTURE_CONTAINER:
-          return 4 - site.progress / site.progressTotal;
-        case STRUCTURE_LINK:
-          return 5 - site.progress / site.progressTotal;
-        case STRUCTURE_TERMINAL:
-          return 6 - site.progress / site.progressTotal;
-        case STRUCTURE_RAMPART:
-          return 8 - site.progress / site.progressTotal;
-        case STRUCTURE_EXTRACTOR:
-          return 9 - site.progress / site.progressTotal;
-        case STRUCTURE_LAB:
-          return 10 - site.progress / site.progressTotal;
-        case STRUCTURE_ROAD:
-          return 20 - site.progress / site.progressTotal;
-        case STRUCTURE_WALL:
-          return 21 - site.progress / site.progressTotal;
-        default:
-          return 15 - site.progress / site.progressTotal;
-      }
-    }, (site) => {
-      const room = kingdom.getCreepRoom(creep);
-      if (!room) {
-        const colony = kingdom.getCreepColony(creep);
-        trace.error('creep has no room', {creep: creep.name, colony: colony?.id, room: creep.room.name});
-        return 0;
-      }
-
-      if (!room.hasSpawns) {
-        return 0;
-      }
-
-      if (room.id != creep.room.name) {
-        return 0;
-      }
-
-      const spawns = room.getSpawns();
-      if (!spawns.length) {
-        return 0;
-      }
-
-      return site.pos.getRangeTo(spawns[0]);
-    });
-
-    behaviorMovement.setDestination(creep, sites[0].id, sites[0].room.id);
-
+    const site = sites[0];
+    behaviorMovement.setDestination(creep, site.id, site.room.id);
     return behaviorTree.SUCCESS;
   },
 );

@@ -348,11 +348,12 @@ export default class BaseRunnable {
     trace.log('num constructions sites', {numConstructionSites})
 
     let desiredBuilders = 0;
-    if (numConstructionSites && (orgRoom.reservedByMe || orgRoom.claimedByMe)) {
+    if (numConstructionSites) {
+      desiredBuilders = desiredBuilders = Math.ceil(numConstructionSites / 10);
+    }
+
+    if (desiredBuilders > 3) {
       desiredBuilders = 3;
-      if (room.controller.level > 2) {
-        desiredBuilders = desiredBuilders = Math.ceil(numConstructionSites / 10);
-      }
     }
 
     if (builders.length >= desiredBuilders) {
@@ -499,9 +500,6 @@ export default class BaseRunnable {
 
     const energyLimit = ((parts - 1) * 200) + 300;
 
-    // As we get more upgraders, lower the priority
-    const upgraderPriority = PRIORITIES.PRIORITY_UPGRADER - (numUpgraders * 2);
-
     // Don't let it create a ton of upgraders
     if (desiredUpgraders > MAX_UPGRADERS) {
       desiredUpgraders = MAX_UPGRADERS;
@@ -511,10 +509,11 @@ export default class BaseRunnable {
       desiredUpgraders,
       numUpgraders,
       energyLimit,
-      upgraderPriority,
     });
 
     for (let i = 0; i < desiredUpgraders - numUpgraders; i++) {
+      // Reduce priority by number of existing and requested upgraders
+      const upgraderPriority = PRIORITIES.PRIORITY_UPGRADER - ((numUpgraders + i) * 2);
       orgRoom.requestSpawn(upgraderPriority, {
         role: CREEPS.WORKER_UPGRADER,
         energyLimit: energyLimit,

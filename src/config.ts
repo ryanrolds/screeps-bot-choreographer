@@ -11,6 +11,7 @@ export interface BaseConfig {
   parking: RoomPosition;
   isPublic: NonNullable<boolean>;
   automated: NonNullable<boolean>;
+  walls: NonNullable<{x: number, y: number}[]>;
 }
 
 export interface KingdomConfig {
