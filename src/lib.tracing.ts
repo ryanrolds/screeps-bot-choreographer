@@ -64,12 +64,12 @@ export class Tracer {
   }
 
   notice(message: string, details: Object = {}): void {
-    console.log(`<font color="#00FF00">[NOTICE]`, this.name, '::', message, JSON.stringify(details),
+    console.log(`<font color="#5555FF">[NOTICE]`, this.name, '::', message, JSON.stringify(details),
       JSON.stringify(this.kv), '</font>');
   }
 
   error(message: string, details: Object = {}): void {
-    console.log(`<font color="#FF0000">[ERROR]`, this.name, '::', message, JSON.stringify(details),
+    console.log(`<font color="#FF5555">[ERROR]`, this.name, '::', message, JSON.stringify(details),
       JSON.stringify(this.kv), '</font>');
   }
 

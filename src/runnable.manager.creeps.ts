@@ -9,7 +9,7 @@ import {Runnable, RunnableResult} from './os.runnable';
 import {Scheduler} from "./os.scheduler";
 import roleAttacker from './role.attacker';
 import {roleBuilder} from './role.builder';
-import roleDefender from './role.defender';
+import {roleDefender} from './role.defender';
 import roleDefenderDrone from './role.defender_drone';
 import roleDistributor from './role.distributor';
 import roleExplorer from './role.explorer';

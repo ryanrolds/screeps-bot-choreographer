@@ -227,32 +227,20 @@ module.exports.getEnergy = behaviorTree.repeatUntilConditionMet(
 module.exports.parkingLot = behaviorTree.leafNode(
   'parking_lot',
   (creep, trace, kingdom) => {
-    const colony = kingdom.getCreepColony(creep);
-    if (!colony) {
-      trace.log('could not find creep colony');
+    const baseConfig = kingdom.getCreepBaseConfig(creep);
+    if (!baseConfig.parking) {
+      trace.error('no parking config for creep', {creepName: creep.name});
       return FAILURE;
     }
 
-    const room = colony.getPrimaryRoom();
-    if (!room) {
-      trace.log('could not find colony primary room');
-      return FAILURE;
-    }
-
-    const parkingLot = room.getParkingLot();
-    if (!parkingLot) {
-      trace.log('could not find parking lot');
-      return FAILURE;
-    }
-
-    if (creep.pos.inRangeTo(parkingLot, 1)) {
+    if (creep.pos.inRangeTo(baseConfig.parking, 1)) {
       trace.log('in range of parking lot');
       return FAILURE;
     }
 
-    trace.log('moving to parking lot');
+    trace.log('moving to parking lot', {parkingLot: baseConfig.parking});
 
-    creep.moveTo(parkingLot, {
+    creep.moveTo(baseConfig.parking, {
       reusePath: 50,
       maxOps: 1500,
     });

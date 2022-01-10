@@ -352,20 +352,13 @@ export default class BaseConstructionRunnable {
   }
 
   setParking(kingdom: Kingdom, layout: BaseLayout, origin: RoomPosition, room: Room, trace: Tracer): void {
-    // Create/move parking flag
-    // TODO update creeps to not use flag and use layout.parking instead
-    const flagName = `parking_${room.name}`;
-    if (Game.flags[flagName]) {
-      const result = Game.flags[flagName].setPosition(layout.parking.x + origin.x, layout.parking.y + origin.y)
-      if (result !== OK) {
-        trace.error('failed to set parking flag position', {result});
-      }
-    } else {
-      const result = room.createFlag(layout.parking.x + origin.x, layout.parking.y + origin.y, flagName);
-      if (result !== flagName) {
-        trace.error('failed to create parking flag', {result});
-      }
+    const baseConfig = kingdom.getPlanner().getBaseConfigByRoom(room.name);
+    if (!baseConfig) {
+      trace.error('no base config when setting parking', {roomId: room.name});
+      return null;
     }
+
+    baseConfig.parking = new RoomPosition(layout.parking.x + origin.x, layout.parking.y + origin.y, room.name);
   }
 
   layoutComplete(layout: BaseLayout, room: Room, origin: RoomPosition, trace: Tracer): boolean {

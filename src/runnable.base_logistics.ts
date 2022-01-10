@@ -220,7 +220,7 @@ export default class LogisticsRunnable extends PersistentMemory {
 
   private buildShortestLeg(trace: Tracer, primaryRoom: string) {
     if (this.passes < 1) {
-      trace.error('calculate all legs at least once before building shortest leg', {passes: this.passes});
+      trace.log('calculate all legs at least once before building shortest leg', {passes: this.passes});
       return;
     }
 

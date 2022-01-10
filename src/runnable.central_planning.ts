@@ -55,17 +55,19 @@ export class CentralPlanning {
     // Setup known colonies
     Object.values(bases).forEach((colony) => {
       trace.notice('setting up colony', {colony});
-      this.addBaseConfig(colony.id, colony.isPublic, colony.origin, colony.automated,
-        colony.rooms, colony.walls || [], trace);
+      this.addBaseConfig(colony.id, colony.isPublic, colony.origin, colony.parking,
+        colony.automated, colony.rooms, colony.walls || [], trace);
     });
 
     // Check for spawns without colonies
     Object.values(Game.spawns).forEach((spawn) => {
       const roomName = spawn.room.name;
       const origin = new RoomPosition(spawn.pos.x, spawn.pos.y + 4, spawn.pos.roomName);
+      trace.notice('checking spawn', {roomName, origin});
+      const parking = new RoomPosition(origin.x + 5, origin.y, origin.roomName);
       if (!this.baseConfigs[roomName]) {
         trace.notice('found spawn without colony', {roomName});
-        this.addBaseConfig(roomName, false, origin, true, [], [], trace);
+        this.addBaseConfig(roomName, false, origin, parking, true, [], [], trace);
       }
     });
 
@@ -163,8 +165,8 @@ export class CentralPlanning {
     return this.config.kos;
   }
 
-  addBaseConfig(primaryRoom: string, isPublic: boolean, origin: RoomPosition, automated: boolean,
-    rooms: string[], walls: {x: number, y: number}[], trace: Tracer) {
+  addBaseConfig(primaryRoom: string, isPublic: boolean, origin: RoomPosition, parking: RoomPosition,
+    automated: boolean, rooms: string[], walls: {x: number, y: number}[], trace: Tracer) {
     if (this.baseConfigs[primaryRoom]) {
       trace.error('colony already exists', {primaryRoom});
       return;
@@ -177,7 +179,7 @@ export class CentralPlanning {
       rooms: [],
       automated: automated,
       origin: origin,
-      parking: new RoomPosition(origin.x + 4, origin.y, origin.roomName),
+      parking: parking,
       walls: walls,
     };
 
@@ -334,8 +336,9 @@ export class CentralPlanning {
       const roomName = results.selected;
       const distance = results.distance;
       const origin = results.origin;
-      trace.notice('selected room, adding colony', {roomName, distance, origin});
-      this.addBaseConfig(roomName, false, origin, true, [], [], trace);
+      const parking = new RoomPosition(origin.x + 5, origin.y + 5, origin.roomName);
+      trace.notice('selected room, adding colony', {roomName, distance, origin, parking});
+      this.addBaseConfig(roomName, false, origin, parking, true, [], [], trace);
       return;
     }
 

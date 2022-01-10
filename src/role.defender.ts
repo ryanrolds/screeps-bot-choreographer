@@ -1,7 +1,10 @@
-const behaviorTree = require('./lib.behaviortree');
-const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
-const behaviorAssign = require('./behavior.assign');
-const {behaviorBoosts} = require('./behavior.boosts');
+import * as behaviorTree from './lib.behaviortree';
+import {FAILURE, SUCCESS, RUNNING} from './lib.behaviortree';
+import * as behaviorAssign from './behavior.assign';
+import {behaviorBoosts} from './behavior.boosts';
+import {roadWorker} from './behavior.logistics';
+import {Tracer} from './lib.tracing';
+import {Kingdom} from './org.kingdom';
 
 const MEMORY = require('./constants.memory');
 const TOPICS = require('./constants.topics');
@@ -12,7 +15,7 @@ const behavior = behaviorTree.sequenceNode(
     behaviorAssign.moveToRoom,
     behaviorTree.leafNode(
       'attack_hostiles',
-      (creep, trace, kingdom) => {
+      (creep: Creep, trace: Tracer, kingdom: Kingdom) => {
         const room = kingdom.getCreepRoom(creep);
         if (!room) {
           trace.log('creep has no room', creep.memory);
@@ -64,7 +67,7 @@ const behavior = behaviorTree.sequenceNode(
           moveTarget = Game.getObjectById(targets[0].details.id);
 
           const inRangeHostiles = _.find(targets, (target) => {
-            const hostile = Game.getObjectById(target.details.id);
+            const hostile = Game.getObjectById<Id<Creep>>(target.details.id);
             return hostile && creep.pos.inRangeTo(hostile, 3);
           });
           if (inRangeHostiles) {
@@ -89,21 +92,21 @@ const behavior = behaviorTree.sequenceNode(
         // TODO should not check this often
         const pathToTarget = creep.pos.findPathTo(moveTarget, {range: 3});
 
-        const lastRampart = pathToTarget.reduce((lastRampart, pos) => {
-          pos = creep.room.getPositionAt(pos.x, pos.y);
-          const posStructures = pos.lookFor(LOOK_STRUCTURES);
+        const lastRampart = pathToTarget.reduce((lastRampart, pos): RoomPosition => {
+          const roomPos = creep.room.getPositionAt(pos.x, pos.y);
+          const posStructures = roomPos.lookFor(LOOK_STRUCTURES);
           const hasRampart = _.filter(posStructures, (structure) => {
             return structure.structureType === STRUCTURE_RAMPART;
           });
 
-          const hasCreep = pos.lookFor(LOOK_CREEPS).length > 0;
+          const hasCreep = roomPos.lookFor(LOOK_CREEPS).length > 0;
 
           if (hasRampart && !hasCreep) {
-            lastRampart = pos;
+            lastRampart = roomPos;
           }
 
           return lastRampart;
-        }, null);
+        }, null as RoomPosition);
 
         trace.log('last rampart', {lastRampart});
 
@@ -137,8 +140,8 @@ const behavior = behaviorTree.sequenceNode(
   ],
 );
 
-const moveToAssignedPosition = (creep, trace, kingdom) => {
-  let position = null;
+const moveToAssignedPosition = (creep: Creep, trace: Tracer, kingdom: Kingdom) => {
+  let position: RoomPosition = null;
 
   // Check if creep knows last known position
   const positionString = creep.memory[MEMORY.MEMORY_ASSIGN_ROOM_POS] || null;
@@ -155,22 +158,11 @@ const moveToAssignedPosition = (creep, trace, kingdom) => {
 
   // If don't have a last known position, go to parking lot
   if (!position) {
-    const colony = kingdom.getCreepColony(creep);
-    if (colony) {
-      const room = colony.getPrimaryRoom();
-      if (room) {
-        const parkingLot = room.getParkingLot();
-        if (parkingLot) {
-          trace.log('going to parking lot', {pos: parkingLot.pos});
-          position = parkingLot.pos;
-        } else {
-          trace.log('could not find parking lot in primary room');
-        }
-      } else {
-        trace.log('could not get colony primary room');
-      }
+    const baseConfig = kingdom.getCreepBaseConfig(creep);
+    if (baseConfig) {
+      position = baseConfig.parking;
     } else {
-      trace.log('could not get creep colony');
+      trace.log('could not get creep base config');
     }
   }
 
@@ -192,21 +184,19 @@ const moveToAssignedPosition = (creep, trace, kingdom) => {
   return RUNNING;
 };
 
-const move = (creep, target, range = 3) => {
-  result = creep.moveTo(target, {visualizePathStyle: {stroke: '#ffffff'}, range});
+const move = (creep: Creep, target: RoomPosition, range = 3) => {
+  const result = creep.moveTo(target, {visualizePathStyle: {stroke: '#ffffff'}, range});
   if (result === ERR_NO_BODYPART) {
     return FAILURE;
   }
+
   if (result === ERR_INVALID_TARGET) {
-    return FAILURE;
-  }
-  if (result === ERR_NOT_IN_RANGE) {
     return FAILURE;
   }
 
   return SUCCESS;
 };
 
-module.exports = {
-  run: behaviorTree.rootNode('defender', behaviorBoosts(behavior)),
+export const roleDefender = {
+  run: behaviorTree.rootNode('defender', behaviorBoosts(roadWorker(behavior))),
 };

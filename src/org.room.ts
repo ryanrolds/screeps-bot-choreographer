@@ -63,7 +63,6 @@ export default class OrgRoom extends OrgBase {
   myStructures: Structure[];
   roomStructures: Structure[];
   hostileStructures: Structure[];
-  parkingLot: Flag;
   hasSpawns: boolean;
   resources: ResourceCounts;
   hasStorage: boolean;
@@ -125,7 +124,7 @@ export default class OrgRoom extends OrgBase {
     this.myStructures = [];
     this.roomStructures = [];
     this.hostileStructures = [];
-    this.parkingLot = null;
+
     this.threadUpdateRoom = thread('update_room_thread', UPDATE_ROOM_TTL)((trace, kingdom) => {
       this.updateRoom(trace, kingdom);
     });
@@ -621,9 +620,6 @@ export default class OrgRoom extends OrgBase {
 
     return Game.getObjectById<Id<Structure>>(next);
   }
-  getParkingLot() {
-    return this.parkingLot;
-  }
   hasTerminal() {
     if (!this.room) {
       return false;
@@ -754,17 +750,6 @@ export default class OrgRoom extends OrgBase {
     }
 
     this.unowned = !this.room.controller?.reservation && !this.room.controller?.owner;
-
-    // Parking lot
-    this.parkingLot = null;
-    const parkingLots = room.find(FIND_FLAGS, {
-      filter: (flag) => {
-        return flag.name.startsWith('parking');
-      },
-    });
-    if (parkingLots.length) {
-      this.parkingLot = parkingLots[0];
-    }
 
     // Defense
     this.stationFlags = [];

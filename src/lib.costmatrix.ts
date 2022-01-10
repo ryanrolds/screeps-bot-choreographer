@@ -212,21 +212,14 @@ export const createSourceRoadMatrix = (kingdom: Kingdom, roomName: string, trace
         }
       }
     }
-  }
 
-  // Marking parking lot as avoid
-  const orgRoom = kingdom.getRoomColony(roomName)?.getRoomByID(roomName);
-  if (orgRoom) {
-    const parking = orgRoom.getParkingLot();
-    if (parking) {
-      for (let x = parking.pos.x - 1; x <= parking.pos.x + 1; x++) {
-        for (let y = parking.pos.y - 1; y <= parking.pos.y + 1; y++) {
-          if (x < 0 || x < 0 || y > 49 || y > 49 || terrain.get(x, y) === TERRAIN_MASK_WALL) {
-            continue;
-          }
-
-          costMatrix.set(x, y, 10);
+    for (let x = baseConfig.parking.x - 1; x <= baseConfig.parking.x + 1; x++) {
+      for (let y = baseConfig.parking.y - 1; y <= baseConfig.parking.y + 1; y++) {
+        if (x < 0 || x < 0 || y > 49 || y > 49 || terrain.get(x, y) === TERRAIN_MASK_WALL) {
+          continue;
         }
+
+        costMatrix.set(x, y, 10);
       }
     }
   }
