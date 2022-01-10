@@ -6,7 +6,7 @@ import OrgRoom from "./org.room";
 import {sleeping} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 
-const CONSTRUCTION_INTERVAL = 200;
+const CONSTRUCTION_INTERVAL = 50;
 
 export type BaseLayout = {
   origin: {x: number, y: number};
@@ -172,6 +172,8 @@ export default class BaseConstructionRunnable {
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
     trace = trace.begin('base_construction_run');
 
+    trace.notice('base construction run', {id: this.id, orgRoomId: this.orgRoom.id});
+
     const roomLevel = this.orgRoom.getRoomLevel();
     if (roomLevel < 1) {
       trace.log('room level low', {roomLevel});
@@ -206,14 +208,12 @@ export default class BaseConstructionRunnable {
     }
 
     const layout = this.selectLayout(roomLevel, room, origin, trace);
-    if (!layout) {
+    if (layout) {
+      this.buildLayout(kingdom, layout, room, origin, trace);
+      this.setParking(kingdom, layout, origin, room, trace);
+    } else {
       trace.log('no layout');
-      trace.end();
-      return sleeping(CONSTRUCTION_INTERVAL);
     }
-
-    this.buildLayout(kingdom, layout, room, origin, trace);
-    this.setParking(kingdom, layout, origin, room, trace);
 
     const baseConfig = kingdom.getPlanner().getBaseConfigById(this.orgRoom.id);
     if (!baseConfig) {
@@ -221,6 +221,8 @@ export default class BaseConstructionRunnable {
       trace.end();
       return sleeping(CONSTRUCTION_INTERVAL);
     }
+
+    trace.notice('base config', {roomLevel, hasStorage: this.orgRoom.hasStorage, baseConfig});
 
     if (roomLevel > 3 && this.orgRoom.hasStorage) {
       this.buildWalls(kingdom, room, baseConfig, trace);
@@ -298,7 +300,7 @@ export default class BaseConstructionRunnable {
       return;
     }
 
-    trace.log('building walls', {roomId: room.name});
+    trace.notice('building walls', {roomId: room.name});
 
     baseConfig.walls.forEach(wall => {
       const position = new RoomPosition(wall.x, wall.y, room.name)
@@ -346,8 +348,6 @@ export default class BaseConstructionRunnable {
           trace.error('failed to build structure', {result, pos: position, structureType: expectedStructure});
         }
       }
-
-      return;
     });
   }
 

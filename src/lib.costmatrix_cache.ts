@@ -1,6 +1,6 @@
 import {
   createCommonCostMatrix, createDefenderCostMatrix,
-  createPartyCostMatrix, createOpenSpaceMatrix, createSourceRoadMatrix
+  createPartyCostMatrix, createOpenSpaceMatrix, createSourceRoadMatrix, singleRoomCommonMatrix
 } from "./lib.costmatrix";
 import {Tracer} from "./lib.tracing";
 import {Kingdom} from "./org.kingdom";
@@ -10,6 +10,7 @@ const COST_MATRIX_TTL = 1000;
 export enum AllowedCostMatrixTypes {
   PARTY = 'party',
   COMMON = 'common',
+  SINGLE_ROOM_COMMON = 'single_room_common',
   BASE_DEFENSE = 'base',
   OPEN_SPACE = 'open_space',
   SOURCE_ROAD = 'source_road',
@@ -39,6 +40,9 @@ export class CostMatrixCacheItem {
         break;
       case AllowedCostMatrixTypes.COMMON:
         costMatrix = createCommonCostMatrix(this.roomId, trace);
+        break;
+      case AllowedCostMatrixTypes.SINGLE_ROOM_COMMON:
+        costMatrix = singleRoomCommonMatrix(this.roomId, trace);
         break;
       case AllowedCostMatrixTypes.BASE_DEFENSE:
         costMatrix = createDefenderCostMatrix(this.roomId, trace);

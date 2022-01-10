@@ -123,6 +123,22 @@ export const createCommonCostMatrix = (roomName: string, trace: Tracer): CostMat
   return costMatrix;
 }
 
+export const singleRoomCommonMatrix = (roomName: string, trace: Tracer): CostMatrix => {
+  const costMatrix = createCommonCostMatrix(roomName, trace);
+
+  for (let x = 0; x < 50; x++) {
+    costMatrix.set(x, 0, 255);
+    costMatrix.set(x, 49, 255);
+  }
+
+  for (let y = 0; y < 50; y++) {
+    costMatrix.set(0, y, 255);
+    costMatrix.set(49, y, 255);
+  }
+
+  return costMatrix;
+}
+
 export const createSourceRoadMatrix = (kingdom: Kingdom, roomName: string, trace: Tracer): CostMatrix => {
   let costMatrix = new PathFinder.CostMatrix();
 

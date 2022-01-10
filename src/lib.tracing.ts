@@ -64,11 +64,13 @@ export class Tracer {
   }
 
   notice(message: string, details: Object = {}): void {
-    console.log(`[NOTICE]`, this.name, '::', message, JSON.stringify(details), JSON.stringify(this.kv));
+    console.log(`<font color="#00FF00">[NOTICE]`, this.name, '::', message, JSON.stringify(details),
+      JSON.stringify(this.kv), '</font>');
   }
 
   error(message: string, details: Object = {}): void {
-    console.log(`[ERROR]`, this.name, '::', message, JSON.stringify(details), JSON.stringify(this.kv));
+    console.log(`<font color="#FF0000">[ERROR]`, this.name, '::', message, JSON.stringify(details),
+      JSON.stringify(this.kv), '</font>');
   }
 
   startTimer(metric: string): TimerEndFunc {

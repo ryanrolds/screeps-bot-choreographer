@@ -6,7 +6,7 @@ import behaviorRoom from "./behavior.room";
 import {behaviorBoosts} from "./behavior.boosts";
 
 import * as MEMORY from "./constants.memory";
-import {commonPolicy} from "./lib.pathing_policies";
+import {commonPolicy, singleRoomPolicy} from "./lib.pathing_policies";
 
 const behavior = behaviorTree.sequenceNode(
   'builder_root',
@@ -67,7 +67,7 @@ const behavior = behaviorTree.sequenceNode(
               behaviorRoom.parkingLot,
             ],
           ),
-          behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 3, commonPolicy),
+          behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 3, singleRoomPolicy),
           build,
         ],
       ),

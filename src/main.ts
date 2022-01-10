@@ -184,6 +184,7 @@ let config: KingdomConfig = {
 let ai: AI = null
 global.AI = null; // So we can access it from the console
 let previousTick = 0; // Track previous tick time for display
+let previousBucket = 0;
 
 global.TRACING_ACTIVE = false;
 
@@ -197,7 +198,7 @@ export const loop = function () {
     tracing.setInactive();
   }
 
-  console.log('======== TICK', Game.time, Game.shard.name, '==== prev cpu:', previousTick);
+  console.log('======== TICK', Game.time, Game.shard.name, '==== prev cpu:', previousTick, previousBucket);
 
   if (!ai) {
     console.log('***** STARTING AI *****');
@@ -212,6 +213,7 @@ export const loop = function () {
   }
 
   previousTick = Game.cpu.getUsed();
+  previousBucket = Game.cpu.bucket;
 
   // Collect CPU stats
   if (Game.time % 5 === 0) {
