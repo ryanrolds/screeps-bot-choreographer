@@ -139,7 +139,7 @@ export class Scheduler {
         try {
           process.run(kingdom, processTrace);
         } catch (e) {
-          processTrace.error('error running process', {error: e.stack});
+          processTrace.error('error running process', {id: process.id, error: e.stack});
         }
 
         const processTime = Game.cpu.getUsed() - startProcessCpu;
