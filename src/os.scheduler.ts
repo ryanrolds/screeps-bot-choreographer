@@ -121,7 +121,11 @@ export class Scheduler {
 
       if (process.isRunning()) {
         const startProcessCpu = Game.cpu.getUsed();
-        process.run(kingdom, processTrace);
+        try {
+          process.run(kingdom, processTrace);
+        } catch (e) {
+          processTrace.error('process error', {id: process.id, error: e.stack});
+        }
         const processTime = Game.cpu.getUsed() - startProcessCpu;
 
         // We want to report slow processes
