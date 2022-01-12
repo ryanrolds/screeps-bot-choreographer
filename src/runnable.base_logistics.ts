@@ -245,7 +245,7 @@ export default class LogisticsRunnable extends PersistentMemory {
 
     const leg = sortedLegs.shift();
     if (!leg) {
-      trace.error('no legs to build');
+      trace.log('no legs to build');
       return;
     }
 

@@ -1,5 +1,6 @@
 // require('util.min_cut').test('W5N9');
 
+import {getNearbyPositions} from "./lib.position";
 import BaseConstructionRunnable from "./runnable.base_construction";
 
 /**
@@ -24,18 +25,19 @@ export const ENTIRE_ROOM_BOUNDS: Rectangle = {x1: 0, y1: 0, x2: 49, y2: 49};
 export const UNWALKABLE = -1;
 export const NORMAL = 0;
 export const PROTECTED = 1;
-export const TO_EXIT = 2;
-export const EXIT = 3;
+export const NO_BUILD = 2
+export const TO_EXIT = 3;
+export const EXIT = 4;
 
 export class RoomMatrix {
   roomName: string;
   bounds: Rectangle;
   matrix: number[][];
 
-  constructor(roomName: string, bounds: Rectangle) {
+  constructor(roomName: string, protect: Rectangle[], bounds: Rectangle) {
     this.roomName = roomName;
     this.bounds = bounds;
-    this.matrix = this.createRoomMatrix(roomName, bounds);
+    this.matrix = this.createRoomMatrix(roomName, protect, bounds);
   }
 
   get(x: number, y: number): number {
@@ -47,7 +49,7 @@ export class RoomMatrix {
   }
 
   // create a 50x50 matrix, fill with unwalkable, set as normal if not at edge of room or walls
-  private createRoomMatrix(roomName: string, bounds: Rectangle): number[][] {
+  private createRoomMatrix(roomName: string, protect: Rectangle[], bounds: Rectangle): number[][] {
     const matrix = Array(50).fill(0).map(x => Array(50).fill(UNWALKABLE));
     const terrain = Game.map.getRoomTerrain(roomName);
 
@@ -66,6 +68,23 @@ export class RoomMatrix {
         }
 
         matrix[i][j] = NORMAL; // mark normal
+      }
+    }
+
+    // Set tiles in matrix to PROTECTED if they are in the given rects
+    const jmax = protect.length;
+    for (let j = 0; j < jmax; j++) {
+      let r = protect[j];
+      for (let x = r.x1; x <= r.x2; x++) {
+        for (let y = r.y1; y <= r.y2; y++) {
+          if (x <= 2 || x >= 48 || y <= 2 || y >= 48) {
+            continue;
+          }
+
+          if (terrain.get(x, y) !== TERRAIN_MASK_WALL) {
+            matrix[x][y] = PROTECTED;
+          }
+        }
       }
     }
 
@@ -100,12 +119,39 @@ export class RoomMatrix {
       matrix[x][49] == UNWALKABLE;
     }
 
+    const room = Game.rooms[roomName];
+    if (!room) {
+      throw new Error(`RoomMatrix: Room ${roomName} not found`);
+    }
+
+    // mark area around sources as unbuildable
+    room.find(FIND_SOURCES).forEach(source => {
+      getNearbyPositions(source.pos, 2).forEach((pos) => {
+        if (terrain.get(pos.x, pos.y) !== TERRAIN_MASK_WALL) {
+          matrix[pos.x][pos.y] = NO_BUILD;
+        }
+      });
+    });
+
+    // mark area around minerals as unbuildable
+    room.find(FIND_MINERALS).forEach(mineral => {
+      getNearbyPositions(mineral.pos, 2).forEach((pos) => {
+        if (terrain.get(pos.x, pos.y) !== TERRAIN_MASK_WALL) {
+          matrix[pos.x][pos.y] = NO_BUILD;
+        }
+      });
+    });
+
+    // mark area around controller as unbuildable
+    const controller = room.controller;
+    getNearbyPositions(controller.pos, 2).forEach((pos) => {
+      if (terrain.get(pos.x, pos.y) !== TERRAIN_MASK_WALL) {
+        matrix[pos.x][pos.y] = NO_BUILD;
+      }
+    });
+
     return matrix;
   }
-}
-
-export function testRoomMatrix(roomName: string): RoomMatrix {
-  return new RoomMatrix(roomName, ENTIRE_ROOM_BOUNDS);
 }
 
 export class Edge {
@@ -266,7 +312,7 @@ export class Graph {
 // Removes unneccary cut-tiles if bounds are set to include some 	dead ends
 function delete_tiles_to_dead_ends(roomName: string, cut_tiles_array) {
   // Get Terrain and set all cut-tiles as unwalkable
-  let room_array = new RoomMatrix(roomName, ENTIRE_ROOM_BOUNDS);
+  let room_array = new RoomMatrix(roomName, [], ENTIRE_ROOM_BOUNDS);
   for (let i = cut_tiles_array.length - 1; i >= 0; i--) {
     room_array[cut_tiles_array[i].x][cut_tiles_array[i].y] = UNWALKABLE;
   }
@@ -322,27 +368,9 @@ const surr = [[0, -1], [-1, -1], [-1, 0], [-1, 1], [0, 1], [1, 1], [1, 0], [1, -
 
 // Function to create Source, Sink, Tiles arrays: takes a rectangle-Array as input for Tiles that are to Protect
 // rects have top-left/bot_right Coordinates {x1,y1,x2,y2}
-function create_graph(roomName: string, rect: Rectangle[], bounds: Rectangle): [Graph, RoomMatrix] {
+function create_graph(roomName: string, protect: Rectangle[], bounds: Rectangle): [Graph, RoomMatrix] {
   // An Array with Terrain information: -1 not usable, 2 Sink (Leads to Exit)
-  let roomMatrix = new RoomMatrix(roomName, bounds);
-  const terrain = Game.map.getRoomTerrain(roomName);
-
-  // Set tiles in matrix to PROTECTED if they are in the given rects
-  const jmax = rect.length;
-  for (let j = 0; j < jmax; j++) {
-    let r = rect[j];
-    for (let x = r.x1; x <= r.x2; x++) {
-      for (let y = r.y1; y <= r.y2; y++) {
-        if (x <= 2 || x >= 48 || y <= 2 || y >= 48) {
-          continue;
-        }
-
-        if (terrain.get(x, y) !== TERRAIN_MASK_WALL) {
-          roomMatrix.set(x, y, PROTECTED);
-        }
-      }
-    }
-  }
+  let roomMatrix = new RoomMatrix(roomName, protect, bounds);
 
   // initialise graph
   // possible 2*50*50 +2 (st) Vertices (Walls etc set to unused later)
@@ -370,7 +398,7 @@ function create_graph(roomName: string, rect: Rectangle[], bounds: Rectangle): [
           let dx = x + surr[i][0];
           let dy = y + surr[i][1];
           const surroundingVertex = roomMatrix.get(dx, dy)
-          if (surroundingVertex === NORMAL || surroundingVertex === TO_EXIT) {
+          if (surroundingVertex === NORMAL || surroundingVertex === TO_EXIT || surroundingVertex === NO_BUILD) {
             g.newEdge(bot, dy * 50 + dx, infini);
           }
         }
@@ -381,7 +409,17 @@ function create_graph(roomName: string, rect: Rectangle[], bounds: Rectangle): [
           let dx = x + surr[i][0];
           let dy = y + surr[i][1];
           const surroundingVertex = roomMatrix.get(dx, dy)
-          if (surroundingVertex === NORMAL || surroundingVertex === TO_EXIT) {
+          if (surroundingVertex === NORMAL || surroundingVertex === TO_EXIT || surroundingVertex === NO_BUILD) {
+            g.newEdge(bot, dy * 50 + dx, infini);
+          }
+        }
+      } else if (vertex === NO_BUILD) {
+        g.newEdge(top, bot, infini);
+        for (let i = 0; i < 8; i++) {
+          let dx = x + surr[i][0];
+          let dy = y + surr[i][1];
+          const surroundingVertex = roomMatrix.get(dx, dy)
+          if (surroundingVertex === NORMAL || surroundingVertex === TO_EXIT || surroundingVertex === NO_BUILD) {
             g.newEdge(bot, dy * 50 + dx, infini);
           }
         }

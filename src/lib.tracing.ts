@@ -68,6 +68,11 @@ export class Tracer {
       JSON.stringify(this.kv), '</font>');
   }
 
+  warn(message: string, details: Object = {}): void {
+    console.log(`<font color="#ffbb00">[WARN]`, this.name, '::', message, JSON.stringify(details),
+      JSON.stringify(this.kv), '</font>');
+  }
+
   error(message: string, details: Object = {}): void {
     console.log(`<font color="#FF5555">[ERROR]`, this.name, '::', message, JSON.stringify(details),
       JSON.stringify(this.kv), '</font>');

@@ -1,4 +1,4 @@
-import {ENTIRE_ROOM_BOUNDS, getCutTiles, Graph, NORMAL, PROTECTED, RoomMatrix, testRoomMatrix, TO_EXIT, UNWALKABLE} from "./lib.min_cut";
+import {ENTIRE_ROOM_BOUNDS, getCutTiles, Graph, NORMAL, NO_BUILD, PROTECTED, RoomMatrix, TO_EXIT, UNWALKABLE} from "./lib.min_cut";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
 import {running} from "./os.process";
@@ -37,6 +37,8 @@ export default class MinCutDebugger {
             visual.circle(x, y, {radius: 0.5, fill: '#e8e863', opacity: 0.3});
           } else if (vertex === PROTECTED) {
             visual.circle(x, y, {radius: 0.5, fill: '#75e863', opacity: 0.3});
+          } else if (vertex === NO_BUILD) {
+            visual.circle(x, y, {radius: 0.5, fill: '#7878eb', opacity: 0.3});
           } else if (vertex === TO_EXIT) {
             visual.circle(x, y, {radius: 0.5, fill: '#b063e8', opacity: 0.3});
           }

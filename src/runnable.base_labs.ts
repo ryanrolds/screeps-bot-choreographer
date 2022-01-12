@@ -72,7 +72,7 @@ export class LabsManager {
       this.assignBasedOnDistance(kingdom, orgRoom, trace);
     }
 
-    trace.notice('assigned labs', {reactors: this.reactorsIds, booster: this.boosterIds});
+    trace.log('assigned labs', {reactors: this.reactorsIds, booster: this.boosterIds});
 
     // Compare labs in current tick to labs that went into assignment
     const labIds: Id<StructureLab>[] = this.orgRoom.getLabs().map(lab => lab.id);
