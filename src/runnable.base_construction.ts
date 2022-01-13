@@ -181,20 +181,20 @@ export default class BaseConstructionRunnable {
       return sleeping(CONSTRUCTION_INTERVAL);
     }
 
-    const colony = this.orgRoom.getColony();
-    if (!colony) {
+    const baseConfig = kingdom.getPlanner().getBaseConfigById(this.orgRoom.id);
+    if (!baseConfig) {
+      trace.log('no base config');
       trace.end();
-      return sleeping(50);
+      return sleeping(CONSTRUCTION_INTERVAL);
     }
 
-    const isAutomated = colony.isAutomated();
-    if (!isAutomated) {
+    if (!baseConfig.automated) {
       trace.log('not automated');
       trace.end();
       return sleeping(CONSTRUCTION_INTERVAL);
     }
 
-    const origin = colony.getOrigin();
+    const origin = baseConfig.origin;
     if (!origin) {
       trace.log('no origin');
       trace.end();
@@ -213,13 +213,6 @@ export default class BaseConstructionRunnable {
       this.setParking(kingdom, layout, origin, room, trace);
     } else {
       trace.log('no layout');
-    }
-
-    const baseConfig = kingdom.getPlanner().getBaseConfigById(this.orgRoom.id);
-    if (!baseConfig) {
-      trace.log('no base config');
-      trace.end();
-      return sleeping(CONSTRUCTION_INTERVAL);
     }
 
     trace.notice('base config', {roomLevel, hasStorage: this.orgRoom.hasStorage, baseConfig});
@@ -263,8 +256,9 @@ export default class BaseConstructionRunnable {
           trace.log('structure present', {structure: structure.structureType});
 
           if (structure.structureType !== buildingCodes[code]) {
-            trace.notice('wrong site, remove', {existing: structure.structureType, expected: buildingCodes[code]});
-            structure.destroy();
+            trace.warn('wrong site, remove', {existing: structure.structureType, expected: buildingCodes[code]});
+            // TEMP DISABLE
+            // structure.destroy();
           }
 
           continue;
@@ -273,8 +267,9 @@ export default class BaseConstructionRunnable {
         const site = pos.lookFor(LOOK_CONSTRUCTION_SITES)[0];
         if (site) {
           if (site.structureType !== buildingCodes[code]) {
-            trace.notice('wrong site, remove', {existing: site.structureType, expected: buildingCodes[code]});
-            site.remove();
+            trace.warn('wrong site, remove', {existing: site.structureType, expected: buildingCodes[code]});
+            // TEMP DISABLE
+            // site.remove();
           }
 
           continue;
@@ -287,10 +282,12 @@ export default class BaseConstructionRunnable {
 
         // roomVisual.text(code, pos.x, pos.y);
 
-        const result = room.createConstructionSite(pos, structureType);
-        if (result !== OK && result !== ERR_FULL) {
-          trace.error('failed to build structure', {structureType, pos, result});
-        }
+        trace.log('building', {structureType, pos});
+        // TEMP DISABLE
+        //const result = room.createConstructionSite(pos, structureType);
+        //if (result !== OK && result !== ERR_FULL) {
+        //  trace.error('failed to build structure', {structureType, pos, result});
+        //}
       }
     }
   }
@@ -343,10 +340,11 @@ export default class BaseConstructionRunnable {
 
       if (!foundSite) {
         trace.log('building site', {wall, structureType: expectedStructure});
-        const result = room.createConstructionSite(wall.x, wall.y, expectedStructure);
-        if (result !== OK) {
-          trace.error('failed to build structure', {result, pos: position, structureType: expectedStructure});
-        }
+        // TEMP DISABLE
+        //const result = room.createConstructionSite(wall.x, wall.y, expectedStructure);
+        //if (result !== OK) {
+        //  trace.error('failed to build structure', {result, pos: position, structureType: expectedStructure});
+        //}
       }
     });
   }

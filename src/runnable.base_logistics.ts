@@ -30,8 +30,6 @@ export type LogisticsEventData = {
   position?: RoomPosition; // Required when event type is request road
 };
 
-type Destinations = (Source | Mineral | StructureController);
-
 type Leg = {
   id: string;
   destination: RoomPosition;
@@ -92,8 +90,11 @@ export default class LogisticsRunnable extends PersistentMemory {
     }
 
     this.threadConsumeEvents(trace, kingdom);
-    this.threadCalculateLeg(trace, kingdom);
-    this.threadBuildShortestLeg(trace, baseConfig.primary);
+
+    if (baseConfig.automated) {
+      this.threadCalculateLeg(trace, kingdom);
+      this.threadBuildShortestLeg(trace, baseConfig.primary);
+    }
 
     this.threadProduceEvents(trace, kingdom, baseConfig);
 
@@ -283,11 +284,13 @@ export default class LogisticsRunnable extends PersistentMemory {
         continue;
       }
 
-      const result = pos.createConstructionSite(STRUCTURE_ROAD);
-      if (result !== OK) {
-        trace.error('failed to build road', {pos, result});
-        continue;
-      }
+      trace.log('build road site', {pos});
+      // TEMP DISABLE
+      //const result = pos.createConstructionSite(STRUCTURE_ROAD);
+      //if (result !== OK) {
+      //  trace.error('failed to build road', {pos, result});
+      //  continue;
+      //}
 
       trace.log('built road', {pos});
       roadSites += 1;

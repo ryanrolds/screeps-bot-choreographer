@@ -66,8 +66,9 @@ export class CentralPlanning {
       trace.notice('checking spawn', {roomName, origin});
       const parking = new RoomPosition(origin.x + 5, origin.y, origin.roomName);
       if (!this.baseConfigs[roomName]) {
-        trace.notice('found spawn without colony', {roomName});
-        this.addBaseConfig(roomName, false, origin, parking, true, [], [], trace);
+        trace.warn('found unknown colony', {roomName});
+        // TEMP DISABLE
+        // this.addBaseConfig(roomName, false, origin, parking, false, [], [], trace);
       }
     });
 

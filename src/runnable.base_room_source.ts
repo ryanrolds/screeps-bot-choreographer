@@ -123,9 +123,13 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     this.threadUpdateDropoff(trace, colony);
     this.threadRequestWorkers(trace, kingdom, colony, room, source);
     this.threadRequestHauling(trace, colony);
-    this.threadBuildContainer(trace, kingdom, source);
-    this.threadBuildLink(trace, room, source);
-    this.threadBuildExtractor(trace, room, source);
+
+    if (baseConfig.automated) {
+      this.threadBuildContainer(trace, kingdom, source);
+      this.threadBuildLink(trace, room, source);
+      this.threadBuildExtractor(trace, room, source);
+    }
+
     this.updateStats(kingdom, trace);
 
     trace.end();
@@ -503,8 +507,10 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       }
     }
 
-    const result = this.creepPosition.createConstructionSite(STRUCTURE_CONTAINER);
-    trace.log('container created', {result});
+    trace.log('build container', {id: this.sourceId});
+    // TEMP DISABLE
+    //const result = this.creepPosition.createConstructionSite(STRUCTURE_CONTAINER);
+    //trace.log('container created', {result});
   }
 
   buildLink(trace: Tracer, room: Room, source: Source | Mineral) {
@@ -558,8 +564,10 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       return;
     }
 
-    const result = this.linkPosition.createConstructionSite(STRUCTURE_LINK);
-    trace.notice('link created', {result});
+    trace.log('build link', {id: this.sourceId});
+    // TEMP DISABLE
+    // const result = this.linkPosition.createConstructionSite(STRUCTURE_LINK);
+    // trace.notice('link created', {result});
   }
 
   buildExtractor(trace: Tracer, room: Room, source: Source | Mineral) {
@@ -584,7 +592,8 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
 
       if (!site) {
         trace.log('building extractor', {id: this.sourceId});
-        room.createConstructionSite(source.pos, STRUCTURE_EXTRACTOR);
+        // TEMP DISABLE
+        // room.createConstructionSite(source.pos, STRUCTURE_EXTRACTOR);
       }
     }
   }

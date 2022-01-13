@@ -212,8 +212,9 @@ export default class ControllerRunnable {
           trace.log('structure present', {structure: structure.structureType});
 
           if (structure.structureType !== buildingCodes[code]) {
-            trace.log('wrong site, remove', {existing: structure.structureType, expected: buildingCodes[code]});
-            structure.destroy();
+            trace.warn('wrong site, remove', {existing: structure.structureType, expected: buildingCodes[code]});
+            // TEMP DISABLED
+            // structure.destroy();
           }
 
           continue;
@@ -222,8 +223,9 @@ export default class ControllerRunnable {
         const site = pos.lookFor(LOOK_CONSTRUCTION_SITES)[0];
         if (site) {
           if (site.structureType !== buildingCodes[code]) {
-            trace.log('wrong site, remove', {existing: site.structureType, expected: buildingCodes[code]});
-            site.remove();
+            trace.warn('wrong site, remove', {existing: site.structureType, expected: buildingCodes[code]});
+            // TEMP DISABLED
+            // site.remove();
           }
 
           continue;
@@ -236,10 +238,12 @@ export default class ControllerRunnable {
 
         // roomVisual.text(code, pos.x, pos.y);
 
-        const result = room.createConstructionSite(pos, structureType);
-        if (result !== OK && result !== ERR_FULL) {
-          trace.error('failed to build structure', {structureType, pos, result});
-        }
+        trace.notice('building structure', {pos, structureType});
+        // TEMP DISABLED
+        //const result = room.createConstructionSite(pos, structureType);
+        //if (result !== OK && result !== ERR_FULL) {
+        //  trace.error('failed to build structure', {structureType, pos, result});
+        //}
       }
     }
   }
