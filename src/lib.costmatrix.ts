@@ -46,16 +46,23 @@ export const createCommonCostMatrix = (roomName: string, trace: Tracer): CostMat
 
   const structures = room.find(FIND_STRUCTURES);
   trace.log('found structures', {numStructures: structures.length});
-
   // Favor roads and avoid blocking structures
   structures.forEach(function (struct) {
     if (struct.structureType === STRUCTURE_ROAD) {
       // Favor roads over plain tiles
       costMatrix.set(struct.pos.x, struct.pos.y, 1);
-    } else if (struct.structureType !== STRUCTURE_CONTAINER &&
-      (struct.structureType !== STRUCTURE_RAMPART || !struct.my)) {
+    } else if (OBSTACLE_OBJECT_TYPES.indexOf(struct.structureType as any) !== -1) {
       // Can't walk through non-walkable buildings
       costMatrix.set(struct.pos.x, struct.pos.y, 255);
+    }
+  });
+
+  const sites = room.find(FIND_CONSTRUCTION_SITES);
+  // Add blocking structures to the cost matrix
+  trace.log('found construction sites', {numSites: sites.length});
+  sites.forEach((site) => {
+    if (OBSTACLE_OBJECT_TYPES.indexOf(site.structureType as any) !== -1) {
+      costMatrix.set(site.pos.x, site.pos.y, 255);
     }
   });
 
