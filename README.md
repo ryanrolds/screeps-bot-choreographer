@@ -88,7 +88,7 @@ Create `.screeps.json` and provide credentials:
 
 After making changes run linting, tests, and TS complication with `grunt`.
 
-Uploading of built TS+JS can be done by running `grunt upload`.
+Uploading of built TS+JS can be done by running `grunt <world>` where `<world>` can be `mmo`, `private`, or `local`.
 
 ## Stats
 
