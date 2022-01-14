@@ -90,12 +90,9 @@ export class Scheduler {
   }
 
   private updateTimeLimit() {
-    if (Game.shard.name === 'shard3') {
-      this.timeLimit = 20;
-      return;
-    }
-
-    this.timeLimit = Game.cpu.limit;
+    const limit = Game.cpu.limit;
+    const bucket = Game.cpu.bucket;
+    this.timeLimit = limit * _.max([0.5, 1 - 10000 / bucket * 0.05]);
   }
 
   tick(kingdom: Kingdom, trace: Tracer) {
@@ -139,7 +136,7 @@ export class Scheduler {
         try {
           process.run(kingdom, processTrace);
         } catch (e) {
-          processTrace.error('error running process', {id: process.id, error: e.stack});
+          processTrace.error('process error', {id: process.id, error: e.stack});
         }
 
         const processTime = Game.cpu.getUsed() - startProcessCpu;

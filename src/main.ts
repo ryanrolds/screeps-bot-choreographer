@@ -35,7 +35,7 @@ let config: KingdomConfig = {
         id: 'E22S48',
         primary: 'E22S48',
         isPublic: false,
-        rooms: ['E22S48', 'E22S47', 'E22S46'],
+        rooms: ['E22S48'/*, 'E22S47', 'E22S46', 'E21S46'*/],
         automated: false,
         origin: new RoomPosition(28, 31, 'E22S48'),
         parking: new RoomPosition(27, 21, 'E22S48'),
@@ -178,7 +178,7 @@ export const loop = function () {
     tracing.setInactive();
   }
 
-  console.log('======== TICK', Game.time, Game.shard.name, '==== prev cpu:', previousTick, previousBucket);
+  console.log('======== TICK', Game.time, Game.shard.name, '==== prev cpu:', previousTick, Game.cpu.bucket);
 
   if (!ai) {
     console.log('***** STARTING AI *****');

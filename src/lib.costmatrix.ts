@@ -48,14 +48,12 @@ export const createCommonCostMatrix = (roomName: string, trace: Tracer): CostMat
 
   const structures = room.find(FIND_STRUCTURES);
   trace.log('found structures', {numStructures: structures.length});
-
   // Favor roads and avoid blocking structures
   structures.forEach(function (struct) {
     if (struct.structureType === STRUCTURE_ROAD) {
       // Favor roads over plain tiles
       costMatrix.set(struct.pos.x, struct.pos.y, 1);
     }
-
 
     if (struct.structureType === STRUCTURE_STORAGE) {
       for (let x = struct.pos.x - 1; x <= struct.pos.x + 1; x++) {
@@ -89,7 +87,24 @@ export const createCommonCostMatrix = (roomName: string, trace: Tracer): CostMat
     // TODO figure out how to not use "any"
     const isObstacle = OBSTACLE_OBJECT_TYPES.indexOf(struct.structureType as any) > -1;
     if (isObstacle) {
+    } else if (OBSTACLE_OBJECT_TYPES.indexOf(struct.structureType as any) !== -1) {
+      // Can't walk through non-walkable buildings
       costMatrix.set(struct.pos.x, struct.pos.y, 255);
+    }
+  });
+
+  // Add blocking structures to the cost matrix
+  const sites = room.find(FIND_CONSTRUCTION_SITES);
+  trace.log('found construction sites', {numSites: sites.length});
+  sites.forEach((site) => {
+    if (site.structureType === STRUCTURE_ROAD) {
+      // Favor roads over plain tiles
+      costMatrix.set(site.pos.x, site.pos.y, 1);
+      return;
+    }
+
+    if (OBSTACLE_OBJECT_TYPES.indexOf(site.structureType as any) !== -1) {
+      costMatrix.set(site.pos.x, site.pos.y, 255);
     }
   });
 
@@ -104,21 +119,6 @@ export const createCommonCostMatrix = (roomName: string, trace: Tracer): CostMat
 
   // avoid sources
   applySourceBuffer(room, costMatrix, terrain, 5, trace);
-
-  // Also add construction sites to desired path
-  room.find(FIND_CONSTRUCTION_SITES).forEach((site) => {
-    if (site.structureType === STRUCTURE_ROAD) {
-      // Favor roads over plain tiles
-      costMatrix.set(site.pos.x, site.pos.y, 1);
-      return;
-    }
-
-    // TODO figure out how to not use "any"
-    const isObstacle = OBSTACLE_OBJECT_TYPES.indexOf(site.structureType as any) > -1;
-    if (isObstacle) {
-      costMatrix.set(site.pos.x, site.pos.y, 255);
-    }
-  });
 
   return costMatrix;
 }
