@@ -45,6 +45,7 @@ describe('Creeps Manager', () => {
       cpu: {
         limit: 20,
         tickLimit: 50,
+        bucket: 10000,
         // Needed for tracer
         getUsed: () => {
           return 0;

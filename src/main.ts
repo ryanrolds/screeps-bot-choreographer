@@ -236,7 +236,7 @@ export const loop = function () {
   const fields = {shard: Game.shard.name};
   const trace = new Tracer('tick', fields, 0);
 
-  console.log('======== TICK', Game.time, Game.shard.name, '==== prev cpu:', previousTick);
+  console.log('======== TICK', Game.time, Game.shard.name, '==== prev cpu:', previousTick, Game.cpu.bucket);
 
   if (!ai) {
     console.log('***** STARTING AI *****');
