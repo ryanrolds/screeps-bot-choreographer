@@ -68,19 +68,19 @@ export class Colony extends OrgBase {
   threadRequestHaulers: ThreadFunc;
   threadRequestExplorer: ThreadFunc;
 
-  constructor(parent: Kingdom, config: BaseConfig, trace: Tracer) {
-    super(parent, config.id, trace);
+  constructor(parent: Kingdom, baseConfig: BaseConfig, trace: Tracer) {
+    super(parent, baseConfig.id, trace);
 
     const setupTrace = this.trace.begin('constructor');
 
     this.topics = new Topics();
 
-    this.primaryRoomId = config.primary;
-    this.desiredRooms = config.rooms;
+    this.primaryRoomId = baseConfig.primary;
+    this.desiredRooms = baseConfig.rooms;
     this.primaryRoom = Game.rooms[this.primaryRoomId];
-    this.isPublic = config.isPublic || false;
-    this.automated = config.automated;
-    this.origin = config.origin;
+    this.isPublic = baseConfig.isPublic || false;
+    this.automated = baseConfig.automated;
+    this.origin = baseConfig.origin;
 
     this.pidDesiredHaulers = 0;
     this.pidSetup = false;

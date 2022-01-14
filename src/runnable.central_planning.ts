@@ -42,37 +42,37 @@ export class CentralPlanning {
     this.shards.push(Game.shard.name);
 
     let bases: ShardConfig = {};
-    if ((Memory as any).colonies) {
-      trace.notice('found shard memory', {colonies: (Memory as any).colonies});
-      bases = (Memory as any).colonies;
+    if ((Memory as any).bases) {
+      trace.warn('found shard memory', {bases: (Memory as any).bases});
+      bases = (Memory as any).bases;
     } else if (config && config.shards && config.shards[Game.shard.name]) {
-      trace.notice('found shard config', {config});
+      trace.warn('found shard config', {config});
       bases = config.shards[Game.shard.name];
     } else {
-      trace.notice('no shard config found, bootstraping?');
+      trace.warn('no shard config found, bootstraping?');
     }
 
-    // Setup known colonies
-    Object.values(bases).forEach((colony) => {
-      trace.notice('setting up colony', {colony});
-      this.addBaseConfig(colony.id, colony.isPublic, colony.origin, colony.parking,
-        colony.automated, colony.rooms, colony.walls || [], trace);
+    // Setup known bases
+    Object.values(bases).forEach((base) => {
+      trace.notice('setting up base', {base});
+      this.addBaseConfig(base.id, base.isPublic, base.origin, base.parking,
+        base.automated, base.rooms, base.walls || [], trace);
     });
 
-    // Check for spawns without colonies
+    // Check for spawns without bases
     Object.values(Game.spawns).forEach((spawn) => {
       const roomName = spawn.room.name;
       const origin = new RoomPosition(spawn.pos.x, spawn.pos.y + 4, spawn.pos.roomName);
       trace.notice('checking spawn', {roomName, origin});
       const parking = new RoomPosition(origin.x + 5, origin.y, origin.roomName);
       if (!this.baseConfigs[roomName]) {
-        trace.warn('found unknown colony', {roomName});
+        trace.warn('found unknown base', {roomName});
         // TEMP DISABLE
         // this.addBaseConfig(roomName, false, origin, parking, false, [], [], trace);
       }
     });
 
-    trace.notice('colony configs', {baseConfigs: this.baseConfigs});
+    trace.notice('bases configs', {baseConfigs: this.baseConfigs});
 
     this.threadBaseProcesses = thread('base_processes', BASE_PROCESSES_TTL)(this.baseProcesses.bind(this));
 
@@ -97,7 +97,6 @@ export class CentralPlanning {
     this.expandColoniesThread(trace, kingdom);
     this.baseWallsThread(trace, kingdom);
 
-    (Memory as any).colonies = this.baseConfigs;
     (Memory as any).bases = this.baseConfigs;
 
     return sleeping(RUN_TTL);
@@ -240,15 +239,15 @@ export class CentralPlanning {
   private baseProcesses(trace: Tracer, kingdom: Kingdom) {
     // If any defined colonies don't exist, run it
     const bases = kingdom.getPlanner().getBaseConfigs();
-    bases.forEach((colony) => {
-      const colonyProcessId = `base_${colony.id}`;
+    bases.forEach((base) => {
+      const colonyProcessId = `base_${base.id}`;
       const hasProcess = this.scheduler.hasProcess(colonyProcessId);
       if (hasProcess) {
         return;
       }
 
       this.scheduler.registerProcess(new Process(colonyProcessId, 'base', Priorities.CRITICAL,
-        new BaseRunnable(colony.id, this.scheduler)));
+        new BaseRunnable(base.id, this.scheduler)));
     });
   }
 
