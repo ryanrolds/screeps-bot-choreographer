@@ -17,6 +17,9 @@ An AI for [Screeps](screeps.com).
 * Haulers managed by PID controller
 * Scheduler & Processes
 * Message bus w/ topics for IPC
+* Event streams
+* Automatic expansion and base building
+* HUD
 
 #### Roadmap:
 
@@ -48,16 +51,16 @@ An AI for [Screeps](screeps.com).
 - [X] Auto-construction of roads to remote sources
 - [X] Automatic layout and expansion
 - [X] System for a Room and Map(beta) HUD
+- [ ] Harvest commodities & factory
+- [ ] Sieging of RCL>=7 rooms
+- [ ] Quads moving coherently 100% of time
 - [ ] Replace references to 'colony' with 'base'
 - [ ] Buff ramparts and walls to withstand nuke
-- [ ] Quads moving coherently 100% of time
-- [ ] Harass remote mining rooms
 - [ ] Move Org/Kingdom work to scheduler
+- [ ] Move all data sharing between processes to topics/IPC (remove direct access)
 - [ ] Improved defenders that hide in ramparts
 - [ ] Collect Power
 - [ ] Create & drive Power Creeps
-- [ ] Harvest commodities
-- [ ] Move all data sharing between processes to topics/IPC (remove direct access)
 - [ ] Apply buffer to lvl8 rooms
 - [ ] Allow buffer manager to nuke and time sending attackers
 - [ ] Police portal rooms
