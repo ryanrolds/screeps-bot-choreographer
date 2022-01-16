@@ -44,19 +44,20 @@ An AI for [Screeps](screeps.com).
 - [x] Move Creeps to scheduler
 - [x] Auto attack of weaker players
 - [x] Intra-shared movement and claiming
+- [X] Proper event stream
+- [X] Auto-construction of roads to remote sources
+- [X] Automatic layout and expansion
+- [X] System for a Room and Map(beta) HUD
 - [ ] Replace references to 'colony' with 'base'
 - [ ] Buff ramparts and walls to withstand nuke
 - [ ] Quads moving coherently 100% of time
 - [ ] Harass remote mining rooms
-- [ ] Proper event stream
 - [ ] Move Org/Kingdom work to scheduler
-- [ ] Auto-construction of roads to remote sources
 - [ ] Improved defenders that hide in ramparts
 - [ ] Collect Power
 - [ ] Create & drive Power Creeps
 - [ ] Harvest commodities
 - [ ] Move all data sharing between processes to topics/IPC (remove direct access)
-- [ ] Automatic layout and expansion
 - [ ] Apply buffer to lvl8 rooms
 - [ ] Allow buffer manager to nuke and time sending attackers
 - [ ] Police portal rooms
@@ -111,14 +112,14 @@ There are some debugging tools built into the project:
 
 There are a couple of helpful global variables:
 
-> TODO all these global variables should be replaced with a at runtime configurable process accessible through AI
+> Many of these persist between restarts, so make sure to unset them when you're finished with them.
 
-* `METRIC_REPORT=true` - Will output aggregated tracing metric data to the console
-* `METRIC_CONSOLE=true` - Will output tracing metric data to the console
-* `METRIC_FILTER=<prefix>` - Will cause Tracer to report metrics for metrics that start with `<prefix>`
-* `METRIC_MIN=<min ms>` - (default 0.5ms) Will cause Tracer to report metrics that are greater than `<min ms>`
-* `LOG_WHEN_PID='<prefix>'` - Logs with tracers matching the prefix will be output to the console
-* `RESET_PIDS=true` - Will reset the PID controllers - useful when PID controllers are spawning too many haulers
+* `METRIC_REPORT=true|false` - Will output aggregated tracing metric data to the console
+* `METRIC_CONSOLE=true|false` - Will output tracing metric data to the console
+* `METRIC_FILTER=<prefix>|null` - Will cause Tracer to report metrics for metrics that start with `<prefix>`
+* `METRIC_MIN=<min ms>|0` - (default 0.5ms) Will cause Tracer to report metrics that are greater than `<min ms>`
+* `LOG_WHEN_PID='<prefix>'|null` - Logs with tracers matching the prefix will be output to the console
+* `RESET_PIDS=true|false` - Will reset the PID controllers - useful when PID controllers are spawning too many haulers
 ### Creeps
 
 * Attacker - Rally at Attack Flag and attack hostiles in room
