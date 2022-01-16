@@ -360,6 +360,7 @@ export class Colony extends OrgBase {
         this.sendRequest(TOPIC_SPAWN, PRIORITY_DEFENDER, request.details, REQUEST_DEFENDER_TTL);
       } else {
         request.details.memory[MEMORY.MEMORY_COLONY] = this.id;
+        request.details.memory[MEMORY.MEMORY_BASE] = this.id;
         this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITY_DEFENDER, request.details, REQUEST_DEFENDER_TTL);
       }
     }
@@ -434,6 +435,7 @@ export class Colony extends OrgBase {
         memory: {
           [MEMORY_ASSIGN_ROOM]: roomID,
           [MEMORY.MEMORY_COLONY]: this.id,
+          [MEMORY.MEMORY_BASE]: this.id,
         },
       };
 

@@ -20,6 +20,11 @@ export const selectHarvestSource = behaviorTree.leafNode(
     });
 
     const room = kingdom.getCreepRoom(creep);
+    if (!room) {
+      trace.error('creep room not found', {name: creep.name, memory: creep.memory});
+      creep.suicide();
+      return FAILURE;
+    }
 
     sources = _.sortByAll(sources, (source) => {
       if (!room) {

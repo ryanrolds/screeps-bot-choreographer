@@ -1,4 +1,3 @@
-import path from "path";
 import {BaseConfig} from "./config";
 import {Consumer, Event, Stream} from "./lib.event_broker";
 import {getPath, visualizePath} from "./lib.pathing";
@@ -9,7 +8,7 @@ import {PersistentMemory} from "./os.memory";
 import {sleeping} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 import {thread, ThreadFunc} from "./os.thread";
-import {getHudStream, HudLine, HudStreamEventSet} from "./runnable.debug_hud";
+import {getLinesStream, HudLine, HudEventSet} from "./runnable.debug_hud";
 
 const CALCULATE_LEG_TTL = 20;
 const BUILD_SHORTEST_LEG_TTL = 40;
@@ -98,7 +97,7 @@ export default class LogisticsRunnable extends PersistentMemory {
 
     this.threadProduceEvents(trace, kingdom, baseConfig);
 
-    // CLEANUP add LOG_WHEN_ID_CHECK
+    // CLEANUP add LOG_WHEN_PID_CHECK
     if (this.selectedLeg) {
       visualizePath(this.selectedLeg.path, trace);
     }
@@ -129,8 +128,8 @@ export default class LogisticsRunnable extends PersistentMemory {
       order: 5,
     };
 
-    kingdom.getBroker().getStream(getHudStream()).publish(new Event(this.colonyId, Game.time,
-      HudStreamEventSet, hudLine));
+    kingdom.getBroker().getStream(getLinesStream()).publish(new Event(this.colonyId, Game.time,
+      HudEventSet, hudLine));
   }
 
   private requestRoad(kingdom: Kingdom, id: string, destination: RoomPosition, time: number, trace: Tracer) {
@@ -285,12 +284,11 @@ export default class LogisticsRunnable extends PersistentMemory {
       }
 
       trace.log('build road site', {pos});
-      // TEMP DISABLE
-      //const result = pos.createConstructionSite(STRUCTURE_ROAD);
-      //if (result !== OK) {
-      //  trace.error('failed to build road', {pos, result});
-      //  continue;
-      //}
+      const result = pos.createConstructionSite(STRUCTURE_ROAD);
+      if (result !== OK) {
+        trace.error('failed to build road', {pos, result});
+        continue;
+      }
 
       trace.log('built road', {pos});
       roadSites += 1;

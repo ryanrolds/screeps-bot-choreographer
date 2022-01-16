@@ -285,7 +285,7 @@ export default class WarPartyRunnable {
       return partyResult;
     }
 
-    if (global.LOG_WHEN_ID === this.id) {
+    if (global.LOG_WHEN_PID === this.id) {
       this.visualizePathToTarget(this.position, this.destination, trace);
     }
 

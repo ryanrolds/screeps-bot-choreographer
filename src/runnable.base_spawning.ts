@@ -10,11 +10,11 @@ import OrgRoom from "./org.room";
 import {running, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 import {thread, ThreadFunc} from "./os.thread";
-import {getHudStream, HudLine, HudStreamEventSet} from "./runnable.debug_hud";
+import {getLinesStream, HudLine, HudEventSet} from "./runnable.debug_hud";
 
 const REQUEST_BOOSTS_TTL = 1;
 const UPDATE_SPAWN_LIST_TTL = 20;
-const MAX_COLONY_SPAWN_DISTANCE = 3;
+const MAX_COLONY_SPAWN_DISTANCE = 4;
 const PRODUCE_EVENTS_TTL = 20;
 
 export default class SpawnManager {
@@ -58,9 +58,9 @@ export default class SpawnManager {
         text: `Next spawn: ${creeps.join(',')}`,
         time: Game.time,
       };
-      const event = new Event(this.id, Game.time, HudStreamEventSet, line);
+      const event = new Event(this.id, Game.time, HudEventSet, line);
       trace.log('produce_events', event);
-      kingdom.getBroker().getStream(getHudStream()).publish(event)
+      kingdom.getBroker().getStream(getLinesStream()).publish(event)
     });
   }
 
@@ -167,11 +167,11 @@ export default class SpawnManager {
           return;
         }
 
-        const peek = (this.orgRoom as any).getKingdom().peekNextRequest(TOPICS.TOPIC_SPAWN);
+        const peek = this.orgRoom.getKingdom().peekNextRequest(TOPICS.TOPIC_SPAWN);
         if (peek) {
           const role = peek.details.role;
           const definition = DEFINITIONS[role];
-          const numColonies = (this.orgRoom as any).getKingdom().getColonies().length;
+          const numColonies = this.orgRoom.getKingdom().getColonies().length;
 
           if (definition.energyMinimum && energy < definition.energyMinimum && numColonies > 3) {
             return;
@@ -191,7 +191,7 @@ export default class SpawnManager {
             const selected = messages.filter((message) => {
               const assignedShard = message.details.memory[MEMORY.MEMORY_ASSIGN_SHARD] || null;
               if (assignedShard && assignedShard != Game.shard.name) {
-                let portals: any[] = (this.orgRoom as any).getKingdom().getScribe()
+                let portals: any[] = this.orgRoom.getKingdom().getScribe()
                   .getPortals(assignedShard).filter((portal) => {
                     const distance = Game.map.getRoomLinearDistance((this.orgRoom as any).id,
                       portal.pos.roomName);

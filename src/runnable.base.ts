@@ -8,13 +8,13 @@ import {DEFENSE_STATUS} from './defense';
 import {Event} from './lib.event_broker';
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
-import OrgRoom from "./org.room";
+import OrgRoom, {RoomAlertLevel} from "./org.room";
 import {Process, running, sleeping, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 import {Priorities, Scheduler} from "./os.scheduler";
 import {thread, ThreadFunc} from './os.thread';
 import BaseConstructionRunnable from "./runnable.base_construction";
-import {getHudStream, HudLine, HudStreamEventSet} from './runnable.debug_hud';
+import {getDashboardStream, getLinesStream, HudIndicatorStatus, HudLine, HudEventSet, HudIndicator} from './runnable.debug_hud';
 import {LabsManager} from "./runnable.base_labs";
 import LinkManager from "./runnable.base_links";
 import SpawnManager from "./runnable.base_spawning";
@@ -39,6 +39,7 @@ const NO_VISION_TTL = 20;
 const MIN_TTL = 10;
 
 const ENERGY_REQUEST_TTL = 50;
+const REQUEST_CLAIMER_TTL = 50;
 const REQUEST_REPAIRER_TTL = 30;
 const REQUEST_BUILDER_TTL = 30;
 const REQUEST_DISTRIBUTOR_TTL = 10;
@@ -68,6 +69,9 @@ export default class BaseRunnable {
   scheduler: Scheduler;
   defensePosture: DEFENSE_POSTURE;
 
+  // Metrics
+  missingProcesses: number;
+
   threadUpdateProcessSpawning: ThreadFunc;
   threadRequestRepairer: ThreadFunc;
   threadRequestBuilder: ThreadFunc;
@@ -83,6 +87,9 @@ export default class BaseRunnable {
     this.id = id;
     this.scheduler = scheduler;
     this.defensePosture = DEFENSE_POSTURE.UNKNOWN;
+
+    // Metrics
+    this.missingProcesses = 0;
 
     // Threads
     this.threadUpdateProcessSpawning = thread('spawn_room_processes_thread', UPDATE_PROCESSES_TTL)(this.handleProcessSpawning.bind(this));
@@ -111,17 +118,19 @@ export default class BaseRunnable {
       return terminate();
     }
 
+    const room = Game.rooms[this.id];
+    if (!room) {
+      trace.notice('cannot find room in game', {id: this.id});
+      this.requestClaimer(kingdom, trace);
+      trace.end();
+      return sleeping(NO_VISION_TTL);
+    }
+
     // TODO try to remove dependency on OrgRoom
     const orgRoom = kingdom.getRoomByName(this.id);
     if (!orgRoom) {
       trace.error("no org room, terminating", {id: this.id})
       trace.end();
-      return terminate();
-    }
-
-    const room = Game.rooms[this.id];
-    if (!room) {
-      trace.notice('cannot find room in game', {id: this.id});
       return sleeping(NO_VISION_TTL);
     }
 
@@ -144,16 +153,57 @@ export default class BaseRunnable {
     // Inform other processes of room status
     this.threadProduceStatus(trace, kingdom, orgRoom, baseConfig);
 
+    const roomVisual = new RoomVisual(this.id);
+    roomVisual.text("O", baseConfig.origin.x, baseConfig.origin.y, {color: '#FFFFFF'});
+    roomVisual.text("P", baseConfig.parking.x, baseConfig.parking.y, {color: '#FFFFFF'});
+
     trace.end();
     return sleeping(MIN_TTL);
   }
 
+  requestClaimer(kingdom: Kingdom, trace: Tracer) {
+    const enroute = _.find(Game.creeps, {
+      memory: {
+        [MEMORY.MEMORY_ROLE]: CREEPS.WORKER_RESERVER,
+        [MEMORY.MEMORY_ASSIGN_SHARD]: Game.shard.name,
+        [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
+        [MEMORY.MEMORY_COLONY]: this.id,
+      }
+    });
+
+    if (enroute) {
+      trace.notice('claimer already enroute', {id: this.id});
+      return;
+    }
+
+    const request = {
+      role: CREEPS.WORKER_RESERVER,
+      memory: {
+        [MEMORY.MEMORY_ROLE]: CREEPS.WORKER_RESERVER,
+        [MEMORY.MEMORY_ASSIGN_SHARD]: Game.shard.name,
+        [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
+        [MEMORY.MEMORY_COLONY]: this.id,
+        [MEMORY.MEMORY_BASE]: this.id,
+      },
+    };
+
+    trace.notice('requesting claimer', {id: this.id, request});
+
+    kingdom.sendRequest(TOPICS.TOPIC_SPAWN, PRIORITIES.PRIORITY_RESERVER, request, REQUEST_CLAIMER_TTL);
+  }
+
   handleProcessSpawning(trace: Tracer, baseConfig: BaseConfig, orgRoom: OrgRoom, room: Room) {
+    let missingProcesses = 0;
+
     // Spawn Manager
     const spawnManagerId = `spawns_${this.id}`
     if (!this.scheduler.hasProcess(spawnManagerId)) {
+      trace.log('starting spawn manager', {id: this.id});
+      missingProcesses++;
+
       this.scheduler.registerProcess(new Process(spawnManagerId, 'spawns', Priorities.CORE_LOGISTICS,
         new SpawnManager(spawnManagerId, orgRoom)));
+
     }
 
     // Towers
@@ -172,6 +222,9 @@ export default class BaseRunnable {
     }).forEach((tower) => {
       const towerId = `${tower.id}`
       if (!this.scheduler.hasProcess(towerId)) {
+        trace.log('starting tower', {id: tower.id});
+        missingProcesses++;
+
         const process = new Process(towerId, 'towers', Priorities.DEFENCE,
           new TowerRunnable(orgRoom, tower))
         process.setSkippable(false);
@@ -184,6 +237,9 @@ export default class BaseRunnable {
     }).forEach((nuker) => {
       const nukeId = `${nuker.id}`
       if (!this.scheduler.hasProcess(nukeId)) {
+        trace.log('starting nuke', {id: nukeId});
+        missingProcesses++;
+
         this.scheduler.registerProcess(new Process(nukeId, 'nukes', Priorities.OFFENSE,
           new NukerRunnable(orgRoom, nuker)));
       }
@@ -193,6 +249,9 @@ export default class BaseRunnable {
       // Terminal runnable
       const terminalId = room.terminal.id;
       if (!this.scheduler.hasProcess(terminalId)) {
+        trace.log('starting terminal', {id: terminalId});
+        missingProcesses++;
+
         this.scheduler.registerProcess(new Process(terminalId, 'terminals', Priorities.DEFENCE,
           new TerminalRunnable(orgRoom, room.terminal)));
       }
@@ -201,6 +260,9 @@ export default class BaseRunnable {
     // Link Manager
     const linkManagerId = `links_${this.id}`
     if (!this.scheduler.hasProcess(linkManagerId) && orgRoom.room.storage) {
+      trace.log('starting link manager', {id: linkManagerId});
+      missingProcesses++;
+
       this.scheduler.registerProcess(new Process(linkManagerId, 'links', Priorities.RESOURCES,
         new LinkManager(linkManagerId, orgRoom)));
     }
@@ -208,19 +270,26 @@ export default class BaseRunnable {
     // Labs Manager
     const labsManagerId = `labs_${this.id}`;
     if (!this.scheduler.hasProcess(labsManagerId)) {
+      trace.log('starting labs manager', {id: labsManagerId});
+      missingProcesses++;
+
       this.scheduler.registerProcess(new Process(labsManagerId, 'labs', Priorities.LOGISTICS,
         new LabsManager(labsManagerId, orgRoom, this.scheduler, trace)));
+      missingProcesses++;
     }
-
-    // Observer runnable
 
     // Construction
     const constructionId = `construction_${this.id}`;
     if (!this.scheduler.hasProcess(constructionId)) {
+      trace.log('starting construction', {id: constructionId});
+      missingProcesses++;
+
       this.scheduler.registerProcess(new Process(constructionId, 'construction', Priorities.CORE_LOGISTICS,
         new BaseConstructionRunnable(constructionId, orgRoom)));
+      missingProcesses++;
     }
 
+    // Observer runnable
     const observerStructures = room.find<StructureObserver>(FIND_MY_STRUCTURES, {
       filter: (structure) => {
         return structure.structureType === STRUCTURE_OBSERVER;
@@ -231,6 +300,9 @@ export default class BaseRunnable {
       const observerId = observerStructures[0].id;
       const hasProcess = this.scheduler.hasProcess(observerId);
       if (!hasProcess) {
+        trace.log('starting observer', {id: observerId});
+        missingProcesses++;
+
         this.scheduler.registerProcess(new Process(observerId, 'observer', Priorities.EXPLORATION,
           new ObserverRunnable(observerId)));
       }
@@ -240,6 +312,9 @@ export default class BaseRunnable {
     const logisticsIds = `logistics_${this.id}`;
     const hasLogisticsProcess = this.scheduler.hasProcess(logisticsIds);
     if (!hasLogisticsProcess) {
+      trace.log('starting logistics', {id: logisticsIds});
+      missingProcesses++;
+
       this.scheduler.registerProcess(new Process(logisticsIds, 'logistics', Priorities.LOGISTICS,
         new LogisticsRunnable(this.id)));
     }
@@ -247,6 +322,9 @@ export default class BaseRunnable {
     // Controller
     const controllerProcessId = room.controller.id
     if (!this.scheduler.hasProcess(controllerProcessId)) {
+      trace.log('starting controller', {id: logisticsIds});
+      missingProcesses++;
+
       const controllerRunnable = new ControllerRunnable(room.controller.id);
       this.scheduler.registerProcess(new Process(controllerProcessId, 'colony_manager',
         Priorities.CRITICAL, controllerRunnable));
@@ -257,10 +335,15 @@ export default class BaseRunnable {
       const roomId = `room_${room}`;
       const hasRoomProcess = this.scheduler.hasProcess(roomId);
       if (!hasRoomProcess) {
+        trace.log('starting room', {id: roomId});
+        missingProcesses++;
+
         this.scheduler.registerProcess(new Process(roomId, 'rooms', Priorities.EXPLORATION,
           new RoomRunnable(room, this.scheduler)));
       }
     });
+
+    this.missingProcesses = missingProcesses;
   }
 
   requestRepairer(trace: Tracer, orgRoom: OrgRoom, room: Room) {
@@ -364,6 +447,7 @@ export default class BaseRunnable {
         [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
         [MEMORY.MEMORY_ASSIGN_SHARD]: Game.shard.name,
         [MEMORY.MEMORY_COLONY]: (orgRoom as any).getColony().id,
+        [MEMORY.MEMORY_BASE]: (orgRoom as any).getColony().id,
       },
     }, REQUEST_BUILDER_TTL, trace);
   }
@@ -434,16 +518,18 @@ export default class BaseRunnable {
       distributorPriority += 10;
     }
 
-    trace.log('request distributor', {desiredDistributors, distributorPriority, fullness});
-
-    (orgRoom as any).requestSpawn(distributorPriority, {
+    const request = {
       role: CREEPS.WORKER_DISTRIBUTOR,
       memory: {
         [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
         [MEMORY.MEMORY_COLONY]: (orgRoom as any).getColony().id,
+        [MEMORY.MEMORY_BASE]: (orgRoom as any).getColony().id,
       },
-    }, REQUEST_DISTRIBUTOR_TTL, trace);
+    };
 
+    trace.log('request distributor', {desiredDistributors, distributorPriority, fullness, request});
+
+    (orgRoom as any).requestSpawn(distributorPriority, request, REQUEST_DISTRIBUTOR_TTL);
   }
 
   requestUpgrader(trace: Tracer, orgRoom: OrgRoom, room: Room) {
@@ -518,6 +604,7 @@ export default class BaseRunnable {
         memory: {
           [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
           [MEMORY.MEMORY_COLONY]: (orgRoom as any).getColony().id,
+          [MEMORY.MEMORY_BASE]: (orgRoom as any).getColony().id,
         },
       }, REQUEST_UPGRADER_TTL, trace);
     }
@@ -709,7 +796,28 @@ export default class BaseRunnable {
         `Auto: ${baseConfig.automated},  Rooms: ${baseConfig.rooms.join(',')}  `,
       time: Game.time,
     };
-    const event = new Event(orgRoom.id, Game.time, HudStreamEventSet, line);
-    orgRoom.getKingdom().getBroker().getStream(getHudStream()).publish(event);
+    const event = new Event(orgRoom.id, Game.time, HudEventSet, line);
+    orgRoom.getKingdom().getBroker().getStream(getLinesStream()).publish(event);
+
+    const indicatorStream = orgRoom.getKingdom().getBroker().getStream(getDashboardStream())
+
+    let alertLevelStatus = HudIndicatorStatus.Green;
+    if (orgRoom.getAlertLevel() === RoomAlertLevel.RED) {
+      alertLevelStatus = HudIndicatorStatus.Red;
+    } else if (orgRoom.getAlertLevel() === RoomAlertLevel.YELLOW) {
+      alertLevelStatus = HudIndicatorStatus.Yellow;
+    }
+    const alertLevelIndicator: HudIndicator = {room: orgRoom.id, key: 'alert', display: 'A', status: alertLevelStatus};
+    indicatorStream.publish(new Event(baseConfig.id, Game.time, HudEventSet, alertLevelIndicator));
+
+    let processStatus = HudIndicatorStatus.Green;
+    if (this.missingProcesses > 1) {
+      processStatus = HudIndicatorStatus.Red;
+    } else if (this.missingProcesses === 1) {
+      processStatus = HudIndicatorStatus.Yellow;
+    }
+
+    const keyProcessesIndicator: HudIndicator = {room: orgRoom.id, key: 'processes', display: 'P', status: processStatus};
+    indicatorStream.publish(new Event(baseConfig.id, Game.time, HudEventSet, keyProcessesIndicator));
   }
 }

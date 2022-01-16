@@ -1,4 +1,4 @@
-import * as tracing from './lib.tracing';
+import * as metrics from './lib.metrics';
 import {Tracer} from './lib.tracing';
 import {AI} from './lib.ai';
 import {KingdomConfig} from './config'
@@ -160,22 +160,71 @@ let config: KingdomConfig = {
   },
 };
 
+const DEFAULT_LOG_WHEN_PID = null;
+const DEFAULT_METRIC_REPORT = false;
+const DEFAULT_METRIC_CONSOLE = false;
+const DEFAULT_METRIC_FILTER = null;
+const DEFAULT_METRIC_MIN = 0.5
 
+// On start copy memory values to debugging control flags
+global.LOG_WHEN_PID = (Memory as any).LOG_WHEN_PID || DEFAULT_LOG_WHEN_PID;
+global.METRIC_REPORT = (Memory as any).METRIC_REPORT || DEFAULT_METRIC_REPORT;
+global.METRIC_CONSOLE = (Memory as any).METRIC_CONSOLE || DEFAULT_METRIC_CONSOLE;
+global.METRIC_FILTER = (Memory as any).METRIC_FILTER || DEFAULT_METRIC_FILTER;
+global.METRIC_MIN = (Memory as any).METRIC_MIN | DEFAULT_METRIC_MIN;
+
+// Memory hack variables
+let lastMemoryTick: number = 0;
+let lastMemory: Memory = null;
+
+// AI global
 let ai: AI = null
 global.AI = null; // So we can access it from the console
+
+// AI CPU usage tracking
 let previousTick = 0; // Track previous tick time for display
 let previousBucket = 0;
-
-global.TRACING_ACTIVE = false;
 
 export const loop = function () {
   const fields = {shard: Game.shard.name};
   const trace = new Tracer('tick', fields, 0);
 
-  if (global.TRACING_ACTIVE === true) {
-    tracing.setActive();
+  // Set process id filter
+  trace.setLogFilter(global.LOG_WHEN_PID);
+
+  const end = trace.startTimer('memory_hack');
+  // memory hack from Dissi
+  if (lastMemoryTick && lastMemory && Game.time === (lastMemoryTick + 1)) {
+    delete global.Memory
+    global.Memory = lastMemory;
+    (RawMemory as any)._parsed = lastMemory
   } else {
-    tracing.setInactive();
+    Memory;
+    lastMemory = (RawMemory as any)._parsed
+  }
+  lastMemoryTick = Game.time
+  end();
+
+  // Update memory for debugging controls control flags
+  (Memory as any).LOG_WHEN_PID = global.LOG_WHEN_PID || DEFAULT_LOG_WHEN_PID;
+  (Memory as any).METRIC_REPORT = global.METRIC_REPORT || DEFAULT_METRIC_REPORT;
+  (Memory as any).METRIC_CONSOLE = global.METRIC_CONSOLE || DEFAULT_METRIC_CONSOLE;
+  (Memory as any).METRIC_FILTER = global.METRIC_FILTER || DEFAULT_METRIC_FILTER;
+  (Memory as any).METRIC_MIN = global.METRIC_MIN || DEFAULT_METRIC_MIN;
+
+  // Enable metric collection
+  if (global.METRIC_REPORT === true || global.METRIC_CONSOLE) {
+    trace.setCollectMetrics(true);
+  }
+
+  // Filter metrics by name
+  if (global.METRIC_FILTER) {
+    trace.setMetricFilter(global.METRIC_FILTER);
+  }
+
+  // Filter metrics by minimum value
+  if (global.METRIC_MIN >= 0) {
+    trace.setMetricMin(global.METRIC_MIN);
   }
 
   console.log('======== TICK', Game.time, Game.shard.name, '==== prev cpu:', previousTick, Game.cpu.bucket);
@@ -186,12 +235,24 @@ export const loop = function () {
     global.AI = ai;
   }
 
+  // Tick the AI
   ai.tick(trace);
 
-  if (global.METRIC_FILTER) {
+  // Output metrics to console that match the filter
+  if (global.METRIC_CONSOLE) {
     trace.outputMetrics();
   }
 
+  // Output metric aggregations to console
+  if (global.METRIC_REPORT === true) {
+    metrics.add(trace);
+    metrics.setActive();
+    metrics.reportMetrics();
+  } else {
+    metrics.setInactive();
+  }
+
+  // Get CPU spent on AI
   previousTick = Game.cpu.getUsed();
   previousBucket = Game.cpu.bucket;
 

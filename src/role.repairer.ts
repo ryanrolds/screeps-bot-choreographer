@@ -15,6 +15,8 @@ const selectStructureToRepair = behaviorTree.leafNode(
   (creep, trace, kingdom) => {
     const room = kingdom.getCreepRoom(creep);
     if (!room) {
+      trace.error('no room on creep', {name: creep.name, memory: creep.memory});
+      creep.suicide();
       return FAILURE;
     }
 

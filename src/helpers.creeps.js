@@ -128,8 +128,9 @@ module.exports.createCreep = (colony, room, spawn, role, memory, energy, energyL
   const name = [role, Game.shard.name, Game.time].join('_');
 
   // Requests to the kingdom should include the destination colony, don't overwrite it
-  if (!memory[MEMORY_COLONY]) {
+  if (!memory[MEMORY_COLONY] || !memory[MEMORY.MEMORY_BASE]) {
     memory[MEMORY_COLONY] = colony;
+    memory[MEMORY.MEMORY_BASE] = colony;
   }
 
   // Used for debugging, don't use for decision making, use MEMORY_COLONY instead

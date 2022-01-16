@@ -18,9 +18,6 @@ import {HUDRunnable} from './runnable.debug_hud';
 import MinCutDebugger from './runnable.debug_mincut';
 import InvaderManager from './runnable.manager.invaders';
 
-let lastMemoryTick: number = 0;
-let lastMemory: Memory = null;
-
 export class AI {
   scheduler: Scheduler;
   config: KingdomConfig;
@@ -44,13 +41,12 @@ export class AI {
     // Kingdom Model & Messaging process
     // Pump messages through kingdom, colonies, room, ect...
     this.kingdom = new Kingdom(config, this.scheduler, this.broker, this.planning, trace);
-    const kingdomModelId = 'kingdom_model';
-    this.scheduler.registerProcess(new Process(kingdomModelId, 'kingdom_model',
-      Priorities.CRITICAL, new KingdomModelRunnable(kingdomModelId)));
+    this.scheduler.registerProcess(new Process('kingdom_model', 'kingdom_model',
+      Priorities.CRITICAL, new KingdomModelRunnable()));
 
     // Kingdom Governor
     this.scheduler.registerProcess(new Process('kingdom_governor', 'kingdom_governor',
-      Priorities.CRITICAL, new KingdomGovernorRunnable('kingdom_governor')));
+      Priorities.CRITICAL, new KingdomGovernorRunnable()));
 
     // Creep manager
     const creepManagerId = 'creeps_manager';
@@ -87,9 +83,8 @@ export class AI {
     // ======= Debugging tools ========
 
     // Path debugger
-    const hudId = 'hud';
-    const hudRunnable = new HUDRunnable(hudId);
-    this.scheduler.registerProcess(new Process(hudId, 'hud', Priorities.DEBUG, hudRunnable));
+    const hudRunnable = new HUDRunnable();
+    this.scheduler.registerProcess(new Process('hud', 'hud', Priorities.DEBUG, hudRunnable));
 
     // Path debugger
     const pathDebuggerId = 'path_debugger';
@@ -121,19 +116,6 @@ export class AI {
   }
 
   tick(trace: Tracer) {
-    const end = trace.startTimer('memory_hack');
-    // memory hack from Dissi
-    if (lastMemoryTick && lastMemory && Game.time === (lastMemoryTick + 1)) {
-      delete global.Memory
-      global.Memory = lastMemory;
-      (RawMemory as any)._parsed = lastMemory
-    } else {
-      Memory;
-      lastMemory = (RawMemory as any)._parsed
-    }
-    lastMemoryTick = Game.time
-    end();
-
     // Remove old messages from broker
     if (Game.time % 25 === 0) {
       this.broker.removeConsumed();
@@ -152,6 +134,10 @@ export class AI {
     }
 
     trace.end();
+  }
+
+  getScheduler(): Scheduler {
+    return this.scheduler;
   }
 
   getKingdom(): Kingdom {

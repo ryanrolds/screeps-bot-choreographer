@@ -110,10 +110,9 @@ export default class ControllerRunnable {
       return sleeping(RUN_TTL);
     }
 
-
-    this.threadProduceEvents(trace, kingdom, controller);
     this.threadCalculateNode(trace, kingdom);
     this.threadBuildStructures(trace, controller.room);
+    this.threadProduceEvents(trace, kingdom, controller);
 
     return sleeping(RUN_TTL);
   }
@@ -191,6 +190,7 @@ export default class ControllerRunnable {
     }
 
     const layout = padLayout[this.nodeDirection];
+    const terrain = room.getTerrain();
 
     // const roomVisual = new RoomVisual(room.name);
     for (let y = 0; y < layout.buildings.length; y++) {
@@ -206,6 +206,10 @@ export default class ControllerRunnable {
           continue;
         }
 
+        if (terrain.get(x, y) === TERRAIN_MASK_WALL) {
+          continue;
+        }
+
         const pos = getConstructionPosition({x, y}, this.nodePosition, layout);
         const structure = pos.lookFor(LOOK_STRUCTURES)[0];
         if (structure) {
@@ -213,8 +217,7 @@ export default class ControllerRunnable {
 
           if (structure.structureType !== buildingCodes[code]) {
             trace.warn('wrong site, remove', {existing: structure.structureType, expected: buildingCodes[code]});
-            // TEMP DISABLED
-            // structure.destroy();
+            structure.destroy();
           }
 
           continue;
@@ -224,8 +227,7 @@ export default class ControllerRunnable {
         if (site) {
           if (site.structureType !== buildingCodes[code]) {
             trace.warn('wrong site, remove', {existing: site.structureType, expected: buildingCodes[code]});
-            // TEMP DISABLED
-            // site.remove();
+            site.remove();
           }
 
           continue;
@@ -239,11 +241,10 @@ export default class ControllerRunnable {
         // roomVisual.text(code, pos.x, pos.y);
 
         trace.notice('building structure', {pos, structureType});
-        // TEMP DISABLED
-        //const result = room.createConstructionSite(pos, structureType);
-        //if (result !== OK && result !== ERR_FULL) {
-        //  trace.error('failed to build structure', {structureType, pos, result});
-        //}
+        const result = room.createConstructionSite(pos, structureType);
+        if (result !== OK && result !== ERR_FULL) {
+          trace.error('failed to build structure', {structureType, pos, result});
+        }
       }
     }
   }

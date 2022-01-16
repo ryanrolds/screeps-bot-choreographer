@@ -26,7 +26,8 @@ export const MEMORY_DROPOFF = 'transfer';
 export const MEMORY_CLAIM = 'claim';
 export const MEMORY_RESERVE = 'reserve';
 export const MEMORY_FLAG = 'flag';
-export const MEMORY_COLONY = 'colony';
+export const MEMORY_COLONY = 'colony'; // deprecated use MEMORY_BASE
+export const MEMORY_BASE = 'base';
 export const MEMORY_START_TICK = 'start_tick';
 export const MEMORY_COMMUTE_DURATION = 'commute_duration';
 

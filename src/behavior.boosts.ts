@@ -33,8 +33,9 @@ export const behaviorBoosts = (behaviorNode) => {
 
           const room = kingdom.getCreepRoom(creep);
           if (!room) {
-            trace.log('no room on creep');
-            return SUCCESS;
+            trace.error('no room on creep', {name: creep.name, memory: creep.memory});
+            creep.suicide();
+            return behaviorTree.FAILURE;
           }
 
           const boosterPos = room.getBoosterPosition();

@@ -55,20 +55,25 @@ export class CentralPlanning {
     // Setup known bases
     Object.values(bases).forEach((base) => {
       trace.notice('setting up base', {base});
-      this.addBaseConfig(base.id, base.isPublic, base.origin, base.parking,
+
+      const origin = new RoomPosition(base.origin.x, base.origin.y, base.origin.roomName);
+      const parking = new RoomPosition(base.parking.x, base.parking.y, base.parking.roomName);
+
+      this.addBaseConfig(base.id, base.isPublic, origin, parking,
         base.automated, base.rooms, base.walls || [], trace);
     });
 
     // Check for spawns without bases
     Object.values(Game.spawns).forEach((spawn) => {
+      const shard = Game.shard.name;
       const roomName = spawn.room.name;
       const origin = new RoomPosition(spawn.pos.x, spawn.pos.y + 4, spawn.pos.roomName);
       trace.notice('checking spawn', {roomName, origin});
       const parking = new RoomPosition(origin.x + 5, origin.y, origin.roomName);
+      const automated = !shard.startsWith('shard') && shard !== 'shardSeason';
       if (!this.baseConfigs[roomName]) {
         trace.warn('found unknown base', {roomName});
-        // TEMP DISABLE
-        // this.addBaseConfig(roomName, false, origin, parking, false, [], [], trace);
+        this.addBaseConfig(roomName, false, origin, parking, automated, [], [], trace);
       }
     });
 
@@ -240,13 +245,15 @@ export class CentralPlanning {
     // If any defined colonies don't exist, run it
     const bases = kingdom.getPlanner().getBaseConfigs();
     bases.forEach((base) => {
-      const colonyProcessId = `base_${base.id}`;
-      const hasProcess = this.scheduler.hasProcess(colonyProcessId);
+      const baseProcessId = `base_${base.id}`;
+      const hasProcess = this.scheduler.hasProcess(baseProcessId);
       if (hasProcess) {
         return;
       }
 
-      this.scheduler.registerProcess(new Process(colonyProcessId, 'base', Priorities.CRITICAL,
+      trace.warn('starting base process');
+
+      this.scheduler.registerProcess(new Process(baseProcessId, 'base', Priorities.CRITICAL,
         new BaseRunnable(base.id, this.scheduler)));
     });
   }

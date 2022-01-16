@@ -16,7 +16,7 @@ import {PersistentMemory} from "./os.memory";
 import {running, terminate} from "./os.process";
 import {Runnable, RunnableResult} from "./os.runnable";
 import {thread, ThreadFunc} from "./os.thread";
-import {getHudStream, HudLine, HudStreamEventSet} from './runnable.debug_hud';
+import {getLinesStream, HudLine, HudEventSet} from './runnable.debug_hud';
 import {getLogisticsTopic, LogisticsEventData, LogisticsEventType} from "./runnable.base_logistics";
 import {getNearbyPositions} from './lib.position';
 
@@ -173,8 +173,8 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       order: 4,
     };
 
-    kingdom.getBroker().getStream(getHudStream()).publish(new Event(this.id, Game.time,
-      HudStreamEventSet, hudLine));
+    kingdom.getBroker().getStream(getLinesStream()).publish(new Event(this.id, Game.time,
+      HudEventSet, hudLine));
   }
 
   populatePositions(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig, source: Source | Mineral) {
@@ -508,9 +508,8 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     }
 
     trace.log('build container', {id: this.sourceId});
-    // TEMP DISABLE
-    //const result = this.creepPosition.createConstructionSite(STRUCTURE_CONTAINER);
-    //trace.log('container created', {result});
+    const result = this.creepPosition.createConstructionSite(STRUCTURE_CONTAINER);
+    trace.log('container created', {result});
   }
 
   buildLink(trace: Tracer, room: Room, source: Source | Mineral) {
@@ -565,9 +564,8 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     }
 
     trace.log('build link', {id: this.sourceId});
-    // TEMP DISABLE
-    // const result = this.linkPosition.createConstructionSite(STRUCTURE_LINK);
-    // trace.notice('link created', {result});
+    const result = this.linkPosition.createConstructionSite(STRUCTURE_LINK);
+    trace.notice('link created', {result});
   }
 
   buildExtractor(trace: Tracer, room: Room, source: Source | Mineral) {
@@ -592,8 +590,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
 
       if (!site) {
         trace.log('building extractor', {id: this.sourceId});
-        // TEMP DISABLE
-        // room.createConstructionSite(source.pos, STRUCTURE_EXTRACTOR);
+        room.createConstructionSite(source.pos, STRUCTURE_EXTRACTOR);
       }
     }
   }

@@ -12,7 +12,7 @@ import {Process, sleeping, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 import {Priorities, Scheduler} from "./os.scheduler";
 import {thread, ThreadFunc} from './os.thread';
-import {getHudStream, HudLine, HudStreamEventSet} from './runnable.debug_hud';
+import {getLinesStream, HudLine, HudEventSet} from './runnable.debug_hud';
 import SourceRunnable from "./runnable.base_room_source";
 
 const MIN_RESERVATION_TICKS = 4000;
@@ -270,7 +270,7 @@ export default class RoomRunnable {
       text: `Room: ${orgRoom.id} - status: ${orgRoom.getAlertLevel()}, level: ${orgRoom.getRoomLevel()}`,
       time: Game.time,
     };
-    const event = new Event(orgRoom.id, Game.time, HudStreamEventSet, line);
-    orgRoom.getKingdom().getBroker().getStream(getHudStream()).publish(event);
+    const event = new Event(orgRoom.id, Game.time, HudEventSet, line);
+    orgRoom.getKingdom().getBroker().getStream(getLinesStream()).publish(event);
   }
 }

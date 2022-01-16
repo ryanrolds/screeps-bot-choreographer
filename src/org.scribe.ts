@@ -155,7 +155,8 @@ export class Scribe extends OrgBase {
   }
 
   getShardList(): string[] {
-    if (Game.shard.name.startsWith('shard')) {
+    const name = Game.shard.name;
+    if (name.startsWith('shard') && name !== 'shardSeason') {
       return ['shard3', 'shard2', 'shard1', 'shard0'];
     }
 

@@ -7,6 +7,9 @@ import {RunnableResult} from "./os.runnable";
 import {thread, ThreadFunc} from "./os.thread";
 
 const CONSUME_EVENTS_TTL = 20;
+const DASHBOARD_EVENTS_TTL = 20;
+
+const RADIUS = 3;
 
 export type HudLine = {
   key: string;
@@ -18,34 +21,82 @@ export type HudLine = {
 
 type HudLines = Record<string, HudLine>;
 
-export function getHudStream(): string {
-  return `hud`;
+export function getLinesStream(): string {
+  return `hud_lines`;
 }
 
-export const HudStreamEventSet = 'set'
+
+export enum HudIndicatorStatus {
+  Green = "green",
+  Yellow = "yellow",
+  Red = "red",
+  Stale = "stale"
+}
+
+export type HudIndicator = {
+  key: string;
+  room: string;
+  display: string;
+  status: HudIndicatorStatus;
+}
+
+export function getDashboardStream(): string {
+  return `hud_dashboard`;
+}
+
+export const HudEventSet = 'set'
+
+export class Dashboard {
+  key: string;
+  indicators: Record<string, HudIndicator>;
+
+  constructor(key: string) {
+    this.key = key;
+    this.indicators = {};
+  }
+
+  setIndicator(indicator: HudIndicator) {
+    this.indicators[indicator.key] = indicator;
+  }
+
+  getIndicators(): Record<string, HudIndicator> {
+    return this.indicators;
+  }
+}
 
 export class HUDRunnable {
-  private id: string;
+  private dashboards: Record<string, Dashboard> = {};
   private lines: HudLines = {};
 
-  private hudLinesConsumer: Consumer;
-  private threadConsumeEvents: ThreadFunc;
+  private dashboardConsumer: Consumer;
+  private threadDashboardEvents: ThreadFunc;
 
-  constructor(id: string) {
-    this.id = id;
+  private hudLinesConsumer: Consumer;
+  private threadLinesEvents: ThreadFunc;
+
+  constructor() {
+    this.dashboardConsumer = null;
+    this.threadDashboardEvents = thread('dashboard_events', DASHBOARD_EVENTS_TTL)(this.consumeDashboardEvents.bind(this));
 
     this.hudLinesConsumer = null;
-    this.threadConsumeEvents = thread('consume_events', CONSUME_EVENTS_TTL)(this.consumeEvents.bind(this));
+    this.threadLinesEvents = thread('consume_events', CONSUME_EVENTS_TTL)(this.consumeLinesEvents.bind(this));
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    if (this.hudLinesConsumer === null) {
-      const streamId = getHudStream();
-      const consumer = kingdom.getBroker().getStream(streamId).addConsumer('hud');
+    if (!this.hudLinesConsumer) {
+      const linesStreamId = getLinesStream();
+      const consumer = kingdom.getBroker().getStream(linesStreamId).addConsumer('hud');
       this.hudLinesConsumer = consumer;
     }
 
-    this.threadConsumeEvents(trace);
+    if (!this.dashboardConsumer) {
+      const dashboardStreamId = getDashboardStream();
+      const consumer = kingdom.getBroker().getStream(dashboardStreamId).addConsumer('hud');
+      this.dashboardConsumer = consumer;
+    }
+
+    this.threadLinesEvents(trace);
+    this.threadDashboardEvents(trace);
 
     _.forEach(_.groupBy(this.lines, 'room'), (lines, room) => {
       let lineNum = 0;
@@ -57,13 +108,50 @@ export class HUDRunnable {
       });
     });
 
+    trace.log('dashboards', this.dashboards);
+
+    _.forEach(this.dashboards, (dashboard) => {
+      const indicators = dashboard.getIndicators();
+      trace.log('indicators', indicators);
+
+      let indicatorNum = 0;
+      _.forEach(indicators, (indicator) => {
+        let fill = '#00ff00';
+        if (indicator.status === HudIndicatorStatus.Red) {
+          fill = '#ff0000';
+        } else if (indicator.status === HudIndicatorStatus.Yellow) {
+          fill = '#ffff00';
+        }
+
+        const position = new RoomPosition(1 + RADIUS + (2 * RADIUS * indicatorNum) + indicatorNum, 4, indicator.room);
+        Game.map.visual.circle(position, {radius: RADIUS, fill});
+
+        indicatorNum++;
+      });
+    });
+
     return running();
   }
 
-  consumeEvents(trace: Tracer) {
+  consumeLinesEvents(trace: Tracer) {
     this.hudLinesConsumer.getEvents().forEach((event) => {
       const line: HudLine = event.data;
       this.lines[line.key] = line;
+    });
+  }
+
+  consumeDashboardEvents(trace: Tracer) {
+    this.dashboardConsumer.getEvents().forEach((event) => {
+      trace.log('event', {event});
+
+      const indicator: HudIndicator = event.data;
+
+      const room = indicator.room;
+      if (!this.dashboards[room]) {
+        this.dashboards[room] = new Dashboard(room);
+      }
+
+      this.dashboards[room].setIndicator(indicator);
     });
   }
 }

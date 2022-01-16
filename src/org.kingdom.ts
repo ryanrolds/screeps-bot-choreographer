@@ -5,15 +5,12 @@ import {Scribe} from './org.scribe';
 import {Topics} from './lib.topics';
 import {PathCache} from './lib.path_cache';
 import {thread, ThreadFunc} from './os.thread';
-import helpersCreeps from './helpers.creeps';
 import * as MEMORY from './constants.memory';
-import * as featureFlags from './lib.feature_flags';
 import {BaseConfig, KingdomConfig, ShardConfig} from './config';
 import {Scheduler} from './os.scheduler';
 import {Tracer} from './lib.tracing';
 import OrgRoom from './org.room';
 import WarManager from './runnable.manager.war';
-import {WORKER_HAULER} from './constants.creeps';
 import {CostMatrixCache} from './lib.costmatrix_cache';
 import {getPath} from './lib.pathing';
 import {EventBroker} from './lib.event_broker';
@@ -255,12 +252,10 @@ export class Kingdom extends OrgBase {
       return null;
     }
 
-
     const assignedRoomId = creep.memory[MEMORY.MEMORY_ASSIGN_ROOM];
     if (!assignedRoomId) {
       return colony.getPrimaryRoom();
     }
-
 
     const room = colony.getRoomByID(assignedRoomId);
     if (!room) {

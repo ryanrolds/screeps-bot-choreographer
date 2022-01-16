@@ -45,6 +45,7 @@ export default class LinkManager {
     this.haulTTL = 0;
     this.prevTime = Game.time;
 
+    // TODO move these to a thread
     if (roomObject.storage) {
       this.storageLink = roomObject.storage.pos.findInRange<StructureLink>(FIND_STRUCTURES, 3, {
         filter: (structure) => {
@@ -103,7 +104,8 @@ export default class LinkManager {
     if (!this.storageId || !storageLink) {
       trace.log("exiting due to missing storage or storage link", {});
       trace.end();
-      return terminate();
+
+      return sleeping(PROCESS_TTL + 1);
     }
 
     // If our link Ids are old we should terminate
@@ -136,6 +138,7 @@ export default class LinkManager {
       const link = Game.getObjectById<StructureLink>(linkId);
       if (!link) {
         trace.log("should terminate due to missing sink link", {linkId});
+        shouldTerminate = true;
         return null;
       }
 

@@ -14,13 +14,15 @@ module.exports = (behaviorNode) => {
             (creep, trace, kingdom) => {
               const colony = kingdom.getCreepColony(creep);
               if (!colony) {
-                trace.log('could not find creep colony');
-                return SUCCESS;
+                trace.error('could not find creep colony', {name: creep.name, memory: creep.memory});
+                creep.suicide();
+                return FAILURE;
               }
 
               const room = kingdom.getCreepAssignedRoom(creep);
               if (!room) {
-                trace.log('could not find creep assigned room');
+                trace.error('could not find creep assigned room');
+                creep.suicide();
                 return SUCCESS;
               }
 

@@ -65,6 +65,11 @@ const behavior = behaviorTree.sequenceNode(
           }
 
           const orgRoom = kingdom.getCreepRoom(creep);
+          if (!orgRoom) {
+            trace.error('no org room', creep.memory);
+            creep.suicide();
+            return FAILURE;
+          }
 
           const room = creep.room;
           if (!room) {

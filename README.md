@@ -113,13 +113,12 @@ There are a couple of helpful global variables:
 
 > TODO all these global variables should be replaced with a at runtime configurable process accessible through AI
 
+* `METRIC_REPORT=true` - Will output aggregated tracing metric data to the console
+* `METRIC_CONSOLE=true` - Will output tracing metric data to the console
 * `METRIC_FILTER=<prefix>` - Will cause Tracer to report metrics for metrics that start with `<prefix>`
 * `METRIC_MIN=<min ms>` - (default 0.5ms) Will cause Tracer to report metrics that are greater than `<min ms>`
-* `LOG_WHEN_ID='<prefix>'` - Logs with tracers matching the prefix will be output to the console
+* `LOG_WHEN_PID='<prefix>'` - Logs with tracers matching the prefix will be output to the console
 * `RESET_PIDS=true` - Will reset the PID controllers - useful when PID controllers are spawning too many haulers
-* `TRACING_ACTIVE=true` - Will output tracing metric data to the console
-* `TRACING_FILTER=<prefix>` - only print traces with a key that stats with the prefix
-
 ### Creeps
 
 * Attacker - Rally at Attack Flag and attack hostiles in room

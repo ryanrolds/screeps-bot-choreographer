@@ -43,7 +43,7 @@ const HOSTILE_PRESENCE_TTL = 200;
 
 const RESERVE_RESOURCES_TTL = 5;
 
-enum RoomAlertLevel {
+export enum RoomAlertLevel {
   GREEN = "green",
   YELLOW = "yellow",
   RED = "red",

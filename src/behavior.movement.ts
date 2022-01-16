@@ -261,7 +261,7 @@ const cachedMoveToPosition = (kingdom: Kingdom, creep: Creep, destination: RoomP
       return FAILURE;
     }
 
-    if ((global as any).LOG_WHEN_ID === creep.name) {
+    if ((global as any).LOG_WHEN_PID === creep.name) {
       visualizePath(pathfinderResult.path, trace)
     }
 

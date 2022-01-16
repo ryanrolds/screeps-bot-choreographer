@@ -40,7 +40,7 @@ export const pickExpansion = (kingdom: Kingdom, trace: Tracer): ExpandResults =>
   let nextPass: string[] = Object.keys(claimed);
   seen = _.clone(claimed);
 
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 3; i++) {
     const found = [];
 
     nextPass.forEach((parentRoom) => {

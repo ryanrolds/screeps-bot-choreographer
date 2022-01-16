@@ -99,13 +99,17 @@ export function desiredRemotes(colony: Colony, level: number): number {
       desiredRemotes = 0;
       break;
     case 2:
+      desiredRemotes = 5;
+      break;
     case 3:
+      desiredRemotes = 4;
+      break;
     case 4:
       desiredRemotes = 4;
       break;
     case 5:
-      // Tried 4 and at level 5 it was choking - Jan 2022
-      desiredRemotes = 3;
+      // Tried 4 & 3 and at level 5 it was choking - Jan 2022
+      desiredRemotes = 2;
       break;
     case 6:
       // Tried 2 and 3, it was choking - Jan 2022

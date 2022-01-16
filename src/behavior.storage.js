@@ -121,6 +121,8 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.select
 
         const colony = kingdom.getCreepColony(creep);
         if (!colony) {
+          trace.error('could not find creep colony', {name: creep.name, memory: creep.memory});
+          creep.suicide();
           return FAILURE;
         }
 
@@ -159,6 +161,8 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.select
 
         const colony = kingdom.getCreepColony(creep);
         if (!colony) {
+          trace.error('could not find creep colony', {name: creep.name, memory: creep.memory});
+          creep.suicide();
           return FAILURE;
         }
 
@@ -190,6 +194,8 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.select
       (creep, trace, kingdom) => {
         const colony = kingdom.getCreepColony(creep);
         if (!colony) {
+          trace.error('could not find creep colony', {name: creep.name, memory: creep.memory});
+          creep.suicide();
           return FAILURE;
         }
 

@@ -12,13 +12,9 @@ import {thread, ThreadFunc} from "./os.thread";
 const SHARD_MEMORY_TTL = 50;
 
 export default class KingdomGovernor {
-  id: string;
-
   threadUpdateShardMemory: ThreadFunc;
 
-  constructor(id: string) {
-    this.id = id;
-
+  constructor() {
     this.threadUpdateShardMemory = thread('update_shard_memory', SHARD_MEMORY_TTL)(this.updateShardMemory.bind(this));
   }
 
@@ -104,6 +100,7 @@ export default class KingdomGovernor {
     if (kingdom.getColonies().length && !claimedRooms.length) {
       const request = {
         colony: kingdom.getColonies()[0].id,
+        base: kingdom.getColonies()[0].id,
         shard: Game.shard.name,
         room: kingdom.getColonies()[0].primaryRoomId,
         ttl: Game.time,
@@ -149,6 +146,7 @@ export default class KingdomGovernor {
           [MEMORY.MEMORY_ASSIGN_SHARD]: request.shard,
           [MEMORY.MEMORY_ASSIGN_ROOM]: request.room,
           [MEMORY.MEMORY_COLONY]: request.colony,
+          [MEMORY.MEMORY_BASE]: request.colony,
         },
       }, SHARD_MEMORY_TTL);
 
@@ -185,6 +183,7 @@ export default class KingdomGovernor {
     if (!Object.values(Game.spawns).length && claimedRooms.length) {
       const request = {
         colony: kingdom.getColonies()[0].id,
+        base: kingdom.getColonies()[0].id,
         shard: Game.shard.name,
         room: kingdom.getColonies()[0].primaryRoomId,
         ttl: Game.time,
@@ -230,6 +229,7 @@ export default class KingdomGovernor {
           [MEMORY.MEMORY_ASSIGN_SHARD]: request.shard,
           [MEMORY.MEMORY_ASSIGN_ROOM]: request.room,
           [MEMORY.MEMORY_COLONY]: request.colony,
+          [MEMORY.MEMORY_BASE]: request.colony,
         },
       }, SHARD_MEMORY_TTL);
 

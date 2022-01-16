@@ -12,6 +12,12 @@ module.exports.getHaulTaskFromTopic = function(topic) {
       const colonyId = creep.memory[MEMORY.MEMORY_COLONY];
       const colony = kingdom.getColonyById(colonyId);
 
+      if (!colony) {
+        trace.log('could not find colony', {name: creep.name, memory: creep.memory});
+        creep.suicide();
+        return FAILURE;
+      }
+
       // get next haul task
       const task = colony.getNextRequest(topic);
       if (!task) {
@@ -33,6 +39,12 @@ module.exports.getNearbyHaulTaskFromTopic = function(topic) {
       // lookup colony from kingdom
       const colonyId = creep.memory[MEMORY.MEMORY_COLONY];
       const colony = kingdom.getColonyById(colonyId);
+
+      if (!colony) {
+        trace.log('could not find colony', {name: creep.name, memory: creep.memory});
+        creep.suicide();
+        return FAILURE;
+      }
 
       // get next haul task
       const task = colony.getTopics().getMessageOfMyChoice(topic, (messages) => {
