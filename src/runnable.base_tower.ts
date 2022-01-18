@@ -126,6 +126,7 @@ export default class TowerRunnable {
 
     // If low on CPU bucket, stop repairing
     if (Game.cpu.bucket < 1000) {
+      trace.log('skipping repairs low bucket', {bucket: Game.cpu.bucket});
       trace.end();
       return running();
     }
@@ -154,8 +155,8 @@ export default class TowerRunnable {
     }
 
     // Do not repair secondary structures or roads if room is low on energy
-    const minRepairEnergy = room.storage ? 10000 : 2000;
-    if (this.orgRoom.getAmountInReserve(RESOURCE_ENERGY) < minRepairEnergy) {
+    if (room.storage && this.orgRoom.getAmountInReserve(RESOURCE_ENERGY) < 10000) {
+      trace.log('skipping repairs low energy', {energy: this.orgRoom.getAmountInReserve(RESOURCE_ENERGY)});
       this.repairTarget = null;
       this.repairTTL = 0;
       trace.end();

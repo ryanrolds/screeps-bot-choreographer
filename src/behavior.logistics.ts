@@ -9,7 +9,7 @@ export const roadWorker = (behaviorNode) => {
       behaviorTree.leafNode(
         'build_and_repair_road',
         (creep, trace, kingdom) => {
-          if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
+          if (creep.store.getUsedCapacity(RESOURCE_ENERGY) <= 100) {
             return SUCCESS;
           }
 

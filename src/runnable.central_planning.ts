@@ -70,7 +70,7 @@ export class CentralPlanning {
       const origin = new RoomPosition(spawn.pos.x, spawn.pos.y + 4, spawn.pos.roomName);
       trace.notice('checking spawn', {roomName, origin});
       const parking = new RoomPosition(origin.x + 5, origin.y, origin.roomName);
-      const automated = !shard.startsWith('shard') && shard !== 'shardSeason';
+      const automated = !shard.startsWith('shard') || shard === 'shardSeason';
       if (!this.baseConfigs[roomName]) {
         trace.warn('found unknown base', {roomName});
         this.addBaseConfig(roomName, false, origin, parking, automated, [], [], trace);
@@ -265,19 +265,23 @@ export class CentralPlanning {
       const kingdom = details.kingdom;
       const trace = details.trace;
 
+      trace.log('remote mining', {bases});
+
       if (!bases.length) {
+        trace.log('updating bases')
         bases = this.getBaseConfigs()
       }
 
-      const colony = bases.shift();
-      if (colony) {
-        this.remoteMining(kingdom, colony, trace);
+      const base = bases.shift();
+      trace.log('getting next base', {base});
+      if (base) {
+        this.remoteMining(kingdom, base, trace);
       }
     }
   }
 
   private remoteMining(kingdom: Kingdom, baseConfig: BaseConfig, trace: Tracer) {
-    trace.log('remote mining', {colonyId: baseConfig.id});
+    trace.log('remote mining', {baseConfig});
 
     if (!baseConfig.automated) {
       trace.log('not automated', {baseConfig});
@@ -298,6 +302,8 @@ export class CentralPlanning {
 
     const level = room?.controller?.level || 0;
     let numDesired = desiredRemotes(colony, level);
+
+    trace.log('current rooms', {current: baseConfig.rooms.length - 1, numDesired});
 
     while (baseConfig.rooms.length - 1 > numDesired) {
       trace.notice('more rooms than desired, removing room', {baseConfig});

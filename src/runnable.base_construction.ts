@@ -35,37 +35,37 @@ export const baseLayouts: BaseLayout[] = [
     origin: {x: 2, y: 5},
     parking: {x: 3, y: 3},
     buildings: [
-      ['.', '.', 'R', 'E', '.'],
-      ['E', 'R', 'P', 'R', 'E'],
-      ['E', 'R', 'C', 'R', 'E'],
-      ['X', 'R', 'C', 'R', 'X'],
-      ['R', 'X', 'R', 'X', 'R'],
-      ['.', 'R', 'X', 'R', '.'],
       ['.', '.', 'R', '.', '.'],
+      ['.', 'R', 'P', 'R', '.'],
+      ['.', 'R', '.', 'R', '.'],
+      ['.', 'R', '.', 'R', '.'],
+      ['.', 'X', 'R', 'E', '.'],
+      ['.', 'R', 'X', 'R', '.'],
+      ['.', 'E', 'R', 'E', '.'],
     ]
   },
   { // RCL3
     origin: {x: 2, y: 5},
     parking: {x: 3, y: 3},
     buildings: [
-      ['.', 'E', 'R', 'E', '.'],
-      ['E', 'R', 'P', 'R', 'E'],
-      ['E', 'R', 'C', 'R', 'E'],
-      ['E', 'R', 'C', 'R', 'E'],
-      ['R', 'T', 'R', 'E', 'R'],
+      ['.', '.', 'R', '.', '.'],
+      ['.', 'R', 'P', 'R', '.'],
+      ['.', 'R', 'E', 'R', '.'],
+      ['.', 'R', 'E', 'R', '.'],
+      ['.', 'T', 'R', 'E', '.'],
       ['.', 'R', 'X', 'R', '.'],
-      ['.', 'E', 'R', 'X', '.'],
+      ['.', 'E', 'R', 'E', '.'],
     ]
   },
   { // RCL4
     origin: {x: 3, y: 6},
     parking: {x: 3, y: 3},
     buildings: [
-      ['.', 'E', 'R', 'E', 'R', 'E', '.'],
+      ['.', '.', 'R', 'E', 'R', '.', '.'],
       ['.', 'R', 'E', 'R', 'E', 'R', '.'],
       ['.', 'E', 'R', 'P', 'R', 'E', '.'],
-      ['.', 'E', 'R', 'C', 'R', 'E', '.'],
-      ['.', 'X', 'R', 'C', 'R', 'E', '.'],
+      ['.', 'E', 'R', 'E', 'R', 'E', '.'],
+      ['.', 'X', 'R', 'E', 'R', 'E', '.'],
       ['.', 'R', 'T', 'R', 'E', 'R', '.'],
       ['.', 'X', 'R', 'S', 'R', 'X', '.'],
       ['.', 'R', 'E', 'R', 'E', 'R', '.'],
@@ -73,7 +73,7 @@ export const baseLayouts: BaseLayout[] = [
       ['.', 'E', 'R', 'E', 'R', 'R', '.'],
       ['.', 'E', 'R', 'X', 'R', 'R', '.'],
       ['.', 'R', 'E', 'R', 'E', 'R', '.'],
-      ['.', 'E', 'R', 'E', 'R', '.', '.'],
+      ['.', '.', 'R', 'E', 'R', '.', '.'],
     ]
   },
   { // RCL5
@@ -222,7 +222,7 @@ export default class BaseConstructionRunnable {
       trace.log('no unfinished layout', {roomLevel});
     }
 
-    if (roomLevel > 3 && this.orgRoom.hasStorage) {
+    if (roomLevel >= 3) {
       this.buildWalls(kingdom, room, baseConfig, trace);
     }
 

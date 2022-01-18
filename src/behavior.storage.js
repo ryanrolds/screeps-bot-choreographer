@@ -152,6 +152,30 @@ const selectRoomDropoff = module.exports.selectRoomDropoff = behaviorTree.select
       },
     ),
     behaviorTree.leafNode(
+      'pick_tower',
+      (creep, trace, kingdom) => {
+        const role = creep.memory[MEMORY_ROLE];
+        if (role && role === WORKER_DISTRIBUTOR) {
+          return FAILURE;
+        }
+
+        const targets = creep.room.find(FIND_STRUCTURES, {
+          filter: (structure) => {
+            return structure.structureType == STRUCTURE_TOWER &&
+              structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0 &&
+              structure.isActive();
+          },
+        });
+
+        if (!targets || !targets.length) {
+          return FAILURE;
+        }
+
+        behaviorMovement.setDestination(creep, targets[0].id);
+        return SUCCESS;
+      },
+    ),
+    behaviorTree.leafNode(
       'pick_container',
       (creep, trace, kingdom) => {
         const role = creep.memory[MEMORY_ROLE];

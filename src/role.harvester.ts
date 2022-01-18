@@ -58,24 +58,30 @@ const behavior = behaviorTree.sequenceNode(
           ],
         ),
         behaviorTree.sequenceNode(
-          'build_construction_site',
-          [
-            selectSite,
-            behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 3, commonPolicy),
-            build,
-          ],
-        ),
-        behaviorTree.sequenceNode(
           'upgrade_controller',
           [
             behaviorTree.leafNode(
               'pick_room_controller',
-              (creep) => {
-                behaviorMovement.setDestination(creep, creep.room.controller.id);
+              (creep, trace, kingdom) => {
+                const baseConfig = kingdom.getCreepBaseConfig(creep);
+                if (!baseConfig) {
+                  return FAILURE;
+                }
+
+                const room = Game.rooms[baseConfig.primary];
+                if (!room) {
+                  return FAILURE;
+                }
+
+                if (!room.controller) {
+                  return FAILURE;
+                }
+
+                behaviorMovement.setDestination(creep, room.controller.id);
                 return behaviorTree.SUCCESS;
               },
             ),
-            behaviorMovement.moveToDestination(3, false, 25, 1000),
+            behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 3, commonPolicy),
             behaviorCommute.setCommuteDuration,
             behaviorTree.repeatUntilSuccess(
               'upgrade_until_empty',

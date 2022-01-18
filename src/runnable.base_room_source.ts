@@ -347,7 +347,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       }
     } else {
       // no storage, 3 harvesters
-      desiredNumWorkers = 3;
+      desiredNumWorkers = 6;
       //if (this.orgRoom.getRoomLevel() >= 3) {
       //  desiredNumWorkers = 1;
       //}
@@ -391,7 +391,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
         },
       }
 
-      trace.log('requesting worker', {roomId: room.name, sourceId: this.sourceId, details});
+      trace.log('requesting worker', {sourceId: this.sourceId, details});
 
       colony.getPrimaryRoom().requestSpawn(priority, details, REQUEST_WORKER_TTL, trace);
     }

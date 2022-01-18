@@ -537,6 +537,12 @@ export default class BaseRunnable {
       return;
     }
 
+    // Wait until we have more than one other base creep
+    if (orgRoom.getCreeps().length < 3) {
+      trace.notice('not enough creeps to request upgrader');
+      return;
+    }
+
     const numUpgraders = _.filter(orgRoom.getCreeps(), (creep) => {
       return creep.memory[MEMORY.MEMORY_ROLE] == CREEPS.WORKER_UPGRADER &&
         creepIsFresh(creep);

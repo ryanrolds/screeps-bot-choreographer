@@ -1,3 +1,4 @@
+import {trace} from "console";
 import {BaseConfig} from "./config";
 import {Tracer} from "./lib.tracing";
 import {Colony} from "./org.colony";
@@ -19,8 +20,8 @@ export const findNextRemoteRoom = (kingdom: Kingdom, baseConfig: BaseConfig, roo
   const scribe = kingdom.getScribe();
   adjacentRooms = _.filter(adjacentRooms, (roomName) => {
     // filter rooms already belonging to a colony
-    const baseConfig = kingdom.getPlanner().getBaseConfigByRoom(roomName);
-    if (baseConfig) {
+    const roomBaseConfig = kingdom.getPlanner().getBaseConfigByRoom(roomName);
+    if (roomBaseConfig && baseConfig.id !== roomBaseConfig.id) {
       trace.log('room already assigned to colony', {roomName});
       return false;
     }
@@ -41,6 +42,11 @@ export const findNextRemoteRoom = (kingdom: Kingdom, baseConfig: BaseConfig, roo
 
     if (!roomEntry.controller?.pos) {
       trace.log('has no controller pos', {roomName});
+      return false;
+    }
+
+    if (roomEntry.controller.owner) {
+      trace.log('has controller owner', {roomName});
       return false;
     }
 
@@ -84,10 +90,6 @@ export const findNextRemoteRoom = (kingdom: Kingdom, baseConfig: BaseConfig, roo
 
 export function desiredRemotes(colony: Colony, level: number): number {
   const room = colony.primaryRoom;
-  if (!room.storage) {
-    return 2;
-  }
-
   const spawns = room.find(FIND_STRUCTURES, {
     filter: s => s.structureType === STRUCTURE_SPAWN && s.isActive()
   });
@@ -96,13 +98,9 @@ export function desiredRemotes(colony: Colony, level: number): number {
   switch (level) {
     case 0:
     case 1:
-      desiredRemotes = 0;
-      break;
     case 2:
-      desiredRemotes = 5;
-      break;
     case 3:
-      desiredRemotes = 4;
+      desiredRemotes = 5;
       break;
     case 4:
       desiredRemotes = 4;
@@ -127,6 +125,10 @@ export function desiredRemotes(colony: Colony, level: number): number {
       break;
     default:
       throw new Error('unexpected controller level');
+  }
+
+  if (!room.storage) {
+    return desiredRemotes;
   }
 
   const energyReserve = colony.getReserveResources()[RESOURCE_ENERGY] || 0;
