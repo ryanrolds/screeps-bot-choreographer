@@ -49,6 +49,7 @@ export default class LogisticsRunnable extends PersistentMemory {
   private calculateLegIterator: Generator<any, void, {kingdom: Kingdom, trace: Tracer}>;
   private threadCalculateLeg: ThreadFunc;
   private threadBuildShortestLeg: ThreadFunc;
+  private threadEnsureWallPassage: ThreadFunc;
   private logisticsStreamConsumer: Consumer;
 
   constructor(colonyId: string) {
@@ -70,6 +71,8 @@ export default class LogisticsRunnable extends PersistentMemory {
 
     // From the calculated legs, select shortest to build and build it
     this.threadBuildShortestLeg = thread('select_leg', BUILD_SHORTEST_LEG_TTL)(this.buildShortestLeg.bind(this));
+    // Walls may be built that block access to sources, check and remove any walls along the path and replace with road
+    this.threadEnsureWallPassage = thread('ensure_wall_passage', BUILD_SHORTEST_LEG_TTL)(this.ensureWallPassage.bind(this));
 
     this.threadProduceEvents = thread('produce_events', PRODUCE_EVENTS_TTL)(this.produceEvents.bind(this));
   }
@@ -93,6 +96,7 @@ export default class LogisticsRunnable extends PersistentMemory {
     if (baseConfig.automated) {
       this.threadCalculateLeg(trace, kingdom);
       this.threadBuildShortestLeg(trace, baseConfig.primary);
+      this.threadEnsureWallPassage(trace);
     }
 
     this.threadProduceEvents(trace, kingdom, baseConfig);
@@ -167,8 +171,8 @@ export default class LogisticsRunnable extends PersistentMemory {
       const leg = legs.shift();
       if (leg) {
         const [path, remaining] = this.calculateLeg(kingdom, leg, trace);
-        leg.path = path;
-        leg.remaining = remaining;
+        leg.path = path || [];
+        leg.remaining = remaining || [];
       }
 
       if (!legs.length) {
@@ -190,7 +194,7 @@ export default class LogisticsRunnable extends PersistentMemory {
     }
 
     const [pathResult, details] = getPath(kingdom, baseConfig.origin, leg.destination, roadPolicy, trace);
-    trace.log('path found', {origin: baseConfig.origin, dest: leg.destination, pathResult});
+    trace.log('path result', {origin: baseConfig.origin, dest: leg.destination, pathResult});
 
     if (!pathResult) {
       trace.error('path not found', {origin: baseConfig.origin, dest: leg.destination});
@@ -218,11 +222,57 @@ export default class LogisticsRunnable extends PersistentMemory {
     return [pathResult.path, remaining];
   }
 
+  private ensureWallPassage(trace: Tracer) {
+    const legs: Leg[] = _.values(this.legs);
+
+    const unfinishedLegs: Leg[] = legs.filter((leg: Leg) => {
+      return leg.remaining.length > 0;
+    });
+
+    trace.log('unfinished legs', {unfinishedLegs});
+
+    unfinishedLegs.forEach((leg) => {
+      for (let i = 0; i < leg.path.length; i++) {
+        const pos = leg.path[i];
+
+        // Check if wall is present and remove
+        const wall = pos.lookFor(LOOK_STRUCTURES).find((s) => {
+          return s.structureType === STRUCTURE_WALL;
+        });
+        if (wall) {
+          trace.log('remove wall', {pos});
+          wall.destroy();
+        }
+
+        // Check if wall site is to be built and remove
+        const wallSite = pos.lookFor(LOOK_CONSTRUCTION_SITES).find((s) => {
+          return s.structureType === STRUCTURE_WALL;
+        });
+        if (wallSite) {
+          trace.log('remove wall site', {pos});
+          wallSite.remove();
+        }
+
+        // If there was a wall site or if we have not built too many road sites, build a road site
+        if (wall || wallSite) {
+          trace.log('build road site', {pos});
+          const result = pos.createConstructionSite(STRUCTURE_ROAD);
+          if (result !== OK) {
+            trace.error('failed to build road', {pos, result});
+            continue;
+          }
+        }
+      }
+    });
+  }
+
   private buildShortestLeg(trace: Tracer, primaryRoom: string) {
     if (this.passes < 1) {
       trace.log('calculate all legs at least once before building shortest leg', {passes: this.passes});
       return;
     }
+
+    trace.log('legs', {legs: this.legs});
 
     // Find shortest unfinished leg
     const legs: Leg[] = _.values(this.legs);
@@ -255,26 +305,23 @@ export default class LogisticsRunnable extends PersistentMemory {
 
     let roadSites = 0;
     for (let i = 0; i < leg.path.length; i++) {
-      if (roadSites > MAX_ROAD_SITES) {
-        trace.log('too many road sites', {roadSites});
-        return; // We have max sites, dont build any more
-      }
-
       const pos = leg.path[i];
 
+      // Do not build on edges
       if (pos.x === 0 || pos.x === 49 || pos.y === 0 || pos.y === 49) {
         trace.log('skip border site', {pos});
         continue;
       }
 
+      // Check if road is already present
       const road = pos.lookFor(LOOK_STRUCTURES).find((s) => {
         return s.structureType === STRUCTURE_ROAD;
       });
-
       if (road) {
         continue;
       }
 
+      // Check if road is already planned
       const roadSite = pos.lookFor(LOOK_CONSTRUCTION_SITES).find((s) => {
         return s.structureType === STRUCTURE_ROAD;
       });
@@ -283,15 +330,36 @@ export default class LogisticsRunnable extends PersistentMemory {
         continue;
       }
 
-      trace.log('build road site', {pos});
-      const result = pos.createConstructionSite(STRUCTURE_ROAD);
-      if (result !== OK) {
-        trace.error('failed to build road', {pos, result});
-        continue;
+      // Check if wall is present and remove
+      const wall = pos.lookFor(LOOK_STRUCTURES).find((s) => {
+        return s.structureType === STRUCTURE_WALL;
+      });
+      if (wall) {
+        trace.log('remove wall', {pos});
+        wall.destroy();
       }
 
-      trace.log('built road', {pos});
-      roadSites += 1;
+      // Check if wall site is to be built and remove
+      const wallSite = pos.lookFor(LOOK_CONSTRUCTION_SITES).find((s) => {
+        return s.structureType === STRUCTURE_WALL;
+      });
+      if (wallSite) {
+        trace.log('remove wall site', {pos});
+        wallSite.remove();
+      }
+
+      // If there was a wall site or if we have not built too many road sites, build a road site
+      if (wall || wallSite || roadSites <= MAX_ROAD_SITES) {
+        trace.log('build road site', {pos});
+        const result = pos.createConstructionSite(STRUCTURE_ROAD);
+        if (result !== OK) {
+          trace.error('failed to build road', {pos, result});
+          continue;
+        }
+
+        trace.log('built road', {pos});
+        roadSites += 1;
+      }
     }
   }
 }

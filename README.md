@@ -53,6 +53,7 @@ An AI for [Screeps](screeps.com).
 - [X] System for a Room and Map(beta) HUD
 - [ ] Harvest commodities & factory
 - [ ] Sieging of RCL>=7 rooms
+- [ ] Remote rooms (sources) should operate without vision
 - [ ] Quads moving coherently 100% of time
 - [ ] Replace references to 'colony' with 'base'
 - [ ] Buff ramparts and walls to withstand nuke
@@ -82,11 +83,19 @@ Create `.screeps.json` and provide credentials:
 ```
 {
   "email": "<email>",
-  "password": "<password>",
+  "token": "<token>",
   "branch": "default",
-  "ptr": false
+  "ptr": false,
+  "private": {
+    "username": "<usernam>",
+    "password": "<password>",
+    "branch": "default",
+    "ptr": false
+  }
 }
 ```
+
+> Token is gotten from the the account settings in the Screeps client. The private username and password for private servers > are set via the CLI tool.
 
 ## Running
 

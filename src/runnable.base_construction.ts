@@ -308,8 +308,12 @@ export default class BaseConstructionRunnable {
         return structure.structureType === STRUCTURE_ROAD;
       });
 
+      const roadSite = position.lookFor(LOOK_CONSTRUCTION_SITES).find(site => {
+        return site.structureType === STRUCTURE_ROAD;
+      });
+
       let expectedStructure: (STRUCTURE_WALL | STRUCTURE_RAMPART) = STRUCTURE_WALL;
-      if (road) {
+      if (road || roadSite) {
         expectedStructure = STRUCTURE_RAMPART;
       }
 
@@ -334,6 +338,11 @@ export default class BaseConstructionRunnable {
           foundSite = true;
         } else {
           sites.forEach(site => {
+            // dont remove road site
+            if (site.structureType === STRUCTURE_ROAD) {
+              return;
+            }
+
             trace.log('wrong site, remove', {existing: site.structureType, expected: expectedStructure});
             site.remove();
           });
