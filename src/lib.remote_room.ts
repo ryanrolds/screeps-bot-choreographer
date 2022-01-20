@@ -127,12 +127,12 @@ export function desiredRemotes(colony: Colony, level: number): number {
       throw new Error('unexpected controller level');
   }
 
-  if (!room.storage) {
-    return desiredRemotes;
-  }
+  // Disabled for now - Jan 2022
+  // if (!room.storage) {
+  return desiredRemotes;
+  // }
 
-  const energyReserve = colony.getReserveResources()[RESOURCE_ENERGY] || 0;
-  const energyRoomLimit = Math.floor(energyReserve / 50000);
-
-  return _.min([desiredRemotes, energyRoomLimit]);
+  // const energyReserve = colony.getReserveResources()[RESOURCE_ENERGY] || 0;
+  // const energyRoomLimit = Math.floor(energyReserve / 50000);
+  // return _.min([desiredRemotes, energyRoomLimit]);
 }

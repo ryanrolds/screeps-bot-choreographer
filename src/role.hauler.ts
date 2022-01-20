@@ -5,6 +5,7 @@ import behaviorHaul from "./behavior.haul";
 import {roadWorker} from "./behavior.logistics";
 import * as behaviorMovement from "./behavior.movement";
 import behaviorRoom from "./behavior.room";
+import {emptyCreep} from "./behavior.storage";
 import * as MEMORY from "./constants.memory";
 import * as TOPICS from "./constants.topics";
 import * as behaviorTree from "./lib.behaviortree";
@@ -71,7 +72,7 @@ const behavior = behaviorTree.sequenceNode(
 
               const resource = Object.keys(creep.store).pop();
               const result = creep.transfer(destination, resource as ResourceConstant);
-              trace.log('transfer result', {result});
+              trace.notice('transfer result', {result});
 
               if (result === ERR_FULL) {
                 return FAILURE;
@@ -85,7 +86,7 @@ const behavior = behaviorTree.sequenceNode(
                 return FAILURE;
               }
 
-              if (result != OK) {
+              if (result !== OK) {
                 return FAILURE;
               }
 

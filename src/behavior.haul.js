@@ -128,17 +128,23 @@ module.exports.loadCreep = behaviorTree.leafNode(
   'load_resource',
   (creep, trace, kingdom) => {
     if (creep.store.getFreeCapacity() === 0) {
+      trace.log('creep is full');
       return SUCCESS;
     }
 
     const pickup = Game.getObjectById(creep.memory[MEMORY.MEMORY_HAUL_PICKUP]);
     if (!pickup) {
-      return SUCCESS;
+      trace.error('could not find pickup', {id: creep.memory[MEMORY.MEMORY_HAUL_PICKUP]});
+      return FAILURE;
     }
 
     let result = null;
     if (pickup instanceof Resource) {
       result = creep.pickup(pickup);
+
+      trace.log('pickup resource', {
+        pickup: pickup.id,
+      });
     } else {
       const resource = creep.memory[MEMORY.MEMORY_HAUL_RESOURCE] || undefined;
       let amount = creep.memory[MEMORY.MEMORY_HAUL_AMOUNT] || undefined;
@@ -157,12 +163,13 @@ module.exports.loadCreep = behaviorTree.leafNode(
       }
 
       if (amount === 0) {
+        trace.error('zero amount', {resource, amount, creep, pickup});
         return FAILURE;
       }
 
       result = creep.withdraw(pickup, resource, amount);
 
-      trace.log('load resource', {
+      trace.log('withdraw resource', {
         pickup: pickup.id,
         resource,
         amount,
@@ -171,6 +178,7 @@ module.exports.loadCreep = behaviorTree.leafNode(
     }
 
     if (result === ERR_INVALID_ARGS) {
+      trace.error('invalid args', {resource, amount, pickup});
       return FAILURE;
     }
 
@@ -183,6 +191,7 @@ module.exports.loadCreep = behaviorTree.leafNode(
     }
 
     if (result !== OK) {
+      trace.error('could not load resource', {result, resource, amount, pickup});
       return FAILURE;
     }
 

@@ -35,6 +35,7 @@ type Leg = {
   path: RoomPosition[];
   remaining: RoomPosition[];
   requestedAt: number;
+  updatedAt: number;
 };
 
 export default class LogisticsRunnable extends PersistentMemory {
@@ -146,8 +147,9 @@ export default class LogisticsRunnable extends PersistentMemory {
         id,
         destination,
         path: null,
-        remaining: null,
+        remaining: [],
         requestedAt: time,
+        updatedAt: null,
       };
       this.legs[id] = leg;
     }
@@ -161,18 +163,27 @@ export default class LogisticsRunnable extends PersistentMemory {
       const trace = details.trace;
 
       if (!legs.length) {
+        trace.log('updating legs to calculate');
         legs = this.getLegsToCalculate(trace);
 
         if (!legs.length) {
+          trace.log('no legs to calculate');
           continue;
         }
       }
+
+      trace.log('lets to update', {
+        legs: legs.map((l) => {
+          return {id: l.id, updatedAt: l.updatedAt, remaining: l.remaining.length}
+        })
+      });
 
       const leg = legs.shift();
       if (leg) {
         const [path, remaining] = this.calculateLeg(kingdom, leg, trace);
         leg.path = path || [];
         leg.remaining = remaining || [];
+        leg.updatedAt = Game.time;
       }
 
       if (!legs.length) {
@@ -187,6 +198,8 @@ export default class LogisticsRunnable extends PersistentMemory {
   }
 
   private calculateLeg(kingdom: Kingdom, leg: Leg, trace: Tracer): [path: RoomPosition[], remaining: RoomPosition[]] {
+    trace.log('updating leg', {leg});
+
     const baseConfig = kingdom.getPlanner().getBaseConfigById(this.colonyId);
     if (!baseConfig) {
       trace.error('missing origin', {id: this.colonyId});
@@ -218,6 +231,8 @@ export default class LogisticsRunnable extends PersistentMemory {
 
       return true;
     });
+
+    trace.log('remaining', {leg});
 
     return [pathResult.path, remaining];
   }

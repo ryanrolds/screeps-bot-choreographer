@@ -87,7 +87,6 @@ export const createCommonCostMatrix = (roomName: string, trace: Tracer): CostMat
     // TODO figure out how to not use "any"
     const isObstacle = OBSTACLE_OBJECT_TYPES.indexOf(struct.structureType as any) > -1;
     if (isObstacle) {
-    } else if (OBSTACLE_OBJECT_TYPES.indexOf(struct.structureType as any) !== -1) {
       // Can't walk through non-walkable buildings
       costMatrix.set(struct.pos.x, struct.pos.y, 255);
     }
