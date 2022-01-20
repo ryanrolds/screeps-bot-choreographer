@@ -1,10 +1,10 @@
-const behaviorTree = require('./lib.behaviortree');
-const {FAILURE, SUCCESS} = require('./lib.behaviortree');
+import * as behaviorTree from './lib.behaviortree';
+import {FAILURE, SUCCESS, RUNNING} from './lib.behaviortree';
 
 const MEMORY = require('./constants.memory');
 const TASKS = require('./constants.tasks');
 
-module.exports.getHaulTaskFromTopic = function(topic) {
+export const getHaulTaskFromTopic = function (topic) {
   return behaviorTree.leafNode(
     'pick_haul_task',
     (creep, trace, kingdom) => {
@@ -32,7 +32,7 @@ module.exports.getHaulTaskFromTopic = function(topic) {
   );
 };
 
-module.exports.getNearbyHaulTaskFromTopic = function(topic) {
+export const getNearbyHaulTaskFromTopic = function (topic) {
   return behaviorTree.leafNode(
     'pick_nearby_haul_task',
     (creep, trace, kingdom) => {
@@ -58,7 +58,7 @@ module.exports.getNearbyHaulTaskFromTopic = function(topic) {
             return;
           }
 
-          const pickup = Game.getObjectById(pickupId);
+          const pickup = Game.getObjectById<Id<Structure>>(pickupId);
           if (!pickup) {
             trace.log('could not find object to pickup', {pickupId});
             return;
@@ -88,7 +88,7 @@ module.exports.getNearbyHaulTaskFromTopic = function(topic) {
   );
 };
 
-module.exports.storeHaulTask = (creep, task, trace) => {
+export const storeHaulTask = (creep, task, trace) => {
   trace.log('store haul task', {task});
 
   // set task details
@@ -110,7 +110,7 @@ module.exports.storeHaulTask = (creep, task, trace) => {
   // creep.say(taskId);
 };
 
-module.exports.clearTask = behaviorTree.leafNode(
+export const clearTask = behaviorTree.leafNode(
   'clear_haul_task',
   (creep, trace, kingdom) => {
     delete creep.memory[MEMORY.MEMORY_TASK_TYPE];
@@ -124,7 +124,7 @@ module.exports.clearTask = behaviorTree.leafNode(
   },
 );
 
-module.exports.loadCreep = behaviorTree.leafNode(
+export const loadCreep = behaviorTree.leafNode(
   'load_resource',
   (creep, trace, kingdom) => {
     if (creep.store.getFreeCapacity() === 0) {
@@ -132,29 +132,34 @@ module.exports.loadCreep = behaviorTree.leafNode(
       return SUCCESS;
     }
 
-    const pickup = Game.getObjectById(creep.memory[MEMORY.MEMORY_HAUL_PICKUP]);
+    const pickup: any = Game.getObjectById(creep.memory[MEMORY.MEMORY_HAUL_PICKUP]);
     if (!pickup) {
+      creep.say('⬆❌');
       trace.error('could not find pickup', {id: creep.memory[MEMORY.MEMORY_HAUL_PICKUP]});
       return FAILURE;
     }
 
+    const resource = creep.memory[MEMORY.MEMORY_HAUL_RESOURCE] || undefined;
+    let amount = creep.memory[MEMORY.MEMORY_HAUL_AMOUNT] || undefined;
+
     let result = null;
     if (pickup instanceof Resource) {
+      const resource: Resource = pickup;
+
       result = creep.pickup(pickup);
 
       trace.log('pickup resource', {
         pickup: pickup.id,
       });
     } else {
-      const resource = creep.memory[MEMORY.MEMORY_HAUL_RESOURCE] || undefined;
-      let amount = creep.memory[MEMORY.MEMORY_HAUL_AMOUNT] || undefined;
+      const structure: AnyStoreStructure = pickup;
 
       if (amount > creep.store.getFreeCapacity(resource)) {
         amount = creep.store.getFreeCapacity(resource);
       }
 
-      if (amount > pickup.store.getUsedCapacity(resource)) {
-        amount = pickup.store.getUsedCapacity(resource);
+      if (amount > structure.store.getUsedCapacity(resource)) {
+        amount = structure.store.getUsedCapacity(resource);
       }
 
       // If we are seeing a specific amount, we are done when we have that amount in the hold
@@ -167,14 +172,18 @@ module.exports.loadCreep = behaviorTree.leafNode(
         return FAILURE;
       }
 
-      result = creep.withdraw(pickup, resource, amount);
+      result = creep.withdraw(structure, resource, amount);
 
       trace.log('withdraw resource', {
-        pickup: pickup.id,
+        structure: structure.id,
         resource,
         amount,
         result,
       });
+    }
+
+    if (result !== OK) {
+      trace.error('could not load resource', {result, creep, pickup});
     }
 
     if (result === ERR_INVALID_ARGS) {
@@ -195,6 +204,6 @@ module.exports.loadCreep = behaviorTree.leafNode(
       return FAILURE;
     }
 
-    return SUCCESS;
+    return RUNNING;
   },
 );

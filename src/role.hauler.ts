@@ -1,7 +1,7 @@
 
 import {behaviorBoosts} from "./behavior.boosts";
 // import behaviorBuild from "./behavior.build";
-import behaviorHaul from "./behavior.haul";
+import * as behaviorHaul from "./behavior.haul";
 import {roadWorker} from "./behavior.logistics";
 import * as behaviorMovement from "./behavior.movement";
 import behaviorRoom from "./behavior.room";
@@ -39,6 +39,16 @@ const behavior = behaviorTree.sequenceNode(
           ],
         ),
         */
+        behaviorTree.leafNode(
+          'top',
+          (creep, trace, kingdom) => {
+            if (creep.store.getUsedCapacity(RESOURCE_ENERGY) !== 0) {
+              creep.say('🚚⁉️');
+              trace.notice('failed to get task', {name: creep.name});
+            }
+            return FAILURE;
+          },
+        ),
         behaviorRoom.parkingLot,
       ],
     ),
@@ -71,8 +81,13 @@ const behavior = behaviorTree.sequenceNode(
               }
 
               const resource = Object.keys(creep.store).pop();
+
               const result = creep.transfer(destination, resource as ResourceConstant);
-              trace.notice('transfer result', {result});
+              if (result === OK) {
+                trace.log('transfer result', {result});
+              } else {
+                trace.error('transfer result', {result});
+              }
 
               if (result === ERR_FULL) {
                 return FAILURE;

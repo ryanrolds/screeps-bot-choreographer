@@ -398,6 +398,11 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
   }
 
   requestHauling(trace: Tracer, colony: Colony) {
+    const container = Game.getObjectById(this.containerId);
+    if (!container) {
+      return;
+    }
+
     const haulers = colony.getHaulers();
     const haulersWithTask = haulers.filter((creep) => {
       const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
@@ -410,11 +415,6 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     const haulerCapacity = haulersWithTask.reduce((total, hauler) => {
       return total += hauler.store.getFreeCapacity();
     }, 0);
-
-    const container = Game.getObjectById(this.containerId);
-    if (!container) {
-      return;
-    }
 
     const averageLoad = avgHaulerCapacity;
     const loadSize = _.min([averageLoad, 1000]);

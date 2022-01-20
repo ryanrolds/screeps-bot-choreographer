@@ -214,7 +214,8 @@ export const cachedMoveToMemoryPos = (memoryId: string, range: number = 1, polic
       const destination = getDestinationFromPosInMemory(creep, memoryId);
       if (!destination) {
         clearMovementCache(creep);
-        trace.log('missing destination', {memoryId});
+        creep.say('📍❓')
+        trace.error('missing destination', {memoryId});
         return FAILURE;
       }
 
@@ -230,7 +231,8 @@ export const cachedMoveToMemoryObjectId = (memoryId: string, range: number = 1, 
       const destination = getDestinationFromMemory(creep, memoryId);
       if (!destination) {
         clearMovementCache(creep);
-        trace.log('missing destination', {id: creep.memory[memoryId]});
+        creep.say('📍❓')
+        trace.error('missing destination', {id: creep.memory[memoryId]});
         return FAILURE;
       }
 
@@ -257,7 +259,8 @@ const cachedMoveToPosition = (kingdom: Kingdom, creep: Creep, destination: RoomP
     const pathfinderResult = updateCreepCachedPath(kingdom, creep, destination, range, policy, trace)
     trace.log('pathfinder result', {result: pathfinderResult, creepName: creep.name, destination, range, policy});
     if (!pathfinderResult) {
-      trace.log('no path found', {destination, range});
+      creep.say('🚧')
+      trace.error('no path found', {destination, range});
       return FAILURE;
     }
 
@@ -282,7 +285,8 @@ const cachedMoveToPosition = (kingdom: Kingdom, creep: Creep, destination: RoomP
 
   if (result !== OK && result !== ERR_TIRED) {
     clearMovementCache(creep);
-    trace.log('move by result not OK', {result});
+    creep.say('⛔️');
+    trace.error('move by result not OK', {result});
     return FAILURE;
   }
 

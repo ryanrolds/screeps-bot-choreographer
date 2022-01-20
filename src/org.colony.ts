@@ -225,6 +225,7 @@ export class Colony extends OrgBase {
   toString() {
     const topics = this.topics.getCounts();
 
+    // TODO this should be shown on HUD
     return `* Colony - ID: ${this.id}, #Rooms: ${Object.keys(this.roomMap).length}, ` +
       `#Missing: ${this.missingRooms.length}, ` +
       `#Creeps: ${this.numCreeps}, ` +
