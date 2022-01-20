@@ -1,5 +1,5 @@
 import * as behaviorTree from "./lib.behaviortree";
-import behaviorCommute from "./behavior.commute";
+import * as behaviorCommute from "./behavior.commute";
 import * as behaviorMovement from "./behavior.movement";
 import {build, selectSite} from "./behavior.build";
 import behaviorRoom from "./behavior.room";

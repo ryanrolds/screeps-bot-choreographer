@@ -2,7 +2,7 @@ import * as behaviorTree from "./lib.behaviortree";
 import {FAILURE, SUCCESS, RUNNING} from "./lib.behaviortree";
 import {behaviorBoosts} from "./behavior.boosts";
 import * as behaviorMovement from "./behavior.movement";
-import behaviorCommute from "./behavior.commute";
+import * as behaviorCommute from "./behavior.commute";
 import * as MEMORY from "./constants.memory";
 import {commonPolicy} from "./lib.pathing_policies";
 

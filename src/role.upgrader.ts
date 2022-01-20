@@ -1,7 +1,7 @@
 import * as behaviorTree from "./lib.behaviortree";
 import * as behaviorAssign from "./behavior.assign";
 import * as behaviorMovement from "./behavior.movement";
-import behaviorCommute from "./behavior.commute";
+import * as behaviorCommute from "./behavior.commute";
 import {behaviorBoosts} from "./behavior.boosts";
 import behaviorRoom from "./behavior.room";
 import * as MEMORY from "./constants.memory";

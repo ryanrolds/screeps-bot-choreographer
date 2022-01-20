@@ -1,8 +1,8 @@
-const behaviorTree = require('./lib.behaviortree');
-const {SUCCESS} = require('./lib.behaviortree');
-const MEMORY = require('./constants.memory');
+import * as behaviorTree from './lib.behaviortree';
+import {SUCCESS} from './lib.behaviortree';
+import * as MEMORY from './constants.memory';
 
-module.exports.setCommuteDuration = behaviorTree.leafNode(
+export const setCommuteDuration = behaviorTree.leafNode(
   'bt.harvest.setCommuteDuration',
   (creep) => {
     const startTick = creep.memory[MEMORY.MEMORY_START_TICK];
@@ -17,7 +17,7 @@ module.exports.setCommuteDuration = behaviorTree.leafNode(
   },
 );
 
-module.exports.creepIsFresh = (creep) => {
+export const creepIsFresh = (creep) => {
   if (creep.spawning) {
     return true;
   }

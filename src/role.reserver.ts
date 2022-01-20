@@ -1,7 +1,7 @@
 
 import * as behaviorTree from './lib.behaviortree';
 import {FAILURE} from './lib.behaviortree';
-import behaviorCommute from "./behavior.commute";
+import * as behaviorCommute from "./behavior.commute";
 import * as behaviorMovement from "./behavior.movement";
 import {behaviorBoosts} from "./behavior.boosts";
 import behaviorRoom from "./behavior.room";

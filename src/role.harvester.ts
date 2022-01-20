@@ -1,6 +1,6 @@
 import * as behaviorTree from "./lib.behaviortree";
 import {FAILURE, SUCCESS, RUNNING} from "./lib.behaviortree";
-import behaviorCommute from "./behavior.commute";
+import * as behaviorCommute from "./behavior.commute";
 import behaviorStorage from "./behavior.storage";
 import * as behaviorMovement from "./behavior.movement";
 import {build, selectSite} from "./behavior.build";
