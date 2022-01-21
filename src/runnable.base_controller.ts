@@ -103,6 +103,12 @@ export default class ControllerRunnable {
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
     trace = trace.as('controller_run');
+    trace.log('run', {
+      controller: this.controllerId,
+      nodePosition: this.nodePosition,
+      roadPosition: this.roadPosition,
+      nodeDirection: this.nodeDirection
+    });
 
     const controller = Game.getObjectById(this.controllerId as Id<StructureController>);
     if (!controller) {
@@ -116,7 +122,6 @@ export default class ControllerRunnable {
 
     return sleeping(RUN_TTL);
   }
-
 
   produceEvents(trace: Tracer, kingdom: Kingdom, controller: StructureController) {
     const position = this.roadPosition;
@@ -192,11 +197,18 @@ export default class ControllerRunnable {
     const layout = padLayout[this.nodeDirection];
     const terrain = room.getTerrain();
 
-    // const roomVisual = new RoomVisual(room.name);
+    trace.log('building structures', {layout})
+
+    const roomVisual = new RoomVisual(room.name);
     for (let y = 0; y < layout.buildings.length; y++) {
       const row = layout.buildings[y];
       for (let x = 0; x < row.length; x++) {
         const code = row[x];
+
+        const pos = getConstructionPosition({x, y}, this.nodePosition, layout);
+        trace.log('building structure', {code, pos});
+
+
         if (buildingCodes[code] === ANY) {
           continue;
         }
@@ -206,12 +218,13 @@ export default class ControllerRunnable {
           continue;
         }
 
-        if (terrain.get(x, y) === TERRAIN_MASK_WALL) {
+        if (terrain.get(pos.x, pos.y) === TERRAIN_MASK_WALL) {
           continue;
         }
 
-        const pos = getConstructionPosition({x, y}, this.nodePosition, layout);
         const structure = pos.lookFor(LOOK_STRUCTURES)[0];
+        trace.log('structure', {structure, pos});
+
         if (structure) {
           trace.log('structure present', {structure: structure.structureType});
 
@@ -224,6 +237,7 @@ export default class ControllerRunnable {
         }
 
         const site = pos.lookFor(LOOK_CONSTRUCTION_SITES)[0];
+        trace.log('site', {site});
         if (site) {
           if (site.structureType !== buildingCodes[code]) {
             trace.warn('wrong site, remove', {existing: site.structureType, expected: buildingCodes[code]});
@@ -235,10 +249,11 @@ export default class ControllerRunnable {
 
         const structureType = buildingCodes[code];
         if (!structureType || structureType === EMPTY) {
+          trace.log('no structure type', {code, x, y});
           continue;
         }
 
-        // roomVisual.text(code, pos.x, pos.y);
+        roomVisual.text(code, pos.x, pos.y);
 
         trace.notice('building structure', {pos, structureType});
         const result = room.createConstructionSite(pos, structureType);
