@@ -2,9 +2,35 @@ import * as behaviorTree from './lib.behaviortree';
 import {FAILURE, SUCCESS, RUNNING} from './lib.behaviortree';
 import * as behaviorMovement from './behavior.movement';
 import {MEMORY_DESTINATION, MEMORY_FLAG} from './constants.memory';
-import {getPrioritizedSites} from './lib.construction';
+import {getInfrastructureSites, getPrioritizedSites} from './lib.construction';
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
+
+
+export const selectInfrastructureSites = behaviorTree.leafNode(
+  'selectSite',
+  (creep: Creep, trace: Tracer, kingdom: Kingdom) => {
+    let sites = getInfrastructureSites(creep.room);
+    if (sites.length === 0) {
+      return FAILURE;
+    }
+
+    const baseConfig = kingdom.getCreepBaseConfig(creep);
+    if (!baseConfig) {
+      trace.error('No base config for creep');
+      return FAILURE;
+    }
+
+    // Sort sites by distance from base origin, this ensures the base is built first
+    _.sortBy(sites, (site) => {
+      return site.pos.getRangeTo(baseConfig.origin);
+    });
+
+    const site = sites[0];
+    behaviorMovement.setDestination(creep, site.id, site.room.name);
+    return behaviorTree.SUCCESS;
+  },
+);
 
 export const selectSite = behaviorTree.leafNode(
   'selectSite',

@@ -40,3 +40,28 @@ export const getPrioritizedSites = function (room: Room): ConstructionSite[] {
 
   return sites;
 }
+
+export const getInfrastructureSites = function (room: Room): ConstructionSite[] {
+  let sites = room.find(FIND_MY_CONSTRUCTION_SITES).filter((site) => {
+    return site.structureType === STRUCTURE_SPAWN || site.structureType === STRUCTURE_TOWER ||
+      site.structureType === STRUCTURE_STORAGE;
+  });
+  if (!sites || !sites.length) {
+    return [];
+  }
+
+  sites = _.sortBy(sites, (site) => {
+    switch (site.structureType) {
+      case STRUCTURE_SPAWN:
+        return 0 - site.progress / site.progressTotal;
+      case STRUCTURE_TOWER:
+        return 1 - site.progress / site.progressTotal;
+      case STRUCTURE_STORAGE:
+        return 4 - site.progress / site.progressTotal;
+      default:
+        return 15 - site.progress / site.progressTotal;
+    }
+  });
+
+  return sites;
+}

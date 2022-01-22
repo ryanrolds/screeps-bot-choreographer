@@ -3,7 +3,7 @@ import {FAILURE, SUCCESS, RUNNING} from "./lib.behaviortree";
 import * as behaviorCommute from "./behavior.commute";
 import behaviorStorage from "./behavior.storage";
 import * as behaviorMovement from "./behavior.movement";
-import {build, selectSite} from "./behavior.build";
+import {build, selectInfrastructureSites, selectSite} from "./behavior.build";
 import * as behaviorHarvest from "./behavior.harvest";
 import {behaviorBoosts} from "./behavior.boosts";
 import * as MEMORY from "./constants.memory";
@@ -55,6 +55,14 @@ const behavior = behaviorTree.sequenceNode(
                 return RUNNING;
               },
             ),
+          ],
+        ),
+        behaviorTree.sequenceNode(
+          'build_construction_site',
+          [
+            selectInfrastructureSites,
+            behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 3, commonPolicy),
+            build,
           ],
         ),
         behaviorTree.sequenceNode(
