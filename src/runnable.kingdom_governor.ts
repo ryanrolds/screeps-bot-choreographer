@@ -57,7 +57,7 @@ export default class KingdomGovernor {
       this.handleClaimerRequests(kingdom, shardMemory.request_claimer || {}, trace);
       this.handleBuilderRequests(kingdom, shardMemory.request_builder || {}, trace);
 
-      /*
+      /* TODO remove if not used Jan 2022
       const shardConfig: ShardConfig = kingdom.getPlanner().getShardConfig(shardName);
       if (!shardConfig) {
         return;

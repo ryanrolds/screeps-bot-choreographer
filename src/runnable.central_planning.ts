@@ -1,4 +1,4 @@
-import {BaseConfig, KingdomConfig, ShardConfig} from "./config";
+import {BaseConfig, BaseMap, ShardConfig} from "./config";
 import {pickExpansion} from "./lib.expand";
 import {ENTIRE_ROOM_BOUNDS, getCutTiles} from "./lib.min_cut";
 import {desiredRemotes, findNextRemoteRoom} from "./lib.remote_room";
@@ -17,7 +17,7 @@ const EXPAND_TTL = 250;
 const BASE_WALLS_TTL = 50;
 
 export class CentralPlanning {
-  private config: KingdomConfig;
+  private config: ShardConfig;
   private scheduler: Scheduler;
   private username: string;
   private shards: string[];
@@ -32,7 +32,7 @@ export class CentralPlanning {
   private baseWallsIterator: Generator<any, void, {kingdom: Kingdom, trace: Tracer}>;
   private baseWallsThread: ThreadFunc;
 
-  constructor(config: KingdomConfig, scheduler: Scheduler, trace: Tracer) {
+  constructor(config: ShardConfig, scheduler: Scheduler, trace: Tracer) {
     this.config = config;
     this.scheduler = scheduler;
     this.shards = [];
@@ -41,13 +41,13 @@ export class CentralPlanning {
 
     this.shards.push(Game.shard.name);
 
-    let bases: ShardConfig = {};
+    let bases: BaseMap = {};
     if ((Memory as any).bases) {
       trace.warn('found shard memory', {bases: (Memory as any).bases});
       bases = (Memory as any).bases;
-    } else if (config && config.shards && config.shards[Game.shard.name]) {
+    } else if (config && config.bases && config.bases[Game.shard.name]) {
       trace.warn('found shard config', {config});
-      bases = config.shards[Game.shard.name];
+      bases = config.bases;
     } else {
       trace.warn('no shard config found, bootstraping?');
     }
@@ -191,9 +191,9 @@ export class CentralPlanning {
     this.roomByBaseId[primaryRoom] = primaryRoom;
 
     // Add colony room
-    this.addRoom(primaryRoom, primaryRoom, trace);
+    // this.addRoom(primaryRoom, primaryRoom, trace);
 
-    // Add any additional rooms
+    // Add any additional rooms, primary is expected to be first
     rooms.forEach((roomName) => {
       this.addRoom(primaryRoom, roomName, trace)
     });
@@ -323,6 +323,11 @@ export class CentralPlanning {
   }
 
   private expandColonies(trace: Tracer, kingdom: Kingdom) {
+    if (!this.config.autoExpand) {
+      trace.warn('auto expand disabled');
+      return;
+    }
+
     const scribe = kingdom.getScribe();
     const globalColonyCount = scribe.getGlobalColonyCount();
     if (!globalColonyCount) {

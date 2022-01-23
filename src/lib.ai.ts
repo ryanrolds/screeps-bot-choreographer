@@ -1,5 +1,5 @@
 import {Kingdom} from './org.kingdom';
-import {KingdomConfig, ShardConfig} from './config'
+import {ShardConfig} from './config'
 import {Tracer} from './lib.tracing';
 import {Scheduler, Priorities} from './os.scheduler';
 import {Process} from './os.process';
@@ -20,13 +20,13 @@ import InvaderManager from './runnable.manager.invaders';
 
 export class AI {
   scheduler: Scheduler;
-  config: KingdomConfig;
+  config: ShardConfig;
   kingdom: Kingdom;
   planning: CentralPlanning;
   broker: EventBroker;
   gameMapExport: string;
 
-  constructor(config: KingdomConfig, trace: Tracer) {
+  constructor(config: ShardConfig, trace: Tracer) {
     trace = trace.begin('ai_constructor');
 
     this.config = config;

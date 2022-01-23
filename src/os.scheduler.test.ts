@@ -2,7 +2,7 @@ import {expect} from 'chai';
 import 'mocha';
 import {mockGlobal} from "screeps-test-helper";
 import * as sinon from 'sinon';
-import {KingdomConfig} from './config';
+import {ShardConfig} from './config';
 import {EventBroker} from './lib.event_broker';
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
@@ -78,7 +78,7 @@ describe('Scheduler', () => {
   })
 
   it('should run the process', () => {
-    const config = {} as KingdomConfig;
+    const config = {} as ShardConfig;
     const scheduler = new Scheduler();
     const planner = new CentralPlanning(config, scheduler, trace)
     const kingdom = new Kingdom(config, scheduler, broker, planner, trace);
@@ -95,7 +95,7 @@ describe('Scheduler', () => {
       return Game.cpu.limit * 1.1;
     };
 
-    const config = {} as KingdomConfig;
+    const config = {} as ShardConfig;
     const scheduler = new Scheduler();
     const planner = new CentralPlanning(config, scheduler, trace)
     const kingdom = new Kingdom(config, scheduler, broker, planner, trace);;
@@ -110,7 +110,7 @@ describe('Scheduler', () => {
   it('should execute skipped processes next tick', () => {
     const tracer = new Tracer('scheduler', {}, 0);
 
-    const config = {} as KingdomConfig;
+    const config = {} as ShardConfig;
     const scheduler = new Scheduler();
     const planner = new CentralPlanning(config, scheduler, trace)
     const kingdom = new Kingdom(config, scheduler, broker, planner, trace);
@@ -157,7 +157,7 @@ describe('Scheduler', () => {
   });
 
   it("should remove and not run terminated processes", () => {
-    const config = {} as KingdomConfig;
+    const config = {} as ShardConfig;
     const scheduler = new Scheduler();
     const planner = new CentralPlanning(config, scheduler, trace)
     const kingdom = new Kingdom(config, scheduler, broker, planner, trace);

@@ -1,6 +1,5 @@
-
-export interface ShardConfig {
-  [key: string]: BaseConfig;
+export interface BaseMap {
+  [id: string]: BaseConfig;
 }
 
 export interface BaseConfig {
@@ -14,12 +13,17 @@ export interface BaseConfig {
   walls: NonNullable<{x: number, y: number}[]>;
 }
 
-export interface KingdomConfig {
+export interface ShardMap {
+  [id: string]: ShardConfig;
+}
+
+export interface ShardConfig {
   buffer: number;
   friends: string[];
   neutral: string[];
   avoid: string[];
   kos: string[];
   maxColonies: number;
-  shards: Record<string, ShardConfig>;
+  autoExpand: boolean;
+  bases: BaseMap;
 }

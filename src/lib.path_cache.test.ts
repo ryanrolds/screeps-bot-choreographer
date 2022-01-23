@@ -7,7 +7,7 @@ import {setup, mockGlobal, mockInstanceOf} from "screeps-test-helper";
 import {CACHE_ITEM_TTL, PathCache, PathCacheItem, PathProvider} from './lib.path_cache';
 import {Kingdom} from './org.kingdom';
 import {Scheduler} from './os.scheduler';
-import {KingdomConfig} from './config';
+import {BaseConfig, ShardConfig} from './config';
 import {Tracer} from './lib.tracing';
 import {commonPolicy} from './lib.pathing_policies';
 import {EventBroker} from './lib.event_broker';
@@ -48,17 +48,16 @@ describe('Path Cache', function () {
 
     trace = new Tracer('test', {}, 0);
 
-    const config: KingdomConfig = {
-      shards: {
-        'test': {},
-      },
+    const config: ShardConfig = {
+      bases: {},
       buffer: 0,
       friends: [],
       neutral: [],
       avoid: [],
       kos: [],
       maxColonies: 1,
-    } as KingdomConfig;
+      autoExpand: false,
+    };
     const scheduler = new Scheduler();
     const broker = new EventBroker();
     const planner = new CentralPlanning(config, scheduler, trace);

@@ -180,7 +180,7 @@ export default class BoosterRunnable {
       labsByResource,
     };
 
-    trace.log('publishing room boosts', {
+    trace.notice('publishing room boosts', {
       room: this.orgRoom.id,
       position: this.boostPosition,
       labsByResource: _.reduce(labsByResource, (labs, lab) => {

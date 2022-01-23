@@ -140,6 +140,8 @@ export class Scribe extends OrgBase {
 
     const baseConfigs = this.getKingdom().getPlanner().getBaseConfigs();
     let colonyCount = baseConfigs.length;
+
+    // Iterate shards and get their colony counts
     this.getShardList().forEach((shard) => {
       if (shard === Game.shard.name) {
         return;

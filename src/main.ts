@@ -1,26 +1,40 @@
 import * as metrics from './lib.metrics';
 import {Tracer} from './lib.tracing';
 import {AI} from './lib.ai';
-import {KingdomConfig} from './config'
+import {ShardConfig, ShardMap} from './config'
 
-let config: KingdomConfig = {
-  'buffer': 3,
-  'friends': [
-    'PythonBeatJava',
-    'ChaosDMG',
-  ],
-  'neutral': [
-    'JavaXCrow',
-    'likeafox',
-    'kobez0r',
-  ],
-  'avoid': [],
-  'kos': [],
-  'maxColonies': 8, // TODO make this specific to the shard - this will bite me in the ass
-  'shards': {
-    'shard0': {},
-    'shard1': {},
-    'shard2': {
+const friends = [
+  'PythonBeatJava',
+  'ChaosDMG',
+];
+const neutral = [
+  'JavaXCrow',
+  'likeafox',
+  'kobez0r',
+];
+const avoid = [];
+const kos = [];
+
+let shards: ShardMap = {
+  'default': {
+    buffer: 3,
+    friends: friends,
+    neutral: neutral,
+    avoid: avoid,
+    kos: kos,
+    maxColonies: 1,
+    autoExpand: true,
+    bases: null,
+  },
+  'shard2': {
+    buffer: 3,
+    friends: friends,
+    neutral: neutral,
+    avoid: avoid,
+    kos: kos,
+    maxColonies: 1,
+    autoExpand: false,
+    bases: {
       'E21S48': {
         id: 'E21S48',
         primary: 'E21S48',
@@ -72,7 +86,16 @@ let config: KingdomConfig = {
         walls: [],
       }
     },
-    'shard3': {
+  },
+  'shard3': {
+    buffer: 3,
+    friends: friends,
+    neutral: neutral,
+    avoid: avoid,
+    kos: kos,
+    maxColonies: 1,
+    autoExpand: false,
+    bases: {
       'E18S48': {
         id: 'E18S48',
         primary: 'E18S48',
@@ -231,7 +254,17 @@ export const loop = function () {
 
   if (!ai) {
     console.log('***** STARTING AI *****');
-    ai = new AI(config, trace);
+
+    const shardName = Game.shard.name;
+    let shardConfig = shards[shardName];
+    if (!shardConfig) {
+      trace.warn('no shard config found for shard', shardName);
+      shardConfig = shards.default;
+    }
+
+    trace.notice('selected shard config', shardConfig);
+
+    ai = new AI(shardConfig, trace);
     global.AI = ai;
   }
 

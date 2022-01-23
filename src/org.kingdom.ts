@@ -6,7 +6,7 @@ import {Topics} from './lib.topics';
 import {PathCache} from './lib.path_cache';
 import {thread, ThreadFunc} from './os.thread';
 import * as MEMORY from './constants.memory';
-import {BaseConfig, KingdomConfig, ShardConfig} from './config';
+import {BaseConfig, ShardConfig} from './config';
 import {Scheduler} from './os.scheduler';
 import {Tracer} from './lib.tracing';
 import OrgRoom from './org.room';
@@ -19,7 +19,7 @@ import {CentralPlanning} from './runnable.central_planning';
 const UPDATE_ORG_TTL = 1;
 
 export class Kingdom extends OrgBase {
-  config: KingdomConfig;
+  config: ShardConfig;
   scheduler: Scheduler;
   broker: EventBroker;
   topics: Topics;
@@ -40,7 +40,7 @@ export class Kingdom extends OrgBase {
 
   threadUpdateOrg: ThreadFunc;
 
-  constructor(config: KingdomConfig, scheduler: Scheduler, broker: EventBroker,
+  constructor(config: ShardConfig, scheduler: Scheduler, broker: EventBroker,
     planner: CentralPlanning, trace: Tracer) {
     super(null, 'kingdom', trace);
 
