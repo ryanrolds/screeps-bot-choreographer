@@ -1,13 +1,19 @@
+import {Event} from './lib.event_broker';
 import {Tracer} from './lib.tracing';
 import {OrgBase} from './org.base';
 import {Kingdom} from './org.kingdom';
 import {thread, ThreadFunc} from './os.thread';
+import {getDashboardStream, HudEventSet, HudIndicator, HudIndicatorStatus} from './runnable.debug_hud';
 
 const JOURNAL_ENTRY_TTL = 250;
 const MAX_JOURAL_TTL = 500;
 const WRITE_MEMORY_INTERVAL = 50;
 const REMOVE_STALE_ENTRIES_INTERVAL = 100;
 const UPDATE_COLONY_COUNT = 50;
+const PRODUCE_EVENTS_INTERVAL = 50;
+
+const YELLOW_JOURNAL_AGE = 100;
+const RED_JOURNAL_AGE = 250;
 
 type Journal = {
   rooms: Record<Id<Room>, RoomEntry>;
@@ -101,6 +107,7 @@ export class Scribe extends OrgBase {
   threadWriteMemory: ThreadFunc;
   threadRemoveStaleJournalEntries: ThreadFunc;
   threadUpdateColonyCount: ThreadFunc;
+  threadProduceEvents: ThreadFunc;
 
   constructor(parent, trace) {
     super(parent, 'scribe', trace);
@@ -116,6 +123,7 @@ export class Scribe extends OrgBase {
     this.threadRemoveStaleJournalEntries = thread('remove_stale', REMOVE_STALE_ENTRIES_INTERVAL)(this.removeStaleJournalEntries.bind(this));
     this.threadWriteMemory = thread('write_memory', WRITE_MEMORY_INTERVAL)(this.writeMemory.bind(this));
     this.threadUpdateColonyCount = thread('update_colony_count', UPDATE_COLONY_COUNT)(this.updateColonyCount.bind(this));
+    this.threadProduceEvents = thread('produce_events', PRODUCE_EVENTS_INTERVAL)(this.produceEvents.bind(this));
   }
 
   writeMemory(trace: Tracer) {
@@ -156,6 +164,27 @@ export class Scribe extends OrgBase {
     this.globalColonyCount = colonyCount;
   }
 
+  produceEvents(trace: Tracer, kingdom: Kingdom) {
+    const indicatorStream = kingdom.getBroker().getStream(getDashboardStream());
+
+    const rooms = this.getRooms();
+    trace.log('produce_events', {rooms: rooms.length});
+    rooms.forEach((roomEntry) => {
+      const age = Game.time - roomEntry.lastUpdated;
+
+      // Processes
+      let processStatus = HudIndicatorStatus.Green;
+      if (age > RED_JOURNAL_AGE) {
+        processStatus = HudIndicatorStatus.Red;
+      } else if (age > YELLOW_JOURNAL_AGE) {
+        processStatus = HudIndicatorStatus.Yellow;
+      }
+
+      const spawnLengthIndicator: HudIndicator = {room: roomEntry.id, key: 'journal', display: '👁️', status: processStatus};
+      indicatorStream.publish(new Event(`journal_${roomEntry.id}`, Game.time, HudEventSet, spawnLengthIndicator));
+    });
+  }
+
   getShardList(): string[] {
     const name = Game.shard.name;
     if (name.startsWith('shard') && name !== 'shardSeason') {
@@ -187,6 +216,7 @@ export class Scribe extends OrgBase {
 
     this.threadWriteMemory(updateTrace);
     this.threadUpdateColonyCount(updateTrace);
+    this.threadProduceEvents(updateTrace, this.getKingdom());
 
     updateTrace.end();
   }

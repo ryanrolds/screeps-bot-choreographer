@@ -398,12 +398,23 @@ export class Colony extends OrgBase {
       return;
     }
 
-    const numExplorers = this.assignedCreeps.filter((creep) => {
+    const explorers = this.assignedCreeps.filter((creep) => {
       return creep.memory[MEMORY_ROLE] == CREEPS.WORKER_EXPLORER &&
         creep.memory[MEMORY_COLONY] === this.id;
-    }).length;
+    });
 
-    if (numExplorers < MAX_EXPLORERS) {
+    if (explorers.length < 0) {
+      const oldExplorers = this.assignedCreeps.filter((creep) => {
+        return creep.ticksToLive < CREEP_LIFE_TIME / MAX_EXPLORERS;
+      });
+      // If we do not have any old explorers, don't request any new ones
+      if (!oldExplorers.length) {
+        trace.log('no old explorers to replace');
+        return;
+      }
+    }
+
+    if (explorers.length < MAX_EXPLORERS) {
       trace.log('requesting explorer');
 
       this.sendRequest(TOPIC_SPAWN, PRIORITIES.EXPLORER, {
@@ -411,7 +422,7 @@ export class Colony extends OrgBase {
         memory: {},
       }, REQUEST_EXPLORER_TTL);
     } else {
-      trace.log('not requesting explorer', {numExplorers});
+      trace.log('not requesting explorer', {numExplorers: explorers.length});
     }
   }
 

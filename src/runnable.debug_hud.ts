@@ -123,8 +123,10 @@ export class HUDRunnable {
           fill = '#ffff00';
         }
 
+        trace.notice(`${indicator.key} ${indicator.status}`, {indicator});
         const position = new RoomPosition(1 + RADIUS + (2 * RADIUS * indicatorNum) + indicatorNum, 4, indicator.room);
         Game.map.visual.circle(position, {radius: RADIUS, fill});
+        Game.map.visual.text(indicator.display, position, {fontSize: 5});
 
         indicatorNum++;
       });

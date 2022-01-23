@@ -807,15 +807,28 @@ export default class BaseRunnable {
 
     const indicatorStream = orgRoom.getKingdom().getBroker().getStream(getDashboardStream())
 
-    let alertLevelStatus = HudIndicatorStatus.Green;
-    if (orgRoom.getAlertLevel() === RoomAlertLevel.RED) {
-      alertLevelStatus = HudIndicatorStatus.Red;
-    } else if (orgRoom.getAlertLevel() === RoomAlertLevel.YELLOW) {
-      alertLevelStatus = HudIndicatorStatus.Yellow;
-    }
-    const alertLevelIndicator: HudIndicator = {room: orgRoom.id, key: 'alert', display: 'A', status: alertLevelStatus};
-    indicatorStream.publish(new Event(baseConfig.id, Game.time, HudEventSet, alertLevelIndicator));
+    baseConfig.rooms.forEach((roomName) => {
+      const orgRoom = kingdom.getRoomByName(roomName);
+      if (!orgRoom) {
+        trace.error('room not found', {roomName});
+        return;
+      }
 
+      // Alert indicator
+      let alertLevelStatus = HudIndicatorStatus.Green;
+      if (orgRoom.getAlertLevel() === RoomAlertLevel.RED) {
+        alertLevelStatus = HudIndicatorStatus.Red;
+      } else if (orgRoom.getAlertLevel() === RoomAlertLevel.YELLOW) {
+        alertLevelStatus = HudIndicatorStatus.Yellow;
+      }
+      const alertLevelIndicator: HudIndicator = {
+        room: roomName, key: 'alert', display: 'A',
+        status: alertLevelStatus
+      };
+      indicatorStream.publish(new Event(roomName, Game.time, HudEventSet, alertLevelIndicator));
+    });
+
+    // Processes
     let processStatus = HudIndicatorStatus.Green;
     if (this.missingProcesses > 1) {
       processStatus = HudIndicatorStatus.Red;
@@ -823,7 +836,10 @@ export default class BaseRunnable {
       processStatus = HudIndicatorStatus.Yellow;
     }
 
-    const keyProcessesIndicator: HudIndicator = {room: orgRoom.id, key: 'processes', display: 'P', status: processStatus};
+    const keyProcessesIndicator: HudIndicator = {
+      room: orgRoom.id, key: 'processes', display: 'P',
+      status: processStatus
+    };
     indicatorStream.publish(new Event(baseConfig.id, Game.time, HudEventSet, keyProcessesIndicator));
   }
 }

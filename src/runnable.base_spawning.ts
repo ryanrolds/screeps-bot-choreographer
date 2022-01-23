@@ -10,12 +10,16 @@ import OrgRoom from "./org.room";
 import {running, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 import {thread, ThreadFunc} from "./os.thread";
-import {getLinesStream, HudLine, HudEventSet} from "./runnable.debug_hud";
+import {getLinesStream, HudLine, HudEventSet, HudIndicatorStatus, HudIndicator, getDashboardStream} from "./runnable.debug_hud";
 
 const REQUEST_BOOSTS_TTL = 1;
 const UPDATE_SPAWN_LIST_TTL = 20;
 const MAX_COLONY_SPAWN_DISTANCE = 4;
 const PRODUCE_EVENTS_TTL = 20;
+
+const INITIAL_TOPIC_LENGTH = 9999;
+const RED_TOPIC_LENGTH = 10;
+const YELLOW_TOPIC_LENGTH = 5;
 
 export default class SpawnManager {
   orgRoom: OrgRoom;
@@ -45,7 +49,10 @@ export default class SpawnManager {
       const topic = this.orgRoom.getTopics().getTopic(TOPICS.TOPIC_SPAWN);
 
       let creeps = [];
+      let topicLength = 9999;
       if (topic) {
+        trace.notice('topic length', {topic});
+        topicLength = topic.length;
         creeps = topic.map((message) => {
           return `${message.details[MEMORY.MEMORY_ROLE]}(${message.priority},${message.ttl - Game.time})`;
         });
@@ -61,6 +68,22 @@ export default class SpawnManager {
       const event = new Event(this.id, Game.time, HudEventSet, line);
       trace.log('produce_events', event);
       kingdom.getBroker().getStream(getLinesStream()).publish(event)
+
+      const indicatorStream = kingdom.getBroker().getStream(getDashboardStream());
+
+      // Processes
+      let processStatus = HudIndicatorStatus.Green;
+      if (topicLength === INITIAL_TOPIC_LENGTH) {
+        processStatus = HudIndicatorStatus.Stale;
+      } else if (topicLength > RED_TOPIC_LENGTH) {
+        processStatus = HudIndicatorStatus.Red;
+      } else if (topicLength > YELLOW_TOPIC_LENGTH) {
+        processStatus = HudIndicatorStatus.Yellow;
+      }
+
+      const roomName = this.orgRoom.id;
+      const spawnLengthIndicator: HudIndicator = {room: roomName, key: 'spawn_length', display: 'S', status: processStatus};
+      indicatorStream.publish(new Event(this.id, Game.time, HudEventSet, spawnLengthIndicator));
     });
   }
 

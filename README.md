@@ -51,9 +51,13 @@ An AI for [Screeps](screeps.com).
 - [X] Auto-construction of roads to remote sources
 - [X] Automatic layout and expansion
 - [X] System for a Room and Map(beta) HUD
+- [ ] Scale creep parts and remote mining based on spawner saturation
+- [ ] Room process and sources processes no longer require room visibility
 - [ ] Harvest commodities & factory
+- [ ] Process thread API (automatically run threads and sleep based on)
+- [ ] Process stats and scheduler report
+- [ ] Factor room resources when selecting new base
 - [ ] Sieging of RCL>=7 rooms
-- [ ] Remote rooms (sources) should operate without vision
 - [ ] Quads moving coherently 100% of time
 - [ ] Replace references to 'colony' with 'base'
 - [ ] Buff ramparts and walls to withstand nuke
@@ -243,7 +247,7 @@ TODO - Add additional context around the current design
 | Observer | <id>
 | Colony | <colony id>        |
 | Room | <room name>
-| Spawn Manager |
+| Spawn Manager | spawns_<room name> |
 | Tower |
 | Nuker |
 | Link Manager |
