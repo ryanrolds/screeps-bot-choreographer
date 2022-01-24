@@ -127,3 +127,6 @@ export const MEMORY_DEFENSE_PARTY = 'defense_party';
 // Party
 export const MEMORY_PARTY_ID = 'party_id';
 export const MEMORY_PARTY_POSITION = 'party_position';
+
+// Idle at parking lot
+export const MEMORY_IDLE = 'idle';

@@ -30,7 +30,7 @@ import RoomRunnable from './runnable.base_room';
 const MIN_ENERGY = 100000;
 const CREDIT_RESERVE = 100000;
 
-const MIN_UPGRADERS = 1;
+const MIN_UPGRADERS = 0;
 const MAX_UPGRADERS = 6;
 const UPGRADER_ENERGY = 25000;
 const MIN_DISTRIBUTORS = 1;
@@ -537,12 +537,6 @@ export default class BaseRunnable {
       return;
     }
 
-    // Wait until we have more than one other base creep
-    if (orgRoom.getCreeps().length < 3) {
-      trace.notice('not enough creeps to request upgrader');
-      return;
-    }
-
     const numUpgraders = _.filter(orgRoom.getCreeps(), (creep) => {
       return creep.memory[MEMORY.MEMORY_ROLE] == CREEPS.WORKER_UPGRADER &&
         creepIsFresh(creep);
@@ -559,6 +553,8 @@ export default class BaseRunnable {
 
     if (!room.controller?.my) {
       trace.log('not my room')
+      desiredUpgraders = 0;
+    } else if (!orgRoom.hasSpawns) {
       desiredUpgraders = 0;
     } else if (room.controller.level === 8) {
       trace.log('max level room')
@@ -584,8 +580,6 @@ export default class BaseRunnable {
       trace.log('parts', {parts});
 
       desiredUpgraders = Math.ceil(parts / maxParts);
-    } else if (!orgRoom.hasSpawns) {
-      desiredUpgraders = 0;
     }
 
     const energyLimit = ((parts - 1) * 150) + 200;

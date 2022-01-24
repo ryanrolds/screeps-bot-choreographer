@@ -8,6 +8,7 @@
  * TODO add tests
  */
 
+import {returnSuccess} from "./lib.behaviortree";
 import {getRegion} from "./lib.flood_fill";
 import {buildingCodes, Layout} from "./lib.layouts";
 import {Tracer} from "./lib.tracing";
@@ -182,6 +183,11 @@ export const createSourceRoadMatrix = (kingdom: Kingdom, roomName: string, trace
 
       // Controller links dont count as obstacle, otherwise controller pad will shift around
       if (struct.structureType === STRUCTURE_LINK && room.controller.pos.inRangeTo(struct.pos, 2)) {
+        return;
+      }
+
+      // Don't count walls otherwise we will not punch new holes
+      if (struct.structureType === STRUCTURE_WALL) {
         return;
       }
 

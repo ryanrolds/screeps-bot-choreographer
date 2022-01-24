@@ -41,8 +41,9 @@ export const update = (roomId: string, memory: RoomMemory, prefix: string, value
   const prevIntegral = memory[`${prefix}${MEMORY.PID_SUFFIX_INTEGRAL}`] || 0;
   let integral = prevIntegral + (err * dt * i);
 
-  if (integral > 10) {
-    integral = 10;
+  // Bootstrapping can require a lot of workers/haulers. 10 was too few (Jan 2022)
+  if (integral > 50) {
+    integral = 50;
   }
 
   const prevErr = memory[`${prefix}${MEMORY.PID_SUFFIX_ERROR}`] || err;
@@ -56,9 +57,11 @@ export const update = (roomId: string, memory: RoomMemory, prefix: string, value
   memory[`${prefix}${MEMORY.PID_SUFFIX_TIME}`] = time;
   memory[`${prefix}${MEMORY.PID_SUFFIX_INTEGRAL}`] = integral;
 
+  const result = p * err + integral + d * det
+
   const roomVisual = new RoomVisual(roomId);
-  roomVisual.text(`PID: ${err}, ${p}, ${integral}, ${d}, ${det}`, 0, 1,
+  roomVisual.text(`PID: ${result} = ${p} * ${err} + ${integral} + ${d} * ${det}`, 0, 1,
     {align: 'left'});
 
-  return p * err + integral + d * det;
+  return result;
 }

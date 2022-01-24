@@ -120,13 +120,13 @@ module.exports.createCreep = (colony, room, spawn, role, memory, energy, energyL
   const definition = DEFINITIONS[role];
 
   const ignoreSpawnEnergyLimit = definition.ignoreSpawnEnergyLimit || false;
+  if (energy > energyLimit && !ignoreSpawnEnergyLimit) {
+    energy = energyLimit;
+  }
+
   const roleEnergyLimit = definition.energyLimit;
   if (roleEnergyLimit && energy > roleEnergyLimit) {
     energy = roleEnergyLimit;
-  }
-
-  if (energy > energyLimit && !ignoreSpawnEnergyLimit) {
-    energy = energyLimit;
   }
 
   const parts = getBodyParts(definition, energy);

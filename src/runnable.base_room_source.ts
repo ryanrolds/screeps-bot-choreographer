@@ -388,19 +388,19 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
   }
 
   buildContainer(trace: Tracer, kingdom: Kingdom, source: (Source)) {
+    if (source.energy) {
+      trace.log('only build container if exhausting source', {id: this.sourceId});
+      return;
+    }
+
     if (!this.creepPosition) {
-      trace.log('no creep position', {id: this.sourceId});
+      trace.error('no creep position', {id: this.sourceId});
       return;
     }
 
     const orgRoom = kingdom.getRoomByName(source.room.name);
     if (!orgRoom) {
-      trace.log('no org room', {id: this.sourceId});
-      return;
-    }
-
-    if (!orgRoom.hasStorage) {
-      trace.log('no storage in room', {id: this.sourceId});
+      trace.error('no org room', {id: this.sourceId});
       return;
     }
 
@@ -428,6 +428,10 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     trace.log('build container', {id: this.sourceId});
     const result = this.creepPosition.createConstructionSite(STRUCTURE_CONTAINER);
     trace.log('container created', {result});
+
+    if (result !== OK) {
+      trace.error('failed to build container', {result})
+    }
   }
 
   buildLink(trace: Tracer, room: Room, source: Source) {

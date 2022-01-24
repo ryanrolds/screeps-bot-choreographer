@@ -1,7 +1,7 @@
 const behaviorTree = require('./lib.behaviortree');
 const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
 const behaviorMovement = require('./behavior.movement');
-const {MEMORY_DESTINATION} = require('./constants.memory');
+const {MEMORY_DESTINATION, MEMORY_IDLE} = require('./constants.memory');
 const {commonPolicy} = require('./lib.pathing_policies');
 
 const pickupDroppedEnergy = behaviorTree.leafNode(
@@ -232,8 +232,27 @@ module.exports.parkingLot = behaviorTree.leafNode(
       return FAILURE;
     }
 
+    const idle = creep.memory[MEMORY_IDLE];
+    if (!idle) {
+      idle = 1;
+    } else {
+      idle++;
+    }
+    creep.memory[MEMORY_IDLE] = idle;
+
     if (creep.pos.inRangeTo(baseConfig.parking, 1)) {
       trace.log('in range of parking lot');
+
+      // TODO may move this to something cheaper
+      const hasNuker = baseConfig.parking.lookFor(LOOK_STRUCTURES).find((structure) => {
+        return structure.structureType === STRUCTURE_NUKER;
+      });
+
+      // Pray to the God of Nukes
+      if (hasNuker && idle % 20 === 0) {
+        creep.say('🙏');
+      }
+
       return FAILURE;
     }
 
