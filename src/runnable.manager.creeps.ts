@@ -19,6 +19,7 @@ import {roleMiner} from './role.miner';
 import {roleRepairer} from './role.repairer';
 import {roleReserver} from './role.reserver';
 import {roleUpgrader} from './role.upgrader';
+import {roleWorker} from './role.worker';
 
 export class CreepManager {
   id: string;
@@ -136,6 +137,7 @@ export class CreepManager {
     [CREEPS.WORKER_DEFENDER_DRONE]: roleDefenderDrone,
     [CREEPS.WORKER_DISTRIBUTOR]: roleDistributor,
     [CREEPS.WORKER_MINER]: roleMiner,
+    [CREEPS.ROLE_WORKER]: roleWorker,
     [CREEPS.WORKER_HARVESTER]: roleHarvester,
     [CREEPS.WORKER_UPGRADER]: roleUpgrader,
     [CREEPS.WORKER_BUILDER]: roleBuilder,

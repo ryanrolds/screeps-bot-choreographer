@@ -51,7 +51,6 @@ export default class SpawnManager {
       let creeps = [];
       let topicLength = 9999;
       if (topic) {
-        trace.notice('topic length', {topic});
         topicLength = topic.length;
         creeps = topic.map((message) => {
           return `${message.details[MEMORY.MEMORY_ROLE]}(${message.priority},${message.ttl - Game.time})`;
@@ -133,7 +132,7 @@ export default class SpawnManager {
           {align: 'right', opacity: 0.8},
         );
       } else {
-        const spawnTopicSize = (this.orgRoom as any).getTopicLength(TOPICS.TOPIC_SPAWN);
+        const spawnTopicSize = this.orgRoom.getTopicLength(TOPICS.TOPIC_SPAWN);
         const spawnTopicBackPressure = Math.floor(energyCapacity * (1 - (0.09 * spawnTopicSize)));
         let energyLimit = _.max([300, spawnTopicBackPressure]);
 

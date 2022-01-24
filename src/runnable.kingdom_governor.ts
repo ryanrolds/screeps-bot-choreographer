@@ -112,6 +112,7 @@ export default class KingdomGovernor {
           [MEMORY.MEMORY_ASSIGN_SHARD]: request.shard,
           [MEMORY.MEMORY_ASSIGN_ROOM]: request.room,
           [MEMORY.MEMORY_COLONY]: request.colony,
+          [MEMORY.MEMORY_BASE]: request.colony,
         }
       });
       if (!enroute.length) {
@@ -131,6 +132,7 @@ export default class KingdomGovernor {
           [MEMORY.MEMORY_ASSIGN_SHARD]: request.shard,
           [MEMORY.MEMORY_ASSIGN_ROOM]: request.room,
           [MEMORY.MEMORY_COLONY]: request.colony,
+          [MEMORY.MEMORY_BASE]: request.colony,
         }
       });
 

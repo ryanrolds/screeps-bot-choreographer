@@ -14,13 +14,14 @@ import {Priorities, Scheduler} from "./os.scheduler";
 import {thread, ThreadFunc} from './os.thread';
 import {getLinesStream, HudLine, HudEventSet} from './runnable.debug_hud';
 import SourceRunnable from "./runnable.base_room_source";
+import {resourceUsage} from 'process';
 
 const MIN_RESERVATION_TICKS = 4000;
 const NO_VISION_TTL = 20;
 const MIN_TTL = 10;
 
 const REQUEST_RESERVER_TTL = 25;
-const REQUEST_HAUL_DROPPED_RESOURCES_TTL = 15;
+const REQUEST_HAUL_DROPPED_RESOURCES_TTL = 30;
 const UPDATE_PROCESSES_TTL = 50;
 const PRODUCE_STATUS_TTL = 25;
 
@@ -147,6 +148,7 @@ export default class RoomRunnable {
         memory: {
           [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
           [MEMORY.MEMORY_COLONY]: (orgRoom as any).getColony().id,
+          [MEMORY.MEMORY_BASE]: (orgRoom as any).getColony().id,
         },
       }
 
@@ -164,38 +166,67 @@ export default class RoomRunnable {
       return;
     }
 
-    let droppedResourcesToHaul = room.find(FIND_DROPPED_RESOURCES, {
-      filter: (resource) => {
-        const numAssigned = _.filter((orgRoom as any).getColony().getHaulers(), (hauler: Creep) => {
-          return hauler.memory[MEMORY.MEMORY_HAUL_PICKUP] === resource.id;
-        }).length;
+    // Get resources to haul
+    let droppedResourcesToHaul = room.find(FIND_DROPPED_RESOURCES);
 
-        return numAssigned === 0;
-      },
-    });
+    // No resources to haul, we are done
+    if (!droppedResourcesToHaul.length) {
+      return;
+    }
 
-    const primaryRoom = (orgRoom as any).getColony().getPrimaryRoom();
+    const primaryRoom = orgRoom.getColony().getPrimaryRoom();
+    const haulers = orgRoom.getColony().getHaulers();
+    const avgHaulerCapacity = orgRoom.getColony().getAvgHaulerCapacity();
+
+    trace.log('avg hauler capacity', {numHaulers: haulers.length, avgHaulerCapacity})
 
     droppedResourcesToHaul.forEach((resource) => {
-      const dropoff = primaryRoom.getReserveStructureWithRoomForResource(resource.resourceType);
-      if (!dropoff) {
-        return;
+      const topic = TOPICS.TOPIC_HAUL_TASK;
+      let priority = PRIORITIES.HAUL_DROPPED;
+
+      // Increase priority if primary room
+      // TODO factor distance
+      if (orgRoom.getColony().primaryRoomId === resource.room.name) {
+        priority += 2;
       }
 
-      const details = {
-        [MEMORY.TASK_ID]: `pickup-${this.id}-${Game.time}`,
-        [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
-        [MEMORY.MEMORY_HAUL_PICKUP]: resource.id,
-        [MEMORY.MEMORY_HAUL_DROPOFF]: dropoff.id,
-        [MEMORY.MEMORY_HAUL_RESOURCE]: resource.resourceType,
-        [MEMORY.MEMORY_HAUL_AMOUNT]: resource.amount,
-      };
+      const dropoff = primaryRoom.getReserveStructureWithRoomForResource(resource.resourceType);
 
-      let topic = TOPICS.TOPIC_HAUL_TASK;
-      let priority = PRIORITIES.HAUL_DROPPED;
-      trace.log('haul dropped', {topic, priority, details});
+      const haulersWithTask = haulers.filter((creep) => {
+        const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
+        const pickup = creep.memory[MEMORY.MEMORY_HAUL_PICKUP];
+        return task === TASKS.TASK_HAUL && pickup === resource.id;
+      });
 
-      (orgRoom as any).sendRequest(topic, priority, details, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
+      const haulerCapacity = haulersWithTask.reduce((total, hauler) => {
+        return total += hauler.store.getFreeCapacity();
+      }, 0);
+
+      const untaskedUsedCapacity = resource.amount - haulerCapacity;
+      const loadsToHaul = Math.floor(untaskedUsedCapacity / avgHaulerCapacity);
+
+      // Increase priority by number of loads
+      priority += loadsToHaul * 0.2
+
+      trace.notice('loads', {avgHaulerCapacity, haulerCapacity, untaskedUsedCapacity, loadsToHaul})
+
+      for (let i = 0; i < loadsToHaul; i++) {
+        // Reduce priority for each load after first
+        const loadPriority = priority - 0.2 * i;
+
+        const details = {
+          [MEMORY.TASK_ID]: `pickup-${this.id}-${Game.time}`,
+          [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
+          [MEMORY.MEMORY_HAUL_PICKUP]: resource.id,
+          [MEMORY.MEMORY_HAUL_DROPOFF]: dropoff?.id || undefined,
+          [MEMORY.MEMORY_HAUL_RESOURCE]: resource.resourceType,
+          [MEMORY.MEMORY_HAUL_AMOUNT]: resource.amount,
+        };
+
+        trace.notice('haul dropped', {topic, loadPriority, details});
+
+        orgRoom.sendRequest(topic, loadPriority, details, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
+      }
     });
   }
 

@@ -48,7 +48,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
   threadProduceEvents: ThreadFunc;
   threadUpdateStructures: ThreadFunc;
   threadUpdateDropoff: ThreadFunc;
-  threadRequestWorkers: ThreadFunc;
+  threadRequestMiners: ThreadFunc;
   threadRequestHauling: ThreadFunc;
   threadBuildContainer: ThreadFunc;
   threadBuildLink: ThreadFunc;
@@ -67,7 +67,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     this.threadProduceEvents = thread('consume_events', PRODUCE_EVENTS_TTL)(this.produceEvents.bind(this));
     this.threadUpdateStructures = thread('update_structures', STRUCTURE_TTL)(this.updateStructures.bind(this));
     this.threadUpdateDropoff = thread('update_dropoff', DROPOFF_TTL)(this.updateDropoff.bind(this));
-    this.threadRequestWorkers = thread('request_workers', REQUEST_WORKER_TTL)(this.requestWorkers.bind(this));
+    this.threadRequestMiners = thread('request_miners', REQUEST_WORKER_TTL)(this.requestMiners.bind(this));
     this.threadRequestHauling = thread('reqeust_hauling', REQUEST_HAULING_TTL)(this.requestHauling.bind(this));
     this.threadBuildContainer = thread('build_container', CONTAINER_TTL)(this.buildContainer.bind(this));
     this.threadBuildLink = thread('build_link', BUILD_LINK_TTL)(this.buildLink.bind(this));
@@ -121,7 +121,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     this.threadProduceEvents(trace, kingdom, source);
     this.threadUpdateStructures(trace, source);
     this.threadUpdateDropoff(trace, colony);
-    this.threadRequestWorkers(trace, kingdom, colony, room, source);
+    this.threadRequestMiners(trace, kingdom, colony, room, source);
     this.threadRequestHauling(trace, colony);
 
     if (baseConfig.automated) {
@@ -289,7 +289,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     this.dropoffId = primaryRoom.getReserveStructureWithRoomForResource(RESOURCE_ENERGY)?.id;
   }
 
-  requestWorkers(trace: Tracer, kingdom: Kingdom, colony: Colony, room: Room, source: Source | Mineral) {
+  requestMiners(trace: Tracer, kingdom: Kingdom, colony: Colony, room: Room, source: Source | Mineral) {
     if (!this.creepPosition) {
       trace.error('creep position not set', {creepPosition: this.creepPosition});
       return;
@@ -307,81 +307,20 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       return;
     }
 
-    let desiredNumWorkers = 0;
-    let desiredWorkerPriority = 0;
-    let desiredWorkerType = WORKER_HARVESTER;
-
-    const primaryRoom = colony.getPrimaryRoom();
-    if (primaryRoom.hasStorage) {
-      if (source instanceof Mineral) {
-        const extractor = source.pos.lookFor(LOOK_STRUCTURES).
-          find((s) => s.structureType === STRUCTURE_EXTRACTOR)
-        if (!extractor) {
-          trace.error('no extractor found', {sourceId: source.id});
-          return;
-        }
-
-        // if mineral && storage, 1 harvester
-        desiredNumWorkers = 1;
-        desiredWorkerType = WORKER_HARVESTER;
-        desiredWorkerPriority = PRIORITY_HARVESTER;
-
-        if (!source.mineralAmount) {
-          desiredNumWorkers = 0;
-        }
-      } else if (this.containerId) {
-        // if container && storage, 1 miner
-        desiredNumWorkers = 1;
-        desiredWorkerType = WORKER_MINER;
-        desiredWorkerPriority = PRIORITY_MINER;
-      } else {
-        // 3 harvesters
-        //desiredNumWorkers = 3;
-        //desiredWorkerType = WORKER_HARVESTER;
-        //desiredWorkerPriority = PRIORITY_HARVESTER;
-
-        // trying only miners approach
-        desiredNumWorkers = 1;
-        desiredWorkerType = WORKER_MINER;
-        desiredWorkerPriority = PRIORITY_MINER;
-      }
-    } else {
-      // no storage, 3 harvesters
-      desiredNumWorkers = 6;
-      //if (this.orgRoom.getRoomLevel() >= 3) {
-      //  desiredNumWorkers = 1;
-      //}
-
-      desiredWorkerType = WORKER_HARVESTER;
-      desiredWorkerPriority = PRIORITY_HARVESTER;
-
-      // trying only miners approach
-      //desiredNumWorkers = 1;
-      //desiredWorkerType = WORKER_MINER;
-      //desiredWorkerPriority = PRIORITY_MINER;
-    }
-
-    const colonyCreeps = colony.getCreeps();
-    const numWorkers = colonyCreeps.filter((creep) => {
+    const numMiners = colony.getCreeps().filter((creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
-      return role === desiredWorkerType &&
+      return role === WORKER_MINER &&
         creep.memory[MEMORY.MEMORY_SOURCE] === this.sourceId &&
         creepIsFresh(creep);
     }).length;
 
-    trace.log('desired workers', {desiredWorkerType, desiredNumWorkers, numWorkers});
+    trace.log('num miners', {numMiners});
 
-    for (let i = numWorkers; i < desiredNumWorkers; i++) {
-      let priority = desiredWorkerPriority;
-
+    if (numMiners < 1) {
       let positionStr = [this.creepPosition.x, this.creepPosition.y, this.creepPosition.roomName].join(',');
-      if (desiredWorkerType === WORKER_HARVESTER) {
-        positionStr = [source.pos.x, source.pos.y, source.pos.roomName].join(',');
-      }
-
 
       const details = {
-        role: desiredWorkerType,
+        role: WORKER_MINER,
         memory: {
           [MEMORY.MEMORY_SOURCE]: this.sourceId,
           [MEMORY.MEMORY_SOURCE_CONTAINER]: this.containerId,
@@ -393,13 +332,14 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
 
       trace.log('requesting worker', {sourceId: this.sourceId, details});
 
-      colony.getPrimaryRoom().requestSpawn(priority, details, REQUEST_WORKER_TTL, trace);
+      colony.getPrimaryRoom().requestSpawn(PRIORITY_MINER, details, REQUEST_WORKER_TTL, trace);
     }
   }
 
   requestHauling(trace: Tracer, colony: Colony) {
     const container = Game.getObjectById(this.containerId);
     if (!container) {
+      trace.log('no container')
       return;
     }
 

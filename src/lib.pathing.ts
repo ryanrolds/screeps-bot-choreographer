@@ -184,7 +184,7 @@ const applyAllowedColonyPolicy = (baseConfigs: BaseConfig[], destRoomEntry: Room
     baseConfigs = baseConfigs.filter((config) => {
       const room = Game.rooms[config.primary];
       if (!room) {
-        trace.log('room not found', {room: config.primary});
+        trace.warn('room not found', {room: config.primary});
         return false;
       }
 

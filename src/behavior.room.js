@@ -1,8 +1,7 @@
 const behaviorTree = require('./lib.behaviortree');
 const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
-const behaviorHarvest = require('./behavior.harvest');
 const behaviorMovement = require('./behavior.movement');
-const {MEMORY_SOURCE, MEMORY_DESTINATION} = require('./constants.memory');
+const {MEMORY_DESTINATION} = require('./constants.memory');
 const {commonPolicy} = require('./lib.pathing_policies');
 
 const pickupDroppedEnergy = behaviorTree.leafNode(
@@ -177,6 +176,7 @@ const selectMoveFill = (selector) => {
 };
 module.exports.selectMoveFill = selectMoveFill;
 
+/* TODO remove Jan 2020
 const fillCreepFromSource = behaviorTree.sequenceNode(
   'fill_from_source',
   [
@@ -185,6 +185,7 @@ const fillCreepFromSource = behaviorTree.sequenceNode(
     behaviorHarvest.harvest,
   ],
 );
+*/
 
 module.exports.getSomeEnergy = behaviorTree.runUntilConditionMet(
   'get_some_energy_until_success',
@@ -200,7 +201,6 @@ module.exports.getSomeEnergy = behaviorTree.runUntilConditionMet(
       selectMoveFill(selectStorage),
       selectMoveFill(selectContainer),
       selectMoveFill(selectDroppedEnergy),
-      fillCreepFromSource,
     ],
   ),
 );
@@ -219,7 +219,6 @@ module.exports.getEnergy = behaviorTree.repeatUntilConditionMet(
       selectMoveFill(selectNearbyLink),
       selectMoveFill(selectContainer),
       selectMoveFill(selectDroppedEnergy),
-      fillCreepFromSource,
     ],
   ),
 );

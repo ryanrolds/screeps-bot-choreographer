@@ -555,7 +555,7 @@ export default class BaseRunnable {
     const reserveEnergy = orgRoom.getAmountInReserve(RESOURCE_ENERGY);
     const reserveBuffer = orgRoom.getReserveBuffer();
 
-    trace.log('reserver energy', {reserveEnergy, reserveBuffer});
+    trace.log('upgrader energy', {reserveEnergy, reserveBuffer});
 
     if (!room.controller?.my) {
       trace.log('not my room')
@@ -588,7 +588,7 @@ export default class BaseRunnable {
       desiredUpgraders = 0;
     }
 
-    const energyLimit = ((parts - 1) * 200) + 300;
+    const energyLimit = ((parts - 1) * 150) + 200;
 
     // Don't let it create a ton of upgraders
     if (desiredUpgraders > MAX_UPGRADERS) {
@@ -810,7 +810,7 @@ export default class BaseRunnable {
     baseConfig.rooms.forEach((roomName) => {
       const orgRoom = kingdom.getRoomByName(roomName);
       if (!orgRoom) {
-        trace.error('room not found', {roomName});
+        trace.warn('room not found', {roomName});
         return;
       }
 

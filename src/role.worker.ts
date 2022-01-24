@@ -1,9 +1,9 @@
 
 /**
- * Harvester creep
+ * Worker creep
  *
- * Early game harvesting creep. Used when there is no storage. Replaced by miners
- * when storage is available.
+ * Early game creep. Used when there is no storage. Replaced by more specialized
+ * creeps when storage is built.
  *
  * TODO fix 3 ticks of no movement after putting energy into spawner/dropoff
  */
@@ -18,13 +18,33 @@ import {behaviorBoosts} from "./behavior.boosts";
 import * as MEMORY from "./constants.memory";
 import {commonPolicy} from "./lib.pathing_policies";
 import {roadWorker} from "./behavior.logistics";
+import * as behaviorHaul from "./behavior.haul";
+import * as TOPICS from "./constants.topics";
+import behaviorRoom from "./behavior.room";
 
 const behavior = behaviorTree.sequenceNode(
   'haul_energy',
   [
-    behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_SOURCE_POSITION, 1, commonPolicy),
-    behaviorCommute.setCommuteDuration,
-    behaviorHarvest.harvest,
+    behaviorHaul.clearTask,
+    behaviorTree.selectorNode(
+      'pick_something',
+      [
+        behaviorHaul.getHaulTaskFromTopic(TOPICS.TOPIC_HAUL_TASK),
+        behaviorTree.leafNode(
+          'top',
+          (creep, trace, kingdom) => {
+            if (creep.store.getUsedCapacity(RESOURCE_ENERGY) !== 0) {
+              creep.say('🚚⁉️');
+              trace.notice('failed to get task', {name: creep.name});
+            }
+            return FAILURE;
+          },
+        ),
+        behaviorRoom.parkingLot,
+      ],
+    ),
+    behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_PICKUP, 1, commonPolicy),
+    behaviorHaul.loadCreep,
     behaviorTree.selectorNode(
       'dump_or_build_or_upgrade',
       [
@@ -170,6 +190,6 @@ const behavior = behaviorTree.sequenceNode(
   ],
 );
 
-export const roleHarvester = {
-  run: behaviorTree.rootNode('hauler', behaviorBoosts(roadWorker(behavior))),
+export const roleWorker = {
+  run: behaviorTree.rootNode('worker', behaviorBoosts(roadWorker(behavior))),
 };

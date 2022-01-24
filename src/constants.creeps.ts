@@ -1,3 +1,8 @@
+/**
+ * Creep definitions
+ *
+ * TODO move to role files
+ */
 import {Priorities} from './os.scheduler';
 
 export const WORKER_BUILDER = 'builder';
@@ -17,13 +22,14 @@ export const WORKER_DISTRIBUTOR = 'distributor';
 export const WORKER_RESERVER = 'reserver';
 export const WORKER_HAULER = 'hauler';
 export const WORKER_EXPLORER = 'explorer';
+export const ROLE_WORKER = 'worker';
 
 // The 'base' should at most 300 energy as it will form the base of the creep
 // The 'parts' are additional parts that will be used to fill up to the 'energyLimit'
 export const DEFINITIONS = {
   [WORKER_UPGRADER]: {
-    parts: [MOVE, CARRY, WORK],
-    base: [CARRY, MOVE, CARRY, MOVE, WORK],
+    parts: [MOVE, WORK, WORK],
+    base: [CARRY, WORK, MOVE],
     boosts: ['upgradeController'],
     processPriority: Priorities.CORE_LOGISTICS,
     skippable: true,
@@ -31,7 +37,7 @@ export const DEFINITIONS = {
   [WORKER_DISTRIBUTOR]: {
     energyLimit: 2000,
     parts: [MOVE, CARRY, CARRY],
-    base: [MOVE, WORK, CARRY,],
+    base: [MOVE, WORK, CARRY],
     // boosts: ['capacity'],
     processPriority: Priorities.CORE_LOGISTICS,
     skippable: true,
@@ -63,8 +69,15 @@ export const DEFINITIONS = {
   },
   [WORKER_HARVESTER]: {
     energyLimit: 3200,
-    parts: [MOVE, CARRY, WORK],
-    base: [CARRY, WORK, MOVE],
+    parts: [MOVE, WORK, WORK, MOVE, WORK, CARRY],
+    base: [MOVE, CARRY, WORK],
+    // boosts: ['harvest'],
+    processPriority: Priorities.RESOURCES,
+    skippable: true,
+  },
+  [ROLE_WORKER]: {
+    parts: [MOVE, CARRY, CARRY, MOVE, CARRY, WORK],
+    base: [MOVE, WORK, CARRY],
     // boosts: ['harvest'],
     processPriority: Priorities.RESOURCES,
     skippable: true,
@@ -72,7 +85,7 @@ export const DEFINITIONS = {
   [WORKER_MINER]: {
     energyLimit: 1750,
     ignoreSpawnEnergyLimit: true,
-    parts: [MOVE, CARRY, WORK, WORK],
+    parts: [MOVE, WORK, WORK, WORK],
     base: [MOVE, CARRY, WORK, WORK],
     // boosts: ['harvest'],
     processPriority: Priorities.RESOURCES,
@@ -133,7 +146,7 @@ export const DEFINITIONS = {
   },
   [WORKER_BUILDER]: {
     energyLimit: 1500,
-    parts: [MOVE, CARRY, WORK],
+    parts: [MOVE, WORK, WORK, MOVE, WORK, CARRY],
     base: [MOVE, CARRY, WORK],
     // boosts: ['build'],
     processPriority: Priorities.MAINTENANCE,

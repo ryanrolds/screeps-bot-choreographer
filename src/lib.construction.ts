@@ -44,7 +44,7 @@ export const getPrioritizedSites = function (room: Room): ConstructionSite[] {
 export const getInfrastructureSites = function (room: Room): ConstructionSite[] {
   let sites = room.find(FIND_MY_CONSTRUCTION_SITES).filter((site) => {
     return site.structureType === STRUCTURE_SPAWN || site.structureType === STRUCTURE_TOWER ||
-      site.structureType === STRUCTURE_STORAGE;
+      site.structureType === STRUCTURE_STORAGE || site.structureType === STRUCTURE_EXTENSION;
   });
   if (!sites || !sites.length) {
     return [];
@@ -57,7 +57,9 @@ export const getInfrastructureSites = function (room: Room): ConstructionSite[] 
       case STRUCTURE_TOWER:
         return 1 - site.progress / site.progressTotal;
       case STRUCTURE_STORAGE:
-        return 4 - site.progress / site.progressTotal;
+        return 2 - site.progress / site.progressTotal;
+      case STRUCTURE_EXTENSION:
+        return 3 - site.progress / site.progressTotal;
       default:
         return 15 - site.progress / site.progressTotal;
     }

@@ -50,6 +50,7 @@ export class Colony extends OrgBase {
   numCreeps: number;
 
   haulers: Creep[];
+  // TODO refactor to make it more clear that this also counts workers
   numHaulers: number;
   numActiveHaulers: number;
   idleHaulers: number;
@@ -109,9 +110,13 @@ export class Colony extends OrgBase {
     this.idleHaulers = 0;
     this.avgHaulerCapacity = 300;
     this.threadUpdateHaulers = thread('update_haulers_thread', UPDATE_HAULERS_TTL)(() => {
+
+      // Get list of haulers and workers
       this.haulers = this.assignedCreeps.filter((creep) => {
-        return creep.memory[MEMORY_ROLE] === CREEPS.WORKER_HAULER &&
+        return (creep.memory[MEMORY_ROLE] === CREEPS.WORKER_HAULER ||
+          creep.memory[MEMORY_ROLE] === CREEPS.ROLE_WORKER) &&
           creep.memory[MEMORY_COLONY] === this.id &&
+          creep.memory[MEMORY.MEMORY_BASE] === this.id &&
           creepIsFresh(creep);
       });
 
@@ -131,8 +136,8 @@ export class Colony extends OrgBase {
           return total + hauler.store.getCapacity();
         }, 0) / this.haulers.length;
 
-        if (this.avgHaulerCapacity < 300) {
-          this.avgHaulerCapacity = 300;
+        if (this.avgHaulerCapacity < 50) {
+          this.avgHaulerCapacity = 50;
         }
       }
     });
@@ -201,7 +206,7 @@ export class Colony extends OrgBase {
     this.threadRequestReserversForMissingRooms(updateTrace);
     this.threadHandleDefenderRequest(updateTrace);
 
-    if (this.primaryOrgRoom && this.primaryOrgRoom.hasStorage) {
+    if (this.primaryOrgRoom) {
       this.threadRequestHaulers(updateTrace);
     }
 
@@ -374,22 +379,37 @@ export class Colony extends OrgBase {
       defender.memory[MEMORY.MEMORY_ASSIGN_ROOM_POS] = request.details.memory[MEMORY.MEMORY_ASSIGN_ROOM_POS];
     });
   }
-  requestHaulers(trace: Tracer) {
-    if (this.primaryRoom) {
-      if (Game.cpu.bucket < 2000) {
-        trace.notice('bucket is low, not requesting haulers', {bucket: Game.cpu.bucket});
-        return;
-      }
 
-      // PID approach
-      if (this.numHaulers < this.pidDesiredHaulers) {
-        const priority = PRIORITY_HAULER + this.pidDesiredHaulers - this.numHaulers;
-        trace.log('requesting hauler', {priority});
-        this.sendRequest(TOPIC_SPAWN, priority, {
-          role: CREEPS.WORKER_HAULER,
-          memory: {},
-        }, REQUEST_HAULER_TTL);
-      }
+  requestHaulers(trace: Tracer) {
+    if (!this.primaryRoom) {
+      trace.log('not primary room');
+    }
+
+    if (Game.cpu.bucket < 2000) {
+      trace.notice('bucket is low, not requesting haulers', {bucket: Game.cpu.bucket});
+      return;
+    }
+
+    let role = CREEPS.WORKER_HAULER;
+    if (!this.primaryOrgRoom?.hasStorage) {
+      role = CREEPS.ROLE_WORKER;
+    }
+
+    trace.notice('request haulers', {numHaulers: this.numHaulers, desiredHaulers: this.pidDesiredHaulers})
+
+    // PID approach
+    if (this.numHaulers < this.pidDesiredHaulers) {
+      const priority = PRIORITY_HAULER + this.pidDesiredHaulers - this.numHaulers;
+
+      trace.notice('requesting hauler', {role, priority});
+
+      this.sendRequest(TOPIC_SPAWN, priority, {
+        role,
+        memory: {
+          [MEMORY.MEMORY_COLONY]: this.id,
+          [MEMORY.MEMORY_BASE]: this.id,
+        },
+      }, REQUEST_HAULER_TTL);
     }
   }
 
@@ -485,7 +505,7 @@ export class Colony extends OrgBase {
     missingOrgColonyIds.forEach((id) => {
       const room = Game.rooms[id];
       if (!room) {
-        trace.error('missing room not found', {id});
+        trace.warn('missing room not found', {id});
         return;
       }
 

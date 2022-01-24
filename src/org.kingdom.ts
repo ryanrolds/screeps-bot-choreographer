@@ -266,22 +266,12 @@ export class Kingdom extends OrgBase {
   }
 
   getCreepRoom(creep: Creep): OrgRoom {
-    const colony = this.getCreepColony(creep);
-    if (!colony) {
+    const orgRoom = this.getRoomByName(creep.room.name);
+    if (!orgRoom) {
       return null;
     }
 
-    const roomId = creep.room?.name;
-    if (!roomId) {
-      return null;
-    }
-
-    const room = colony.getRoomByID(roomId);
-    if (!room) {
-      return colony.getPrimaryRoom();
-    }
-
-    return room;
+    return orgRoom;
   }
   getScheduler(): Scheduler {
     return this.scheduler;

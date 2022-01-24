@@ -1,3 +1,13 @@
+/**
+ * Cost Matrix
+ *
+ * Contains functions that create the various cost matrices used by
+ * processes & creeps.
+ *
+ * TODO could be dried out a bit more
+ * TODO add tests
+ */
+
 import {getRegion} from "./lib.flood_fill";
 import {buildingCodes, Layout} from "./lib.layouts";
 import {Tracer} from "./lib.tracing";
@@ -69,7 +79,6 @@ export const createCommonCostMatrix = (roomName: string, trace: Tracer): CostMat
         }
       }
     }
-
 
     if (struct.structureType === STRUCTURE_CONTROLLER) {
       const controllerPos = struct.pos;
