@@ -15,6 +15,7 @@ import {thread, ThreadFunc} from './os.thread';
 import {getLinesStream, HudLine, HudEventSet} from './runnable.debug_hud';
 import SourceRunnable from "./runnable.base_room_source";
 import {resourceUsage} from 'process';
+import MineralRunnable from './runnable.base_room_mineral';
 
 const MIN_RESERVATION_TICKS = 4000;
 const NO_VISION_TTL = 20;
@@ -106,7 +107,7 @@ export default class RoomRunnable {
           const mineralId = `${mineral.id}`
           if (!this.scheduler.hasProcess(mineralId)) {
             this.scheduler.registerProcess(new Process(mineralId, 'mineral', Priorities.RESOURCES,
-              new SourceRunnable(orgRoom, mineral)));
+              new MineralRunnable(orgRoom, mineral)));
           }
         });
       }

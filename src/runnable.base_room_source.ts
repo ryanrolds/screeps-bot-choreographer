@@ -1,6 +1,6 @@
 import {creepIsFresh} from './behavior.commute';
 import {BaseConfig} from './config';
-import {WORKER_HARVESTER, WORKER_MINER} from "./constants.creeps";
+import {WORKER_MINER} from "./constants.creeps";
 import * as MEMORY from "./constants.memory";
 import {PRIORITY_HARVESTER, PRIORITY_MINER} from "./constants.priorities";
 import * as TASKS from "./constants.tasks";
@@ -13,7 +13,7 @@ import {Colony} from './org.colony';
 import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
 import {PersistentMemory} from "./os.memory";
-import {running, terminate} from "./os.process";
+import {running, sleeping, terminate} from "./os.process";
 import {Runnable, RunnableResult} from "./os.runnable";
 import {thread, ThreadFunc} from "./os.thread";
 import {getLinesStream, HudLine, HudEventSet} from './runnable.debug_hud';
@@ -32,7 +32,7 @@ const CONTAINER_TTL = 250;
 export default class SourceRunnable extends PersistentMemory implements Runnable {
   id: string;
   orgRoom: OrgRoom;
-  sourceId: Id<Source | Mineral>;
+  sourceId: Id<Source>;
   position: RoomPosition;
   creepPosition: RoomPosition | null;
   linkPosition: RoomPosition | null;
@@ -52,9 +52,8 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
   threadRequestHauling: ThreadFunc;
   threadBuildContainer: ThreadFunc;
   threadBuildLink: ThreadFunc;
-  threadBuildExtractor: ThreadFunc;
 
-  constructor(room: OrgRoom, source: (Source | Mineral)) {
+  constructor(room: OrgRoom, source: Source) {
     super(source.id);
 
     this.id = source.id;
@@ -71,7 +70,6 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     this.threadRequestHauling = thread('reqeust_hauling', REQUEST_HAULING_TTL)(this.requestHauling.bind(this));
     this.threadBuildContainer = thread('build_container', CONTAINER_TTL)(this.buildContainer.bind(this));
     this.threadBuildLink = thread('build_link', BUILD_LINK_TTL)(this.buildLink.bind(this));
-    this.threadBuildExtractor = thread('build_extractor', CONTAINER_TTL)(this.buildExtractor.bind(this));
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
@@ -85,7 +83,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       creepPosition: this.creepPosition,
     });
 
-    const source: Source | Mineral = Game.getObjectById(this.sourceId);
+    const source: Source = Game.getObjectById(this.sourceId);
     if (!source) {
       trace.error('source not found', {id: this.sourceId});
       trace.end();
@@ -127,17 +125,16 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     if (baseConfig.automated) {
       this.threadBuildContainer(trace, kingdom, source);
       this.threadBuildLink(trace, room, source);
-      this.threadBuildExtractor(trace, room, source);
     }
 
     this.updateStats(kingdom, trace);
 
     trace.end();
 
-    return running();
+    return sleeping(REQUEST_HAULING_TTL);
   }
 
-  produceEvents(trace: Tracer, kingdom: Kingdom, source: Source | Mineral) {
+  produceEvents(trace: Tracer, kingdom: Kingdom, source: Source) {
     const creepPosition = this.creepPosition;
     if (!creepPosition) {
       trace.error('no creep position', {room: source.room.name});
@@ -158,15 +155,10 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     kingdom.getBroker().getStream(getLogisticsTopic(baseConfig.id)).
       publish(new Event(this.id, Game.time, LogisticsEventType.RequestRoad, data));
 
-    let sourceType = 'source';
-    if (source instanceof Mineral) {
-      sourceType = 'mineral';
-    }
-
     const hudLine: HudLine = {
       key: `${this.id}`,
       room: source.room.name,
-      text: `${sourceType}(${source.id}) - ` +
+      text: `source (${source.id}) - ` +
         `container: ${this.creepPosition} (${this.containerId}), ` +
         `link: ${this.linkPosition} (${this.linkId})`,
       time: Game.time,
@@ -177,10 +169,8 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       HudEventSet, hudLine));
   }
 
-  populatePositions(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig, source: Source | Mineral) {
+  populatePositions(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig, source: Source) {
     trace.log('populate positions', {room: source.room.name});
-
-    const isMineral = source instanceof Mineral;
 
     const memory = this.getMemory() || {};
 
@@ -192,14 +182,9 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     }
 
     const linkPosition = memory.linkPosition;
-    if (linkPosition && !isMineral) {
+    if (linkPosition) {
       trace.log('link position in memory', {room: source.room.name});
       this.linkPosition = new RoomPosition(linkPosition.x, linkPosition.y, linkPosition.roomName);
-    }
-
-    if ((this.linkPosition || isMineral) && this.creepPosition) {
-      trace.log('both positions in memory', {room: source.room.name});
-      return;
     }
 
     const colonyPos = new RoomPosition(baseConfig.origin.x, baseConfig.origin.y - 1,
@@ -216,46 +201,44 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     trace.log('creep position set', {creepPosition: this.creepPosition});
     this.creepPosition = pathResult.path[0];
 
-    if (!isMineral) {
-      const availableLinkPos = getNearbyPositions(this.creepPosition, 1);
-      trace.notice('available link positions', {availableLinkPos});
+    const availableLinkPos = getNearbyPositions(this.creepPosition, 1);
+    trace.notice('available link positions', {availableLinkPos});
 
-      const filtered = availableLinkPos.filter((pos) => {
-        // Remove creep position
-        if (this.creepPosition.isEqualTo(pos)) {
-          return false;
-        }
-
-        // Don't use the next pos in the road
-        if (pathResult.path[1].isEqualTo(pos)) {
-          return false;
-        }
-
-        // Dont use any positions with structures, construction sites, or walls
-        const blocker = pos.look().find((result) => {
-          if (result.type === 'structure' || result.type === 'constructionSite') {
-            return true;
-          }
-
-          if (result.type === 'terrain' && result.terrain === 'wall') {
-            return true;
-          }
-
-          return false;
-        });
-        if (blocker) {
-          return false;
-        }
-
-        return true;
-      });
-
-      if (filtered.length === 0) {
-        trace.error('no available link position', {creepPosition: this.creepPosition, filtered, availableLinkPos});
-      } else {
-        trace.notice('link position set', {linkPosition: this.linkPosition, filtered});
-        this.linkPosition = filtered[0];
+    const filtered = availableLinkPos.filter((pos) => {
+      // Remove creep position
+      if (this.creepPosition.isEqualTo(pos)) {
+        return false;
       }
+
+      // Don't use the next pos in the road
+      if (pathResult.path[1].isEqualTo(pos)) {
+        return false;
+      }
+
+      // Dont use any positions with structures, construction sites, or walls
+      const blocker = pos.look().find((result) => {
+        if (result.type === 'structure' || result.type === 'constructionSite') {
+          return true;
+        }
+
+        if (result.type === 'terrain' && result.terrain === 'wall') {
+          return true;
+        }
+
+        return false;
+      });
+      if (blocker) {
+        return false;
+      }
+
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      trace.error('no available link position', {creepPosition: this.creepPosition, filtered, availableLinkPos});
+    } else {
+      trace.notice('link position set', {linkPosition: this.linkPosition, filtered});
+      this.linkPosition = filtered[0];
     }
 
     // Update memory
@@ -289,7 +272,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     this.dropoffId = primaryRoom.getReserveStructureWithRoomForResource(RESOURCE_ENERGY)?.id;
   }
 
-  requestMiners(trace: Tracer, kingdom: Kingdom, colony: Colony, room: Room, source: Source | Mineral) {
+  requestMiners(trace: Tracer, kingdom: Kingdom, colony: Colony, room: Room, source: Source) {
     if (!this.creepPosition) {
       trace.error('creep position not set', {creepPosition: this.creepPosition});
       return;
@@ -404,14 +387,9 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     }
   }
 
-  buildContainer(trace: Tracer, kingdom: Kingdom, source: (Source | Mineral)) {
+  buildContainer(trace: Tracer, kingdom: Kingdom, source: (Source)) {
     if (!this.creepPosition) {
       trace.log('no creep position', {id: this.sourceId});
-      return;
-    }
-
-    if (source instanceof Mineral) {
-      trace.log('do not build container for minerals', {id: this.sourceId});
       return;
     }
 
@@ -452,12 +430,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     trace.log('container created', {result});
   }
 
-  buildLink(trace: Tracer, room: Room, source: Source | Mineral) {
-    if (source instanceof Mineral) {
-      trace.log('minerals do not get links', {id: this.sourceId});
-      return;
-    }
-
+  buildLink(trace: Tracer, room: Room, source: Source) {
     if (!this.linkPosition) {
       trace.error('no link position', {room: room.name, id: this.sourceId});
       return;
@@ -506,32 +479,5 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     trace.log('build link', {id: this.sourceId});
     const result = this.linkPosition.createConstructionSite(STRUCTURE_LINK);
     trace.notice('link created', {result});
-  }
-
-  buildExtractor(trace: Tracer, room: Room, source: Source | Mineral) {
-    if (source instanceof Source) {
-      trace.log('sources do not get extractors', {id: this.sourceId});
-      return;
-    }
-
-    if (room.controller?.level < 6) {
-      trace.log('room too low for extractor', {id: this.sourceId});
-      return;
-    }
-
-    const extractor = source.pos.lookFor(LOOK_STRUCTURES).find((structure) => {
-      return structure.structureType === STRUCTURE_EXTRACTOR;
-    });
-
-    if (!extractor) {
-      const site = source.pos.lookFor(LOOK_CONSTRUCTION_SITES).find((site) => {
-        return site.structureType === STRUCTURE_EXTRACTOR;
-      });
-
-      if (!site) {
-        trace.log('building extractor', {id: this.sourceId});
-        room.createConstructionSite(source.pos, STRUCTURE_EXTRACTOR);
-      }
-    }
   }
 }
