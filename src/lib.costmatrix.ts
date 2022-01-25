@@ -154,16 +154,37 @@ export const createSourceRoadMatrix = (kingdom: Kingdom, roomName: string, trace
   // If room is not visible then use empty matrix
   const room = Game.rooms[roomName];
   if (!room) {
-    trace.log('room not visible', {roomName: roomName});
+    trace.error('room not visible', {roomName: roomName});
     return costMatrix;
   }
 
   const terrain = Game.map.getRoomTerrain(roomName);
 
+  for (let x = 0; x < 50; x++) {
+    for (let y = 0; y < 50; y++) {
+      const mask = terrain.get(x, y)
+
+      if (mask === TERRAIN_MASK_WALL) {
+        costMatrix.set(x, y, 255);
+        continue;
+      }
+
+      if (mask === TERRAIN_MASK_SWAMP) {
+        costMatrix.set(x, y, 5);
+        continue;
+      }
+
+      costMatrix.set(x, y, 2);
+    }
+  }
+
   const structures = room.find(FIND_STRUCTURES);
   trace.log('found structures', {numStructures: structures.length});
 
-  structures.filter((s) => s.structureType !== STRUCTURE_ROAD).forEach(function (struct) {
+  const roads = structures.filter((s) => s.structureType === STRUCTURE_ROAD)
+  const nonRoadStructures = structures.filter((s) => s.structureType !== STRUCTURE_ROAD)
+
+  nonRoadStructures.forEach(function (struct) {
     if (struct.structureType === STRUCTURE_CONTROLLER) {
       const controllerPos = struct.pos;
       for (let x = controllerPos.x - 3; x <= controllerPos.x + 3; x++) {
@@ -199,7 +220,7 @@ export const createSourceRoadMatrix = (kingdom: Kingdom, roomName: string, trace
   applySourceBuffer(room, costMatrix, terrain, 5, trace);
 
   // Add existing roads
-  structures.filter((s) => s.structureType === STRUCTURE_ROAD).forEach(function (struct) {
+  roads.forEach(function (struct) {
     const cost = costMatrix.get(struct.pos.x, struct.pos.y);
     if (cost >= 5 && cost != 255) {
       costMatrix.set(struct.pos.x, struct.pos.y, cost - 2);
@@ -241,7 +262,7 @@ export const createSourceRoadMatrix = (kingdom: Kingdom, roomName: string, trace
   return costMatrix;
 }
 
-export const createPartyCostMatrix = (roomName: string, trace: Tracer): CostMatrix | boolean => {
+export const createPartyCostMatrix = (roomName: string, trace: Tracer): CostMatrix => {
   const costMatrix = new PathFinder.CostMatrix();
 
   const terrain = Game.map.getRoomTerrain(roomName);

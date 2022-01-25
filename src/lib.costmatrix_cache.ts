@@ -19,7 +19,7 @@ export enum AllowedCostMatrixTypes {
 export class CostMatrixCacheItem {
   roomId: string;
   time: number;
-  costMatrix: CostMatrix | boolean;
+  costMatrix: CostMatrix;
   costMatrixType: AllowedCostMatrixTypes;
 
   constructor(id: string, costMatrixType: AllowedCostMatrixTypes) {
@@ -30,7 +30,7 @@ export class CostMatrixCacheItem {
   }
 
   update(kingdom: Kingdom, trace: Tracer) {
-    let costMatrix: CostMatrix | boolean = new PathFinder.CostMatrix();
+    let costMatrix: CostMatrix = new PathFinder.CostMatrix();
 
     trace.log('updating', {room: this.roomId, type: this.costMatrixType});
 
@@ -88,7 +88,7 @@ export class CostMatrixCache {
     this.rooms = {};
   }
 
-  getCostMatrix(kingdom: Kingdom, roomId: string, costMatrixType: AllowedCostMatrixTypes, trace: Tracer): CostMatrix | boolean {
+  getCostMatrix(kingdom: Kingdom, roomId: string, costMatrixType: AllowedCostMatrixTypes, trace: Tracer): CostMatrix {
     trace.log('get cost matrix', {roomId, costMatrixType});
 
     if (!this.rooms[roomId]) {

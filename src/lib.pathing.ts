@@ -97,16 +97,22 @@ export const getPath = (kingdom: Kingdom, origin: RoomPosition, destination: Roo
     // Add origin room to list of allowed room
     allowedRooms[origin.roomName] = true;
 
-    const result = PathFinder.search(origin, {
+    const goal = {
       pos: destination,
       range: policy.destination.range
-    }, {
+    };
+
+    const opts: PathFinderOpts = {
       maxRooms: policy.path.maxSearchRooms,
       roomCallback: getRoomCallback(kingdom, destination.roomName, policy.room, allowedRooms, trace),
       maxOps: policy.path.maxOps,
       plainCost: policy.path.plainCost || 2,
       swampCost: policy.path.swampCost || 5,
-    });
+    };
+
+    trace.log('findPath', {origin, goal, opts});
+
+    const result = PathFinder.search(origin, goal, opts);
 
     // If route is complete or we don't care, go with it
     if (result.incomplete === false || policy.path.allowIncomplete) {
@@ -269,11 +275,7 @@ const getRoomCallback = (kingdom: Kingdom, destRoom: string, policy: RoomPolicy,
       }
     }
 
-    const costMatrix = kingdom.getCostMatrixCache().getCostMatrix(kingdom, roomName, policy.costMatrixType, trace)
-    if (typeof (costMatrix) !== 'boolean') {
-    }
-
-    return costMatrix;
+    return kingdom.getCostMatrixCache().getCostMatrix(kingdom, roomName, policy.costMatrixType, trace);
   }
 }
 

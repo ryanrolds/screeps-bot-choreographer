@@ -102,7 +102,7 @@ export default class TerminalRunnable {
       if (terminalAmount > MAX_TERMINAL_ENERGY && this.returnEnergyTTL < 0) {
         this.returnEnergyTTL = REQUEST_RETURN_ENERGY_TTL;
         const amountToTransfer = terminalAmount - MAX_TERMINAL_ENERGY;
-        trace.notice('send energy to storage', {amountToTransfer})
+        trace.log('send energy to storage', {amountToTransfer})
         this.sendEnergyToStorage(terminal, amountToTransfer, REQUEST_RETURN_ENERGY_TTL, trace);
       }
     }

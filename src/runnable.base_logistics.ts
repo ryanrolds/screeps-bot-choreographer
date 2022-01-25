@@ -172,7 +172,7 @@ export default class LogisticsRunnable extends PersistentMemory {
         }
       }
 
-      trace.log('lets to update', {
+      trace.log('legs to update', {
         legs: legs.map((l) => {
           return {id: l.id, updatedAt: l.updatedAt, remaining: l.remaining.length}
         })

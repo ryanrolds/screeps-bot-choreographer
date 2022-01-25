@@ -209,7 +209,7 @@ export default class RoomRunnable {
       // Increase priority by number of loads
       priority += loadsToHaul * 0.2
 
-      trace.notice('loads', {avgHaulerCapacity, haulerCapacity, untaskedUsedCapacity, loadsToHaul})
+      trace.log('loads', {avgHaulerCapacity, haulerCapacity, untaskedUsedCapacity, loadsToHaul})
 
       for (let i = 0; i < loadsToHaul; i++) {
         // Reduce priority for each load after first
@@ -224,7 +224,7 @@ export default class RoomRunnable {
           [MEMORY.MEMORY_HAUL_AMOUNT]: resource.amount,
         };
 
-        trace.notice('haul dropped', {topic, loadPriority, details});
+        trace.log('haul dropped', {topic, loadPriority, details});
 
         orgRoom.sendRequest(topic, loadPriority, details, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
       }

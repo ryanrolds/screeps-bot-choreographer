@@ -223,7 +223,7 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
       let positionStr = [this.creepPosition.x, this.creepPosition.y, this.creepPosition.roomName].join(',');
 
       const details = {
-        role: WORKER_MINER,
+        role: WORKER_HARVESTER,
         memory: {
           [MEMORY.MEMORY_SOURCE]: this.mineralId,
           [MEMORY.MEMORY_SOURCE_POSITION]: positionStr,
