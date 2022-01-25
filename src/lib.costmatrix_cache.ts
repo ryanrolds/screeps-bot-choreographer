@@ -39,10 +39,10 @@ export class CostMatrixCacheItem {
         costMatrix = createPartyCostMatrix(this.roomId, trace);
         break;
       case AllowedCostMatrixTypes.COMMON:
-        costMatrix = createCommonCostMatrix(this.roomId, trace);
+        costMatrix = createCommonCostMatrix(kingdom, this.roomId, trace);
         break;
       case AllowedCostMatrixTypes.SINGLE_ROOM_COMMON:
-        costMatrix = singleRoomCommonMatrix(this.roomId, trace);
+        costMatrix = singleRoomCommonMatrix(kingdom, this.roomId, trace);
         break;
       case AllowedCostMatrixTypes.BASE_DEFENSE:
         costMatrix = createDefenderCostMatrix(this.roomId, trace);

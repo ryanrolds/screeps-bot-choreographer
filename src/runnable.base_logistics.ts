@@ -223,9 +223,16 @@ export default class LogisticsRunnable extends PersistentMemory {
       const road = pos.lookFor(LOOK_STRUCTURES).find((s) => {
         return s.structureType === STRUCTURE_ROAD;
       });
-
       if (road) {
         trace.log('road found', {road});
+        return false;
+      }
+
+      const site = pos.lookFor(LOOK_CONSTRUCTION_SITES).find((s) => {
+        return s.structureType === STRUCTURE_ROAD;
+      });
+      if (site) {
+        trace.log('site found', {road});
         return false;
       }
 

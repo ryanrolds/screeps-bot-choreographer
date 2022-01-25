@@ -395,13 +395,13 @@ export class Colony extends OrgBase {
       role = CREEPS.ROLE_WORKER;
     }
 
-    trace.notice('request haulers', {numHaulers: this.numHaulers, desiredHaulers: this.pidDesiredHaulers})
+    trace.log('request haulers', {numHaulers: this.numHaulers, desiredHaulers: this.pidDesiredHaulers})
 
     // PID approach
     if (this.numHaulers < this.pidDesiredHaulers) {
       const priority = PRIORITY_HAULER + this.pidDesiredHaulers - this.numHaulers;
 
-      trace.notice('requesting hauler', {role, priority});
+      trace.log('requesting hauler', {role, priority});
 
       this.sendRequest(TOPIC_SPAWN, priority, {
         role,

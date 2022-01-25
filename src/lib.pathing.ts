@@ -104,7 +104,7 @@ export const getPath = (kingdom: Kingdom, origin: RoomPosition, destination: Roo
 
     const opts: PathFinderOpts = {
       maxRooms: policy.path.maxSearchRooms,
-      roomCallback: getRoomCallback(kingdom, destination.roomName, policy.room, allowedRooms, trace),
+      roomCallback: getRoomCallback(kingdom, destination.roomName, policy.path, policy.room, allowedRooms, trace),
       maxOps: policy.path.maxOps,
       plainCost: policy.path.plainCost || 2,
       swampCost: policy.path.swampCost || 5,
@@ -252,8 +252,8 @@ const getRoomRouteCallback = (kingdom: Kingdom, destRoom: string, policy: RoomPo
   }
 }
 
-const getRoomCallback = (kingdom: Kingdom, destRoom: string, policy: RoomPolicy,
-  allowedRooms: Record<string, boolean>, trace: Tracer): RoomCallbackFunc => {
+const getRoomCallback = (kingdom: Kingdom, destRoom: string, pathPolicy: PathPolicy,
+  roomPolicy: RoomPolicy, allowedRooms: Record<string, boolean>, trace: Tracer): RoomCallbackFunc => {
   return (roomName: string): (boolean | CostMatrix) => {
     if (destRoom !== roomName) {
       if (!allowedRooms[roomName]) {
@@ -263,19 +263,31 @@ const getRoomCallback = (kingdom: Kingdom, destRoom: string, policy: RoomPolicy,
       const roomEntry = kingdom.getScribe().getRoomById(roomName);
 
       // If we have not scanned the room, dont enter it
-      if (!roomEntry && policy.avoidUnloggedRooms) {
+      if (!roomEntry && roomPolicy.avoidUnloggedRooms) {
         return false;
       }
 
       if (roomEntry) {
-        const allow = applyRoomCallbackPolicy(kingdom, roomEntry, policy, trace);
+        const allow = applyRoomCallbackPolicy(kingdom, roomEntry, roomPolicy, trace);
         if (!allow) {
           return false;
         }
       }
     }
 
-    return kingdom.getCostMatrixCache().getCostMatrix(kingdom, roomName, policy.costMatrixType, trace);
+    let costMatrix = kingdom.getCostMatrixCache().getCostMatrix(kingdom, roomName,
+      roomPolicy.costMatrixType, trace);
+
+    const room = Game.rooms[roomName];
+    if (room && !pathPolicy.ignoreCreeps) {
+      costMatrix = costMatrix.clone();
+
+      room.find(FIND_CREEPS).forEach((creep) => {
+        costMatrix.set(creep.pos.x, creep.pos.y, 255);
+      });
+    }
+
+    return costMatrix;
   }
 }
 

@@ -19,10 +19,10 @@ import {roadWorker} from "./behavior.logistics";
 const behavior = behaviorTree.sequenceNode(
   'haul_energy',
   [
-    behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_SOURCE_POSITION, 1, commonPolicy),
+    behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_SOURCE_POSITION, 0, commonPolicy),
     behaviorCommute.setCommuteDuration,
     behaviorHarvest.harvest,
-    behaviorTree.selectorNode(
+    behaviorTree.sequenceNode(
       'dump',
       [
         behaviorStorage.selectRoomDropoff,
@@ -44,13 +44,8 @@ const behavior = behaviorTree.sequenceNode(
             const result = creep.transfer(destination, resource as ResourceConstant);
             trace.log('transfer', {result, resource});
 
-            if (result === ERR_FULL) {
-              return FAILURE;
-            }
-            if (result === ERR_NOT_ENOUGH_RESOURCES) {
-              return FAILURE;
-            }
-            if (result != OK) {
+            if (result !== OK) {
+              trace.error('transfer failed', {result});
               return FAILURE;
             }
 

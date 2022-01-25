@@ -31,6 +31,12 @@ module.exports.tick = (kingdom, trace) => {
 
     skipCount++;
 
+    // On first tick, set the start tick
+    const startTick = creep.memory[MEMORY.MEMORY_START_TICK];
+    if (!startTick) {
+      creep.memory[MEMORY.MEMORY_START_TICK] = Game.time;
+    }
+
     // TODO move the below to a map and/or lookup function
 
     if (creep.memory.role == CREEPS.WORKER_ATTACKER) {
@@ -144,7 +150,6 @@ module.exports.createCreep = (colony, room, spawn, role, memory, energy, energyL
   memory[MEMORY_ORIGIN] = room;
 
   memory[MEMORY_ROLE] = role;
-  memory[MEMORY.MEMORY_START_TICK] = Game.time;
   memory[MEMORY.DESIRED_BOOSTS] = definition.boosts;
 
   //   `${parts}, ${JSON.stringify(memory)}`);

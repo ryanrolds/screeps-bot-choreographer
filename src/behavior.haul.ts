@@ -204,6 +204,6 @@ export const loadCreep = behaviorTree.leafNode(
       return FAILURE;
     }
 
-    return RUNNING;
+    return SUCCESS;
   },
 );

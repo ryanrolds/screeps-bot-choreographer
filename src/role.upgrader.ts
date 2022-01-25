@@ -7,6 +7,30 @@ import behaviorRoom from "./behavior.room";
 import * as MEMORY from "./constants.memory";
 import {commonPolicy} from "./lib.pathing_policies";
 import {roadWorker} from "./behavior.logistics";
+import {FindPathPolicy} from "./lib.pathing";
+import {AllowedCostMatrixTypes} from "./lib.costmatrix_cache";
+
+export const controllerDumpPolicy: FindPathPolicy = {
+  room: {
+    avoidHostileRooms: true,
+    avoidFriendlyRooms: false,
+    avoidRoomsWithKeepers: true,
+    avoidRoomsWithTowers: false,
+    avoidUnloggedRooms: false,
+    sameRoomStatus: true,
+    costMatrixType: AllowedCostMatrixTypes.COMMON,
+  },
+  destination: {
+    range: 1,
+  },
+  path: {
+    allowIncomplete: true,
+    maxSearchRooms: 12,
+    maxOps: 5000,
+    maxPathRooms: 6,
+    ignoreCreeps: true,
+  },
+};
 
 const behavior = behaviorTree.sequenceNode(
   'upgrader_root',
@@ -29,13 +53,19 @@ const behavior = behaviorTree.sequenceNode(
 
       return behaviorTree.SUCCESS;
     }),
-    behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_ASSIGN_ROOM_POS, 3, commonPolicy),
+    behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_ASSIGN_ROOM_POS, 3, controllerDumpPolicy),
     behaviorCommute.setCommuteDuration,
     behaviorTree.repeatUntilSuccess(
       'upgrade_until_empty',
       behaviorTree.leafNode(
         'upgrade_controller',
         (creep, trace, kingdom) => {
+
+          // When at the controller, take one step towards the controller
+          if (creep.pos.getRangeTo(creep.room.controller) > 2) {
+            creep.moveTo(creep.room.controller);
+          }
+
           const result = creep.upgradeController(creep.room.controller);
           trace.log("upgrade result", {result})
           if (result == ERR_NOT_ENOUGH_RESOURCES) {

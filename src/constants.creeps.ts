@@ -35,7 +35,7 @@ export const DEFINITIONS = {
     skippable: true,
   },
   [WORKER_DISTRIBUTOR]: {
-    energyLimit: 2000,
+    ignoreSpawnEnergyLimit: true,
     parts: [MOVE, CARRY, CARRY],
     base: [MOVE, WORK, CARRY],
     // boosts: ['capacity'],

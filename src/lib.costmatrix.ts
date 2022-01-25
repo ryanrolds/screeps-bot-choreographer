@@ -8,6 +8,7 @@
  * TODO add tests
  */
 
+import {BaseConfig} from "./config";
 import {returnSuccess} from "./lib.behaviortree";
 import {getRegion} from "./lib.flood_fill";
 import {buildingCodes, Layout} from "./lib.layouts";
@@ -46,7 +47,7 @@ export const createDefenderCostMatrix = (roomId: string, trace: Tracer): CostMat
   return costs;
 }
 
-export const createCommonCostMatrix = (roomName: string, trace: Tracer): CostMatrix => {
+export const createCommonCostMatrix = (kingdom: Kingdom, roomName: string, trace: Tracer): CostMatrix => {
   let costMatrix = new PathFinder.CostMatrix();
 
   const room = Game.rooms[roomName]
@@ -129,17 +130,23 @@ export const createCommonCostMatrix = (roomName: string, trace: Tracer): CostMat
   // avoid sources
   applySourceBuffer(room, costMatrix, terrain, 5, trace);
 
+  const baseConfig = kingdom.getPlanner().getBaseConfigById(roomName);
+  if (baseConfig) {
+    // Dont path through the parking lot
+    applyParkingLotBuffer(baseConfig, costMatrix, terrain, 5, trace);
+  }
+
   return costMatrix;
 }
 
-export const singleRoomCommonMatrix = (roomName: string, trace: Tracer): CostMatrix => {
-  const costMatrix = createCommonCostMatrix(roomName, trace);
+export const singleRoomCommonMatrix = (kingdom: Kingdom, roomName: string, trace: Tracer): CostMatrix => {
+  const costMatrix = createCommonCostMatrix(kingdom, roomName, trace);
 
+  // Block all exits
   for (let x = 0; x < 50; x++) {
     costMatrix.set(x, 0, 255);
     costMatrix.set(x, 49, 255);
   }
-
   for (let y = 0; y < 50; y++) {
     costMatrix.set(0, y, 255);
     costMatrix.set(49, y, 255);
@@ -160,103 +167,15 @@ export const createSourceRoadMatrix = (kingdom: Kingdom, roomName: string, trace
 
   const terrain = Game.map.getRoomTerrain(roomName);
 
-  for (let x = 0; x < 50; x++) {
-    for (let y = 0; y < 50; y++) {
-      const mask = terrain.get(x, y)
-
-      if (mask === TERRAIN_MASK_WALL) {
-        costMatrix.set(x, y, 255);
-        continue;
-      }
-
-      if (mask === TERRAIN_MASK_SWAMP) {
-        costMatrix.set(x, y, 5);
-        continue;
-      }
-
-      costMatrix.set(x, y, 2);
-    }
-  }
-
-  const structures = room.find(FIND_STRUCTURES);
-  trace.log('found structures', {numStructures: structures.length});
-
-  const roads = structures.filter((s) => s.structureType === STRUCTURE_ROAD)
-  const nonRoadStructures = structures.filter((s) => s.structureType !== STRUCTURE_ROAD)
-
-  nonRoadStructures.forEach(function (struct) {
-    if (struct.structureType === STRUCTURE_CONTROLLER) {
-      const controllerPos = struct.pos;
-      for (let x = controllerPos.x - 3; x <= controllerPos.x + 3; x++) {
-        for (let y = controllerPos.y - 3; y <= controllerPos.y + 3; y++) {
-          if (x < 0 || x < 0 || y > 49 || y > 49 || terrain.get(x, y) === TERRAIN_MASK_WALL) {
-            continue;
-          }
-
-          // Dont override roads
-          if (costMatrix.get(x, y) === 0) {
-            costMatrix.set(x, y, 5);
-          }
-        }
-      }
-    } else if (struct.structureType !== STRUCTURE_CONTAINER &&
-      (struct.structureType !== STRUCTURE_RAMPART || !struct.my)) {
-
-      // Controller links dont count as obstacle, otherwise controller pad will shift around
-      if (struct.structureType === STRUCTURE_LINK && room.controller.pos.inRangeTo(struct.pos, 2)) {
-        return;
-      }
-
-      // Don't count walls otherwise we will not punch new holes
-      if (struct.structureType === STRUCTURE_WALL) {
-        return;
-      }
-
-      // Can't walk through non-walkable buildings
-      costMatrix.set(struct.pos.x, struct.pos.y, 255);
-    }
-  });
-
+  applyStructures(room, costMatrix, terrain, trace);
   applySourceBuffer(room, costMatrix, terrain, 5, trace);
-
-  // Add existing roads
-  roads.forEach(function (struct) {
-    const cost = costMatrix.get(struct.pos.x, struct.pos.y);
-    if (cost >= 5 && cost != 255) {
-      costMatrix.set(struct.pos.x, struct.pos.y, cost - 2);
-      return;
-    }
-
-    costMatrix.set(struct.pos.x, struct.pos.y, 1);
-  });
+  applyRoads(room, costMatrix, terrain, 1, trace);
 
   // Add roads in base final base layout
   const baseConfig = kingdom.getPlanner().getBaseConfigById(roomName);
   if (baseConfig) {
-    const layout: Layout = baseLayouts[8];
-    const buildings = layout.buildings;
-
-    for (let i = 0; i < buildings.length; i++) {
-      for (let j = 0; j < buildings[i].length; j++) {
-        if (buildingCodes[buildings[i][j]] === STRUCTURE_ROAD) {
-
-          const y = baseConfig.origin.y - layout.origin.y + i;
-          const x = baseConfig.origin.x - layout.origin.x + j;
-
-          costMatrix.set(x, y, 1);
-        }
-      }
-    }
-
-    for (let x = baseConfig.parking.x - 1; x <= baseConfig.parking.x + 1; x++) {
-      for (let y = baseConfig.parking.y - 1; y <= baseConfig.parking.y + 1; y++) {
-        if (x < 0 || x < 0 || y > 49 || y > 49 || terrain.get(x, y) === TERRAIN_MASK_WALL) {
-          continue;
-        }
-
-        costMatrix.set(x, y, 10);
-      }
-    }
+    applyBaseRoads(baseConfig, costMatrix, terrain, 1, trace);
+    applyParkingLotBuffer(baseConfig, costMatrix, terrain, 5, trace);
   }
 
   return costMatrix;
@@ -410,6 +329,26 @@ export const visualizeCostMatrix = (roomName: string, costMatrix: CostMatrix, tr
   }
 }
 
+const applyTerrain = (costMatrix: CostMatrix, terrain: RoomTerrain, trace: Tracer) => {
+  for (let x = 0; x < 50; x++) {
+    for (let y = 0; y < 50; y++) {
+      const mask = terrain.get(x, y)
+
+      if (mask === TERRAIN_MASK_WALL) {
+        costMatrix.set(x, y, 255);
+        continue;
+      }
+
+      if (mask === TERRAIN_MASK_SWAMP) {
+        costMatrix.set(x, y, 5);
+        continue;
+      }
+
+      costMatrix.set(x, y, 2);
+    }
+  }
+}
+
 const applySourceBuffer = (room: Room, costMatrix: CostMatrix, terrain: RoomTerrain,
   cost: number, trace: Tracer) => {
 
@@ -434,4 +373,90 @@ const applySourceBuffer = (room: Room, costMatrix: CostMatrix, terrain: RoomTerr
       }
     }
   });
+};
+
+const applyStructures = (room: Room, costMatrix: CostMatrix, terrain: RoomTerrain, trace: Tracer) => {
+  const structures = room.find(FIND_STRUCTURES);
+  const nonRoadStructures = structures.filter((s) => s.structureType !== STRUCTURE_ROAD);
+
+  nonRoadStructures.forEach(function (struct) {
+    if (struct.structureType === STRUCTURE_CONTROLLER) {
+      const controllerPos = struct.pos;
+      for (let x = controllerPos.x - 3; x <= controllerPos.x + 3; x++) {
+        for (let y = controllerPos.y - 3; y <= controllerPos.y + 3; y++) {
+          if (x < 0 || x < 0 || y > 49 || y > 49 || terrain.get(x, y) === TERRAIN_MASK_WALL) {
+            continue;
+          }
+
+          // Dont override roads
+          if (costMatrix.get(x, y) === 0) {
+            costMatrix.set(x, y, 5);
+          }
+        }
+      }
+    } else if (struct.structureType !== STRUCTURE_CONTAINER &&
+      (struct.structureType !== STRUCTURE_RAMPART || !struct.my)) {
+
+      // Controller links dont count as obstacle, otherwise controller pad will shift around
+      if (struct.structureType === STRUCTURE_LINK && room.controller.pos.inRangeTo(struct.pos, 2)) {
+        return;
+      }
+
+      // Don't count walls otherwise we will not punch new holes
+      if (struct.structureType === STRUCTURE_WALL) {
+        return;
+      }
+
+      // Can't walk through non-walkable buildings
+      costMatrix.set(struct.pos.x, struct.pos.y, 255);
+    }
+  });
+}
+
+const applyRoads = (room: Room, costMatrix: CostMatrix, terrain: RoomTerrain,
+  cost: number, trace: Tracer) => {
+  const structures = room.find(FIND_STRUCTURES);
+  const roads = structures.filter((s) => s.structureType === STRUCTURE_ROAD)
+
+  // Add existing roads
+  roads.forEach(function (struct) {
+    const currentCost = costMatrix.get(struct.pos.x, struct.pos.y);
+    if (currentCost >= 5 && currentCost != 255) {
+      costMatrix.set(struct.pos.x, struct.pos.y, currentCost - 2);
+      return;
+    }
+
+    costMatrix.set(struct.pos.x, struct.pos.y, cost);
+  });
+}
+
+const applyBaseRoads = (baseConfig: BaseConfig, costMatrix: CostMatrix, terrain: RoomTerrain,
+  cost: number, trace: Tracer) => {
+  const layout: Layout = baseLayouts[8];
+  const buildings = layout.buildings;
+
+  for (let i = 0; i < buildings.length; i++) {
+    for (let j = 0; j < buildings[i].length; j++) {
+      if (buildingCodes[buildings[i][j]] === STRUCTURE_ROAD) {
+
+        const y = baseConfig.origin.y - layout.origin.y + i;
+        const x = baseConfig.origin.x - layout.origin.x + j;
+
+        costMatrix.set(x, y, cost);
+      }
+    }
+  }
+}
+
+const applyParkingLotBuffer = (baseConfig: BaseConfig, costMatrix: CostMatrix, terrain: RoomTerrain,
+  cost: number, trace: Tracer) => {
+  for (let x = baseConfig.parking.x - 1; x <= baseConfig.parking.x + 1; x++) {
+    for (let y = baseConfig.parking.y - 1; y <= baseConfig.parking.y + 1; y++) {
+      if (x < 0 || x < 0 || y > 49 || y > 49 || terrain.get(x, y) === TERRAIN_MASK_WALL) {
+        continue;
+      }
+
+      costMatrix.set(x, y, cost);
+    }
+  }
 };

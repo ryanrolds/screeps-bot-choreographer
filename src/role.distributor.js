@@ -80,43 +80,32 @@ const emptyCreep = behaviorTree.leafNode(
 
     const taskId = creep.memory[MEMORY.TASK_ID];
 
-    let toUnload = Object.keys(creep.store);
+    let resources = Object.keys(creep.store);
     if (!taskId.startsWith('lu-')) {
       // If not a link unload, we should unload what isnt needed
-      toUnload = _.difference(toUnload, [desiredResource]);
+      resources = _.difference(resources, [desiredResource]);
     }
 
-    if (!toUnload.length) {
+    if (!resources.length) {
       return SUCCESS;
     }
 
-    const resource = toUnload.pop();
-
+    const resource = resources.pop();
     const result = creep.transfer(destination, resource);
 
-    trace.log('unload unneeded', {
-      destination,
-      resource,
-      result,
-    });
-
-    if (result === ERR_FULL) {
-      return SUCCESS;
-    }
-
-    if (result === ERR_NOT_ENOUGH_RESOURCES) {
-      return SUCCESS;
-    }
-
-    if (result === ERR_INVALID_TARGET) {
-      return SUCCESS;
-    }
-
-    if (result != OK) {
+    if (result !== OK) {
+      trace.error('transfer error', {result, resource, resources});
       return FAILURE;
     }
 
-    return RUNNING;
+    trace.log('transfer result', {result, resource, resources});
+
+    // We have more resources to unload
+    if (resources.length > 0) {
+      return RUNNING;
+    }
+
+    return SUCCESS;
   },
 );
 

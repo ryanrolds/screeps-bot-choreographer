@@ -42,7 +42,7 @@ export default class CostMatrixDebugger {
         costMatrix = createPartyCostMatrix(roomId, trace);
         break;
       case AllowedCostMatrixTypes.COMMON:
-        costMatrix = createCommonCostMatrix(roomId, trace);
+        costMatrix = createCommonCostMatrix(kingdom, roomId, trace);
         break;
       case AllowedCostMatrixTypes.BASE_DEFENSE:
         costMatrix = createDefenderCostMatrix(roomId, trace);

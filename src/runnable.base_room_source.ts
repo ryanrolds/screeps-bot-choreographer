@@ -22,7 +22,7 @@ import {getNearbyPositions} from './lib.position';
 
 const STRUCTURE_TTL = 50;
 const DROPOFF_TTL = 200;
-const REQUEST_WORKER_TTL = 50;
+const REQUEST_WORKER_TTL = 30;
 const REQUEST_HAULING_TTL = 20;
 const PRODUCE_EVENTS_TTL = 20;
 const BUILD_LINK_TTL = 200;
@@ -36,10 +36,6 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
   position: RoomPosition;
   creepPosition: RoomPosition | null;
   linkPosition: RoomPosition | null;
-
-  ttl: number;
-  workerTTL: number;
-  haulingTTL: number;
 
   containerId: Id<StructureContainer>;
   linkId: Id<StructureLink>;
@@ -66,10 +62,11 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     this.threadProduceEvents = thread('consume_events', PRODUCE_EVENTS_TTL)(this.produceEvents.bind(this));
     this.threadUpdateStructures = thread('update_structures', STRUCTURE_TTL)(this.updateStructures.bind(this));
     this.threadUpdateDropoff = thread('update_dropoff', DROPOFF_TTL)(this.updateDropoff.bind(this));
-    this.threadRequestMiners = thread('request_miners', REQUEST_WORKER_TTL)(this.requestMiners.bind(this));
-    this.threadRequestHauling = thread('reqeust_hauling', REQUEST_HAULING_TTL)(this.requestHauling.bind(this));
     this.threadBuildContainer = thread('build_container', CONTAINER_TTL)(this.buildContainer.bind(this));
     this.threadBuildLink = thread('build_link', BUILD_LINK_TTL)(this.buildLink.bind(this));
+
+    this.threadRequestMiners = thread('request_miners', REQUEST_WORKER_TTL)(this.requestMiners.bind(this));
+    this.threadRequestHauling = thread('reqeust_hauling', REQUEST_HAULING_TTL)(this.requestHauling.bind(this));
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
@@ -119,13 +116,14 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     this.threadProduceEvents(trace, kingdom, source);
     this.threadUpdateStructures(trace, source);
     this.threadUpdateDropoff(trace, colony);
-    this.threadRequestMiners(trace, kingdom, colony, room, source);
-    this.threadRequestHauling(trace, colony);
 
     if (baseConfig.automated) {
       this.threadBuildContainer(trace, kingdom, source);
       this.threadBuildLink(trace, room, source);
     }
+
+    this.threadRequestMiners(trace, kingdom, colony, room, source);
+    this.threadRequestHauling(trace, colony);
 
     this.updateStats(kingdom, trace);
 
@@ -340,7 +338,8 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     }, 0);
 
     const averageLoad = avgHaulerCapacity;
-    const loadSize = _.min([averageLoad, 1000]);
+    //const loadSize = _.min([averageLoad, 1000]);
+    const loadSize = _.min([averageLoad, 2000]);
     const storeCapacity = container.store.getCapacity();
     const storeUsedCapacity = container.store.getUsedCapacity();
     const untaskedUsedCapacity = storeUsedCapacity - haulerCapacity;

@@ -1,7 +1,7 @@
 
 import * as CREEPS from './constants.creeps';
 import {DEFINITIONS} from './constants.creeps';
-import {MEMORY_ROLE} from './constants.memory';
+import {MEMORY_ROLE, MEMORY_START_TICK} from './constants.memory';
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
 import {Process, running, terminate} from "./os.process";
@@ -117,6 +117,12 @@ export class CreepManager {
         if (creep.spawning) {
           // TODO sleep for whoever mich longer it will take to spawn
           return running();
+        }
+
+        // On first tick, set the start tick
+        const startTick = creep.memory[MEMORY_START_TICK];
+        if (!startTick) {
+          creep.memory[MEMORY_START_TICK] = Game.time;
         }
 
         behavior.run(creep, trace, kingdom)

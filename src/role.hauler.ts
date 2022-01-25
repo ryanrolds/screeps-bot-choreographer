@@ -5,7 +5,6 @@ import * as behaviorHaul from "./behavior.haul";
 import {roadWorker} from "./behavior.logistics";
 import * as behaviorMovement from "./behavior.movement";
 import behaviorRoom from "./behavior.room";
-import {emptyCreep} from "./behavior.storage";
 import * as MEMORY from "./constants.memory";
 import * as TOPICS from "./constants.topics";
 import * as behaviorTree from "./lib.behaviortree";
@@ -20,96 +19,43 @@ const behavior = behaviorTree.sequenceNode(
       'pick_something',
       [
         behaviorHaul.getHaulTaskFromTopic(TOPICS.TOPIC_HAUL_TASK),
-        /* Remove if not used in a while - Jan 2022
-        behaviorTree.sequenceNode(
-          'build_construction_site',
-          [
-            behaviorTree.leafNode('has_energy',
-              (creep, trace, kingdom) => {
-                if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
-                  return FAILURE;
-                }
-
-                return SUCCESS;
-              }
-            ),
-            behaviorBuild.selectSite,
-            behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 3, commonPolicy),
-            behaviorBuild.build,
-          ],
-        ),
-        */
-        behaviorTree.leafNode(
-          'top',
-          (creep, trace, kingdom) => {
-            if (creep.store.getUsedCapacity(RESOURCE_ENERGY) !== 0) {
-              creep.say('🚚⁉️');
-              trace.notice('failed to get task', {name: creep.name});
-            }
-            return FAILURE;
-          },
-        ),
         behaviorRoom.parkingLot,
       ],
     ),
     behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_PICKUP, 1, commonPolicy),
     behaviorHaul.loadCreep,
-    behaviorTree.repeatUntilConditionMet(
-      'transfer_until_empty',
+    behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_DROPOFF, 1, commonPolicy),
+    behaviorTree.leafNode(
+      'empty_creep',
       (creep, trace, kingdom) => {
         if (creep.store.getUsedCapacity() === 0) {
-          return true;
+          return SUCCESS;
         }
 
-        return false;
+        const destination = Game.getObjectById<Id<AnyStoreStructure>>(creep.memory[MEMORY.MEMORY_HAUL_DROPOFF]);
+        if (!destination) {
+          trace.error('no dump destination');
+          return FAILURE;
+        }
+
+        const resources = Object.keys(creep.store);
+        const resource = resources.pop();
+        const result = creep.transfer(destination, resource as ResourceConstant);
+
+        if (result !== OK) {
+          trace.error('transfer error', {result, resource, resources});
+          return FAILURE;
+        }
+
+        trace.log('transfer result', {result, resource, resources});
+
+        // We have more resources to unload
+        if (resources.length > 0) {
+          return RUNNING;
+        }
+
+        return SUCCESS;
       },
-      behaviorTree.sequenceNode(
-        'dump_energy',
-        [
-          behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_DROPOFF, 1, commonPolicy),
-          behaviorTree.leafNode(
-            'empty_creep',
-            (creep, trace, kingdom) => {
-              if (creep.store.getUsedCapacity() === 0) {
-                return SUCCESS;
-              }
-
-              const destination = Game.getObjectById<Id<AnyStoreStructure>>(creep.memory[MEMORY.MEMORY_HAUL_DROPOFF]);
-              if (!destination) {
-                trace.error('no dump destination');
-                return FAILURE;
-              }
-
-              const resource = Object.keys(creep.store).pop();
-
-              const result = creep.transfer(destination, resource as ResourceConstant);
-              if (result === OK) {
-                trace.log('transfer result', {result});
-              } else {
-                trace.error('transfer result', {result});
-              }
-
-              if (result === ERR_FULL) {
-                return FAILURE;
-              }
-
-              if (result === ERR_NOT_ENOUGH_RESOURCES) {
-                return FAILURE;
-              }
-
-              if (result === ERR_INVALID_TARGET) {
-                return FAILURE;
-              }
-
-              if (result !== OK) {
-                return FAILURE;
-              }
-
-              return RUNNING;
-            },
-          ),
-        ],
-      ),
     ),
   ],
 );

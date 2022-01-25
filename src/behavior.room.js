@@ -249,8 +249,12 @@ module.exports.parkingLot = behaviorTree.leafNode(
       });
 
       // Pray to the God of Nukes
-      if (hasNuker && idle % 20 === 0) {
-        creep.say('🙏');
+      if (idle % 20 === 0) {
+        if (hasNuker) {
+          creep.say('🙏');
+        } else {
+          creep.say('🥪');
+        }
       }
 
       return FAILURE;
