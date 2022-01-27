@@ -22,7 +22,7 @@ let shards: ShardMap = {
     neutral: neutral,
     avoid: avoid,
     kos: kos,
-    maxColonies: 1,
+    maxColonies: 10,
     autoExpand: true,
     bases: null,
   },
