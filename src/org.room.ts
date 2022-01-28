@@ -731,6 +731,7 @@ export default class OrgRoom extends OrgBase {
     if (primaryRoom.hasSpawns) {
       this.sendRequest(TOPIC_SPAWN, priority, details, ttl);
     } else {
+      trace.warn('sending spawn to request to kingdom', {priority, details})
       this.getKingdom().sendRequest(TOPIC_SPAWN, priority, details, ttl);
     }
   }

@@ -111,7 +111,6 @@ export default class KingdomGovernor {
           [MEMORY.MEMORY_ROLE]: WORKERS.WORKER_RESERVER,
           [MEMORY.MEMORY_ASSIGN_SHARD]: request.shard,
           [MEMORY.MEMORY_ASSIGN_ROOM]: request.room,
-          [MEMORY.MEMORY_COLONY]: request.colony,
           [MEMORY.MEMORY_BASE]: request.colony,
         }
       });
@@ -131,7 +130,6 @@ export default class KingdomGovernor {
           [MEMORY.MEMORY_ROLE]: WORKERS.WORKER_RESERVER,
           [MEMORY.MEMORY_ASSIGN_SHARD]: request.shard,
           [MEMORY.MEMORY_ASSIGN_ROOM]: request.room,
-          [MEMORY.MEMORY_COLONY]: request.colony,
           [MEMORY.MEMORY_BASE]: request.colony,
         }
       });
@@ -147,7 +145,6 @@ export default class KingdomGovernor {
         memory: {
           [MEMORY.MEMORY_ASSIGN_SHARD]: request.shard,
           [MEMORY.MEMORY_ASSIGN_ROOM]: request.room,
-          [MEMORY.MEMORY_COLONY]: request.colony,
           [MEMORY.MEMORY_BASE]: request.colony,
         },
       }, SHARD_MEMORY_TTL);
@@ -196,7 +193,7 @@ export default class KingdomGovernor {
           [MEMORY.MEMORY_ROLE]: WORKERS.WORKER_BUILDER,
           [MEMORY.MEMORY_ASSIGN_SHARD]: request.shard,
           [MEMORY.MEMORY_ASSIGN_ROOM]: request.room,
-          [MEMORY.MEMORY_COLONY]: request.colony,
+          [MEMORY.MEMORY_BASE]: request.colony,
         }
       });
       if (enroute.length < 6) {
@@ -215,7 +212,7 @@ export default class KingdomGovernor {
           [MEMORY.MEMORY_ROLE]: WORKERS.WORKER_BUILDER,
           [MEMORY.MEMORY_ASSIGN_SHARD]: request.shard,
           [MEMORY.MEMORY_ASSIGN_ROOM]: request.room,
-          [MEMORY.MEMORY_COLONY]: request.colony,
+          [MEMORY.MEMORY_BASE]: request.colony,
         }
       });
 
@@ -230,7 +227,6 @@ export default class KingdomGovernor {
         memory: {
           [MEMORY.MEMORY_ASSIGN_SHARD]: request.shard,
           [MEMORY.MEMORY_ASSIGN_ROOM]: request.room,
-          [MEMORY.MEMORY_COLONY]: request.colony,
           [MEMORY.MEMORY_BASE]: request.colony,
         },
       }, SHARD_MEMORY_TTL);

@@ -309,11 +309,11 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
           [MEMORY.MEMORY_SOURCE_CONTAINER]: this.containerId,
           [MEMORY.MEMORY_SOURCE_POSITION]: positionStr,
           [MEMORY.MEMORY_ASSIGN_ROOM]: room.name,
-          [MEMORY.MEMORY_COLONY]: this.orgRoom.getColony().id,
+          [MEMORY.MEMORY_BASE]: colony.id,
         },
       }
 
-      trace.log('requesting worker', {sourceId: this.sourceId, details});
+      trace.notice('requesting miner', {sourceId: this.sourceId, details});
 
       colony.getPrimaryRoom().requestSpawn(PRIORITY_MINER, details, REQUEST_WORKER_TTL, trace);
     }

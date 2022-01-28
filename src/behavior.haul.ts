@@ -9,7 +9,7 @@ export const getHaulTaskFromTopic = function (topic) {
     'pick_haul_task',
     (creep, trace, kingdom) => {
       // lookup colony from kingdom
-      const colonyId = creep.memory[MEMORY.MEMORY_COLONY];
+      const colonyId = creep.memory[MEMORY.MEMORY_BASE];
       const colony = kingdom.getColonyById(colonyId);
 
       if (!colony) {
@@ -37,7 +37,7 @@ export const getNearbyHaulTaskFromTopic = function (topic) {
     'pick_nearby_haul_task',
     (creep, trace, kingdom) => {
       // lookup colony from kingdom
-      const colonyId = creep.memory[MEMORY.MEMORY_COLONY];
+      const colonyId = creep.memory[MEMORY.MEMORY_BASE];
       const colony = kingdom.getColonyById(colonyId);
 
       if (!colony) {

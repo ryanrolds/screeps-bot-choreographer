@@ -1,6 +1,6 @@
 import {creepIsFresh} from './behavior.commute';
 import {BaseConfig} from './config';
-import {WORKER_HARVESTER, WORKER_MINER} from "./constants.creeps";
+import {WORKER_HARVESTER} from "./constants.creeps";
 import * as MEMORY from "./constants.memory";
 import {PRIORITY_HARVESTER, PRIORITY_MINER} from "./constants.priorities";
 import * as TASKS from "./constants.tasks";
@@ -226,11 +226,11 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
           [MEMORY.MEMORY_SOURCE]: this.mineralId,
           [MEMORY.MEMORY_SOURCE_POSITION]: positionStr,
           [MEMORY.MEMORY_ASSIGN_ROOM]: room.name,
-          [MEMORY.MEMORY_COLONY]: this.orgRoom.getColony().id,
+          [MEMORY.MEMORY_BASE]: this.orgRoom.getColony().id,
         },
       }
 
-      trace.log('requesting worker', {mineralId: this.mineralId, details});
+      trace.log('requesting harvester', {mineralId: this.mineralId, details});
 
       colony.getPrimaryRoom().requestSpawn(PRIORITY_MINER, details, REQUEST_WORKER_TTL, trace);
     }

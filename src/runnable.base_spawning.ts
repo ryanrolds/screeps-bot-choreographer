@@ -159,7 +159,7 @@ export default class SpawnManager {
         trace.log('spawn idle', {spawnTopicSize, numCreeps, energy, minEnergy, spawnTopicBackPressure, next});
 
         if (energy < minEnergy) {
-          trace.log("low energy, not spawning", {id: this.id, energy, minEnergy})
+          trace.warn("low energy, not spawning", {id: this.id, energy, minEnergy})
           return;
         }
 
@@ -168,7 +168,7 @@ export default class SpawnManager {
           const role = request.details.role;
           const definition = DEFINITIONS[role];
           if (definition.energyMinimum && energy < definition.energyMinimum) {
-            trace.log('not enough energy', {energy, request, definition});
+            trace.warn('not enough energy', {energy, request, definition});
             return;
           }
 
@@ -179,11 +179,11 @@ export default class SpawnManager {
 
           const minEnergy = request.details[MEMORY.SPAWN_MIN_ENERGY] || 0;
           if (energy < minEnergy) {
-            trace.log('colony does not have energy', {minEnergy, energy});
+            trace.warn('colony does not have energy', {minEnergy, energy, request});
             return;
           }
 
-          trace.log("colony spawn request", {id: this.id, role, energy, energyLimit});
+          trace.log("colony spawn request", {id: this.id, role, energy, energyLimit, request});
 
           this.createCreep(spawn, request.details.role, request.details.memory, energy, energyLimit);
           return;
@@ -196,6 +196,7 @@ export default class SpawnManager {
           const numColonies = this.orgRoom.getKingdom().getColonies().length;
 
           if (definition.energyMinimum && energy < definition.energyMinimum && numColonies > 3) {
+            trace.warn('not enough energy', {energy, peek, definition});
             return;
           }
         }
@@ -203,72 +204,72 @@ export default class SpawnManager {
         const resources = this.orgRoom.getColony().getReserveResources()
         const reserveEnergy = resources[RESOURCE_ENERGY] || 0;
         if (reserveEnergy < 100000) {
-          trace.log('reserve energy too low, dont handle requests from other colonies', {reserveEnergy});
+          trace.warn('reserve energy too low, dont handle requests from other colonies', {reserveEnergy});
           return;
         }
 
         // Check inter-colony requests if the colony has spawns
-        request = (this.orgRoom as any).getKingdom().getTopics()
-          .getMessageOfMyChoice(TOPICS.TOPIC_SPAWN, (messages) => {
-            const selected = messages.filter((message) => {
-              const assignedShard = message.details.memory[MEMORY.MEMORY_ASSIGN_SHARD] || null;
-              if (assignedShard && assignedShard != Game.shard.name) {
-                let portals: any[] = this.orgRoom.getKingdom().getScribe()
-                  .getPortals(assignedShard).filter((portal) => {
-                    const distance = Game.map.getRoomLinearDistance((this.orgRoom as any).id,
-                      portal.pos.roomName);
-                    return distance < 2;
-                  });
+        const topic = this.orgRoom.getKingdom().getTopics()
+        request = topic.getMessageOfMyChoice(TOPICS.TOPIC_SPAWN, (messages) => {
+          const selected = messages.filter((message) => {
+            const assignedShard = message.details.memory[MEMORY.MEMORY_ASSIGN_SHARD] || null;
+            if (assignedShard && assignedShard != Game.shard.name) {
+              let portals: any[] = this.orgRoom.getKingdom().getScribe()
+                .getPortals(assignedShard).filter((portal) => {
+                  const distance = Game.map.getRoomLinearDistance((this.orgRoom as any).id,
+                    portal.pos.roomName);
+                  return distance < 2;
+                });
 
-                if (!portals.length) {
-                  return false;
-                }
-
-                return true;
-              }
-
-              trace.log('choosing', {message})
-
-              let destinationRoom = null;
-
-              const assignedRoom = message.details.memory[MEMORY.MEMORY_ASSIGN_ROOM];
-              if (assignedRoom) {
-                destinationRoom = assignedRoom;
-              }
-
-              const positionRoom = message.details.memory[MEMORY.MEMORY_POSITION_ROOM];
-              if (positionRoom) {
-                destinationRoom = positionRoom
-              }
-
-              const flag = message.details.memory[MEMORY.MEMORY_FLAG];
-              if (flag) {
-                destinationRoom = Game.flags[flag]?.pos.roomName
-              }
-
-              trace.log('choosing', {destinationRoom, flag})
-
-              if (!destinationRoom) {
-                return false;
-              }
-
-              // TODO Replace with a room distance check
-              const distance = Game.map.getRoomLinearDistance((this.orgRoom as any).id, destinationRoom);
-              if (distance > MAX_COLONY_SPAWN_DISTANCE) {
-                trace.log('distance', {distance, message});
+              if (!portals.length) {
                 return false;
               }
 
               return true;
-            });
-
-            if (!selected.length) {
-              return null;
             }
 
-            return selected[0];
+            trace.log('choosing', {message})
+
+            let destinationRoom = null;
+
+            const baseRoom = message.details.memory[MEMORY.MEMORY_BASE];
+            if (baseRoom) {
+              destinationRoom = baseRoom
+            }
+
+            const assignedRoom = message.details.memory[MEMORY.MEMORY_ASSIGN_ROOM];
+            if (assignedRoom) {
+              destinationRoom = assignedRoom;
+            }
+
+            const positionRoom = message.details.memory[MEMORY.MEMORY_POSITION_ROOM];
+            if (positionRoom) {
+              destinationRoom = positionRoom;
+            }
+
+            trace.log('choosing', {destinationRoom})
+
+            if (!destinationRoom) {
+              trace.warn('no destination room', {message})
+              return false;
+            }
+
+            // TODO Replace with a room distance check
+            const distance = Game.map.getRoomLinearDistance((this.orgRoom as any).id, destinationRoom);
+            if (distance > MAX_COLONY_SPAWN_DISTANCE) {
+              trace.warn('distance to far', {distance, message});
+              return false;
+            }
+
+            return true;
           });
 
+          if (!selected.length) {
+            return null;
+          }
+
+          return selected[0];
+        });
 
         if (request) {
           trace.notice('kingdom spawn request', {roomName: this.orgRoom.id, role: request?.details?.role});

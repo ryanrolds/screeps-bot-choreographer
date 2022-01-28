@@ -167,12 +167,12 @@ export default class BaseRunnable {
         [MEMORY.MEMORY_ROLE]: CREEPS.WORKER_RESERVER,
         [MEMORY.MEMORY_ASSIGN_SHARD]: Game.shard.name,
         [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
-        [MEMORY.MEMORY_COLONY]: this.id,
+        [MEMORY.MEMORY_BASE]: this.id,
       }
     });
 
     if (enroute) {
-      trace.notice('claimer already enroute', {id: this.id});
+      trace.notice('claimer already enroute', {id: this.id, name: enroute.name, pos: enroute.pos});
       return;
     }
 
@@ -182,7 +182,6 @@ export default class BaseRunnable {
         [MEMORY.MEMORY_ROLE]: CREEPS.WORKER_RESERVER,
         [MEMORY.MEMORY_ASSIGN_SHARD]: Game.shard.name,
         [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
-        [MEMORY.MEMORY_COLONY]: this.id,
         [MEMORY.MEMORY_BASE]: this.id,
       },
     };
@@ -446,7 +445,6 @@ export default class BaseRunnable {
       memory: {
         [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
         [MEMORY.MEMORY_ASSIGN_SHARD]: Game.shard.name,
-        [MEMORY.MEMORY_COLONY]: (orgRoom as any).getColony().id,
         [MEMORY.MEMORY_BASE]: (orgRoom as any).getColony().id,
       },
     }, REQUEST_BUILDER_TTL, trace);
@@ -522,7 +520,6 @@ export default class BaseRunnable {
       role: CREEPS.WORKER_DISTRIBUTOR,
       memory: {
         [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
-        [MEMORY.MEMORY_COLONY]: (orgRoom as any).getColony().id,
         [MEMORY.MEMORY_BASE]: (orgRoom as any).getColony().id,
       },
     };
@@ -603,7 +600,6 @@ export default class BaseRunnable {
         energyLimit: energyLimit,
         memory: {
           [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
-          [MEMORY.MEMORY_COLONY]: (orgRoom as any).getColony().id,
           [MEMORY.MEMORY_BASE]: (orgRoom as any).getColony().id,
         },
       }, REQUEST_UPGRADER_TTL, trace);

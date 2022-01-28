@@ -229,7 +229,7 @@ export class Kingdom extends OrgBase {
   }
 
   getCreepColony(creep: Creep): Colony {
-    const colonyId = creep.memory[MEMORY.MEMORY_COLONY];
+    const colonyId = creep.memory[MEMORY.MEMORY_BASE];
     if (!colonyId) {
       return null;
     }
@@ -357,7 +357,7 @@ export class Kingdom extends OrgBase {
 
   updateColonyCreeps(trace: Tracer) {
     this.creepsByColony = this.creeps.reduce((acc, creep) => {
-      const colony = creep.memory[MEMORY.MEMORY_COLONY];
+      const colony = creep.memory[MEMORY.MEMORY_BASE];
       if (!colony) {
         return acc;
       }

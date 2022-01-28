@@ -15,7 +15,7 @@ const CREEPS = require('./constants.creeps');
 const MEMORY = require('./constants.memory');
 
 const {DEFINITIONS} = require('./constants.creeps');
-const {MEMORY_ROLE, MEMORY_ORIGIN, MEMORY_COLONY, MEMORY_ORIGIN_SHARD} = require('./constants.memory');
+const {MEMORY_ROLE, MEMORY_ORIGIN, MEMORY_ORIGIN_SHARD} = require('./constants.memory');
 
 const MIN_BUCKET_THROTTLE = 1000;
 
@@ -140,12 +140,11 @@ module.exports.createCreep = (colony, room, spawn, role, memory, energy, energyL
   const name = [role, Game.shard.name, Game.time].join('_');
 
   // Requests to the kingdom should include the destination colony, don't overwrite it
-  if (!memory[MEMORY_COLONY] || !memory[MEMORY.MEMORY_BASE]) {
-    memory[MEMORY_COLONY] = colony;
+  if (!memory[MEMORY.MEMORY_BASE]) {
     memory[MEMORY.MEMORY_BASE] = colony;
   }
 
-  // Used for debugging, don't use for decision making, use MEMORY_COLONY instead
+  // Used for debugging, don't use for decision making, use MEMORY_BASE instead
   memory[MEMORY_ORIGIN_SHARD] = Game.shard.name;
   memory[MEMORY_ORIGIN] = room;
 

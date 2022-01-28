@@ -16,7 +16,7 @@ const selectNextTaskOrPark = behaviorTree.selectorNode(
       'pick_haul_task',
       (creep, trace, kingdom) => {
         // lookup colony from kingdom
-        const colonyId = creep.memory[MEMORY.MEMORY_COLONY];
+        const colonyId = creep.memory[MEMORY.MEMORY_BASE];
         const colony = kingdom.getColonyById(colonyId);
 
         if (!colony) {

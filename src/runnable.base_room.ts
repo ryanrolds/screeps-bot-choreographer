@@ -148,7 +148,6 @@ export default class RoomRunnable {
         role: CREEPS.WORKER_RESERVER,
         memory: {
           [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
-          [MEMORY.MEMORY_COLONY]: (orgRoom as any).getColony().id,
           [MEMORY.MEMORY_BASE]: (orgRoom as any).getColony().id,
         },
       }

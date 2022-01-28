@@ -64,9 +64,9 @@ const behavior = behaviorTree.sequenceNode(
             return behaviorTree.SUCCESS;
           }
 
-          const orgRoom = kingdom.getCreepRoom(creep);
-          if (!orgRoom) {
-            trace.error('no org room', creep.memory);
+          const baseConfig = kingdom.getCreepBaseConfig(creep);
+          if (!baseConfig) {
+            trace.error('no base config', creep.memory);
             creep.suicide();
             return FAILURE;
           }
@@ -87,7 +87,7 @@ const behavior = behaviorTree.sequenceNode(
           const username = kingdom.getPlanner().getUsername();
           const reservedByMe = room.controller && room.controller.reservation &&
             room.controller.reservation.username === username;
-          const isPrimary = orgRoom && orgRoom.isPrimary;
+          const isPrimary = room.name === baseConfig.primary;
           const controller = room.controller;
 
           trace.log('reserver', {
