@@ -14,7 +14,7 @@ import {getLinesStream, HudLine, HudEventSet, HudIndicatorStatus, HudIndicator, 
 
 const REQUEST_BOOSTS_TTL = 1;
 const UPDATE_SPAWN_LIST_TTL = 20;
-const MAX_COLONY_SPAWN_DISTANCE = 4;
+const MAX_COLONY_SPAWN_DISTANCE = 5;
 const PRODUCE_EVENTS_TTL = 20;
 
 const INITIAL_TOPIC_LENGTH = 9999;
@@ -271,7 +271,7 @@ export default class SpawnManager {
 
 
         if (request) {
-          trace.log('kingdom spawn request', {roomName: this.orgRoom.id, role: request?.details?.role});
+          trace.notice('kingdom spawn request', {roomName: this.orgRoom.id, role: request?.details?.role});
           this.createCreep(spawn, request.details.role, request.details.memory, energy, energyLimit);
           return;
         }

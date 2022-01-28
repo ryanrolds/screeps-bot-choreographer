@@ -180,8 +180,6 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
     trace.log('creep position set', {creepPosition: this.creepPosition});
     this.creepPosition = pathResult.path[0];
 
-
-
     // Update memory
     memory.creepPosition = this.creepPosition;
 
@@ -254,8 +252,9 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
       });
 
       if (!site) {
-        trace.log('building extractor', {id: this.mineralId});
         room.createConstructionSite(mineral.pos, STRUCTURE_EXTRACTOR);
+
+        trace.warn('building extractor', {id: this.mineralId});
       }
     }
   }

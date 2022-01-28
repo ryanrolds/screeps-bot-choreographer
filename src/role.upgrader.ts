@@ -63,7 +63,7 @@ const behavior = behaviorTree.sequenceNode(
 
           // When at the controller, take one step towards the controller
           if (creep.pos.getRangeTo(creep.room.controller) > 2) {
-            creep.moveTo(creep.room.controller);
+            creep.moveTo(creep.room.controller, {range: 2});
           }
 
           const result = creep.upgradeController(creep.room.controller);

@@ -93,13 +93,9 @@ export default class LogisticsRunnable extends PersistentMemory {
     }
 
     this.threadConsumeEvents(trace, kingdom);
-
-    if (baseConfig.automated) {
-      this.threadCalculateLeg(trace, kingdom);
-      this.threadBuildShortestLeg(trace, baseConfig.primary);
-      this.threadEnsureWallPassage(trace);
-    }
-
+    this.threadCalculateLeg(trace, kingdom);
+    this.threadBuildShortestLeg(trace, baseConfig.primary);
+    this.threadEnsureWallPassage(trace);
     this.threadProduceEvents(trace, kingdom, baseConfig);
 
     // CLEANUP add LOG_WHEN_PID_CHECK
@@ -262,7 +258,7 @@ export default class LogisticsRunnable extends PersistentMemory {
           return s.structureType === STRUCTURE_WALL;
         });
         if (wall) {
-          trace.log('remove wall', {pos});
+          trace.warn('remove wall', {pos});
           wall.destroy();
         }
 
@@ -271,18 +267,19 @@ export default class LogisticsRunnable extends PersistentMemory {
           return s.structureType === STRUCTURE_WALL;
         });
         if (wallSite) {
-          trace.log('remove wall site', {pos});
+          trace.warn('remove wall site', {pos});
           wallSite.remove();
         }
 
         // If there was a wall site or if we have not built too many road sites, build a road site
         if (wall || wallSite) {
-          trace.log('build road site', {pos});
           const result = pos.createConstructionSite(STRUCTURE_ROAD);
           if (result !== OK) {
             trace.error('failed to build road', {pos, result});
             continue;
           }
+
+          trace.warn('build road site', {pos});
         }
       }
     });
@@ -357,7 +354,7 @@ export default class LogisticsRunnable extends PersistentMemory {
         return s.structureType === STRUCTURE_WALL;
       });
       if (wall) {
-        trace.log('remove wall', {pos});
+        trace.warn('remove wall', {pos});
         wall.destroy();
       }
 
@@ -366,20 +363,20 @@ export default class LogisticsRunnable extends PersistentMemory {
         return s.structureType === STRUCTURE_WALL;
       });
       if (wallSite) {
-        trace.log('remove wall site', {pos});
+        trace.warn('remove wall site', {pos});
         wallSite.remove();
       }
 
       // If there was a wall site or if we have not built too many road sites, build a road site
       if (wall || wallSite || roadSites <= MAX_ROAD_SITES) {
-        trace.log('build road site', {pos});
         const result = pos.createConstructionSite(STRUCTURE_ROAD);
         if (result !== OK) {
           trace.error('failed to build road', {pos, result});
           continue;
         }
 
-        trace.log('built road', {pos});
+        trace.warn('build road site', {pos});
+
         roadSites += 1;
       }
     }

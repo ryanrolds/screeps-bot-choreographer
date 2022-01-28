@@ -1,7 +1,7 @@
 import {Event} from "./lib.event_broker";
 import {ANY, buildingCodes, EMPTY, getConstructionPosition, Layout} from "./lib.layouts";
 import {getPath} from "./lib.pathing";
-import {roadPolicy} from "./lib.pathing_policies";
+import {controllerRoadPolicy} from "./lib.pathing_policies";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
 import {sleeping} from "./os.process";
@@ -162,7 +162,7 @@ export default class ControllerRunnable {
       return;
     }
 
-    const [pathResult, details] = getPath(kingdom, controller.pos, baseConfig.origin, roadPolicy, trace);
+    const [pathResult, details] = getPath(kingdom, baseConfig.origin, controller.pos, controllerRoadPolicy, trace);
     trace.log('path result', {origin: baseConfig.origin, dest: controller.pos, pathResult});
 
     if (!pathResult || !pathResult.path.length) {
@@ -171,9 +171,10 @@ export default class ControllerRunnable {
     }
 
     // We are grabbing where we will put a link
-    this.nodePosition = pathResult.path[1];
-    this.roadPosition = pathResult.path[2];
-    this.nodeDirection = controller.pos.getDirectionTo(pathResult.path[2]);
+    const pathLength = pathResult.path.length;
+    this.nodePosition = pathResult.path[pathLength - 1];
+    this.roadPosition = pathResult.path[pathLength - 2];
+    this.nodeDirection = controller.pos.getDirectionTo(this.roadPosition);
 
     trace.log('node position', {
       id: this.controllerId,
@@ -255,11 +256,13 @@ export default class ControllerRunnable {
 
         roomVisual.text(code, pos.x, pos.y);
 
-        trace.notice('building structure', {pos, structureType});
         const result = room.createConstructionSite(pos, structureType);
         if (result !== OK && result !== ERR_FULL) {
           trace.error('failed to build structure', {structureType, pos, result});
+          return;
         }
+
+        trace.notice('building structure', {pos, structureType});
       }
     }
   }

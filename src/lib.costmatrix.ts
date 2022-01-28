@@ -82,19 +82,6 @@ export const createCommonCostMatrix = (kingdom: Kingdom, roomName: string, trace
       }
     }
 
-    if (struct.structureType === STRUCTURE_CONTROLLER) {
-      const controllerPos = struct.pos;
-      for (let x = controllerPos.x - 3; x <= controllerPos.x + 3; x++) {
-        for (let y = controllerPos.y - 3; y <= controllerPos.y + 3; y++) {
-          if (x < 0 || x < 0 || y > 49 || y > 49 || terrain.get(x, y) === TERRAIN_MASK_WALL) {
-            continue;
-          }
-
-          costMatrix.set(x, y, 5);
-        }
-      }
-    }
-
     // TODO figure out how to not use "any"
     const isObstacle = OBSTACLE_OBJECT_TYPES.indexOf(struct.structureType as any) > -1;
     if (isObstacle) {
@@ -128,7 +115,7 @@ export const createCommonCostMatrix = (kingdom: Kingdom, roomName: string, trace
   });
 
   // avoid sources
-  applySourceBuffer(room, costMatrix, terrain, 5, trace);
+  applySourceMineralBuffer(room, costMatrix, terrain, 5, trace);
 
   const baseConfig = kingdom.getPlanner().getBaseConfigById(roomName);
   if (baseConfig) {
@@ -167,15 +154,41 @@ export const createSourceRoadMatrix = (kingdom: Kingdom, roomName: string, trace
 
   const terrain = Game.map.getRoomTerrain(roomName);
 
-  applyStructures(room, costMatrix, terrain, trace);
-  applySourceBuffer(room, costMatrix, terrain, 5, trace);
+  const structures = room.find(FIND_STRUCTURES);
+  const nonRoadStructures = structures.filter((s) => s.structureType !== STRUCTURE_ROAD);
+
+  nonRoadStructures.forEach(function (struct) {
+    if (struct.structureType !== STRUCTURE_CONTAINER &&
+      (struct.structureType !== STRUCTURE_RAMPART || !struct.my)) {
+
+      // Controller links dont count as obstacle, otherwise controller pad will shift around
+      if (struct.structureType === STRUCTURE_LINK && room.controller.pos.inRangeTo(struct.pos, 3)) {
+        return;
+      }
+
+      // Give walls a low weight otherwise we will minimize holes
+      if (struct.structureType === STRUCTURE_WALL) {
+        costMatrix.set(struct.pos.x, struct.pos.y, 10);
+        return;
+      }
+
+      // Can't walk through non-walkable buildings
+      costMatrix.set(struct.pos.x, struct.pos.y, 255);
+    }
+  });
+
+  applySourceMineralBuffer(room, costMatrix, terrain, 5, trace);
   applyRoads(room, costMatrix, terrain, 1, trace);
 
   // Add roads in base final base layout
   const baseConfig = kingdom.getPlanner().getBaseConfigById(roomName);
   if (baseConfig) {
-    applyBaseRoads(baseConfig, costMatrix, terrain, 1, trace);
+    applyControllerBuffer(costMatrix, terrain, room.controller, 5, trace);
     applyParkingLotBuffer(baseConfig, costMatrix, terrain, 5, trace);
+
+    if (baseConfig.automated) {
+      applyBaseRoads(baseConfig, costMatrix, terrain, 1, trace);
+    }
   }
 
   return costMatrix;
@@ -349,7 +362,26 @@ const applyTerrain = (costMatrix: CostMatrix, terrain: RoomTerrain, trace: Trace
   }
 }
 
-const applySourceBuffer = (room: Room, costMatrix: CostMatrix, terrain: RoomTerrain,
+const applyControllerBuffer = (costMatrix: CostMatrix, terrain: RoomTerrain,
+  controller: StructureController, cost: number, trace: Tracer) => {
+  const controllerPos = controller.pos;
+  for (let x = controllerPos.x - 3; x <= controllerPos.x + 3; x++) {
+    for (let y = controllerPos.y - 3; y <= controllerPos.y + 3; y++) {
+      if (x < 0 || x < 0 || y > 49 || y > 49 || terrain.get(x, y) === TERRAIN_MASK_WALL) {
+        continue;
+      }
+
+      // If the cost is already higher then leave it
+      if (costMatrix.get(x, y) > cost) {
+        continue;
+      }
+
+      costMatrix.set(x, y, cost);
+    }
+  }
+};
+
+const applySourceMineralBuffer = (room: Room, costMatrix: CostMatrix, terrain: RoomTerrain,
   cost: number, trace: Tracer) => {
 
   let sources: (Source | Mineral)[] = room.find(FIND_SOURCES);
@@ -366,52 +398,16 @@ const applySourceBuffer = (room: Room, costMatrix: CostMatrix, terrain: RoomTerr
           continue;
         }
 
-        // Dont override roads
-        if (costMatrix.get(x, y) === 0) {
-          costMatrix.set(x, y, cost);
+        // If the cost is already higher then leave it
+        if (costMatrix.get(x, y) > cost) {
+          continue;
         }
+
+        costMatrix.set(x, y, cost);
       }
     }
   });
 };
-
-const applyStructures = (room: Room, costMatrix: CostMatrix, terrain: RoomTerrain, trace: Tracer) => {
-  const structures = room.find(FIND_STRUCTURES);
-  const nonRoadStructures = structures.filter((s) => s.structureType !== STRUCTURE_ROAD);
-
-  nonRoadStructures.forEach(function (struct) {
-    if (struct.structureType === STRUCTURE_CONTROLLER) {
-      const controllerPos = struct.pos;
-      for (let x = controllerPos.x - 3; x <= controllerPos.x + 3; x++) {
-        for (let y = controllerPos.y - 3; y <= controllerPos.y + 3; y++) {
-          if (x < 0 || x < 0 || y > 49 || y > 49 || terrain.get(x, y) === TERRAIN_MASK_WALL) {
-            continue;
-          }
-
-          // Dont override roads
-          if (costMatrix.get(x, y) === 0) {
-            costMatrix.set(x, y, 5);
-          }
-        }
-      }
-    } else if (struct.structureType !== STRUCTURE_CONTAINER &&
-      (struct.structureType !== STRUCTURE_RAMPART || !struct.my)) {
-
-      // Controller links dont count as obstacle, otherwise controller pad will shift around
-      if (struct.structureType === STRUCTURE_LINK && room.controller.pos.inRangeTo(struct.pos, 2)) {
-        return;
-      }
-
-      // Don't count walls otherwise we will not punch new holes
-      if (struct.structureType === STRUCTURE_WALL) {
-        return;
-      }
-
-      // Can't walk through non-walkable buildings
-      costMatrix.set(struct.pos.x, struct.pos.y, 255);
-    }
-  });
-}
 
 const applyRoads = (room: Room, costMatrix: CostMatrix, terrain: RoomTerrain,
   cost: number, trace: Tracer) => {

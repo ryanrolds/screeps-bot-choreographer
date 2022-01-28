@@ -285,11 +285,13 @@ export default class BaseConstructionRunnable {
 
         // roomVisual.text(code, pos.x, pos.y);
 
-        trace.log('building', {structureType, pos});
         const result = room.createConstructionSite(pos, structureType);
         if (result !== OK && result !== ERR_FULL) {
           trace.error('failed to build structure', {structureType, pos, result});
+          return;
         }
+
+        trace.notice('building', {structureType, pos});
       }
     }
   }
@@ -350,11 +352,13 @@ export default class BaseConstructionRunnable {
       }
 
       if (!foundSite) {
-        trace.log('building site', {wall, structureType: expectedStructure});
         const result = room.createConstructionSite(wall.x, wall.y, expectedStructure);
         if (result !== OK) {
           trace.error('failed to build structure', {result, pos: position, structureType: expectedStructure});
+          return;
         }
+
+        trace.notice('building site', {wall, structureType: expectedStructure});
       }
     });
   }

@@ -112,7 +112,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       trace.end();
       return terminate();
     }
-
+    ``
     this.threadProduceEvents(trace, kingdom, source);
     this.threadUpdateStructures(trace, source);
     this.threadUpdateDropoff(trace, colony);
@@ -168,8 +168,6 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
   }
 
   populatePositions(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig, source: Source) {
-    trace.log('populate positions', {room: source.room.name});
-
     const memory = this.getMemory() || {};
 
     // Check memory for creep position
@@ -185,6 +183,10 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       this.linkPosition = new RoomPosition(linkPosition.x, linkPosition.y, linkPosition.roomName);
     }
 
+    if (this.creepPosition && this.linkPosition) {
+      return; // positions populated from memory
+    }
+
     const colonyPos = new RoomPosition(baseConfig.origin.x, baseConfig.origin.y - 1,
       baseConfig.origin.roomName);
 
@@ -196,7 +198,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       return;
     }
 
-    trace.log('creep position set', {creepPosition: this.creepPosition});
+    trace.warn('creep position set', {creepPosition: this.creepPosition});
     this.creepPosition = pathResult.path[0];
 
     const availableLinkPos = getNearbyPositions(this.creepPosition, 1);
@@ -235,7 +237,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     if (filtered.length === 0) {
       trace.error('no available link position', {creepPosition: this.creepPosition, filtered, availableLinkPos});
     } else {
-      trace.notice('link position set', {linkPosition: this.linkPosition, filtered});
+      trace.warn('link position set', {linkPosition: this.linkPosition, filtered});
       this.linkPosition = filtered[0];
     }
 
@@ -403,6 +405,26 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       return;
     }
 
+    source.pos.findInRange(FIND_STRUCTURES, 3, {
+      filter: (structure) => {
+        return structure.structureType === STRUCTURE_CONTAINER &&
+          !structure.pos.isEqualTo(this.creepPosition);
+      }
+    }).forEach((container) => {
+      container.destroy();
+      trace.warn('destroying container', {id: this.sourceId, containerId: container.id});
+    });
+
+    source.pos.findInRange(FIND_CONSTRUCTION_SITES, 3, {
+      filter: (site) => {
+        return site.structureType === STRUCTURE_CONTAINER &&
+          !site.pos.isEqualTo(this.creepPosition);
+      }
+    }).forEach((site) => {
+      site.remove();
+      trace.warn('destroying container site', {id: this.sourceId, siteId: site.id});
+    });
+
     const container = this.creepPosition.lookFor(LOOK_STRUCTURES).find((s) => {
       return s.structureType === STRUCTURE_CONTAINER;
     });
@@ -424,13 +446,13 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       }
     }
 
-    trace.log('build container', {id: this.sourceId});
     const result = this.creepPosition.createConstructionSite(STRUCTURE_CONTAINER);
-    trace.log('container created', {result});
-
     if (result !== OK) {
       trace.error('failed to build container', {result})
+      return;
     }
+
+    trace.log('container created', {id: this.sourceId});
   }
 
   buildLink(trace: Tracer, room: Room, source: Source) {
@@ -438,6 +460,26 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       trace.error('no link position', {room: room.name, id: this.sourceId});
       return;
     }
+
+    source.pos.findInRange(FIND_STRUCTURES, 3, {
+      filter: (structure) => {
+        return structure.structureType === STRUCTURE_LINK &&
+          !structure.pos.isEqualTo(this.creepPosition);
+      }
+    }).forEach((link) => {
+      link.destroy();
+      trace.warn('destroying link', {id: this.sourceId, containerId: link.id});
+    });
+
+    source.pos.findInRange(FIND_CONSTRUCTION_SITES, 3, {
+      filter: (site) => {
+        return site.structureType === STRUCTURE_LINK &&
+          !site.pos.isEqualTo(this.creepPosition);
+      }
+    }).forEach((site) => {
+      site.remove();
+      trace.warn('destroying link site', {id: this.sourceId, siteId: site.id});
+    });
 
     const link = this.linkPosition.look().find((s) => {
       if (s.type === LOOK_STRUCTURES) {
@@ -479,8 +521,12 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       return;
     }
 
-    trace.log('build link', {id: this.sourceId});
     const result = this.linkPosition.createConstructionSite(STRUCTURE_LINK);
-    trace.notice('link created', {result});
+    if (result !== OK) {
+      trace.error('failed to build link', {result});
+      return;
+    }
+
+    trace.notice('link created', {id: this.sourceId});
   }
 }
