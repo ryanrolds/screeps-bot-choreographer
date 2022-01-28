@@ -392,7 +392,12 @@ export class Colony extends OrgBase {
 
     // PID approach
     if (this.numHaulers < this.pidDesiredHaulers) {
-      const priority = PRIORITY_HAULER + (this.pidDesiredHaulers - this.numHaulers) * 0.1;
+      let priority = PRIORITY_HAULER;
+
+      // If we have few haulers/workers we should not be prioritizing haulers
+      if (this.pidDesiredHaulers > 3 && this.numHaulers < 2) {
+        priority + 10;
+      }
 
       const details = {
         role,

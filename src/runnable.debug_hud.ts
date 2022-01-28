@@ -6,8 +6,8 @@ import {running} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 import {thread, ThreadFunc} from "./os.thread";
 
-const CONSUME_EVENTS_TTL = 20;
-const DASHBOARD_EVENTS_TTL = 20;
+const CONSUME_EVENTS_TTL = 1;
+const DASHBOARD_EVENTS_TTL = 1;
 
 const RADIUS = 3;
 
@@ -24,7 +24,6 @@ type HudLines = Record<string, HudLine>;
 export function getLinesStream(): string {
   return `hud_lines`;
 }
-
 
 export enum HudIndicatorStatus {
   Green = "green",
