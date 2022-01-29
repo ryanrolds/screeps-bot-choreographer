@@ -266,10 +266,6 @@ export default class RoomRunnable {
 
         let topic = TOPICS.TOPIC_HAUL_TASK;
         let priority = PRIORITIES.HAUL_DROPPED;
-        if (orgRoom.isPrimary) {
-          topic = TOPICS.HAUL_CORE_TASK;
-          priority = PRIORITIES.HAUL_CORE_DROPPED;
-        }
 
         trace.log('haul tombstone', {topic, priority, details});
 

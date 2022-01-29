@@ -11,7 +11,7 @@ import roleAttacker from './role.attacker';
 import {roleBuilder} from './role.builder';
 import {roleDefender} from './role.defender';
 import roleDefenderDrone from './role.defender_drone';
-import roleDistributor from './role.distributor';
+import {roleDistributor} from './role.distributor';
 import roleExplorer from './role.explorer';
 import {roleHarvester} from './role.harvester';
 import {roleHauler} from './role.hauler';

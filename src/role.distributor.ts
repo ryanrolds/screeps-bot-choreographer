@@ -1,13 +1,37 @@
-const behaviorTree = require('./lib.behaviortree');
-const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
-const behaviorMovement = require('./behavior.movement');
-const behaviorHaul = require('./behavior.haul');
-const behaviorRoom = require('./behavior.room');
-const {behaviorBoosts} = require('./behavior.boosts');
+import * as behaviorTree from './lib.behaviortree';
+import {FAILURE, SUCCESS, RUNNING} from './lib.behaviortree';
+import * as behaviorMovement from './behavior.movement';
+import * as behaviorHaul from './behavior.haul';
+import * as behaviorRoom from './behavior.room';
+import {behaviorBoosts} from './behavior.boosts';
 
-const MEMORY = require('./constants.memory');
-const TOPICS = require('./constants.topics');
-const {roadWorker} = require('./behavior.logistics');
+import * as MEMORY from './constants.memory';
+import * as TOPICS from './constants.topics';
+import {roadWorker} from './behavior.logistics';
+import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
+import {FindPathPolicy} from './lib.pathing';
+
+export const distributorPolicy: FindPathPolicy = {
+  room: {
+    avoidHostileRooms: true,
+    avoidFriendlyRooms: false,
+    avoidRoomsWithKeepers: true,
+    avoidRoomsWithTowers: false,
+    avoidUnloggedRooms: false,
+    sameRoomStatus: true,
+    costMatrixType: AllowedCostMatrixTypes.COMMON,
+  },
+  destination: {
+    range: 1,
+  },
+  path: {
+    allowIncomplete: true,
+    maxSearchRooms: 5,
+    maxOps: 1000,
+    maxPathRooms: 2,
+    ignoreCreeps: true,
+  },
+};
 
 const selectNextTaskOrPark = behaviorTree.selectorNode(
   'pick_something',
@@ -29,8 +53,8 @@ const selectNextTaskOrPark = behaviorTree.selectorNode(
         const task = colony.getMessageOfMyChoice(TOPICS.HAUL_CORE_TASK, (messages) => {
           const sorted = _.sortByOrder(messages, [
             'priority',
-            (message) => {
-              const dropoff = Game.getObjectById(message.details[MEMORY.MEMORY_HAUL_DROPOFF]);
+            (message: any) => {
+              const dropoff = Game.getObjectById<Id<Structure<StructureConstant>>>(message.details[MEMORY.MEMORY_HAUL_DROPOFF]);
               if (!dropoff) {
                 return -1;
               }
@@ -68,12 +92,12 @@ const emptyCreep = behaviorTree.leafNode(
       return SUCCESS;
     }
 
-    const destination = Game.getObjectById(creep.memory[MEMORY.MEMORY_DESTINATION]);
+    const destination = Game.getObjectById<Id<Structure<StructureConstant>>>(creep.memory[MEMORY.MEMORY_DESTINATION]);
     if (!destination) {
       throw new Error('Missing unload destination');
     }
 
-    const desiredResource = creep.memory[MEMORY.MEMORY_HAUL_RESOURCE];
+    const desiredResource: ResourceConstant = creep.memory[MEMORY.MEMORY_HAUL_RESOURCE];
     if (!desiredResource) {
       throw new Error('Hauler task missing desired resource');
     }
@@ -91,7 +115,7 @@ const emptyCreep = behaviorTree.leafNode(
     }
 
     const resource = resources.pop();
-    const result = creep.transfer(destination, resource);
+    const result = creep.transfer(destination, resource as ResourceConstant);
 
     if (result !== OK) {
       trace.error('transfer error', {result, resource, resources});
@@ -156,7 +180,7 @@ const unloadIfNeeded = behaviorTree.selectorNode(
     behaviorTree.sequenceNode(
       'move_and_unload',
       [
-        behaviorMovement.moveToCreepMemory(MEMORY.MEMORY_DESTINATION, 1, false, 25, 500),
+        behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 1, distributorPolicy),
         emptyCreep,
       ],
     ),
@@ -224,7 +248,7 @@ const loadIfNeeded = behaviorTree.selectorNode(
     behaviorTree.sequenceNode(
       'get_resource',
       [
-        behaviorMovement.moveToCreepMemory(MEMORY.MEMORY_HAUL_PICKUP, 1, false, 10, 1000),
+        behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_PICKUP, 1, distributorPolicy),
         behaviorHaul.loadCreep,
       ],
     ),
@@ -234,19 +258,7 @@ const loadIfNeeded = behaviorTree.selectorNode(
 const deliver = behaviorTree.sequenceNode(
   'deliver',
   [
-    behaviorTree.leafNode(
-      'use_memory_dropoff',
-      (creep, trace, kingdom) => {
-        const dropoff = creep.memory[MEMORY.MEMORY_HAUL_DROPOFF];
-        if (dropoff) {
-          behaviorMovement.setDestination(creep, dropoff);
-          return SUCCESS;
-        }
-
-        return FAILURE;
-      },
-    ),
-    behaviorMovement.moveToDestination(1, false, 10, 250),
+    behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_DROPOFF, 1, distributorPolicy),
     behaviorTree.leafNode(
       'empty_creep',
       (creep, trace, kingdom) => {
@@ -254,14 +266,14 @@ const deliver = behaviorTree.sequenceNode(
           return SUCCESS;
         }
 
-        const destination = Game.getObjectById(creep.memory[MEMORY.MEMORY_DESTINATION]);
+        const destination = Game.getObjectById<Id<Structure<StructureConstant>>>(creep.memory[MEMORY.MEMORY_DESTINATION]);
         if (!destination) {
           return FAILURE;
         }
 
         const resource = Object.keys(creep.store).pop();
 
-        const result = creep.transfer(destination, resource);
+        const result = creep.transfer(destination, resource as ResourceConstant);
         trace.log('transfer', {resource, result});
 
         if (result === ERR_FULL) {
@@ -297,6 +309,6 @@ const behavior = behaviorTree.sequenceNode(
   ],
 );
 
-module.exports = {
+export const roleDistributor = {
   run: behaviorTree.rootNode('distributor', behaviorBoosts(roadWorker(behavior))),
-};
+}
