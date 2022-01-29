@@ -5,7 +5,12 @@
  * Early game creep. Used when there is no storage. Replaced by more specialized
  * creeps when storage is built.
  *
- * TODO fix 3 ticks of no movement after putting energy into spawner/dropoff
+ * Requirements:
+ * - Process hauling tasks
+ * - Move and pick up energy
+ * - Move and drop off energy at spawn, extension
+ * - If no drop offs with capacity, then build structures or upgrade controller
+ *
  */
 import * as behaviorTree from "./lib.behaviortree";
 import {FAILURE, SUCCESS, RUNNING} from "./lib.behaviortree";
@@ -21,6 +26,109 @@ import {roadWorker} from "./behavior.logistics";
 import * as behaviorHaul from "./behavior.haul";
 import * as TOPICS from "./constants.topics";
 import behaviorRoom from "./behavior.room";
+import {WORKER_DISTRIBUTOR} from "./constants.creeps";
+
+const selectDropoff = module.exports.selectRoomDropoff = behaviorTree.selectorNode(
+  'selectRoomDropoff',
+  [
+    behaviorTree.leafNode(
+      'use_memory_dropoff',
+      (creep) => {
+        const dropoff = creep.memory[MEMORY.MEMORY_HAUL_DROPOFF];
+        if (dropoff) {
+          behaviorMovement.setDestination(creep, dropoff);
+          return SUCCESS;
+        }
+
+        return FAILURE;
+      },
+    ),
+    behaviorTree.leafNode(
+      'pick_storage',
+      (creep, trace, kingdom) => {
+        const colony = kingdom.getCreepColony(creep);
+        if (!colony) {
+          trace.error('could not find creep colony', {name: creep.name, memory: creep.memory});
+          creep.suicide();
+          return FAILURE;
+        }
+
+        const room = colony.getPrimaryRoom();
+        if (!room) {
+          return FAILURE;
+        }
+
+        if (!room.hasStorage) {
+          return FAILURE;
+        }
+
+        if (!room.room.storage?.isActive()) {
+          return FAILURE;
+        }
+
+        const distributors = _.filter(room.getCreeps(), (creep) => {
+          return creep.memory[MEMORY.MEMORY_ROLE] === WORKER_DISTRIBUTOR;
+        });
+
+        if (!distributors.length) {
+          return FAILURE;
+        }
+
+        behaviorMovement.setDestination(creep, room.room.storage.id);
+        return SUCCESS;
+      },
+    ),
+    behaviorTree.leafNode(
+      'pick_tower',
+      (creep, trace, kingdom) => {
+        const targets = creep.room.find(FIND_STRUCTURES, {
+          filter: (structure) => {
+            return structure.structureType == STRUCTURE_TOWER &&
+              structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0 &&
+              structure.isActive();
+          },
+        });
+
+        if (!targets || !targets.length) {
+          return FAILURE;
+        }
+
+        behaviorMovement.setDestination(creep, targets[0].id);
+        return SUCCESS;
+      },
+    ),
+    behaviorTree.leafNode(
+      'pick_spawner_extension',
+      (creep, trace, kingdom) => {
+        const colony = kingdom.getCreepColony(creep);
+        if (!colony) {
+          trace.error('could not find creep colony', {name: creep.name, memory: creep.memory});
+          creep.suicide();
+          return FAILURE;
+        }
+
+        if (!colony.primaryRoom) {
+          return FAILURE;
+        }
+
+        const targets = colony.primaryRoom.find(FIND_STRUCTURES, {
+          filter: (structure) => {
+            return (structure.structureType == STRUCTURE_EXTENSION ||
+              structure.structureType == STRUCTURE_SPAWN) &&
+              structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+          },
+        });
+
+        if (!targets.length) {
+          return FAILURE;
+        }
+
+        behaviorMovement.setDestination(creep, targets[0].id);
+        return SUCCESS;
+      },
+    ),
+  ],
+);
 
 const behavior = behaviorTree.sequenceNode(
   'haul_energy',
@@ -63,7 +171,7 @@ const behavior = behaviorTree.sequenceNode(
                   return FAILURE;
                 }
               ),
-              behaviorStorage.selectRoomDropoff,
+              selectDropoff,
               behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 1, commonPolicy),
               behaviorTree.leafNode(
                 'empty_creep',

@@ -184,6 +184,25 @@ export const loadCreep = behaviorTree.leafNode(
     }
 
     if (result !== OK) {
+      trace.error('could not load resource', {result, creep, pickup});
+    }
+
+    if (result === ERR_INVALID_ARGS) {
+      trace.error('invalid args', {resource, amount, pickup});
+      return FAILURE;
+    }
+
+    if (result === ERR_FULL) {
+      trace.notice('full', {resource, amount, pickup});
+      return RUNNING;
+    }
+
+    if (result === ERR_NOT_ENOUGH_RESOURCES) {
+      trace.notice('not enough resources', {resource, amount, pickup});
+      return SUCCESS;
+    }
+
+    if (result !== OK) {
       trace.error('could not load resource', {result, resource, amount, pickup});
       return FAILURE;
     }
