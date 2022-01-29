@@ -6,7 +6,7 @@ import OrgRoom from "./org.room";
 import {sleeping} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 
-const CONSTRUCTION_INTERVAL = 50;
+const CONSTRUCTION_INTERVAL = 100;
 
 export type BaseLayout = {
   origin: {x: number, y: number};
@@ -174,13 +174,6 @@ export default class BaseConstructionRunnable {
 
     trace.log('base construction run', {id: this.id, orgRoomId: this.orgRoom.id});
 
-    const roomLevel = this.orgRoom.getRoomLevel();
-    if (roomLevel < 1) {
-      trace.log('room level low', {roomLevel});
-      trace.end();
-      return sleeping(CONSTRUCTION_INTERVAL);
-    }
-
     const baseConfig = kingdom.getPlanner().getBaseConfigById(this.orgRoom.id);
     if (!baseConfig) {
       trace.error('no base config');
@@ -208,6 +201,14 @@ export default class BaseConstructionRunnable {
       return sleeping(CONSTRUCTION_INTERVAL);
     }
 
+    const roomLevel = this.orgRoom.getRoomLevel();
+    if (roomLevel < 1) {
+      trace.log('room level low', {roomLevel});
+      trace.end();
+      return sleeping(CONSTRUCTION_INTERVAL);
+    }
+
+    // Update parking lot for room level
     const levelLayout = baseLayouts[roomLevel];
     if (levelLayout) {
       this.setParking(kingdom, levelLayout, origin, room, trace);
@@ -215,6 +216,7 @@ export default class BaseConstructionRunnable {
       trace.error('no level layout', {roomLevel});
     }
 
+    // We have check all the things, now it's time to work out what we are building and build it
     const unfinished = this.selectLayout(roomLevel, room, origin, trace);
     if (unfinished) {
       this.buildLayout(kingdom, unfinished, room, origin, trace);

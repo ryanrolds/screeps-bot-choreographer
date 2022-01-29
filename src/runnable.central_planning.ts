@@ -280,6 +280,7 @@ export class CentralPlanning {
     }
   }
 
+  // TODO move this to base runnable
   private remoteMining(kingdom: Kingdom, baseConfig: BaseConfig, trace: Tracer) {
     trace.log('remote mining', {baseConfig});
 

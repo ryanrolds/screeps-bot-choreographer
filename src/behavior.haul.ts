@@ -113,6 +113,7 @@ export const storeHaulTask = (creep, task, trace) => {
 export const clearTask = behaviorTree.leafNode(
   'clear_haul_task',
   (creep, trace, kingdom) => {
+    delete creep.memory[MEMORY.TASK_ID];
     delete creep.memory[MEMORY.MEMORY_TASK_TYPE];
     delete creep.memory[MEMORY.MEMORY_HAUL_PICKUP];
     delete creep.memory[MEMORY.MEMORY_HAUL_RESOURCE];
@@ -183,27 +184,12 @@ export const loadCreep = behaviorTree.leafNode(
     }
 
     if (result !== OK) {
-      trace.error('could not load resource', {result, creep, pickup});
-    }
-
-    if (result === ERR_INVALID_ARGS) {
-      trace.error('invalid args', {resource, amount, pickup});
-      return FAILURE;
-    }
-
-    if (result === ERR_FULL) {
-      return SUCCESS;
-    }
-
-    if (result === ERR_NOT_ENOUGH_RESOURCES) {
-      return SUCCESS;
-    }
-
-    if (result !== OK) {
       trace.error('could not load resource', {result, resource, amount, pickup});
       return FAILURE;
     }
 
-    return SUCCESS;
+    // If we do not wait until next tick, the creep will not
+    // know it's full
+    return RUNNING;
   },
 );

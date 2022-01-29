@@ -106,10 +106,7 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
     this.threadProduceEvents(trace, kingdom, mineral);
     this.threadUpdateDropoff(trace, colony);
     this.threadRequestHarvesters(trace, kingdom, colony, room, mineral);
-
-    if (baseConfig.automated) {
-      this.threadBuildExtractor(trace, room, mineral);
-    }
+    this.threadBuildExtractor(trace, room, mineral);
 
     trace.end();
 

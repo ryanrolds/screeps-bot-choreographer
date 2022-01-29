@@ -26,6 +26,8 @@ const DROPOFF_TTL = 200;
 const BUILD_LINK_TTL = 200;
 const CONTAINER_TTL = 250;
 
+const PRIORITY_PRIMARY_ROOM = 5;
+
 export default class SourceRunnable extends PersistentMemory implements Runnable {
   id: string;
   orgRoom: OrgRoom;
@@ -114,10 +116,8 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     this.threadUpdateStructures(trace, source);
     this.threadUpdateDropoff(trace, colony);
 
-    if (baseConfig.automated) {
-      this.threadBuildContainer(trace, kingdom, source);
-      this.threadBuildLink(trace, room, source);
-    }
+    this.threadBuildContainer(trace, kingdom, source);
+    this.threadBuildLink(trace, room, source);
 
     this.threadRequestMiners(trace, kingdom, colony, room, source);
     this.threadRequestHauling(trace, colony);
@@ -345,7 +345,12 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     const loadsToHaul = Math.floor(untaskedUsedCapacity / loadSize);
 
     for (let i = 0; i < loadsToHaul; i++) {
-      const loadPriority = (storeUsedCapacity - (i * loadSize)) / storeCapacity;
+      let loadPriority = (storeUsedCapacity - (i * loadSize)) / storeCapacity;
+
+      // prioritize hauling primary room
+      if (colony.primaryRoomId === this.orgRoom.id) {
+        loadPriority += PRIORITY_PRIMARY_ROOM;
+      }
 
       const details = {
         [MEMORY.TASK_ID]: `sch-${this.sourceId}-${Game.time}`,

@@ -112,16 +112,6 @@ const behavior = behaviorTree.sequenceNode(
         behaviorTree.sequenceNode(
           'build_construction_site',
           [
-            behaviorTree.leafNode(
-              'skip_some',
-              (creep, trace, kingdom) => {
-                if (Game.time % 5) {
-                  return FAILURE;
-                }
-
-                return SUCCESS;
-              },
-            ),
             selectInfrastructureSites,
             behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 3, commonPolicy),
             build,

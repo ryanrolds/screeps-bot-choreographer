@@ -12,8 +12,8 @@ import {RunnableResult} from "./os.runnable";
 import {thread, ThreadFunc} from "./os.thread";
 import {getLinesStream, HudLine, HudEventSet, HudIndicatorStatus, HudIndicator, getDashboardStream} from "./runnable.debug_hud";
 
-const REQUEST_BOOSTS_TTL = 1;
-const UPDATE_SPAWN_LIST_TTL = 20;
+const SPAWN_TTL = 5;
+const REQUEST_BOOSTS_TTL = 5;
 const MAX_COLONY_SPAWN_DISTANCE = 5;
 const PRODUCE_EVENTS_TTL = 20;
 
@@ -26,8 +26,8 @@ export default class SpawnManager {
   id: string;
   spawnIds: Id<StructureSpawn>[];
 
-  threadUpdateSpawnList: ThreadFunc;
   threadProduceEvents: ThreadFunc;
+  threadSpawn: ThreadFunc
 
   constructor(id: string, room: OrgRoom) {
     this.id = id;
@@ -38,51 +38,16 @@ export default class SpawnManager {
       throw new Error('cannot create a spawn manager when room does not exist');
     }
 
-    this.threadUpdateSpawnList = thread('update_spawn_list_thread', UPDATE_SPAWN_LIST_TTL)((trace) => {
-      trace.log('updating spawn list');
+    this.threadSpawn = thread('spawn_thread', SPAWN_TTL)((trace) => {
       this.spawnIds = roomObject.find<StructureSpawn>(FIND_MY_STRUCTURES, {
         filter: structure => structure.structureType === STRUCTURE_SPAWN && structure.isActive(),
       }).map(spawn => spawn.id);
-    })
 
-    this.threadProduceEvents = thread('produce_events_thread', PRODUCE_EVENTS_TTL)((trace: Tracer, kingdom: Kingdom) => {
-      const topic = this.orgRoom.getTopics().getTopic(TOPICS.TOPIC_SPAWN);
+      this.spawning(trace);
+    });
 
-      let creeps = [];
-      let topicLength = 9999;
-      if (topic) {
-        topicLength = topic.length;
-        creeps = topic.map((message) => {
-          return `${message.details[MEMORY.MEMORY_ROLE]}(${message.priority},${message.ttl - Game.time})`;
-        });
-      }
-
-      const line: HudLine = {
-        key: `${this.id}`,
-        room: this.orgRoom.id,
-        order: 5,
-        text: `Next spawn: ${creeps.join(',')}`,
-        time: Game.time,
-      };
-      const event = new Event(this.id, Game.time, HudEventSet, line);
-      trace.log('produce_events', event);
-      kingdom.getBroker().getStream(getLinesStream()).publish(event)
-
-      const indicatorStream = kingdom.getBroker().getStream(getDashboardStream());
-
-      // Processes
-      let processStatus = HudIndicatorStatus.Green;
-      if (topicLength === INITIAL_TOPIC_LENGTH) {
-        processStatus = HudIndicatorStatus.Stale;
-      } else if (topicLength > RED_TOPIC_LENGTH) {
-        processStatus = HudIndicatorStatus.Red;
-      } else if (topicLength > YELLOW_TOPIC_LENGTH) {
-        processStatus = HudIndicatorStatus.Yellow;
-      }
-
-      const roomName = this.orgRoom.id;
-      const spawnLengthIndicator: HudIndicator = {room: roomName, key: 'spawn_length', display: 'S', status: processStatus};
-      indicatorStream.publish(new Event(this.id, Game.time, HudEventSet, spawnLengthIndicator));
+    this.threadProduceEvents = thread('produce_events_thread', PRODUCE_EVENTS_TTL)((trace, kingdom) => {
+      this.processEvents(trace, kingdom)
     });
   }
 
@@ -97,9 +62,14 @@ export default class SpawnManager {
 
     trace.log('Spawn manager run', {id: this.id, spawnIds: this.spawnIds});
 
-    this.threadUpdateSpawnList(trace);
+    this.threadSpawn(trace);
     this.threadProduceEvents(trace, kingdom);
 
+    trace.end();
+    return running();
+  }
+
+  spawning(trace: Tracer) {
     this.spawnIds.forEach((id) => {
       const spawn = Game.getObjectById(id);
       if (!spawn) {
@@ -159,11 +129,11 @@ export default class SpawnManager {
         trace.log('spawn idle', {spawnTopicSize, numCreeps, energy, minEnergy, spawnTopicBackPressure, next});
 
         if (energy < minEnergy) {
-          trace.warn("low energy, not spawning", {id: this.id, energy, minEnergy})
+          trace.log("low energy, not spawning", {id: this.id, energy, minEnergy})
           return;
         }
 
-        let request = (this.orgRoom as any).getNextRequest(TOPICS.TOPIC_SPAWN);
+        let request = this.orgRoom.getNextRequest(TOPICS.TOPIC_SPAWN);
         if (request) {
           const role = request.details.role;
           const definition = DEFINITIONS[role];
@@ -216,7 +186,7 @@ export default class SpawnManager {
             if (assignedShard && assignedShard != Game.shard.name) {
               let portals: any[] = this.orgRoom.getKingdom().getScribe()
                 .getPortals(assignedShard).filter((portal) => {
-                  const distance = Game.map.getRoomLinearDistance((this.orgRoom as any).id,
+                  const distance = Game.map.getRoomLinearDistance(this.orgRoom.id,
                     portal.pos.roomName);
                   return distance < 2;
                 });
@@ -278,9 +248,46 @@ export default class SpawnManager {
         }
       }
     });
+  }
 
-    trace.end();
-    return running();
+  processEvents(trace: Tracer, kingdom: Kingdom) {
+    const topic = this.orgRoom.getTopics().getTopic(TOPICS.TOPIC_SPAWN);
+
+    let creeps = [];
+    let topicLength = 9999;
+    if (topic) {
+      topicLength = topic.length;
+      creeps = topic.map((message) => {
+        return `${message.details[MEMORY.MEMORY_ROLE]}(${message.priority},${message.ttl - Game.time})`;
+      });
+    }
+
+    const line: HudLine = {
+      key: `${this.id}`,
+      room: this.orgRoom.id,
+      order: 5,
+      text: `Next spawn: ${creeps.join(',')}`,
+      time: Game.time,
+    };
+    const event = new Event(this.id, Game.time, HudEventSet, line);
+    trace.log('produce_events', event);
+    kingdom.getBroker().getStream(getLinesStream()).publish(event)
+
+    const indicatorStream = kingdom.getBroker().getStream(getDashboardStream());
+
+    // Processes
+    let processStatus = HudIndicatorStatus.Green;
+    if (topicLength === INITIAL_TOPIC_LENGTH) {
+      processStatus = HudIndicatorStatus.Stale;
+    } else if (topicLength > RED_TOPIC_LENGTH) {
+      processStatus = HudIndicatorStatus.Red;
+    } else if (topicLength > YELLOW_TOPIC_LENGTH) {
+      processStatus = HudIndicatorStatus.Yellow;
+    }
+
+    const roomName = this.orgRoom.id;
+    const spawnLengthIndicator: HudIndicator = {room: roomName, key: 'spawn_length', display: 'S', status: processStatus};
+    indicatorStream.publish(new Event(this.id, Game.time, HudEventSet, spawnLengthIndicator));
   }
 
   createCreep(spawner: StructureSpawn, role, memory, energy: number, energyLimit: number) {

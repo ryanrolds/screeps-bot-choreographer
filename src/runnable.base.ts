@@ -30,7 +30,7 @@ import RoomRunnable from './runnable.base_room';
 const MIN_ENERGY = 100000;
 const CREDIT_RESERVE = 100000;
 
-const MIN_UPGRADERS = 0;
+const MIN_UPGRADERS = 1;
 const MAX_UPGRADERS = 6;
 const UPGRADER_ENERGY = 25000;
 const MIN_DISTRIBUTORS = 1;
@@ -531,6 +531,7 @@ export default class BaseRunnable {
 
   requestUpgrader(trace: Tracer, orgRoom: OrgRoom, room: Room) {
     if (!orgRoom.isPrimary) {
+      trace.error('not primary room', {id: this.id, orgRoomid: orgRoom.id});
       return;
     }
 
@@ -546,10 +547,12 @@ export default class BaseRunnable {
     const reserveEnergy = orgRoom.getAmountInReserve(RESOURCE_ENERGY);
     const reserveBuffer = orgRoom.getReserveBuffer();
 
-    trace.log('upgrader energy', {reserveEnergy, reserveBuffer});
+    trace.log('upgrader energy', {
+      reserveEnergy, reserveBuffer
+    });
 
     if (!room.controller?.my) {
-      trace.log('not my room')
+      trace.error('not my room')
       desiredUpgraders = 0;
     } else if (!orgRoom.hasSpawns) {
       desiredUpgraders = 0;
