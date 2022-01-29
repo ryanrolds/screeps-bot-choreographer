@@ -20,13 +20,10 @@ import {getLinesStream, HudLine, HudEventSet} from './runnable.debug_hud';
 import {getLogisticsTopic, LogisticsEventData, LogisticsEventType} from "./runnable.base_logistics";
 import {getNearbyPositions} from './lib.position';
 
-const STRUCTURE_TTL = 50;
+const RUN_TTL = 50;
+const STRUCTURE_TTL = 200;
 const DROPOFF_TTL = 200;
-const REQUEST_WORKER_TTL = 30;
-const REQUEST_HAULING_TTL = 20;
-const PRODUCE_EVENTS_TTL = 20;
 const BUILD_LINK_TTL = 200;
-
 const CONTAINER_TTL = 250;
 
 export default class SourceRunnable extends PersistentMemory implements Runnable {
@@ -59,14 +56,14 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     this.creepPosition = null;
     this.linkPosition = null;
 
-    this.threadProduceEvents = thread('consume_events', PRODUCE_EVENTS_TTL)(this.produceEvents.bind(this));
+    this.threadProduceEvents = thread('consume_events', RUN_TTL)(this.produceEvents.bind(this));
     this.threadUpdateStructures = thread('update_structures', STRUCTURE_TTL)(this.updateStructures.bind(this));
     this.threadUpdateDropoff = thread('update_dropoff', DROPOFF_TTL)(this.updateDropoff.bind(this));
     this.threadBuildContainer = thread('build_container', CONTAINER_TTL)(this.buildContainer.bind(this));
     this.threadBuildLink = thread('build_link', BUILD_LINK_TTL)(this.buildLink.bind(this));
 
-    this.threadRequestMiners = thread('request_miners', REQUEST_WORKER_TTL)(this.requestMiners.bind(this));
-    this.threadRequestHauling = thread('reqeust_hauling', REQUEST_HAULING_TTL)(this.requestHauling.bind(this));
+    this.threadRequestMiners = thread('request_miners', RUN_TTL)(this.requestMiners.bind(this));
+    this.threadRequestHauling = thread('reqeust_hauling', RUN_TTL)(this.requestHauling.bind(this));
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
@@ -129,7 +126,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
 
     trace.end();
 
-    return sleeping(REQUEST_HAULING_TTL);
+    return sleeping(RUN_TTL);
   }
 
   produceEvents(trace: Tracer, kingdom: Kingdom, source: Source) {
@@ -315,7 +312,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
 
       trace.notice('requesting miner', {sourceId: this.sourceId, details});
 
-      colony.getPrimaryRoom().requestSpawn(PRIORITY_MINER, details, REQUEST_WORKER_TTL, trace);
+      colony.getPrimaryRoom().requestSpawn(PRIORITY_MINER, details, RUN_TTL, trace);
     }
   }
 
@@ -360,7 +357,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
 
       trace.log('requesting hauling', {sourceId: this.sourceId});
 
-      colony.sendRequest(TOPICS.TOPIC_HAUL_TASK, loadPriority, details, REQUEST_HAULING_TTL);
+      colony.sendRequest(TOPICS.TOPIC_HAUL_TASK, loadPriority, details, RUN_TTL);
     }
   }
 
