@@ -135,7 +135,7 @@ export const loadCreep = behaviorTree.leafNode(
 
     const pickup: any = Game.getObjectById(creep.memory[MEMORY.MEMORY_HAUL_PICKUP]);
     if (!pickup) {
-      creep.say('⬆❌');
+      creep.say('⬆️❌');
       trace.error('could not find pickup', {id: creep.memory[MEMORY.MEMORY_HAUL_PICKUP]});
       return FAILURE;
     }
@@ -183,10 +183,6 @@ export const loadCreep = behaviorTree.leafNode(
       });
     }
 
-    if (result !== OK) {
-      trace.error('could not load resource', {result, creep, pickup});
-    }
-
     if (result === ERR_INVALID_ARGS) {
       trace.error('invalid args', {resource, amount, pickup});
       return FAILURE;
@@ -210,5 +206,73 @@ export const loadCreep = behaviorTree.leafNode(
     // If we do not wait until next tick, the creep will not
     // know it's full
     return RUNNING;
+  },
+);
+
+// TODO marge these to into a generic one that takes a memory key to an object id
+export const emptyCreep = behaviorTree.leafNode(
+  'empty_creep',
+  (creep, trace, kingdom) => {
+    const destination = Game.getObjectById<Id<AnyStoreStructure>>(creep.memory[MEMORY.MEMORY_HAUL_DROPOFF]);
+    if (!destination) {
+      creep.say('⬇️❌');
+      trace.error('no dump destination', {name: creep.name, memory: creep.memory});
+      return FAILURE;
+    }
+
+    const resources = Object.keys(creep.store);
+    const resource = resources.pop();
+    const result = creep.transfer(destination, resource as ResourceConstant);
+
+    trace.log('transfer result', {result, resource, resources});
+
+    if (result === ERR_FULL) {
+      trace.log('transfer error: full', {result, resource, resources});
+    } else if (result !== OK) {
+      trace.error('transfer error', {result, resource, resources});
+      return FAILURE;
+    }
+
+    // We have more resources to unload
+    if (resources.length > 0) {
+      trace.log('more do dump', {resources});
+      return RUNNING;
+    }
+
+    return SUCCESS;
+  },
+);
+
+export const emptyToDestination = behaviorTree.leafNode(
+  'empty_creep_to_destination',
+  (creep, trace, kingdom) => {
+    const destinationId = creep.memory[MEMORY.MEMORY_DESTINATION];
+    const destination = Game.getObjectById<Id<AnyStoreStructure>>(destinationId);
+    if (!destination) {
+      creep.say('⬇️❌');
+      trace.error('no dump destination', {name: creep.name, memory: creep.memory});
+      return FAILURE;
+    }
+
+    const resources = Object.keys(creep.store);
+    const resource = resources.pop();
+    const result = creep.transfer(destination, resource as ResourceConstant);
+
+    trace.log('transfer result', {result, resource, resources});
+
+    if (result === ERR_FULL) {
+      trace.log('transfer error: full', {result, resource, resources});
+    } else if (result !== OK) {
+      trace.error('transfer error', {result, resource, resources});
+      return FAILURE;
+    }
+
+    // We have more resources to unload
+    if (resources.length > 0) {
+      trace.log('more do dump', {resources});
+      return RUNNING;
+    }
+
+    return SUCCESS;
   },
 );

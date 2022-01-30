@@ -185,9 +185,9 @@ export default class RoomRunnable {
       let priority = PRIORITIES.HAUL_DROPPED;
 
       // Increase priority if primary room
-      // TODO factor distance
+      // TODO factor distance (or number of rooms from base)
       if (orgRoom.getColony().primaryRoomId === resource.room.name) {
-        priority += 2;
+        priority += PRIORITIES.HAUL_BASE_ROOM;
       }
 
       const dropoff = primaryRoom.getReserveStructureWithRoomForResource(resource.resourceType);
@@ -205,14 +205,11 @@ export default class RoomRunnable {
       const untaskedUsedCapacity = resource.amount - haulerCapacity;
       const loadsToHaul = Math.floor(untaskedUsedCapacity / avgHaulerCapacity);
 
-      // Increase priority by number of loads
-      priority += loadsToHaul * 0.2
-
       trace.log('loads', {avgHaulerCapacity, haulerCapacity, untaskedUsedCapacity, loadsToHaul})
 
       for (let i = 0; i < loadsToHaul; i++) {
         // Reduce priority for each load after first
-        const loadPriority = priority - 0.2 * i;
+        const loadPriority = priority - PRIORITIES.LOAD_FACTOR * i;
 
         const details = {
           [MEMORY.TASK_ID]: `pickup-${this.id}-${Game.time}`,
@@ -223,7 +220,7 @@ export default class RoomRunnable {
           [MEMORY.MEMORY_HAUL_AMOUNT]: resource.amount,
         };
 
-        trace.log('haul dropped', {topic, loadPriority, details});
+        trace.log('haul dropped', {room: primaryRoom.id, topic, i, loadPriority, details});
 
         orgRoom.sendRequest(topic, loadPriority, details, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
       }

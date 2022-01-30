@@ -521,7 +521,7 @@ export class Colony extends OrgBase {
     if (this.roomMap[this.primaryRoomId]) {
       this.primaryOrgRoom = this.roomMap[this.primaryRoomId];
     } else {
-      trace.error('primary room not found', {primaryRoomId: this.primaryRoomId});
+      trace.error('primary room not found', {orgColonyId: this.id, primaryRoomId: this.primaryRoomId, missingOrgColonyIds, extraOrgColonyIds, desiredRoomIds, orgRoomIds});
     }
 
     updateOrgTrace.end();

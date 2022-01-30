@@ -357,7 +357,7 @@ export class CentralPlanning {
       const origin = results.origin;
       const parking = new RoomPosition(origin.x + 5, origin.y + 5, origin.roomName);
       trace.notice('selected room, adding colony', {roomName, distance, origin, parking});
-      this.addBaseConfig(roomName, false, origin, parking, true, [], [], trace);
+      this.addBaseConfig(roomName, false, origin, parking, true, [roomName], [], trace);
       return;
     }
 

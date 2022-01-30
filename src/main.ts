@@ -53,6 +53,7 @@ const DEFAULT_METRIC_REPORT = false;
 const DEFAULT_METRIC_CONSOLE = false;
 const DEFAULT_METRIC_FILTER = null;
 const DEFAULT_METRIC_MIN = 0.5
+const DEFAULT_CPU_THROTTLE = 300;
 
 // On start copy memory values to debugging control flags
 global.LOG_WHEN_PID = (Memory as any).LOG_WHEN_PID || DEFAULT_LOG_WHEN_PID;
@@ -60,6 +61,7 @@ global.METRIC_REPORT = (Memory as any).METRIC_REPORT || DEFAULT_METRIC_REPORT;
 global.METRIC_CONSOLE = (Memory as any).METRIC_CONSOLE || DEFAULT_METRIC_CONSOLE;
 global.METRIC_FILTER = (Memory as any).METRIC_FILTER || DEFAULT_METRIC_FILTER;
 global.METRIC_MIN = (Memory as any).METRIC_MIN | DEFAULT_METRIC_MIN;
+global.CPU_THROTTLE = (Memory as any).CPU_THROTTLE | DEFAULT_CPU_THROTTLE;
 
 // Memory hack variables
 let lastMemoryTick: number = 0;
@@ -72,6 +74,7 @@ global.AI = null; // So we can access it from the console
 // AI CPU usage tracking
 let previousTick = 0; // Track previous tick time for display
 let previousBucket = 0;
+let previousSkipped = 0;
 
 export const loop = function () {
   const fields = {shard: Game.shard.name};
@@ -99,6 +102,7 @@ export const loop = function () {
   (Memory as any).METRIC_CONSOLE = global.METRIC_CONSOLE || DEFAULT_METRIC_CONSOLE;
   (Memory as any).METRIC_FILTER = global.METRIC_FILTER || DEFAULT_METRIC_FILTER;
   (Memory as any).METRIC_MIN = global.METRIC_MIN || DEFAULT_METRIC_MIN;
+  (Memory as any).CPU_THROTTLE = global.CPU_THROTTLE || DEFAULT_CPU_THROTTLE;
 
   // Enable metric collection
   if (global.METRIC_REPORT === true || global.METRIC_CONSOLE) {
@@ -115,7 +119,7 @@ export const loop = function () {
     trace.setMetricMin(global.METRIC_MIN);
   }
 
-  console.log('======== TICK', Game.time, Game.shard.name, '==== prev cpu:', previousTick, Game.cpu.bucket);
+  console.log('======== TICK', Game.time, Game.shard.name, '==== prev cpu:', previousTick, previousSkipped, Game.cpu.bucket);
 
   if (!ai) {
     console.log('***** STARTING AI *****');

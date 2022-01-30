@@ -195,14 +195,13 @@ export default class BaseRunnable {
     let missingProcesses = 0;
 
     // Spawn Manager
-    const spawnManagerId = `spawns_${this.id}`
+    const spawnManagerId = `spawns_${this.id}`;
     if (!this.scheduler.hasProcess(spawnManagerId)) {
       trace.log('starting spawn manager', {id: this.id});
       missingProcesses++;
 
       this.scheduler.registerProcess(new Process(spawnManagerId, 'spawns', Priorities.CORE_LOGISTICS,
         new SpawnManager(spawnManagerId, orgRoom)));
-
     }
 
     // Towers
@@ -216,7 +215,7 @@ export default class BaseRunnable {
           });
         }
 
-        return structure.structureType === STRUCTURE_TOWER && structure.isActive()
+        return structure.structureType === STRUCTURE_TOWER && structure.isActive();
       },
     }).forEach((tower) => {
       const towerId = `${tower.id}`

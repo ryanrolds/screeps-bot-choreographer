@@ -18,6 +18,8 @@ export const Priorities = {
   DEBUG: 9,
 }
 
+const globalAny: any = global;
+
 const SLOW_PROCESS_THRESHOLD = 5;
 const LOW_BUCKET_MIN_PRIORITY = Priorities.RESOURCES;
 const MEMORY_CLEANUP_TTL = 1000;
@@ -93,6 +95,10 @@ export class Scheduler {
     const limit = Game.cpu.limit;
     const bucket = Game.cpu.bucket;
     this.timeLimit = limit * _.max([0.5, 1 - 10000 / bucket * 0.05]);
+
+    if (globalAny.CPU_THROTTLE > 0 && this.timeLimit > globalAny.CPU_THROTTLE) {
+      this.timeLimit = globalAny.CPU_THROTTLE;
+    }
   }
 
   tick(kingdom: Kingdom, trace: Tracer) {

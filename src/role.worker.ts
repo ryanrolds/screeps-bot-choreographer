@@ -138,21 +138,12 @@ const behavior = behaviorTree.sequenceNode(
       'pick_something',
       [
         behaviorHaul.getHaulTaskFromTopic(TOPICS.TOPIC_HAUL_TASK),
-        behaviorTree.leafNode(
-          'top',
-          (creep, trace, kingdom) => {
-            if (creep.store.getUsedCapacity(RESOURCE_ENERGY) !== 0) {
-              creep.say('🚚⁉️');
-              trace.notice('failed to get task', {name: creep.name});
-            }
-            return FAILURE;
-          },
-        ),
         behaviorRoom.parkingLot,
       ],
     ),
     behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_PICKUP, 1, commonPolicy),
     behaviorHaul.loadCreep,
+    behaviorHaul.clearTask,
     behaviorTree.selectorNode(
       'dump_or_build_or_upgrade',
       [
@@ -173,49 +164,9 @@ const behavior = behaviorTree.sequenceNode(
               ),
               selectDropoff,
               behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 1, commonPolicy),
-              behaviorTree.leafNode(
-                'empty_creep',
-                (creep, trace, kingdom) => {
-                  const destination = Game.getObjectById<Id<Structure<StructureConstant>>>(creep.memory[MEMORY.MEMORY_DESTINATION]);
-                  if (!destination) {
-                    trace.log('no destination', {destination: creep.memory[MEMORY.MEMORY_DESTINATION]});
-                    return SUCCESS;
-                  }
-
-                  const resource = Object.keys(creep.store).pop();
-                  const result = creep.transfer(destination, resource as ResourceConstant);
-                  trace.log('transfer', {result, resource});
-
-                  if (result === ERR_FULL) {
-                    // We still have energy to transfer, fail so we find another
-                    // place to dump
-                    return SUCCESS;
-                  }
-                  if (result === ERR_NOT_ENOUGH_RESOURCES) {
-                    return SUCCESS;
-                  }
-                  if (creep.store.getUsedCapacity() === 0) {
-                    return SUCCESS;
-                  }
-                  if (result != OK) {
-                    return SUCCESS;
-                  }
-
-                  return RUNNING;
-                },
-              ),
+              behaviorHaul.emptyToDestination,
             ],
           ),
-        ),
-        behaviorTree.leafNode(
-          'succeed_when_empty',
-          (creep, trace, kingdom) => {
-            if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
-              return SUCCESS;
-            }
-
-            return FAILURE;
-          }
         ),
         behaviorTree.sequenceNode(
           'build_construction_site',
@@ -224,16 +175,6 @@ const behavior = behaviorTree.sequenceNode(
             behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 3, commonPolicy),
             build,
           ],
-        ),
-        behaviorTree.leafNode(
-          'succeed_when_empty',
-          (creep, trace, kingdom) => {
-            if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
-              return SUCCESS;
-            }
-
-            return FAILURE;
-          }
         ),
         behaviorTree.sequenceNode(
           'upgrade_controller',

@@ -2,7 +2,7 @@ import {creepIsFresh} from './behavior.commute';
 import {BaseConfig} from './config';
 import {WORKER_MINER} from "./constants.creeps";
 import * as MEMORY from "./constants.memory";
-import {PRIORITY_HARVESTER, PRIORITY_MINER} from "./constants.priorities";
+import {HAUL_BASE_ROOM, HAUL_CONTAINER, LOAD_FACTOR, PRIORITY_HARVESTER, PRIORITY_MINER} from "./constants.priorities";
 import * as TASKS from "./constants.tasks";
 import * as TOPICS from "./constants.topics";
 import {Event} from "./lib.event_broker";
@@ -26,7 +26,7 @@ const DROPOFF_TTL = 200;
 const BUILD_LINK_TTL = 200;
 const CONTAINER_TTL = 250;
 
-const PRIORITY_PRIMARY_ROOM = 5;
+const PRIORITY_PRIMARY_ROOM = 10;
 
 export default class SourceRunnable extends PersistentMemory implements Runnable {
   id: string;
@@ -322,6 +322,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       trace.log('no container')
       return;
     }
+    const avgHaulerCapacity = colony.getAvgHaulerCapacity();
 
     const haulers = colony.getHaulers();
     const haulersWithTask = haulers.filter((creep) => {
@@ -329,28 +330,27 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       const pickup = creep.memory[MEMORY.MEMORY_HAUL_PICKUP];
       return task === TASKS.TASK_HAUL && pickup === this.containerId;
     });
-
-    const avgHaulerCapacity = colony.getAvgHaulerCapacity();
-
     const haulerCapacity = haulersWithTask.reduce((total, hauler) => {
       return total += hauler.store.getFreeCapacity();
     }, 0);
 
     const averageLoad = avgHaulerCapacity;
-    //const loadSize = _.min([averageLoad, 1000]);
     const loadSize = _.min([averageLoad, 2000]);
     const storeCapacity = container.store.getCapacity();
     const storeUsedCapacity = container.store.getUsedCapacity();
     const untaskedUsedCapacity = storeUsedCapacity - haulerCapacity;
     const loadsToHaul = Math.floor(untaskedUsedCapacity / loadSize);
 
-    for (let i = 0; i < loadsToHaul; i++) {
-      let loadPriority = (storeUsedCapacity - (i * loadSize)) / storeCapacity;
+    let priority = HAUL_CONTAINER;
 
-      // prioritize hauling primary room
-      if (colony.primaryRoomId === this.orgRoom.id) {
-        loadPriority += PRIORITY_PRIMARY_ROOM;
-      }
+    // prioritize hauling primary room
+    if (colony.primaryRoomId === this.orgRoom.id) {
+      priority += HAUL_BASE_ROOM;
+    }
+
+    for (let i = 0; i < loadsToHaul; i++) {
+      // Reduce priority for each load after first
+      const loadPriority = priority - LOAD_FACTOR * i;
 
       const details = {
         [MEMORY.TASK_ID]: `sch-${this.sourceId}-${Game.time}`,
@@ -360,7 +360,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
         [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
       };
 
-      trace.log('requesting hauling', {sourceId: this.sourceId});
+      trace.log('requesting hauling', {sourceId: this.sourceId, i, loadPriority, details});
 
       colony.sendRequest(TOPICS.TOPIC_HAUL_TASK, loadPriority, details, RUN_TTL);
     }

@@ -24,9 +24,12 @@ export const TERMINAL_BUY = 2;
 export const TERMINAL_TRANSFER = 3;
 export const TERMINAL_ENERGY_BALANCE = 4;
 
-// Long hauling
-export const HAUL_DROPPED = 10.0;
-export const HAUL_CONTAINER = 1.0;
+// Dropped/Source hauling
+export const HAUL_DROPPED = 5;
+export const HAUL_CONTAINER = 0;
+export const HAUL_BASE_ROOM = 5;
+export const HAUL_REMOTE_ROOM = 0;
+export const LOAD_FACTOR = 0.2;
 
 // Core Hauling
 export const UNLOAD_LINK = 2;

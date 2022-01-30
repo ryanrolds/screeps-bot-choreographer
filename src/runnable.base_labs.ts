@@ -64,11 +64,11 @@ export class LabsManager {
     return sleeping(RUN_TTL);
   }
 
-
   assignLabs(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig, orgRoom: Room) {
     if (baseConfig.automated) {
       this.assignBasedOnPosition(kingdom, baseConfig, orgRoom, trace);
     } else {
+      // Organic bases assign role by distance from related structures
       this.assignBasedOnDistance(kingdom, orgRoom, trace);
     }
 
