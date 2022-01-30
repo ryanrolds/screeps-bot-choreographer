@@ -168,6 +168,16 @@ const behavior = behaviorTree.sequenceNode(
             ],
           ),
         ),
+        behaviorTree.leafNode(
+          'succeed_when_empty',
+          (creep, trace, kingdom) => {
+            if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
+              return SUCCESS;
+            }
+
+            return FAILURE;
+          }
+        ),
         behaviorTree.sequenceNode(
           'build_construction_site',
           [
@@ -175,6 +185,16 @@ const behavior = behaviorTree.sequenceNode(
             behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 3, commonPolicy),
             build,
           ],
+        ),
+        behaviorTree.leafNode(
+          'succeed_when_empty',
+          (creep, trace, kingdom) => {
+            if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
+              return SUCCESS;
+            }
+
+            return FAILURE;
+          }
         ),
         behaviorTree.sequenceNode(
           'upgrade_controller',

@@ -104,7 +104,8 @@ export function desiredRemotes(colony: Colony, level: number): number {
       desiredRemotes = 3;
       break;
     case 4:
-      desiredRemotes = 4;
+      // Tried 4 and was choking
+      desiredRemotes = 3;
       break;
     case 5:
       // Tried 4 & 3 and at level 5 it was choking - Jan 2022
