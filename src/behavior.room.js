@@ -4,54 +4,6 @@ const behaviorMovement = require('./behavior.movement');
 const {MEMORY_DESTINATION, MEMORY_IDLE} = require('./constants.memory');
 const {commonPolicy} = require('./lib.pathing_policies');
 
-const pickupDroppedEnergy = behaviorTree.leafNode(
-  'janitor',
-  (creep) => {
-    if (creep.store.getFreeCapacity() === 0) {
-      return SUCCESS;
-    }
-
-    // Locate dropped resource close to creep
-    const resources = creep.pos.findInRange(FIND_DROPPED_RESOURCES, 25, {
-      filter: (r) => {
-        return r.resourceType === RESOURCE_ENERGY;
-      },
-    });
-    if (!resources.length) {
-      return FAILURE;
-    }
-
-    const resource = resources[0];
-
-    if (!creep.pos.inRangeTo(resource, 1)) {
-      creep.moveTo(resource), {
-        reusePath: 25,
-        maxOps: 500,
-      };
-      return RUNNING;
-    }
-
-    const result = creep.pickup(resource);
-    if (result === ERR_FULL) {
-      // We still have energy to transfer, fail so we find another
-      // place to dump
-      return FAILURE;
-    }
-    if (result === ERR_NOT_ENOUGH_RESOURCES) {
-      return SUCCESS;
-    }
-    if (creep.store.getFreeCapacity() === 0) {
-      return SUCCESS;
-    }
-    if (result != OK) {
-      return FAILURE;
-    }
-
-    return RUNNING;
-  },
-);
-module.exports.pickupDroppedEnergy = pickupDroppedEnergy;
-
 const selectNearbyLink = behaviorTree.leafNode(
   'select_nearby_link',
   (creep, trace, kingdom) => {

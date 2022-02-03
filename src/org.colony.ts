@@ -399,6 +399,8 @@ export class Colony extends OrgBase {
         priority + 10;
       }
 
+      priority -= this.numHaulers * 0.2
+
       const details = {
         role,
         memory: {

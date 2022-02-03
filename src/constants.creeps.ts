@@ -28,7 +28,7 @@ export const ROLE_WORKER = 'worker';
 // The 'parts' are additional parts that will be used to fill up to the 'energyLimit'
 export const DEFINITIONS = {
   [WORKER_UPGRADER]: {
-    parts: [MOVE, WORK, WORK],
+    parts: [MOVE, WORK, WORK, MOVE, WORK, CARRY],
     base: [CARRY, WORK, MOVE],
     boosts: ['upgradeController'],
     processPriority: Priorities.CORE_LOGISTICS,

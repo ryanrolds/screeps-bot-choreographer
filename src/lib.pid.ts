@@ -1,6 +1,7 @@
 import * as MEMORY from './constants.memory';
 import {Tracer} from './lib.tracing';
 
+// TODO replace with PDI class and method to reset
 const globalAny: any = global;
 globalAny.RESET_PIDS = false;
 

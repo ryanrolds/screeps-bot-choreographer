@@ -190,6 +190,10 @@ export default class RoomRunnable {
         priority += PRIORITIES.HAUL_BASE_ROOM;
       }
 
+      if (room.storage?.pos.isNearTo(resource.pos)) {
+        priority += PRIORITIES.DUMP_NEXT_TO_STORAGE;
+      }
+
       const dropoff = primaryRoom.getReserveStructureWithRoomForResource(resource.resourceType);
 
       const haulersWithTask = haulers.filter((creep) => {

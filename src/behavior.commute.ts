@@ -22,5 +22,8 @@ export const creepIsFresh = (creep) => {
     return true;
   }
 
-  return creep.ticksToLive > (creep.memory[MEMORY.MEMORY_COMMUTE_DURATION] || 150);
+  const commute = creep.memory[MEMORY.MEMORY_COMMUTE_DURATION] || 150;
+  const buildTime = creep.body.length * 3;
+
+  return creep.ticksToLive > commute + buildTime;
 };

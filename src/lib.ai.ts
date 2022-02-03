@@ -26,11 +26,11 @@ export class AI {
   broker: EventBroker;
   gameMapExport: string;
 
-  constructor(config: ShardConfig, trace: Tracer) {
+  constructor(config: ShardConfig, scheduler: Scheduler, trace: Tracer) {
     trace = trace.begin('ai_constructor');
 
     this.config = config;
-    this.scheduler = new Scheduler();
+    this.scheduler = scheduler;
 
     // Central planning, tracks relationships, policies, and colonies
     this.planning = new CentralPlanning(config, this.scheduler, trace);

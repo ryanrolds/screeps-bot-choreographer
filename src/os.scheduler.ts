@@ -18,9 +18,6 @@ export const Priorities = {
   DEBUG: 9,
 }
 
-const globalAny: any = global;
-
-const SLOW_PROCESS_THRESHOLD = 5;
 const LOW_BUCKET_MIN_PRIORITY = Priorities.RESOURCES;
 const MEMORY_CLEANUP_TTL = 1000;
 
@@ -28,7 +25,11 @@ export class Scheduler {
   processTable: Process[];
   processMap: Record<string, Process>;
   ranOutOfTime: number;
+
   timeLimit: number;
+  cpuThrottle: number;
+  slowProcessThreshold: number;
+
   created: number;
   terminated: number;
 
@@ -39,14 +40,26 @@ export class Scheduler {
     this.processMap = {};
     this.ranOutOfTime = 0;
 
+    this.cpuThrottle = 0;
+    this.slowProcessThreshold = 10;
+
     this.created = 0;
     this.terminated = 0;
+
     this.updateTimeLimit();
 
     // Prepare memory for runnables
     prepareMemory()
 
     this.threadMemoryCleanup = thread('cleanup_memory', MEMORY_CLEANUP_TTL)(removeOldMemoryObjects);
+  }
+
+  setCPUThrottle(throttle: number) {
+    this.cpuThrottle = throttle;
+  }
+
+  setSlowProcessThreshold(threshold: number) {
+    this.slowProcessThreshold = threshold;
   }
 
   registerProcess(process) {
@@ -96,8 +109,8 @@ export class Scheduler {
     const bucket = Game.cpu.bucket;
     this.timeLimit = limit * _.max([0.5, 1 - 10000 / bucket * 0.05]);
 
-    if (globalAny.CPU_THROTTLE > 0 && this.timeLimit > globalAny.CPU_THROTTLE) {
-      this.timeLimit = globalAny.CPU_THROTTLE;
+    if (this.cpuThrottle > 0 && this.timeLimit > this.cpuThrottle) {
+      this.timeLimit = this.cpuThrottle;
     }
   }
 
@@ -148,8 +161,8 @@ export class Scheduler {
         const processTime = Game.cpu.getUsed() - startProcessCpu;
 
         // We want to report slow processes
-        if (processTime > SLOW_PROCESS_THRESHOLD) {
-          //processTrace.notice(`slow process - ${processTrace.name}`, {id: process.id, type: process.type, time: processTime})
+        if (processTime > this.slowProcessThreshold) {
+          processTrace.warn(`slow process - ${processTrace.name}`, {id: process.id, type: process.type, time: processTime})
         }
 
         // Track time spent on each process by type

@@ -25,6 +25,7 @@ export const TERMINAL_TRANSFER = 3;
 export const TERMINAL_ENERGY_BALANCE = 4;
 
 // Dropped/Source hauling
+export const DUMP_NEXT_TO_STORAGE = -10;
 export const HAUL_DROPPED = 5;
 export const HAUL_CONTAINER = 0;
 export const HAUL_BASE_ROOM = 5;

@@ -110,7 +110,7 @@ export function desiredRemotes(colony: Colony, level: number): number {
     case 5:
       // Tried 4 & 3 and at level 5 it was choking - Jan 2022
       // Have since reduced hauler demand, trying 3 again
-      desiredRemotes = 3;
+      desiredRemotes = 2;
       break;
     case 6:
       // Tried 2 and 3, it was choking - Jan 2022
@@ -131,12 +131,14 @@ export function desiredRemotes(colony: Colony, level: number): number {
       throw new Error('unexpected controller level');
   }
 
-  // Disabled for now - Jan 2022
-  // if (!room.storage) {
-  return desiredRemotes;
-  // }
+  if (room.storage) {
+    const reserveEnergy = room.storage?.store.getUsedCapacity(RESOURCE_ENERGY);
+    if (reserveEnergy > 700000) {
+      return _.min([desiredRemotes, 1]);
+    } else if (reserveEnergy > 500000) {
+      return _.min([desiredRemotes, 2]);
+    }
+  }
 
-  // const energyReserve = colony.getReserveResources()[RESOURCE_ENERGY] || 0;
-  // const energyRoomLimit = Math.floor(energyReserve / 50000);
-  // return _.min([desiredRemotes, energyRoomLimit]);
+  return desiredRemotes;
 }

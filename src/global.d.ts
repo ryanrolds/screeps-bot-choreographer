@@ -10,6 +10,7 @@ declare global {
       METRIC_CONSOLE: boolean;
       LOG_WHEN_PID: string;
       CPU_THROTTLE: number;
+      SLOW_PROCESS: number;
       RESET_PIDS: boolean;
       AI: any;
     }

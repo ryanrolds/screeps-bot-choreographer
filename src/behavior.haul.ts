@@ -227,7 +227,9 @@ export const emptyCreep = behaviorTree.leafNode(
     trace.log('transfer result', {result, resource, resources});
 
     if (result === ERR_FULL) {
-      trace.log('transfer error: full', {result, resource, resources});
+      trace.warn('transfer error: full', {result, resource, resources});
+      const dropResult = creep.drop(resource as ResourceConstant);
+      trace.log('drop result', {result: dropResult, resource, resources});
     } else if (result !== OK) {
       trace.error('transfer error', {result, resource, resources});
       return FAILURE;

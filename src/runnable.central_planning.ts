@@ -59,7 +59,7 @@ export class CentralPlanning {
       const origin = new RoomPosition(base.origin.x, base.origin.y, base.origin.roomName);
       const parking = new RoomPosition(base.parking.x, base.parking.y, base.parking.roomName);
 
-      this.addBaseConfig(base.id, base.isPublic, origin, parking,
+      this.addBase(base.id, base.isPublic, origin, parking,
         base.automated, base.rooms, base.walls || [], trace);
     });
 
@@ -73,7 +73,7 @@ export class CentralPlanning {
       const automated = !shard.startsWith('shard') || shard === 'shardSeason';
       if (!this.baseConfigs[roomName]) {
         trace.warn('found unknown base', {roomName});
-        this.addBaseConfig(roomName, false, origin, parking, automated, [], [], trace);
+        this.addBase(roomName, false, origin, parking, automated, [], [], trace);
       }
     });
 
@@ -170,7 +170,7 @@ export class CentralPlanning {
     return this.config.kos;
   }
 
-  addBaseConfig(primaryRoom: string, isPublic: boolean, origin: RoomPosition, parking: RoomPosition,
+  addBase(primaryRoom: string, isPublic: boolean, origin: RoomPosition, parking: RoomPosition,
     automated: boolean, rooms: string[], walls: {x: number, y: number}[], trace: Tracer) {
     if (this.baseConfigs[primaryRoom]) {
       trace.error('colony already exists', {primaryRoom});
@@ -199,7 +199,7 @@ export class CentralPlanning {
     });
   }
 
-  removeColony(colonyId: string, trace: Tracer) {
+  removeBase(colonyId: string, trace: Tracer) {
     const baseConfig = this.getBaseConfig(colonyId);
     const rooms = baseConfig.rooms;
     rooms.forEach((roomName) => {
@@ -357,7 +357,7 @@ export class CentralPlanning {
       const origin = results.origin;
       const parking = new RoomPosition(origin.x + 5, origin.y + 5, origin.roomName);
       trace.notice('selected room, adding colony', {roomName, distance, origin, parking});
-      this.addBaseConfig(roomName, false, origin, parking, true, [roomName], [], trace);
+      this.addBase(roomName, false, origin, parking, true, [roomName], [], trace);
       return;
     }
 
