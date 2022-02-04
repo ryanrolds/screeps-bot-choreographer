@@ -9,7 +9,7 @@ import {Event} from "./lib.event_broker";
 import {getPath} from "./lib.pathing";
 import {roadPolicy} from "./lib.pathing_policies";
 import {Tracer} from './lib.tracing';
-import {Colony, getBaseHaulerTopic} from './org.colony';
+import {Colony} from './org.colony';
 import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
 import {PersistentMemory} from "./os.memory";
@@ -19,6 +19,7 @@ import {thread, ThreadFunc} from "./os.thread";
 import {getLinesStream, HudLine, HudEventSet} from './runnable.debug_hud';
 import {getLogisticsTopic, LogisticsEventData, LogisticsEventType} from "./runnable.base_logistics";
 import {getNearbyPositions} from './lib.position';
+import {getBaseHaulerTopic} from './topics.base';
 
 const RUN_TTL = 50;
 const STRUCTURE_TTL = 200;

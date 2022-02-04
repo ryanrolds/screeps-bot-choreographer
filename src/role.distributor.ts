@@ -8,7 +8,7 @@ import {behaviorBoosts} from './behavior.boosts';
 import * as MEMORY from './constants.memory';
 import * as TOPICS from './constants.topics';
 import {roadWorker} from './behavior.logistics';
-import {getBaseDistributorTopic} from './org.colony';
+import {getBaseDistributorTopic} from './topics.base';
 
 const selectNextTaskOrPark = behaviorTree.selectorNode(
   'pick_something',

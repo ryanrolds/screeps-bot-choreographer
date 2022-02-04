@@ -1,4 +1,5 @@
 
+import {trace} from 'console';
 import * as CREEPS from './constants.creeps';
 import {DEFINITIONS} from './constants.creeps';
 import {MEMORY_ROLE, MEMORY_START_TICK} from './constants.memory';
@@ -38,6 +39,10 @@ export class CreepManager {
 
     // TODO, make this more efficient.
     Object.entries(Game.creeps).forEach(([id, creep]) => {
+      if (creep.spawning) {
+        return;
+      }
+
       const hasProcess = this.scheduler.hasProcess(id);
       if (hasProcess) {
         return;
@@ -62,6 +67,16 @@ export class CreepManager {
       }
 
       const process = this.getCreepProcess(id, creep);
+      if (!process) {
+        trace.error('creep has no process', {creep: creep.name, memory: creep.memory});
+        let result = creep.suicide();
+        if (result !== OK) {
+          trace.error('suicide failed', {result, creep: creep.name, memory: creep.memory})
+        }
+
+        return;
+      }
+
       this.scheduler.registerProcess(process);
     });
 
@@ -82,7 +97,7 @@ export class CreepManager {
   private getCreepProcess(id: string, creep: Creep): Process {
     const role = creep.memory[MEMORY_ROLE] || null;
     if (!role) {
-      throw new Error(`Creep ${id} has no role`);
+      return null;
     }
 
     const roleDefinition = DEFINITIONS[role];

@@ -7,17 +7,15 @@ import {thread, ThreadFunc} from './os.thread';
 import * as MEMORY from './constants.memory';
 import * as CREEPS from './constants.creeps';
 import * as TASKS from './constants.tasks';
-import * as TOPICS from './constants.topics';
 import * as PRIORITIES from './constants.priorities';
 import {creepIsFresh} from './behavior.commute';
 
 import {MEMORY_ASSIGN_ROOM, MEMORY_ROLE} from './constants.memory';
-import {WORKER_RESERVER, WORKER_DEFENDER} from './constants.creeps';
 import {PRIORITY_DEFENDER, PRIORITY_HAULER} from './constants.priorities';
 import {Kingdom} from './org.kingdom';
 import {BaseConfig} from './config';
 import {Tracer} from './lib.tracing';
-import {getBaseSpawnTopic} from './runnable.base_spawning';
+import {getBaseDefenseTopic, getBaseHaulerTopic, getBaseSpawnTopic} from './topics.base';
 
 const MAX_EXPLORERS = 3;
 
@@ -29,18 +27,6 @@ const REQUEST_MISSING_ROOMS_TTL = 25;
 const REQUEST_HAULER_TTL = 25;
 const REQUEST_DEFENDER_TTL = 5;
 const REQUEST_EXPLORER_TTL = 200;
-
-export function getBaseDefenseTopic(baseId: string): string {
-  return `base_${baseId}_defense`;
-}
-
-export function getBaseHaulerTopic(baseId: string): string {
-  return `base_${baseId}_hauler`;
-}
-
-export function getBaseDistributorTopic(baseId: string): string {
-  return `base_${baseId}_distributor`;
-}
 
 export class Colony extends OrgBase {
   baseId: string;
@@ -78,7 +64,6 @@ export class Colony extends OrgBase {
   threadUpdateCreeps: ThreadFunc;
   threadUpdateHaulers: ThreadFunc;
   threadHandleDefenderRequest: ThreadFunc;
-  threadRequestReserversForMissingRooms: ThreadFunc;
   threadRequestHaulers: ThreadFunc;
   threadRequestExplorer: ThreadFunc;
 
@@ -163,10 +148,6 @@ export class Colony extends OrgBase {
       }
     });
 
-    this.threadRequestReserversForMissingRooms = thread('request_servers_thread', REQUEST_MISSING_ROOMS_TTL)((trace) => {
-      this.requestReserverForMissingRooms(trace);
-    });
-
     this.threadRequestHaulers = thread('request_haulers_thread', REQUEST_HAULER_TTL)((trace: Tracer) => {
       this.requestHaulers(trace);
     });
@@ -215,7 +196,6 @@ export class Colony extends OrgBase {
     });
     roomTrace.end();
 
-    this.threadRequestReserversForMissingRooms(updateTrace);
     this.threadHandleDefenderRequest(updateTrace, this.getKingdom());
     this.threadRequestHaulers(updateTrace);
     this.threadRequestExplorer(trace);
@@ -452,36 +432,6 @@ export class Colony extends OrgBase {
     } else {
       trace.log('not requesting explorer', {numExplorers: explorers.length});
     }
-  }
-
-  requestReserverForMissingRooms(trace: Tracer) {
-    trace.log("missing rooms", {missingRooms: this.missingRooms});
-    this.missingRooms.forEach((roomID) => {
-      const reservers = this.assignedCreeps.filter((creep) => {
-        return creep.memory[MEMORY_ROLE] == CREEPS.WORKER_RESERVER &&
-          creep.memory[MEMORY_ASSIGN_ROOM] === roomID;
-      });
-
-      // A reserver is already assigned, don't send more
-      if (reservers.length) {
-        trace.log("have reserver already", {reservers: reservers.map(c => c.id)});
-        return;
-      }
-
-      // Bootstrapping a new colony requires another colony sending
-      // creeps to claim and build a spawner
-      const details = {
-        role: WORKER_RESERVER,
-        memory: {
-          [MEMORY_ASSIGN_ROOM]: roomID,
-          [MEMORY.MEMORY_BASE]: this.id,
-        },
-      };
-
-      trace.log('requesting claimer from colony', {details});
-      this.getKingdom().sendRequest(getBaseSpawnTopic(this.id), PRIORITIES.PRIORITY_RESERVER, details,
-        REQUEST_MISSING_ROOMS_TTL);
-    });
   }
 
   updateOrg(trace: Tracer) {

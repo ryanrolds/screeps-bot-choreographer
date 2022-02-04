@@ -8,7 +8,7 @@ import {CreepRequest, ShardMemory} from "./org.scribe";
 import {sleeping} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 import {thread, ThreadFunc} from "./os.thread";
-import {getKingdomSpawnTopic} from './runnable.base_spawning';
+import {getKingdomSpawnTopic} from './topics.kingdom';
 
 const SHARD_MEMORY_TTL = 50;
 

@@ -4,7 +4,7 @@ import * as TASKS from "./constants.tasks";
 import * as TOPICS from "./constants.topics";
 import {Event} from "./lib.event_broker";
 import {Tracer} from './lib.tracing';
-import {getBaseDistributorTopic} from "./org.colony";
+import {getBaseDistributorTopic} from "./topics.base";
 import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
 import {running, sleeping, terminate} from "./os.process";

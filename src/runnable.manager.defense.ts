@@ -6,7 +6,7 @@ import * as PRIORITIES from './constants.priorities';
 import * as TOPICS from './constants.topics';
 import {DEFENSE_STATUS} from './defense';
 import {Tracer} from './lib.tracing';
-import {getBaseDefenseTopic} from './org.colony';
+import {getBaseDefenseTopic} from './topics.base';
 import {Kingdom} from './org.kingdom';
 import {Process, sleeping} from "./os.process";
 import {RunnableResult} from './os.runnable';

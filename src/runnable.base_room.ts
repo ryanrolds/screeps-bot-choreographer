@@ -16,8 +16,8 @@ import {getLinesStream, HudLine, HudEventSet} from './runnable.debug_hud';
 import SourceRunnable from "./runnable.base_room_source";
 import MineralRunnable from './runnable.base_room_mineral';
 import {BaseConfig} from './config';
-import {getBaseSpawnTopic, getKingdomSpawnTopic} from './runnable.base_spawning';
-import {getBaseHaulerTopic} from './org.colony';
+import {getBaseSpawnTopic, getBaseHaulerTopic} from './topics.base';
+import {getKingdomSpawnTopic} from './topics.kingdom';
 
 const MIN_RESERVATION_TICKS = 4000;
 const NO_VISION_TTL = 20;
@@ -83,8 +83,8 @@ export default class RoomRunnable {
     }
 
     this.threadUpdateProcessSpawning(trace, orgRoom, room);
-    this.threadRequestHaulDroppedResources(trace, orgRoom, room);
-    this.threadRequestHaulTombstones(trace, orgRoom, room);
+    this.threadRequestHaulDroppedResources(trace, kingdom, baseConfig, orgRoom, room);
+    this.threadRequestHaulTombstones(trace, kingdom, baseConfig, orgRoom, room);
     this.threadProduceStatus(trace, orgRoom);
 
     trace.end();
@@ -159,8 +159,7 @@ export default class RoomRunnable {
         topic = getBaseSpawnTopic(base.id);
       }
 
-      kingdom.sendRequest(topic, PRIORITIES.PRIORITY_RESERVER,
-        details, REQUEST_RESERVER_TTL);
+      kingdom.sendRequest(topic, PRIORITIES.PRIORITY_RESERVER, details, REQUEST_RESERVER_TTL);
     }
   }
 

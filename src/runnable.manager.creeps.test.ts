@@ -19,16 +19,19 @@ describe('Creeps Manager', () => {
     setup(global);
 
     const creepA = mockInstanceOf<Creep>({
+      spawning: false,
       memory: {
         [MEMORY.MEMORY_ROLE]: CREEPS.WORKER_MINER,
       },
     });
     const creepB = mockInstanceOf<Creep>({
+      spawning: false,
       memory: {
         [MEMORY.MEMORY_ROLE]: CREEPS.WORKER_MINER,
       },
     });
     const creepC = mockInstanceOf<Creep>({
+      spawning: false,
       memory: {
         [MEMORY.MEMORY_ROLE]: CREEPS.WORKER_MINER,
       },
@@ -73,6 +76,7 @@ describe('Creeps Manager', () => {
     expect(scheduler.registerProcess.callCount).to.equal(3)
 
     Game.creeps['creepD'] = mockInstanceOf<Creep>({
+      spawning: false,
       memory: {
         [MEMORY.MEMORY_ROLE]: CREEPS.WORKER_MINER,
       },

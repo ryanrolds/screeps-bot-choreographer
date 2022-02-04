@@ -13,7 +13,7 @@ import {thread, ThreadFunc} from './os.thread';
 import {RoomEntry} from './org.scribe';
 import {BaseConfig} from './config';
 import {RunnableResult} from "./os.runnable";
-import {getKingdomSpawnTopic} from "./runnable.base_spawning";
+import {getKingdomSpawnTopic} from "./topics.kingdom";
 
 const WAR_PARTY_RUN_TTL = 20;
 const COLONY_ATTACK_RANGE = 5;

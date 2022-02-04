@@ -17,7 +17,7 @@ import BaseConstructionRunnable from "./runnable.base_construction";
 import {getDashboardStream, getLinesStream, HudIndicatorStatus, HudLine, HudEventSet, HudIndicator} from './runnable.debug_hud';
 import {LabsManager} from "./runnable.base_labs";
 import LinkManager from "./runnable.base_links";
-import SpawnManager, {getKingdomSpawnTopic} from "./runnable.base_spawning";
+import SpawnManager from "./runnable.base_spawning";
 import NukerRunnable from "./runnable.base_nuker";
 import TerminalRunnable from "./runnable.base_terminal";
 import TowerRunnable from "./runnable.base_tower";
@@ -26,7 +26,8 @@ import LogisticsRunnable from './runnable.base_logistics';
 import ControllerRunnable from './runnable.base_controller';
 import {BaseConfig} from './config';
 import RoomRunnable from './runnable.base_room';
-import {getBaseDistributorTopic} from './org.colony';
+import {getBaseDefenseTopic, getBaseDistributorTopic} from './topics.base';
+import {getKingdomSpawnTopic} from './topics.kingdom';
 
 const MIN_ENERGY = 100000;
 
@@ -147,7 +148,7 @@ export default class BaseRunnable {
     this.threadRequestBuilder(trace, orgRoom, room);
     this.threadRequestRepairer(trace, orgRoom, room);
     this.threadRequestUpgrader(trace, orgRoom, room);
-    this.threadRequestDistributor(trace, orgRoom, room);
+    this.threadRequestDistributor(trace, kingdom, orgRoom, room);
 
     // Inform other processes of room status
     this.threadProduceStatus(trace, kingdom, orgRoom, baseConfig);
@@ -175,7 +176,7 @@ export default class BaseRunnable {
       return;
     }
 
-    const request = {
+    const detail = {
       role: CREEPS.WORKER_RESERVER,
       memory: {
         [MEMORY.MEMORY_ROLE]: CREEPS.WORKER_RESERVER,
@@ -185,9 +186,9 @@ export default class BaseRunnable {
       },
     };
 
-    trace.notice('requesting claimer', {id: this.id, request});
+    trace.notice('requesting claimer', {id: this.id, detail});
 
-    kingdom.sendRequest(getKingdomSpawnTopic(), PRIORITIES.PRIORITY_RESERVER, request, REQUEST_CLAIMER_TTL);
+    kingdom.sendRequest(getKingdomSpawnTopic(), PRIORITIES.PRIORITY_RESERVER, detail, REQUEST_CLAIMER_TTL);
   }
 
   handleProcessSpawning(trace: Tracer, baseConfig: BaseConfig, orgRoom: OrgRoom, room: Room) {
@@ -438,7 +439,7 @@ export default class BaseRunnable {
       return;
     }
 
-    (orgRoom as any).requestSpawn(PRIORITIES.PRIORITY_BUILDER - (builders.length * 2), {
+    orgRoom.requestSpawn(PRIORITIES.PRIORITY_BUILDER - (builders.length * 2), {
       role: CREEPS.WORKER_BUILDER,
       memory: {
         [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
@@ -524,7 +525,7 @@ export default class BaseRunnable {
 
     trace.log('request distributor', {desiredDistributors, distributorPriority, fullness, request});
 
-    (orgRoom as any).requestSpawn(distributorPriority, request, REQUEST_DISTRIBUTOR_TTL);
+    orgRoom.requestSpawn(distributorPriority, request, REQUEST_DISTRIBUTOR_TTL, trace);
   }
 
   requestUpgrader(trace: Tracer, orgRoom: OrgRoom, room: Room) {
@@ -631,7 +632,7 @@ export default class BaseRunnable {
         [MEMORY.MEMORY_HAUL_AMOUNT]: extension.store.getFreeCapacity(RESOURCE_ENERGY),
       };
 
-      kingdom.sendRequest(getBaseDistributorTopic(this.id), PRIORITIES.HAUL_EXTENSION, details, HAUL_EXTENSION_TTL);
+      kingdom.sendRequest(getBaseDefenseTopic(this.id), PRIORITIES.HAUL_EXTENSION, details, HAUL_EXTENSION_TTL);
     });
 
     trace.log('haul extensions', {numHaulTasks: nonFullExtensions.length});

@@ -10,7 +10,7 @@ import * as PRIORITIES from "./constants.priorities"
 import {thread, ThreadFunc} from "./os.thread";
 import {ResourcePricer, SigmoidPricing} from './lib.sigmoid_pricing';
 import {RunnableResult} from "./os.runnable";
-import {getBaseDistributorTopic} from "./org.colony";
+import {getBaseDistributorTopic} from "./topics.base";
 
 const TASK_PHASE_HAUL_RESOURCE = 'phase_transfer_resource';
 const TASK_PHASE_TRANSACT = 'phase_transact';

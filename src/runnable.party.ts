@@ -16,7 +16,7 @@ import {Kingdom} from "./org.kingdom";
 import {running, terminate} from "./os.process";
 import {RunnableResult} from './os.runnable';
 import {thread, ThreadFunc} from './os.thread';
-import {getBaseSpawnTopic} from './runnable.base_spawning';
+import {getBaseSpawnTopic} from './topics.base';
 import {WarPartyTarget} from './runnable.warparty';
 
 const REQUEST_PARTY_MEMBER_TTL = 25;

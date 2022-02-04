@@ -6,12 +6,14 @@
  * TODO - Move to topic with base id in the name - IN PROGRESS
  */
 import {title} from "process";
+import {getBaseSpawnTopic} from "./topics.base";
 import {BaseConfig} from "./config";
 import * as CREEPS from "./constants.creeps";
 import {DEFINITIONS} from './constants.creeps';
 import * as MEMORY from "./constants.memory";
 import * as TOPICS from "./constants.topics";
 import {createCreep} from "./helpers.creeps";
+import {getKingdomSpawnTopic} from "./topics.kingdom";
 import {Event} from "./lib.event_broker";
 import {Request} from "./lib.topics";
 import {Tracer} from './lib.tracing';
@@ -30,14 +32,6 @@ const PRODUCE_EVENTS_TTL = 20;
 const INITIAL_TOPIC_LENGTH = 9999;
 const RED_TOPIC_LENGTH = 10;
 const YELLOW_TOPIC_LENGTH = 5;
-
-export function getBaseSpawnTopic(baseId: string) {
-  return `base_${baseId}_spawn`;
-}
-
-export function getKingdomSpawnTopic() {
-  return 'kingdom_spawn';
-}
 
 type SpawnRequestDetails = {
   role: string;
@@ -147,7 +141,21 @@ export default class SpawnManager {
 
       if (!isIdle) {
         const creep = Game.creeps[spawn.spawning.name];
+
+        spawn.room.visual.text(
+          spawn.spawning.name + '🛠️',
+          spawn.pos.x - 1,
+          spawn.pos.y,
+          {align: 'right', opacity: 0.8},
+        );
+
         const role = creep.memory[MEMORY.MEMORY_ROLE];
+
+        if (!CREEPS.DEFINITIONS[role]) {
+          trace.error('unknown role', {creepName: creep.name, role});
+          return;
+        }
+
         const boosts = CREEPS.DEFINITIONS[role].boosts;
         const priority = CREEPS.DEFINITIONS[role].processPriority;
 
@@ -156,13 +164,6 @@ export default class SpawnManager {
         if (boosts) {
           this.requestBoosts(spawn, boosts, priority);
         }
-
-        spawn.room.visual.text(
-          spawn.spawning.name + '🛠️',
-          spawn.pos.x - 1,
-          spawn.pos.y,
-          {align: 'right', opacity: 0.8},
-        );
       } else {
         const spawnTopicSize = kingdom.getTopicLength(getBaseSpawnTopic(base.id));
         const spawnTopicBackPressure = Math.floor(energyCapacity * (1 - (0.09 * spawnTopicSize)));
