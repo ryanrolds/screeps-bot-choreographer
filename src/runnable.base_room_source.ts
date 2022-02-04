@@ -9,7 +9,7 @@ import {Event} from "./lib.event_broker";
 import {getPath} from "./lib.pathing";
 import {roadPolicy} from "./lib.pathing_policies";
 import {Tracer} from './lib.tracing';
-import {Colony} from './org.colony';
+import {Colony, getBaseHaulerTopic} from './org.colony';
 import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
 import {PersistentMemory} from "./os.memory";
@@ -120,7 +120,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     this.threadBuildLink(trace, room, source);
 
     this.threadRequestMiners(trace, kingdom, colony, room, source);
-    this.threadRequestHauling(trace, colony);
+    this.threadRequestHauling(trace, kingdom, baseConfig, colony);
 
     this.updateStats(kingdom, trace);
 
@@ -316,27 +316,29 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     }
   }
 
-  requestHauling(trace: Tracer, colony: Colony) {
+  requestHauling(trace: Tracer, kingdom: Kingdom, base: BaseConfig, colony: Colony) {
     const container = Game.getObjectById(this.containerId);
     if (!container) {
       trace.log('no container')
       return;
     }
-    const avgHaulerCapacity = colony.getAvgHaulerCapacity();
 
+    // TODO move to Kingdom level map[base]map[role][]creep
+    const avgHaulerCapacity = colony.getAvgHaulerCapacity();
     const haulers = colony.getHaulers();
+
     const haulersWithTask = haulers.filter((creep) => {
       const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
       const pickup = creep.memory[MEMORY.MEMORY_HAUL_PICKUP];
       return task === TASKS.TASK_HAUL && pickup === this.containerId;
     });
+
     const haulerCapacity = haulersWithTask.reduce((total, hauler) => {
       return total += hauler.store.getFreeCapacity();
     }, 0);
 
     const averageLoad = avgHaulerCapacity;
     const loadSize = _.min([averageLoad, 2000]);
-    const storeCapacity = container.store.getCapacity();
     const storeUsedCapacity = container.store.getUsedCapacity();
     const untaskedUsedCapacity = storeUsedCapacity - haulerCapacity;
     const loadsToHaul = Math.floor(untaskedUsedCapacity / loadSize);
@@ -344,7 +346,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     let priority = HAUL_CONTAINER;
 
     // prioritize hauling primary room
-    if (colony.primaryRoomId === this.orgRoom.id) {
+    if (base.primary === this.orgRoom.id) {
       priority += HAUL_BASE_ROOM;
     }
 
@@ -362,7 +364,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
 
       trace.log('requesting hauling', {sourceId: this.sourceId, i, loadPriority, details});
 
-      colony.sendRequest(TOPICS.TOPIC_HAUL_TASK, loadPriority, details, RUN_TTL);
+      kingdom.sendRequest(getBaseHaulerTopic(base.id), loadPriority, details, RUN_TTL);
     }
   }
 

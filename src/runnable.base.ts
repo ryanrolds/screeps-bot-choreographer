@@ -26,9 +26,9 @@ import LogisticsRunnable from './runnable.base_logistics';
 import ControllerRunnable from './runnable.base_controller';
 import {BaseConfig} from './config';
 import RoomRunnable from './runnable.base_room';
+import {getBaseDistributorTopic} from './org.colony';
 
 const MIN_ENERGY = 100000;
-const CREDIT_RESERVE = 100000;
 
 const MIN_UPGRADERS = 1;
 const MAX_UPGRADERS = 10;
@@ -49,7 +49,6 @@ const HAUL_EXTENSION_TTL = 10;
 const RAMPART_ACCESS_TTL = 10;
 const UPDATE_PROCESSES_TTL = 10;
 const PRODUCE_STATUS_TTL = 30;
-
 
 enum DEFENSE_POSTURE {
   OPEN = 'open',
@@ -142,7 +141,7 @@ export default class BaseRunnable {
 
     // Logistics
     this.threadRequestEnergy(trace, orgRoom, room);
-    this.threadRequestExtensionFilling(trace, orgRoom, room);
+    this.threadRequestExtensionFilling(trace, kingdom, orgRoom, room);
 
     // Creeps
     this.threadRequestBuilder(trace, orgRoom, room);
@@ -224,7 +223,7 @@ export default class BaseRunnable {
         missingProcesses++;
 
         const process = new Process(towerId, 'towers', Priorities.DEFENCE,
-          new TowerRunnable(orgRoom, tower))
+          new TowerRunnable(this.id, orgRoom, tower))
         process.setSkippable(false);
         this.scheduler.registerProcess(process);
       }
@@ -239,7 +238,7 @@ export default class BaseRunnable {
         missingProcesses++;
 
         this.scheduler.registerProcess(new Process(nukeId, 'nukes', Priorities.OFFENSE,
-          new NukerRunnable(orgRoom, nuker)));
+          new NukerRunnable(this.id, orgRoom, nuker)));
       }
     });
 
@@ -251,7 +250,7 @@ export default class BaseRunnable {
         missingProcesses++;
 
         this.scheduler.registerProcess(new Process(terminalId, 'terminals', Priorities.DEFENCE,
-          new TerminalRunnable(orgRoom, room.terminal)));
+          new TerminalRunnable(this.id, orgRoom, room.terminal)));
       }
     }
 
@@ -262,7 +261,7 @@ export default class BaseRunnable {
       missingProcesses++;
 
       this.scheduler.registerProcess(new Process(linkManagerId, 'links', Priorities.RESOURCES,
-        new LinkManager(linkManagerId, orgRoom)));
+        new LinkManager(linkManagerId, this.id, orgRoom)));
     }
 
     // Labs Manager
@@ -449,7 +448,7 @@ export default class BaseRunnable {
     }, REQUEST_BUILDER_TTL, trace);
   }
 
-  requestDistributor(trace: Tracer, orgRoom: OrgRoom, room: Room) {
+  requestDistributor(trace: Tracer, kingdom: Kingdom, orgRoom: OrgRoom, room: Room) {
     const numDistributors = _.filter(orgRoom.getCreeps(), (creep) => {
       return creep.memory[MEMORY.MEMORY_ROLE] === CREEPS.WORKER_DISTRIBUTOR &&
         creep.memory[MEMORY.MEMORY_ASSIGN_ROOM] === this.id && creepIsFresh(creep);
@@ -465,7 +464,7 @@ export default class BaseRunnable {
       desiredDistributors = 3;
     }
 
-    const numCoreHaulTasks = orgRoom.getColony().getTopicLength(TOPICS.HAUL_CORE_TASK);
+    const numCoreHaulTasks = kingdom.getTopicLength(getBaseDistributorTopic(this.id));
     if (numCoreHaulTasks > 30) {
       desiredDistributors = 2;
     }
@@ -606,7 +605,7 @@ export default class BaseRunnable {
     }
   }
 
-  requestExtensionFilling(trace: Tracer, orgRoom: OrgRoom, room: Room) {
+  requestExtensionFilling(trace: Tracer, kingdom: Kingdom, orgRoom: OrgRoom, room: Room) {
     const pickup = orgRoom.getReserveStructureWithMostOfAResource(RESOURCE_ENERGY, true);
     if (!pickup) {
       trace.log('no energy available for extensions', {resource: RESOURCE_ENERGY});
@@ -632,7 +631,7 @@ export default class BaseRunnable {
         [MEMORY.MEMORY_HAUL_AMOUNT]: extension.store.getFreeCapacity(RESOURCE_ENERGY),
       };
 
-      (orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_EXTENSION, details, HAUL_EXTENSION_TTL);
+      kingdom.sendRequest(getBaseDistributorTopic(this.id), PRIORITIES.HAUL_EXTENSION, details, HAUL_EXTENSION_TTL);
     });
 
     trace.log('haul extensions', {numHaulTasks: nonFullExtensions.length});

@@ -18,7 +18,7 @@ const behavior = behaviorTree.sequenceNode(
     behaviorTree.selectorNode(
       'pick_something',
       [
-        behaviorHaul.getHaulTaskFromTopic(TOPICS.TOPIC_HAUL_TASK),
+        behaviorHaul.getHaulTaskFromBaseTopic,
         behaviorRoom.parkingLot,
       ],
     ),

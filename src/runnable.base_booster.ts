@@ -9,6 +9,8 @@ import * as CREEPS from "./constants.creeps"
 import * as PRIORITIES from "./constants.priorities"
 import {thread, ThreadFunc} from "./os.thread";
 import {RunnableResult} from "./os.runnable";
+import {BaseConfig} from "./config";
+import {getBaseDefenseTopic, getBaseDistributorTopic} from "./org.colony";
 
 const MIN_COMPOUND = 500;
 const MAX_COMPOUND = 2000;
@@ -59,30 +61,34 @@ export type LabsByResource = Record<Partial<MineralConstant | MineralCompoundCon
 
 export default class BoosterRunnable {
   id: string;
+  baseId: string;
   orgRoom: OrgRoom;
   labIds: Id<StructureLab>[];
   boostPosition: RoomPosition;
-  prevTime: number;
   allEffects: EffectSet;
 
   threadUpdateRoomBooster: ThreadFunc;
 
-  constructor(id: string, orgRoom: OrgRoom, labIds: Id<StructureLab>[]) {
+  constructor(id: string, baseId: string, orgRoom: OrgRoom, labIds: Id<StructureLab>[]) {
     this.id = id;
+    this.baseId = baseId;
     this.orgRoom = orgRoom;
     this.labIds = labIds;
     this.allEffects = null;
 
-    this.prevTime = Game.time;
     this.boostPosition = this.getCreepBoostPosition();
     this.threadUpdateRoomBooster = thread('update_room_booster', UPDATE_ROOM_BOOSTER_INTERVAL)(this.updateRoomBooster.bind(this));
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    trace = trace.begin('booster_run')
+    trace = trace.begin('booster_run');
 
-    const ticks = Game.time - this.prevTime;
-    this.prevTime = Game.time;
+    const base = kingdom.getPlanner().getBaseConfigById(this.baseId);
+    if (!base) {
+      trace.error('Base not found', {baseId: this.baseId});
+      trace.end();
+      return terminate();
+    }
 
     let labs = this.getLabs();
     if (labs.length !== 3) {
@@ -114,15 +120,15 @@ export default class BoosterRunnable {
     });
 
     let sleepFor = REQUEST_ENERGY_TTL;
-    this.requestEnergyForLabs(trace);
+    this.requestEnergyForLabs(kingdom, trace);
     this.threadUpdateRoomBooster(trace);
 
     if (Object.keys(desiredEffects).length) {
       sleepFor = REQUEST_LOAD_TTL;
-      this.sendHaulRequests(loadedEffects, needToLoad, emptyLabs, couldUnload, trace);
+      this.sendHaulRequests(kingdom, loadedEffects, needToLoad, emptyLabs, couldUnload, trace);
     } else {
       sleepFor = REQUEST_UNLOAD_TTL;
-      this.rebalanceLabs(trace);
+      this.rebalanceLabs(kingdom, base, trace);
     }
 
     trace.end();
@@ -379,23 +385,23 @@ export default class BoosterRunnable {
     return [needToLoad, couldUnload, emptyLabs]
   }
 
-  sendHaulRequests(loadedEffects, needToLoad, emptyLabs, couldUnload, trace: Tracer) {
+  sendHaulRequests(kingdom: Kingdom, loadedEffects, needToLoad, emptyLabs, couldUnload, trace: Tracer) {
     const numToLoad = needToLoad.length;
     const numEmpty = emptyLabs.length;
 
     if (numEmpty && numToLoad) {
       const numReadyToLoad = _.min([numEmpty, numToLoad]);
       const load = needToLoad.slice(0, numReadyToLoad);
-      this.requestMaterialsForLabs(load, trace);
+      this.requestMaterialsForLabs(kingdom, load, trace);
     }
 
     if (numToLoad > numEmpty) {
       const numToUnload = numToLoad - numEmpty;
       const unload = couldUnload.slice(0, numToUnload);
-      this.requestUnloadOfLabs(loadedEffects, unload, trace);
+      this.requestUnloadOfLabs(kingdom, loadedEffects, unload, trace);
     }
   }
-  rebalanceLabs(trace: Tracer) {
+  rebalanceLabs(kingdom: Kingdom, base: BaseConfig, trace: Tracer) {
     const labs = this.getLabs();
     labs.forEach((lab) => {
       if (!lab.mineralType) {
@@ -431,12 +437,12 @@ export default class BoosterRunnable {
 
         trace.log('boost clear low', {priority: PRIORITIES.HAUL_BOOST, details});
 
-        (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST,
+        kingdom.sendRequest(getBaseDefenseTopic(base.id), PRIORITIES.HAUL_BOOST,
           details, REQUEST_REBALANCE_TTL);
       }
     });
   }
-  requestUnloadOfLabs(loadedEffects, couldUnload, trace: Tracer) {
+  requestUnloadOfLabs(kingdom: Kingdom, loadedEffects, couldUnload, trace: Tracer) {
     couldUnload.forEach((toUnload) => {
       const effect = loadedEffects[toUnload];
       const compound = effect.compounds[0];
@@ -475,11 +481,11 @@ export default class BoosterRunnable {
 
       trace.log('boost unload', {priority: PRIORITIES.HAUL_BOOST, details});
 
-      (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.UNLOAD_BOOST,
+      kingdom.sendRequest(getBaseDefenseTopic(this.baseId), PRIORITIES.UNLOAD_BOOST,
         details, REQUEST_UNLOAD_TTL);
     });
   }
-  requestMaterialsForLabs(needToLoad, trace: Tracer) {
+  requestMaterialsForLabs(kingdom: Kingdom, needToLoad, trace: Tracer) {
     const reserveResources = this.orgRoom.getReserveResources();
 
     needToLoad.forEach((toLoad) => {
@@ -535,11 +541,11 @@ export default class BoosterRunnable {
         return;
       }
 
-      this.requestHaulingOfMaterial(compound, emptyLab, trace);
+      this.requestHaulingOfMaterial(kingdom, compound, emptyLab, trace);
     });
   }
 
-  requestHaulingOfMaterial(compound, lab, trace: Tracer) {
+  requestHaulingOfMaterial(kingdom: Kingdom, compound, lab, trace: Tracer) {
     const pickup = this.orgRoom.getReserveStructureWithMostOfAResource(compound.name, true);
     if (!pickup) {
       trace.log('no pickup for available compound', {resource: compound.name});
@@ -557,10 +563,10 @@ export default class BoosterRunnable {
 
     trace.log('boost load material', {priority: PRIORITIES.HAUL_BOOST, details});
 
-    (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details, REQUEST_LOAD_TTL);
+    kingdom.sendRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.HAUL_BOOST, details, REQUEST_LOAD_TTL);
   }
 
-  requestEnergyForLabs(trace: Tracer) {
+  requestEnergyForLabs(kingdom: Kingdom, trace: Tracer) {
     const labs = this.getLabs();
     labs.forEach((lab) => {
       // Only fill lab if needed
@@ -582,7 +588,7 @@ export default class BoosterRunnable {
 
       trace.log('boost load energy', {labId: lab.id, priority: PRIORITIES.HAUL_BOOST, details});
 
-      (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.HAUL_BOOST, details, REQUEST_ENERGY_TTL);
+      kingdom.sendRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.HAUL_BOOST, details, REQUEST_ENERGY_TTL);
     });
   }
 }

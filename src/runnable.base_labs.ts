@@ -64,9 +64,9 @@ export class LabsManager {
     return sleeping(RUN_TTL);
   }
 
-  assignLabs(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig, orgRoom: Room) {
-    if (baseConfig.automated) {
-      this.assignBasedOnPosition(kingdom, baseConfig, orgRoom, trace);
+  assignLabs(trace: Tracer, kingdom: Kingdom, base: BaseConfig, orgRoom: Room) {
+    if (base.automated) {
+      this.assignBasedOnPosition(kingdom, base, orgRoom, trace);
     } else {
       // Organic bases assign role by distance from related structures
       this.assignBasedOnDistance(kingdom, orgRoom, trace);
@@ -83,7 +83,7 @@ export class LabsManager {
       const hasProcess = this.scheduler.hasProcess(reactorId);
       if (!hasProcess) {
         this.scheduler.registerProcess(new Process(reactorId, 'reactors', Priorities.RESOURCES,
-          new ReactorRunnable(reactorId, this.orgRoom, reactorIds)));
+          new ReactorRunnable(reactorId, base.id, this.orgRoom, reactorIds)));
       }
     });
 
@@ -92,7 +92,7 @@ export class LabsManager {
       const boosterId = `${this.boosterIds[0]}`;
       const hasProcess = this.scheduler.hasProcess(boosterId);
       if (!hasProcess) {
-        const booster = new BoosterRunnable(boosterId, this.orgRoom, this.boosterIds);
+        const booster = new BoosterRunnable(boosterId, base.id, this.orgRoom, this.boosterIds);
         this.scheduler.registerProcess(new Process(boosterId, 'boosters', Priorities.RESOURCES,
           booster));
       }

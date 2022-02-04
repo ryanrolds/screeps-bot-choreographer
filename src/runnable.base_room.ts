@@ -17,6 +17,7 @@ import SourceRunnable from "./runnable.base_room_source";
 import MineralRunnable from './runnable.base_room_mineral';
 import {BaseConfig} from './config';
 import {getBaseSpawnTopic, getKingdomSpawnTopic} from './runnable.base_spawning';
+import {getBaseHaulerTopic} from './org.colony';
 
 const MIN_RESERVATION_TICKS = 4000;
 const NO_VISION_TTL = 20;
@@ -163,7 +164,8 @@ export default class RoomRunnable {
     }
   }
 
-  requestHaulDroppedResources(trace: Tracer, orgRoom: OrgRoom, room: Room) {
+  requestHaulDroppedResources(trace: Tracer, kingdom: Kingdom, base: BaseConfig,
+    orgRoom: OrgRoom, room: Room) {
     if (orgRoom.numHostiles) {
       return;
     }
@@ -180,10 +182,10 @@ export default class RoomRunnable {
     const haulers = orgRoom.getColony().getHaulers();
     const avgHaulerCapacity = orgRoom.getColony().getAvgHaulerCapacity();
 
-    trace.log('avg hauler capacity', {numHaulers: haulers.length, avgHaulerCapacity})
+    trace.log('avg hauler capacity', {numHaulers: haulers.length, avgHaulerCapacity});
 
     droppedResourcesToHaul.forEach((resource) => {
-      const topic = TOPICS.TOPIC_HAUL_TASK;
+      const topic = getBaseHaulerTopic(base.id);
       let priority = PRIORITIES.HAUL_DROPPED;
 
       // Increase priority if primary room
@@ -211,7 +213,7 @@ export default class RoomRunnable {
       const untaskedUsedCapacity = resource.amount - haulerCapacity;
       const loadsToHaul = Math.floor(untaskedUsedCapacity / avgHaulerCapacity);
 
-      trace.log('loads', {avgHaulerCapacity, haulerCapacity, untaskedUsedCapacity, loadsToHaul})
+      trace.log('loads', {avgHaulerCapacity, haulerCapacity, untaskedUsedCapacity, loadsToHaul});
 
       for (let i = 0; i < loadsToHaul; i++) {
         // Reduce priority for each load after first
@@ -233,7 +235,7 @@ export default class RoomRunnable {
     });
   }
 
-  requestHaulTombstones(trace: Tracer, orgRoom: OrgRoom, room: Room) {
+  requestHaulTombstones(trace: Tracer, kingdom: Kingdom, base: BaseConfig, orgRoom: OrgRoom, room: Room) {
     if (orgRoom.numHostiles) {
       return;
     }
@@ -267,12 +269,11 @@ export default class RoomRunnable {
           [MEMORY.MEMORY_HAUL_AMOUNT]: tombstone.store[resourceType],
         };
 
-        let topic = TOPICS.TOPIC_HAUL_TASK;
+        let topic = getBaseHaulerTopic(base.id);
         let priority = PRIORITIES.HAUL_DROPPED;
 
         trace.log('haul tombstone', {topic, priority, details});
-
-        (orgRoom as any).sendRequest(topic, priority, details, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
+        kingdom.sendRequest(topic, priority, details, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
       });
     });
   }

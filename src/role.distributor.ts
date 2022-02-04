@@ -8,6 +8,7 @@ import {behaviorBoosts} from './behavior.boosts';
 import * as MEMORY from './constants.memory';
 import * as TOPICS from './constants.topics';
 import {roadWorker} from './behavior.logistics';
+import {getBaseDistributorTopic} from './org.colony';
 
 const selectNextTaskOrPark = behaviorTree.selectorNode(
   'pick_something',
@@ -15,16 +16,16 @@ const selectNextTaskOrPark = behaviorTree.selectorNode(
     behaviorTree.leafNode(
       'pick_haul_task',
       (creep, trace, kingdom) => {
-        // lookup colony from kingdom
-        const colony = kingdom.getCreepColony(creep);
-        if (!colony) {
-          trace.log('could not find colony', {name: creep.name, memory: creep.memory});
+        // lookup base from kingdom
+        const base = kingdom.getCreepBaseConfig(creep);
+        if (!base) {
+          trace.error('could not find creep base', {name: creep.name, memory: creep.memory});
           creep.suicide();
-          return FAILURE;
+          return;
         }
 
         // get next haul task
-        const task = colony.getMessageOfMyChoice(TOPICS.HAUL_CORE_TASK, (messages) => {
+        const task = kingdom.getTopics().getMessageOfMyChoice(getBaseDistributorTopic(base.id), (messages) => {
           const sorted = _.sortByOrder(messages, [
             'priority',
             (message: any) => {

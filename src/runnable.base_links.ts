@@ -3,6 +3,7 @@ import * as PRIORITIES from "./constants.priorities";
 import * as TASKS from "./constants.tasks";
 import * as TOPICS from "./constants.topics";
 import {Tracer} from './lib.tracing';
+import {getBaseDefenseTopic, getBaseDistributorTopic} from "./org.colony";
 import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
 import {sleeping, terminate} from "./os.process";
@@ -15,6 +16,7 @@ const ENERGY_READY_AMOUNT = 400;
 
 export default class LinkManager {
   id: string;
+  baseId: string;
   orgRoom: OrgRoom;
   storageId: Id<StructureStorage>;
   storageLink: Id<StructureLink>;
@@ -24,8 +26,9 @@ export default class LinkManager {
   haulTTL: number;
   prevTime: number;
 
-  constructor(id: string, orgRoom: OrgRoom) {
+  constructor(id: string, baseId: string, orgRoom: OrgRoom) {
     this.id = id;
+    this.baseId = baseId;
     this.orgRoom = orgRoom;
 
     const roomObject = orgRoom.getRoomObject();
@@ -181,7 +184,7 @@ export default class LinkManager {
         if (amount) {
           const pickup = this.orgRoom.getReserveStructureWithMostOfAResource(RESOURCE_ENERGY, true);
           if (pickup) {
-            this.fillLink(storageLink, pickup, _.min([amount, ENERGY_READY_AMOUNT]), trace);
+            this.fillLink(kingdom, storageLink, pickup, _.min([amount, ENERGY_READY_AMOUNT]), trace);
           }
         }
       } else if (hasEnergy.length > 1) { // If we have more than one source link ready, unload storage link
@@ -189,7 +192,7 @@ export default class LinkManager {
         if (amount) {
           const dropoff = this.orgRoom.getReserveStructureWithRoomForResource(RESOURCE_ENERGY);
           if (dropoff) {
-            this.emptyLink(storageLink, dropoff, amount, trace);
+            this.emptyLink(kingdom, storageLink, dropoff, amount, trace);
           }
         }
       }
@@ -208,7 +211,7 @@ export default class LinkManager {
     return sleeping(TICK_STEP);
   }
 
-  emptyLink(link: StructureLink, dropoff: AnyStoreStructure, amount: number, trace: Tracer) {
+  emptyLink(kingdom: Kingdom, link: StructureLink, dropoff: AnyStoreStructure, amount: number, trace: Tracer) {
     this.haulTTL = HAUL_TTL;
 
     const details = {
@@ -220,13 +223,11 @@ export default class LinkManager {
       [MEMORY.MEMORY_HAUL_DROPOFF]: dropoff.id,
     };
 
-    this.orgRoom.sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.UNLOAD_LINK, details, HAUL_TTL);
-    trace.log('haul energy from storage link', {
-      request: details,
-    });
+    kingdom.sendRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.UNLOAD_LINK, details, HAUL_TTL);
+    trace.log('haul energy from storage link', {request: details});
   }
 
-  fillLink(link: StructureLink, pickup: AnyStoreStructure, amount: number, trace: Tracer) {
+  fillLink(kingdom: Kingdom, link: StructureLink, pickup: AnyStoreStructure, amount: number, trace: Tracer) {
     this.haulTTL = HAUL_TTL;
 
     const details = {
@@ -238,10 +239,9 @@ export default class LinkManager {
       [MEMORY.MEMORY_HAUL_DROPOFF]: link.id,
     };
 
-    this.orgRoom.sendRequest(TOPICS.HAUL_CORE_TASK, PRIORITIES.LOAD_LINK, details, HAUL_TTL);
-    trace.log('haul energy to storage link', {
-      request: details,
-    });
+    trace.log('haul energy to storage link', {request: details});
+    kingdom.sendRequest(getBaseDefenseTopic(this.baseId), PRIORITIES.LOAD_LINK, details, HAUL_TTL);
+
   }
 }
 

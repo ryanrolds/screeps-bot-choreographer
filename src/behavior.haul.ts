@@ -1,36 +1,34 @@
 import * as behaviorTree from './lib.behaviortree';
 import {FAILURE, SUCCESS, RUNNING} from './lib.behaviortree';
+import {getBaseHaulerTopic} from './org.colony';
 
 const MEMORY = require('./constants.memory');
 const TASKS = require('./constants.tasks');
 
-export const getHaulTaskFromTopic = function (topic) {
-  return behaviorTree.leafNode(
-    'pick_haul_task',
-    (creep, trace, kingdom) => {
-      // lookup colony from kingdom
-      const colonyId = creep.memory[MEMORY.MEMORY_BASE];
-      const colony = kingdom.getColonyById(colonyId);
+export const getHaulTaskFromBaseTopic = behaviorTree.leafNode(
+  'pick_haul_task',
+  (creep, trace, kingdom) => {
+    // lookup colony from kingdom
+    const baseId = creep.memory[MEMORY.MEMORY_BASE];
+    const base = kingdom.getPlanner().getBaseConfigById(baseId);
+    if (!base) {
+      trace.error('could not find base', {name: creep.name, memory: creep.memory});
+      creep.suicide();
+      return FAILURE;
+    }
 
-      if (!colony) {
-        trace.log('could not find colony', {name: creep.name, memory: creep.memory});
-        creep.suicide();
-        return FAILURE;
-      }
+    // get next haul task
+    const task = kingdom.getNextRequest(getBaseHaulerTopic(baseId));
+    if (!task) {
+      trace.log('no haul task');
+      return FAILURE;
+    }
 
-      // get next haul task
-      const task = colony.getNextRequest(topic);
-      if (!task) {
-        trace.log('no haul task');
-        return FAILURE;
-      }
+    storeHaulTask(creep, task, trace);
 
-      this.storeHaulTask(creep, task, trace);
-
-      return SUCCESS;
-    },
-  );
-};
+    return SUCCESS;
+  },
+);
 
 export const getNearbyHaulTaskFromTopic = function (topic) {
   return behaviorTree.leafNode(
@@ -81,7 +79,7 @@ export const getNearbyHaulTaskFromTopic = function (topic) {
         return FAILURE;
       }
 
-      this.storeHaulTask(creep, task, trace);
+      storeHaulTask(creep, task, trace);
 
       return SUCCESS;
     },

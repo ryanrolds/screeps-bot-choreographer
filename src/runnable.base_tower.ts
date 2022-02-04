@@ -7,6 +7,7 @@ import * as TASKS from "./constants.tasks"
 import * as TOPICS from "./constants.topics"
 import * as PRIORITIES from "./constants.priorities";
 import {RunnableResult} from "./os.runnable";
+import {getBaseDistributorTopic} from "./org.colony";
 
 const REQUEST_ENERGY_TTL = 10;
 const REQUEST_ENERGY_THRESHOLD = 500;
@@ -18,6 +19,7 @@ interface Point {
 }
 
 export default class TowerRunnable {
+  baseId: string;
   orgRoom: OrgRoom;
   towerId: Id<StructureTower>;
 
@@ -28,7 +30,8 @@ export default class TowerRunnable {
   repairTTL: number;
   prevTime: number;
 
-  constructor(room: OrgRoom, tower: StructureTower) {
+  constructor(baseId: string, room: OrgRoom, tower: StructureTower) {
+    this.baseId = baseId;
     this.orgRoom = room;
 
     this.towerId = tower.id;
@@ -78,7 +81,7 @@ export default class TowerRunnable {
     if (towerUsed < REQUEST_ENERGY_THRESHOLD && this.haulTTL < 0) {
       this.haulTTL = REQUEST_ENERGY_TTL;
       trace.log('requesting energy', {});
-      this.requestEnergy(this.orgRoom, tower, REQUEST_ENERGY_TTL, trace);
+      this.requestEnergy(kingdom, this.orgRoom, tower, REQUEST_ENERGY_TTL, trace);
     }
 
     // Attack hostiles
@@ -218,7 +221,7 @@ export default class TowerRunnable {
     return running();
   }
 
-  private requestEnergy(room: OrgRoom, tower: StructureTower, ttl: number, trace: Tracer) {
+  private requestEnergy(kingdom: Kingdom, room: OrgRoom, tower: StructureTower, ttl: number, trace: Tracer) {
     const towerUsed = tower.store.getUsedCapacity(RESOURCE_ENERGY);
     const towerFree = tower.store.getFreeCapacity(RESOURCE_ENERGY);
     const towerTotal = tower.store.getCapacity(RESOURCE_ENERGY);
@@ -236,7 +239,7 @@ export default class TowerRunnable {
       [MEMORY.MEMORY_HAUL_DROPOFF]: tower.id,
     };
 
-    (this.orgRoom as any).sendRequest(TOPICS.HAUL_CORE_TASK, priority, details, ttl);
+    kingdom.sendRequest(getBaseDistributorTopic(this.baseId), priority, details, ttl);
 
     trace.log('request energy', {priority, details, towerUsed, towerTotal});
   }

@@ -12,7 +12,6 @@ import * as PRIORITIES from './constants.priorities';
 import {creepIsFresh} from './behavior.commute';
 
 import {MEMORY_ASSIGN_ROOM, MEMORY_ROLE} from './constants.memory';
-import {TOPIC_HAUL_TASK} from './constants.topics';
 import {WORKER_RESERVER, WORKER_DEFENDER} from './constants.creeps';
 import {PRIORITY_DEFENDER, PRIORITY_HAULER} from './constants.priorities';
 import {Kingdom} from './org.kingdom';
@@ -33,6 +32,14 @@ const REQUEST_EXPLORER_TTL = 200;
 
 export function getBaseDefenseTopic(baseId: string): string {
   return `base_${baseId}_defense`;
+}
+
+export function getBaseHaulerTopic(baseId: string): string {
+  return `base_${baseId}_hauler`;
+}
+
+export function getBaseDistributorTopic(baseId: string): string {
+  return `base_${baseId}_distributor`;
 }
 
 export class Colony extends OrgBase {
@@ -185,7 +192,7 @@ export class Colony extends OrgBase {
     this.threadUpdateHaulers(updateTrace);
 
     // Fraction of num haul tasks
-    let numHaulTasks = this.getTopicLength(TOPIC_HAUL_TASK);
+    let numHaulTasks = this.getKingdom().getTopicLength(getBaseHaulerTopic(this.baseId));
     numHaulTasks -= this.idleHaulers;
 
     if (this.primaryRoom) {
@@ -229,14 +236,14 @@ export class Colony extends OrgBase {
     processTrace.end();
   }
   toString() {
-    const topics = this.topics.getCounts();
+    const topics = this.getKingdom().getTopics().getCounts();
 
     // TODO this should be shown on HUD
     return `* Colony - ID: ${this.id}, #Rooms: ${Object.keys(this.roomMap).length}, ` +
       `#Missing: ${this.missingRooms.length}, ` +
       `#Creeps: ${this.numCreeps}, ` +
       `#Haulers: ${this.numHaulers}, ` +
-      `#HaulTasks: ${topics[TOPICS.TOPIC_HAUL_TASK] || 0}, ` +
+      `#HaulTasks: ${topics[getBaseHaulerTopic(this.baseId)] || 0}, ` +
       `AvgHaulerCapacity: ${this.avgHaulerCapacity}, ` +
       `#Defenders: ${this.defenders.length}`;
   }
@@ -337,11 +344,11 @@ export class Colony extends OrgBase {
     return this.avgHaulerCapacity;
   }
   updateStats(trace: Tracer) {
-    const topicCounts = this.topics.getCounts();
+    const topicCounts = this.getKingdom().getTopics().getCounts();
 
     const colonyStats = {
       numHaulers: this.numHaulers,
-      haulTasks: (topicCounts[TOPICS.TOPIC_HAUL_TASK] || 0) - this.idleHaulers,
+      haulTasks: (topicCounts[getBaseHaulerTopic(this.baseId)] || 0) - this.idleHaulers,
       pidDesiredHaulers: this.pidDesiredHaulers,
       rooms: {},
       booster: {},

@@ -1,5 +1,3 @@
-export const TOPIC_HAUL_TASK = 'task_haul';
-export const HAUL_CORE_TASK = 'task_haul_core';
 export const TOPIC_TERMINAL_TASK = 'task_terminal';
 export const TASK_REACTION = 'task_reaction';
 export const BOOST_PREP = 'boost_prep';
