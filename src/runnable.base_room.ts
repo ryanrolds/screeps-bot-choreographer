@@ -154,11 +154,11 @@ export default class RoomRunnable {
       }
 
       let topic = getKingdomSpawnTopic()
-      if (orgRoom.getColony().primaryRoom.energyCapacityAvailable < 800) {
+      if (orgRoom.getColony().primaryRoom.energyCapacityAvailable > 800) {
         topic = getBaseSpawnTopic(base.id);
       }
 
-      orgRoom.getKingdom().sendRequest(topic, PRIORITIES.PRIORITY_RESERVER,
+      kingdom.sendRequest(topic, PRIORITIES.PRIORITY_RESERVER,
         details, REQUEST_RESERVER_TTL);
     }
   }

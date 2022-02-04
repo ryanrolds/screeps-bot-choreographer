@@ -10,6 +10,7 @@ import {Tracer} from './lib.tracing'
 import {Kingdom} from './org.kingdom';
 import {BoosterDetails, EffectSet, LabsByResource, TOPIC_ROOM_BOOSTS} from './runnable.base_booster';
 import {getBaseSpawnTopic} from './runnable.base_spawning';
+import {BaseConfig} from './config';
 
 export const TOPIC_ROOM_KEYVALUE = 'room_keyvalue';
 const MEMORY_HOSTILE_TIME = 'hostile_time';
@@ -237,7 +238,7 @@ export default class OrgRoom extends OrgBase {
       });
     });
 
-    this.threadRequestDefenders = thread('request_defenders_thread', REQUEST_DEFENDERS_TTL)((trace) => {
+    this.threadRequestDefenders = thread('request_defenders_thread', REQUEST_DEFENDERS_TTL)((trace, kingdom, base) => {
       const freshDefenders = this.getColony().defenders.filter((defender) => {
         return creepIsFresh(defender);
       });
@@ -254,7 +255,7 @@ export default class OrgRoom extends OrgBase {
         const flag = this.stationFlags[0];
         const position = [flag.pos.x, flag.pos.y, flag.pos.roomName].join(',');
         trace.log('request defenders to flag');
-        this.requestDefender(position, true, trace);
+        this.requestDefender(kingdom, base, position, true, trace);
         return;
       }
 
@@ -297,7 +298,7 @@ export default class OrgRoom extends OrgBase {
       }
 
       for (let i = 0; i < neededDefenders; i++) {
-        this.requestDefender(this.lastHostilePosition, true, trace);
+        this.requestDefender(kingdom, base, this.lastHostilePosition, true, trace);
       }
     });
 
@@ -309,6 +310,13 @@ export default class OrgRoom extends OrgBase {
 
     trace.log('room update', {roomId: this.id});
 
+    const base = this.getKingdom().getPlanner().getBaseConfigByRoom(this.id);
+    if (!base) {
+      trace.error('no base config for room', {roomId: this.id});
+      trace.end();
+      return;
+    }
+
     const room = this.room = Game.rooms[this.id];
     if (!room) {
       if (Game.time - this.hostileTime > HOSTILE_PRESENCE_TTL) {
@@ -318,7 +326,8 @@ export default class OrgRoom extends OrgBase {
         this.defendersLost = 0;
       }
 
-      this.threadRequestDefenders(trace);
+      // Check if we need to request defenders (was the room hostile last time we saw it?)
+      this.threadRequestDefenders(trace, this.getKingdom(), base);
 
       trace.end();
       return;
@@ -620,10 +629,10 @@ export default class OrgRoom extends OrgBase {
     stats.colonies[this.getColony().id].rooms[this.id] = roomStats;
   }
 
-  requestDefender(position, spawn, trace) {
+  requestDefender(kingdom: Kingdom, base: BaseConfig, position, spawn, trace) {
     trace.log('requesting defender', {position, spawn});
 
-    this.sendRequest(TOPICS.TOPIC_DEFENDERS, PRIORITIES.PRIORITY_DEFENDER, {
+    kingdom.sendRequest(getBaseSpawnTopic(base.id), PRIORITIES.PRIORITY_DEFENDER, {
       role: CREEPS.WORKER_DEFENDER,
       spawn,
       memory: {

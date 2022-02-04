@@ -12,7 +12,7 @@ import * as PRIORITIES from './constants.priorities';
 import {creepIsFresh} from './behavior.commute';
 
 import {MEMORY_ASSIGN_ROOM, MEMORY_ROLE} from './constants.memory';
-import {TOPIC_DEFENDERS, TOPIC_HAUL_TASK} from './constants.topics';
+import {TOPIC_HAUL_TASK} from './constants.topics';
 import {WORKER_RESERVER, WORKER_DEFENDER} from './constants.creeps';
 import {PRIORITY_DEFENDER, PRIORITY_HAULER} from './constants.priorities';
 import {Kingdom} from './org.kingdom';
@@ -31,7 +31,12 @@ const REQUEST_HAULER_TTL = 25;
 const REQUEST_DEFENDER_TTL = 5;
 const REQUEST_EXPLORER_TTL = 200;
 
+export function getBaseDefenseTopic(baseId: string): string {
+  return `base_${baseId}_defense`;
+}
+
 export class Colony extends OrgBase {
+  baseId: string;
   topics: Topics;
   desiredRooms: string[];
   missingRooms: string[];
@@ -75,6 +80,7 @@ export class Colony extends OrgBase {
 
     const setupTrace = this.trace.begin('constructor');
 
+    this.baseId = baseConfig.id;
     this.topics = new Topics();
 
     this.primaryRoomId = baseConfig.primary;
@@ -141,9 +147,9 @@ export class Colony extends OrgBase {
       }
     });
 
-    this.threadHandleDefenderRequest = thread('request_defenders_thread', REQUEST_DEFENDER_TTL)((trace) => {
+    this.threadHandleDefenderRequest = thread('request_defenders_thread', REQUEST_DEFENDER_TTL)((trace, kingdom: Kingdom) => {
       // Check intra-colony requests for defenders
-      const request = this.getNextRequest(TOPIC_DEFENDERS);
+      const request = kingdom.getNextRequest(getBaseDefenseTopic(this.id));
       if (request) {
         trace.log('got defender request', {request});
         this.handleDefenderRequest(request, trace);
@@ -203,7 +209,7 @@ export class Colony extends OrgBase {
     roomTrace.end();
 
     this.threadRequestReserversForMissingRooms(updateTrace);
-    this.threadHandleDefenderRequest(updateTrace);
+    this.threadHandleDefenderRequest(updateTrace, this.getKingdom());
     this.threadRequestHaulers(updateTrace);
     this.threadRequestExplorer(trace);
 

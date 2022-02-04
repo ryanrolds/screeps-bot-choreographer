@@ -1,11 +1,12 @@
 import * as _ from 'lodash';
+import {BaseConfig} from './config';
 import * as CREEPS from './constants.creeps';
 import * as MEMORY from './constants.memory';
 import * as PRIORITIES from './constants.priorities';
 import * as TOPICS from './constants.topics';
 import {DEFENSE_STATUS} from './defense';
 import {Tracer} from './lib.tracing';
-import {Colony} from './org.colony';
+import {getBaseDefenseTopic} from './org.colony';
 import {Kingdom} from './org.kingdom';
 import {Process, sleeping} from "./os.process";
 import {RunnableResult} from './os.runnable';
@@ -356,7 +357,13 @@ function checkColonyDefenses(trace: Tracer, kingdom: Kingdom, hostilesByColony: 
   _.forEach(hostilesByColony, (hostiles, colonyId) => {
     const colony = kingdom.getColonyById(colonyId);
     if (!colony) {
-      trace.log('expect to find colony, but did not', {colonyId});
+      trace.error('expect to find colony, but did not', {colonyId});
+      return;
+    }
+
+    const base = kingdom.getPlanner().getBaseConfigById(colonyId);
+    if (!base) {
+      trace.error('expect to find base, but did not', {colonyId});
       return;
     }
 
@@ -407,7 +414,7 @@ function checkColonyDefenses(trace: Tracer, kingdom: Kingdom, hostilesByColony: 
       });
 
       if (defenders.length < numNeededDefenders) {
-        requestAdditionalDefenders(colony, hostiles.length - defenders.length, trace);
+        requestAdditionalDefenders(kingdom, base, hostiles.length - defenders.length, trace);
       }
     }
   });
@@ -423,11 +430,11 @@ function requestExistingDefenders(defenders: Creep[], position: RoomPosition) {
   });
 }
 
-function requestAdditionalDefenders(colony: Colony, needed: number, trace: Tracer) {
+function requestAdditionalDefenders(kingdom: Kingdom, base: BaseConfig, needed: number, trace: Tracer) {
   for (let i = 0; i < needed; i++) {
-    trace.log('requesting defender', {colonyId: (colony as any).id});
+    trace.log('requesting defender', {baseId: base.id});
 
-    colony.sendRequest(TOPICS.TOPIC_DEFENDERS, PRIORITIES.PRIORITY_DEFENDER, {
+    kingdom.sendRequest(getBaseDefenseTopic(base.id), PRIORITIES.PRIORITY_DEFENDER, {
       role: CREEPS.WORKER_DEFENDER,
       spawn: true,
       memory: {}
