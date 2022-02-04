@@ -1,9 +1,19 @@
+/**
+ * Base Creep Spawning
+ *
+ * Tracks the spawns in a base, pull events from the spawn topic, and spawns the requested creeps.
+ *
+ * TODO - Move to topic with base id in the name - IN PROGRESS
+ */
+import {title} from "process";
+import {BaseConfig} from "./config";
 import * as CREEPS from "./constants.creeps";
 import {DEFINITIONS} from './constants.creeps';
 import * as MEMORY from "./constants.memory";
 import * as TOPICS from "./constants.topics";
 import {createCreep} from "./helpers.creeps";
 import {Event} from "./lib.event_broker";
+import {Request} from "./lib.topics";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
@@ -20,6 +30,35 @@ const PRODUCE_EVENTS_TTL = 20;
 const INITIAL_TOPIC_LENGTH = 9999;
 const RED_TOPIC_LENGTH = 10;
 const YELLOW_TOPIC_LENGTH = 5;
+
+export function getBaseSpawnTopic(baseId: string) {
+  return `base_${baseId}_spawn`;
+}
+
+export function getKingdomSpawnTopic() {
+  return 'kingdom_spawn';
+}
+
+type SpawnRequestDetails = {
+  role: string;
+  memory: any;
+};
+
+type SpawnRequest = Request & {
+  details: SpawnRequestDetails;
+};
+
+export function createSpawnRequest(role: string, memory: any, priority: number,
+  ttl: number): SpawnRequest {
+  return {
+    priority,
+    details: {
+      role: role,
+      memory: memory,
+    },
+    ttl,
+  };
+}
 
 export default class SpawnManager {
   orgRoom: OrgRoom;
@@ -38,17 +77,18 @@ export default class SpawnManager {
       throw new Error('cannot create a spawn manager when room does not exist');
     }
 
-    this.threadSpawn = thread('spawn_thread', SPAWN_TTL)((trace) => {
+    this.threadSpawn = thread('spawn_thread', SPAWN_TTL)((trace, kingdom, baseConfig) => {
       this.spawnIds = roomObject.find<StructureSpawn>(FIND_MY_STRUCTURES, {
         filter: structure => structure.structureType === STRUCTURE_SPAWN && structure.isActive(),
       }).map(spawn => spawn.id);
 
-      this.spawning(trace);
+      this.spawning(trace, kingdom, baseConfig);
     });
 
-    this.threadProduceEvents = thread('produce_events_thread', PRODUCE_EVENTS_TTL)((trace, kingdom) => {
-      this.processEvents(trace, kingdom)
-    });
+    this.threadProduceEvents = thread('produce_events_thread',
+      PRODUCE_EVENTS_TTL)((trace, kingdom, baseConfig) => {
+        this.processEvents(trace, kingdom, baseConfig)
+      });
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
@@ -56,20 +96,42 @@ export default class SpawnManager {
 
     const roomObject: Room = this.orgRoom.getRoomObject()
     if (!roomObject) {
+      trace.error('no room object', {room: this.orgRoom.id});
+      trace.end();
+      return terminate();
+    }
+
+    const baseConfig = kingdom.getPlanner().getBaseConfigByRoom(this.orgRoom.id);
+    if (!baseConfig) {
+      trace.error('no base config for room', {room: this.orgRoom.id});
       trace.end();
       return terminate();
     }
 
     trace.log('Spawn manager run', {id: this.id, spawnIds: this.spawnIds});
 
-    this.threadSpawn(trace);
-    this.threadProduceEvents(trace, kingdom);
+    this.threadSpawn(trace, kingdom, baseConfig);
+    this.threadProduceEvents(trace, kingdom, baseConfig);
 
     trace.end();
     return running();
   }
 
-  spawning(trace: Tracer) {
+  spawning(trace: Tracer, kingdom: Kingdom, base: BaseConfig) {
+    // If there are no spawns then we should request another base in the kingdom produce the creep
+    if (this.spawnIds.length === 0) {
+      trace.warn('sending spawn requests to kingdom', {id: this.id, spawnIds: this.spawnIds});
+
+      let request: SpawnRequest = null;
+      while (request = kingdom.getNextRequest(getBaseSpawnTopic(base.id))) {
+        kingdom.sendRequest(getKingdomSpawnTopic(), request.priority, request.details,
+          request.ttl);
+      }
+
+      return;
+    }
+
+    // iterate spawns and fetch next request if idle
     this.spawnIds.forEach((id) => {
       const spawn = Game.getObjectById(id);
       if (!spawn) {
@@ -102,7 +164,7 @@ export default class SpawnManager {
           {align: 'right', opacity: 0.8},
         );
       } else {
-        const spawnTopicSize = this.orgRoom.getTopicLength(TOPICS.TOPIC_SPAWN);
+        const spawnTopicSize = kingdom.getTopicLength(getBaseSpawnTopic(base.id));
         const spawnTopicBackPressure = Math.floor(energyCapacity * (1 - (0.09 * spawnTopicSize)));
         let energyLimit = _.max([300, spawnTopicBackPressure]);
 
@@ -125,7 +187,7 @@ export default class SpawnManager {
 
         minEnergy = _.max([300, minEnergy]);
 
-        const next = this.orgRoom.getTopics().peekNextRequest(TOPICS.TOPIC_SPAWN);
+        const next = kingdom.peekNextRequest(getBaseSpawnTopic(base.id));
         trace.log('spawn idle', {spawnTopicSize, numCreeps, energy, minEnergy, spawnTopicBackPressure, next});
 
         if (energy < minEnergy) {
@@ -133,7 +195,7 @@ export default class SpawnManager {
           return;
         }
 
-        let request = this.orgRoom.getNextRequest(TOPICS.TOPIC_SPAWN);
+        let request = kingdom.getNextRequest(getBaseSpawnTopic(base.id));
         if (request) {
           const role = request.details.role;
           const definition = DEFINITIONS[role];
@@ -159,7 +221,7 @@ export default class SpawnManager {
           return;
         }
 
-        const peek = this.orgRoom.getKingdom().peekNextRequest(TOPICS.TOPIC_SPAWN);
+        const peek = this.orgRoom.getKingdom().peekNextRequest(getKingdomSpawnTopic());
         if (peek) {
           const role = peek.details.role;
           const definition = DEFINITIONS[role];
@@ -180,7 +242,7 @@ export default class SpawnManager {
 
         // Check inter-colony requests if the colony has spawns
         const topic = this.orgRoom.getKingdom().getTopics()
-        request = topic.getMessageOfMyChoice(TOPICS.TOPIC_SPAWN, (messages) => {
+        request = topic.getMessageOfMyChoice(getKingdomSpawnTopic(), (messages) => {
           const selected = messages.filter((message) => {
             const assignedShard = message.details.memory[MEMORY.MEMORY_ASSIGN_SHARD] || null;
             if (assignedShard && assignedShard != Game.shard.name) {
@@ -250,14 +312,14 @@ export default class SpawnManager {
     });
   }
 
-  processEvents(trace: Tracer, kingdom: Kingdom) {
-    const topic = this.orgRoom.getTopics().getTopic(TOPICS.TOPIC_SPAWN);
+  processEvents(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig) {
+    const baseTopic = kingdom.getTopics().getTopic(getBaseSpawnTopic(baseConfig.id));
 
     let creeps = [];
     let topicLength = 9999;
-    if (topic) {
-      topicLength = topic.length;
-      creeps = topic.map((message) => {
+    if (baseTopic) {
+      topicLength = baseTopic.length;
+      creeps = baseTopic.map((message) => {
         return `${message.details[MEMORY.MEMORY_ROLE]}(${message.priority},${message.ttl - Game.time})`;
       });
     }

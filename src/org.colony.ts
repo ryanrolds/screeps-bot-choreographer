@@ -12,12 +12,13 @@ import * as PRIORITIES from './constants.priorities';
 import {creepIsFresh} from './behavior.commute';
 
 import {MEMORY_ASSIGN_ROOM, MEMORY_ROLE} from './constants.memory';
-import {TOPIC_SPAWN, TOPIC_DEFENDERS, TOPIC_HAUL_TASK} from './constants.topics';
+import {TOPIC_DEFENDERS, TOPIC_HAUL_TASK} from './constants.topics';
 import {WORKER_RESERVER, WORKER_DEFENDER} from './constants.creeps';
 import {PRIORITY_DEFENDER, PRIORITY_HAULER} from './constants.priorities';
 import {Kingdom} from './org.kingdom';
 import {BaseConfig} from './config';
 import {Tracer} from './lib.tracing';
+import {getBaseSpawnTopic} from './runnable.base_spawning';
 
 const MAX_EXPLORERS = 3;
 
@@ -347,24 +348,17 @@ export class Colony extends OrgBase {
   }
   handleDefenderRequest(request, trace) {
     trace.log('request details', {
-      hasSpawns: this.primaryOrgRoom ? this.primaryOrgRoom.hasSpawns : null,
       controllerLevel: this.primaryRoom?.controller ? this.primaryRoom?.controller : null,
       request,
     });
 
     if (request.details.spawn) {
-      // If the colony has spawners and is of sufficient size spawn own defenders,
-      // otherwise ask for help from other colonies
-      if (this.primaryOrgRoom?.hasSpawns && this.primaryRoom?.controller?.level > 3) {
-        trace.log('requesting from colony');
-        this.sendRequest(TOPIC_SPAWN, PRIORITY_DEFENDER, request.details, REQUEST_DEFENDER_TTL);
-      } else {
-        request.details.memory[MEMORY.MEMORY_BASE] = this.id;
-        this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITY_DEFENDER, request.details, REQUEST_DEFENDER_TTL);
-      }
+      trace.log('requesting spawning of defenders');
+      this.getKingdom().sendRequest(getBaseSpawnTopic(this.id), PRIORITY_DEFENDER, request.details,
+        REQUEST_DEFENDER_TTL);
     }
 
-    trace.log('requesting defense response', {memory: request.details.memory});
+    trace.log('requesting existing defense response', {memory: request.details.memory});
 
     // Order existing defenders to the room
     this.defenders.forEach((defender) => {
@@ -438,7 +432,7 @@ export class Colony extends OrgBase {
     if (explorers.length < MAX_EXPLORERS) {
       trace.log('requesting explorer');
 
-      this.sendRequest(TOPIC_SPAWN, PRIORITIES.EXPLORER, {
+      this.getKingdom().sendRequest(getBaseSpawnTopic(this.id), PRIORITIES.EXPLORER, {
         role: CREEPS.WORKER_EXPLORER,
         memory: {},
       }, REQUEST_EXPLORER_TTL);
@@ -471,14 +465,9 @@ export class Colony extends OrgBase {
         },
       };
 
-      if (this.primaryOrgRoom && this.primaryOrgRoom.hasSpawns &&
-        this.primaryOrgRoom.room.energyCapacityAvailable >= 800) {
-        trace.log('requesting claimer from colony', {details});
-        this.sendRequest(TOPIC_SPAWN, PRIORITIES.PRIORITY_RESERVER, details, REQUEST_MISSING_ROOMS_TTL);
-      } else {
-        trace.log('requesting claimer from kingdom', {details});
-        this.getKingdom().sendRequest(TOPIC_SPAWN, PRIORITIES.PRIORITY_RESERVER, details, REQUEST_MISSING_ROOMS_TTL);
-      }
+      trace.log('requesting claimer from colony', {details});
+      this.getKingdom().sendRequest(getBaseSpawnTopic(this.id), PRIORITIES.PRIORITY_RESERVER, details,
+        REQUEST_MISSING_ROOMS_TTL);
     });
   }
 

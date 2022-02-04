@@ -11,12 +11,12 @@
 import * as _ from 'lodash';
 import {BaseConfig} from './config';
 import * as MEMORY from './constants.memory';
-import {TOPIC_SPAWN} from './constants.topics';
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
 import {running, terminate} from "./os.process";
 import {RunnableResult} from './os.runnable';
 import {thread, ThreadFunc} from './os.thread';
+import {getBaseSpawnTopic} from './runnable.base_spawning';
 import {WarPartyTarget} from './runnable.warparty';
 
 const REQUEST_PARTY_MEMBER_TTL = 25;
@@ -436,8 +436,6 @@ export default class PartyRunnable {
       details,
     });
 
-    // TODO move to directly topic request
-    const colony = kingdom.getColonyById(this.baseConfig.id);
-    colony.sendRequest(TOPIC_SPAWN, this.priority, details, this.requestCreepTTL);
+    kingdom.sendRequest(getBaseSpawnTopic(this.baseConfig.id), this.priority, details, this.requestCreepTTL);
   }
 }

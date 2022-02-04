@@ -1,5 +1,4 @@
 
-export const TOPIC_SPAWN = 'spawn';
 export const TOPIC_DEFENDERS = 'defenders';
 export const TOPIC_ROOM_LINKS = 'room_links';
 export const TOPIC_HAUL_TASK = 'task_haul';

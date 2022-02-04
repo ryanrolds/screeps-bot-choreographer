@@ -7,9 +7,9 @@ import * as PRIORITIES from './constants.priorities';
 import {creepIsFresh} from './behavior.commute';
 import {thread, ThreadFunc} from './os.thread';
 import {Tracer} from './lib.tracing'
-import {TOPIC_SPAWN} from './constants.topics';
 import {Kingdom} from './org.kingdom';
 import {BoosterDetails, EffectSet, LabsByResource, TOPIC_ROOM_BOOSTS} from './runnable.base_booster';
+import {getBaseSpawnTopic} from './runnable.base_spawning';
 
 export const TOPIC_ROOM_KEYVALUE = 'room_keyvalue';
 const MEMORY_HOSTILE_TIME = 'hostile_time';
@@ -63,7 +63,6 @@ export default class OrgRoom extends OrgBase {
   myStructures: Structure[];
   roomStructures: Structure[];
   hostileStructures: Structure[];
-  hasSpawns: boolean;
   resources: ResourceCounts;
   hasStorage: boolean;
 
@@ -86,7 +85,6 @@ export default class OrgRoom extends OrgBase {
 
   threadUpdateCreeps: ThreadFunc;
   threadUpdateRoom: ThreadFunc;
-  threadUpdatePrimary: ThreadFunc;
   threadUpdateResources: ThreadFunc;
   threadUpdateDefenseStatus: ThreadFunc;
   threadUpdateDamagedCreeps: ThreadFunc;
@@ -127,12 +125,6 @@ export default class OrgRoom extends OrgBase {
 
     this.threadUpdateRoom = thread('update_room_thread', UPDATE_ROOM_TTL)((trace, kingdom) => {
       this.updateRoom(trace, kingdom);
-    });
-
-    // Primary room
-    this.hasSpawns = false;
-    this.threadUpdatePrimary = thread('update_primary', UPDATE_ORG_TTL)((trace) => {
-      this.updatePrimary(trace);
     });
 
     // Resources / logistics
@@ -347,7 +339,6 @@ export default class OrgRoom extends OrgBase {
     this.threadUpdateRoom(trace, this.getKingdom());
 
     if (this.isPrimary) {
-      this.threadUpdatePrimary(trace);
       this.threadUpdateResources(trace);
       this.threadUpdateBoosters(trace);
       this.updateDamagedCreeps(trace);
@@ -467,38 +458,7 @@ export default class OrgRoom extends OrgBase {
       reserveStructures.push(this.room.terminal);
     }
 
-    if (reserveStructures.length) {
-      return reserveStructures;
-    }
-
-    const spawns = this.myStructures.filter((structure) => {
-      return structure.structureType === STRUCTURE_SPAWN && structure.isActive();
-    });
-
-    if (!spawns.length) {
-      return [];
-    }
-
-    const stores = _.reduce(spawns, (acc, spawn) => {
-      const containers = spawn.pos.findInRange(FIND_STRUCTURES, 9, {
-        filter: (structure) => {
-          if (!structure.isActive()) {
-            return false;
-          }
-
-          if (structure.structureType !== STRUCTURE_CONTAINER) {
-            return false;
-          }
-
-          const notSourceContainer = structure.pos.findInRange(FIND_SOURCES, 1).length < 1;
-          return notSourceContainer;
-        },
-      });
-
-      return acc.concat(containers);
-    }, []);
-
-    return stores;
+    return reserveStructures;
   }
   getEnergyFullness(): number {
     const structures = this.getReserveStructures(false);
@@ -716,24 +676,13 @@ export default class OrgRoom extends OrgBase {
   }
 
   requestSpawn(priority, details, ttl, trace: Tracer) {
-    const orgColony = this.getColony();
-    if (!orgColony) {
-      trace.error('no colony', {room: this.id});
+    const base = this.getKingdom().getPlanner().getBaseConfigByRoom(this.room.name);
+    if (!base) {
+      trace.error('No base found for room:', this.room.name);
       return;
     }
 
-    const primaryRoom = orgColony.getPrimaryRoom();
-    if (!primaryRoom) {
-      trace.error('no primary room', {room: this.id, colonyId: orgColony.id});
-      return;
-    }
-
-    if (primaryRoom.hasSpawns) {
-      this.sendRequest(TOPIC_SPAWN, priority, details, ttl);
-    } else {
-      trace.warn('sending spawn to request to kingdom', {priority, details})
-      this.getKingdom().sendRequest(TOPIC_SPAWN, priority, details, ttl);
-    }
+    this.getKingdom().sendRequest(getBaseSpawnTopic(base.id), priority, details, ttl);
   }
 
   updateRoom(trace: Tracer, kingdom: Kingdom) {
@@ -774,15 +723,7 @@ export default class OrgRoom extends OrgBase {
 
     trace.end();
   }
-  updatePrimary(trace) {
-    trace = trace.begin('primary_room');
 
-    // Spawns
-    const roomSpawns = this.getSpawns();
-    this.hasSpawns = roomSpawns.length > 0;
-
-    trace.end();
-  }
   updateCreeps(kingdom: Kingdom, trace: Tracer) {
     const updateCreepsTrace = trace.begin('update_creeps');
 

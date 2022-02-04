@@ -17,7 +17,7 @@ import BaseConstructionRunnable from "./runnable.base_construction";
 import {getDashboardStream, getLinesStream, HudIndicatorStatus, HudLine, HudEventSet, HudIndicator} from './runnable.debug_hud';
 import {LabsManager} from "./runnable.base_labs";
 import LinkManager from "./runnable.base_links";
-import SpawnManager from "./runnable.base_spawning";
+import SpawnManager, {getKingdomSpawnTopic} from "./runnable.base_spawning";
 import NukerRunnable from "./runnable.base_nuker";
 import TerminalRunnable from "./runnable.base_terminal";
 import TowerRunnable from "./runnable.base_tower";
@@ -188,7 +188,7 @@ export default class BaseRunnable {
 
     trace.notice('requesting claimer', {id: this.id, request});
 
-    kingdom.sendRequest(TOPICS.TOPIC_SPAWN, PRIORITIES.PRIORITY_RESERVER, request, REQUEST_CLAIMER_TTL);
+    kingdom.sendRequest(getKingdomSpawnTopic(), PRIORITIES.PRIORITY_RESERVER, request, REQUEST_CLAIMER_TTL);
   }
 
   handleProcessSpawning(trace: Tracer, baseConfig: BaseConfig, orgRoom: OrgRoom, room: Room) {
@@ -553,8 +553,6 @@ export default class BaseRunnable {
     if (!room.controller?.my) {
       trace.error('not my room')
       desiredUpgraders = 0;
-    } else if (!orgRoom.hasSpawns) {
-      desiredUpgraders = 0;
     } else if (room.controller.level === 8) {
       trace.log('max level room')
       parts = (reserveEnergy - reserveBuffer) / 1500;
@@ -774,13 +772,15 @@ export default class BaseRunnable {
     const resources = orgRoom.getReserveResources();
 
     const status = {
-      [MEMORY.ROOM_STATUS_NAME]: orgRoom.id,
-      [MEMORY.ROOM_STATUS_LEVEL]: orgRoom.getRoomLevel(),
-      [MEMORY.ROOM_STATUS_LEVEL_COMPLETED]: orgRoom.getRoomLevelCompleted(),
-      [MEMORY.ROOM_STATUS_TERMINAL]: orgRoom.hasTerminal(),
-      [MEMORY.ROOM_STATUS_ENERGY]: resources[RESOURCE_ENERGY] || 0,
-      [MEMORY.ROOM_STATUS_ALERT_LEVEL]: orgRoom.getAlertLevel(),
-    };
+      details: {
+        [MEMORY.ROOM_STATUS_NAME]: orgRoom.id,
+        [MEMORY.ROOM_STATUS_LEVEL]: orgRoom.getRoomLevel(),
+        [MEMORY.ROOM_STATUS_LEVEL_COMPLETED]: orgRoom.getRoomLevelCompleted(),
+        [MEMORY.ROOM_STATUS_TERMINAL]: orgRoom.hasTerminal(),
+        [MEMORY.ROOM_STATUS_ENERGY]: resources[RESOURCE_ENERGY] || 0,
+        [MEMORY.ROOM_STATUS_ALERT_LEVEL]: orgRoom.getAlertLevel(),
+      },
+    }
 
     trace.log('producing room status', {status});
 

@@ -95,7 +95,7 @@ export default class TowerRunnable {
     if (targets.length) {
       const target = Game.getObjectById<Id<Creep>>(targets[0].details.id)
       const result = tower.attack(target);
-      trace.log('attacking', {target: targets[0].id, result})
+      trace.log('attacking', {target: targets[0].details.id, result})
       trace.end();
       return running();
     }

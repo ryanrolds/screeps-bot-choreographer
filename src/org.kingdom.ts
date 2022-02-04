@@ -2,7 +2,7 @@ import {OrgBase} from './org.base';
 import {Colony} from './org.colony';
 import ResourceGovernor from './org.resource_governor';
 import {Scribe} from './org.scribe';
-import {Topics} from './lib.topics';
+import {RequestDetails, Topics} from './lib.topics';
 import {PathCache} from './lib.path_cache';
 import {thread, ThreadFunc} from './os.thread';
 import * as MEMORY from './constants.memory';
@@ -304,9 +304,11 @@ export class Kingdom extends OrgBase {
 
     stats.credits = Game.market.credits;
   }
-  sendRequest(topic: string, priority: number, request, ttl: number) {
-    this.topics.addRequest(topic, priority, request, ttl);
+
+  sendRequest(topic: string, priority: number, details: RequestDetails, ttl: number) {
+    this.topics.addRequest(topic, priority, details, ttl);
   }
+
   getNextRequest(topic: string): any {
     return this.topics.getNextRequest(topic);
   }

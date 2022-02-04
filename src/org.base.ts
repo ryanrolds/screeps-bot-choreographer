@@ -1,4 +1,4 @@
-import {Topics} from './lib.topics';
+import {Request, RequestDetails, Topics} from './lib.topics';
 import {Tracer} from './lib.tracing'
 import {Kingdom} from './org.kingdom';
 import OrgRoom from './org.room';
@@ -62,16 +62,16 @@ export class OrgBase {
     return this.getParent().getScheduler();
   }
 
-  sendRequest(topic, priority, request, ttl) {
+  sendRequest(topic: string, priority: number, details: RequestDetails, ttl: number) {
     const parent = this.getParent();
     if (!parent) {
       return;
     }
 
-    parent.sendRequest(topic, priority, request, ttl);
+    parent.sendRequest(topic, priority, details, ttl);
   }
 
-  peekNextRequest(topic: string) {
+  peekNextRequest(topic: string): Request {
     const parent = this.getParent();
     if (!parent) {
       return null;
@@ -80,7 +80,7 @@ export class OrgBase {
     return parent.peekNextRequest(topic);
   }
 
-  getNextRequest(topic: string) {
+  getNextRequest(topic: string): Request {
     const parent = this.getParent();
     if (!parent) {
       return null;
@@ -89,7 +89,7 @@ export class OrgBase {
     return parent.getNextRequest(topic);
   }
 
-  getTopicLength(topic: string) {
+  getTopicLength(topic: string): number {
     const parent = this.getParent();
     if (!parent) {
       return null;

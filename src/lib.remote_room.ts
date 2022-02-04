@@ -132,7 +132,7 @@ export function desiredRemotes(colony: Colony, level: number): number {
   }
 
   if (room.storage) {
-    const reserveEnergy = room.storage?.store.getUsedCapacity(RESOURCE_ENERGY);
+    const reserveEnergy = room.storage.store.getUsedCapacity(RESOURCE_ENERGY);
     if (reserveEnergy > 700000) {
       return _.min([desiredRemotes, 1]);
     } else if (reserveEnergy > 500000) {

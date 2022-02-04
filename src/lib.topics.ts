@@ -1,7 +1,15 @@
 const DEFAULT_TTL = 500;
 
+export type RequestDetails = any;
+
+export type Request = {
+  priority: number,
+  details: RequestDetails,
+  ttl: number,
+};
+
 type TopicKey = string;
-type Topic = Array<any>;
+type Topic = Array<Request>;
 
 export class Topics {
   topics: Record<TopicKey, Topic>;
@@ -46,7 +54,7 @@ export class Topics {
     this.topics[key] = [];
     return this.topics[key];
   }
-  addRequest(key: TopicKey, priority, details, ttl = DEFAULT_TTL) {
+  addRequest(key: TopicKey, priority, details: RequestDetails, ttl = DEFAULT_TTL) {
     let topic = this.getTopic(key);
     if (!topic) {
       topic = this.createTopic(key);

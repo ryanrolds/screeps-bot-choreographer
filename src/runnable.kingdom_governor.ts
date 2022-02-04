@@ -8,6 +8,7 @@ import {CreepRequest, ShardMemory} from "./org.scribe";
 import {sleeping} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 import {thread, ThreadFunc} from "./os.thread";
+import {getKingdomSpawnTopic} from './runnable.base_spawning';
 
 const SHARD_MEMORY_TTL = 50;
 
@@ -140,7 +141,7 @@ export default class KingdomGovernor {
         return;
       }
 
-      (kingdom as any).sendRequest(TOPICS.TOPIC_SPAWN, PRIORITIES.PRIORITY_RESERVER, {
+      kingdom.sendRequest(getKingdomSpawnTopic(), PRIORITIES.PRIORITY_RESERVER, {
         role: WORKERS.WORKER_RESERVER,
         memory: {
           [MEMORY.MEMORY_ASSIGN_SHARD]: request.shard,
@@ -222,7 +223,7 @@ export default class KingdomGovernor {
         return;
       }
 
-      (kingdom as any).sendRequest(TOPICS.TOPIC_SPAWN, PRIORITIES.PRIORITY_BUILDER, {
+      kingdom.sendRequest(getKingdomSpawnTopic(), PRIORITIES.PRIORITY_BUILDER, {
         role: WORKERS.WORKER_BUILDER,
         memory: {
           [MEMORY.MEMORY_ASSIGN_SHARD]: request.shard,

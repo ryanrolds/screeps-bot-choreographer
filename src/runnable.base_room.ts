@@ -14,8 +14,9 @@ import {Priorities, Scheduler} from "./os.scheduler";
 import {thread, ThreadFunc} from './os.thread';
 import {getLinesStream, HudLine, HudEventSet} from './runnable.debug_hud';
 import SourceRunnable from "./runnable.base_room_source";
-import {resourceUsage} from 'process';
 import MineralRunnable from './runnable.base_room_mineral';
+import {BaseConfig} from './config';
+import {getBaseSpawnTopic, getKingdomSpawnTopic} from './runnable.base_spawning';
 
 const MIN_RESERVATION_TICKS = 4000;
 const NO_VISION_TTL = 20;
@@ -77,7 +78,7 @@ export default class RoomRunnable {
     }
 
     if (!orgRoom.isPrimary) {
-      this.threadRequestReserver(trace, kingdom, orgRoom);
+      this.threadRequestReserver(trace, kingdom, baseConfig, orgRoom, room);
     }
 
     this.threadUpdateProcessSpawning(trace, orgRoom, room);
@@ -114,7 +115,7 @@ export default class RoomRunnable {
     }
   }
 
-  requestReserver(trace: Tracer, kingdom: Kingdom, orgRoom: OrgRoom, room: Room) {
+  requestReserver(trace: Tracer, kingdom: Kingdom, base: BaseConfig, orgRoom: OrgRoom, room: Room) {
     const numReservers = _.filter(Game.creeps, (creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
       return (role === CREEPS.WORKER_RESERVER) &&
@@ -152,12 +153,13 @@ export default class RoomRunnable {
         },
       }
 
+      let topic = getKingdomSpawnTopic()
       if (orgRoom.getColony().primaryRoom.energyCapacityAvailable < 800) {
-        orgRoom.getKingdom().sendRequest(TOPICS.TOPIC_SPAWN, PRIORITIES.PRIORITY_RESERVER,
-          details, REQUEST_RESERVER_TTL);
-      } else {
-        orgRoom.requestSpawn(PRIORITIES.PRIORITY_RESERVER, details, REQUEST_RESERVER_TTL, trace);
+        topic = getBaseSpawnTopic(base.id);
       }
+
+      orgRoom.getKingdom().sendRequest(topic, PRIORITIES.PRIORITY_RESERVER,
+        details, REQUEST_RESERVER_TTL);
     }
   }
 
