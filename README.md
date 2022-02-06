@@ -99,7 +99,7 @@ Create `.screeps.json` and provide credentials:
 }
 ```
 
-> Token is gotten from the the account settings in the Screeps client. The private username and password for private servers > are set via the CLI tool.
+> Token is gotten from the the account settings in the Screeps client. The private username and password for private servers are set via the private server CLI tool.
 
 ## Running
 
@@ -107,13 +107,40 @@ After making changes run linting, tests, and TS complication with `grunt`.
 
 Uploading of built TS+JS can be done by running `grunt <world>` where `<world>` can be `mmo`, `private`, or `local`.
 
-## Stats
+## Structure
 
-Statistics for the dashboards are written to memory under `stats`. Its setup to be consumed by [my fork of screeps-grafana](https://github.com/ryanrolds/screeps-grafana).
+Screeps does not allow the uploading of source maps. So, to keep the stack traces from the game similar to the
+source good the directory has a flat structure and is not combined into single JS file. This may change in the future depending on the pain.
+
+The source is prefixed to group files by their type/purpose:
+- Behavior - Files containing behavior trees for creeps
+- Constants - Shared constants
+- Helpers - Shared functions
+- Lib - Shared libraries
+- Org - Tree of logic execute each tick (deprecated in favor of Runnables)
+- OS - Scheduler, Process, and other OS-level components
+- Roles - Behavior trees for Creep roles
+- Runnable - AI processes
+- Topic - Process IPC
+
+First-class technical concepts:
+- AI - Root object for the AI
+- Kingdom - Represents a shard and hold references to shared data and objects
+- Scribe - Aggregates game state and persists room details in case the we lose visibility
+- Caches - Cost Matrices and Path
+- Scheduler - Tracks, schedules, and execute processes
+- Process - A runnable unit for work, wrapper for AI logic run during a tick
+- Topics - Priority queues organized into topics
+- Event Streams - Event streams and consumer groups
+- Tracer - Logging, tracing, and metrics
+
+The AI strategy is contained mostly in the Runnables and the Roles, which will sure the shared constants, functions, and libraries.
+
+Communication between processes and other components is almost entirely done over Topics and Event Streams, items not using these methods are being moved to using them as needed.
 
 ## Operation
 
-The AI will focus on establishing an economy, build, repair, and defend the colonies. The build manager will spawn at least one Upgrader and will add more if there is energy above the defense reserve.
+The AI will focus on establishing an economy, build, repair, and defend it's bases. The build manager will spawn at least one Upgrader and will add more if there is energy above the defense reserve.
 
 There are some debugging tools built into the project:
 
@@ -136,6 +163,29 @@ There are a couple of helpful global variables:
 * `METRIC_MIN=<min ms>|0` - (default 0.5ms) Will cause Tracer to report metrics that are greater than `<min ms>`
 * `LOG_WHEN_PID='<prefix>'|null` - Logs with tracers matching the prefix will be output to the console
 * `RESET_PIDS=true|false` - Will reset the PID controllers - useful when PID controllers are spawning too many haulers
+
+## Stats
+
+Statistics for the dashboards are written to memory under `stats`. Its setup to be consumed by [my fork of screeps-grafana](https://github.com/ryanrolds/screeps-grafana).
+
+## Strategy
+
+### Central Planning
+
+### Base
+
+The `./src/main.ts` file contains a `KingdomConfig` that defines the rooms that should be considered part of the Kingdom. Rooms inside the Kingdom will be reserved/claimed in the order they appear in the list. Sources present in the Kingdom's Domain will be harvested.
+
+> Make sure to update the list when setting up the project
+
+### Build priorities
+
+### Economy & Market
+
+### Defense
+
+### Offense
+
 ### Creeps
 
 * Attacker - Rally at Attack Flag and attack hostiles in room
@@ -151,64 +201,11 @@ There are a couple of helpful global variables:
 * Reserver - Claims/Reserves rooms
 * Upgrader - Upgrades room controllers
 
-### Parties
+#### Parties
 
 Groups of creeps, typically called a quad, are represented by a single party, which is a process that assigns member creeps move, attack, and heal orders. Parties are created by a manager process, see `runnable.manager.buffer` and `runnable.manager.war`.
 
-### Colony
-
-The `./src/main.ts` file contains a `KingdomConfig` that defines the rooms that should be considered part of the Kingdom. Rooms inside the Kingdom will be reserved/claimed in the order they appear in the list. Sources present in the Kingdom's Domain will be harvested.
-
-> Make sure to update the list when setting up the project
-
-### Build priorities
-
-1. If spawn Storage/Containers, spawn Distributors (1/5 the number of extensions)
-2. Harvesters, miners, and haulers
-3. Minimum of 1 Upgrader
-4. Build explorer and get visibility in rooms in Colony Domain
-5. If attack flags, all energy goes into spawning Attackers
-6. 1 Repairer for each room with structures (like road and containers)
-7. 1 Builder for every 10 constructions sites in a room
-8. Max 3 Upgraders in each room with a Spawner
-
-### Economy & Building
-
-It's up to you to choose the rooms in your Domain. You must also place construction sites.
-
-Automated building may be added in the future.
-
-#### Do these things
-
-* Build Containers next to harvester, this will trigger Miners (specialized harvesters) and Haulers to spawn
-* Always be building maximum allowed Extensions
-* Always place your Turrets in your spawn rooms
-* Build Containers near Spawners, will be used as buffer and trigger spawning of Distributors
-* Build Storage when permitted, will triggers spawning of Distributors (specialized Colony core haulers)
-
-### Defense
-
-> Active development
-
-### Offense
-
-> Active development
-
-### Flags
-
-#### Attack
-
-When an Attack Flag (`attack*`) is four attackers will be spawned to form a squad. The quad will move to the flag and attack any hostile, towers, walls, etc.. in range of the flag.
-
-#### Defend
-
-TODO
-
-#### Station
-
-TODO
-
-## Design
+## Design (out-of-date but helpful)
 
 > The entire section, including subheadings, are a work in progress.
 
