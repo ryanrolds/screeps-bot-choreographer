@@ -412,7 +412,12 @@ export default class BaseRunnable {
 
   requestBuilder(trace: Tracer, orgRoom: OrgRoom, room: Room) {
     if (!Object.values(Game.spawns).length) {
-      trace.log('no spawns');
+      trace.log('no spawns, dont spawn builders');
+      return;
+    }
+
+    if (!room.storage) {
+      trace.log('no storage, dont spawn builders');
       return;
     }
 
@@ -531,6 +536,11 @@ export default class BaseRunnable {
   requestUpgrader(trace: Tracer, orgRoom: OrgRoom, room: Room) {
     if (!orgRoom.isPrimary) {
       trace.error('not primary room', {id: this.id, orgRoomid: orgRoom.id});
+      return;
+    }
+
+    if (!room.storage) {
+      trace.log('no storage, dont spawn upgraders');
       return;
     }
 

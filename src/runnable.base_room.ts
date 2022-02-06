@@ -229,7 +229,7 @@ export default class RoomRunnable {
 
         trace.log('haul dropped', {room: primaryRoom.id, topic, i, loadPriority, details});
 
-        orgRoom.sendRequest(topic, loadPriority, details, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
+        kingdom.sendRequest(topic, loadPriority, details, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
       }
     });
   }

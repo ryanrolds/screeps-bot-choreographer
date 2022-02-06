@@ -73,7 +73,7 @@ export class CentralPlanning {
       const automated = !shard.startsWith('shard') || shard === 'shardSeason';
       if (!this.baseConfigs[roomName]) {
         trace.warn('found unknown base', {roomName});
-        this.addBase(roomName, false, origin, parking, automated, [], [], trace);
+        this.addBase(roomName, false, origin, parking, automated, [roomName], [], trace);
       }
     });
 

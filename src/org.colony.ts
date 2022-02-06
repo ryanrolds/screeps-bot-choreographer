@@ -176,9 +176,11 @@ export class Colony extends OrgBase {
     let numHaulTasks = this.getKingdom().getTopicLength(getBaseHaulerTopic(this.baseId));
     numHaulTasks -= this.idleHaulers;
 
+    trace.notice('haul tasks', {numHaulTasks, numIdleHaulers: this.idleHaulers});
+
     if (this.primaryRoom) {
       if (!this.pidSetup) {
-        trace.log('setting up pid', {pidDesiredHaulers: this.pidDesiredHaulers});
+        trace.notice('setting up pid', {pidDesiredHaulers: this.pidDesiredHaulers});
         this.pidSetup = true;
         PID.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, 0, 0.2, 0.001, 0);
       }
@@ -188,6 +190,8 @@ export class Colony extends OrgBase {
         numHaulTasks, Game.time, updateHaulerPID);
       updateHaulerPID.log('desired haulers', {desired: this.pidDesiredHaulers});
       updateHaulerPID.end();
+
+      trace.notice('desired haulers', {desired: this.pidDesiredHaulers});
     }
 
     const roomTrace = updateTrace.begin('rooms');
@@ -375,7 +379,7 @@ export class Colony extends OrgBase {
       role = CREEPS.ROLE_WORKER;
     }
 
-    trace.log('request haulers', {numHaulers: this.numHaulers, desiredHaulers: this.pidDesiredHaulers})
+    trace.notice('request haulers', {numHaulers: this.numHaulers, desiredHaulers: this.pidDesiredHaulers})
 
     // PID approach
     if (this.numHaulers < this.pidDesiredHaulers) {
