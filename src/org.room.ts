@@ -1,4 +1,4 @@
-import {OrgBase} from './org.base';
+import {OrgParent} from './org';
 import {Colony} from './org.colony';
 import * as CREEPS from './constants.creeps';
 import * as MEMORY from './constants.memory';
@@ -12,38 +12,25 @@ import {getBaseSpawnTopic} from './topics.base';
 import {BaseConfig} from './config';
 
 export const TOPIC_ROOM_KEYVALUE = 'room_keyvalue';
-const MEMORY_HOSTILE_TIME = 'hostile_time';
-const MEMORY_HOSTILE_POS = 'hostile_pos';
-
-const MAX_DEFENDERS = 8;
 
 const WALL_LEVEL = 1000;
 const RAMPART_LEVEL = 1000;
 const PER_LEVEL_ENERGY = 100000;
 const UPGRADER_BUFFER = 25000;
+
 // TODO increase this later, we should be able to sustain at least one nuke
 // before the walls break
 const MAX_WALL_HITS = 11000000;
 
 const UPDATE_CREEPS_TTL = 1;
 const UPDATE_ROOM_TTL = 10;
-const UPDATE_ORG_TTL = 10;
 const UPDATE_RESOURCES_TTL = 5;
 const UPDATE_BOOSTER_TTL = 5;
-
-const UPDATE_DEFENSE_STATUS_TTL = 5;
 const UPDATE_DAMAGED_CREEPS_TTL = 5;
 const UPDATE_DAMAGED_STRUCTURES_TTL = 40;
 const UPDATE_DAMAGED_SECONDARY_TTL = 15;
-const UPDATE_DAMAGED_ROADS_TTL = 25;
 
-const REQUEST_DEFENDERS_TTL = 20;
-const REQUEST_DEFENDERS_DELAY = 20;
-const HOSTILE_PRESENCE_TTL = 200;
-
-const RESERVE_RESOURCES_TTL = 5;
-
-export enum RoomAlertLevel {
+export enum AlertLevel {
   GREEN = "green",
   YELLOW = "yellow",
   RED = "red",
@@ -51,7 +38,8 @@ export enum RoomAlertLevel {
 
 export type ResourceCounts = Partial<Record<ResourceConstant, number>>;
 
-export default class OrgRoom extends OrgBase {
+export default class OrgRoom extends OrgParent {
+  roomName: string;
   room: Room;
   isPrimary: boolean;
   isPublic: boolean;
@@ -66,16 +54,6 @@ export default class OrgRoom extends OrgBase {
   resources: ResourceCounts;
   hasStorage: boolean;
 
-  hostileTime: number;
-  hostileTimes: Record<number, number>;
-  lastHostilePosition: string;
-  hostiles: Creep[];
-  numHostiles: number;
-  numDefenders: number;
-  defendersLost: number;
-  invaderCores: StructureInvaderCore[];
-  lowHitsDefenses: number;
-
   damagedCreeps: string[];
   damagedStructures: Id<AnyStructure>[];
   defenseHitsLimit: number;
@@ -86,26 +64,25 @@ export default class OrgRoom extends OrgBase {
   threadUpdateCreeps: ThreadFunc;
   threadUpdateRoom: ThreadFunc;
   threadUpdateResources: ThreadFunc;
-  threadUpdateDefenseStatus: ThreadFunc;
   threadUpdateDamagedCreeps: ThreadFunc;
   threadUpdateBoosters: ThreadFunc;
   updateDamagedCreeps: ThreadFunc;
   updateDamagedStructure: ThreadFunc;
   updateDamagedSecondaryStructures: ThreadFunc;
-  threadRequestDefenders: ThreadFunc;
 
   boosterAllEffects: EffectSet;
   boosterEffects: EffectSet;
   boosterPosition: RoomPosition;
   boosterLabs: LabsByResource;
 
-  constructor(parent: Colony, room: Room, trace: Tracer) {
-    super(parent, room.name, trace);
+  constructor(parent: Colony, roomName: string, room: Room, trace: Tracer) {
+    super(parent, roomName, trace);
 
     const setupTrace = this.trace.begin('constructor');
 
+    this.roomName = roomName;
     this.room = room;
-    this.isPrimary = room.name === parent.primaryRoomId;
+    this.isPrimary = roomName === parent.primaryRoomId;
     this.isPublic = parent.isPublic;
 
     // Creeps
@@ -136,19 +113,6 @@ export default class OrgRoom extends OrgBase {
       this.resources = this.updateReserveResources();
     });
 
-    // Defense status
-    this.hostileTime = room.memory[MEMORY_HOSTILE_TIME] || 0;
-    this.hostileTimes = {};
-    this.lastHostilePosition = room.memory[MEMORY_HOSTILE_POS] || null;
-    this.hostiles = [];
-    this.numHostiles = 0;
-    this.numDefenders = 0;
-    this.defendersLost = 0;
-    this.invaderCores = [];
-    this.threadUpdateDefenseStatus = thread('defense_status_thread', UPDATE_DEFENSE_STATUS_TTL)((trace, room, kingdom) => {
-      this.updateDefenseStatus(kingdom, room, trace);
-    });
-
     this.boosterPosition = null;
     this.boosterEffects = null;
     this.boosterAllEffects = null;
@@ -156,13 +120,13 @@ export default class OrgRoom extends OrgBase {
     this.threadUpdateBoosters = thread('update_booster_thread', UPDATE_BOOSTER_TTL)((trace, room, kingdom) => {
       const topic = this.getTopics().getTopic(TOPIC_ROOM_BOOSTS);
       if (!topic) {
-        trace.log('no topic', {room: this.id});
+        trace.log('no topic');
         return;
       }
 
       topic.forEach((event) => {
         const details: BoosterDetails = event.details;
-        trace.log('booster position', {room: this.id, details});
+        trace.log('booster position', {details});
 
         this.boosterPosition = details.position;
         this.boosterEffects = details.availableEffects;
@@ -199,6 +163,11 @@ export default class OrgRoom extends OrgBase {
     this.defenseHitsLimit = 10000;
     this.damagedSecondaryStructures = [];
     this.updateDamagedSecondaryStructures = thread('secondary_structures_thread', UPDATE_DAMAGED_SECONDARY_TTL)(() => {
+      const room = Game.rooms[this.roomName];
+      if (!room) {
+        return;
+      }
+
       const rcLevel = room.controller.level.toString();
       const rcLevelHitsMax = RAMPART_HITS_MAX[rcLevel] || 10000;
 
@@ -231,119 +200,33 @@ export default class OrgRoom extends OrgBase {
 
       this.damagedSecondaryStructures = _.map(damagedSecondaryStructures, 'id');
       trace.log('damaged secondary structures', {
-        room: this.id,
+        room: this.roomName,
         defenseHitsLimit: this.defenseHitsLimit,
         damagedSecondaryStructures: this.damagedSecondaryStructures
       });
     });
-
-    this.threadRequestDefenders = thread('request_defenders_thread', REQUEST_DEFENDERS_TTL)((trace, kingdom, base) => {
-      const freshDefenders = this.getColony().defenders.filter((defender) => {
-        return creepIsFresh(defender);
-      });
-
-      trace.log('existing defenders', {freshDefenders: freshDefenders.length, MAX_DEFENDERS});
-
-      const neededDefenders = MAX_DEFENDERS - freshDefenders.length;
-      if (neededDefenders <= 0) {
-        trace.log('do not need defenders: full');
-        return;
-      }
-
-      if (this.stationFlags.length) {
-        const flag = this.stationFlags[0];
-        const position = [flag.pos.x, flag.pos.y, flag.pos.roomName].join(',');
-        trace.log('request defenders to flag');
-        this.requestDefender(kingdom, base, position, true, trace);
-        return;
-      }
-
-      const enemyPresent = this.hostiles.length || this.invaderCores.length;
-      const enemyPresentRecently = Game.time - this.hostileTime < HOSTILE_PRESENCE_TTL;
-      if (!enemyPresent || !enemyPresentRecently) {
-        trace.log('do not request defender: room is quiet');
-        return;
-      }
-
-      trace.log('checking if we need defenders to handle hostile presence', {
-        enemyPresent,
-        enemyPresentRecently,
-        hostileTime: this.hostileTime,
-        defendersLost: this.defendersLost,
-      });
-
-      let controller = null;
-      if (this.room && this.room.controller) {
-        controller = this.room.controller;
-      }
-
-      if (controller && (controller.safeMode && controller.safeMode > 250)) {
-        trace.log('do not request defenders: in safe mode', {safeMode: controller.safeMode});
-        return;
-      }
-
-      if (!this.isPrimary && this.defendersLost >= 3) {
-        trace.log('do not request defender: we have lost too many defenders');
-      }
-
-      const pastDelay = Game.time - this.hostileTime >= REQUEST_DEFENDERS_DELAY;
-      if (!pastDelay) {
-        trace.log('do not request defender: waiting to see if they leave', {
-          pastDelay,
-          age: Game.time - this.hostileTime,
-          REQUEST_DEFENDERS_DELAY,
-        });
-        return;
-      }
-
-      for (let i = 0; i < neededDefenders; i++) {
-        this.requestDefender(kingdom, base, this.lastHostilePosition, true, trace);
-      }
-    });
-
-    setupTrace.end();
   }
 
   update(trace) {
     trace = trace.begin('update');
 
-    trace.log('room update', {roomId: this.id});
+    trace.log('room update');
 
-    const base = this.getKingdom().getPlanner().getBaseConfigByRoom(this.id);
+    const base = this.getKingdom().getPlanner().getBaseConfigByRoom(this.roomName);
     if (!base) {
-      trace.error('no base config for room', {roomId: this.id});
+      trace.error('no base config for room');
       trace.end();
       return;
     }
 
-    const room = this.room = Game.rooms[this.id];
+    const room = this.room = Game.rooms[this.roomName];
     if (!room) {
-      if (Game.time - this.hostileTime > HOSTILE_PRESENCE_TTL) {
-        trace.log('past hostile presence ttl, clearing hostiles');
-        this.hostiles = [];
-        this.numHostiles = 0;
-        this.defendersLost = 0;
-      }
-
-      // Check if we need to request defenders (was the room hostile last time we saw it?)
-      this.threadRequestDefenders(trace, this.getKingdom(), base);
-
+      trace.error('room not visible');
       trace.end();
       return;
     }
-
-    trace.log('reading events', {roomId: room.name});
-    room.getEventLog().forEach((msg) => {
-      if (msg.event === EVENT_OBJECT_DESTROYED && msg.data.type === 'creep') {
-        if (this.defenderIds.indexOf(msg.objectId as Id<Creep>) > -1) {
-          trace.log('lost a defender', {defenderId: msg.objectId});
-          this.defendersLost += 1;
-        }
-      }
-    });
 
     this.threadUpdateCreeps(trace, this.getKingdom());
-    this.threadUpdateDefenseStatus(trace, room, this.getKingdom());
     this.threadUpdateRoom(trace, this.getKingdom());
 
     if (this.isPrimary) {
@@ -354,15 +237,13 @@ export default class OrgRoom extends OrgBase {
       this.updateDamagedSecondaryStructures(trace);
     }
 
-    // Request defenders
-    this.threadRequestDefenders(trace);
-
     trace.end();
   }
+
   process(trace: Tracer) {
     const processTrace = trace.begin('process');
 
-    processTrace.log('room process', {roomId: this.id});
+    processTrace.log('room process', {roomId: this.roomName});
 
     if (!this.room) {
       return;
@@ -396,34 +277,11 @@ export default class OrgRoom extends OrgBase {
   getBoosterLabByResource(resource: ResourceConstant): StructureLab {
     return this.boosterLabs[resource];
   }
-  getHostiles() {
-    return this.hostiles;
-  }
-  getInvaderCores() {
-    return this.invaderCores;
-  }
+
   getHostileStructures() {
     return this.hostileStructures;
   }
-  isHostile(trace) {
-    const notQuite = this.numHostiles ||
-      (this.hostileTime !== 0 && Game.time - this.hostileTime < HOSTILE_PRESENCE_TTL);
 
-    trace.log('checking for hostiles', {
-      numHostiles: this.numHostiles,
-      numDefenders: this.numDefenders,
-      hostileTime: this.hostileTime,
-      HOSTILE_PRESENCE_TTL,
-      lastPresence: Game.time - this.hostileTime,
-      notQuite,
-    });
-
-    if (this.numDefenders) {
-      return false;
-    }
-
-    return notQuite;
-  }
   getLabs(): StructureLab[] {
     return this.myStructures.filter((structure): structure is StructureLab => {
       return structure.structureType === STRUCTURE_LAB;
@@ -625,20 +483,7 @@ export default class OrgRoom extends OrgBase {
     roomStats.resources = this.getReserveResources();
 
     const stats = this.getStats();
-    stats.colonies[this.getColony().id].rooms[this.id] = roomStats;
-  }
-
-  requestDefender(kingdom: Kingdom, base: BaseConfig, position, spawn, trace) {
-    trace.log('requesting defender', {position, spawn});
-
-    kingdom.sendRequest(getBaseSpawnTopic(base.id), PRIORITIES.PRIORITY_DEFENDER, {
-      role: CREEPS.WORKER_DEFENDER,
-      spawn,
-      memory: {
-        [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
-        [MEMORY.MEMORY_ASSIGN_ROOM_POS]: position,
-      },
-    }, REQUEST_DEFENDERS_TTL);
+    stats.colonies[this.getColony().id].rooms[this.roomName] = roomStats;
   }
 
   getReserveBuffer() {
@@ -679,8 +524,8 @@ export default class OrgRoom extends OrgBase {
     return this.room.controller.progress / this.room.controller.progressTotal;
   }
 
-  getAlertLevel(): RoomAlertLevel {
-    return RoomAlertLevel.GREEN;
+  getAlertLevel(): AlertLevel {
+    return AlertLevel.GREEN;
   }
 
   requestSpawn(priority, details, ttl, trace: Tracer) {
@@ -735,7 +580,7 @@ export default class OrgRoom extends OrgBase {
   updateCreeps(kingdom: Kingdom, trace: Tracer) {
     const updateCreepsTrace = trace.begin('update_creeps');
 
-    this.assignedCreeps = kingdom.getRoomCreeps(this.id);
+    this.assignedCreeps = kingdom.getRoomCreeps(this.roomName);
     this.defenderIds = this.assignedCreeps.filter((creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
       return role === CREEPS.WORKER_DEFENDER || role === CREEPS.WORKER_DEFENDER_DRONE ||
@@ -745,77 +590,5 @@ export default class OrgRoom extends OrgBase {
     });
 
     updateCreepsTrace.end();
-  }
-  updateDefenseStatus(kingdom: Kingdom, room: Room, trace: Tracer) {
-    const defenseTrace = trace.begin('defenses');
-
-    // We want to know if the room has hostiles, request defenders or put room in safe mode
-    let hostiles = room.find(FIND_HOSTILE_CREEPS);
-
-    // Filter friendly creeps
-    const friends = kingdom.config.friends;
-    hostiles = hostiles.filter(creep => friends.indexOf(creep.owner.username) === -1);
-
-    this.hostiles = hostiles;
-    this.numHostiles = this.hostiles.length;
-
-    this.numDefenders = room.find(FIND_MY_CREEPS, {
-      filter: (creep) => {
-        const role = creep.memory[MEMORY.MEMORY_ROLE];
-        return role === CREEPS.WORKER_DEFENDER || role === CREEPS.WORKER_DEFENDER_DRONE ||
-          role === CREEPS.WORKER_DEFENDER_BOOSTED;
-      },
-    }).length;
-
-    defenseTrace.log('hostile presence', {
-      numHostiles: this.numHostiles,
-      numDefenders: this.numDefenders,
-      hostileTime: this.hostileTime,
-      defendersLost: this.defendersLost,
-    });
-
-    if (!this.hostiles.length) {
-      this.hostileTimes = {};
-    }
-
-    if (this.hostiles.length) {
-      this.hostileTimes = this.hostiles.reduce((times, hostile) => {
-        if (!times[hostile.id]) {
-          times[hostile.id] = Game.time;
-        }
-
-        return times;
-      }, this.hostileTimes);
-
-      this.hostileTime = Math.min(...Object.values(this.hostileTimes));
-      room.memory[MEMORY_HOSTILE_TIME] = this.hostileTime;
-
-      defenseTrace.log('set hostile time', {
-        hostileTime: this.hostileTime,
-      });
-
-      // Update where we want defenders to go
-      const hostile = this.hostiles[0];
-      this.lastHostilePosition = [hostile.pos.x, hostile.pos.y, hostile.pos.roomName].join(',');
-      room.memory[MEMORY_HOSTILE_POS] = this.lastHostilePosition;
-    } else if (!this.isHostile(defenseTrace)) {
-      this.defendersLost = 0;
-      defenseTrace.log('clear hostile time');
-    }
-
-    this.invaderCores = this.roomStructures.filter((structure): structure is StructureInvaderCore => {
-      return structure.structureType === STRUCTURE_INVADER_CORE;
-    });
-
-    // We want to know if our defenses are being attacked
-    this.lowHitsDefenses = this.roomStructures.filter((s) => {
-      if (s.structureType !== STRUCTURE_WALL && s.structureType !== STRUCTURE_RAMPART) {
-        return false;
-      }
-
-      return s.hits < 1000;
-    }).length;
-
-    defenseTrace.end();
   }
 }

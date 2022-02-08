@@ -1,6 +1,6 @@
 import {Event} from './lib.event_broker';
 import {Tracer} from './lib.tracing';
-import {OrgBase} from './org.base';
+import {OrgParent} from './org';
 import {Kingdom} from './org.kingdom';
 import {thread, ThreadFunc} from './os.thread';
 import {getDashboardStream, HudEventSet, HudIndicator, HudIndicatorStatus} from './runnable.debug_hud';
@@ -99,7 +99,7 @@ export type CreepRequest = {
   ttl: number;
 }
 
-export class Scribe extends OrgBase {
+export class Scribe extends OrgParent {
   private journal: Journal;
   costMatrix255: CostMatrix;
   globalColonyCount: number;

@@ -2,7 +2,7 @@ export interface BaseMap {
   [id: string]: BaseConfig;
 }
 
-export interface BaseConfig {
+export type BaseConfig = {
   id: NonNullable<string>;
   primary: NonNullable<string>;
   rooms: NonNullable<string[]>;

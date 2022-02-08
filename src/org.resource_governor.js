@@ -1,4 +1,4 @@
-const {OrgBase} = require('./org.base');
+const {OrgParent} = require('./org');
 const TOPICS = require('./constants.topics');
 const MEMORY = require('./constants.memory');
 const TASKS = require('./constants.tasks');
@@ -38,7 +38,7 @@ const CRITICAL_EFFECTS = {
   'dismantle': ['XZH2O', 'ZH2O', 'ZH'],
 };
 
-class Resources extends OrgBase {
+class Resources extends OrgParent {
   constructor(parent, trace) {
     super(parent, 'resources', trace);
 

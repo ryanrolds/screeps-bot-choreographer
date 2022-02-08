@@ -118,6 +118,7 @@ export default class SpawnManager {
 
       let request: SpawnRequest = null;
       while (request = kingdom.getNextRequest(getBaseSpawnTopic(base.id))) {
+        trace.notice('sending spawn request', {request: request});
         kingdom.sendRequest(getKingdomSpawnTopic(), request.priority, request.details,
           request.ttl);
       }
@@ -129,6 +130,7 @@ export default class SpawnManager {
     this.spawnIds.forEach((id) => {
       const spawn = Game.getObjectById(id);
       if (!spawn) {
+        trace.error('spawn not found', {id: id});
         return;
       }
 
@@ -139,6 +141,7 @@ export default class SpawnManager {
 
       trace.log('spawn status', {id, isIdle, energy, energyCapacity, energyPercentage})
 
+      // If actively spawning, display and request boosts
       if (!isIdle) {
         const creep = Game.creeps[spawn.spawning.name];
 
@@ -164,152 +167,143 @@ export default class SpawnManager {
         if (boosts) {
           this.requestBoosts(spawn, boosts, priority);
         }
-      } else {
-        const spawnTopicSize = kingdom.getTopicLength(getBaseSpawnTopic(base.id));
-        const spawnTopicBackPressure = Math.floor(energyCapacity * (1 - (0.09 * spawnTopicSize)));
-        let energyLimit = _.max([300, spawnTopicBackPressure]);
-
-        let minEnergy = 300;
-        const numCreeps = (this.orgRoom as any).getColony().numCreeps;
-
-        /*
-        if (energyCapacity > 800) {
-          if (numCreeps > 50) {
-            minEnergy = energyCapacity * 0.90;
-          } else if (numCreeps > 30) {
-            minEnergy = energyCapacity * 0.50;
-          } else if (numCreeps > 20) {
-            minEnergy = energyCapacity * 0.40;
-          } else if (numCreeps > 10) {
-            minEnergy = 500;
-          }
-        }
-        */
-
-        minEnergy = _.max([300, minEnergy]);
-
-        const next = kingdom.peekNextRequest(getBaseSpawnTopic(base.id));
-        trace.log('spawn idle', {spawnTopicSize, numCreeps, energy, minEnergy, spawnTopicBackPressure, next});
-
-        if (energy < minEnergy) {
-          trace.log("low energy, not spawning", {id: this.id, energy, minEnergy})
-          return;
-        }
-
-        let request = kingdom.getNextRequest(getBaseSpawnTopic(base.id));
-        if (request) {
-          const role = request.details.role;
-          const definition = DEFINITIONS[role];
-          if (definition.energyMinimum && energy < definition.energyMinimum) {
-            trace.warn('not enough energy', {energy, request, definition});
-            return;
-          }
-
-          // Allow request to override energy limit
-          if (request.details.energyLimit) {
-            energyLimit = request.details.energyLimit;
-          }
-
-          const minEnergy = request.details[MEMORY.SPAWN_MIN_ENERGY] || 0;
-          if (energy < minEnergy) {
-            trace.warn('colony does not have energy', {minEnergy, energy, request});
-            return;
-          }
-
-          trace.log("colony spawn request", {id: this.id, role, energy, energyLimit, request});
-
-          this.createCreep(spawn, request.details.role, request.details.memory, energy, energyLimit);
-          return;
-        }
-
-        const peek = this.orgRoom.getKingdom().peekNextRequest(getKingdomSpawnTopic());
-        if (peek) {
-          const role = peek.details.role;
-          const definition = DEFINITIONS[role];
-          const numColonies = this.orgRoom.getKingdom().getColonies().length;
-
-          if (definition.energyMinimum && energy < definition.energyMinimum && numColonies > 3) {
-            trace.warn('not enough energy', {energy, peek, definition});
-            return;
-          }
-        }
-
-        const resources = this.orgRoom.getColony().getReserveResources()
-        const reserveEnergy = resources[RESOURCE_ENERGY] || 0;
-        if (reserveEnergy < 100000) {
-          trace.warn('reserve energy too low, dont handle requests from other colonies', {reserveEnergy});
-          return;
-        }
-
-        // Check inter-colony requests if the colony has spawns
-        const topic = this.orgRoom.getKingdom().getTopics()
-        request = topic.getMessageOfMyChoice(getKingdomSpawnTopic(), (messages) => {
-          const selected = messages.filter((message) => {
-            const assignedShard = message.details.memory[MEMORY.MEMORY_ASSIGN_SHARD] || null;
-            if (assignedShard && assignedShard != Game.shard.name) {
-              let portals: any[] = this.orgRoom.getKingdom().getScribe()
-                .getPortals(assignedShard).filter((portal) => {
-                  const distance = Game.map.getRoomLinearDistance(this.orgRoom.id,
-                    portal.pos.roomName);
-                  return distance < 2;
-                });
-
-              if (!portals.length) {
-                return false;
-              }
-
-              return true;
-            }
-
-            trace.log('choosing', {message})
-
-            let destinationRoom = null;
-
-            const baseRoom = message.details.memory[MEMORY.MEMORY_BASE];
-            if (baseRoom) {
-              destinationRoom = baseRoom
-            }
-
-            const assignedRoom = message.details.memory[MEMORY.MEMORY_ASSIGN_ROOM];
-            if (assignedRoom) {
-              destinationRoom = assignedRoom;
-            }
-
-            const positionRoom = message.details.memory[MEMORY.MEMORY_POSITION_ROOM];
-            if (positionRoom) {
-              destinationRoom = positionRoom;
-            }
-
-            trace.log('choosing', {destinationRoom})
-
-            if (!destinationRoom) {
-              trace.warn('no destination room', {message})
-              return false;
-            }
-
-            // TODO Replace with a room distance check
-            const distance = Game.map.getRoomLinearDistance((this.orgRoom as any).id, destinationRoom);
-            if (distance > MAX_COLONY_SPAWN_DISTANCE) {
-              trace.warn('distance to far', {distance, message});
-              return false;
-            }
-
-            return true;
-          });
-
-          if (!selected.length) {
-            return null;
-          }
-
-          return selected[0];
-        });
-
-        if (request) {
-          trace.notice('kingdom spawn request', {roomName: this.orgRoom.id, role: request?.details?.role});
-          this.createCreep(spawn, request.details.role, request.details.memory, energy, energyLimit);
-          return;
-        }
+        return;
       }
+
+      const spawnTopicSize = kingdom.getTopicLength(getBaseSpawnTopic(base.id));
+      const spawnTopicBackPressure = Math.floor(energyCapacity * (1 - (0.09 * spawnTopicSize)));
+      let energyLimit = _.max([300, spawnTopicBackPressure]);
+
+      let minEnergy = 300;
+      const numCreeps = (this.orgRoom as any).getColony().numCreeps;
+
+      minEnergy = _.max([300, minEnergy]);
+
+      const next = kingdom.peekNextRequest(getBaseSpawnTopic(base.id));
+      trace.log('spawn idle', {spawnTopicSize, numCreeps, energy, minEnergy, spawnTopicBackPressure, next});
+
+      if (energy < minEnergy) {
+        trace.log("low energy, not spawning", {id: this.id, energy, minEnergy})
+        return;
+      }
+
+      const request = this.getNextSpawnRequest(kingdom, trace);
+
+      if (request) {
+        trace.notice('kingdom spawn request', {roomName: this.orgRoom.id, role: request?.details?.role});
+        this.createCreep(spawn, request.details.role, request.details.memory, energy, energyLimit);
+        return;
+      }
+    });
+  }
+
+  private getNextSpawnRequest(kingdom: Kingdom, trace: Tracer): SpawnRequest {
+    let request = kingdom.getNextRequest(getBaseSpawnTopic(base.id));
+    if (request) {
+      const role = request.details.role;
+      const definition = DEFINITIONS[role];
+      if (definition.energyMinimum && energy < definition.energyMinimum) {
+        trace.warn('not enough energy', {energy, request, definition});
+        return;
+      }
+
+      // Allow request to override energy limit
+      if (request.details.energyLimit) {
+        energyLimit = request.details.energyLimit;
+      }
+
+      const minEnergy = request.details[MEMORY.SPAWN_MIN_ENERGY] || 0;
+      if (energy < minEnergy) {
+        trace.warn('colony does not have energy', {minEnergy, energy, request});
+        return;
+      }
+
+      trace.log("colony spawn request", {id: this.id, role, energy, energyLimit, request});
+
+      this.createCreep(spawn, request.details.role, request.details.memory, energy, energyLimit);
+      return;
+    }
+
+    const peek = this.orgRoom.getKingdom().peekNextRequest(getKingdomSpawnTopic());
+    if (peek) {
+      const role = peek.details.role;
+      const definition = DEFINITIONS[role];
+      const numColonies = this.orgRoom.getKingdom().getColonies().length;
+
+      if (definition.energyMinimum && energy < definition.energyMinimum && numColonies > 3) {
+        trace.warn('not enough energy', {energy, peek, definition});
+        return;
+      }
+    }
+
+    const resources = this.orgRoom.getColony().getReserveResources()
+    const reserveEnergy = resources[RESOURCE_ENERGY] || 0;
+    if (reserveEnergy < 100000) {
+      trace.warn('reserve energy too low, dont handle requests from other colonies', {reserveEnergy});
+      return;
+    }
+
+    // Check inter-colony requests if the colony has spawns
+    const topic = this.orgRoom.getKingdom().getTopics()
+    request = topic.getMessageOfMyChoice(getKingdomSpawnTopic(), (messages) => {
+      const selected = messages.filter((message) => {
+        const assignedShard = message.details.memory[MEMORY.MEMORY_ASSIGN_SHARD] || null;
+        if (assignedShard && assignedShard != Game.shard.name) {
+          let portals: any[] = this.orgRoom.getKingdom().getScribe()
+            .getPortals(assignedShard).filter((portal) => {
+              const distance = Game.map.getRoomLinearDistance(this.orgRoom.id,
+                portal.pos.roomName);
+              return distance < 2;
+            });
+
+          if (!portals.length) {
+            return false;
+          }
+
+          return true;
+        }
+
+        trace.log('choosing', {message})
+
+        let destinationRoom = null;
+
+        const baseRoom = message.details.memory[MEMORY.MEMORY_BASE];
+        if (baseRoom) {
+          destinationRoom = baseRoom
+        }
+
+        const assignedRoom = message.details.memory[MEMORY.MEMORY_ASSIGN_ROOM];
+        if (assignedRoom) {
+          destinationRoom = assignedRoom;
+        }
+
+        const positionRoom = message.details.memory[MEMORY.MEMORY_POSITION_ROOM];
+        if (positionRoom) {
+          destinationRoom = positionRoom;
+        }
+
+        trace.log('choosing', {destinationRoom})
+
+        if (!destinationRoom) {
+          trace.warn('no destination room', {message})
+          return false;
+        }
+
+        // TODO Replace with a room distance check
+        const distance = Game.map.getRoomLinearDistance((this.orgRoom as any).id, destinationRoom);
+        if (distance > MAX_COLONY_SPAWN_DISTANCE) {
+          trace.warn('distance to far', {distance, message});
+          return false;
+        }
+
+        return true;
+      });
+
+      if (!selected.length) {
+        return null;
+      }
+
+      return selected[0];
     });
   }
 

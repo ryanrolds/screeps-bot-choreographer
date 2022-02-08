@@ -1,9 +1,9 @@
 import {Tracer} from './lib.tracing';
-import {OrgBase} from './org.base';
+import {OrgParent} from './org';
 import {Kingdom} from './org.kingdom';
 import {Scribe} from './org.scribe';
 
-export class Observer extends OrgBase {
+export class Observer extends OrgParent {
   observer: StructureObserver;
   inRangeRooms: Id<Room>[];
   justObserved: Id<Room>;

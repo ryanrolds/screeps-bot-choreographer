@@ -1,3 +1,12 @@
+/**
+ * Logic for harvesting minerals
+ *
+ * Requirements:
+ *   - Build extractor when allowed
+ *   - Request harvester
+ *   - Do not request harvester when room status is not green
+ *   - Produce events that request road to extractor/mineral
+ */
 import {creepIsFresh} from './behavior.commute';
 import {BaseConfig} from './config';
 import {WORKER_HARVESTER} from "./constants.creeps";
@@ -5,13 +14,13 @@ import * as MEMORY from "./constants.memory";
 import {PRIORITY_HARVESTER, PRIORITY_MINER} from "./constants.priorities";
 import * as TASKS from "./constants.tasks";
 import * as TOPICS from "./constants.topics";
-import {Event} from "./lib.event_broker";
+import {Consumer, Event} from "./lib.event_broker";
 import {getPath} from "./lib.pathing";
 import {roadPolicy} from "./lib.pathing_policies";
 import {Tracer} from './lib.tracing';
 import {Colony} from './org.colony';
 import {Kingdom} from "./org.kingdom";
-import OrgRoom from "./org.room";
+import OrgRoom, {AlertLevel} from "./org.room";
 import {PersistentMemory} from "./os.memory";
 import {running, sleeping, terminate} from "./os.process";
 import {Runnable, RunnableResult} from "./os.runnable";
@@ -19,7 +28,9 @@ import {thread, ThreadFunc} from "./os.thread";
 import {getLinesStream, HudLine, HudEventSet} from './runnable.debug_hud';
 import {getLogisticsTopic, LogisticsEventData, LogisticsEventType} from "./runnable.base_logistics";
 import {getNearbyPositions} from './lib.position';
+import {getBaseRoomStatusStream, RoomDefenseStatus} from './runnable.base_defense';
 
+const UPDATE_STATUS_TTL = 20;
 const STRUCTURE_TTL = 50;
 const DROPOFF_TTL = 200;
 const REQUEST_WORKER_TTL = 50;
@@ -31,10 +42,13 @@ const CONTAINER_TTL = 250;
 
 export default class MineralRunnable extends PersistentMemory implements Runnable {
   id: string;
+  baseId: string;
   orgRoom: OrgRoom;
   mineralId: Id<Mineral>;
   position: RoomPosition;
   creepPosition: RoomPosition | null;
+
+  alertLevel: AlertLevel;
 
   ttl: number;
   workerTTL: number;
@@ -46,19 +60,28 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
   threadRequestHarvesters: ThreadFunc;
   threadBuildExtractor: ThreadFunc;
 
-  constructor(room: OrgRoom, mineral: Mineral) {
+  baseDefenseStatusConsumer: Consumer;
+  threadUpdateStatus: ThreadFunc;
+
+  constructor(baseId: string, room: OrgRoom, mineral: Mineral) {
     super(mineral.id);
 
     this.id = mineral.id;
+    this.baseId = baseId;
     this.orgRoom = room;
     this.mineralId = mineral.id;
     this.position = mineral.pos;
     this.creepPosition = null;
 
+    this.alertLevel = AlertLevel.GREEN;
+
     this.threadProduceEvents = thread('consume_events', PRODUCE_EVENTS_TTL)(this.produceEvents.bind(this));
     this.threadUpdateDropoff = thread('update_dropoff', DROPOFF_TTL)(this.updateDropoff.bind(this));
     this.threadRequestHarvesters = thread('request_miners', REQUEST_WORKER_TTL)(this.requestHarvesters.bind(this));
     this.threadBuildExtractor = thread('build_extractor', CONTAINER_TTL)(this.buildExtractor.bind(this));
+
+    this.baseDefenseStatusConsumer = null;
+    this.threadUpdateStatus = thread('update_room_status', UPDATE_STATUS_TTL)(this.updateStatus.bind(this));
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
@@ -108,9 +131,15 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
     this.threadRequestHarvesters(trace, kingdom, colony, room, mineral);
     this.threadBuildExtractor(trace, room, mineral);
 
+    if (!this.baseDefenseStatusConsumer) {
+      const streamId = getBaseRoomStatusStream(baseConfig.id);
+      this.baseDefenseStatusConsumer = kingdom.getBroker().getStream(streamId).addConsumer(`mineral_${this.id}`);
+    }
+    this.threadUpdateStatus(trace, kingdom, baseConfig);
+
     trace.end();
 
-    let sleepFor = 100;
+    let sleepFor = 20;
     if (mineral.mineralAmount === 0) {
       sleepFor = mineral.ticksToRegeneration;
     }
@@ -142,13 +171,22 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
     const hudLine: HudLine = {
       key: `${this.id}`,
       room: mineral.room.name,
-      text: `mineral(${mineral.id}) - `,
+      text: `mineral(${mineral.id}) - alert: ${this.alertLevel}`,
       time: Game.time,
       order: 4,
     };
 
     kingdom.getBroker().getStream(getLinesStream()).publish(new Event(this.id, Game.time,
       HudEventSet, hudLine));
+  }
+
+  updateStatus(trace: Tracer, kingdom: Kingdom, base: BaseConfig) {
+    this.baseDefenseStatusConsumer.getEvents().forEach((event) => {
+      const data = event.data as RoomDefenseStatus;
+      if (event.key === base.primary) {
+        this.alertLevel = data.alertLevel;
+      }
+    });
   }
 
   populatePositions(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig, mineral: Mineral) {

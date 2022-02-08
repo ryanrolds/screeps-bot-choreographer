@@ -85,7 +85,7 @@ if (!shardConfig) {
   shardConfig = shards.default;
 }
 
-console.log('selected shard config', shardConfig);
+console.log('selected shard config', JSON.stringify(shardConfig));
 
 const scheduler = new Scheduler();
 scheduler.setCPUThrottle(global.CPU_THROTTLE);

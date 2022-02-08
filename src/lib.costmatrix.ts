@@ -184,11 +184,13 @@ export const createSourceRoadMatrix = (kingdom: Kingdom, roomName: string, trace
   const baseConfig = kingdom.getPlanner().getBaseConfigById(roomName);
   if (baseConfig) {
     applyControllerBuffer(costMatrix, terrain, room.controller, 5, trace);
-    applyParkingLotBuffer(baseConfig, costMatrix, terrain, 5, trace);
 
     if (baseConfig.automated) {
       applyBaseRoads(baseConfig, costMatrix, terrain, 1, trace);
     }
+
+    applyParkingLotBuffer(baseConfig, costMatrix, terrain, 5, trace);
+
   }
 
   return costMatrix;

@@ -9,7 +9,7 @@ import * as PRIORITIES from "./constants.priorities"
 import {thread, ThreadFunc} from "./os.thread";
 import {RunnableResult} from "./os.runnable";
 import {BaseConfig} from "./config";
-import {getBaseDefenseTopic, getBaseDistributorTopic} from "./topics.base";
+import {getBaseDistributorTopic} from "./topics.base";
 
 const MIN_COMPOUND = 500;
 const MAX_COMPOUND = 2000;
@@ -436,7 +436,7 @@ export default class BoosterRunnable {
 
         trace.log('boost clear low', {priority: PRIORITIES.HAUL_BOOST, details});
 
-        kingdom.sendRequest(getBaseDefenseTopic(base.id), PRIORITIES.HAUL_BOOST,
+        kingdom.sendRequest(getBaseDistributorTopic(base.id), PRIORITIES.HAUL_BOOST,
           details, REQUEST_REBALANCE_TTL);
       }
     });
@@ -480,7 +480,7 @@ export default class BoosterRunnable {
 
       trace.log('boost unload', {priority: PRIORITIES.HAUL_BOOST, details});
 
-      kingdom.sendRequest(getBaseDefenseTopic(this.baseId), PRIORITIES.UNLOAD_BOOST,
+      kingdom.sendRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.UNLOAD_BOOST,
         details, REQUEST_UNLOAD_TTL);
     });
   }

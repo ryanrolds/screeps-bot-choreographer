@@ -7,12 +7,12 @@ import {Scheduler} from './os.scheduler';
 import {EventBroker} from './lib.event_broker';
 import Resources from './org.resource_governor';
 
-export class OrgBase {
-  parent: OrgBase;
+export class OrgParent {
+  parent: OrgParent;
   id: string;
   trace: any;
 
-  constructor(parent: OrgBase, id: string, trace: Tracer) {
+  constructor(parent: OrgParent, id: string, trace: Tracer) {
     this.parent = parent;
     this.id = id;
     this.trace = trace;
@@ -22,7 +22,7 @@ export class OrgBase {
     return this.id;
   }
 
-  getParent(): OrgBase {
+  getParent(): OrgParent {
     return this.parent;
   }
 

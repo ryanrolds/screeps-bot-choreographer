@@ -43,11 +43,8 @@ export class CentralPlanning {
 
     let bases: BaseMap = {};
     if ((Memory as any).bases) {
-      trace.warn('found shard memory', {bases: (Memory as any).bases});
+      trace.log('found shard memory', {bases: (Memory as any).bases});
       bases = (Memory as any).bases;
-    } else if (config && config.bases && config.bases[Game.shard.name]) {
-      trace.warn('found shard config', {config});
-      bases = config.bases;
     } else {
       trace.warn('no shard config found, bootstraping?');
     }
@@ -111,8 +108,8 @@ export class CentralPlanning {
     return this.shards;
   }
 
-  getBaseConfig(colonyId: string): BaseConfig {
-    return this.baseConfigs[colonyId];
+  getBaseConfig(baseId: string): BaseConfig {
+    return this.baseConfigs[baseId];
   }
 
   getBaseConfigs(): BaseConfig[] {
@@ -127,8 +124,8 @@ export class CentralPlanning {
     return this.baseConfigs;
   }
 
-  getBaseConfigById(colonyId: string): BaseConfig {
-    return this.baseConfigs[colonyId];
+  getBaseConfigById(baseId: string): BaseConfig {
+    return this.baseConfigs[baseId];
   }
 
   getBaseConfigByRoom(roomName: string): BaseConfig {
@@ -140,8 +137,8 @@ export class CentralPlanning {
     return this.getBaseConfig(baseId);
   }
 
-  setColonyAutomation(colonyId: string, automated: boolean) {
-    this.baseConfigs[colonyId].automated = automated;
+  setColonyAutomation(baseId: string, automated: boolean) {
+    this.baseConfigs[baseId].automated = automated;
   }
 
   getUsername() {
@@ -254,7 +251,7 @@ export class CentralPlanning {
       trace.warn('starting base process');
 
       this.scheduler.registerProcess(new Process(baseProcessId, 'base', Priorities.CRITICAL,
-        new BaseRunnable(base.id, this.scheduler)));
+        new BaseRunnable(baseProcessId, base.id, this.scheduler)));
     });
   }
 

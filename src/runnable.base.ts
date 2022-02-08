@@ -8,7 +8,7 @@ import {DEFENSE_STATUS} from './defense';
 import {Event} from './lib.event_broker';
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
-import OrgRoom, {RoomAlertLevel} from "./org.room";
+import OrgRoom, {AlertLevel as AlertLevel} from "./org.room";
 import {Process, running, sleeping, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 import {Priorities, Scheduler} from "./os.scheduler";
@@ -26,8 +26,9 @@ import LogisticsRunnable from './runnable.base_logistics';
 import ControllerRunnable from './runnable.base_controller';
 import {BaseConfig} from './config';
 import RoomRunnable from './runnable.base_room';
-import {getBaseDefenseTopic, getBaseDistributorTopic} from './topics.base';
+import {getBaseDistributorTopic} from './topics.base';
 import {getKingdomSpawnTopic} from './topics.kingdom';
+import {BaseDefense} from './runnable.base_defense';
 
 const MIN_ENERGY = 100000;
 
@@ -66,8 +67,10 @@ const importantStructures = [
 
 export default class BaseRunnable {
   id: string;
+  baseId: string;
   scheduler: Scheduler;
   defensePosture: DEFENSE_POSTURE;
+  alertLevel: AlertLevel;
 
   // Metrics
   missingProcesses: number;
@@ -83,10 +86,12 @@ export default class BaseRunnable {
   threadRequestEnergy: ThreadFunc;
   threadProduceStatus: ThreadFunc;
 
-  constructor(id: string, scheduler: Scheduler) {
+  constructor(id: string, baseId: string, scheduler: Scheduler) {
     this.id = id;
+    this.baseId = baseId;
     this.scheduler = scheduler;
     this.defensePosture = DEFENSE_POSTURE.UNKNOWN;
+    this.alertLevel = AlertLevel.GREEN;
 
     // Metrics
     this.missingProcesses = 0;
@@ -106,30 +111,28 @@ export default class BaseRunnable {
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
     trace = trace.begin('room_run');
+    trace = trace.withFields({baseId: this.baseId});
+    trace.log('room run');
 
-    trace.log('room run', {
-      id: this.id,
-    });
-
-    const baseConfig = kingdom.getPlanner().getBaseConfigByRoom(this.id);
+    const baseConfig = kingdom.getPlanner().getBaseConfigByRoom(this.baseId);
     if (!baseConfig) {
-      trace.error("no colony config, terminating", {id: this.id})
+      trace.error("no colony config, terminating")
       trace.end();
       return terminate();
     }
 
-    const room = Game.rooms[this.id];
+    const room = Game.rooms[baseConfig.primary];
     if (!room) {
-      trace.notice('cannot find room in game', {id: this.id});
-      this.requestClaimer(kingdom, trace);
+      trace.notice('cannot find room in game');
+      this.requestClaimer(kingdom, baseConfig, trace);
       trace.end();
       return sleeping(NO_VISION_TTL);
     }
 
     // TODO try to remove dependency on OrgRoom
-    const orgRoom = kingdom.getRoomByName(this.id);
+    const orgRoom = kingdom.getRoomByName(baseConfig.primary);
     if (!orgRoom) {
-      trace.error("no org room, terminating", {id: this.id})
+      trace.error("no org room, terminating")
       trace.end();
       return sleeping(NO_VISION_TTL);
     }
@@ -145,15 +148,15 @@ export default class BaseRunnable {
     this.threadRequestExtensionFilling(trace, kingdom, orgRoom, room);
 
     // Creeps
-    this.threadRequestBuilder(trace, orgRoom, room);
+    this.threadRequestBuilder(trace, kingdom, baseConfig, orgRoom, room);
     this.threadRequestRepairer(trace, orgRoom, room);
-    this.threadRequestUpgrader(trace, orgRoom, room);
-    this.threadRequestDistributor(trace, kingdom, orgRoom, room);
+    this.threadRequestUpgrader(trace, baseConfig, orgRoom, room);
+    this.threadRequestDistributor(trace, kingdom, baseConfig, orgRoom, room);
 
     // Inform other processes of room status
     this.threadProduceStatus(trace, kingdom, orgRoom, baseConfig);
 
-    const roomVisual = new RoomVisual(this.id);
+    const roomVisual = new RoomVisual(this.baseId);
     roomVisual.text("O", baseConfig.origin.x, baseConfig.origin.y, {color: '#FFFFFF'});
     roomVisual.text("P", baseConfig.parking.x, baseConfig.parking.y, {color: '#FFFFFF'});
 
@@ -161,32 +164,24 @@ export default class BaseRunnable {
     return sleeping(MIN_TTL);
   }
 
-  requestClaimer(kingdom: Kingdom, trace: Tracer) {
-    const enroute = _.find(Game.creeps, {
-      memory: {
-        [MEMORY.MEMORY_ROLE]: CREEPS.WORKER_RESERVER,
-        [MEMORY.MEMORY_ASSIGN_SHARD]: Game.shard.name,
-        [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
-        [MEMORY.MEMORY_BASE]: this.id,
-      }
-    });
-
-    if (enroute) {
-      trace.notice('claimer already enroute', {id: this.id, name: enroute.name, pos: enroute.pos});
-      return;
-    }
-
+  requestClaimer(kingdom: Kingdom, base: BaseConfig, trace: Tracer) {
     const detail = {
       role: CREEPS.WORKER_RESERVER,
       memory: {
         [MEMORY.MEMORY_ROLE]: CREEPS.WORKER_RESERVER,
         [MEMORY.MEMORY_ASSIGN_SHARD]: Game.shard.name,
-        [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
-        [MEMORY.MEMORY_BASE]: this.id,
-      },
+        [MEMORY.MEMORY_ASSIGN_ROOM]: base.primary,
+        [MEMORY.MEMORY_BASE]: base.id,
+      }
     };
 
-    trace.notice('requesting claimer', {id: this.id, detail});
+    const enroute = _.find(Game.creeps, detail);
+    if (enroute) {
+      trace.notice('claimer already enroute', {name: enroute.name, pos: enroute.pos});
+      return;
+    }
+
+    trace.notice('requesting claimer', {detail});
 
     kingdom.sendRequest(getKingdomSpawnTopic(), PRIORITIES.PRIORITY_RESERVER, detail, REQUEST_CLAIMER_TTL);
   }
@@ -195,9 +190,9 @@ export default class BaseRunnable {
     let missingProcesses = 0;
 
     // Spawn Manager
-    const spawnManagerId = `spawns_${this.id}`;
+    const spawnManagerId = `spawns_${this.baseId}`;
     if (!this.scheduler.hasProcess(spawnManagerId)) {
-      trace.log('starting spawn manager', {id: this.id});
+      trace.log('starting spawn manager', {id: this.baseId});
       missingProcesses++;
 
       this.scheduler.registerProcess(new Process(spawnManagerId, 'spawns', Priorities.CORE_LOGISTICS,
@@ -224,7 +219,7 @@ export default class BaseRunnable {
         missingProcesses++;
 
         const process = new Process(towerId, 'towers', Priorities.DEFENCE,
-          new TowerRunnable(this.id, orgRoom, tower))
+          new TowerRunnable(this.baseId, orgRoom, tower))
         process.setSkippable(false);
         this.scheduler.registerProcess(process);
       }
@@ -239,7 +234,7 @@ export default class BaseRunnable {
         missingProcesses++;
 
         this.scheduler.registerProcess(new Process(nukeId, 'nukes', Priorities.OFFENSE,
-          new NukerRunnable(this.id, orgRoom, nuker)));
+          new NukerRunnable(this.baseId, orgRoom, nuker)));
       }
     });
 
@@ -251,22 +246,22 @@ export default class BaseRunnable {
         missingProcesses++;
 
         this.scheduler.registerProcess(new Process(terminalId, 'terminals', Priorities.DEFENCE,
-          new TerminalRunnable(this.id, orgRoom, room.terminal)));
+          new TerminalRunnable(this.baseId, orgRoom, room.terminal)));
       }
     }
 
     // Link Manager
-    const linkManagerId = `links_${this.id}`
+    const linkManagerId = `links_${this.baseId}`
     if (!this.scheduler.hasProcess(linkManagerId) && orgRoom.room.storage) {
       trace.log('starting link manager', {id: linkManagerId});
       missingProcesses++;
 
       this.scheduler.registerProcess(new Process(linkManagerId, 'links', Priorities.RESOURCES,
-        new LinkManager(linkManagerId, this.id, orgRoom)));
+        new LinkManager(linkManagerId, this.baseId, orgRoom)));
     }
 
     // Labs Manager
-    const labsManagerId = `labs_${this.id}`;
+    const labsManagerId = `labs_${this.baseId}`;
     if (!this.scheduler.hasProcess(labsManagerId)) {
       trace.log('starting labs manager', {id: labsManagerId});
       missingProcesses++;
@@ -277,7 +272,7 @@ export default class BaseRunnable {
     }
 
     // Construction
-    const constructionId = `construction_${this.id}`;
+    const constructionId = `construction_${this.baseId}`;
     if (!this.scheduler.hasProcess(constructionId)) {
       trace.log('starting construction', {id: constructionId});
       missingProcesses++;
@@ -307,14 +302,14 @@ export default class BaseRunnable {
     }
 
     // Road network
-    const logisticsIds = `logistics_${this.id}`;
+    const logisticsIds = `logistics_${this.baseId}`;
     const hasLogisticsProcess = this.scheduler.hasProcess(logisticsIds);
     if (!hasLogisticsProcess) {
       trace.log('starting logistics', {id: logisticsIds});
       missingProcesses++;
 
       this.scheduler.registerProcess(new Process(logisticsIds, 'logistics', Priorities.LOGISTICS,
-        new LogisticsRunnable(this.id)));
+        new LogisticsRunnable(this.baseId)));
     }
 
     // Controller
@@ -328,6 +323,17 @@ export default class BaseRunnable {
         Priorities.CRITICAL, controllerRunnable));
     }
 
+    // Defense
+    const defenseId = `defense_${this.baseId}`;
+    const hasDefenseProcess = this.scheduler.hasProcess(defenseId);
+    if (!hasDefenseProcess) {
+      trace.notice('starting defense', {id: logisticsIds});
+      missingProcesses++;
+
+      this.scheduler.registerProcess(new Process(defenseId, 'defense', Priorities.DEFENCE,
+        new BaseDefense(this.baseId)));
+    }
+
     // Rooms
     baseConfig.rooms.forEach((room) => {
       const roomId = `room_${room}`;
@@ -337,14 +343,14 @@ export default class BaseRunnable {
         missingProcesses++;
 
         this.scheduler.registerProcess(new Process(roomId, 'rooms', Priorities.EXPLORATION,
-          new RoomRunnable(room, this.scheduler)));
+          new RoomRunnable(roomId, this.baseId, room, this.scheduler)));
       }
     });
 
     this.missingProcesses = missingProcesses;
   }
 
-  requestRepairer(trace: Tracer, orgRoom: OrgRoom, room: Room) {
+  requestRepairer(trace: Tracer, base: BaseConfig, orgRoom: OrgRoom, room: Room) {
     if (!orgRoom.isPrimary) {
       trace.log('not primary room, skipping');
       return;
@@ -374,18 +380,18 @@ export default class BaseRunnable {
       return creep.memory[MEMORY.MEMORY_ROLE] === CREEPS.WORKER_REPAIRER && creepIsFresh(creep);
     }).length;
 
-    trace.log('need repairers?', {id: this.id, hitsPercentage, numRepairers});
+    trace.log('need repairers?', {hitsPercentage, numRepairers});
 
     // Repairer requests
     let desiredRepairers = 0;
     let repairerPriority = PRIORITIES.PRIORITY_REPAIRER;
     if (hitsPercentage < 0.8) {
-      trace.log('need more repairers', {id: this.id, hitsPercentage});
+      trace.log('need more repairers', {hitsPercentage});
       desiredRepairers = 1;
     }
 
     if (hitsPercentage < 0.6) {
-      trace.log('need more repairers', {id: this.id, hitsPercentage});
+      trace.log('need more repairers', {hitsPercentage});
       desiredRepairers = 2;
       repairerPriority = PRIORITIES.PRIORITY_REPAIRER_URGENT;
     }
@@ -396,21 +402,22 @@ export default class BaseRunnable {
     }
 
     if (numRepairers >= desiredRepairers) {
-      trace.log('already have enough repairers', {id: this.id, numRepairers, desiredRepairers});
+      trace.log('already have enough repairers', {numRepairers, desiredRepairers});
       return;
     }
 
-    trace.log('request repairers', {id: this.id, desiredRepairers, numRepairers});
+    trace.log('request repairers', {desiredRepairers, numRepairers});
 
     orgRoom.requestSpawn(repairerPriority, {
       role: CREEPS.WORKER_REPAIRER,
       memory: {
-        [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
+        [MEMORY.MEMORY_ASSIGN_ROOM]: base.primary,
+        [MEMORY.MEMORY_BASE]: base.id,
       },
     }, REQUEST_REPAIRER_TTL, trace);
   }
 
-  requestBuilder(trace: Tracer, orgRoom: OrgRoom, room: Room) {
+  requestBuilder(trace: Tracer, kingdom: Kingdom, base: BaseConfig, orgRoom: OrgRoom, room: Room) {
     if (!Object.values(Game.spawns).length) {
       trace.log('no spawns, dont spawn builders');
       return;
@@ -437,27 +444,27 @@ export default class BaseRunnable {
       desiredBuilders = 3;
     }
 
-    trace.log('checking builders', {id: this.id, numConstructionSites, desiredBuilders});
+    trace.log('checking builders', {numConstructionSites, desiredBuilders});
 
     if (builders.length >= desiredBuilders) {
-      trace.log('already have enough builders', {id: this.id, numConstructionSites, desiredBuilders});
+      trace.log('already have enough builders', {numConstructionSites, desiredBuilders});
       return;
     }
 
     orgRoom.requestSpawn(PRIORITIES.PRIORITY_BUILDER - (builders.length * 2), {
       role: CREEPS.WORKER_BUILDER,
       memory: {
-        [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
+        [MEMORY.MEMORY_ASSIGN_ROOM]: base.primary,
         [MEMORY.MEMORY_ASSIGN_SHARD]: Game.shard.name,
-        [MEMORY.MEMORY_BASE]: (orgRoom as any).getColony().id,
+        [MEMORY.MEMORY_BASE]: base.id,
       },
     }, REQUEST_BUILDER_TTL, trace);
   }
 
-  requestDistributor(trace: Tracer, kingdom: Kingdom, orgRoom: OrgRoom, room: Room) {
+  requestDistributor(trace: Tracer, kingdom: Kingdom, base: BaseConfig, orgRoom: OrgRoom, room: Room) {
     const numDistributors = _.filter(orgRoom.getCreeps(), (creep) => {
       return creep.memory[MEMORY.MEMORY_ROLE] === CREEPS.WORKER_DISTRIBUTOR &&
-        creep.memory[MEMORY.MEMORY_ASSIGN_ROOM] === this.id && creepIsFresh(creep);
+        creep.memory[MEMORY.MEMORY_BASE] === this.baseId && creepIsFresh(creep);
     }).length;
 
     let desiredDistributors = MIN_DISTRIBUTORS;
@@ -470,7 +477,7 @@ export default class BaseRunnable {
       desiredDistributors = 3;
     }
 
-    const numCoreHaulTasks = kingdom.getTopicLength(getBaseDistributorTopic(this.id));
+    const numCoreHaulTasks = kingdom.getTopicLength(getBaseDistributorTopic(this.baseId));
     if (numCoreHaulTasks > 30) {
       desiredDistributors = 2;
     }
@@ -478,31 +485,30 @@ export default class BaseRunnable {
       desiredDistributors = 3;
     }
 
-    if (orgRoom.numHostiles) {
+    if (this.alertLevel === AlertLevel.RED) {
       const numTowers = room.find(FIND_MY_STRUCTURES, {
         filter: (structure) => {
           return structure.structureType === STRUCTURE_TOWER;
         }
       }).length;
 
-      trace.log('hostiles in room and we need more distributors', {numTowers, desiredDistributors});
+      trace.warn('hostiles in room and we need more distributors', {numTowers, desiredDistributors});
       desiredDistributors = Math.ceil(numTowers / 2) + desiredDistributors;
     }
 
     if (Game.cpu.bucket < 1000) {
-      trace.log('low CPU, limit distributors');
+      trace.warn('low CPU, limit distributors');
       desiredDistributors = 1;
     }
 
-    if (!orgRoom.hasStorage || numDistributors >= desiredDistributors) {
+    if (!room.storage || numDistributors >= desiredDistributors) {
       trace.log('do not request distributors', {
-        hasStorage: orgRoom.hasStorage,
+        hasStorage: !!room.storage,
         numDistributors,
         desiredDistributors,
         roomLevel: room.controller.level,
         fullness,
         numCoreHaulTasks,
-        numHostiles: orgRoom.numHostiles,
       });
       return;
     }
@@ -523,8 +529,8 @@ export default class BaseRunnable {
     const request = {
       role: CREEPS.WORKER_DISTRIBUTOR,
       memory: {
-        [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
-        [MEMORY.MEMORY_BASE]: (orgRoom as any).getColony().id,
+        [MEMORY.MEMORY_ASSIGN_ROOM]: base.primary,
+        [MEMORY.MEMORY_BASE]: base.id,
       },
     };
 
@@ -533,9 +539,9 @@ export default class BaseRunnable {
     orgRoom.requestSpawn(distributorPriority, request, REQUEST_DISTRIBUTOR_TTL, trace);
   }
 
-  requestUpgrader(trace: Tracer, orgRoom: OrgRoom, room: Room) {
+  requestUpgrader(trace: Tracer, base: BaseConfig, orgRoom: OrgRoom, room: Room) {
     if (!orgRoom.isPrimary) {
-      trace.error('not primary room', {id: this.id, orgRoomid: orgRoom.id});
+      trace.error('not primary room', {orgRoomid: orgRoom.id});
       return;
     }
 
@@ -609,8 +615,8 @@ export default class BaseRunnable {
         role: CREEPS.WORKER_UPGRADER,
         energyLimit: energyLimit,
         memory: {
-          [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
-          [MEMORY.MEMORY_BASE]: (orgRoom as any).getColony().id,
+          [MEMORY.MEMORY_ASSIGN_ROOM]: base.primary,
+          [MEMORY.MEMORY_BASE]: base.id,
         },
       }, REQUEST_UPGRADER_TTL, trace);
     }
@@ -634,7 +640,7 @@ export default class BaseRunnable {
 
     nonFullExtensions.forEach((extension) => {
       const details = {
-        [MEMORY.TASK_ID]: `ext-${this.id}-${Game.time}`,
+        [MEMORY.TASK_ID]: `ext-${this.baseId}-${Game.time}`,
         [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
         [MEMORY.MEMORY_HAUL_PICKUP]: pickup.id,
         [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
@@ -642,7 +648,7 @@ export default class BaseRunnable {
         [MEMORY.MEMORY_HAUL_AMOUNT]: extension.store.getFreeCapacity(RESOURCE_ENERGY),
       };
 
-      kingdom.sendRequest(getBaseDefenseTopic(this.id), PRIORITIES.HAUL_EXTENSION, details, HAUL_EXTENSION_TTL);
+      kingdom.sendRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.HAUL_EXTENSION, details, HAUL_EXTENSION_TTL);
     });
 
     trace.log('haul extensions', {numHaulTasks: nonFullExtensions.length});
@@ -709,12 +715,15 @@ export default class BaseRunnable {
     if (hostiles) {
       const infrastructure = room.find(FIND_MY_STRUCTURES, {
         filter: (structure) => {
-          return _.find(importantStructures, structure.structureType);
+          return importantStructures.indexOf(structure.structureType as any) !== -1;
         }
       });
 
+      trace.warn('hostiles found', {hostiles: hostiles.length, infrastructure: infrastructure.length});
+
       for (const structure of infrastructure) {
         if (structure.pos.findInRange(hostiles, 3).length > 3) {
+          trace.warn('hostiles found near infrastructure', {structure: structure.structureType});
           enableSafeMode = true;
           break;
         }
@@ -818,9 +827,9 @@ export default class BaseRunnable {
 
       // Alert indicator
       let alertLevelStatus = HudIndicatorStatus.Green;
-      if (orgRoom.getAlertLevel() === RoomAlertLevel.RED) {
+      if (orgRoom.getAlertLevel() === AlertLevel.RED) {
         alertLevelStatus = HudIndicatorStatus.Red;
-      } else if (orgRoom.getAlertLevel() === RoomAlertLevel.YELLOW) {
+      } else if (orgRoom.getAlertLevel() === AlertLevel.YELLOW) {
         alertLevelStatus = HudIndicatorStatus.Yellow;
       }
       const alertLevelIndicator: HudIndicator = {

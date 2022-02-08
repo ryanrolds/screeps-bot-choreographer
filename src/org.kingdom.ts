@@ -1,4 +1,4 @@
-import {OrgBase} from './org.base';
+import {OrgParent} from './org';
 import {Colony} from './org.colony';
 import ResourceGovernor from './org.resource_governor';
 import {Scribe} from './org.scribe';
@@ -18,7 +18,7 @@ import {CentralPlanning} from './runnable.central_planning';
 
 const UPDATE_ORG_TTL = 1;
 
-export class Kingdom extends OrgBase {
+export class Kingdom extends OrgParent {
   config: ShardConfig;
   scheduler: Scheduler;
   broker: EventBroker;
@@ -224,6 +224,14 @@ export class Kingdom extends OrgBase {
     return this.creepsByColony[id] || [];
   }
 
+  getBaseCreeps(id: string): Creep[] {
+    return this.creepsByColony[id] || [];
+  }
+
+  getCreepsByBase(id: string): Creep[] {
+    return this.creepsByRoom[id] || [];
+  }
+
   getRoomCreeps(id: string): Creep[] {
     return this.creepsByRoom[id] || [];
   }
@@ -273,12 +281,15 @@ export class Kingdom extends OrgBase {
 
     return orgRoom;
   }
+
   getScheduler(): Scheduler {
     return this.scheduler;
   }
+
   getStats(): any {
     return this.stats;
   }
+
   updateStats(trace: Tracer) {
     const stats = this.getStats();
 
@@ -324,6 +335,7 @@ export class Kingdom extends OrgBase {
   getFilteredRequests(topicId, filter): any[] {
     return this.topics.getFilteredRequests(topicId, filter);
   }
+
   updateOrg(trace: Tracer) {
     this.creeps = _.values(Game.creeps);
 
@@ -341,20 +353,9 @@ export class Kingdom extends OrgBase {
   }
 
   updateRoomCreeps(trace: Tracer) {
-    this.creepsByRoom = this.creeps.reduce((acc, creep) => {
-      let room = creep.memory[MEMORY.MEMORY_ASSIGN_ROOM];
-      if (!room) {
-        return acc;
-      }
-
-      if (!acc[room]) {
-        acc[room] = [];
-      }
-
-      acc[room].push(creep);
-
-      return acc;
-    }, {} as Record<string, Creep[]>);
+    this.creepsByRoom = _.groupBy(this.creeps, (creep) => {
+      return creep.memory[MEMORY.MEMORY_ASSIGN_ROOM];
+    });
   }
 
   updateColonyCreeps(trace: Tracer) {
@@ -396,5 +397,13 @@ export class Kingdom extends OrgBase {
     extraColonyIds.forEach((id) => {
       delete this.colonies[id];
     });
+  }
+
+  isFriendly(username: string): boolean {
+    return this.config.friends.indexOf(username) !== -1;
+  }
+
+  isNeutral(creep: Creep): boolean {
+    return this.config.neutral.indexOf(creep.owner.username) !== -1;
   }
 }

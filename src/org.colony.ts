@@ -1,5 +1,5 @@
 import OrgRoom from './org.room';
-import {OrgBase} from './org.base';
+import {OrgParent} from './org';
 import {Topics} from './lib.topics';
 import * as PID from './lib.pid';
 import {thread, ThreadFunc} from './os.thread';
@@ -28,7 +28,7 @@ const REQUEST_HAULER_TTL = 25;
 const REQUEST_DEFENDER_TTL = 5;
 const REQUEST_EXPLORER_TTL = 200;
 
-export class Colony extends OrgBase {
+export class Colony extends OrgParent {
   baseId: string;
   topics: Topics;
   desiredRooms: string[];
@@ -176,7 +176,7 @@ export class Colony extends OrgBase {
     let numHaulTasks = this.getKingdom().getTopicLength(getBaseHaulerTopic(this.baseId));
     numHaulTasks -= this.idleHaulers;
 
-    trace.notice('haul tasks', {numHaulTasks, numIdleHaulers: this.idleHaulers});
+    trace.log('haul tasks', {numHaulTasks, numIdleHaulers: this.idleHaulers});
 
     if (this.primaryRoom) {
       if (!this.pidSetup) {
@@ -191,7 +191,7 @@ export class Colony extends OrgBase {
       updateHaulerPID.log('desired haulers', {desired: this.pidDesiredHaulers});
       updateHaulerPID.end();
 
-      trace.notice('desired haulers', {desired: this.pidDesiredHaulers});
+      trace.log('desired haulers', {desired: this.pidDesiredHaulers});
     }
 
     const roomTrace = updateTrace.begin('rooms');
@@ -379,7 +379,7 @@ export class Colony extends OrgBase {
       role = CREEPS.ROLE_WORKER;
     }
 
-    trace.notice('request haulers', {numHaulers: this.numHaulers, desiredHaulers: this.pidDesiredHaulers})
+    trace.log('request haulers', {numHaulers: this.numHaulers, desiredHaulers: this.pidDesiredHaulers})
 
     // PID approach
     if (this.numHaulers < this.pidDesiredHaulers) {
@@ -412,7 +412,7 @@ export class Colony extends OrgBase {
 
     const explorers = this.assignedCreeps.filter((creep) => {
       return creep.memory[MEMORY_ROLE] == CREEPS.WORKER_EXPLORER &&
-        creep.memory[MEMORY.MEMORY_BASE] === this.id;
+        creep.memory[MEMORY.MEMORY_BASE] === this.baseId;
     });
 
     if (explorers.length < 0) {
@@ -427,11 +427,14 @@ export class Colony extends OrgBase {
     }
 
     if (explorers.length < MAX_EXPLORERS) {
-      trace.log('requesting explorer');
+      trace.notice('requesting explorer');
 
-      this.getKingdom().sendRequest(getBaseSpawnTopic(this.id), PRIORITIES.EXPLORER, {
+      const topic = getBaseSpawnTopic(this.baseId);
+      this.getKingdom().sendRequest(topic, PRIORITIES.EXPLORER, {
         role: CREEPS.WORKER_EXPLORER,
-        memory: {},
+        memory: {
+          [MEMORY.MEMORY_BASE]: this.baseId,
+        },
       }, REQUEST_EXPLORER_TTL);
     } else {
       trace.log('not requesting explorer', {numExplorers: explorers.length});
@@ -450,6 +453,15 @@ export class Colony extends OrgBase {
       });
     }
 
+    const baseConfig = this.getKingdom().getPlanner().getBaseConfigById(this.baseId);
+    if (!baseConfig) {
+      trace.error('no base config');
+      return;
+    }
+
+    // Update desired rooms
+    this.desiredRooms = baseConfig.rooms;
+
     this.missingRooms = _.difference(this.desiredRooms, this.visibleRooms);
     this.colonyRooms = _.difference(this.desiredRooms, this.missingRooms);
 
@@ -458,16 +470,16 @@ export class Colony extends OrgBase {
     const orgRoomIds = Object.keys(this.roomMap);
 
     const missingOrgColonyIds = _.difference(desiredRoomIds, orgRoomIds);
-    missingOrgColonyIds.forEach((id) => {
-      const room = Game.rooms[id];
+    missingOrgColonyIds.forEach((roomName) => {
+      const room = Game.rooms[roomName];
       if (!room) {
-        trace.warn('missing room not found', {id});
+        trace.warn('missing room not found', {roomName});
         return;
       }
 
-      const orgNode = new OrgRoom(this, room, trace);
-      this.roomMap[id] = orgNode;
-      this.getKingdom().roomNameToOrgRoom[id] = orgNode;
+      const orgNode = new OrgRoom(this, roomName, room, trace);
+      this.roomMap[roomName] = orgNode;
+      this.getKingdom().roomNameToOrgRoom[roomName] = orgNode;
     });
 
     const extraOrgColonyIds = _.difference(orgRoomIds, desiredRoomIds);
@@ -479,7 +491,10 @@ export class Colony extends OrgBase {
     if (this.roomMap[this.primaryRoomId]) {
       this.primaryOrgRoom = this.roomMap[this.primaryRoomId];
     } else {
-      trace.error('primary room not found', {orgColonyId: this.id, primaryRoomId: this.primaryRoomId, missingOrgColonyIds, extraOrgColonyIds, desiredRoomIds, orgRoomIds});
+      trace.error('primary room not found', {
+        orgColonyId: this.id, primaryRoomId: this.primaryRoomId,
+        missingOrgColonyIds, extraOrgColonyIds, desiredRoomIds, orgRoomIds
+      });
     }
 
     updateOrgTrace.end();

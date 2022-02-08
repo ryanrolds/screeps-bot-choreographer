@@ -1,9 +1,8 @@
 import * as MEMORY from "./constants.memory";
 import * as PRIORITIES from "./constants.priorities";
 import * as TASKS from "./constants.tasks";
-import * as TOPICS from "./constants.topics";
 import {Tracer} from './lib.tracing';
-import {getBaseDefenseTopic, getBaseDistributorTopic} from "./topics.base";
+import {getBaseDistributorTopic} from "./topics.base";
 import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
 import {sleeping, terminate} from "./os.process";
@@ -240,8 +239,7 @@ export default class LinkManager {
     };
 
     trace.log('haul energy to storage link', {request: details});
-    kingdom.sendRequest(getBaseDefenseTopic(this.baseId), PRIORITIES.LOAD_LINK, details, HAUL_TTL);
-
+    kingdom.sendRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.LOAD_LINK, details, HAUL_TTL);
   }
 }
 

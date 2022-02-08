@@ -227,8 +227,8 @@ export default class TowerRunnable {
     const towerTotal = tower.store.getCapacity(RESOURCE_ENERGY);
 
     const pickupId = this.orgRoom.getClosestStoreWithEnergy(tower);
-    const priority = ((room.numHostiles) ?
-      PRIORITIES.HAUL_TOWER_HOSTILES : PRIORITIES.HAUL_TOWER) - (towerUsed / towerTotal);
+    // TODO consume base alert status and adjust priority of haul tasks when red alert
+    const priority = PRIORITIES.HAUL_TOWER - (towerUsed / towerTotal);
 
     const details = {
       [MEMORY.TASK_ID]: `tel-${tower.id}-${Game.time}`,

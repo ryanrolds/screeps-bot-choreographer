@@ -25,7 +25,8 @@ const selectNextTaskOrPark = behaviorTree.selectorNode(
         }
 
         // get next haul task
-        const task = kingdom.getTopics().getMessageOfMyChoice(getBaseDistributorTopic(base.id), (messages) => {
+        const topic = getBaseDistributorTopic(base.id)
+        const task = kingdom.getTopics().getMessageOfMyChoice(topic, (messages) => {
           const sorted = _.sortByOrder(messages, [
             'priority',
             (message: any) => {
@@ -48,7 +49,7 @@ const selectNextTaskOrPark = behaviorTree.selectorNode(
         });
 
         if (!task) {
-          trace.log('no haul task');
+          trace.log('no haul task', {topic, baseId: base.id});
           return FAILURE;
         }
 

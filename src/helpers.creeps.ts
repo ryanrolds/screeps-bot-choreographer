@@ -1,25 +1,27 @@
-const roleHarvester = require('./role.harvester');
-const roleUpgrader = require('./role.upgrader');
-const roleBuilder = require('./role.builder');
-const roleRepairer = require('./role.repairer');
-const roleHauler = require('./role.hauler');
-const roleMiner = require('./role.miner');
-const roleDistributor = require('./role.distributor');
-const roleDefender = require('./role.defender');
-const roleDefenderDrone = require('./role.defender_drone');
-const roleAttacker = require('./role.attacker');
-const roleReserver = require('./role.reserver');
-const roleWorker = require('./role.worker');
+import roleExplorer from "./role.explorer";
 
-const CREEPS = require('./constants.creeps');
-const MEMORY = require('./constants.memory');
+import {roleHarvester} from "./role.harvester";
+import {roleUpgrader} from "./role.upgrader";
+import {roleBuilder} from "./role.builder";
+import {roleRepairer} from "./role.repairer";
+import {roleHauler} from "./role.hauler";
+import {roleMiner} from "./role.miner";
+import {roleDistributor} from "./role.distributor";
+import {roleDefender} from "./role.defender";
+import roleDefenderDrone from "./role.defender_drone";
+import roleAttacker from "./role.attacker";
+import {roleReserver} from "./role.reserver";
+import {roleWorker} from "./role.worker";
 
-const {DEFINITIONS} = require('./constants.creeps');
-const {MEMORY_ROLE, MEMORY_ORIGIN, MEMORY_ORIGIN_SHARD} = require('./constants.memory');
+import * as CREEPS from "./constants.creeps";
+import * as MEMORY from "./constants.memory";
+
+import {DEFINITIONS} from "./constants.creeps";
+import {MEMORY_ROLE, MEMORY_ORIGIN, MEMORY_ORIGIN_SHARD} from './constants.memory';
 
 const MIN_BUCKET_THROTTLE = 1000;
 
-module.exports.tick = (kingdom, trace) => {
+export const tick = (kingdom, trace) => {
   // Take modulus of tick to give us an offset so that we don't always skip
   // the same 20%
   let skipCount = Game.time % 5;
@@ -39,17 +41,19 @@ module.exports.tick = (kingdom, trace) => {
 
     // TODO move the below to a map and/or lookup function
 
-    if (creep.memory.role == CREEPS.WORKER_ATTACKER) {
+    const role = creep.memory[MEMORY_ROLE];
+
+    if (role == CREEPS.WORKER_ATTACKER) {
       roleAttacker.run(creep, trace, kingdom);
       return;
     }
 
-    if (creep.memory.role == CREEPS.WORKER_DEFENDER) {
+    if (role == CREEPS.WORKER_DEFENDER) {
       roleDefender.run(creep, trace, kingdom);
       return;
     }
 
-    if (creep.memory.role == CREEPS.WORKER_DEFENDER_DRONE) {
+    if (role == CREEPS.WORKER_DEFENDER_DRONE) {
       roleDefenderDrone.run(creep, trace, kingdom);
       return;
     }
@@ -61,52 +65,52 @@ module.exports.tick = (kingdom, trace) => {
       }
     }
 
-    if (creep.memory.role == CREEPS.WORKER_DISTRIBUTOR) {
+    if (role == CREEPS.WORKER_DISTRIBUTOR) {
       roleDistributor.run(creep, trace, kingdom);
       return;
     }
 
-    if (creep.memory.role == CREEPS.WORKER_MINER) {
+    if (role == CREEPS.WORKER_MINER) {
       roleMiner.run(creep, trace, kingdom);
       return;
     }
 
-    if (creep.memory.role == CREEPS.ROLE_WORKER) {
+    if (role == CREEPS.ROLE_WORKER) {
       roleWorker.run(creep, trace, kingdom);
       return;
     }
 
-    if (creep.memory.role == CREEPS.WORKER_HARVESTER) {
+    if (role == CREEPS.WORKER_HARVESTER) {
       roleHarvester.run(creep, trace, kingdom);
       return;
     }
 
-    if (creep.memory.role == CREEPS.WORKER_UPGRADER) {
+    if (role == CREEPS.WORKER_UPGRADER) {
       roleUpgrader.run(creep, trace, kingdom);
       return;
     }
 
-    if (creep.memory.role == CREEPS.WORKER_BUILDER) {
+    if (role == CREEPS.WORKER_BUILDER) {
       roleBuilder.run(creep, trace, kingdom);
       return;
     }
 
-    if (creep.memory.role == CREEPS.WORKER_REPAIRER) {
+    if (role == CREEPS.WORKER_REPAIRER) {
       roleRepairer.run(creep, trace, kingdom);
       return;
     }
 
-    if (creep.memory.role == CREEPS.WORKER_HAULER) {
+    if (role == CREEPS.WORKER_HAULER) {
       roleHauler.run(creep, trace, kingdom);
       return;
     }
 
-    if (creep.memory.role == CREEPS.WORKER_RESERVER) {
+    if (role == CREEPS.WORKER_RESERVER) {
       roleReserver.run(creep, trace, kingdom);
       return;
     }
 
-    if (creep.memory.role == CREEPS.WORKER_EXPLORER) {
+    if (role == CREEPS.WORKER_EXPLORER) {
       roleExplorer.run(creep, trace, kingdom);
       return;
     }
@@ -122,7 +126,8 @@ module.exports.tick = (kingdom, trace) => {
   }
 };
 
-module.exports.createCreep = (colony, room, spawn, role, memory, energy, energyLimit) => {
+
+export const createCreep = (colony, room, spawn, role, memory, energy, energyLimit) => {
   const definition = DEFINITIONS[role];
 
   const ignoreSpawnEnergyLimit = definition.ignoreSpawnEnergyLimit || false;
@@ -197,4 +202,8 @@ function getBodyParts(definition, maxEnergy) {
   });
 
   return base;
+}
+
+export function scoreCreep(creep: Creep): number {
+  return 0;
 }

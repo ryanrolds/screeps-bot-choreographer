@@ -1,3 +1,15 @@
+/**
+ * Logic for mining energy sources
+ *
+ * Requirements:
+ *   - Request mining creep
+ *   - Build container when energy source is empty
+ *   - Maintain id of base storage for hauling tasks
+ *   - Request hauling of container
+ *   - Build link when room is high enough level
+ *   - Produce events that request road to container
+ *   - Stop requesting miner and hauling when room or base is not green
+ */
 import {creepIsFresh} from './behavior.commute';
 import {BaseConfig} from './config';
 import {WORKER_MINER} from "./constants.creeps";
@@ -5,13 +17,13 @@ import * as MEMORY from "./constants.memory";
 import {HAUL_BASE_ROOM, HAUL_CONTAINER, LOAD_FACTOR, PRIORITY_HARVESTER, PRIORITY_MINER} from "./constants.priorities";
 import * as TASKS from "./constants.tasks";
 import * as TOPICS from "./constants.topics";
-import {Event} from "./lib.event_broker";
+import {Consumer, Event} from "./lib.event_broker";
 import {getPath} from "./lib.pathing";
 import {roadPolicy} from "./lib.pathing_policies";
 import {Tracer} from './lib.tracing';
 import {Colony} from './org.colony';
 import {Kingdom} from "./org.kingdom";
-import OrgRoom from "./org.room";
+import OrgRoom, {AlertLevel} from "./org.room";
 import {PersistentMemory} from "./os.memory";
 import {running, sleeping, terminate} from "./os.process";
 import {Runnable, RunnableResult} from "./os.runnable";
@@ -20,22 +32,30 @@ import {getLinesStream, HudLine, HudEventSet} from './runnable.debug_hud';
 import {getLogisticsTopic, LogisticsEventData, LogisticsEventType} from "./runnable.base_logistics";
 import {getNearbyPositions} from './lib.position';
 import {getBaseHaulerTopic} from './topics.base';
+import {getBaseRoomStatusStream, RoomDefenseStatus} from './runnable.base_defense';
 
-const RUN_TTL = 50;
+const RUN_TTL = 20;
+const UPDATE_STATUS_TTL = 20;
+const PRODUCE_EVENTS_TTL = 50;
+const REQUEST_MINERS_TTL = 50;
+const REQUEST_HAULING_TTL = 50;
 const STRUCTURE_TTL = 200;
 const DROPOFF_TTL = 200;
 const BUILD_LINK_TTL = 200;
 const CONTAINER_TTL = 250;
 
-const PRIORITY_PRIMARY_ROOM = 10;
-
 export default class SourceRunnable extends PersistentMemory implements Runnable {
   id: string;
-  orgRoom: OrgRoom;
+  baseId: string;
+  roomName: string;
+  orgRoom: OrgRoom; // Deprecated
   sourceId: Id<Source>;
   position: RoomPosition;
   creepPosition: RoomPosition | null;
   linkPosition: RoomPosition | null;
+
+  roomAlertLevel: AlertLevel;
+  baseAlertLevel: AlertLevel;
 
   containerId: Id<StructureContainer>;
   linkId: Id<StructureLink>;
@@ -49,24 +69,36 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
   threadBuildContainer: ThreadFunc;
   threadBuildLink: ThreadFunc;
 
-  constructor(room: OrgRoom, source: Source) {
+  baseDefenseStatusConsumer: Consumer;
+  threadUpdateStatus: ThreadFunc;
+
+  constructor(baseId: string, roomName: string, room: OrgRoom, source: Source) {
     super(source.id);
 
     this.id = source.id;
+    this.baseId = baseId;
+    this.roomName = roomName
     this.orgRoom = room;
     this.sourceId = source.id;
     this.position = source.pos;
     this.creepPosition = null;
     this.linkPosition = null;
 
-    this.threadProduceEvents = thread('consume_events', RUN_TTL)(this.produceEvents.bind(this));
+    this.baseAlertLevel = AlertLevel.GREEN;
+    this.roomAlertLevel = AlertLevel.GREEN;
+
+    this.threadProduceEvents = thread('consume_events', PRODUCE_EVENTS_TTL)(this.produceEvents.bind(this));
     this.threadUpdateStructures = thread('update_structures', STRUCTURE_TTL)(this.updateStructures.bind(this));
     this.threadUpdateDropoff = thread('update_dropoff', DROPOFF_TTL)(this.updateDropoff.bind(this));
+
     this.threadBuildContainer = thread('build_container', CONTAINER_TTL)(this.buildContainer.bind(this));
     this.threadBuildLink = thread('build_link', BUILD_LINK_TTL)(this.buildLink.bind(this));
 
-    this.threadRequestMiners = thread('request_miners', RUN_TTL)(this.requestMiners.bind(this));
-    this.threadRequestHauling = thread('reqeust_hauling', RUN_TTL)(this.requestHauling.bind(this));
+    this.threadRequestMiners = thread('request_miners', REQUEST_MINERS_TTL)(this.requestMiners.bind(this));
+    this.threadRequestHauling = thread('reqeust_hauling', REQUEST_HAULING_TTL)(this.requestHauling.bind(this));
+
+    this.baseDefenseStatusConsumer = null;
+    this.threadUpdateStatus = thread('update_room_status', UPDATE_STATUS_TTL)(this.updateStatus.bind(this));
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
@@ -123,6 +155,13 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     this.threadRequestMiners(trace, kingdom, colony, room, source);
     this.threadRequestHauling(trace, kingdom, baseConfig, colony);
 
+    if (!this.baseDefenseStatusConsumer) {
+      const streamId = getBaseRoomStatusStream(baseConfig.id);
+      this.baseDefenseStatusConsumer = kingdom.getBroker().getStream(streamId).addConsumer(`source_${this.id}`);
+    }
+
+    this.threadUpdateStatus(trace, kingdom, baseConfig);
+
     this.updateStats(kingdom, trace);
 
     trace.end();
@@ -154,7 +193,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     const hudLine: HudLine = {
       key: `${this.id}`,
       room: source.room.name,
-      text: `source (${source.id}) - ` +
+      text: `source (${source.id}) - base/room alert: ${this.baseAlertLevel}/${this.roomAlertLevel} ` +
         `container: ${this.creepPosition} (${this.containerId}), ` +
         `link: ${this.linkPosition} (${this.linkId})`,
       time: Game.time,
@@ -163,6 +202,19 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
 
     kingdom.getBroker().getStream(getLinesStream()).publish(new Event(this.id, Game.time,
       HudEventSet, hudLine));
+  }
+
+  updateStatus(trace: Tracer, kingdom: Kingdom, base: BaseConfig) {
+    this.baseDefenseStatusConsumer.getEvents().forEach((event) => {
+      const data = event.data as RoomDefenseStatus;
+      if (event.key === base.primary) {
+        this.baseAlertLevel = data.alertLevel;
+      }
+
+      if (event.key === this.roomName) {
+        this.roomAlertLevel = data.alertLevel;
+      }
+    });
   }
 
   populatePositions(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig, source: Source) {
@@ -271,6 +323,14 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
   }
 
   requestMiners(trace: Tracer, kingdom: Kingdom, colony: Colony, room: Room, source: Source) {
+    if (this.baseAlertLevel !== AlertLevel.GREEN || this.roomAlertLevel !== AlertLevel.GREEN) {
+      trace.warn('alert not green, not requesting miners', {
+        baseAlertLevel: this.baseAlertLevel,
+        roomAlertLevel: this.roomAlertLevel
+      });
+      return;
+    }
+
     if (!this.creepPosition) {
       trace.error('creep position not set', {creepPosition: this.creepPosition});
       return;
@@ -306,8 +366,8 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
           [MEMORY.MEMORY_SOURCE]: this.sourceId,
           [MEMORY.MEMORY_SOURCE_CONTAINER]: this.containerId,
           [MEMORY.MEMORY_SOURCE_POSITION]: positionStr,
-          [MEMORY.MEMORY_ASSIGN_ROOM]: room.name,
-          [MEMORY.MEMORY_BASE]: colony.id,
+          [MEMORY.MEMORY_ASSIGN_ROOM]: this.roomName,
+          [MEMORY.MEMORY_BASE]: this.baseId,
         },
       }
 
@@ -318,6 +378,14 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
   }
 
   requestHauling(trace: Tracer, kingdom: Kingdom, base: BaseConfig, colony: Colony) {
+    if (this.baseAlertLevel !== AlertLevel.GREEN || this.roomAlertLevel !== AlertLevel.GREEN) {
+      trace.warn('alert not green, not requesting hauling', {
+        baseAlertLevel: this.baseAlertLevel,
+        roomAlertLevel: this.roomAlertLevel
+      });
+      return;
+    }
+
     const container = Game.getObjectById(this.containerId);
     if (!container) {
       trace.log('no container')
