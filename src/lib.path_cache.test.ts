@@ -57,6 +57,7 @@ describe('Path Cache', function () {
       kos: [],
       maxColonies: 1,
       autoExpand: false,
+      explorers: true,
     };
     const scheduler = new Scheduler();
     const broker = new EventBroker();

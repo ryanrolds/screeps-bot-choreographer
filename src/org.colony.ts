@@ -157,8 +157,8 @@ export class Colony extends OrgBase {
       this.requestHaulers(trace);
     });
 
-    this.threadRequestExplorer = thread('request_explorers_thread', REQUEST_EXPLORER_TTL)((trace) => {
-      this.requestExplorer(trace);
+    this.threadRequestExplorer = thread('request_explorers_thread', REQUEST_EXPLORER_TTL)((trace, kingdom) => {
+      this.requestExplorer(trace, kingdom);
     });
 
     setupTrace.end();
@@ -204,7 +204,7 @@ export class Colony extends OrgBase {
     this.threadRequestReserversForMissingRooms(updateTrace);
     this.threadHandleDefenderRequest(updateTrace);
     this.threadRequestHaulers(updateTrace);
-    this.threadRequestExplorer(trace);
+    this.threadRequestExplorer(trace, this.getKingdom());
 
     updateTrace.end();
   }
@@ -414,8 +414,14 @@ export class Colony extends OrgBase {
     }
   }
 
-  requestExplorer(trace: Tracer) {
+  requestExplorer(trace: Tracer, kingdom: Kingdom) {
     if (!this.primaryRoom) {
+      return;
+    }
+
+    const shardConfig = kingdom.config;
+    if (!shardConfig.explorers) {
+      trace.log('shard does not allow explorers');
       return;
     }
 

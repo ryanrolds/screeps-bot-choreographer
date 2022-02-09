@@ -178,12 +178,14 @@ const loadIfNeeded = behaviorTree.selectorNode(
 
         const dropoff = Game.getObjectById(dropoffId);
         if (!dropoff) {
-          throw new Error('Hauler task has invalid dropoff');
+          trace.error('no dropoff', {dropoffId});
+          return FAILURE;
         }
 
         const resource = creep.memory[MEMORY.MEMORY_HAUL_RESOURCE];
         if (!resource) {
-          throw new Error('Hauler task missing resource');
+          trace.error('no resource', {creep});
+          return FAILURE;
         }
 
         let amount = creep.memory[MEMORY.MEMORY_HAUL_AMOUNT];
@@ -226,7 +228,7 @@ const loadIfNeeded = behaviorTree.selectorNode(
     behaviorTree.sequenceNode(
       'get_resource',
       [
-        behaviorMovement.moveToCreepMemory(MEMORY.MEMORY_HAUL_PICKUP, 1, false, 10, 1000),
+        behaviorMovement.moveToCreepMemory(MEMORY.MEMORY_HAUL_PICKUP, 1, false, 25, 1000),
         behaviorHaul.loadCreep,
       ],
     ),
@@ -248,7 +250,7 @@ const deliver = behaviorTree.sequenceNode(
         return FAILURE;
       },
     ),
-    behaviorMovement.moveToDestination(1, false, 10, 250),
+    behaviorMovement.moveToCreepMemory(MEMORY.MEMORY_DESTINATION, 1, false, 25, 250),
     behaviorTree.leafNode(
       'empty_creep',
       (creep, trace, kingdom) => {

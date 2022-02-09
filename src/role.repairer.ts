@@ -75,7 +75,7 @@ const behavior = behaviorTree.sequenceNode(
         'select_and_repair',
         [
           selectStructureToRepair,
-          behaviorMovement.moveToDestination(1, false, 50, 1000),
+          behaviorMovement.moveToCreepMemory(MEMORY_DESTINATION, 1, false, 50, 1000),
           repair,
         ],
       ),

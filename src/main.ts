@@ -6,12 +6,12 @@ import {Scheduler} from './os.scheduler';
 
 const friends = [
   'PythonBeatJava',
-  'ChaosDMG',
 ];
 const neutral = [
   'JavaXCrow',
   'likeafox',
   'kobez0r',
+  'laj18',
 ];
 const avoid = [];
 const kos = [];
@@ -26,6 +26,7 @@ let shards: ShardMap = {
     maxColonies: 10,
     autoExpand: true,
     bases: null,
+    explorers: true,
   },
   'shard2': {
     buffer: 3,
@@ -36,6 +37,7 @@ let shards: ShardMap = {
     maxColonies: 5,
     autoExpand: false,
     bases: null,
+    explorers: false,
   },
   'shard3': {
     buffer: 3,
@@ -45,7 +47,8 @@ let shards: ShardMap = {
     kos: kos,
     maxColonies: 8,
     autoExpand: false,
-    bases: null
+    bases: null,
+    explorers: false,
   },
 };
 
@@ -53,7 +56,7 @@ const DEFAULT_LOG_WHEN_PID = null;
 const DEFAULT_METRIC_REPORT = false;
 const DEFAULT_METRIC_CONSOLE = false;
 const DEFAULT_METRIC_FILTER = null;
-const DEFAULT_METRIC_MIN = 0.5
+const DEFAULT_METRIC_MIN = 0.1
 const DEFAULT_CPU_THROTTLE = 300;
 const DEFAULT_SLOW_PROCESS = 10;
 
