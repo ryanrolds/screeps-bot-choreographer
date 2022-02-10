@@ -10,6 +10,7 @@ import {Process, running} from './os.process';
 import {RunnableResult} from './os.runnable';
 import {Scheduler} from './os.scheduler';
 import {CentralPlanning} from './runnable.central_planning';
+import {Scribe} from './runnable.scribe';
 
 
 describe('Scheduler', () => {
@@ -80,8 +81,9 @@ describe('Scheduler', () => {
   it('should run the process', () => {
     const config = {} as ShardConfig;
     const scheduler = new Scheduler();
+    const scribe = new Scribe();
     const planner = new CentralPlanning(config, scheduler, trace)
-    const kingdom = new Kingdom(config, scheduler, broker, planner, trace);
+    const kingdom = new Kingdom(config, scheduler, scribe, broker, planner, trace);
 
     scheduler.registerProcess(process);
     scheduler.tick(kingdom, trace);
@@ -97,8 +99,9 @@ describe('Scheduler', () => {
 
     const config = {} as ShardConfig;
     const scheduler = new Scheduler();
+    const scribe = new Scribe();
     const planner = new CentralPlanning(config, scheduler, trace)
-    const kingdom = new Kingdom(config, scheduler, broker, planner, trace);;
+    const kingdom = new Kingdom(config, scheduler, scribe, broker, planner, trace);
 
     scheduler.registerProcess(process);
     scheduler.tick(kingdom, trace);
@@ -112,8 +115,9 @@ describe('Scheduler', () => {
 
     const config = {} as ShardConfig;
     const scheduler = new Scheduler();
+    const scribe = new Scribe();
     const planner = new CentralPlanning(config, scheduler, trace)
-    const kingdom = new Kingdom(config, scheduler, broker, planner, trace);
+    const kingdom = new Kingdom(config, scheduler, scribe, broker, planner, trace);
 
     scheduler.registerProcess(process);
 
@@ -159,8 +163,9 @@ describe('Scheduler', () => {
   it("should remove and not run terminated processes", () => {
     const config = {} as ShardConfig;
     const scheduler = new Scheduler();
+    const scribe = new Scribe();
     const planner = new CentralPlanning(config, scheduler, trace)
-    const kingdom = new Kingdom(config, scheduler, broker, planner, trace);
+    const kingdom = new Kingdom(config, scheduler, scribe, broker, planner, trace);
 
     scheduler.registerProcess(process);
 

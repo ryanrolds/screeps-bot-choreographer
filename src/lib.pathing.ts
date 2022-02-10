@@ -2,7 +2,7 @@ import {BaseConfig} from "./config";
 import {AllowedCostMatrixTypes} from "./lib.costmatrix_cache";
 import {Tracer} from "./lib.tracing";
 import {Kingdom} from "./org.kingdom";
-import {RoomEntry} from "./org.scribe";
+import {RoomEntry} from "./runnable.scribe";
 
 type ColonyPolicy = {
   start: string;

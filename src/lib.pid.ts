@@ -60,9 +60,10 @@ export const update = (roomId: string, memory: RoomMemory, prefix: string, value
 
   const result = p * err + integral + d * det
 
-  const roomVisual = new RoomVisual(roomId);
-  roomVisual.text(`PID: ${result} = ${p} * ${err} + ${integral} + ${d} * ${det}`, 0, 1,
-    {align: 'left'});
+  // TODO move to HUD
+  //const roomVisual = new RoomVisual(roomId);
+  //roomVisual.text(`PID: ${result} = ${p} * ${err} + ${integral} + ${d} * ${det}`, 0, 1,
+  //  {align: 'left'});
 
   return result;
 }

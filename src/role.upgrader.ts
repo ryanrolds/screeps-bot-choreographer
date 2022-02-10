@@ -60,12 +60,6 @@ const behavior = behaviorTree.sequenceNode(
       behaviorTree.leafNode(
         'upgrade_controller',
         (creep, trace, kingdom) => {
-
-          // When at the controller, take one step towards the controller
-          if (creep.pos.getRangeTo(creep.room.controller) > 2) {
-            creep.moveTo(creep.room.controller, {range: 2});
-          }
-
           const result = creep.upgradeController(creep.room.controller);
           trace.log("upgrade result", {result})
           if (result == ERR_NOT_ENOUGH_RESOURCES) {

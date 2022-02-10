@@ -4,7 +4,7 @@ import * as PRIORITIES from './constants.priorities';
 import * as TOPICS from './constants.topics';
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
-import {CreepRequest, ShardMemory} from "./org.scribe";
+import {CreepRequest, ShardMemory} from "./runnable.scribe";
 import {sleeping} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 import {thread, ThreadFunc} from "./os.thread";

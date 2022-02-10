@@ -2,10 +2,13 @@ import {Event} from './lib.event_broker';
 import {Tracer} from './lib.tracing';
 import {OrgBase} from './org.base';
 import {Kingdom} from './org.kingdom';
+import {running, sleeping} from './os.process';
+import {Runnable, RunnableResult} from './os.runnable';
 import {thread, ThreadFunc} from './os.thread';
 import {getDashboardStream, HudEventSet, HudIndicator, HudIndicatorStatus} from './runnable.debug_hud';
 
-const JOURNAL_ENTRY_TTL = 250;
+const RUN_TTL = 10;
+const JOURNAL_ENTRY_TTL = 200;
 const MAX_JOURAL_TTL = 500;
 const WRITE_MEMORY_INTERVAL = 50;
 const REMOVE_STALE_ENTRIES_INTERVAL = 100;
@@ -99,7 +102,7 @@ export type CreepRequest = {
   ttl: number;
 }
 
-export class Scribe extends OrgBase {
+export class Scribe implements Runnable {
   private journal: Journal;
   costMatrix255: CostMatrix;
   globalColonyCount: number;
@@ -109,9 +112,7 @@ export class Scribe extends OrgBase {
   threadUpdateColonyCount: ThreadFunc;
   threadProduceEvents: ThreadFunc;
 
-  constructor(parent, trace) {
-    super(parent, 'scribe', trace);
-
+  constructor() {
     this.journal = (Memory as any).scribe || {
       rooms: {},
       defenderCostMatrices: {},
@@ -124,6 +125,7 @@ export class Scribe extends OrgBase {
     this.threadWriteMemory = thread('write_memory', WRITE_MEMORY_INTERVAL)(this.writeMemory.bind(this));
     this.threadUpdateColonyCount = thread('update_colony_count', UPDATE_COLONY_COUNT)(this.updateColonyCount.bind(this));
     this.threadProduceEvents = thread('produce_events', PRODUCE_EVENTS_INTERVAL)(this.produceEvents.bind(this));
+
   }
 
   writeMemory(trace: Tracer) {
@@ -138,7 +140,7 @@ export class Scribe extends OrgBase {
     (Memory as any).scribe = this.journal;
   }
 
-  updateColonyCount(trace) {
+  updateColonyCount(trace: Tracer, kingdom: Kingdom) {
     if (this.globalColonyCount === -2) {
       // skip the first time, we want to give shards time to update their remote memory
       trace.log('skipping updateColonyCount');
@@ -146,7 +148,7 @@ export class Scribe extends OrgBase {
       return;
     }
 
-    const baseConfigs = this.getKingdom().getPlanner().getBaseConfigs();
+    const baseConfigs = kingdom.getPlanner().getBaseConfigs();
     let colonyCount = baseConfigs.length;
 
     // Iterate shards and get their colony counts
@@ -202,26 +204,25 @@ export class Scribe extends OrgBase {
     return this.globalColonyCount;
   };
 
-  update(trace) {
-    const updateTrace = trace.begin('update');
+  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+    trace = trace.begin('run');
 
+
+    const updateRoomsTrace = trace.begin('update_rooms');
+    // Iterate rooms and update if stale
     Object.values(Game.rooms).forEach((room) => {
       const entry = this.getRoomById(room.name);
       if (!entry || Game.time - entry.lastUpdated > JOURNAL_ENTRY_TTL) {
-        this.updateRoom(this.getKingdom(), room);
+        this.updateRoom(kingdom, room, updateRoomsTrace);
       }
     });
+    updateRoomsTrace.end();
 
-    this.removeStaleJournalEntries();
+    this.threadRemoveStaleJournalEntries(trace);
+    this.threadWriteMemory(trace);
+    this.threadUpdateColonyCount(trace, kingdom);
+    this.threadProduceEvents(trace, kingdom);
 
-    this.threadWriteMemory(updateTrace);
-    this.threadUpdateColonyCount(updateTrace);
-    this.threadProduceEvents(updateTrace, this.getKingdom());
-
-    updateTrace.end();
-  }
-
-  process(trace) {
     /*
     const username = this.getKingdom().config.username;
     const friends = this.getKingdom().config.friends;
@@ -252,6 +253,10 @@ export class Scribe extends OrgBase {
       });
     });
     */
+
+    trace.end();
+
+    return sleeping(RUN_TTL);
   }
 
   removeStaleJournalEntries() {
@@ -390,7 +395,11 @@ export class Scribe extends OrgBase {
     });
   }
 
-  updateRoom(kingdom: Kingdom, roomObject: Room) {
+  updateRoom(kingdom: Kingdom, roomObject: Room, trace: Tracer) {
+    trace = trace.begin('update_room');
+    trace = trace.withFields({room: roomObject.name});
+    const end = trace.startTimer('update_room');
+
     const room: RoomEntry = {
       id: roomObject.name as Id<Room>,
       lastUpdated: Game.time,
@@ -412,6 +421,8 @@ export class Scribe extends OrgBase {
       portals: [],
       deposits: [],
     };
+
+    const controllerEnd = trace.startTimer('controller');
 
     if (roomObject.controller) {
       let owner = null;
@@ -440,11 +451,23 @@ export class Scribe extends OrgBase {
       room.spawnLocation = spawns[0]?.pos
     }
 
+    controllerEnd();
+
+    const roomStatusEnd = trace.startTimer('roomStatus');
+
     const status = Game.map.getRoomStatus(roomObject.name);
     room.specialRoom = status.status !== 'normal'
     room.status = status.status
 
+    roomStatusEnd();
+
+    const sourcesEnd = trace.startTimer('sources');
+
     room.numSources = roomObject.find(FIND_SOURCES).length;
+
+    sourcesEnd();
+
+    const hostilesEnd = trace.startTimer('hostiles');
 
     let hostiles = roomObject.find(FIND_HOSTILE_CREEPS);
     // Filter friendly creeps
@@ -472,11 +495,19 @@ export class Scribe extends OrgBase {
       room.invaderCoreTime = invaderCores[0].effects[EFFECT_COLLAPSE_TIMER]?.ticksRemaining;
     }
 
+    hostilesEnd();
+
+    const towersEnd = trace.startTimer('towers');
+
     room.numTowers = roomObject.find(FIND_HOSTILE_STRUCTURES, {
       filter: (structure) => {
         return structure.structureType === STRUCTURE_TOWER;
       },
     }).length;
+
+    towersEnd();
+
+    const keyStructuresEnd = trace.startTimer('keyStructures');
 
     room.numKeyStructures = roomObject.find(FIND_HOSTILE_STRUCTURES, {
       filter: (structure) => {
@@ -487,11 +518,19 @@ export class Scribe extends OrgBase {
       },
     }).length;
 
+    keyStructuresEnd();
+
+    const mineralEnd = trace.startTimer('mineral');
+
     room.mineral = null;
     const minerals = roomObject.find(FIND_MINERALS);
     if (minerals.length) {
       room.mineral = minerals[0].mineralType;
     }
+
+    mineralEnd();
+
+    const portalsEnd = trace.startTimer('portals');
 
     room.portals = [];
     const portals = roomObject.find<StructurePortal>(FIND_STRUCTURES, {
@@ -508,6 +547,10 @@ export class Scribe extends OrgBase {
       };
     });
 
+    portalsEnd();
+
+    const powerBanksEnd = trace.startTimer('powerBanks');
+
     room.powerBanks = roomObject.find<StructurePowerBank>(FIND_STRUCTURES, {
       filter: (structure) => {
         return structure.structureType === STRUCTURE_POWER_BANK;
@@ -522,6 +565,10 @@ export class Scribe extends OrgBase {
       };
     });
 
+    powerBanksEnd();
+
+    const depositsEnd = trace.startTimer('deposits');
+
     room.deposits = roomObject.find(FIND_DEPOSITS).map((deposit) => {
       return {
         type: deposit.depositType,
@@ -530,7 +577,13 @@ export class Scribe extends OrgBase {
       };
     });
 
+    depositsEnd();
+
     this.journal.rooms[room.id] = room;
+
+    const duration = end();
+    trace.log('updated room', {duration, room: room.id});
+    trace.end();
   }
 
   clearRoom(roomId: string) {

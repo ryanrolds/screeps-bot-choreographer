@@ -1,7 +1,7 @@
 import {Tracer} from './lib.tracing';
 import {OrgBase} from './org.base';
 import {Kingdom} from './org.kingdom';
-import {Scribe} from './org.scribe';
+import {Scribe} from './runnable.scribe';
 
 export class Observer extends OrgBase {
   observer: StructureObserver;
