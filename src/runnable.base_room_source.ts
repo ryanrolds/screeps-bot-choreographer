@@ -78,6 +78,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       containerId: this.containerId,
       linkId: this.linkId,
       creepPosition: this.creepPosition,
+      linkPosition: this.linkPosition,
     });
 
     const source: Source = Game.getObjectById(this.sourceId);
@@ -95,6 +96,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     }
 
     if (!this.creepPosition || !this.linkPosition) {
+      trace.warn('creep position not set', {creepPosition: this.creepPosition, linkPosition: this.linkPosition});
       this.populatePositions(trace, kingdom, baseConfig, source);
     }
 
@@ -112,7 +114,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       trace.end();
       return terminate();
     }
-    ``
+
     this.threadProduceEvents(trace, kingdom, source);
     this.threadUpdateStructures(trace, source);
     this.threadUpdateDropoff(trace, colony);
@@ -259,7 +261,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     this.containerId = container?.id as Id<StructureContainer>;
 
     // Pick link
-    const link = this.creepPosition.findInRange(FIND_STRUCTURES, 1).find((s) => {
+    const link = this.linkPosition.lookFor(LOOK_STRUCTURES).find((s) => {
       return s.structureType === STRUCTURE_LINK;
     });
     this.linkId = link?.id as Id<StructureLink>;
@@ -404,51 +406,20 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       return;
     }
 
-    const orgRoom = kingdom.getRoomByName(source.room.name);
-    if (!orgRoom) {
-      trace.error('no org room', {id: this.sourceId});
-      return;
-    }
-
-    source.pos.findInRange(FIND_STRUCTURES, 3, {
-      filter: (structure) => {
-        return structure.structureType === STRUCTURE_CONTAINER &&
-          !structure.pos.isEqualTo(this.creepPosition);
-      }
-    }).forEach((container) => {
-      container.destroy();
-      trace.warn('destroying container', {id: this.sourceId, containerId: container.id});
-    });
-
-    source.pos.findInRange(FIND_CONSTRUCTION_SITES, 3, {
-      filter: (site) => {
-        return site.structureType === STRUCTURE_CONTAINER &&
-          !site.pos.isEqualTo(this.creepPosition);
-      }
-    }).forEach((site) => {
-      site.remove();
-      trace.warn('destroying container site', {id: this.sourceId, siteId: site.id});
-    });
-
-    const container = this.creepPosition.lookFor(LOOK_STRUCTURES).find((s) => {
-      return s.structureType === STRUCTURE_CONTAINER;
-    });
-
-    if (container) {
-      trace.log('container found', {container});
-      return;
-    }
-
-    const sites = this.creepPosition.lookFor(LOOK_CONSTRUCTION_SITES);
-    if (sites) {
-      const containerSite = sites.find((s) => {
-        return s.structureType === STRUCTURE_CONTAINER;
-      });
-
-      if (containerSite) {
-        trace.log('container site found', {containerSite});
+    if (this.containerId) {
+      const container = Game.getObjectById(this.containerId);
+      if (container) {
+        trace.log('container already built', {container});
         return;
       }
+    }
+
+    const sites = this.creepPosition.lookFor(LOOK_CONSTRUCTION_SITES).filter((site) => {
+      return site.structureType === STRUCTURE_CONTAINER;
+    });
+    if (sites.length) {
+      trace.log('container site found', {sites});
+      return;
     }
 
     const result = this.creepPosition.createConstructionSite(STRUCTURE_CONTAINER);
@@ -466,45 +437,25 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       return;
     }
 
-    source.pos.findInRange(FIND_STRUCTURES, 3, {
-      filter: (structure) => {
-        return structure.structureType === STRUCTURE_LINK &&
-          !structure.pos.isEqualTo(this.creepPosition);
+    if (this.linkId) {
+      const link = Game.getObjectById(this.linkId);
+      if (link) {
+        trace.log('link found', {link});
+        return;
       }
-    }).forEach((link) => {
-      link.destroy();
-      trace.warn('destroying link', {id: this.sourceId, containerId: link.id});
-    });
-
-    source.pos.findInRange(FIND_CONSTRUCTION_SITES, 3, {
-      filter: (site) => {
-        return site.structureType === STRUCTURE_LINK &&
-          !site.pos.isEqualTo(this.creepPosition);
-      }
-    }).forEach((site) => {
-      site.remove();
-      trace.warn('destroying link site', {id: this.sourceId, siteId: site.id});
-    });
-
-    const link = this.linkPosition.look().find((s) => {
-      if (s.type === LOOK_STRUCTURES) {
-        return s.structure.structureType === STRUCTURE_LINK;
-      }
-
-      if (s.type === LOOK_CONSTRUCTION_SITES) {
-        return s.constructionSite.structureType === STRUCTURE_LINK;
-      }
-
-      return false;
-    });
-    if (link) {
-      trace.log('link found', {link});
-      return;
     }
 
     const roomLevel = room.controller?.level || 0;
     if (roomLevel < 6) {
       trace.log('room level too low', {roomLevel});
+      return;
+    }
+
+    const linkSites = this.linkPosition.lookFor(LOOK_CONSTRUCTION_SITES).find((s) => {
+      return s.structureType === STRUCTURE_LINK;
+    })
+    if (linkSites) {
+      trace.log('link sites found', {linkSites});
       return;
     }
 

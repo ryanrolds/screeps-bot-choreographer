@@ -152,8 +152,8 @@ export class Colony extends OrgBase {
       this.requestHaulers(trace);
     });
 
-    this.threadRequestExplorer = thread('request_explorers_thread', REQUEST_EXPLORER_TTL)((trace) => {
-      this.requestExplorer(trace);
+    this.threadRequestExplorer = thread('request_explorers_thread', REQUEST_EXPLORER_TTL)((trace, kingdom) => {
+      this.requestExplorer(trace, kingdom);
     });
 
     setupTrace.end();
@@ -176,7 +176,7 @@ export class Colony extends OrgBase {
     let numHaulTasks = this.getKingdom().getTopicLength(getBaseHaulerTopic(this.baseId));
     numHaulTasks -= this.idleHaulers;
 
-    trace.notice('haul tasks', {numHaulTasks, numIdleHaulers: this.idleHaulers});
+    trace.log('haul tasks', {numHaulTasks, numIdleHaulers: this.idleHaulers});
 
     if (this.primaryRoom) {
       if (!this.pidSetup) {
@@ -191,7 +191,7 @@ export class Colony extends OrgBase {
       updateHaulerPID.log('desired haulers', {desired: this.pidDesiredHaulers});
       updateHaulerPID.end();
 
-      trace.notice('desired haulers', {desired: this.pidDesiredHaulers});
+      trace.log('desired haulers', {desired: this.pidDesiredHaulers});
     }
 
     const roomTrace = updateTrace.begin('rooms');
@@ -202,7 +202,7 @@ export class Colony extends OrgBase {
 
     this.threadHandleDefenderRequest(updateTrace, this.getKingdom());
     this.threadRequestHaulers(updateTrace);
-    this.threadRequestExplorer(trace);
+    this.threadRequestExplorer(trace, this.getKingdom());
 
     updateTrace.end();
   }
@@ -355,10 +355,11 @@ export class Colony extends OrgBase {
         REQUEST_DEFENDER_TTL);
     }
 
-    trace.log('requesting existing defense response', {memory: request.details.memory});
+    trace.notice('requesting existing defense response', {request});
 
     // Order existing defenders to the room
     this.defenders.forEach((defender) => {
+      trace.notice('sending existing defender to room', {defender});
       defender.memory[MEMORY.MEMORY_ASSIGN_ROOM] = request.details.memory[MEMORY.MEMORY_ASSIGN_ROOM];
       defender.memory[MEMORY.MEMORY_ASSIGN_ROOM_POS] = request.details.memory[MEMORY.MEMORY_ASSIGN_ROOM_POS];
     });
@@ -405,8 +406,14 @@ export class Colony extends OrgBase {
     }
   }
 
-  requestExplorer(trace: Tracer) {
+  requestExplorer(trace: Tracer, kingdom: Kingdom) {
     if (!this.primaryRoom) {
+      return;
+    }
+
+    const shardConfig = kingdom.config;
+    if (!shardConfig.explorers) {
+      trace.log('shard does not allow explorers');
       return;
     }
 

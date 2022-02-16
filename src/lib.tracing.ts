@@ -85,7 +85,7 @@ export class Tracer {
       }
 
       if (this.shouldLog()) {
-        this.writeLog(cpuTime);
+        this.writeLog(metric, cpuTime);
       }
 
       return cpuTime;
@@ -152,8 +152,8 @@ export class Tracer {
     this.metrics.push(item);
   }
 
-  private writeLog(cpuTime: number) {
-    console.log(`${cpuTime.toFixed(2).padStart(5, ' ')}ms: ${this.name} at ${this.start}`,
+  private writeLog(metric: string, cpuTime: number) {
+    console.log(`${cpuTime.toFixed(2).padStart(5, ' ')}ms: ${this.name} ${metric || ''} at ${this.start}`,
       JSON.stringify(this.kv));
   }
 
@@ -183,7 +183,7 @@ export class Tracer {
     }
 
     if (this.shouldLog()) {
-      this.writeLog(cpuTime);
+      this.writeLog(null, cpuTime);
     }
 
     return cpuTime;

@@ -10,7 +10,7 @@ import * as CREEPS from './constants.creeps';
 import * as PRIORITIES from './constants.priorities';
 import {creepIsFresh} from './behavior.commute';
 import {thread, ThreadFunc} from './os.thread';
-import {RoomEntry} from './org.scribe';
+import {RoomEntry} from './runnable.scribe';
 import {BaseConfig} from './config';
 import {RunnableResult} from "./os.runnable";
 import {getKingdomSpawnTopic} from "./topics.kingdom";

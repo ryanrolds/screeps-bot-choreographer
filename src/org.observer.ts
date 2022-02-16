@@ -1,7 +1,7 @@
 import {Tracer} from './lib.tracing';
 import {OrgBase} from './org.base';
 import {Kingdom} from './org.kingdom';
-import {Scribe} from './org.scribe';
+import {Scribe} from './runnable.scribe';
 
 export class Observer extends OrgBase {
   observer: StructureObserver;
@@ -26,6 +26,16 @@ export class Observer extends OrgBase {
     const updateTrace = trace.begin('observer_update');
 
     this.observer = Game.getObjectById(this.id as Id<StructureObserver>);
+    if (!this.observer) {
+      updateTrace.error('missing observer', {id: this.id});
+      updateTrace.end();
+      return;
+    }
+
+    if (this.justObserved && Game.rooms[this.justObserved]) {
+      const kingdom = this.getKingdom();
+      kingdom.getScribe().updateRoom(kingdom, Game.rooms[this.justObserved], trace);
+    }
 
     updateTrace.log('in range rooms', {inRange: this.inRangeRooms});
 

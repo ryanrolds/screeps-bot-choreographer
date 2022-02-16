@@ -140,8 +140,8 @@ export default class BoosterRunnable {
   }
 
   updateStats(prepared, toUnLoad, toLoad, trace: Tracer) {
-    const stats = (this.orgRoom as any).getStats();
-    const colony = (this.orgRoom as any).getColony();
+    const stats = this.orgRoom.getStats();
+    const colony = this.orgRoom.getColony();
     if (!colony) {
       trace.log('could not find colony', {roomId: this.orgRoom.id});
       return;

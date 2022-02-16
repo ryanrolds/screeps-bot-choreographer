@@ -1,7 +1,7 @@
 import {OrgBase} from './org.base';
 import {Colony} from './org.colony';
 import ResourceGovernor from './org.resource_governor';
-import {Scribe} from './org.scribe';
+import {Scribe} from './runnable.scribe';
 import {RequestDetails, Topics} from './lib.topics';
 import {PathCache} from './lib.path_cache';
 import {thread, ThreadFunc} from './os.thread';
@@ -40,7 +40,7 @@ export class Kingdom extends OrgBase {
 
   threadUpdateOrg: ThreadFunc;
 
-  constructor(config: ShardConfig, scheduler: Scheduler, broker: EventBroker,
+  constructor(config: ShardConfig, scheduler: Scheduler, scribe: Scribe, broker: EventBroker,
     planner: CentralPlanning, trace: Tracer) {
     super(null, 'kingdom', trace);
 
@@ -48,6 +48,7 @@ export class Kingdom extends OrgBase {
 
     this.config = config;
     this.scheduler = scheduler;
+    this.scribe = scribe;;
     this.broker = broker;
     this.planner = planner;
     this.topics = new Topics();
@@ -71,8 +72,6 @@ export class Kingdom extends OrgBase {
 
     // TODO move to another process
     this.resourceGovernor = new ResourceGovernor(this, setupTrace);
-
-    this.scribe = new Scribe(this, setupTrace);
 
     this.pathCache = new PathCache(250, getPath);
     // this.pathCache.loadFromMemory(setupTrace);
@@ -110,10 +109,6 @@ export class Kingdom extends OrgBase {
     this.resourceGovernor.update(resourceGovTrace);
     resourceGovTrace.end();
 
-    const scribeTrace = updateTrace.begin('scribe');
-    this.scribe.update(scribeTrace);
-    scribeTrace.end();
-
     // this.threadStoreSavePathCacheToMemory(updateTrace);
 
     updateTrace.end();
@@ -130,10 +125,6 @@ export class Kingdom extends OrgBase {
     const resourceGovTrace = processTrace.begin('resource_governor');
     this.resourceGovernor.process(resourceGovTrace);
     resourceGovTrace.end();
-
-    const scribeTrace = processTrace.begin('scribe');
-    this.scribe.process(scribeTrace);
-    scribeTrace.end();
 
     processTrace.end();
   }

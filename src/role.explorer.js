@@ -10,7 +10,7 @@ const behavior = behaviorTree.sequenceNode(
     behaviorTree.leafNode(
       'update_room_with_scribe',
       (creep, trace, kingdom) => {
-        kingdom.getScribe().updateRoom(kingdom, creep.room);
+        kingdom.getScribe().updateRoom(kingdom, creep.room, trace);
 
         return SUCCESS;
       },

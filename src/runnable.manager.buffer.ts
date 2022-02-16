@@ -5,7 +5,7 @@ import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
 import {FindColonyPathPolicy, getClosestColonyByPath} from './lib.pathing';
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
-import {TargetRoom} from './org.scribe';
+import {TargetRoom} from './runnable.scribe';
 import {running} from "./os.process";
 import {RunnableResult} from './os.runnable';
 import {Scheduler} from "./os.scheduler";

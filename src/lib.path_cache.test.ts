@@ -12,6 +12,7 @@ import {Tracer} from './lib.tracing';
 import {commonPolicy} from './lib.pathing_policies';
 import {EventBroker} from './lib.event_broker';
 import {CentralPlanning} from './runnable.central_planning';
+import {Scribe} from './runnable.scribe';
 
 describe('Path Cache', function () {
   let sandbox: Sinon.SinonSandbox = null;
@@ -57,12 +58,14 @@ describe('Path Cache', function () {
       kos: [],
       maxColonies: 1,
       autoExpand: false,
+      explorers: true,
     };
     const scheduler = new Scheduler();
+    const scribe = new Scribe();
     const broker = new EventBroker();
     const planner = new CentralPlanning(config, scheduler, trace);
 
-    kingdom = new Kingdom(config, scheduler, broker, planner, trace);
+    kingdom = new Kingdom(config, scheduler, scribe, broker, planner, trace);
 
     pathProvider = sandbox.stub().callsFake(() => [path, {}]);
   });

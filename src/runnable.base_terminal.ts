@@ -490,7 +490,7 @@ export default class TerminalRunnable {
     });
   }
 
-  haulOldSellOrders(trace: Tracer, kingdom, Kingdom, terminal: StructureTerminal) {
+  haulOldSellOrders(trace: Tracer, kingdom: Kingdom, terminal: StructureTerminal) {
     trace.log('checking for incomplete sell orders');
 
     const ordersWithMissingResources = Object.values(Game.market.orders).filter((order) => {

@@ -265,7 +265,7 @@ export default class ReactorRunnable {
       ttl: REQUEST_LOAD_TTL,
     });
 
-    kingdom.getColony().sendRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.HAUL_REACTION, {
+    this.orgRoom.getColony().sendRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.HAUL_REACTION, {
       [MEMORY.TASK_ID]: `load-${this.id}-${Game.time}`,
       [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
       [MEMORY.MEMORY_HAUL_PICKUP]: pickup.id,
@@ -287,7 +287,7 @@ export default class ReactorRunnable {
       ttl: REQUEST_LOAD_TTL,
     });
 
-    kingdom.getColony().sendRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.HAUL_REACTION, {
+    this.orgRoom.getColony().sendRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.HAUL_REACTION, {
       [MEMORY.TASK_ID]: `unload-${this.id}-${Game.time}`,
       [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
       [MEMORY.MEMORY_HAUL_PICKUP]: lab.id,

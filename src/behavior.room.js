@@ -293,7 +293,7 @@ module.exports.updateSign = behaviorTree.repeatUntilConditionMet(
           return SUCCESS;
         },
       ),
-      behaviorMovement.moveToDestination(1, false, 25, 1500),
+      behaviorMovement.moveToCreepMemory(MEMORY_DESTINATION, 1, false, 25, 1500),
       behaviorTree.leafNode(
         'set_sign',
         (creep, trace, kingdom) => {

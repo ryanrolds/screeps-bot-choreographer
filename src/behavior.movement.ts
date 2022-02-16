@@ -312,15 +312,6 @@ export const moveToCreepMemory = (memoryID, range = 1, ignoreCreeps, reusePath, 
   );
 };
 
-export const moveToDestination = (range = 1, ignoreCreeps, reusePath, maxOps) => {
-  return behaviorTree.leafNode(
-    'bt.movement.moveToDestination',
-    (creep) => {
-      return moveToMemory(creep, MEMORY.MEMORY_DESTINATION, range, ignoreCreeps, reusePath, maxOps);
-    },
-  );
-};
-
 export const clearDestination = (creep) => {
   delete creep.memory[MEMORY.MEMORY_DESTINATION];
   delete creep.memory[MEMORY.MEMORY_DESTINATION_POS];

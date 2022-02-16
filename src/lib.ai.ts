@@ -17,12 +17,14 @@ import ExpandDebugger from './runnable.debug_planner';
 import {HUDRunnable} from './runnable.debug_hud';
 import MinCutDebugger from './runnable.debug_mincut';
 import InvaderManager from './runnable.manager.invaders';
+import {Scribe} from './runnable.scribe';
 
 export class AI {
   scheduler: Scheduler;
   config: ShardConfig;
   kingdom: Kingdom;
   planning: CentralPlanning;
+  scribe: Scribe;
   broker: EventBroker;
   gameMapExport: string;
 
@@ -36,13 +38,17 @@ export class AI {
     this.planning = new CentralPlanning(config, this.scheduler, trace);
     this.scheduler.registerProcess(new Process('central_planning', 'planning',
       Priorities.CRITICAL, this.planning));
+    this.scribe = new Scribe();
     this.broker = new EventBroker();
 
     // Kingdom Model & Messaging process
     // Pump messages through kingdom, colonies, room, ect...
-    this.kingdom = new Kingdom(config, this.scheduler, this.broker, this.planning, trace);
+    this.kingdom = new Kingdom(config, this.scheduler, this.scribe, this.broker, this.planning, trace);
     this.scheduler.registerProcess(new Process('kingdom_model', 'kingdom_model',
       Priorities.CRITICAL, new KingdomModelRunnable()));
+
+    // Scribe process
+    this.scheduler.registerProcess(new Process('scribe', 'scribe', Priorities.CRITICAL, this.scribe));
 
     // Kingdom Governor
     this.scheduler.registerProcess(new Process('kingdom_governor', 'kingdom_governor',
