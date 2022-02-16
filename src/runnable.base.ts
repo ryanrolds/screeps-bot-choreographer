@@ -26,7 +26,7 @@ import LogisticsRunnable from './runnable.base_logistics';
 import ControllerRunnable from './runnable.base_controller';
 import {BaseConfig} from './config';
 import RoomRunnable from './runnable.base_room';
-import {getBaseDefenseTopic, getBaseDistributorTopic} from './topics.base';
+import {getBaseDistributorTopic} from './topics.base';
 import {getKingdomSpawnTopic} from './topics.kingdom';
 
 const MIN_ENERGY = 100000;
@@ -638,7 +638,7 @@ export default class BaseRunnable {
         [MEMORY.MEMORY_HAUL_AMOUNT]: extension.store.getFreeCapacity(RESOURCE_ENERGY),
       };
 
-      kingdom.sendRequest(getBaseDefenseTopic(this.id), PRIORITIES.HAUL_EXTENSION, details, HAUL_EXTENSION_TTL);
+      kingdom.sendRequest(getBaseDistributorTopic(this.id), PRIORITIES.HAUL_EXTENSION, details, HAUL_EXTENSION_TTL);
     });
 
     trace.log('haul extensions', {numHaulTasks: nonFullExtensions.length});
