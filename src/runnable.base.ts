@@ -47,7 +47,7 @@ const REQUEST_UPGRADER_TTL = 30;
 const CHECK_SAFE_MODE_TTL = 10;
 const HAUL_EXTENSION_TTL = 10;
 const RAMPART_ACCESS_TTL = 10;
-const UPDATE_PROCESSES_TTL = 10;
+const UPDATE_PROCESSES_TTL = 20;
 const PRODUCE_STATUS_TTL = 30;
 
 
@@ -207,14 +207,6 @@ export default class BaseRunnable {
     // Towers
     room.find<StructureTower>(FIND_MY_STRUCTURES, {
       filter: (structure) => {
-        if (structure.structureType === STRUCTURE_TOWER) {
-          trace.log('tower', {
-            id: structure.id,
-            structureType: structure.structureType,
-            active: structure.isActive()
-          });
-        }
-
         return structure.structureType === STRUCTURE_TOWER && structure.isActive();
       },
     }).forEach((tower) => {
@@ -546,17 +538,13 @@ export default class BaseRunnable {
     const reserveEnergy = orgRoom.getAmountInReserve(RESOURCE_ENERGY);
     const reserveBuffer = orgRoom.getReserveBuffer();
 
-    trace.log('upgrader energy', {
-      reserveEnergy, reserveBuffer
-    });
-
     if (!room.controller?.my) {
       trace.error('not my room')
       desiredUpgraders = 0;
     } else if (!orgRoom.hasSpawns) {
+      trace.log('no spawns');
       desiredUpgraders = 0;
     } else if (room.controller.level === 8) {
-      trace.log('max level room')
       parts = (reserveEnergy - reserveBuffer) / 1500;
       desiredUpgraders = 1;
 
@@ -566,16 +554,17 @@ export default class BaseRunnable {
       if (parts < 15 && room.controller.ticksToDowngrade > 50000) {
         desiredUpgraders = 0;
       }
-    } else if (orgRoom.hasStorage) {
-      trace.log('has storage');
 
+      trace.log('max level room', {
+        parts, desiredUpgraders, ticksToDowngrade: room.controller.ticksToDowngrade,
+        reserveEnergy, reserveBuffer
+      });
+    } else if (orgRoom.hasStorage) {
       const roomCapacity = room.energyCapacityAvailable;
       maxParts = Math.floor(roomCapacity / 200);
       if (maxParts > 15) {
         maxParts = 15;
       }
-
-      trace.log('max parts', {maxParts});
 
       if (room.storage?.isActive() && reserveEnergy > reserveBuffer) {
         parts = (reserveEnergy - reserveBuffer) / 1500;
@@ -583,9 +572,9 @@ export default class BaseRunnable {
         parts = reserveEnergy - 1000 / 1500;
       }
 
-      trace.log('parts', {parts});
-
       desiredUpgraders = Math.ceil(parts / maxParts);
+
+      trace.log('has storage', {desiredUpgraders, maxParts, parts, reserveEnergy, reserveBuffer});
     }
 
     const energyLimit = ((parts - 1) * 150) + 200;
@@ -598,6 +587,7 @@ export default class BaseRunnable {
     trace.log('request upgrader', {
       desiredUpgraders,
       numUpgraders,
+      parts,
       energyLimit,
     });
 
@@ -803,6 +793,20 @@ export default class BaseRunnable {
     };
     const event = new Event(orgRoom.id, Game.time, HudEventSet, line);
     orgRoom.getKingdom().getBroker().getStream(getLinesStream()).publish(event);
+
+    const reserveEnergy = orgRoom.getAmountInReserve(RESOURCE_ENERGY);
+    const reserveBuffer = orgRoom.getReserveBuffer();
+    const parts = (reserveEnergy - reserveBuffer) / 1500;
+
+    const upgraderLine: HudLine = {
+      key: `base_${orgRoom.id}_upgrader`,
+      room: orgRoom.id,
+      order: 1,
+      text: `Energy: ${reserveEnergy}, Buffer: ${reserveBuffer}, Parts: ${parts}`,
+      time: Game.time,
+    };
+    const upgraderEvent = new Event(orgRoom.id, Game.time, HudEventSet, upgraderLine);
+    orgRoom.getKingdom().getBroker().getStream(getLinesStream()).publish(upgraderEvent);
 
     const indicatorStream = orgRoom.getKingdom().getBroker().getStream(getDashboardStream())
 
