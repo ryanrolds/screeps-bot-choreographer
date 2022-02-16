@@ -23,15 +23,12 @@ export const rootNode = (id: string, behavior: TreeNode) => {
   return function (creep: Creep, trace: Tracer, kingdom: Kingdom): void {
     const rootTrace = trace.begin(id);
 
-    let result = null;
-    do {
-      result = behavior.tick(creep, rootTrace, kingdom);
-      trace.log('root result', {id});
+    const result = behavior.tick(creep, rootTrace, kingdom);
+    trace.log('root result', {id});
 
-      if (result === FAILURE) {
-        trace.log('root failure', {id});
-      }
-    } while (result === SUCCESS);
+    if (result === FAILURE) {
+      trace.log('root failure', {id});
+    }
 
     rootTrace.end();
   };

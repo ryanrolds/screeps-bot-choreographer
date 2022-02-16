@@ -559,6 +559,13 @@ export default class BaseRunnable {
       trace.log('max level room')
       parts = (reserveEnergy - reserveBuffer) / 1500;
       desiredUpgraders = 1;
+
+      // In an effort to reduce CPU usage, we only spawn upgraders if they have many parts or
+      // if we are close go being downgraded In theory, we will build bigger creeps instead of
+      // smaller ones and rate won't be a big reduction
+      if (parts < 15 && room.controller.ticksToDowngrade > 50000) {
+        desiredUpgraders = 0;
+      }
     } else if (orgRoom.hasStorage) {
       trace.log('has storage');
 
