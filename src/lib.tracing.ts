@@ -51,16 +51,24 @@ export class Tracer {
     return child;
   }
 
+  /**
+   * @deprecated Use `info(...)` instead.
+   */
   log(message: string, details: Object = {}): void {
+    this.info(message, details);
+  }
+
+  info(message: string, details: Object = {}): void {
     if (!this.shouldLog()) {
       return;
     }
 
-    console.log(this.name, message, JSON.stringify(details), JSON.stringify(this.kv));
+    console.log(`<font color="#3FBF7F">[INFO]`, this.name, '::', message, JSON.stringify(details),
+      JSON.stringify(this.kv), '</font>');
   }
 
   notice(message: string, details: Object = {}): void {
-    console.log(`<font color="#5555FF">[NOTICE]`, this.name, '::', message, JSON.stringify(details),
+    console.log(`<font color="#2B7FD3">[NOTICE]`, this.name, '::', message, JSON.stringify(details),
       JSON.stringify(this.kv), '</font>');
   }
 

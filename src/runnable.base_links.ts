@@ -103,7 +103,7 @@ export default class LinkManager {
 
     let performedTransfer = false;
 
-    const storageLink = Game.getObjectById<StructureLink>(this.storageLink);
+    const storageLink = Game.getObjectById<Id<StructureLink>>(this.storageLink);
     if (!this.storageId || !storageLink) {
       trace.log("exiting due to missing storage or storage link", {});
       trace.end();
@@ -138,7 +138,7 @@ export default class LinkManager {
 
     // Get links that need energy and transfer if we have source links with energy
     this.sinkLinks.map((linkId) => {
-      const link = Game.getObjectById<StructureLink>(linkId);
+      const link = Game.getObjectById<Id<StructureLink>>(linkId);
       if (!link) {
         trace.log("should terminate due to missing sink link", {linkId});
         shouldTerminate = true;

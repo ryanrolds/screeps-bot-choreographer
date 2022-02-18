@@ -152,6 +152,7 @@ There are some debugging tools built into the project:
 * Attack a room (requires rally_<room> flag) - `AI.scheduler.processMap['war_manager'].runnable.targetRoom = 'E16S51'`
 * Look at expand results - `AI.getExpandDebugger().debug()`
 * Look at min cut output - `AI.getMinCutDebugger().debug(AI.getKingdom(), 'W6N1')`
+* Get cached room details from Scribe - `JSON.stringify(AI.getKingdom().getScribe().getRoomById('W8N4'))`
 
 There are a couple of helpful global variables:
 

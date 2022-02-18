@@ -182,7 +182,7 @@ export default class BaseConstructionRunnable {
     }
 
     if (!baseConfig.automated) {
-      trace.notice('not automated');
+      trace.log('not automated');
       trace.end();
       return sleeping(CONSTRUCTION_INTERVAL);
     }

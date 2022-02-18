@@ -68,7 +68,7 @@ export class AI {
 
     // Buffer manager
     const bufferManagerId = 'buffer_manager';
-    const bufferManager = new BufferManager(bufferManagerId, this.scheduler, trace);
+    const bufferManager = new BufferManager(bufferManagerId, trace);
     this.scheduler.registerProcess(new Process(bufferManagerId, 'buffer_manager',
       Priorities.DEFENCE, bufferManager));
 

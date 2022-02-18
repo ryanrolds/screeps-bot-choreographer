@@ -379,7 +379,7 @@ export class Kingdom extends OrgBase {
 
     const missingColonyIds = _.difference(configIds, orgIds);
     missingColonyIds.forEach((id) => {
-      trace.notice('adding missing colony', {id});
+      trace.notice('adding unknown colony', {id});
       this.colonies[id] = new Colony(this, baseConfigs[id], trace);
     });
 

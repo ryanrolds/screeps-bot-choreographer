@@ -12,6 +12,7 @@ const neutral = [
   'likeafox',
   'kobez0r',
   'laj18',
+  'Backbite',
 ];
 const avoid = [];
 const kos = [];

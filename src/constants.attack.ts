@@ -6,7 +6,7 @@ export enum AttackStatus {
 export type AttackRequest = {
   status: AttackStatus;
   roomId: string;
-  colonyId: string;
+  baseId: string;
 };
 
 export enum Phase {

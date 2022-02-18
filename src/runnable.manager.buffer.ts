@@ -6,10 +6,8 @@ import {FindColonyPathPolicy, getClosestColonyByPath} from './lib.pathing';
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
 import {TargetRoom} from './runnable.scribe';
-import {running} from "./os.process";
+import {sleeping} from "./os.process";
 import {RunnableResult} from './os.runnable';
-import {Scheduler} from "./os.scheduler";
-import {thread, ThreadFunc} from './os.thread';
 
 const policy: FindColonyPathPolicy = {
   colony: {
@@ -41,74 +39,73 @@ const policy: FindColonyPathPolicy = {
 
 export default class BufferManager {
   id: string;
-  scheduler: Scheduler;
-  threadEnforceBuffer: ThreadFunc;
 
-  constructor(id: string, scheduler: Scheduler, trace: Tracer) {
+  constructor(id: string, trace: Tracer) {
     this.id = id;
-    this.scheduler = scheduler;
-
-    this.threadEnforceBuffer = thread('enforce_buffer_thread', ATTACK_ROOM_TTL)(enforceBuffer);
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
     trace = trace.begin('buffer_manager_run');
 
-    this.threadEnforceBuffer(trace, kingdom);
+    const hostileRoomsByColony = getHostileRoomsByColony(kingdom, trace);
+    _.forEach(hostileRoomsByColony, (rooms, baseId) => {
+      if (rooms.length < 1) {
+        trace.log("no hostiles rooms", {baseId, rooms});
+        return;
+      }
+
+      const base = kingdom.getPlanner().getBaseConfigById(baseId);
+      if (!base) {
+        trace.log('no base', {baseId});
+        return;
+      }
+
+      const room = _.sortByAll(rooms, ['level', 'id']).shift();
+      if (!room) {
+        return;
+      }
+
+      trace.notice('attack hostile room', {baseId, room});
+
+      const attackRequest: AttackRequest = {
+        status: AttackStatus.REQUESTED,
+        baseId,
+        roomId: room.id,
+      };
+
+      kingdom.sendRequest(TOPICS.ATTACK_ROOM, 1, attackRequest, ATTACK_ROOM_TTL);
+    });
+
+    // TODO add HUD line and attack lines on map
 
     trace.end();
 
-    return running();
+    return sleeping(ATTACK_ROOM_TTL);
   }
-}
-
-function enforceBuffer(trace: Tracer, kingdom: Kingdom) {
-  const hostileRoomsByColony = getHostileRoomsByColony(kingdom, trace);
-
-  _.forEach(hostileRoomsByColony, (rooms, colonyId) => {
-    if (rooms.length < 1) {
-      return;
-    }
-
-    const colony = kingdom.getColonyById(colonyId);
-    if (!colony) {
-      return;
-    }
-
-    const room = _.sortByAll(rooms, ['level', 'id']).shift();
-    if (!room) {
-      return;
-    }
-
-    trace.notice('attack hostile room', {colonyId, room});
-
-    const attackRequest: AttackRequest = {
-      status: AttackStatus.REQUESTED,
-      colonyId,
-      roomId: room.id,
-    };
-
-    kingdom.sendRequest(TOPICS.ATTACK_ROOM, 1, attackRequest, ATTACK_ROOM_TTL);
-  });
 }
 
 type HostileRoomsByColony = Record<string, TargetRoom[]>;
 
 function getHostileRoomsByColony(kingdom: Kingdom, trace: Tracer): HostileRoomsByColony {
+  const weakRooms = kingdom.getScribe().getWeakRooms()
+  trace.log('weak rooms', {weakRooms});
+
   const config = kingdom.config;
   const dontAttack = config.friends.concat(config.neutral);
-  const weakRooms = kingdom.getScribe().getWeakRooms().filter((room) => {
+  const candidateRooms = weakRooms.filter((room) => {
     return dontAttack.indexOf(room.owner) === -1;
   });
+  trace.log('candidate rooms', {config, dontAttack, candidateRooms});
 
   const hostileRoomsByColony: Record<string, TargetRoom[]> = {};
 
   // TODO fix this
   policy.colony.maxLinearDistance = kingdom.config.buffer;
 
-  weakRooms.forEach((room) => {
+  candidateRooms.forEach((room) => {
     const colony = getClosestColonyByPath(kingdom, room.controllerPos, policy, trace)
     if (!colony) {
+      trace.log('no colony', {room});
       return;
     }
 
@@ -116,8 +113,11 @@ function getHostileRoomsByColony(kingdom: Kingdom, trace: Tracer): HostileRoomsB
       hostileRoomsByColony[colony.id] = [];
     }
 
+    trace.log('attack room from', {colony, room});
     hostileRoomsByColony[colony.id].push(room);
   });
+
+  trace.log('hostile rooms by colony', {hostileRoomsByColony});
 
   return hostileRoomsByColony;
 }

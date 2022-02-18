@@ -4,16 +4,15 @@ import {getPath} from "./lib.pathing";
 import {controllerRoadPolicy} from "./lib.pathing_policies";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
+import {PersistentMemory} from "./os.memory";
 import {sleeping} from "./os.process";
-import {RunnableResult} from "./os.runnable";
-import {Scheduler} from "./os.scheduler";
+import {Runnable, RunnableResult} from "./os.runnable";
 import {thread, ThreadFunc} from "./os.thread";
 import {getLogisticsTopic, LogisticsEventData, LogisticsEventType} from "./runnable.base_logistics";
 
-const RUN_TTL = 20;
-const CALCULATE_NODE_TTL = 5000;
-const BUILD_STRUCTURES_TTL = 20;
-const PRODUCE_EVENTS_TTL = 20;
+const RUN_TTL = 100;
+const BUILD_STRUCTURES_TTL = 1000;
+const PRODUCE_EVENTS_TTL = 500;
 
 const padLayout: Record<DirectionConstant, Layout> = {
   [TOP]: {
@@ -82,21 +81,21 @@ const padLayout: Record<DirectionConstant, Layout> = {
   },
 };
 
-export default class ControllerRunnable {
+export default class ControllerRunnable extends PersistentMemory implements Runnable {
   controllerId: string;
-  scheduler: Scheduler;
+
   nodePosition: RoomPosition;
-  roadPosition: RoomPosition;;
   nodeDirection: DirectionConstant;
+  roadPosition: RoomPosition;
 
   threadProduceEvents: ThreadFunc;
-  threadCalculateNode: ThreadFunc;
   threadBuildStructures: ThreadFunc;
 
   constructor(controllerId: string) {
+    super(controllerId);
+
     this.controllerId = controllerId;
 
-    this.threadCalculateNode = thread('calculate_node', CALCULATE_NODE_TTL)(this.calculateNode.bind(this));
     this.threadBuildStructures = thread('check_structures', BUILD_STRUCTURES_TTL)(this.buildStructures.bind(this));
     this.threadProduceEvents = thread('consume_events', PRODUCE_EVENTS_TTL)(this.produceEvents.bind(this));
   }
@@ -107,7 +106,7 @@ export default class ControllerRunnable {
       controller: this.controllerId,
       nodePosition: this.nodePosition,
       roadPosition: this.roadPosition,
-      nodeDirection: this.nodeDirection
+      nodeDirection: this.nodeDirection,
     });
 
     const controller = Game.getObjectById(this.controllerId as Id<StructureController>);
@@ -116,43 +115,33 @@ export default class ControllerRunnable {
       return sleeping(RUN_TTL);
     }
 
-    this.threadCalculateNode(trace, kingdom);
+    if (!this.nodePosition || !this.nodeDirection) {
+      trace.log('node and road position not set, populating');
+      this.populateNodePosition(kingdom, controller, trace);
+    }
+
     this.threadBuildStructures(trace, controller.room);
     this.threadProduceEvents(trace, kingdom, controller);
 
     return sleeping(RUN_TTL);
   }
 
-  produceEvents(trace: Tracer, kingdom: Kingdom, controller: StructureController) {
-    const position = this.roadPosition;
-    if (!position) {
-      trace.error('no road position', {room: controller.room.name});
-      return;
+  populateNodePosition(kingdom: Kingdom, controller: StructureController, trace: Tracer) {
+    const memory = this.getMemory() || {};
+
+    if (memory.nodePosition && memory.roadPosition) {
+      this.nodePosition = new RoomPosition(memory.nodePosition.x, memory.nodePosition.y, memory.nodePosition.roomName);
+      this.roadPosition = new RoomPosition(memory.roadPosition.x, memory.roadPosition.y, memory.roadPosition.roomName);
+      this.nodeDirection = controller.pos.getDirectionTo(this.roadPosition)
+      trace.log('populated node position from memory', {
+        nodePosition: this.nodePosition,
+        roadPosition: this.roadPosition,
+        nodeDirection: this.nodeDirection
+      });
     }
 
-    const baseConfig = kingdom.getPlanner().getBaseConfigByRoom(controller.room.name);
-    if (!baseConfig) {
-      trace.error('no colony config', {room: controller.room.name});
-      return;
-    }
-
-    const data: LogisticsEventData = {
-      id: controller.id,
-      position: position,
-    };
-
-    kingdom.getBroker().getStream(getLogisticsTopic(baseConfig.id)).
-      publish(new Event(this.controllerId, Game.time, LogisticsEventType.RequestRoad, data));
-  }
-
-  calculateNode(trace: Tracer, kingdom: Kingdom) {
-    if (this.nodePosition && this.nodeDirection) {
-      return;
-    }
-
-    const controller = Game.getObjectById(this.controllerId as Id<StructureController>);
-    if (!controller) {
-      trace.error('missing controller', {id: this.controllerId});
+    if (this.nodePosition && this.roadPosition) {
+      trace.log('node and road positions are already set');
       return;
     }
 
@@ -176,11 +165,38 @@ export default class ControllerRunnable {
     this.roadPosition = pathResult.path[pathLength - 2];
     this.nodeDirection = controller.pos.getDirectionTo(this.roadPosition);
 
-    trace.log('node position', {
+    trace.warn('node and road position was not set: setting', {
       id: this.controllerId,
       position: this.nodePosition,
       direction: this.nodeDirection
     });
+
+    memory.nodePosition = this.nodePosition;
+    memory.roadPosition = this.roadPosition;
+
+    this.setMemory(memory);
+  }
+
+  produceEvents(trace: Tracer, kingdom: Kingdom, controller: StructureController) {
+    const position = this.roadPosition;
+    if (!position) {
+      trace.error('no road position', {room: controller.room.name});
+      return;
+    }
+
+    const baseConfig = kingdom.getPlanner().getBaseConfigByRoom(controller.room.name);
+    if (!baseConfig) {
+      trace.error('no colony config', {room: controller.room.name});
+      return;
+    }
+
+    const data: LogisticsEventData = {
+      id: controller.id,
+      position: position,
+    };
+
+    kingdom.getBroker().getStream(getLogisticsTopic(baseConfig.id)).
+      publish(new Event(this.controllerId, Game.time, LogisticsEventType.RequestRoad, data));
   }
 
   buildStructures(trace: Tracer, room: Room) {

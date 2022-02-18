@@ -1,5 +1,5 @@
 import {Priorities, Scheduler} from "./os.scheduler";
-import {Process, running} from "./os.process";
+import {Process, running, sleeping} from "./os.process";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
 import WarPartyRunnable from './runnable.warparty';
@@ -38,6 +38,7 @@ export default class WarManager {
   scheduler: Scheduler;
   memory: WarMemory;
   warParties: WarPartyRunnable[];
+
   targetRoom: string;
   targets: string[] = [];
 
@@ -71,12 +72,13 @@ export default class WarManager {
       warPartyIds: this.warParties.map(warParty => warParty.id)
     });
 
-    return running();
+    return sleeping(WAR_PARTY_RUN_TTL);
   }
 
   processEvents(trace: Tracer, kingdom: Kingdom) {
     // Process events
-    let targets: string[] = [];
+    let targets = this.targets;
+
     const topic = kingdom.getTopics().getTopic(TOPICS.ATTACK_ROOM);
     if (!topic) {
       trace.log("no attack room topic");
@@ -89,32 +91,47 @@ export default class WarManager {
       switch (event.details.status) {
         case AttackStatus.REQUESTED:
           trace.log("requested", {target: event.details.target});
-          targets.push(event.details.roomId);
+
+          if (targets.indexOf(event.details.target) === -1) {
+            targets.push(event.details.roomId);
+          }
+
           break;
         case AttackStatus.COMPLETED:
           trace.log('attack completed', {roomId: event.details.roomId});
+
+          // clear target room so we don't try to pick it before it's journal entry is updated
           kingdom.getScribe().clearRoom(this.targetRoom);
+
+          // remove room from targets when completed
           targets = targets.filter(target => target !== this.targetRoom);
-          this.targetRoom = null;
+
+          // if current target, we are done - pick new target
+          if (this.targetRoom === event.details.roomId) {
+            this.targetRoom = null;
+          }
           break;
         default:
           throw new Error(`invalid status ${event.details.status}`);
       }
     }
 
-    trace.notice(`targets: ${targets}`);
+    trace.notice('targets', {targets});
 
     // TODO spread targets across colonies
     this.targets = targets;
 
-    if (!this.targetRoom && this.targets.length) {
-      trace.log("setting target room", {target: this.targets[0]});
+    if (this.targetRoom) {
+      trace.info('already have a target room', {roomId: this.targetRoom});
+    } else if (this.targets.length) {
+      trace.notice("setting target room", {target: this.targets[0]});
       this.targetRoom = this.targets[0];
     }
   }
 
   updateWarParties(trace: Tracer, kingdom: Kingdom) {
     if (this.warParties === null) {
+      trace.info('restoring war parites');
       this.restoreFromMemory(kingdom, trace);
     }
 
@@ -125,19 +142,19 @@ export default class WarManager {
 
 
     if (!this.targetRoom) {
-      trace.log("no target room");
+      trace.info("no target room");
       return;
     }
 
     // Send reserver to block controller if room is clear
     const roomEntry = kingdom.getScribe().getRoomById(this.targetRoom);
     if (!roomEntry) {
-      trace.log("no room entry");
+      trace.info("no room entry");
       return;
     }
 
     const targetsByColony = this.getTargetsByColony(kingdom, this.targets, trace);
-    trace.log("targets by colony", {targetsByColony});
+    trace.info("targets by colony", {targetsByColony});
 
     // Send war parties if there are important structures
     if (roomEntry && roomEntry.numKeyStructures > 0) {
@@ -145,7 +162,7 @@ export default class WarManager {
       kingdom.getPlanner().getBaseConfigs().forEach((baseConfig) => {
         // TODO check for path to target
         const linearDistance = Game.map.getRoomLinearDistance(baseConfig.primary, this.targetRoom)
-        trace.log("linear distance", {linearDistance});
+        trace.info("linear distance", {linearDistance});
 
         if (linearDistance > COLONY_ATTACK_RANGE) {
           return;
@@ -155,7 +172,7 @@ export default class WarManager {
           return party.baseConfig.id === baseConfig.id;
         }).length;
 
-        trace.log("colony parties", {
+        trace.info("colony parties", {
           colonyId: baseConfig.id,
           numColonyWarParties,
           max: MAX_WAR_PARTIES_PER_COLONY
@@ -166,12 +183,12 @@ export default class WarManager {
         }
       });
     } else {
-      trace.log("no key structures, war parties not needed");
+      trace.notice("no key structures, war parties not needed");
     }
 
     // Send reservers to block if no towers
     if (roomEntry.numTowers === 0 && roomEntry.controller?.level > 0) {
-      trace.log('no towers and still claimed, send reserver')
+      trace.info('no towers and still claimed, send reserver')
 
       const numReservers = _.filter(Game.creeps, (creep) => {
         const role = creep.memory[MEMORY.MEMORY_ROLE];
@@ -187,11 +204,18 @@ export default class WarManager {
           },
         }
 
-        trace.log("requesting reserver", {details});
+        trace.info("requesting reserver", {details});
 
         kingdom.sendRequest(getKingdomSpawnTopic(), PRIORITIES.PRIORITY_RESERVER,
           details, WAR_PARTY_RUN_TTL);
+      } else {
+        trace.info("reserver already exists", {numReservers});
       }
+    }
+
+    if (!roomEntry.controller!) {
+      trace.notice('room is not claimed, attack complete or not needed', {roomId: this.targetRoom});
+      this.targetRoom = null;
     }
 
     // Update memory

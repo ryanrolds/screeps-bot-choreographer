@@ -30,6 +30,7 @@ import {getBaseDistributorTopic} from './topics.base';
 import {getKingdomSpawnTopic} from './topics.kingdom';
 
 const MIN_ENERGY = 100000;
+const MIN_TICKS_TO_DOWNGRADE = 150000;
 
 const MIN_UPGRADERS = 1;
 const MAX_UPGRADERS = 10;
@@ -316,7 +317,7 @@ export default class BaseRunnable {
       missingProcesses++;
 
       const controllerRunnable = new ControllerRunnable(room.controller.id);
-      this.scheduler.registerProcess(new Process(controllerProcessId, 'colony_manager',
+      this.scheduler.registerProcess(new Process(controllerProcessId, 'controller',
         Priorities.CRITICAL, controllerRunnable));
     }
 
@@ -558,7 +559,7 @@ export default class BaseRunnable {
       // In an effort to reduce CPU usage, we only spawn upgraders if they have many parts or
       // if we are close go being downgraded In theory, we will build bigger creeps instead of
       // smaller ones and rate won't be a big reduction
-      if (parts < 15 && room.controller.ticksToDowngrade > 50000) {
+      if (parts < 15 && room.controller.ticksToDowngrade > MIN_TICKS_TO_DOWNGRADE) {
         desiredUpgraders = 0;
       }
 

@@ -128,6 +128,61 @@ export class Scribe implements Runnable {
 
   }
 
+  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+    trace = trace.begin('run');
+
+
+    const updateRoomsTrace = trace.begin('update_rooms');
+    // Iterate rooms and update if stale
+    Object.values(Game.rooms).forEach((room) => {
+      const entry = this.getRoomById(room.name);
+      if (!entry || Game.time - entry.lastUpdated > JOURNAL_ENTRY_TTL) {
+        this.updateRoom(kingdom, room, updateRoomsTrace);
+      }
+    });
+    updateRoomsTrace.end();
+
+    this.threadRemoveStaleJournalEntries(trace);
+    this.threadWriteMemory(trace);
+    this.threadUpdateColonyCount(trace, kingdom);
+    this.threadProduceEvents(trace, kingdom);
+
+    /*
+    const username = this.getKingdom().config.username;
+    const friends = this.getKingdom().config.friends;
+    const visual = Game.map.visual;
+    this.getRooms().forEach((room) => {
+      const age = Game.time - room.lastUpdated;
+      const owner = room.controller?.owner || null;
+
+      visual.text(age.toString(), new RoomPosition(49, 47, room.id), {
+        align: 'right',
+        fontSize: 4,
+      });
+
+      let roomPosture = '';
+      if (owner && owner !== username) {
+        roomPosture += '⚔️';
+      }
+      if (owner === username) {
+        roomPosture += '🟢';
+      }
+      if (room.controller?.safeMode > 0) {
+        roomPosture += '💢';
+      }
+
+      visual.text(roomPosture, new RoomPosition(0, 4, room.id), {
+        align: 'left',
+        fontSize: 6,
+      });
+    });
+    */
+
+    trace.end();
+
+    return sleeping(RUN_TTL);
+  }
+
   writeMemory(trace: Tracer) {
     trace.log('write_memory', {cpu: Game.cpu});
 
@@ -204,65 +259,14 @@ export class Scribe implements Runnable {
     return this.globalColonyCount;
   };
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    trace = trace.begin('run');
-
-
-    const updateRoomsTrace = trace.begin('update_rooms');
-    // Iterate rooms and update if stale
-    Object.values(Game.rooms).forEach((room) => {
-      const entry = this.getRoomById(room.name);
-      if (!entry || Game.time - entry.lastUpdated > JOURNAL_ENTRY_TTL) {
-        this.updateRoom(kingdom, room, updateRoomsTrace);
-      }
-    });
-    updateRoomsTrace.end();
-
-    this.threadRemoveStaleJournalEntries(trace);
-    this.threadWriteMemory(trace);
-    this.threadUpdateColonyCount(trace, kingdom);
-    this.threadProduceEvents(trace, kingdom);
-
-    /*
-    const username = this.getKingdom().config.username;
-    const friends = this.getKingdom().config.friends;
-    const visual = Game.map.visual;
-    this.getRooms().forEach((room) => {
-      const age = Game.time - room.lastUpdated;
-      const owner = room.controller?.owner || null;
-
-      visual.text(age.toString(), new RoomPosition(49, 47, room.id), {
-        align: 'right',
-        fontSize: 4,
-      });
-
-      let roomPosture = '';
-      if (owner && owner !== username) {
-        roomPosture += '⚔️';
-      }
-      if (owner === username) {
-        roomPosture += '🟢';
-      }
-      if (room.controller?.safeMode > 0) {
-        roomPosture += '💢';
-      }
-
-      visual.text(roomPosture, new RoomPosition(0, 4, room.id), {
-        align: 'left',
-        fontSize: 6,
-      });
-    });
-    */
-
-    trace.end();
-
-    return sleeping(RUN_TTL);
-  }
-
   removeStaleJournalEntries() {
     this.journal.rooms = _.pick(this.journal.rooms, (room) => {
       return Game.time - room.lastUpdated < MAX_JOURAL_TTL;
     });
+  }
+
+  getRoomById(roomId): RoomEntry {
+    return this.journal.rooms[roomId] || null;
   }
 
   getRooms(): RoomEntry[] {
@@ -375,10 +379,6 @@ export class Scribe implements Runnable {
       }
 
       if (room.controller.safeMode) {
-        return false;
-      }
-
-      if (room.numKeyStructures < 1) {
         return false;
       }
 
@@ -588,10 +588,6 @@ export class Scribe implements Runnable {
 
   clearRoom(roomId: string) {
     delete this.journal.rooms[roomId];
-  }
-
-  getRoomById(roomId): RoomEntry {
-    return this.journal.rooms[roomId] || null;
   }
 
   getLocalShardMemory(): ShardMemory {

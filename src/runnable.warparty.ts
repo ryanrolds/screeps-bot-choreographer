@@ -264,7 +264,7 @@ export default class WarPartyRunnable {
             const attackUpdate: AttackRequest = {
               status: AttackStatus.COMPLETED,
               roomId: targetRoom,
-              colonyId: this.baseConfig.id,
+              baseId: this.baseConfig.id,
             };
             this.kingdom.sendRequest(TOPICS.ATTACK_ROOM, 1, attackUpdate, ATTACK_ROOM_TTL);
 

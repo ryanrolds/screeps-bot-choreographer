@@ -180,7 +180,7 @@ export class Colony extends OrgBase {
 
     if (this.primaryRoom) {
       if (!this.pidSetup) {
-        trace.notice('setting up pid', {pidDesiredHaulers: this.pidDesiredHaulers});
+        trace.log('setting up pid', {pidDesiredHaulers: this.pidDesiredHaulers});
         this.pidSetup = true;
         PID.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, 0, 0.2, 0.001, 0);
       }
@@ -380,7 +380,7 @@ export class Colony extends OrgBase {
       role = CREEPS.ROLE_WORKER;
     }
 
-    trace.notice('request haulers', {numHaulers: this.numHaulers, desiredHaulers: this.pidDesiredHaulers})
+    trace.log('request haulers', {numHaulers: this.numHaulers, desiredHaulers: this.pidDesiredHaulers})
 
     // PID approach
     if (this.numHaulers < this.pidDesiredHaulers) {

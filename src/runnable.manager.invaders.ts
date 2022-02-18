@@ -77,7 +77,7 @@ export default class InvaderManager {
 
       const attackRequest: AttackRequest = {
         status: AttackStatus.REQUESTED,
-        colonyId: colony.id,
+        baseId: colony.id,
         roomId: roomEntry.id,
       };
 

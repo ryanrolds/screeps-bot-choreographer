@@ -68,7 +68,7 @@ export class CentralPlanning {
       const shard = Game.shard.name;
       const roomName = spawn.room.name;
       const origin = new RoomPosition(spawn.pos.x, spawn.pos.y + 4, spawn.pos.roomName);
-      trace.notice('checking spawn', {roomName, origin});
+      trace.log('checking spawn', {roomName, origin});
       const parking = new RoomPosition(origin.x + 5, origin.y, origin.roomName);
       const automated = !shard.startsWith('shard') || shard === 'shardSeason';
       if (!this.baseConfigs[roomName]) {

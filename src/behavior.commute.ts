@@ -17,7 +17,7 @@ export const setCommuteDuration = behaviorTree.leafNode(
   },
 );
 
-export const creepIsFresh = (creep) => {
+export const creepIsFresh = (creep: Creep) => {
   if (creep.spawning) {
     return true;
   }

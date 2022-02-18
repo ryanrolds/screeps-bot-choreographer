@@ -27,8 +27,6 @@ const DROPOFF_TTL = 200;
 const BUILD_LINK_TTL = 200;
 const CONTAINER_TTL = 250;
 
-const PRIORITY_PRIMARY_ROOM = 10;
-
 export default class SourceRunnable extends PersistentMemory implements Runnable {
   id: string;
   orgRoom: OrgRoom;
@@ -96,7 +94,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     }
 
     if (!this.creepPosition || !this.linkPosition) {
-      trace.warn('creep position not set', {creepPosition: this.creepPosition, linkPosition: this.linkPosition});
+      trace.log('creep or link position not set');
       this.populatePositions(trace, kingdom, baseConfig, source);
     }
 
@@ -184,7 +182,8 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     }
 
     if (this.creepPosition && this.linkPosition) {
-      return; // positions populated from memory
+      trace.notice('creep and link positions in memory', {room: source.room.name});
+      return;
     }
 
     const colonyPos = new RoomPosition(baseConfig.origin.x, baseConfig.origin.y - 1,
@@ -198,11 +197,11 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       return;
     }
 
-    trace.warn('creep position set', {creepPosition: this.creepPosition});
+    trace.log('creep position set', {creepPosition: this.creepPosition});
     this.creepPosition = pathResult.path[0];
 
     const availableLinkPos = getNearbyPositions(this.creepPosition, 1);
-    trace.notice('available link positions', {availableLinkPos});
+    trace.log('available link positions', {availableLinkPos});
 
     const filtered = availableLinkPos.filter((pos) => {
       // Remove creep position
@@ -237,9 +236,14 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     if (filtered.length === 0) {
       trace.error('no available link position', {creepPosition: this.creepPosition, filtered, availableLinkPos});
     } else {
-      trace.warn('link position set', {linkPosition: this.linkPosition, filtered});
       this.linkPosition = filtered[0];
     }
+
+    trace.warn('creep and link position was not set: setting', {
+      sourceId: this.sourceId,
+      creepPosition: this.creepPosition,
+      linkPosition: this.linkPosition
+    });
 
     // Update memory
     memory.creepPosition = this.creepPosition;
