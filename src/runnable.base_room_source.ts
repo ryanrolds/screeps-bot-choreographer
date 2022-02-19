@@ -94,7 +94,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     }
 
     if (!this.creepPosition || !this.linkPosition) {
-      trace.log('creep or link position not set');
+      trace.info('creep or link position not set');
       this.populatePositions(trace, kingdom, baseConfig, source);
     }
 
@@ -249,7 +249,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     memory.creepPosition = this.creepPosition;
     memory.linkPosition = this.linkPosition;
 
-    this.setMemory(memory);
+    this.setMemory(memory, false);
   }
 
   updateStructures(trace: Tracer) {
@@ -317,7 +317,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
         },
       }
 
-      trace.notice('requesting miner', {sourceId: this.sourceId, details});
+      trace.info('requesting miner', {sourceId: this.sourceId, details});
 
       colony.getPrimaryRoom().requestSpawn(PRIORITY_MINER, details, RUN_TTL, trace);
     }

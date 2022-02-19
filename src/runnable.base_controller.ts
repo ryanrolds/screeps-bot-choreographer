@@ -174,7 +174,7 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
     memory.nodePosition = this.nodePosition;
     memory.roadPosition = this.roadPosition;
 
-    this.setMemory(memory);
+    this.setMemory(memory, false);
   }
 
   produceEvents(trace: Tracer, kingdom: Kingdom, controller: StructureController) {

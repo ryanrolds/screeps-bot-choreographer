@@ -123,7 +123,7 @@ export default class NukerRunnable {
       ttl: REQUEST_RESOURCES_TTL,
     });
 
-    kingdom.getColony().sendRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.HAUL_NUKER, {
+    kingdom.sendRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.HAUL_NUKER, {
       [MEMORY.TASK_ID]: `load-${this.id}-${Game.time}`,
       [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
       [MEMORY.MEMORY_HAUL_PICKUP]: pickup.id,

@@ -376,10 +376,16 @@ export default class WarPartyRunnable {
 
       targets = this.getTargets(kingdom, room);
       if (targets.length) {
-        trace.log('target', targets[0]);
+        trace.info('target', targets[0]);
         destination = targets[0].pos;
+      } else if (room.controller?.my) {
+        trace.info('room is owned by me, ending party');
+        return true;
+      } else if (room.controller?.level > 0) {
+        trace.info('no targets, but room level is > 0, not ending party');
+        return false;
       } else {
-        trace.log("no targets, done");
+        trace.info("no targets, done");
         return true;
       }
     }
@@ -387,17 +393,17 @@ export default class WarPartyRunnable {
     this.destination = destination;
 
     const [nextPosition, direction, blockers] = this.getNextPosition(this.position, this.destination, trace);
-    trace.log("next position", {nextPosition, blockers: blockers.map(blocker => blocker.id)});
+    trace.info("next position", {nextPosition, blockers: blockers.map(blocker => blocker.id)});
 
     const directionChanged = direction != this.direction;
     if (directionChanged) {
-      trace.log("changing formation", {direction});
+      trace.info("changing formation", {direction});
       this.setFormation(direction);
     } else if (nextPosition) {
-      trace.log("setting next position", {nextPosition});
+      trace.info("setting next position", {nextPosition});
       this.setPosition(nextPosition, trace);
     } else {
-      trace.log("no next position");
+      trace.info("no next position");
     }
 
     // Update direction
@@ -414,7 +420,7 @@ export default class WarPartyRunnable {
     }
 
     if (blockers.length) {
-      trace.log("blockers", {blocked: blockers.map(structure => structure.id)});
+      trace.info("blockers", {blocked: blockers.map(structure => structure.id)});
       nearbyTargets = nearbyTargets.concat(blockers);
     }
 
@@ -424,10 +430,10 @@ export default class WarPartyRunnable {
     }
 
     if (nearbyTargets.length) {
-      trace.log("nearby targets", {nearByTargetsLength: nearbyTargets.length})
+      trace.info("nearby targets", {nearByTargetsLength: nearbyTargets.length})
       this.party.setTarget(nearbyTargets, trace);
     } else {
-      trace.log("no targets");
+      trace.info("no targets");
       return false;
     }
 

@@ -217,6 +217,7 @@ module.exports.parkingLot = behaviorTree.leafNode(
     const result = creep.moveTo(baseConfig.parking, {
       reusePath: 50,
       maxOps: 1500,
+      ignoreCreeps: true,
     });
     if (result !== OK && result !== ERR_TIRED) {
       trace.error('could not move to parking lot', {result, parkingLot: baseConfig.parking});

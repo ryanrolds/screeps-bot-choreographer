@@ -196,73 +196,70 @@ export default class WarManager {
     // Send reserver to block controller if room is clear
     const roomEntry = kingdom.getScribe().getRoomById(this.targetRoom);
     if (!roomEntry) {
-      trace.info("no room entry");
+      trace.error("no room entry");
       return;
     }
 
-    const targetsByColony = this.getTargetsByColony(kingdom, this.targets, trace);
-    trace.info("targets by colony", {targetsByColony});
-
-    // Send war parties if there are important structures
-    if (roomEntry && (roomEntry.numKeyStructures > 0 || this.hostileStrength !== HostileStrength.None)) {
-      // Locate nearby colonies and spawn war parties
-      kingdom.getPlanner().getBaseConfigs().forEach((baseConfig) => {
-        // TODO check for path to target
-        const linearDistance = Game.map.getRoomLinearDistance(baseConfig.primary, this.targetRoom)
-        trace.info("linear distance", {linearDistance});
-
-        if (linearDistance > COLONY_ATTACK_RANGE) {
-          return;
-        }
-
-        const numColonyWarParties = this.warParties.filter((party) => {
-          return party.baseConfig.id === baseConfig.id;
-        }).length;
-
-        trace.info("colony parties", {
-          colonyId: baseConfig.id,
-          numColonyWarParties,
-          max: MAX_WAR_PARTIES_PER_COLONY
-        });
-
-        if (numColonyWarParties < MAX_WAR_PARTIES_PER_COLONY) {
-          this.createNewWarParty(kingdom, baseConfig, roomEntry, trace);
-        }
-      });
-    } else {
-      trace.notice("no key structures, war parties not needed");
-    }
-
-    // Send reservers to block if no towers
-    if (roomEntry.numTowers === 0 && roomEntry.controller?.level > 0) {
-      trace.info('no towers and still claimed, send reserver')
-
-      const numReservers = _.filter(Game.creeps, (creep) => {
-        const role = creep.memory[MEMORY.MEMORY_ROLE];
-        return (role === CREEPS.WORKER_RESERVER) &&
-          creep.memory[MEMORY.MEMORY_ASSIGN_ROOM] === this.targetRoom && creepIsFresh(creep);
-      }).length;
-
-      if (numReservers < 1) {
-        const details = {
-          role: CREEPS.WORKER_RESERVER,
-          memory: {
-            [MEMORY.MEMORY_ASSIGN_ROOM]: this.targetRoom,
-          },
-        }
-
-        trace.info("requesting reserver", {details});
-
-        kingdom.sendRequest(getKingdomSpawnTopic(), PRIORITIES.PRIORITY_RESERVER,
-          details, WAR_PARTY_RUN_TTL);
-      } else {
-        trace.info("reserver already exists", {numReservers});
-      }
-    }
-
-    if (!roomEntry.controller!) {
+    if (!roomEntry.controller) {
       trace.notice('room is not claimed, attack complete or not needed', {roomId: this.targetRoom});
       this.targetRoom = null;
+    } else if (roomEntry.controller.safeMode > 0) {
+      trace.info('controller is in safe mode', {roomId: this.targetRoom});
+    } else {
+      // Determine if we need to send defenders
+      if (roomEntry && (roomEntry.numKeyStructures > 0 || this.hostileStrength !== HostileStrength.None)) {
+        // Locate nearby colonies and spawn war parties
+        kingdom.getPlanner().getBaseConfigs().forEach((baseConfig) => {
+          // TODO check for path to target
+          const linearDistance = Game.map.getRoomLinearDistance(baseConfig.primary, this.targetRoom)
+          trace.info("linear distance", {linearDistance});
+
+          if (linearDistance > COLONY_ATTACK_RANGE) {
+            return;
+          }
+
+          const numColonyWarParties = this.warParties.filter((party) => {
+            return party.baseConfig.id === baseConfig.id;
+          }).length;
+
+          trace.info("colony parties", {
+            colonyId: baseConfig.id,
+            numColonyWarParties,
+            max: MAX_WAR_PARTIES_PER_COLONY
+          });
+
+          if (numColonyWarParties < MAX_WAR_PARTIES_PER_COLONY) {
+            this.createNewWarParty(kingdom, baseConfig, roomEntry, trace);
+          }
+        });
+      }
+
+      // Send reservers to block if no towers
+      if (roomEntry.numTowers === 0 && roomEntry.controller?.level > 0) {
+        trace.info('no towers and still claimed, send reserver')
+
+        const numReservers = _.filter(Game.creeps, (creep) => {
+          const role = creep.memory[MEMORY.MEMORY_ROLE];
+          return (role === CREEPS.WORKER_RESERVER) &&
+            creep.memory[MEMORY.MEMORY_ASSIGN_ROOM] === this.targetRoom && creepIsFresh(creep);
+        }).length;
+
+        if (numReservers < 1) {
+          const details = {
+            role: CREEPS.WORKER_RESERVER,
+            memory: {
+              [MEMORY.MEMORY_ASSIGN_ROOM]: this.targetRoom,
+            },
+          }
+
+          trace.info("requesting reserver", {details});
+
+          kingdom.sendRequest(getKingdomSpawnTopic(), PRIORITIES.PRIORITY_RESERVER,
+            details, WAR_PARTY_RUN_TTL);
+        } else {
+          trace.info("reserver already exists", {numReservers});
+        }
+      }
     }
 
     // Update memory
@@ -295,12 +292,6 @@ export default class WarManager {
         fontSize: 20,
       });
     }
-  }
-
-  getTargetsByColony(kingdom: Kingdom, targets: string[], trace: Tracer): Record<string, string[]> {
-    const targetsByColony = _.groupBy(targets)
-
-    return targetsByColony;
   }
 
   getTargetRoom(): string {

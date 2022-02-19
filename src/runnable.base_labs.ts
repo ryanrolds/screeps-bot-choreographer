@@ -19,8 +19,8 @@ const reactorPositions = [
 
 const boosterPositions = [[3, -2], [3, -1], [2, -2]];
 
-const RUN_TTL = 50;
-const ASSIGN_LABS_TTL = 200;
+const RUN_TTL = 20;
+const ASSIGN_LABS_TTL = 20;
 
 export class LabsManager {
   id: string;
@@ -65,23 +65,25 @@ export class LabsManager {
   }
 
   assignLabs(trace: Tracer, kingdom: Kingdom, base: BaseConfig, orgRoom: Room) {
+
+
     if (base.automated) {
+      trace.info('automated base, assigning labs by position');
       this.assignBasedOnPosition(kingdom, base, orgRoom, trace);
     } else {
       // Organic bases assign role by distance from related structures
+      trace.info('organic base, assigning labs by distance');
       this.assignBasedOnDistance(kingdom, orgRoom, trace);
     }
 
-    trace.log('assigned labs', {reactors: this.reactorsIds, booster: this.boosterIds});
-
-    // Compare labs in current tick to labs that went into assignment
-    const labIds: Id<StructureLab>[] = this.orgRoom.getLabs().map(lab => lab.id);
+    trace.info('assigned labs', {reactors: this.reactorsIds, booster: this.boosterIds});
 
     // Check that we have processes for reactors
     this.reactorsIds.forEach((reactorIds) => {
       const reactorId = `${reactorIds[0]}`;
       const hasProcess = this.scheduler.hasProcess(reactorId);
       if (!hasProcess) {
+        trace.info('creating process for reactor', {reactorId});
         this.scheduler.registerProcess(new Process(reactorId, 'reactors', Priorities.RESOURCES,
           new ReactorRunnable(reactorId, base.id, this.orgRoom, reactorIds)));
       }
@@ -92,6 +94,7 @@ export class LabsManager {
       const boosterId = `${this.boosterIds[0]}`;
       const hasProcess = this.scheduler.hasProcess(boosterId);
       if (!hasProcess) {
+        trace.info('creating process for booster', {boosterId});
         const booster = new BoosterRunnable(boosterId, base.id, this.orgRoom, this.boosterIds);
         this.scheduler.registerProcess(new Process(boosterId, 'boosters', Priorities.RESOURCES,
           booster));
@@ -108,6 +111,8 @@ export class LabsManager {
       trace.end();
       return;
     }
+
+    this.reactorsIds = [];
 
     const origin = baseConfig.origin;
 
@@ -152,51 +157,75 @@ export class LabsManager {
     let activeLabs = _.filter(unassignedLabs, lab => lab.isActive());
     let activeIds = activeLabs.map(lab => lab.id);
 
-    trace.log('active unassigned labs', {labIds: activeIds});
+    activeIds = _.filter(activeIds, (id) => {
+      if (this.boosterIds.indexOf(id) !== -1) {
+        return false;
+      }
+
+      for (let i = 0; i < this.reactorsIds.length; i++) {
+        if (this.reactorsIds[i].indexOf(id) !== -1) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    trace.info('active unassigned labs', {labIds: activeIds});
+
+    if (activeIds.length === 0) {
+      trace.info('no unassigned active labs, no need to reassign')
+      trace.end();
+      return;
+    }
+
+    this.reactorsIds = [];
 
     // Find lab closest to spawn
     const spawns = this.orgRoom.getSpawns();
     if (!spawns.length) {
-      trace.log('no spawns');
+      trace.info('no spawns');
       trace.end();
       return;
     }
 
     // TODO support multiple spawns
-    const primaryBooster: any = _.sortBy(spawns[0].pos.findInRange(unassignedLabs, 3), 'id').shift();
+    const primaryBooster: any = _.sortBy(spawns[0].pos.findInRange(activeLabs, 3), 'id').shift();
     if (primaryBooster) {
       // TODO change range to 2 to support having more than 3 labs in a booster
-      let boosterLabs: StructureLab[] = _.sortBy(primaryBooster.pos.findInRange(unassignedLabs, 2), 'id');
+      let boosterLabs: StructureLab[] = _.sortBy(primaryBooster.pos.findInRange(activeLabs, 2), 'id');
       if (boosterLabs.length >= 3) {
         this.boosterIds = boosterLabs.map(lab => lab.id);
         trace.log('booster labs', {boosterIds: this.boosterIds});
       }
 
       // Remove booster labs from unassigned labs
-      unassignedLabs = _.difference(unassignedLabs, boosterLabs);
+      activeLabs = _.difference(activeLabs, boosterLabs);
     }
 
     if (room.storage) {
       // While we have at least 3 labs, create a reactor
-      while (unassignedLabs.length >= 3) {
-        const primaryReactor: any = _.sortBy(room.storage.pos.findInRange(unassignedLabs, 3), 'id').shift();
+      while (activeLabs.length >= 3) {
+        trace.info('unassigned labs', {labIds: activeLabs.map(lab => lab.id)});
+
+        const primaryReactor: any = _.sortBy(room.storage.pos.findInRange(activeLabs, 3), 'id').shift();
         if (!primaryReactor) {
           break;
         }
 
-        let reactorLabs: StructureLab[] = _.sortBy(primaryReactor.pos.findInRange(unassignedLabs, 1), 'id');
+        let reactorLabs: StructureLab[] = _.sortBy(primaryReactor.pos.findInRange(activeLabs, 1), 'id');
         if (reactorLabs.length >= 3) {
           reactorLabs = reactorLabs.slice(0, 3);
         }
 
-        // Remove reactor labs from unassigned labs
-        unassignedLabs = _.difference(unassignedLabs, reactorLabs);
-
         if (reactorLabs.length) {
           const labIds = reactorLabs.map(lab => lab.id);
-          trace.log('forming reactor', {labIds});
+          trace.info('forming reactor', {labIds});
           this.reactorsIds.push(labIds);
         }
+
+        // Remove reactor labs from unassigned labs
+        activeLabs = _.difference(activeLabs, reactorLabs);
       }
     }
 

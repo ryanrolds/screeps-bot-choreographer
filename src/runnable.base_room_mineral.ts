@@ -180,7 +180,7 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
     // Update memory
     memory.creepPosition = this.creepPosition;
 
-    this.setMemory(memory);
+    this.setMemory(memory, false);
   }
 
   updateDropoff(trace: Tracer, colony: Colony) {
