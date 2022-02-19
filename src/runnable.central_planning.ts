@@ -45,9 +45,6 @@ export class CentralPlanning {
     if ((Memory as any).bases) {
       trace.warn('found shard memory', {bases: (Memory as any).bases});
       bases = (Memory as any).bases;
-    } else if (config && config.bases && config.bases[Game.shard.name]) {
-      trace.warn('found shard config', {config});
-      bases = config.bases;
     } else {
       trace.warn('no shard config found, bootstraping?');
     }

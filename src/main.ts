@@ -26,7 +26,6 @@ let shards: ShardMap = {
     kos: kos,
     maxColonies: 10,
     autoExpand: true,
-    bases: null,
     explorers: true,
   },
   'shard2': {
@@ -35,10 +34,9 @@ let shards: ShardMap = {
     neutral: neutral,
     avoid: avoid,
     kos: kos,
-    maxColonies: 5,
-    autoExpand: false,
-    bases: null,
-    explorers: false,
+    maxColonies: 6,
+    autoExpand: true,
+    explorers: true,
   },
   'shard3': {
     buffer: 3,
@@ -46,9 +44,8 @@ let shards: ShardMap = {
     neutral: neutral,
     avoid: avoid,
     kos: kos,
-    maxColonies: 8,
+    maxColonies: 7,
     autoExpand: false,
-    bases: null,
     explorers: false,
   },
 };

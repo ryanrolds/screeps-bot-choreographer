@@ -8,7 +8,7 @@ import {running} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 
 
-export default class ExpandDebugger {
+export default class PlannerDebugger {
   id: string;
   results: ExpandResults = null;
   display: boolean = false;
@@ -26,6 +26,8 @@ export default class ExpandDebugger {
       if (!this.results || Game.time % 50 === 0) {
         this.results = pickExpansion(this.kingdom, trace);
       }
+
+      trace.notice("expand debugger", {results: this.results});
 
       const selected = this.results.selected;
       if (selected) {

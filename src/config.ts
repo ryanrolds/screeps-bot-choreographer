@@ -25,6 +25,5 @@ export interface ShardConfig {
   kos: string[];
   maxColonies: number;
   autoExpand: boolean;
-  bases: BaseMap;
   explorers: boolean;
 }

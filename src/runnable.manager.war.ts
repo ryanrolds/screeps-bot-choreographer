@@ -48,6 +48,7 @@ export default class WarManager {
   warParties: WarPartyRunnable[];
 
   targetRoom: string;
+  targetTime: number;
   hostileStrength: HostileStrength;
   targets: string[] = [];
 
@@ -61,7 +62,8 @@ export default class WarManager {
     this.warParties = null;
 
     this.targetRoom = null;
-    this.hostileStrength = HostileStrength.Weak;
+    this.targetTime = null;
+    this.hostileStrength = HostileStrength.None;
     this.targets = [];
 
     this.processEventsThread = thread('events_thread', WAR_PARTY_RUN_TTL)(this.processEvents.bind(this));
@@ -81,10 +83,31 @@ export default class WarManager {
     // Write post event status
     trace.info("war manager state", {
       targetRoom: this.targetRoom,
+      targetTime: Game.time - this.targetTime,
       hostileStrength: this.hostileStrength,
       targets: this.targets,
       warPartyIds: this.warParties.map(warParty => warParty.id)
     });
+
+    if (this.targetTime && Game.time - this.targetTime > 5000) {
+      this.targetTime = Game.time;
+
+      switch (this.hostileStrength) {
+        case HostileStrength.None:
+          this.hostileStrength = HostileStrength.Weak;
+          break;
+        case HostileStrength.Weak:
+          this.hostileStrength = HostileStrength.Medium;
+          break;
+        case HostileStrength.Medium:
+          this.hostileStrength = HostileStrength.Strong;
+          break;
+        case HostileStrength.Strong:
+          break;
+        default:
+          throw new Error('Unknown hostile strength');
+      }
+    }
 
     return sleeping(WAR_PARTY_RUN_TTL);
   }
@@ -123,6 +146,7 @@ export default class WarManager {
           // if current target, we are done - pick new target
           if (this.targetRoom === event.details.roomId) {
             this.targetRoom = null;
+            this.targetTime = null;
           }
           break;
         default:
@@ -140,9 +164,15 @@ export default class WarManager {
 
     if (this.targetRoom) {
       trace.info('already have a target room', {roomId: this.targetRoom});
+
+      // If time is not set and we have target room set to game time
+      if (!this.targetTime) {
+        this.targetTime = Game.time;
+      }
     } else if (this.targets.length) {
       trace.notice("setting target room", {target: this.targets[0]});
       this.targetRoom = this.targets[0];
+      this.targetTime = Game.time;
     }
   }
 
@@ -174,7 +204,7 @@ export default class WarManager {
     trace.info("targets by colony", {targetsByColony});
 
     // Send war parties if there are important structures
-    if (roomEntry && roomEntry.numKeyStructures > 0) {
+    if (roomEntry && (roomEntry.numKeyStructures > 0 || this.hostileStrength !== HostileStrength.None)) {
       // Locate nearby colonies and spawn war parties
       kingdom.getPlanner().getBaseConfigs().forEach((baseConfig) => {
         // TODO check for path to target
@@ -238,6 +268,7 @@ export default class WarManager {
     // Update memory
     (Memory as any).war = {
       targetRoom: this.targetRoom,
+      targetTime: this.targetTime,
       hostileStrength: this.hostileStrength,
       parties: this.warParties.map((party) => {
         return {
@@ -342,6 +373,7 @@ export default class WarManager {
     this.memory = memory.war;
 
     this.targetRoom = (Memory as any).war?.targetRoom || null;
+    this.targetTime = (Memory as any).war?.targetTime || null;
     this.hostileStrength = (Memory as any).war?.hostileStrength || HostileStrength.Weak;
 
     this.warParties = this.memory.parties.map((party) => {
@@ -366,6 +398,7 @@ export default class WarManager {
 
     trace.log("restore complete", {
       targetRoom: this.targetRoom,
+      targetTime: this.targetTime,
       hostileStrength: this.hostileStrength,
       warParties: this.warParties.map(warParty => warParty.id),
     });

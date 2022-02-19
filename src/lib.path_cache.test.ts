@@ -50,7 +50,6 @@ describe('Path Cache', function () {
     trace = new Tracer('test', {}, 0);
 
     const config: ShardConfig = {
-      bases: {},
       buffer: 0,
       friends: [],
       neutral: [],

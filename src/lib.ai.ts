@@ -13,7 +13,7 @@ import PathDebugger from './runnable.debug_path';
 import CostMatrixDebugger from './runnable.debug_costmatrix';
 import {CentralPlanning} from './runnable.central_planning';
 import {EventBroker} from './lib.event_broker';
-import ExpandDebugger from './runnable.debug_planner';
+import PlannerDebugger from './runnable.debug_planner';
 import {HUDRunnable} from './runnable.debug_hud';
 import MinCutDebugger from './runnable.debug_mincut';
 import InvaderManager from './runnable.manager.invaders';
@@ -106,7 +106,7 @@ export class AI {
 
     // Expansion debugger
     const expandDebuggerId = 'expand_debugger';
-    const expandDebugger = new ExpandDebugger(expandDebuggerId, this.kingdom);
+    const expandDebugger = new PlannerDebugger(expandDebuggerId, this.kingdom);
     this.scheduler.registerProcess(new Process(expandDebuggerId, 'expand_debugger',
       Priorities.DEBUG, expandDebugger));
 
@@ -158,8 +158,8 @@ export class AI {
     return this.scheduler.getProcess('costmatrix_debugger').runnable as CostMatrixDebugger;
   }
 
-  getExpandDebugger(): ExpandDebugger {
-    return this.scheduler.getProcess('expand_debugger').runnable as ExpandDebugger;
+  getPlanningDebugger(): PlannerDebugger {
+    return this.scheduler.getProcess('expand_debugger').runnable as PlannerDebugger;
   }
 
   getMinCutDebugger(): MinCutDebugger {

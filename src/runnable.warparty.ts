@@ -496,10 +496,6 @@ export default class WarPartyRunnable {
         friends.indexOf(structure.owner.username) === -1,
     }));
 
-    targets = targets.concat(room.find(FIND_HOSTILE_CREEPS, {
-      filter: creep => friends.indexOf(creep.owner.username) === -1
-    }));
-
     targets = targets.concat(room.find(FIND_HOSTILE_STRUCTURES, {
       filter: (structure) => {
         if (structure.structureType === STRUCTURE_CONTROLLER) {
