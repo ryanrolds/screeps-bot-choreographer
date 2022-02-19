@@ -30,8 +30,16 @@ interface StoredWarParty {
 
 interface WarMemory {
   targetRoom: string;
+  hostileStrength: HostileStrength;
   parties: StoredWarParty[];
 }
+
+enum HostileStrength {
+  None = 'none',
+  Weak = 'weak',
+  Medium = 'medium',
+  Strong = 'strong',
+};
 
 export default class WarManager {
   id: string;
@@ -40,6 +48,7 @@ export default class WarManager {
   warParties: WarPartyRunnable[];
 
   targetRoom: string;
+  hostileStrength: HostileStrength;
   targets: string[] = [];
 
   updateWarPartiesThread: ThreadFunc;
@@ -51,6 +60,10 @@ export default class WarManager {
     this.scheduler = scheduler;
     this.warParties = null;
 
+    this.targetRoom = null;
+    this.hostileStrength = HostileStrength.Weak;
+    this.targets = [];
+
     this.processEventsThread = thread('events_thread', WAR_PARTY_RUN_TTL)(this.processEvents.bind(this));
     this.updateWarPartiesThread = thread('update_warparties', WAR_PARTY_RUN_TTL)(this.updateWarParties.bind(this));
     this.mapUpdateThread = thread('map_thread', 1)(this.mapUpdate.bind(this));
@@ -59,15 +72,16 @@ export default class WarManager {
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
     trace = trace.begin('war_manager_run');
 
-    this.processEventsThread(trace, kingdom);
     this.updateWarPartiesThread(trace, kingdom);
+    this.processEventsThread(trace, kingdom);
     this.mapUpdateThread(trace);
 
     trace.end();
 
     // Write post event status
-    trace.log("war manager state", {
+    trace.info("war manager state", {
       targetRoom: this.targetRoom,
+      hostileStrength: this.hostileStrength,
       targets: this.targets,
       warPartyIds: this.warParties.map(warParty => warParty.id)
     });
@@ -115,6 +129,9 @@ export default class WarManager {
           throw new Error(`invalid status ${event.details.status}`);
       }
     }
+
+    // address bug with duplicate entries
+    targets = _.uniq(targets);
 
     trace.notice('targets', {targets});
 
@@ -221,6 +238,7 @@ export default class WarManager {
     // Update memory
     (Memory as any).war = {
       targetRoom: this.targetRoom,
+      hostileStrength: this.hostileStrength,
       parties: this.warParties.map((party) => {
         return {
           id: party.id,
@@ -324,6 +342,8 @@ export default class WarManager {
     this.memory = memory.war;
 
     this.targetRoom = (Memory as any).war?.targetRoom || null;
+    this.hostileStrength = (Memory as any).war?.hostileStrength || HostileStrength.Weak;
+
     this.warParties = this.memory.parties.map((party) => {
       trace.log("restoring party", {party});
       if (!party.id || !party.target || !party.position || !party.colony || !party.flagId
@@ -346,6 +366,7 @@ export default class WarManager {
 
     trace.log("restore complete", {
       targetRoom: this.targetRoom,
+      hostileStrength: this.hostileStrength,
       warParties: this.warParties.map(warParty => warParty.id),
     });
   }
