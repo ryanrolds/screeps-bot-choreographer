@@ -2,6 +2,7 @@ import {createOpenSpaceMatrix} from "./lib.costmatrix";
 import {Tracer} from "./lib.tracing";
 import {Kingdom} from "./org.kingdom";
 
+const PASSES = 4;
 const MIN_DISTANCE_FOR_ORIGIN = 8;
 
 export const DismissedReasonNoRoomEntry = 'no_room_entry';
@@ -40,7 +41,7 @@ export const pickExpansion = (kingdom: Kingdom, trace: Tracer): ExpandResults =>
   let nextPass: string[] = Object.keys(claimed);
   seen = _.clone(claimed);
 
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < PASSES; i++) {
     const found = [];
 
     nextPass.forEach((parentRoom) => {
@@ -75,9 +76,12 @@ export const pickExpansion = (kingdom: Kingdom, trace: Tracer): ExpandResults =>
           return;
         }
 
+        // It room is owned by another player, we can't expand there
+        // Also add to claims room list to we don't pick adjacent rooms
         if (roomEntry.controller.owner) {
           trace.log('dismissed room owned', {parentRoom, roomEntry});
           dismissed[roomName] = DismissedReasonOwned;
+          claimed[roomName] = true;
           return;
         }
 
@@ -97,6 +101,17 @@ export const pickExpansion = (kingdom: Kingdom, trace: Tracer): ExpandResults =>
   }
 
   let candidateList = _.keys(candidates);
+  candidateList = _.filter(candidateList, (roomName) => {
+    if (claimed[roomName]) {
+      return false;
+    }
+
+    if (dismissed[roomName]) {
+      return false;
+    }
+
+    return true;
+  });
 
   trace.log('pre-filter candidates', {candidateList});
 

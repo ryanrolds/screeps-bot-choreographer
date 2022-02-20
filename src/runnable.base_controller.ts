@@ -127,7 +127,7 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
   }
 
   populateNodePosition(kingdom: Kingdom, controller: StructureController, trace: Tracer) {
-    const memory = this.getMemory() || {};
+    const memory = this.getMemory(trace) || {};
 
     if (memory.nodePosition && memory.roadPosition) {
       this.nodePosition = new RoomPosition(memory.nodePosition.x, memory.nodePosition.y, memory.nodePosition.roomName);

@@ -53,6 +53,7 @@ An AI for [Screeps](screeps.com).
 - [X] System for a Room and Map(beta) HUD
 - [ ] Scale creep parts and remote mining based on spawner saturation
 - [ ] Room process and sources processes no longer require room visibility
+- [ ] Cleanup old construction sites automatically
 - [ ] Harvest commodities & factory
 - [ ] Process thread API (automatically run threads and sleep based on)
 - [ ] Process stats and scheduler report

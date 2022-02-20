@@ -355,7 +355,7 @@ export default class OrgRoom extends OrgBase {
     }
 
     // Request defenders
-    this.threadRequestDefenders(trace);
+    this.threadRequestDefenders(trace, this.getKingdom(), base);
 
     trace.end();
   }
@@ -637,6 +637,7 @@ export default class OrgRoom extends OrgBase {
       memory: {
         [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
         [MEMORY.MEMORY_ASSIGN_ROOM_POS]: position,
+        [MEMORY.MEMORY_BASE]: base.id,
       },
     }, REQUEST_DEFENDERS_TTL);
   }

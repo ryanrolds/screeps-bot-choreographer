@@ -52,6 +52,7 @@ export type RoomEntry = {
   invaderCoreTime: number;
   numTowers: number;
   numKeyStructures: number;
+  myConstructionSites: number;
   mineral: MineralConstant;
   portals: PortalEntry[];
   powerBanks: {
@@ -360,6 +361,18 @@ export class Scribe implements Runnable {
     });
   }
 
+  getRoomsWithMyConstructionSites(): {id: Id<Room>, sites: number}[] {
+    let rooms = Object.values(this.journal.rooms).filter((room) => {
+      return room.myConstructionSites > 0;
+    });
+
+    rooms = _.sortByOrder(rooms, 'myConstructionSites', 'desc');
+
+    return rooms.map((room) => {
+      return {id: room.id, sites: room.myConstructionSites}
+    });
+  }
+
   getWeakRooms(): TargetRoom[] {
     return Object.values(this.journal.rooms).filter((room) => {
       if (!room.controller || room.controller.owner === 'ENETDOWN') {
@@ -416,6 +429,7 @@ export class Scribe implements Runnable {
       invaderCoreTime: null,
       numTowers: 0,
       numKeyStructures: 0,
+      myConstructionSites: 0,
       mineral: null,
       powerBanks: [],
       portals: [],
@@ -519,6 +533,10 @@ export class Scribe implements Runnable {
     }).length;
 
     keyStructuresEnd();
+
+    const constructionSitesEnd = trace.startTimer('constructionSites');
+    room.myConstructionSites = roomObject.find(FIND_MY_CONSTRUCTION_SITES).length;
+    constructionSitesEnd();
 
     const mineralEnd = trace.startTimer('mineral');
 

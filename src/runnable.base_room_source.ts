@@ -166,7 +166,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
   }
 
   populatePositions(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig, source: Source) {
-    const memory = this.getMemory() || {};
+    const memory = this.getMemory(trace) || {};
 
     // Check memory for creep position
     const creepPosition = memory.creepPosition;

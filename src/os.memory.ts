@@ -1,3 +1,6 @@
+import {trace} from "console";
+import {Tracer} from "./lib.tracing";
+
 const MEMORY_OBJECT_TTL = 5000;
 
 type MemoryObject = {
@@ -39,18 +42,20 @@ export class PersistentMemory {
     this.memoryId = id;
   }
 
-  getMemory(): any {
-    const memoryObject: MemoryObject = (Memory as any).proc[this.memoryId] || {};
+  getMemory(trace: Tracer): any {
+    const memoryObject: MemoryObject = (Memory as any).proc[this.memoryId];
     if (!memoryObject) {
       return null;
     }
 
     if (typeof memoryObject.stales === 'undefined') {
+      trace.warn('stale not set', {memoryObject});
       memoryObject.stales = true;
     }
 
     // Don't return exceptionally old memory objects
     if (memoryObject.stales && memoryObject.time < Game.time - MEMORY_OBJECT_TTL) {
+      trace.warn('memory object is stale', {memoryObject});
       return null;
     }
 

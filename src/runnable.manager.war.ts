@@ -203,7 +203,7 @@ export default class WarManager {
     if (!roomEntry.controller) {
       trace.notice('room is not claimed, attack complete or not needed', {roomId: this.targetRoom});
       this.targetRoom = null;
-    } else if (roomEntry.controller.safeMode > 0) {
+    } else if (roomEntry.controller.safeMode > 150) {
       trace.info('controller is in safe mode', {roomId: this.targetRoom});
     } else {
       // Determine if we need to send defenders

@@ -639,7 +639,8 @@ export default class BaseRunnable {
         [MEMORY.MEMORY_HAUL_AMOUNT]: extension.store.getFreeCapacity(RESOURCE_ENERGY),
       };
 
-      kingdom.sendRequest(getBaseDistributorTopic(this.id), PRIORITIES.HAUL_EXTENSION, details, HAUL_EXTENSION_TTL);
+      kingdom.sendRequest(getBaseDistributorTopic(this.id), PRIORITIES.HAUL_EXTENSION,
+        details, HAUL_EXTENSION_TTL);
     });
 
     trace.log('haul extensions', {numHaulTasks: nonFullExtensions.length});

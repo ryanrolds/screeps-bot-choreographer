@@ -108,7 +108,7 @@ export const warPartyPolicy: FindPathPolicy = {
     maxSearchRooms: 16,
     maxOps: 6000,
     maxPathRooms: 5,
-    ignoreCreeps: true,
+    ignoreCreeps: false,
   },
 };
 
@@ -217,7 +217,7 @@ export default class WarPartyRunnable {
         // If we have at least 4 creeps and they are in position, begin deployment
         if (this.inPosition(this.position, trace) && creeps.length >= 4) {
           this.phase = Phase.PHASE_EN_ROUTE;
-          trace.log('moving to deploy phase', {phase: this.phase});
+          trace.log('moving to en route phase', {phase: this.phase});
         } else {
           this.destination = targetPosition;
           this.position = flag.pos;
@@ -227,7 +227,7 @@ export default class WarPartyRunnable {
 
       if (this.phase === Phase.PHASE_EN_ROUTE) {
         // If we are out of creep, remarshal
-        if (!targetRoomObject || !creeps.length || (this.position.findClosestByRange(creeps)?.pos.getRangeTo(this.position) > 5)) {
+        if (!creeps.length || (this.position.findClosestByRange(creeps)?.pos.getRangeTo(this.position) > 5)) {
           this.phase = Phase.PHASE_MARSHAL;
           trace.log('moving to marshal phase', {phase: this.phase});
         } else if (targetRoom === this.position.roomName) {
@@ -369,7 +369,7 @@ export default class WarPartyRunnable {
 
     // If we have visibility into the room, get targets and choose first as destination
     if (room) {
-      if ((room.controller?.safeMode || 0) > 0) {
+      if ((room.controller?.safeMode || 0) > 500) {
         trace.notice('room is in safe mode, ending party');
         return true;
       }
@@ -483,14 +483,15 @@ export default class WarPartyRunnable {
 
     let targets: (Structure | Creep)[] = [];
     // determine target (hostile creeps, towers, spawns, nukes, all other structures)
+
+    targets = targets.concat(room.find(FIND_HOSTILE_STRUCTURES, {
+      filter: structure => structure.structureType === STRUCTURE_TOWER &&
+        friends.indexOf(structure.owner.username) === -1,
+    }));
+
     targets = targets.concat(room.find(FIND_HOSTILE_CREEPS, {
       filter: creep => friends.indexOf(creep.owner.username) === -1
     }));
-
-    targets = room.find(FIND_HOSTILE_STRUCTURES, {
-      filter: structure => structure.structureType === STRUCTURE_TOWER &&
-        friends.indexOf(structure.owner.username) === -1,
-    });
 
     targets = targets.concat(room.find(FIND_HOSTILE_STRUCTURES, {
       filter: structure => structure.structureType === STRUCTURE_SPAWN &&

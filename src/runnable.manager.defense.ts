@@ -414,7 +414,8 @@ function checkColonyDefenses(trace: Tracer, kingdom: Kingdom, hostilesByColony: 
       });
 
       if (defenders.length < numNeededDefenders) {
-        requestAdditionalDefenders(kingdom, base, hostiles.length - defenders.length, trace);
+        requestAdditionalDefenders(kingdom, base, hostiles.length - defenders.length,
+          hostiles[0].pos, trace);
       }
     }
   });
@@ -430,14 +431,21 @@ function requestExistingDefenders(defenders: Creep[], position: RoomPosition) {
   });
 }
 
-function requestAdditionalDefenders(kingdom: Kingdom, base: BaseConfig, needed: number, trace: Tracer) {
+function requestAdditionalDefenders(kingdom: Kingdom, base: BaseConfig, needed: number,
+  position: RoomPosition, trace: Tracer) {
+  const positionStr = [position.x, position.y, position.roomName].join(',');
+
   for (let i = 0; i < needed; i++) {
-    trace.log('requesting defender', {baseId: base.id});
+    trace.info('requesting defender', {baseId: base.id});
 
     kingdom.sendRequest(getBaseDefenseTopic(base.id), PRIORITIES.PRIORITY_DEFENDER, {
       role: CREEPS.WORKER_DEFENDER,
       spawn: true,
-      memory: {}
+      memory: {
+        [MEMORY.MEMORY_ASSIGN_ROOM]: position.roomName,
+        [MEMORY.MEMORY_ASSIGN_ROOM_POS]: positionStr,
+        [MEMORY.MEMORY_BASE]: base.id,
+      }
     }, REQUEST_DEFENDERS_TTL);
   }
 }

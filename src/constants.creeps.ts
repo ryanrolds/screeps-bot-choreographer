@@ -139,8 +139,8 @@ export const DEFINITIONS: Record<string, CreepRoleDefinition> = {
     skippable: false,
   },
   [WORKER_ATTACKER_1TOWER]: {
-    base: [RANGED_ATTACK, TOUGH, MOVE, HEAL, MOVE, HEAL, MOVE, HEAL, HEAL],
-    parts: [RANGED_ATTACK, TOUGH, MOVE, HEAL, MOVE, HEAL, MOVE, HEAL, HEAL],
+    base: [TOUGH, MOVE, HEAL, MOVE, HEAL, MOVE, ATTACK, MOVE, ATTACK, HEAL],
+    parts: [ATTACK, TOUGH, MOVE, HEAL, MOVE, HEAL, MOVE, HEAL, HEAL, MOVE],
     boosts: ['heal'],
     energyLimit: 0,
     energyMinimum: 2000,
@@ -149,9 +149,9 @@ export const DEFINITIONS: Record<string, CreepRoleDefinition> = {
     skippable: false,
   },
   [WORKER_ATTACKER_2TOWER]: {
-    base: [RANGED_ATTACK, TOUGH, MOVE, HEAL, MOVE, HEAL, MOVE, HEAL, HEAL],
-    parts: [RANGED_ATTACK, TOUGH, MOVE, HEAL, MOVE, HEAL, MOVE, HEAL, HEAL],
-    boosts: ['heal'],
+    base: [TOUGH, MOVE, HEAL, MOVE, HEAL, MOVE, ATTACK, MOVE, HEAL, HEAL],
+    parts: [ATTACK, TOUGH, MOVE, HEAL, MOVE, HEAL, MOVE, HEAL, HEAL, MOVE],
+    boosts: ['heal', 'attack'],
     energyLimit: 0,
     energyMinimum: 6500,
     ignoreSpawnEnergyLimit: true,

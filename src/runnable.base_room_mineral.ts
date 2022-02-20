@@ -154,7 +154,7 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
   populatePositions(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig, mineral: Mineral) {
     trace.log('populate positions', {room: mineral.room.name});
 
-    const memory = this.getMemory() || {};
+    const memory = this.getMemory(trace) || {};
 
     // Check memory for creep position
     const creepPosition = memory.creepPosition;

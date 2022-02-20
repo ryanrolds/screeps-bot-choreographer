@@ -166,8 +166,9 @@ export const createSourceRoadMatrix = (kingdom: Kingdom, roomName: string, trace
         return;
       }
 
-      // Give walls a low weight otherwise we will minimize holes
-      if (struct.structureType === STRUCTURE_WALL) {
+      // Give walls a low weight otherwise we will minimize holes, but only if
+      // Only for rooms we control, we can destroy the walls
+      if (room.controller?.my && struct.structureType === STRUCTURE_WALL) {
         costMatrix.set(struct.pos.x, struct.pos.y, 10);
         return;
       }

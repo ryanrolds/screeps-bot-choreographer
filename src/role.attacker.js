@@ -69,13 +69,13 @@ const behavior = behaviorTree.sequenceNode(
             }
 
             if (!didHeal && !didDismantle && attackDistance <= 1 && creep.getActiveBodyparts(ATTACK) > 0) {
-              const attackResult = creep.dismantle(attackTarget);
+              const attackResult = creep.attack(attackTarget);
               trace.log('attack result', {attackResult});
             }
 
             if (creep.getActiveBodyparts(RANGED_ATTACK) > 0) {
-              const rangedResult = creep.rangedMassAttack();
-              trace.log('ranged mass attack result', {rangedResult});
+              const rangedResult = creep.rangedAttack(attackTarget);
+              trace.log('ranged attack result', {rangedResult});
             }
           }
         }

@@ -252,12 +252,6 @@ export default class PartyRunnable {
           .filter((structure: Structure) => {
             return structure.structureType !== STRUCTURE_ROAD;
           });
-
-        // Creeps not in the party can block
-        objects = objects.concat(position.lookFor(LOOK_CREEPS))
-          .filter((creep: Creep) => {
-            return this.getAssignedCreeps().indexOf(creep) === -1;
-          });
       });
     }
 
@@ -424,6 +418,8 @@ export default class PartyRunnable {
         [MEMORY.MEMORY_POSITION_X]: x,
         [MEMORY.MEMORY_POSITION_Y]: y,
         [MEMORY.MEMORY_POSITION_ROOM]: roomName,
+        [MEMORY.MEMORY_ASSIGN_ROOM]: roomName,
+        [MEMORY.MEMORY_BASE]: this.baseConfig.id,
       },
     };
 
