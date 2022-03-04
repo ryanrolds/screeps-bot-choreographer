@@ -27,6 +27,7 @@ const REQUEST_MISSING_ROOMS_TTL = 25;
 const REQUEST_HAULER_TTL = 25;
 const REQUEST_DEFENDER_TTL = 5;
 const REQUEST_EXPLORER_TTL = 200;
+const HAULER_PID_TTL = 1;
 
 export class Colony extends OrgBase {
   baseId: string;
@@ -66,6 +67,7 @@ export class Colony extends OrgBase {
   threadHandleDefenderRequest: ThreadFunc;
   threadRequestHaulers: ThreadFunc;
   threadRequestExplorer: ThreadFunc;
+  threadHaulerPid: ThreadFunc;
 
   constructor(parent: Kingdom, baseConfig: BaseConfig, trace: Tracer) {
     super(parent, baseConfig.id, trace);
@@ -152,6 +154,30 @@ export class Colony extends OrgBase {
       this.requestHaulers(trace);
     });
 
+    this.threadHaulerPid = thread('hauler_pid_thread', HAULER_PID_TTL)((trace: Tracer) => {
+      // Fraction of num haul tasks
+      let numHaulTasks = this.getKingdom().getTopicLength(getBaseHaulerTopic(this.baseId));
+      numHaulTasks -= this.idleHaulers;
+
+      trace.log('haul tasks', {numHaulTasks, numIdleHaulers: this.idleHaulers});
+
+      if (this.primaryRoom) {
+        if (!this.pidSetup) {
+          trace.log('setting up pid', {pidDesiredHaulers: this.pidDesiredHaulers});
+          this.pidSetup = true;
+          PID.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, 0, 0.2, 0.001, 0);
+        }
+
+        const updateHaulerPID = trace.begin('update_hauler_pid');
+        this.pidDesiredHaulers = PID.update(this.primaryRoomId, this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS,
+          numHaulTasks, Game.time, updateHaulerPID);
+        updateHaulerPID.log('desired haulers', {desired: this.pidDesiredHaulers});
+        updateHaulerPID.end();
+
+        trace.log('desired haulers', {desired: this.pidDesiredHaulers});
+      }
+    })
+
     this.threadRequestExplorer = thread('request_explorers_thread', REQUEST_EXPLORER_TTL)((trace, kingdom) => {
       this.requestExplorer(trace, kingdom);
     });
@@ -162,37 +188,16 @@ export class Colony extends OrgBase {
   update(trace) {
     const updateTrace = trace.begin('update');
 
+    this.primaryRoom = Game.rooms[this.primaryRoomId];
+
     const removeStale = updateTrace.begin('remove_stale');
     this.topics.removeStale();
     removeStale.end();
 
-    this.primaryRoom = Game.rooms[this.primaryRoomId];
-
     this.threadUpdateOrg(updateTrace);
     this.threadUpdateCreeps(updateTrace, this.getKingdom());
     this.threadUpdateHaulers(updateTrace);
-
-    // Fraction of num haul tasks
-    let numHaulTasks = this.getKingdom().getTopicLength(getBaseHaulerTopic(this.baseId));
-    numHaulTasks -= this.idleHaulers;
-
-    trace.log('haul tasks', {numHaulTasks, numIdleHaulers: this.idleHaulers});
-
-    if (this.primaryRoom) {
-      if (!this.pidSetup) {
-        trace.log('setting up pid', {pidDesiredHaulers: this.pidDesiredHaulers});
-        this.pidSetup = true;
-        PID.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, 0, 0.2, 0.001, 0);
-      }
-
-      const updateHaulerPID = updateTrace.begin('update_hauler_pid');
-      this.pidDesiredHaulers = PID.update(this.primaryRoomId, this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS,
-        numHaulTasks, Game.time, updateHaulerPID);
-      updateHaulerPID.log('desired haulers', {desired: this.pidDesiredHaulers});
-      updateHaulerPID.end();
-
-      trace.log('desired haulers', {desired: this.pidDesiredHaulers});
-    }
+    this.threadHaulerPid(updateTrace);
 
     const roomTrace = updateTrace.begin('rooms');
     Object.values(this.roomMap).forEach((room) => {
@@ -202,7 +207,7 @@ export class Colony extends OrgBase {
 
     this.threadHandleDefenderRequest(updateTrace, this.getKingdom());
     this.threadRequestHaulers(updateTrace);
-    this.threadRequestExplorer(trace, this.getKingdom());
+    this.threadRequestExplorer(updateTrace, this.getKingdom());
 
     updateTrace.end();
   }
