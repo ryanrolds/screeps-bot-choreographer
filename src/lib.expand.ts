@@ -9,7 +9,8 @@ export const DismissedReasonNoRoomEntry = 'no_room_entry';
 export const DismissedReasonNoController = 'no_controller';
 export const DismissedReasonAdjacentClaimed = 'adjacent_claimed';
 export const DismissedReasonOwned = 'owned';
-export type DismissedReason = 'no_room_entry' | 'no_controller' | 'adjacent_claimed' | 'owned';
+export const DismissedReasonDifferentRoomStatus = 'different_room_status';
+export type DismissedReason = 'no_room_entry' | 'no_controller' | 'adjacent_claimed' | 'owned' | 'different_room_status';
 
 export type ExpandResults = {
   selected: string;
@@ -28,6 +29,13 @@ export const pickExpansion = (kingdom: Kingdom, trace: Tracer): ExpandResults =>
   let seen: Record<string, boolean> = {};
 
   const baseConfigs = kingdom.getPlanner().getBaseConfigs();
+
+  let baseRoomStatus = null;
+  if (baseConfigs.length) {
+    baseRoomStatus = Game.map.getRoomStatus(baseConfigs[0].primary).status;
+  }
+
+  trace.notice('base room status', {baseRoomStatus});
 
   // First pass through colonies, find all the rooms that are assigned to a colony already
   baseConfigs.forEach((baseConfig) => {
@@ -61,17 +69,26 @@ export const pickExpansion = (kingdom: Kingdom, trace: Tracer): ExpandResults =>
           return;
         }
 
+        if (baseRoomStatus !== null) {
+          const roomStatus = Game.map.getRoomStatus(roomName).status;
+          if (roomStatus !== baseRoomStatus) {
+            trace.info('different room status', {roomName, roomStatus, baseRoomStatus});
+            dismissed[roomName] = DismissedReasonDifferentRoomStatus;
+            return;
+          }
+        }
+
         const roomEntry = kingdom.getScribe().getRoomById(roomName);
         if (!roomEntry) {
-          trace.log('no room entry', {roomName});
+          trace.info('no room entry', {roomName});
           dismissed[roomName] = DismissedReasonNoRoomEntry;
           return;
         }
 
-        trace.log('room entry', {roomEntry});
+        trace.info('room entry', {roomEntry});
 
         if (!roomEntry.controller || !roomEntry.controller.pos) {
-          trace.log('dismiss candidate, no controller', {parentRoom, roomEntry});
+          trace.info('dismiss candidate, no controller', {parentRoom, roomEntry});
           dismissed[roomName] = DismissedReasonNoController;
           return;
         }
@@ -79,7 +96,7 @@ export const pickExpansion = (kingdom: Kingdom, trace: Tracer): ExpandResults =>
         // It room is owned by another player, we can't expand there
         // Also add to claims room list to we don't pick adjacent rooms
         if (roomEntry.controller.owner) {
-          trace.log('dismissed room owned', {parentRoom, roomEntry});
+          trace.info('dismissed room owned', {parentRoom, roomEntry});
           dismissed[roomName] = DismissedReasonOwned;
           claimed[roomName] = true;
           return;
@@ -88,11 +105,11 @@ export const pickExpansion = (kingdom: Kingdom, trace: Tracer): ExpandResults =>
         // If previous room was claimed, do not build as this room is too close to another colony
         if (claimed[parentRoom]) {
           dismissed[roomName] = DismissedReasonAdjacentClaimed;
-          trace.log('dismissing room, parent claimed', {parentRoom, roomName});
+          trace.info('dismissing room, parent claimed', {parentRoom, roomName});
           return;
         }
 
-        trace.log('adding room to candidates', {roomName});
+        trace.info('adding room to candidates', {roomName});
         candidates[roomName] = true;
       });
     });
@@ -113,7 +130,7 @@ export const pickExpansion = (kingdom: Kingdom, trace: Tracer): ExpandResults =>
     return true;
   });
 
-  trace.log('pre-filter candidates', {candidateList});
+  trace.info('pre-filter candidates', {candidateList});
 
   candidateList = _.sortByOrder(candidateList,
     (roomName) => {
@@ -123,13 +140,13 @@ export const pickExpansion = (kingdom: Kingdom, trace: Tracer): ExpandResults =>
         return 0;
       }
 
-      trace.log('room source', {roomName, numSources: roomEntry.numSources, roomEntry});
+      trace.info('room source', {roomName, numSources: roomEntry.numSources, roomEntry});
       return roomEntry.numSources;
     },
     ['desc']
   );
 
-  trace.log('sorted candidates', {candidateList});
+  trace.info('sorted candidates', {candidateList});
 
   if (candidateList.length < 3) {
     trace.notice('not enough candidates', {candidateList});
@@ -139,7 +156,7 @@ export const pickExpansion = (kingdom: Kingdom, trace: Tracer): ExpandResults =>
   for (let i = 0; i < candidateList.length; i++) {
     const roomName = candidateList[i];
     const [costMatrix, distance, origin] = createOpenSpaceMatrix(roomName, trace);
-    trace.log('open space matrix', {roomName, distance, origin});
+    trace.info('open space matrix', {roomName, distance, origin});
 
     if (distance >= MIN_DISTANCE_FOR_ORIGIN) {
       return {selected: roomName, distance, origin, candidates, claimed, dismissed, seen};

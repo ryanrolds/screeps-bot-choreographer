@@ -1,5 +1,5 @@
 import {
-  DismissedReasonAdjacentClaimed, DismissedReasonNoController, DismissedReasonNoRoomEntry,
+  DismissedReasonAdjacentClaimed, DismissedReasonDifferentRoomStatus, DismissedReasonNoController, DismissedReasonNoRoomEntry,
   DismissedReasonOwned, ExpandResults, pickExpansion
 } from "./lib.expand";
 import {Tracer} from './lib.tracing';
@@ -57,6 +57,9 @@ export default class PlannerDebugger {
             break;
           case DismissedReasonOwned:
             text = 'OW';
+            break;
+          case DismissedReasonDifferentRoomStatus:
+            text = 'RS';
             break;
           default:
             text = '?';
