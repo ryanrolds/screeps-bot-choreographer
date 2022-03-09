@@ -135,7 +135,7 @@ export default class PartyRunnable {
 
     const visual = new RoomVisual();
 
-    const showVisuals = global.LOG_WHEN_PID === this.id;
+    const showVisuals = (global as any).LOG_WHEN_PID === this.id;
     if (showVisuals) {
       visual.rect(position.x - 0.5, position.y - 1.5, 2, 2);
     }

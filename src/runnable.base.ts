@@ -28,6 +28,8 @@ import {BaseConfig} from './config';
 import RoomRunnable from './runnable.base_room';
 import {getBaseDistributorTopic} from './topics.base';
 import {getKingdomSpawnTopic} from './topics.kingdom';
+import {scoreHostile} from './runnable.manager.defense';
+import {returnSuccess} from './lib.behaviortree';
 
 const MIN_ENERGY = 100000;
 const MIN_TICKS_TO_DOWNGRADE = 150000;
@@ -51,6 +53,7 @@ const HAUL_EXTENSION_TTL = 10;
 const RAMPART_ACCESS_TTL = 10;
 const UPDATE_PROCESSES_TTL = 20;
 const PRODUCE_STATUS_TTL = 30;
+const ABANDON_BASE_TTL = 10;
 
 enum DEFENSE_POSTURE {
   OPEN = 'open',
@@ -83,6 +86,7 @@ export default class BaseRunnable {
   //threadUpdateRampartAccess: ThreadFunc;
   threadRequestEnergy: ThreadFunc;
   threadProduceStatus: ThreadFunc;
+  threadAbandonBase: ThreadFunc;
 
   constructor(id: string, scheduler: Scheduler) {
     this.id = id;
@@ -103,6 +107,7 @@ export default class BaseRunnable {
     //this.threadUpdateRampartAccess = thread('update_rampart_access_thread', RAMPART_ACCESS_TTL)(this.updateRampartAccess.bind(this));
     this.threadRequestEnergy = thread('request_energy_thread', ENERGY_REQUEST_TTL)(this.requestEnergy.bind(this));
     this.threadProduceStatus = thread('produce_status_thread', PRODUCE_STATUS_TTL)(this.produceStatus.bind(this));
+    this.threadAbandonBase = thread('abandon_base_check', ABANDON_BASE_TTL)(this.abandonBase.bind(this));
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
@@ -137,6 +142,9 @@ export default class BaseRunnable {
 
     this.threadUpdateProcessSpawning(trace, baseConfig, orgRoom, room);
 
+    // Base life cycle
+    this.threadAbandonBase(trace, kingdom, baseConfig, room);
+
     // Defense
     // this.threadUpdateRampartAccess(trace, orgRoom, room);
     this.threadCheckSafeMode(trace, kingdom, room);
@@ -160,6 +168,54 @@ export default class BaseRunnable {
 
     trace.end();
     return sleeping(MIN_TTL);
+  }
+
+  abandonBase(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig, room: Room): void {
+    trace = trace.begin('abandon_base');
+
+    trace.info('abandoning base check', {
+      id: this.id,
+    });
+
+    // If room has large hostile presence, no spawns, and no towers, abandon base
+    // TODO attempt to resist, by sending defenders from nearby bases
+
+    const hostileCreeps = room.find(FIND_HOSTILE_CREEPS);
+    const hostileScore = hostileCreeps.reduce((acc, hostile) => {
+      return acc + scoreHostile(hostile);
+    }, 0);
+
+    if (hostileScore < 100) {
+      trace.end();
+      return;
+    }
+
+    trace.notice('hostile creeps detected', {
+      hostileScore: hostileScore,
+    });
+
+    const spawns = room.find(FIND_MY_SPAWNS);
+    if (spawns.length > 0) {
+      return;
+    }
+
+    const towers = room.find(FIND_MY_STRUCTURES, {
+      filter: (structure) => {
+        return structure.structureType === STRUCTURE_TOWER;
+      },
+    });
+
+    if (towers.length > 0) {
+      return;
+    }
+
+    trace.notice('abandoning base', {
+      id: this.id,
+    });
+
+    //kingdom.getPlanner().removeBase(baseConfig.id, trace);
+
+    trace.end();
   }
 
   requestClaimer(kingdom: Kingdom, trace: Tracer) {

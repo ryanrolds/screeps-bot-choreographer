@@ -514,7 +514,7 @@ function updateDefenseStats(trace: Tracer, kingdom: Kingdom, hostilesByColony: R
   trace.log('defense stats', {defenseStats: stats.defense});
 }
 
-function scoreHostile(hostile: Creep): number {
+export function scoreHostile(hostile: Creep): number {
   if (!hostile.body) {
     return 0;
   }
@@ -533,7 +533,7 @@ function scoreHostile(hostile: Creep): number {
   }, 0)
 }
 
-function scoreDefender(defender: Creep): number {
+export function scoreDefender(defender: Creep): number {
   if (!defender.body) {
     return 0;
   }

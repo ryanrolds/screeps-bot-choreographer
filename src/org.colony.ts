@@ -222,6 +222,7 @@ export class Colony extends OrgBase {
       room.process(roomTrace);
     });
     roomTrace.end();
+
     processTrace.end();
   }
   toString() {

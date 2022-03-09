@@ -235,6 +235,14 @@ export class CentralPlanning {
     baseConfig.rooms = _.without(baseConfig.rooms, roomName);
     delete this.roomByBaseId[roomName];
 
+    // remove constructions sites for room
+    const sites = _.values<ConstructionSite>(Game.constructionSites);
+    sites.forEach((site) => {
+      if (site.room.name === roomName) {
+        site.remove();
+      }
+    });
+
     trace.log('room removed from colony', {colonyId: baseConfig.id, roomName});
   }
 
