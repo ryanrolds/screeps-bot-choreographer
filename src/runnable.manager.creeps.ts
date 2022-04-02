@@ -129,6 +129,10 @@ export class CreepManager {
           return terminate();
         }
 
+        trace = trace.withFields({
+          creepPos: [creep.pos.x, creep.pos.y, creep.pos.roomName].join(','),
+        })
+
         if (creep.spawning) {
           // TODO sleep for whoever mich longer it will take to spawn
           return running();

@@ -21,7 +21,10 @@ export const roadWorker = (behaviorNode) => {
           if (road && road.hitsMax - road.hits > 100) {
             const result = creep.repair(road);
             if (result !== OK) {
-              trace.error('repair error', {result});
+              trace.error('repair error', {
+                result,
+                roadPosition: [road.pos.x, road.pos.y, road.pos.roomName].join(',')
+              });
             }
             return SUCCESS;
           }

@@ -125,8 +125,8 @@ export default class BaseRunnable {
     }
 
     const room = Game.rooms[this.id];
-    if (!room) {
-      trace.notice('cannot find room in game', {id: this.id});
+    if (!room || room.controller?.level === 0) {
+      trace.notice('cannot see room or level 0', {id: this.id});
       this.requestClaimer(kingdom, trace);
       trace.end();
       return sleeping(NO_VISION_TTL);
@@ -178,7 +178,7 @@ export default class BaseRunnable {
     });
 
     // If room has large hostile presence, no spawns, and no towers, abandon base
-    // TODO attempt to resist, by sending defenders from nearby bases
+    // TODO attempt to resist, by sending groups of defenders from nearby bases
 
     const hostileCreeps = room.find(FIND_HOSTILE_CREEPS);
     const hostileScore = hostileCreeps.reduce((acc, hostile) => {

@@ -19,7 +19,8 @@ import {CentralPlanning} from './runnable.central_planning';
 const UPDATE_ORG_TTL = 1;
 
 export class Kingdom extends OrgBase {
-  config: ShardConfig;
+  config: ShardConfig; // deprecated
+  shardConfig: ShardConfig
   scheduler: Scheduler;
   broker: EventBroker;
   topics: Topics;
@@ -47,6 +48,7 @@ export class Kingdom extends OrgBase {
     const setupTrace = this.trace.begin('constructor');
 
     this.config = config;
+    this.shardConfig = config;
     this.scheduler = scheduler;
     this.scribe = scribe;;
     this.broker = broker;

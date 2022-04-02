@@ -231,15 +231,15 @@ TODO - Add additional context around the current design
 
 | Process | ID  | Priority | Description |
 | ------- | --- | -------- | ----------- |
-| Central Planning |
+| Central Planning | central_planning | | |
 | Kingdom | kingdom_model |
 | Kingdom Governor |
 | Colony Manager |
 | Room Manager |
-| Defense Manager |
+| Defense Manager | defense_manager | | |
 | Buffer Manager |
 | Invader Manager |
-| War Manager |
+| War Manager | war_manager | | |
 | Creep Manager |
 | Path Debugger |
 | Cost Matrix Debugger |

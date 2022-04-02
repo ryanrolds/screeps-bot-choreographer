@@ -406,8 +406,7 @@ export class Colony extends OrgBase {
         }
       };
 
-      trace.log('requesting hauler/worker', {role, priority, details});
-
+      trace.notice('requesting hauler/worker', {role, priority, details});
       this.primaryOrgRoom.requestSpawn(priority, details, REQUEST_HAULER_TTL, trace);
     }
   }
@@ -444,7 +443,9 @@ export class Colony extends OrgBase {
 
       this.getKingdom().sendRequest(getBaseSpawnTopic(this.id), PRIORITIES.EXPLORER, {
         role: CREEPS.WORKER_EXPLORER,
-        memory: {},
+        memory: {
+          [MEMORY.MEMORY_BASE]: this.id,
+        },
       }, REQUEST_EXPLORER_TTL);
     } else {
       trace.log('not requesting explorer', {numExplorers: explorers.length});

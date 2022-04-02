@@ -10,11 +10,12 @@ import {Priorities, Scheduler} from "./os.scheduler";
 import {thread, ThreadFunc} from "./os.thread";
 import BaseRunnable from "./runnable.base";
 
-const RUN_TTL = 50;
+const RUN_TTL = 10;
 const BASE_PROCESSES_TTL = 50;
-const REMOTE_MINING_TTL = 100;
+const REMOTE_MINING_TTL = 10; // was 100
 const EXPAND_TTL = 250;
 const BASE_WALLS_TTL = 50;
+const NEIGHBORS_THREAD_INTERVAL = 10;
 
 export class CentralPlanning {
   private config: ShardConfig;
@@ -31,6 +32,9 @@ export class CentralPlanning {
 
   private baseWallsIterator: Generator<any, void, {kingdom: Kingdom, trace: Tracer}>;
   private baseWallsThread: ThreadFunc;
+
+  private neighborsIterator: Generator<any, void, {kingdom: Kingdom, trace: Tracer}>;
+  private neighborsThread: ThreadFunc;
 
   constructor(config: ShardConfig, scheduler: Scheduler, trace: Tracer) {
     this.config = config;
@@ -57,7 +61,7 @@ export class CentralPlanning {
       const parking = new RoomPosition(base.parking.x, base.parking.y, base.parking.roomName);
 
       this.addBase(base.id, base.isPublic, origin, parking,
-        base.automated, base.rooms, base.walls || [], trace);
+        base.automated, base.rooms, base.walls || [], base.neighbors || [], trace);
     });
 
     // Check for spawns without bases
@@ -70,7 +74,7 @@ export class CentralPlanning {
       const automated = !shard.startsWith('shard') || shard === 'shardSeason';
       if (!this.baseConfigs[roomName]) {
         trace.warn('found unknown base', {roomName});
-        this.addBase(roomName, false, origin, parking, automated, [roomName], [], trace);
+        this.addBase(roomName, false, origin, parking, automated, [roomName], [], [], trace);
       }
     });
 
@@ -91,6 +95,11 @@ export class CentralPlanning {
     this.baseWallsThread = thread('base_walls', BASE_WALLS_TTL)((trace: Tracer, kingdom: Kingdom) => {
       this.baseWallsIterator.next({kingdom, trace});
     });
+
+    this.neighborsIterator = this.neighborhoodsGenerator();
+    this.neighborsThread = thread('neighbors', NEIGHBORS_THREAD_INTERVAL)((trace: Tracer, kingdom: Kingdom) => {
+      this.neighborsIterator.next({kingdom, trace});
+    });
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
@@ -98,6 +107,7 @@ export class CentralPlanning {
     this.remoteMiningThread(trace, kingdom);
     this.expandColoniesThread(trace, kingdom);
     this.baseWallsThread(trace, kingdom);
+    this.neighborsThread(trace, kingdom);
 
     (Memory as any).bases = this.baseConfigs;
 
@@ -168,7 +178,8 @@ export class CentralPlanning {
   }
 
   addBase(primaryRoom: string, isPublic: boolean, origin: RoomPosition, parking: RoomPosition,
-    automated: boolean, rooms: string[], walls: {x: number, y: number}[], trace: Tracer) {
+    automated: boolean, rooms: string[], walls: {x: number, y: number}[], neighbors: string[],
+    trace: Tracer): BaseConfig {
     if (this.baseConfigs[primaryRoom]) {
       trace.error('colony already exists', {primaryRoom});
       return;
@@ -183,17 +194,17 @@ export class CentralPlanning {
       origin: origin,
       parking: parking,
       walls: walls,
+      neighbors: neighbors,
     };
 
     this.roomByBaseId[primaryRoom] = primaryRoom;
-
-    // Add colony room
-    // this.addRoom(primaryRoom, primaryRoom, trace);
 
     // Add any additional rooms, primary is expected to be first
     rooms.forEach((roomName) => {
       this.addRoom(primaryRoom, roomName, trace)
     });
+
+    return this.baseConfigs[primaryRoom];
   }
 
   removeBase(colonyId: string, trace: Tracer) {
@@ -238,7 +249,11 @@ export class CentralPlanning {
     // remove constructions sites for room
     const sites = _.values<ConstructionSite>(Game.constructionSites);
     sites.forEach((site) => {
-      if (site.room.name === roomName) {
+      if (!site.room) {
+        trace.info('checking site', {site});
+      }
+
+      if (site.room?.name === roomName) {
         site.remove();
       }
     });
@@ -302,7 +317,7 @@ export class CentralPlanning {
 
     const room = Game.rooms[baseConfig.primary];
     if (!room) {
-      trace.log('no room found', {baseConfig});
+      trace.warn('primary room not found', {baseConfig});
       return null;
     }
 
@@ -310,6 +325,20 @@ export class CentralPlanning {
     let numDesired = desiredRemotes(colony, level);
 
     trace.log('current rooms', {current: baseConfig.rooms.length - 1, numDesired});
+
+    baseConfig.rooms.forEach((roomName) => {
+      const roomEntry = kingdom.getScribe().getRoomById(roomName);
+      if (!roomEntry) {
+        trace.warn('room not found', {roomName});
+        return;
+      }
+
+      // If room is controlled by someone else, don't claim it
+      if (roomEntry?.controller?.owner !== 'ENETDOWN' && roomEntry?.controller?.level > 0) {
+        trace.warn('room owned, removing remove', {roomName});
+        this.removeRoom(roomName, trace);
+      }
+    });
 
     while (baseConfig.rooms.length - 1 > numDesired) {
       trace.notice('more rooms than desired, removing room', {baseConfig});
@@ -362,7 +391,8 @@ export class CentralPlanning {
       const origin = results.origin;
       const parking = new RoomPosition(origin.x + 5, origin.y + 5, origin.roomName);
       trace.notice('selected room, adding colony', {roomName, distance, origin, parking});
-      this.addBase(roomName, false, origin, parking, true, [roomName], [], trace);
+      const base = this.addBase(roomName, false, origin, parking, true, [roomName], [], [], trace);
+      this.updateNeighbors(kingdom, base, trace);
       return;
     }
 
@@ -380,7 +410,7 @@ export class CentralPlanning {
         return baseConfig.automated && !baseConfig.walls.length;
       });
       if (needWalls) {
-        trace.log('need walls', {baseConfig: needWalls});
+        trace.info('need walls', {baseConfig: needWalls});
         this.updateBaseWalls(kingdom, needWalls, trace);
       }
     }
@@ -395,7 +425,57 @@ export class CentralPlanning {
     const [walls] = getCutTiles(base.primary, [baseBounds], ENTIRE_ROOM_BOUNDS);
     base.walls = walls;
 
-    trace.log('created walls', {baseConfig: base});
+    trace.info('created walls', {baseConfig: base});
+  }
+
+  private * neighborhoodsGenerator(): Generator<any, void, {kingdom: Kingdom, trace: Tracer}> {
+    let bases: BaseConfig[] = []
+    while (true) {
+      const details: {kingdom: Kingdom, trace: Tracer} = yield;
+      const kingdom = details.kingdom;
+      const trace = details.trace;
+
+      if (!bases.length) {
+        bases = this.getBaseConfigs();
+      }
+
+      const base = bases.shift();
+      trace.info('getting next base', {base});
+      if (base) {
+        this.updateNeighbors(kingdom, base, trace);
+      }
+    }
+  }
+
+  private updateNeighbors(kingdom: Kingdom, base: BaseConfig, trace: Tracer) {
+    // Narrow bases to ones that are nearby
+    let nearbyBases = _.filter(this.getBaseConfigs(), (baseConfig) => {
+      if (baseConfig.id === base.id) {
+        return false
+      }
+
+      const distance = Game.map.getRoomLinearDistance(base.primary, baseConfig.primary);
+      if (distance > 5) {
+        return false;
+      }
+
+      // RAKE calculate path check number of rooms in path, factoring in enemy rooms
+
+      return true;
+    });
+
+    // Sort by distance
+    nearbyBases = _.sortBy(nearbyBases, (baseConfig) => {
+      return Game.map.getRoomLinearDistance(base.primary, baseConfig.primary);
+    });
+
+    // Pick at most nearest 3
+    nearbyBases = _.take(nearbyBases, 3);
+
+    // Set bases neighbors
+    base.neighbors = nearbyBases.map(baseConfig => baseConfig.id);
+
+    trace.info('updated neighbors', {baseConfig: base});
   }
 }
 

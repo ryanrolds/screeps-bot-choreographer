@@ -242,18 +242,18 @@ export default class OrgRoom extends OrgBase {
         return creepIsFresh(defender);
       });
 
-      trace.log('existing defenders', {freshDefenders: freshDefenders.length, MAX_DEFENDERS});
+      trace.info('existing defenders', {freshDefenders: freshDefenders.length, MAX_DEFENDERS});
 
       const neededDefenders = MAX_DEFENDERS - freshDefenders.length;
       if (neededDefenders <= 0) {
-        trace.log('do not need defenders: full');
+        trace.info('do not need defenders: full');
         return;
       }
 
       if (this.stationFlags.length) {
         const flag = this.stationFlags[0];
         const position = [flag.pos.x, flag.pos.y, flag.pos.roomName].join(',');
-        trace.log('request defenders to flag');
+        trace.notice('request defenders to flag');
         this.requestDefender(kingdom, base, position, true, trace);
         return;
       }
@@ -261,11 +261,11 @@ export default class OrgRoom extends OrgBase {
       const enemyPresent = this.hostiles.length || this.invaderCores.length;
       const enemyPresentRecently = Game.time - this.hostileTime < HOSTILE_PRESENCE_TTL;
       if (!enemyPresent || !enemyPresentRecently) {
-        trace.log('do not request defender: room is quiet');
+        trace.info('do not request defender: room is quiet');
         return;
       }
 
-      trace.log('checking if we need defenders to handle hostile presence', {
+      trace.notice('checking if we need defenders to handle hostile presence', {
         enemyPresent,
         enemyPresentRecently,
         hostileTime: this.hostileTime,
@@ -278,23 +278,26 @@ export default class OrgRoom extends OrgBase {
       }
 
       if (controller && (controller.safeMode && controller.safeMode > 250)) {
-        trace.log('do not request defenders: in safe mode', {safeMode: controller.safeMode});
+        trace.info('do not request defenders: in safe mode', {safeMode: controller.safeMode});
         return;
       }
 
       if (!this.isPrimary && this.defendersLost >= 3) {
-        trace.log('do not request defender: we have lost too many defenders');
+        trace.info('do not request defenders: we have lost too many defenders');
+        return;
       }
 
       const pastDelay = Game.time - this.hostileTime >= REQUEST_DEFENDERS_DELAY;
       if (!pastDelay) {
-        trace.log('do not request defender: waiting to see if they leave', {
+        trace.info('do not request defenders: waiting to see if they leave', {
           pastDelay,
           age: Game.time - this.hostileTime,
           REQUEST_DEFENDERS_DELAY,
         });
         return;
       }
+
+      trace.notice('request defenders if needed', {neededDefenders});
 
       for (let i = 0; i < neededDefenders; i++) {
         this.requestDefender(kingdom, base, this.lastHostilePosition, true, trace);
@@ -629,7 +632,7 @@ export default class OrgRoom extends OrgBase {
   }
 
   requestDefender(kingdom: Kingdom, base: BaseConfig, position, spawn, trace) {
-    trace.log('requesting defender', {position, spawn});
+    trace.notice('requesting defender', {position, spawn});
 
     kingdom.sendRequest(getBaseSpawnTopic(base.id), PRIORITIES.PRIORITY_DEFENDER, {
       role: CREEPS.WORKER_DEFENDER,
@@ -768,10 +771,11 @@ export default class OrgRoom extends OrgBase {
       },
     }).length;
 
-    defenseTrace.log('hostile presence', {
+    defenseTrace.info('hostile presence', {
       numHostiles: this.numHostiles,
       numDefenders: this.numDefenders,
       hostileTime: this.hostileTime,
+      hostileTimeAge: Game.time - this.hostileTime,
       defendersLost: this.defendersLost,
     });
 
@@ -791,7 +795,7 @@ export default class OrgRoom extends OrgBase {
       this.hostileTime = Math.min(...Object.values(this.hostileTimes));
       room.memory[MEMORY_HOSTILE_TIME] = this.hostileTime;
 
-      defenseTrace.log('set hostile time', {
+      defenseTrace.notice('set hostile time', {
         hostileTime: this.hostileTime,
       });
 
@@ -801,7 +805,7 @@ export default class OrgRoom extends OrgBase {
       room.memory[MEMORY_HOSTILE_POS] = this.lastHostilePosition;
     } else if (!this.isHostile(defenseTrace)) {
       this.defendersLost = 0;
-      defenseTrace.log('clear hostile time');
+      defenseTrace.info('clear hostile time');
     }
 
     this.invaderCores = this.roomStructures.filter((structure): structure is StructureInvaderCore => {

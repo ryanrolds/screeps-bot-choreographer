@@ -301,7 +301,11 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
         creepIsFresh(creep);
     }).length;
 
-    trace.log('num miners', {numMiners});
+    trace.info('num miners', {numMiners});
+
+    if (!numMiners) {
+      trace.warn('no miners found, requesting', {sourceId: this.sourceId});
+    }
 
     if (numMiners < 1) {
       let positionStr = [this.creepPosition.x, this.creepPosition.y, this.creepPosition.roomName].join(',');
@@ -317,8 +321,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
         },
       }
 
-      trace.info('requesting miner', {sourceId: this.sourceId, details});
-
+      trace.info('requesting miner', {sourceId: this.sourceId, PRIORITY_MINER, details});
       colony.getPrimaryRoom().requestSpawn(PRIORITY_MINER, details, RUN_TTL, trace);
     }
   }

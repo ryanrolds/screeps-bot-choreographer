@@ -436,7 +436,7 @@ function requestAdditionalDefenders(kingdom: Kingdom, base: BaseConfig, needed: 
   const positionStr = [position.x, position.y, position.roomName].join(',');
 
   for (let i = 0; i < needed; i++) {
-    trace.info('requesting defender', {baseId: base.id});
+    trace.notice('requesting defender', {baseId: base.id});
 
     kingdom.sendRequest(getBaseDefenseTopic(base.id), PRIORITIES.PRIORITY_DEFENDER, {
       role: CREEPS.WORKER_DEFENDER,
