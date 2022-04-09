@@ -4,6 +4,7 @@ import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
 import {running} from "./os.process";
 import {RunnableResult} from "./os.runnable";
+import {BufferPathPolicy} from "./runnable.manager.buffer";
 import {warPartyPolicy} from "./runnable.warparty";
 
 export default class PathDebugger {
@@ -45,11 +46,15 @@ export default class PathDebugger {
 
   debug(origin: RoomPosition, goal: RoomPosition, range: number, policyName: string) {
     const trace = new Tracer('path_debugger_debug', {pid: 'path_debugger'}, 0);
+    trace.setLogFilter(global.LOG_WHEN_PID);
 
     let policy: FindPathPolicy = null;
     switch (policyName) {
       case 'warparty':
         policy = warPartyPolicy;
+        break;
+      case 'buffer_path':
+        policy = BufferPathPolicy;
         break;
       case 'common':
         policy = commonPolicy

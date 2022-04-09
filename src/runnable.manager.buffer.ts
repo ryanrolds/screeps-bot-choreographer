@@ -9,7 +9,7 @@ import {TargetRoom} from './runnable.scribe';
 import {sleeping} from "./os.process";
 import {RunnableResult} from './os.runnable';
 
-const policy: FindColonyPathPolicy = {
+export const BufferPathPolicy: FindColonyPathPolicy = {
   colony: {
     start: 'spawn',
     maxLinearDistance: 5,
@@ -26,7 +26,7 @@ const policy: FindColonyPathPolicy = {
     costMatrixType: AllowedCostMatrixTypes.PARTY,
   },
   destination: {
-    range: 1,
+    range: 2,
   },
   path: {
     allowIncomplete: false,
@@ -88,24 +88,24 @@ type HostileRoomsByColony = Record<string, TargetRoom[]>;
 
 function getHostileRoomsByColony(kingdom: Kingdom, trace: Tracer): HostileRoomsByColony {
   const weakRooms = kingdom.getScribe().getWeakRooms()
-  trace.log('weak rooms', {weakRooms});
+  trace.info('weak rooms', {weakRooms});
 
   const config = kingdom.config;
   const dontAttack = config.friends.concat(config.neutral);
   const candidateRooms = weakRooms.filter((room) => {
     return dontAttack.indexOf(room.owner) === -1;
   });
-  trace.log('candidate rooms', {config, dontAttack, candidateRooms});
+  trace.info('candidate rooms', {config, dontAttack, candidateRooms});
 
   const hostileRoomsByColony: Record<string, TargetRoom[]> = {};
 
   // TODO fix this
-  policy.colony.maxLinearDistance = kingdom.config.buffer;
+  BufferPathPolicy.colony.maxLinearDistance = kingdom.config.buffer;
 
   candidateRooms.forEach((room) => {
-    const colony = getClosestColonyByPath(kingdom, room.controllerPos, policy, trace)
+    const colony = getClosestColonyByPath(kingdom, room.controllerPos, BufferPathPolicy, trace)
     if (!colony) {
-      trace.log('no colony', {room});
+      trace.info('no colony', {room});
       return;
     }
 
@@ -113,11 +113,11 @@ function getHostileRoomsByColony(kingdom: Kingdom, trace: Tracer): HostileRoomsB
       hostileRoomsByColony[colony.id] = [];
     }
 
-    trace.log('attack room from', {colony, room});
+    trace.info('attack room from', {colony, room});
     hostileRoomsByColony[colony.id].push(room);
   });
 
-  trace.log('hostile rooms by colony', {hostileRoomsByColony});
+  trace.info('hostile rooms by colony', {hostileRoomsByColony});
 
   return hostileRoomsByColony;
 }

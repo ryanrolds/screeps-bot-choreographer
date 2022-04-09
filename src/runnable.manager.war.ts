@@ -129,7 +129,7 @@ export default class WarManager {
         case AttackStatus.REQUESTED:
           trace.log("requested", {target: event.details.target});
 
-          if (targets.indexOf(event.details.target) === -1) {
+          if (targets.indexOf(event.details.roomId) === -1) {
             targets.push(event.details.roomId);
           }
 
@@ -156,6 +156,21 @@ export default class WarManager {
 
     // address bug with duplicate entries
     targets = _.uniq(targets);
+
+    let bases = kingdom.getPlanner().getBaseConfigs();
+    bases = _.filter(bases, base => Game.rooms[base.primary]?.controller.level >= 5);
+
+    trace.log('allowed bases', {bases: bases.map(base => base.primary)});
+
+    // Sort targets so closest to other bases is prioritized
+    targets = _.sortBy(targets, target => {
+      bases = _.sortBy(bases, (base: BaseConfig) => {
+        return Game.map.getRoomLinearDistance(base.primary, target);
+      });
+
+      trace.log('sorted targets', {target, bases});
+      return Game.map.getRoomLinearDistance(bases[0].primary, target);
+    });
 
     trace.notice('targets', {targets});
 

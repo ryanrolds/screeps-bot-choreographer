@@ -184,7 +184,7 @@ module.exports.parkingLot = behaviorTree.leafNode(
       return FAILURE;
     }
 
-    const idle = creep.memory[MEMORY_IDLE];
+    let idle = creep.memory[MEMORY_IDLE];
     if (!idle) {
       idle = 1;
     } else {

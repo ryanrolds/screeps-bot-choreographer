@@ -315,13 +315,13 @@ export class CentralPlanning {
       return null;
     }
 
-    const room = Game.rooms[baseConfig.primary];
-    if (!room) {
+    const primaryRoom = Game.rooms[baseConfig.primary];
+    if (!primaryRoom) {
       trace.warn('primary room not found', {baseConfig});
       return null;
     }
 
-    const level = room?.controller?.level || 0;
+    const level = primaryRoom?.controller?.level || 0;
     let numDesired = desiredRemotes(colony, level);
 
     trace.log('current rooms', {current: baseConfig.rooms.length - 1, numDesired});
@@ -346,7 +346,7 @@ export class CentralPlanning {
     }
 
     if (baseConfig.rooms.length - 1 < numDesired) {
-      const nextRemote = findNextRemoteRoom(kingdom, baseConfig, room, trace);
+      const nextRemote = findNextRemoteRoom(kingdom, baseConfig, primaryRoom, trace);
       if (!nextRemote) {
         trace.notice('no remote room found', {colonyId: baseConfig.id});
         return;

@@ -55,6 +55,7 @@ describe('Path Cache', function () {
       neutral: [],
       avoid: [],
       kos: [],
+      authorizedSieges: [],
       maxColonies: 1,
       autoExpand: false,
       explorers: true,

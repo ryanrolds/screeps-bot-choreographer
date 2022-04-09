@@ -24,6 +24,7 @@ export interface ShardConfig {
   neutral: string[];
   avoid: string[];
   kos: string[];
+  authorizedSieges: string[];
   maxColonies: number;
   autoExpand: boolean;
   explorers: boolean;

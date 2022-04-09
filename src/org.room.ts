@@ -314,7 +314,12 @@ export default class OrgRoom extends OrgBase {
 
     const base = this.getKingdom().getPlanner().getBaseConfigByRoom(this.id);
     if (!base) {
-      trace.error('no base config for room', {roomId: this.id});
+      trace.error('no base config for room, removing org room', {roomId: this.id});
+
+      // Remove the room from the colony
+      delete this.getColony().roomMap[this.id];
+      delete this.getKingdom().roomNameToOrgRoom[this.id];
+
       trace.end();
       return;
     }

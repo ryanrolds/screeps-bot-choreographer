@@ -70,8 +70,6 @@ export class CostMatrixCacheItem {
         expired: this.isExpired(Game.time)
       });
       this.update(kingdom, trace);
-    } else {
-      trace.log('cache hit', {room: this.roomId, type: this.costMatrixType})
     }
 
     return this.costMatrix;
@@ -90,8 +88,6 @@ export class CostMatrixCache {
   }
 
   getCostMatrix(kingdom: Kingdom, roomId: string, costMatrixType: AllowedCostMatrixTypes, trace: Tracer): CostMatrix {
-    trace.log('get cost matrix', {roomId, costMatrixType});
-
     if (!this.rooms[roomId]) {
       trace.log('room not in cache', {roomId});
       this.rooms[roomId] = {} as Record<Partial<AllowedCostMatrixTypes>, CostMatrixCacheItem>;

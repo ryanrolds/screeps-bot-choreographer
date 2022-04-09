@@ -201,6 +201,8 @@ export default class SpawnManager {
         neighborRequest = this.getNeighborRequest(kingdom, base, trace);
       }
 
+      trace.info('spawn request', {localRequest, neighborRequest});
+
       // Select local request if available
       if (localRequest) {
         trace.info('found local request', {localRequest});
@@ -220,7 +222,7 @@ export default class SpawnManager {
       }
 
       // If local priority w/ bonus is less than neighbor priority, select neighbor request
-      if ((request.priority + 5) < neighborRequest?.priority) {
+      if ((request.priority + 1) < neighborRequest?.priority) {
         trace.info("neighbor request has higher priority", {neighborRequest, request});
         request = neighborRequest;
       }

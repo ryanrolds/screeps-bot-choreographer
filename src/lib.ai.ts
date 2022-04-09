@@ -73,7 +73,7 @@ export class AI {
       Priorities.DEFENCE, bufferManager));
 
     // Invader manager
-    if (Game.shard?.name === 'shard2') {
+    if (Game.shard?.name !== 'shard3') {
       const invaderManagerId = 'invader_manager';
       const invaderManager = new InvaderManager(invaderManagerId, this.scheduler, trace);
       this.scheduler.registerProcess(new Process(invaderManagerId, 'invader_manager',

@@ -201,6 +201,15 @@ export class Colony extends OrgBase {
 
     const roomTrace = updateTrace.begin('rooms');
     Object.values(this.roomMap).forEach((room) => {
+      const baseConfig = this.getKingdom().getPlanner().getBaseConfigByRoom(room.id);
+      if (!baseConfig) {
+        roomTrace.warn('no base config for room, removing', {room: room.id});
+        delete this.roomMap[room.id];
+        delete this.getKingdom().roomNameToOrgRoom[room.id];
+
+        return;
+      }
+
       room.update(roomTrace.withFields({room: room.id}));
     });
     roomTrace.end();

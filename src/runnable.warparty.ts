@@ -513,6 +513,15 @@ export default class WarPartyRunnable {
       }
     }));
 
+    // Remove walls by controller so our reservers can block upgrading
+    const wallsNearController = room.controller.pos.findInRange(FIND_STRUCTURES, 1, {
+      filter: (structure) => {
+        return structure.structureType === STRUCTURE_WALL ||
+          structure.structureType === STRUCTURE_RAMPART;
+      }
+    })
+    targets = targets.concat(wallsNearController);
+
     targets = targets.concat(room.find(FIND_STRUCTURES, {
       filter: (structure) => {
         if (structure.structureType === STRUCTURE_CONTROLLER) {

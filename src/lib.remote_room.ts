@@ -94,6 +94,11 @@ export function desiredRemotes(colony: Colony, level: number): number {
     filter: s => s.structureType === STRUCTURE_SPAWN && s.isActive()
   });
 
+  // No spawns, no remotes
+  if (!spawns.length) {
+    return 0;
+  }
+
   let desiredRemotes = 0;
   switch (level) {
     case 0:

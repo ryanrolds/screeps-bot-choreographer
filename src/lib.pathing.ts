@@ -85,6 +85,7 @@ export const getPath = (kingdom: Kingdom, origin: RoomPosition, destination: Roo
 
     // If we have no route, return null
     if (roomRoute === ERR_NO_PATH) {
+      trace.info('no room path', {origin: origin.roomName, destination: destination.roomName});
       return [null, pathDetails];
     }
 
@@ -110,32 +111,39 @@ export const getPath = (kingdom: Kingdom, origin: RoomPosition, destination: Roo
       swampCost: policy.path.swampCost || 5,
     };
 
-    trace.log('findPath', {origin, goal, opts});
+    trace.info('findPath', {origin, goal, opts});
 
     const result = PathFinder.search(origin, goal, opts);
 
+    trace.info('search result', {result});
+
     // If route is complete or we don't care, go with it
     if (result.incomplete === false || policy.path.allowIncomplete) {
+      trace.info('path found', {path: result.path});
       return [result, pathDetails];
     }
 
     // If route has no where to go, fail
     if (result.path.length <= 1) {
+      trace.info('path length less than 1', {origin, goal, opts});
+      return [null, pathDetails];
+    }
+
+    const lastRoom = result.path[result.path.length - 1].roomName;
+    if (lastRoom === destination.roomName) {
+      trace.info('last room is destination', {origin, goal, opts});
       return [null, pathDetails];
     }
 
     // Add last room to blocked and try again if allowed
-    const lastRoom = result.path[result.path.length - 1].roomName;
-    if (lastRoom === destination.roomName) {
-      return [null, pathDetails];
-    }
-
     if (lastRoom != destination.roomName) {
+      trace.info('last room not destination', {origin, goal, opts});
       pathDetails.blockedRooms[lastRoom] = true;
       pathDetails.incompletePaths.push(result);
     }
   }
 
+  trace.info('passes exhausted', {origin});
   return [null, pathDetails];
 }
 
@@ -154,23 +162,27 @@ export const getClosestColonyByPath = (kingdom: Kingdom, destination: RoomPositi
     // Get the origin position from the colony by apply the colony policy
     const originPosition = getOriginPosition(kingdom, config, policy.colony, trace);
     if (!originPosition) {
+      trace.error('no origin position', {config, policy});
       return;
     }
 
     // Find the path from the origin to the destination
     const [result, debug] = getPath(kingdom, originPosition, destination, policy, trace);
     if (!result) {
+      trace.info('no path', {config, policy, debug});
       return;
     }
 
     // If the path is longer then the current selection, skip
     if (result.path.length > selectedPathLength) {
+      trace.info('path too long', {config, policy, debug});
       return;
     }
 
     // If path has more rooms then allowed, skip
     const roomsInPath = _.uniq(result.path.map((pos) => pos.roomName));
     if (roomsInPath.length > policy.path.maxPathRooms) {
+      trace.info('path has too many rooms long', {config, policy, debug});
       return false;
     }
 
@@ -323,7 +335,7 @@ const applyRoomCallbackPolicy = (kingdom: Kingdom, roomEntry: RoomEntry,
     */
   }
 
-  trace.log('room allowed', {roomName: roomEntry.id});
+  //trace.log('room allowed', {roomName: roomEntry.id});
 
   return true;
 }
