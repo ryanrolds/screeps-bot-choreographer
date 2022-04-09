@@ -80,7 +80,11 @@ An AI for [Screeps](screeps.com).
 > Note this project uses LF, not CRLF, and the linter will complain if it files with CRLFs.
 > The project is setup for [EditorConfig](https://editorconfig.org/). Please use that.
 
+Requirements:
+  * Node 16+
+
 ```
+npm install grunt-cli -g
 npm install
 ```
 
@@ -92,7 +96,7 @@ Create `.screeps.json` and provide credentials:
   "branch": "default",
   "ptr": false,
   "private": {
-    "username": "<usernam>",
+    "username": "<username>",
     "password": "<password>",
     "branch": "default",
     "ptr": false

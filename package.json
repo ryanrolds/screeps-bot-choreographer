@@ -4,6 +4,9 @@
   "description": "An AI for [Screeps](screeps.com).",
   "private": true,
   "type": "commonjs",
+  "engine": {
+    "node": ">=16.0.0"
+  },
   "scripts": {
     "test": "mocha --preserve-symlinks",
     "lint": "eslint src/**/*.js",

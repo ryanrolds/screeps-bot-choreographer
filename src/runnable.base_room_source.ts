@@ -285,12 +285,12 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     const username = kingdom.getPlanner().getUsername();
 
     if (room.controller?.owner && room.controller.owner.username !== username) {
-      trace.log('room owned by someone else', {roomId: room.name, owner: room.controller?.owner?.username});
+      trace.info('room owned by someone else', {roomId: room.name, owner: room.controller?.owner?.username});
       return;
     }
 
     if (room.controller?.reservation && room.controller.reservation.username !== username) {
-      trace.log('room reserved by someone else', {roomId: room.name, username: room.controller.reservation.username});
+      trace.info('room reserved by someone else', {roomId: room.name, username: room.controller.reservation.username});
       return;
     }
 
@@ -303,8 +303,20 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
 
     trace.info('num miners', {numMiners});
 
-    if (!numMiners) {
-      trace.warn('no miners found, requesting', {sourceId: this.sourceId});
+    // If there are more than one miner at the source, suicide the oldest
+    if (numMiners >= 2) {
+      const nearbyMiners = _.sortBy(source.pos.findInRange(FIND_MY_CREEPS, 2).filter((creep) => {
+        return creep.memory[MEMORY.MEMORY_ROLE] === WORKER_MINER &&
+          creep.memory[MEMORY.MEMORY_SOURCE] === this.sourceId;
+      }), (creep) => {
+        return creep.ticksToLive;
+      });
+
+      if (nearbyMiners.length > 1) {
+        trace.info('more than one nearby miner, suiciding first', {nearbyMiners});
+        nearbyMiners[0].suicide()
+        return;
+      }
     }
 
     if (numMiners < 1) {
@@ -329,7 +341,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
   requestHauling(trace: Tracer, kingdom: Kingdom, base: BaseConfig, colony: Colony) {
     const container = Game.getObjectById(this.containerId);
     if (!container) {
-      trace.log('no container')
+      trace.info('no container')
       return;
     }
 
@@ -372,7 +384,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
         [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
       };
 
-      trace.log('requesting hauling', {sourceId: this.sourceId, i, loadPriority, details});
+      trace.info('requesting hauling', {sourceId: this.sourceId, i, loadPriority, details});
 
       kingdom.sendRequest(getBaseHaulerTopic(base.id), loadPriority, details, RUN_TTL);
     }
