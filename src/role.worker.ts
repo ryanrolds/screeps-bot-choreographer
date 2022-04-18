@@ -21,7 +21,7 @@ import {build, selectInfrastructureSites} from "./behavior.build";
 import * as behaviorHarvest from "./behavior.harvest";
 import {behaviorBoosts} from "./behavior.boosts";
 import * as MEMORY from "./constants.memory";
-import {commonPolicy} from "./lib.pathing_policies";
+import {commonPolicy} from "./constants.pathing_policies";
 import {roadWorker} from "./behavior.logistics";
 import * as behaviorHaul from "./behavior.haul";
 import * as TOPICS from "./constants.topics";

@@ -39,6 +39,8 @@ export class AI {
     this.scheduler.registerProcess(new Process('central_planning', 'planning',
       Priorities.CRITICAL, this.planning));
     this.scribe = new Scribe();
+    trace.notice('scribe created', {numRooms: this.scribe.getRooms().length});
+
     this.broker = new EventBroker();
 
     // Kingdom Model & Messaging process

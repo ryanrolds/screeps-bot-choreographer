@@ -203,10 +203,9 @@ export class Colony extends OrgBase {
     Object.values(this.roomMap).forEach((room) => {
       const baseConfig = this.getKingdom().getPlanner().getBaseConfigByRoom(room.id);
       if (!baseConfig) {
-        roomTrace.warn('no base config for room, removing', {room: room.id});
+        roomTrace.warn('no base config for colony room, removing', {room: room.id});
         delete this.roomMap[room.id];
         delete this.getKingdom().roomNameToOrgRoom[room.id];
-
         return;
       }
 
@@ -370,11 +369,10 @@ export class Colony extends OrgBase {
         REQUEST_DEFENDER_TTL);
     }
 
-    trace.notice('requesting existing defense response', {request});
+    trace.info('requesting existing defense response', {request});
 
     // Order existing defenders to the room
     this.defenders.forEach((defender) => {
-      trace.notice('sending existing defender to room', {defender});
       defender.memory[MEMORY.MEMORY_ASSIGN_ROOM] = request.details.memory[MEMORY.MEMORY_ASSIGN_ROOM];
       defender.memory[MEMORY.MEMORY_ASSIGN_ROOM_POS] = request.details.memory[MEMORY.MEMORY_ASSIGN_ROOM_POS];
     });
@@ -395,7 +393,7 @@ export class Colony extends OrgBase {
       role = CREEPS.ROLE_WORKER;
     }
 
-    trace.log('request haulers', {numHaulers: this.numHaulers, desiredHaulers: this.pidDesiredHaulers})
+    trace.notice('request haulers', {numHaulers: this.numHaulers, desiredHaulers: this.pidDesiredHaulers})
 
     // PID approach
     if (this.numHaulers < this.pidDesiredHaulers) {
@@ -403,7 +401,7 @@ export class Colony extends OrgBase {
 
       // If we have few haulers/workers we should not be prioritizing haulers
       if (this.pidDesiredHaulers > 3 && this.numHaulers < 2) {
-        priority + 10;
+        priority += 10;
       }
 
       priority -= this.numHaulers * 0.2
@@ -415,7 +413,7 @@ export class Colony extends OrgBase {
         }
       };
 
-      trace.notice('requesting hauler/worker', {role, priority, details});
+      trace.info('requesting hauler/worker', {role, priority, details});
       this.primaryOrgRoom.requestSpawn(priority, details, REQUEST_HAULER_TTL, trace);
     }
   }
@@ -488,6 +486,7 @@ export class Colony extends OrgBase {
         return;
       }
 
+      trace.warn('creating missing room found', {id});
       const orgNode = new OrgRoom(this, room, trace);
       this.roomMap[id] = orgNode;
       this.getKingdom().roomNameToOrgRoom[id] = orgNode;
@@ -495,6 +494,7 @@ export class Colony extends OrgBase {
 
     const extraOrgColonyIds = _.difference(orgRoomIds, desiredRoomIds);
     extraOrgColonyIds.forEach((id) => {
+      trace.warn('removing extra room', {id});
       delete this.roomMap[id];
       delete this.getKingdom().roomNameToOrgRoom[id];
     });

@@ -34,6 +34,10 @@ const INITIAL_TOPIC_LENGTH = 9999;
 const RED_TOPIC_LENGTH = 10;
 const YELLOW_TOPIC_LENGTH = 5;
 
+export const SPAWN_REQUEST_ROLE = "role";
+export const SPAWN_REQUEST_SPAWN_MIN_ENERGY = "spawn_min_energy";
+export const SPAWN_REQUEST_PARTS = "parts";
+
 type SpawnRequestDetails = {
   role: string;
   memory: any;
@@ -167,6 +171,7 @@ export default class SpawnManager {
         if (boosts) {
           this.requestBoosts(spawn, boosts, priority);
         }
+
         return;
       }
 
@@ -211,7 +216,7 @@ export default class SpawnManager {
 
       // If no request selected and neighbor request available, select neighbor request
       if (!request && neighborRequest) {
-        trace.info('found neighbor request', {neighborRequest});
+        trace.warn('found neighbor request', {neighborRequest});
         request = neighborRequest;
       }
 
@@ -223,7 +228,7 @@ export default class SpawnManager {
 
       // If local priority w/ bonus is less than neighbor priority, select neighbor request
       if ((request.priority + 1) < neighborRequest?.priority) {
-        trace.info("neighbor request has higher priority", {neighborRequest, request});
+        trace.warn("neighbor request has higher priority", {neighborRequest, request});
         request = neighborRequest;
       }
 
@@ -239,7 +244,7 @@ export default class SpawnManager {
         energyLimit = request.details.energyLimit;
       }
 
-      const requestMinEnergy = request.details[MEMORY.SPAWN_MIN_ENERGY] || 0;
+      const requestMinEnergy = request.details[SPAWN_REQUEST_SPAWN_MIN_ENERGY] || 0;
       if (spawnEnergy < requestMinEnergy) {
         trace.warn('colony does not have energy', {requestMinEnergy, spawnEnergy, request});
         return;
@@ -247,7 +252,8 @@ export default class SpawnManager {
 
       trace.info("spawning", {id: this.id, role, spawnEnergy, energyLimit, request});
 
-      this.createCreep(spawn, request.details.role, request.details.memory, spawnEnergy, energyLimit);
+      this.createCreep(spawn, request.details[SPAWN_REQUEST_ROLE], request.details[SPAWN_REQUEST_PARTS] || null,
+        request.details.memory, spawnEnergy, energyLimit);
     });
   }
 
@@ -328,7 +334,7 @@ export default class SpawnManager {
     if (baseTopic) {
       topicLength = baseTopic.length;
       creeps = baseTopic.map((message) => {
-        return `${message.details[MEMORY.MEMORY_ROLE]}(${message.priority},${message.ttl - Game.time})`;
+        return `${message.details[SPAWN_REQUEST_ROLE]}(${message.priority},${message.ttl - Game.time})`;
       });
     }
 
@@ -356,13 +362,18 @@ export default class SpawnManager {
     }
 
     const roomName = this.orgRoom.id;
-    const spawnLengthIndicator: HudIndicator = {room: roomName, key: 'spawn_length', display: 'S', status: processStatus};
+    const spawnLengthIndicator: HudIndicator = {
+      room: roomName,
+      key: 'spawn_length',
+      display: 'S',
+      status: processStatus
+    };
     indicatorStream.publish(new Event(this.id, Game.time, HudEventSet, spawnLengthIndicator));
   }
 
-  createCreep(spawner: StructureSpawn, role, memory, energy: number, energyLimit: number) {
+  createCreep(spawner: StructureSpawn, role, parts: BodyPartConstant[], memory, energy: number, energyLimit: number) {
     return createCreep((this.orgRoom as any).getColony().id, (this.orgRoom as any).id, spawner,
-      role, memory, energy, energyLimit);
+      role, parts, memory, energy, energyLimit);
   }
 
   requestBoosts(spawn: StructureSpawn, boosts, priority: number) {

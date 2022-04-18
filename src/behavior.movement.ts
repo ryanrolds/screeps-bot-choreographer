@@ -7,7 +7,7 @@ import {PathCache, PathCacheItem} from "./lib.path_cache";
 import {Tracer} from "./lib.tracing";
 import {Kingdom} from "./org.kingdom";
 import {FindPathPolicy, visualizePath} from "./lib.pathing";
-import {commonPolicy} from "./lib.pathing_policies";
+import {commonPolicy} from "./constants.pathing_policies";
 
 const MAX_POSITION_TTL = 5;
 const MEMORY_MOVE_POS_TTL = 'move_pos_ttl';
@@ -220,6 +220,28 @@ export const cachedMoveToMemoryPos = (memoryId: string, range: number = 1, polic
       }
 
       return cachedMoveToPosition(kingdom, creep, destination, range, policy, trace);
+    },
+  );
+};
+
+export const cachedMoveToRoom = (memoryId: string, policy: FindPathPolicy) => {
+  return behaviorTree.leafNode(
+    'cached_move_to_position',
+    (creep, trace, kingdom) => {
+      const destinationRoom = creep.memory[memoryId];
+      if (!destinationRoom) {
+        clearMovementCache(creep);
+        creep.say('📍❓')
+        trace.error('missing destination', {memoryId});
+        return FAILURE;
+      }
+
+      if (creep.pos.roomName === destinationRoom) {
+        return SUCCESS;
+      }
+
+      const destination = new RoomPosition(25, 25, destinationRoom);
+      return cachedMoveToPosition(kingdom, creep, destination, 25, policy, trace);
     },
   );
 };

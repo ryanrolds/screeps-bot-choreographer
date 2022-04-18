@@ -6,7 +6,7 @@ import * as behaviorMovement from "./behavior.movement";
 import {behaviorBoosts} from "./behavior.boosts";
 import behaviorRoom from "./behavior.room";
 import * as MEMORY from "./constants.memory";
-import {commonPolicy} from './lib.pathing_policies';
+import {commonPolicy} from './constants.pathing_policies';
 
 const behavior = behaviorTree.sequenceNode(
   'reserver_root',

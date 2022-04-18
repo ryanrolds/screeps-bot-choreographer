@@ -21,6 +21,7 @@ import {roleRepairer} from './role.repairer';
 import {roleReserver} from './role.reserver';
 import {roleUpgrader} from './role.upgrader';
 import {roleWorker} from './role.worker';
+import {roleHarasser, ROLE_HARASSER} from './role.harasser';
 
 export class CreepManager {
   id: string;
@@ -153,10 +154,6 @@ export class CreepManager {
 
   private roleToCreepLogic = {
     [CREEPS.WORKER_ATTACKER]: roleAttacker,
-    [CREEPS.WORKER_ATTACKER_1TOWER]: roleAttacker,
-    [CREEPS.WORKER_ATTACKER_2TOWER]: roleAttacker,
-    [CREEPS.WORKER_ATTACKER_3TOWER]: roleAttacker,
-    [CREEPS.WORKER_ATTACKER_6TOWER]: roleAttacker,
     [CREEPS.WORKER_DEFENDER]: roleDefender,
     [CREEPS.WORKER_DEFENDER_BOOSTED]: roleDefender,
     [CREEPS.WORKER_DEFENDER_DRONE]: roleDefenderDrone,
@@ -170,6 +167,7 @@ export class CreepManager {
     [CREEPS.WORKER_HAULER]: roleHauler,
     [CREEPS.WORKER_RESERVER]: roleReserver,
     [CREEPS.WORKER_EXPLORER]: roleExplorer,
+    [ROLE_HARASSER]: roleHarasser,
   }
 
   private getBehaviorByRole(role: string): any {

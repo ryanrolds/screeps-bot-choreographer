@@ -3,11 +3,16 @@ export const getNearbyPositions = (pos: RoomPosition, range: number): RoomPositi
 
   for (let x = pos.x - range; x <= pos.x + range; x++) {
     for (let y = pos.y - range; y <= pos.y + range; y++) {
-      if (x < 1 && y < 1 && x > 48 && y > 48) {
+      if (x < 0 || y < 0 || x > 49 || y > 49) {
         continue;
       }
 
-      positions.push(new RoomPosition(x, y, pos.roomName));
+      try {
+        positions.push(new RoomPosition(x, y, pos.roomName));
+      } catch (e) {
+        console.log(x, y, pos.roomName)
+        throw e
+      }
     }
   }
 

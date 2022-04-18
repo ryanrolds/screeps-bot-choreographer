@@ -12,6 +12,7 @@ export const PRIORITY_BUILDER = 11;
 export const EXPLORER = 10;
 export const DISTRIBUTOR_NO_RESERVE = 9;
 export const PRIORITY_ATTACKER = 8;
+export const PRIORITY_HARASSER = 8;
 export const PRIORITY_REPAIRER = 7;
 export const PRIORITY_REMOTE_HARVESTER = 5;
 

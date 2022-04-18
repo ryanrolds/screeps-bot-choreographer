@@ -1,6 +1,5 @@
 // General role memory IDs
 export const MEMORY_ROLE = 'role';
-export const SPAWN_MIN_ENERGY = 'spawn_min_energy';
 
 // Old source memory ID (deprecated)
 export const MEMORY_SOURCE = 'source';

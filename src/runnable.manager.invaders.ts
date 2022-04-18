@@ -10,7 +10,7 @@ import {RunnableResult} from "./os.runnable";
 import {Scheduler} from "./os.scheduler";
 
 const RUN_TTL = 50;
-const MAX_BASE_LEVEL = 1;
+const MAX_BASE_LEVEL = 2;
 
 const colonyPathingPolicy: FindColonyPathPolicy = {
   colony: {
@@ -53,7 +53,6 @@ export default class InvaderManager {
     trace = trace.begin('invader_manager_run');
 
     const rooms = getRoomEntriesWithInvaderBases(kingdom, trace);
-
     trace.notice('found defeatable invader bases', {
       rooms: rooms.map((roomEntry) => {
         return {id: roomEntry.id, pos: roomEntry.invaderCorePos}
@@ -61,23 +60,10 @@ export default class InvaderManager {
     });
 
     rooms.forEach((roomEntry) => {
-      const end = trace.startTimer('find_closest_colony');
-
-      const destination = roomEntry.invaderCorePos;
-      const colony = getClosestColonyByPath(kingdom, destination, colonyPathingPolicy, trace);
-
-      end();
-
-      if (!colony) {
-        trace.log("no colony to attack invader base", {room: roomEntry.id});
-        return;
-      }
-
       trace.log("requesting attack", {roomId: roomEntry.id})
 
       const attackRequest: AttackRequest = {
         status: AttackStatus.REQUESTED,
-        baseId: colony.id,
         roomId: roomEntry.id,
       };
 

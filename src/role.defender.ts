@@ -199,5 +199,5 @@ const move = (creep: Creep, target: RoomPosition, range = 3) => {
 };
 
 export const roleDefender = {
-  run: behaviorTree.rootNode('defender', behaviorBoosts(roadWorker(behavior))),
+  run: behaviorTree.rootNode('defender', behaviorBoosts(behavior)),
 };

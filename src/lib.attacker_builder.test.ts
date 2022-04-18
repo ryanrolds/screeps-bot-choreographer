@@ -7,7 +7,7 @@ import {Tracer} from './lib.tracing';
 // The number of tests in here is stupid. I mostly did it so that I could see the numbers
 // and understand the maximum room it could attack and where the line was in the boosts
 
-describe.only('Attacker Builder', function () {
+describe('Attacker Builder', function () {
   const towerDmg = 600;
   const quadSize = 4;
   const tower1 = Math.ceil(1 * towerDmg / quadSize)
@@ -60,6 +60,32 @@ describe.only('Attacker Builder', function () {
       const [result, ok] = buildAttacker(tower2, 2300, multipliers, trace);
       expect(ok).to.be.true;
       expect(_.countBy(result)).to.deep.equal({[MOVE]: 6, [HEAL]: 7, [ATTACK]: 3, [TOUGH]: 1});
+    });
+
+    // RCL 5 from 7
+
+    it("should build ineffective attacker for RCL 7 by a RCL 6", () => {
+      const multipliers = newMultipliers();
+      const [result, ok] = buildAttacker(tower2, 5600, multipliers, trace);
+      expect(ok).to.be.false;
+      expect(_.countBy(result)).to.deep.equal({[MOVE]: 11, [HEAL]: 20, [TOUGH]: 2});
+    });
+
+    it("should build ineffective attacker for RCL 7 by a RCL 6 w/ 2x heal boost", () => {
+      const multipliers = newMultipliers();
+      multipliers[HEAL] = 2;
+      const [result, ok] = buildAttacker(tower2, 5600, multipliers, trace);
+      expect(ok).to.be.true;
+      expect(_.countBy(result)).to.deep.equal({[MOVE]: 16, [HEAL]: 13, [ATTACK]: 19});
+    });
+
+    // RCL 5 from 8
+
+    it("should build ineffective attacker for RCL 7 by a RCL 6", () => {
+      const multipliers = newMultipliers();
+      const [result, ok] = buildAttacker(tower2, 12900, multipliers, trace);
+      expect(ok).to.be.true;
+      expect(_.countBy(result)).to.deep.equal({[MOVE]: 17, [HEAL]: 25, [ATTACK]: 8});
     });
 
     // RCL 7 from 6

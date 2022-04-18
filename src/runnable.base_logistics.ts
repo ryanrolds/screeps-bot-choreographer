@@ -1,7 +1,7 @@
 import {BaseConfig} from "./config";
 import {Consumer, Event, Stream} from "./lib.event_broker";
 import {getPath, visualizePath} from "./lib.pathing";
-import {roadPolicy} from "./lib.pathing_policies";
+import {roadPolicy} from "./constants.pathing_policies";
 import {Tracer} from "./lib.tracing";
 import {Kingdom} from "./org.kingdom";
 import {PersistentMemory} from "./os.memory";

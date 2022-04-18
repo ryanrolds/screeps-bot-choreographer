@@ -9,7 +9,7 @@ import {Kingdom} from './org.kingdom';
 import {Scheduler} from './os.scheduler';
 import {BaseConfig, ShardConfig} from './config';
 import {Tracer} from './lib.tracing';
-import {commonPolicy} from './lib.pathing_policies';
+import {commonPolicy} from './constants.pathing_policies';
 import {EventBroker} from './lib.event_broker';
 import {CentralPlanning} from './runnable.central_planning';
 import {Scribe} from './runnable.scribe';

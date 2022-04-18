@@ -348,7 +348,7 @@ export class CentralPlanning {
     if (baseConfig.rooms.length - 1 < numDesired) {
       const nextRemote = findNextRemoteRoom(kingdom, baseConfig, primaryRoom, trace);
       if (!nextRemote) {
-        trace.notice('no remote room found', {colonyId: baseConfig.id});
+        trace.warn('no remote room found', {colonyId: baseConfig.id});
         return;
       }
 

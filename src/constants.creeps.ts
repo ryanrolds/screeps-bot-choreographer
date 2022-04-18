@@ -4,6 +4,7 @@
  * TODO move to role files
  */
 import {Priorities} from './os.scheduler';
+import {HarasserDefinition, ROLE_HARASSER} from './role.harasser';
 
 export const WORKER_BUILDER = 'builder';
 export const WORKER_HARVESTER = 'harvester';
@@ -13,10 +14,6 @@ export const WORKER_DEFENDER = 'defender';
 export const WORKER_DEFENDER_BOOSTED = 'defender_boosted';
 export const WORKER_DEFENDER_DRONE = 'defender_drone';
 export const WORKER_ATTACKER = 'attacker';
-export const WORKER_ATTACKER_1TOWER = 'attacker_1t';
-export const WORKER_ATTACKER_2TOWER = 'attacker_2t';
-export const WORKER_ATTACKER_3TOWER = 'attacker_3t';
-export const WORKER_ATTACKER_6TOWER = 'attacker_6t';
 export const WORKER_REPAIRER = 'repairer';
 export const WORKER_DISTRIBUTOR = 'distributor';
 export const WORKER_RESERVER = 'reserver';
@@ -38,6 +35,7 @@ type CreepRoleDefinition = {
 // The 'base' should at most 300 energy as it will form the base of the creep
 // The 'parts' are additional parts that will be used to fill up to the 'energyLimit'
 export const DEFINITIONS: Record<string, CreepRoleDefinition> = {
+  [ROLE_HARASSER]: HarasserDefinition,
   [WORKER_UPGRADER]: {
     base: [CARRY, WORK, MOVE],
     parts: [MOVE, WORK, WORK, MOVE, WORK, CARRY],
@@ -131,49 +129,9 @@ export const DEFINITIONS: Record<string, CreepRoleDefinition> = {
   [WORKER_ATTACKER]: {
     base: [TOUGH, MOVE, MOVE, MOVE, MOVE, MOVE, HEAL, HEAL, HEAL, HEAL, HEAL, RANGED_ATTACK, WORK, WORK],
     parts: [WORK, TOUGH, MOVE, HEAL, MOVE, HEAL, MOVE, RANGED_ATTACK, WORK],
-    boosts: [], // ['dismantle', 'heal', 'damage']
+    boosts: ['tough', 'heal', 'damage'],
     energyLimit: 0,
     energyMinimum: 3000,
-    ignoreSpawnEnergyLimit: true,
-    processPriority: Priorities.ATTACK,
-    skippable: false,
-  },
-  [WORKER_ATTACKER_1TOWER]: {
-    base: [TOUGH, MOVE, HEAL, MOVE, HEAL, MOVE, ATTACK, MOVE, ATTACK, HEAL],
-    parts: [ATTACK, TOUGH, MOVE, HEAL, MOVE, HEAL, MOVE, HEAL, HEAL, MOVE],
-    boosts: ['heal'],
-    energyLimit: 0,
-    energyMinimum: 2000,
-    ignoreSpawnEnergyLimit: true,
-    processPriority: Priorities.ATTACK,
-    skippable: false,
-  },
-  [WORKER_ATTACKER_2TOWER]: {
-    base: [TOUGH, MOVE, HEAL, MOVE, HEAL, MOVE, ATTACK, MOVE, HEAL, HEAL],
-    parts: [ATTACK, TOUGH, MOVE, HEAL, MOVE, HEAL, MOVE, HEAL, HEAL, MOVE],
-    boosts: ['heal', 'attack'],
-    energyLimit: 0,
-    energyMinimum: 6500,
-    ignoreSpawnEnergyLimit: true,
-    processPriority: Priorities.ATTACK,
-    skippable: false,
-  },
-  [WORKER_ATTACKER_3TOWER]: {
-    base: [TOUGH, MOVE, HEAL, MOVE, HEAL, MOVE, ATTACK, MOVE, HEAL, HEAL],
-    parts: [ATTACK, TOUGH, MOVE, HEAL, MOVE, HEAL, MOVE, HEAL, HEAL, MOVE],
-    boosts: ['heal', 'damage', 'attack'],
-    energyLimit: 0,
-    energyMinimum: 6500,
-    ignoreSpawnEnergyLimit: true,
-    processPriority: Priorities.ATTACK,
-    skippable: false,
-  },
-  [WORKER_ATTACKER_6TOWER]: {
-    base: [TOUGH, MOVE, HEAL, MOVE, HEAL, MOVE, ATTACK, MOVE, HEAL, HEAL],
-    parts: [ATTACK, TOUGH, MOVE, HEAL, MOVE, HEAL, MOVE, HEAL, HEAL, MOVE],
-    boosts: ['heal', 'damage', 'attack'],
-    energyLimit: 0,
-    energyMinimum: 6500,
     ignoreSpawnEnergyLimit: true,
     processPriority: Priorities.ATTACK,
     skippable: false,

@@ -1,5 +1,6 @@
 import {BaseConfig} from "./config";
 import {AllowedCostMatrixTypes} from "./lib.costmatrix_cache";
+import {getNearbyPositions} from "./lib.position";
 import {Tracer} from "./lib.tracing";
 import {Kingdom} from "./org.kingdom";
 import {RoomEntry} from "./runnable.scribe";
@@ -34,6 +35,8 @@ type PathPolicy = {
   maxOps: number;
   plainCost?: number;
   swampCost?: number;
+  sourceKeeperBuffer?: number;
+  controllerBuffer?: number;
 }
 
 export type FindColonyPathPolicy = {
@@ -53,6 +56,7 @@ export type PathSearchDetails = {
   tries: number;
   passes: number;
   searchedRooms: Record<string, boolean>;
+  rejectedRooms: Record<string, string>;
   blockedRooms: Record<string, boolean>;
   incompletePaths: PathFinderPath[];
 };
@@ -72,6 +76,7 @@ export const getPath = (kingdom: Kingdom, origin: RoomPosition, destination: Roo
     tries: 1,
     passes: 0,
     searchedRooms: {},
+    rejectedRooms: {},
     blockedRooms: {},
     incompletePaths: [],
   }
@@ -79,8 +84,8 @@ export const getPath = (kingdom: Kingdom, origin: RoomPosition, destination: Roo
   for (; pathDetails.passes < pathDetails.tries; pathDetails.passes++) {
     // Get list of rooms on the way to destination
     const roomRoute = Game.map.findRoute(origin.roomName, destination.roomName, {
-      routeCallback: getRoomRouteCallback(kingdom, destination.roomName, policy.room,
-        pathDetails, trace),
+      routeCallback: getRoomRouteCallback(kingdom, origin.roomName, destination.roomName,
+        policy.room, pathDetails, trace),
     });
 
     // If we have no route, return null
@@ -105,7 +110,8 @@ export const getPath = (kingdom: Kingdom, origin: RoomPosition, destination: Roo
 
     const opts: PathFinderOpts = {
       maxRooms: policy.path.maxSearchRooms,
-      roomCallback: getRoomCallback(kingdom, destination.roomName, policy.path, policy.room, allowedRooms, trace),
+      roomCallback: getRoomCallback(kingdom, origin.roomName, destination.roomName,
+        policy.path, policy.room, allowedRooms, pathDetails, trace),
       maxOps: policy.path.maxOps,
       plainCost: policy.path.plainCost || 2,
       swampCost: policy.path.swampCost || 5,
@@ -114,8 +120,6 @@ export const getPath = (kingdom: Kingdom, origin: RoomPosition, destination: Roo
     trace.info('findPath', {origin, goal, opts});
 
     const result = PathFinder.search(origin, goal, opts);
-
-    trace.info('search result', {result});
 
     // If route is complete or we don't care, go with it
     if (result.incomplete === false || policy.path.allowIncomplete) {
@@ -232,13 +236,24 @@ const getOriginPosition = (kingdom: Kingdom, baseConfig: BaseConfig, policy: Col
   return null;
 }
 
-const getRoomRouteCallback = (kingdom: Kingdom, destRoom: string, policy: RoomPolicy,
-  searchDetails: PathSearchDetails, trace: Tracer): RouteCallback => {
+const getRoomRouteCallback = (
+  kingdom: Kingdom,
+  originRoom: string,
+  destRoom: string,
+  policy: RoomPolicy,
+  searchDetails: PathSearchDetails,
+  trace: Tracer
+): RouteCallback => {
   return (toRoom: string, fromRoom: string): number => {
     searchDetails.searchedRooms[toRoom] = true;
 
     // Always allow entry to destination room
     if (destRoom === toRoom) {
+      return 1;
+    }
+
+    // Always allow movement in origin room
+    if (originRoom === toRoom) {
       return 1;
     }
 
@@ -254,8 +269,9 @@ const getRoomRouteCallback = (kingdom: Kingdom, destRoom: string, policy: RoomPo
     }
 
     if (roomEntry) {
-      const allow = applyRoomCallbackPolicy(kingdom, roomEntry, policy, trace);
+      const [allow, reason] = applyRoomCallbackPolicy(kingdom, roomEntry, policy, trace);
       if (!allow) {
+        searchDetails.rejectedRooms[toRoom] = reason;
         return Infinity;
       }
     }
@@ -264,11 +280,21 @@ const getRoomRouteCallback = (kingdom: Kingdom, destRoom: string, policy: RoomPo
   }
 }
 
-const getRoomCallback = (kingdom: Kingdom, destRoom: string, pathPolicy: PathPolicy,
-  roomPolicy: RoomPolicy, allowedRooms: Record<string, boolean>, trace: Tracer): RoomCallbackFunc => {
+const getRoomCallback = (
+  kingdom: Kingdom,
+  originRoom: string,
+  destRoom: string,
+  pathPolicy: PathPolicy,
+  roomPolicy: RoomPolicy,
+  allowedRooms: Record<string, boolean>,
+  pathDetails: PathSearchDetails,
+  trace: Tracer
+): RoomCallbackFunc => {
   return (roomName: string): (boolean | CostMatrix) => {
-    if (destRoom !== roomName) {
+    // If this room is not destination, check if we should avoid it
+    if (originRoom != roomName && destRoom !== roomName) {
       if (!allowedRooms[roomName]) {
+        pathDetails.rejectedRooms[roomName] = 'not in allowed rooms';
         return false;
       }
 
@@ -276,21 +302,26 @@ const getRoomCallback = (kingdom: Kingdom, destRoom: string, pathPolicy: PathPol
 
       // If we have not scanned the room, dont enter it
       if (!roomEntry && roomPolicy.avoidUnloggedRooms) {
+        pathDetails.rejectedRooms[roomName] = 'unlogged';
         return false;
       }
 
       if (roomEntry) {
-        const allow = applyRoomCallbackPolicy(kingdom, roomEntry, roomPolicy, trace);
+        const [allow, reason] = applyRoomCallbackPolicy(kingdom, roomEntry, roomPolicy, trace);
         if (!allow) {
+          pathDetails.rejectedRooms[roomName] = reason;
           return false;
         }
       }
     }
 
+    // Fetch cached cost matrix for the room
     let costMatrix = kingdom.getCostMatrixCache().getCostMatrix(kingdom, roomName,
       roomPolicy.costMatrixType, trace);
 
     const room = Game.rooms[roomName];
+
+    // Mark creeps as not passible
     if (room && !pathPolicy.ignoreCreeps) {
       costMatrix = costMatrix.clone();
 
@@ -299,30 +330,57 @@ const getRoomCallback = (kingdom: Kingdom, destRoom: string, pathPolicy: PathPol
       });
     }
 
+    // Add a buffer around source keepers
+    if (room && pathPolicy.sourceKeeperBuffer > 0) {
+      room.find(FIND_HOSTILE_CREEPS, {
+        filter: (creep) => {
+          return creep.owner.username === 'Source Keeper';
+        }
+      }).forEach((sourceKeeper) => {
+        getNearbyPositions(sourceKeeper.pos, pathPolicy.sourceKeeperBuffer).forEach((pos) => {
+          costMatrix.set(pos.x, pos.y, 10);
+        });
+      });
+    }
+
+    // Add a buffer around the ccontroller
+    if (room && pathPolicy.controllerBuffer > 0) {
+      const controller = room.controller;
+      if (controller && controller.my) {
+        getNearbyPositions(controller.pos, pathPolicy.controllerBuffer).forEach((pos) => {
+          costMatrix.set(pos.x, pos.y, 10);
+        });
+      }
+    }
+
     return costMatrix;
   }
 }
 
-const applyRoomCallbackPolicy = (kingdom: Kingdom, roomEntry: RoomEntry,
-  policy: RoomPolicy, trace: Tracer): boolean => {
+const applyRoomCallbackPolicy = (
+  kingdom: Kingdom,
+  roomEntry: RoomEntry,
+  policy: RoomPolicy,
+  trace: Tracer
+): [boolean, string] => {
   const owner = roomEntry.controller?.owner;
   const ownerIsNotMe = owner !== 'ENETDOWN';
   const isFriendly = kingdom.config.friends.includes(owner)
 
   if (owner && ownerIsNotMe && policy.avoidFriendlyRooms && isFriendly) {
-    return false;
+    return [false, 'friendly'];
   }
 
   if (owner && ownerIsNotMe && policy.avoidHostileRooms && !isFriendly) {
-    return false;
+    return [false, 'hostile'];
+  }
+
+  if (owner && ownerIsNotMe && policy.avoidRoomsWithTowers && roomEntry.numTowers) {
+    return [false, 'towers'];
   }
 
   if (policy.avoidRoomsWithKeepers && roomEntry.hasKeepers) {
-    return false;
-  }
-
-  if (policy.avoidRoomsWithTowers && roomEntry.numTowers) {
-    return false;
+    return [false, 'keepers'];
   }
 
   if (policy.sameRoomStatus) {
@@ -337,7 +395,7 @@ const applyRoomCallbackPolicy = (kingdom: Kingdom, roomEntry: RoomEntry,
 
   //trace.log('room allowed', {roomName: roomEntry.id});
 
-  return true;
+  return [true, 'good'];
 }
 
 

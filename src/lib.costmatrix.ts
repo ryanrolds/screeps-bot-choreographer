@@ -12,6 +12,7 @@ import {BaseConfig} from "./config";
 import {returnSuccess} from "./lib.behaviortree";
 import {getRegion} from "./lib.flood_fill";
 import {buildingCodes, Layout} from "./lib.layouts";
+import {getNearbyPositions} from "./lib.position";
 import {Tracer} from "./lib.tracing";
 import {Kingdom} from "./org.kingdom";
 import {baseLayouts} from "./runnable.base_construction";
@@ -70,7 +71,7 @@ export const createCommonCostMatrix = (kingdom: Kingdom, roomName: string, trace
     if (struct.structureType === STRUCTURE_STORAGE) {
       for (let x = struct.pos.x - 1; x <= struct.pos.x + 1; x++) {
         for (let y = struct.pos.y - 1; y <= struct.pos.y + 1; y++) {
-          if (x < 0 || x < 0 || y > 49 || y > 49 || terrain.get(x, y) === TERRAIN_MASK_WALL) {
+          if (x < 0 || y < 0 || x > 49 || y > 49 || terrain.get(x, y) === TERRAIN_MASK_WALL) {
             continue;
           }
 
@@ -94,12 +95,6 @@ export const createCommonCostMatrix = (kingdom: Kingdom, roomName: string, trace
   const sites = room.find(FIND_CONSTRUCTION_SITES);
   trace.log('found construction sites', {numSites: sites.length});
   sites.forEach((site) => {
-    if (site.structureType === STRUCTURE_ROAD) {
-      // Favor roads over plain tiles
-      costMatrix.set(site.pos.x, site.pos.y, 1);
-      return;
-    }
-
     if (OBSTACLE_OBJECT_TYPES.indexOf(site.structureType as any) !== -1) {
       costMatrix.set(site.pos.x, site.pos.y, 255);
     }
@@ -206,6 +201,8 @@ export const createPartyCostMatrix = (roomName: string, trace: Tracer): CostMatr
       if (mask) {
         const maskValue = (mask === TERRAIN_MASK_WALL) ? 255 : 5;
 
+        // The party origin is the bottom left corner
+
         // center
         if (costMatrix.get(x, y) < maskValue) {
           costMatrix.set(x, y, maskValue);
@@ -235,6 +232,15 @@ export const createPartyCostMatrix = (roomName: string, trace: Tracer): CostMatr
         }
       }
     }
+  }
+
+  const room = Game.rooms[roomName];
+  if (room && room.controller?.my) {
+    room.find(FIND_STRUCTURES).forEach((struct) => {
+      if (OBSTACLE_OBJECT_TYPES.indexOf(struct.structureType as any) !== -1) {
+        costMatrix.set(struct.pos.x, struct.pos.y, 255);
+      }
+    });
   }
 
   return costMatrix;
@@ -286,26 +292,6 @@ export const createOpenSpaceMatrix = (roomName: string, trace: Tracer): [CostMat
   trace.log('results', {cpuTime, pass, position});
 
   return [costMatrix, pass, position];
-};
-
-// get position surrounding a room position
-const getNearbyPositions = (center: RoomPosition, range: number): RoomPosition[] => {
-  const positions = [];
-  for (let x = center.x - range; x <= center.x + range; x++) {
-    for (let y = center.y - range; y <= center.y + range; y++) {
-      if (x === center.x && y === center.y) {
-        continue;
-      }
-
-      if (x < 0 || y < 0 || x > 49 || y > 49) {
-        continue;
-      }
-
-      positions.push(new RoomPosition(x, y, center.roomName));
-    }
-  }
-
-  return positions;
 };
 
 const get255CostMatrix = (): CostMatrix => {
@@ -368,7 +354,7 @@ const applyControllerBuffer = (costMatrix: CostMatrix, terrain: RoomTerrain,
   const controllerPos = controller.pos;
   for (let x = controllerPos.x - 3; x <= controllerPos.x + 3; x++) {
     for (let y = controllerPos.y - 3; y <= controllerPos.y + 3; y++) {
-      if (x < 0 || x < 0 || y > 49 || y > 49 || terrain.get(x, y) === TERRAIN_MASK_WALL) {
+      if (x < 0 || y < 0 || x > 49 || y > 49 || terrain.get(x, y) === TERRAIN_MASK_WALL) {
         continue;
       }
 
@@ -395,7 +381,7 @@ const applySourceMineralBuffer = (room: Room, costMatrix: CostMatrix, terrain: R
     const pos = source.pos;
     for (let x = pos.x - 2; x < pos.x + 3; x++) {
       for (let y = pos.y - 2; y < pos.y + 3; y++) {
-        if (x < 0 || x < 0 || y > 49 || y > 49 || terrain.get(x, y) === TERRAIN_MASK_WALL) {
+        if (x < 0 || y < 0 || x > 49 || y > 49 || terrain.get(x, y) === TERRAIN_MASK_WALL) {
           continue;
         }
 
@@ -449,7 +435,7 @@ const applyParkingLotBuffer = (baseConfig: BaseConfig, costMatrix: CostMatrix, t
   cost: number, trace: Tracer) => {
   for (let x = baseConfig.parking.x - 1; x <= baseConfig.parking.x + 1; x++) {
     for (let y = baseConfig.parking.y - 1; y <= baseConfig.parking.y + 1; y++) {
-      if (x < 0 || x < 0 || y > 49 || y > 49 || terrain.get(x, y) === TERRAIN_MASK_WALL) {
+      if (x < 0 || y < 0 || x > 49 || y > 49 || terrain.get(x, y) === TERRAIN_MASK_WALL) {
         continue;
       }
 

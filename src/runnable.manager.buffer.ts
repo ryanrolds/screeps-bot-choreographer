@@ -69,7 +69,6 @@ export default class BufferManager {
 
       const attackRequest: AttackRequest = {
         status: AttackStatus.REQUESTED,
-        baseId,
         roomId: room.id,
       };
 
@@ -87,8 +86,8 @@ export default class BufferManager {
 type HostileRoomsByColony = Record<string, TargetRoom[]>;
 
 function getHostileRoomsByColony(kingdom: Kingdom, trace: Tracer): HostileRoomsByColony {
-  const weakRooms = kingdom.getScribe().getWeakRooms()
-  trace.info('weak rooms', {weakRooms});
+  const weakRooms = kingdom.getScribe().getHostileRooms()
+  trace.info('hostile rooms', {weakRooms});
 
   const config = kingdom.config;
   const dontAttack = config.friends.concat(config.neutral);

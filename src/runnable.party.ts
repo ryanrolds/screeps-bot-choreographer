@@ -6,8 +6,6 @@
  * logic use this to abstract away creep handling.
  *
  */
-
-
 import * as _ from 'lodash';
 import {BaseConfig} from './config';
 import * as MEMORY from './constants.memory';
@@ -18,16 +16,66 @@ import {RunnableResult} from './os.runnable';
 import {thread, ThreadFunc} from './os.thread';
 import {getBaseSpawnTopic} from './topics.base';
 import {WarPartyTarget} from './runnable.warparty';
+import {SPAWN_REQUEST_PARTS, SPAWN_REQUEST_ROLE, SPAWN_REQUEST_SPAWN_MIN_ENERGY} from './runnable.base_spawning';
 
 const REQUEST_PARTY_MEMBER_TTL = 25;
 const MAX_PARTY_SIZE = 4;
+const MAX_PREVIOUS_POSITIONS = 6;
 
-const DEFAULT_FORMATION = [
-  {x: 0, y: 0},
-  {x: 1, y: 0},
-  {x: 0, y: -1},
-  {x: 1, y: -1},
-];
+export const FORMATION_QUAD = 'quad';
+export const FORMATION_SINGLE_FILE = 'single_file';
+export type FORMATION_TYPE = typeof FORMATION_QUAD | typeof FORMATION_SINGLE_FILE;
+
+const DIRECTION_2BY2_FORMATION = {
+  [TOP]: [
+    {x: 0, y: -1}, // TL
+    {x: 1, y: -1}, // TR
+    {x: 0, y: 0}, // BL
+    {x: 1, y: 0}, // BR
+  ],
+  [TOP_RIGHT]: [
+    {x: 1, y: -1}, // TR
+    {x: 0, y: -1}, // TL
+    {x: 1, y: 0}, // BR
+    {x: 0, y: 0}, // BL
+  ],
+  [RIGHT]: [
+    {x: 1, y: -1}, // TR
+    {x: 1, y: 0}, // BR
+    {x: 0, y: -1}, // TL
+    {x: 0, y: 0}, // BL
+  ],
+  [BOTTOM_RIGHT]: [
+    {x: 1, y: 0}, // BR
+    {x: 1, y: -1}, // TR
+    {x: 0, y: -1}, // TL
+    {x: 0, y: 0}, // BL
+  ],
+  [BOTTOM]: [
+    {x: 0, y: 0}, // BL
+    {x: 1, y: 0}, // BR
+    {x: 0, y: -1}, // TL
+    {x: 1, y: -1}, // TR
+  ],
+  [BOTTOM_LEFT]: [
+    {x: 0, y: 0}, // BL
+    {x: 1, y: 0}, // BR
+    {x: 0, y: -1}, // TL
+    {x: 1, y: -1}, // TR
+  ],
+  [LEFT]: [
+    {x: 0, y: -1}, // TL
+    {x: 0, y: 0}, // BL
+    {x: 1, y: -1}, // TR
+    {x: 1, y: 0}, // BR
+  ],
+  [TOP_LEFT]: [
+    {x: 0, y: -1}, // TL
+    {x: 1, y: -1}, // TR
+    {x: 0, y: 0}, // BL
+    {x: 1, y: 0}, // BR
+  ],
+}
 
 const DIRECTION_OFFSET = {
   [TOP]: {x: 0, y: -1},
@@ -43,30 +91,40 @@ const DIRECTION_OFFSET = {
 export default class PartyRunnable {
   id: string;
   baseConfig: BaseConfig;
-  formation: {x: number, y: number}[];
+  formation: FORMATION_TYPE;
   position: RoomPosition;
   role: string;
+  parts: BodyPartConstant[]
   minEnergy: number;
   priority: number;
   requestCreepTTL: number;
   isDone: boolean;
   deployTicks: number;
+  direction: DirectionConstant;
+
+  // when in single file formation, keep last 4 positions
+  previousPositions: RoomPosition[];
 
   threadRequestCreeps: ThreadFunc;
 
   constructor(id: string, baseConfig: BaseConfig, position: RoomPosition, role: string,
-    minEnergy: number, priority: number, ttl: number) {
+    parts: BodyPartConstant[], minEnergy: number, priority: number, ttl: number) {
     this.id = id;
     this.baseConfig = baseConfig;
     this.role = role;
+    this.parts = parts;
     this.minEnergy = minEnergy;
     this.priority = priority;
     this.requestCreepTTL = ttl;
     this.isDone = false;
     this.deployTicks = 0;
+    this.previousPositions = [];
 
-    this.formation = DEFAULT_FORMATION;
     this.setPosition(position);
+    this.setFormation(FORMATION_QUAD);
+    this.setDirection(TOP);
+
+    this.previousPositions = this.getCreepPositions();
 
     this.threadRequestCreeps = thread('request_creeps', REQUEST_PARTY_MEMBER_TTL)(this.requestCreeps.bind(this));
   }
@@ -103,23 +161,46 @@ export default class PartyRunnable {
       trace.log('in debug mode, not spawning');
     }
 
-    // TODO first four should be in formation, remaining should be behind
-    creeps.forEach((creep, idx) => {
-      idx = idx % 4;
-      const x = _.max([_.min([this.position.x + this.formation[idx].x, 49]), 0]);
-      const y = _.max([_.min([this.position.y + this.formation[idx].y, 49]), 0]);
-      const roomName = this.position.roomName;
-
-      trace.log('setting creep position', {name: creep.name, x, y, roomName});
-
-      creep.memory[MEMORY.MEMORY_POSITION_X] = x;
-      creep.memory[MEMORY.MEMORY_POSITION_Y] = y;
-      creep.memory[MEMORY.MEMORY_POSITION_ROOM] = roomName;
-    });
+    this.updateCreepPositions(creeps, trace);
 
     trace.end();
 
     return running();
+  }
+
+  updateCreepPositions(creeps: Creep[], trace: Tracer) {
+    if (this.formation === FORMATION_SINGLE_FILE) {
+      creeps.forEach((creep, idx) => {
+        let position = this.position;
+        if (this.previousPositions[idx]) {
+          position = this.previousPositions[idx];
+        }
+
+        trace.log('setting creep position in single file', {name: creep.name, idx, position});
+
+        creep.memory[MEMORY.MEMORY_POSITION_X] = position.x;
+        creep.memory[MEMORY.MEMORY_POSITION_Y] = position.y;
+        creep.memory[MEMORY.MEMORY_POSITION_ROOM] = position.roomName;
+      });
+    } else if (this.formation === FORMATION_QUAD) {
+      const quadPositions = this.getCreepOffsets()
+      // TODO first four should be in formation, remaining should be behind
+      // Can possibly use 3rd and grater previous positions
+      creeps.forEach((creep, idx) => {
+        idx = idx % 4;
+        const x = _.max([_.min([this.position.x + quadPositions[idx].x, 49]), 0]);
+        const y = _.max([_.min([this.position.y + quadPositions[idx].y, 49]), 0]);
+        const roomName = this.position.roomName;
+
+        trace.log('setting creep position in quad', {name: creep.name, x, y, roomName});
+
+        creep.memory[MEMORY.MEMORY_POSITION_X] = x;
+        creep.memory[MEMORY.MEMORY_POSITION_Y] = y;
+        creep.memory[MEMORY.MEMORY_POSITION_ROOM] = roomName;
+      });
+    } else {
+      trace.error('unknown formation', this.formation);
+    }
   }
 
   done() {
@@ -130,17 +211,71 @@ export default class PartyRunnable {
     return this.position;
   }
 
+  getCreepPosition(idx: number, trace: Tracer): RoomPosition {
+    // Set to current position
+    let x = this.position.x
+    let y = this.position.y
+    let roomName = this.position.roomName;
+
+    if (this.formation === FORMATION_SINGLE_FILE) {
+      // only update position if we have a previous position
+      if (this.previousPositions[idx]) {
+        x = this.previousPositions[idx].x;
+        y = this.previousPositions[idx].y;
+        roomName = this.previousPositions[idx].roomName;
+      }
+    } else if (this.formation === FORMATION_QUAD) {
+      const quadPositions = this.getCreepOffsets()
+      x = _.max([_.min([this.position.x + quadPositions[idx].x, 49]), 0]);
+      y = _.max([_.min([this.position.y + quadPositions[idx].y, 49]), 0]);
+      roomName = this.position.roomName;
+    } else {
+      trace.warn('unknown formation', this.formation);
+    }
+
+    return new RoomPosition(x, y, roomName);
+  }
+
+
   inPosition(position: RoomPosition, trace: Tracer) {
     let inPosition = true;
 
     const visual = new RoomVisual();
 
     const showVisuals = (global as any).LOG_WHEN_PID === this.id;
+
+
     if (showVisuals) {
-      visual.rect(position.x - 0.5, position.y - 1.5, 2, 2);
+      const positions = this.getCreepOffsets();
+      if (this.formation === FORMATION_QUAD) {
+        visual.rect(position.x - 0.5, position.y - 1.5, 2, 2);
+      }
+
+      if (this.formation === FORMATION_SINGLE_FILE) {
+
+        visual.rect(position.x - 0.5, position.y - 1.5, 2, 2);
+      }
     }
 
+    let positionBlocked = false;
+
     this.getAssignedCreeps().slice(0, 4).forEach((creep, idx) => {
+      // if creep is on an edge, report it as ready
+      if (creep.pos.x === 49 || creep.pos.x === 0 || creep.pos.y === 49 || creep.pos.y === 0) {
+        trace.info('creep is at edge', {
+          name: creep.name,
+          pos: creep.pos
+        })
+
+        if (showVisuals) {
+          visual.text("E", creep.pos.x, creep.pos.y + 0.5, {
+            color: (idx) ? '#0000FF' : '#FFFFFF',
+          });
+        }
+
+        return;
+      }
+
       if (creep.fatigue > 0) {
         trace.log("not ready: fatigued", {creepName: creep.name, fatigue: creep.fatigue});
         inPosition = false;
@@ -154,40 +289,52 @@ export default class PartyRunnable {
         return;
       }
 
-      const x = _.max([_.min([this.position.x + this.formation[idx].x, 49]), 0]);
-      const y = _.max([_.min([this.position.y + this.formation[idx].y, 49]), 0]);
-      const roomName = this.position.roomName;
+      const position = this.getCreepPosition(idx, trace);
 
-      if (creep.pos.x !== x || creep.pos.y !== y || creep.pos.roomName !== roomName) {
-        trace.log("not ready: out of position", {
-          creepName: creep.name,
-          creepPos: creep.pos,
-          desired: {x, y, roomName},
-        });
-        inPosition = false;
-
-        /*
-        if (creep.pos.getRangeTo(this.position) < 5) {
-          trace.log("not ready: out of position", {
-            creepName: creep.name,
-            creepPos: creep.pos,
-            desired: {x, y, roomName},
-          });
-
-          inPosition = false;
-        } else {
-          trace.log("far out of position, not halting", {
-            creepName: creep.name,
-            creepPos: creep.pos,
-            desired: {x, y, roomName},
-          });
-        }
-        */
-
+      const terrain = position.lookFor(LOOK_TERRAIN)
+      if (terrain.length > 0 && terrain[0] === 'wall') {
         if (showVisuals) {
-          visual.text("O", creep.pos.x, creep.pos.y + 0.5);
+          visual.text("W", position.x, position.y + 0.5);
         }
+        positionBlocked = true;
         return;
+      }
+
+      // If creep not in position, in the same room, and not single file
+      if (this.formation === FORMATION_QUAD) {
+        if (creep.pos.x !== position.x || creep.pos.y !== position.y ||
+          creep.pos.roomName !== position.roomName) {
+          trace.info("not ready: out of position", {
+            creepName: creep.name,
+            creepPos: creep.pos,
+            desired: position,
+            formation: this.formation,
+          });
+          inPosition = false;
+
+          /*
+          if (creep.pos.getRangeTo(this.position) < 5) {
+            trace.log("not ready: out of position", {
+              creepName: creep.name,
+              creepPos: creep.pos,
+              desired: {x, y, roomName},
+            });
+
+            inPosition = false;
+          } else {
+            trace.log("far out of position, not halting", {
+              creepName: creep.name,
+              creepPos: creep.pos,
+              desired: {x, y, roomName},
+            });
+          }
+          */
+
+          if (showVisuals) {
+            visual.text("O", creep.pos.x, creep.pos.y + 0.5);
+          }
+          return;
+        }
       }
 
       if (showVisuals) {
@@ -195,7 +342,7 @@ export default class PartyRunnable {
       }
     });
 
-    return inPosition;
+    return positionBlocked || inPosition;
   }
 
   onEdge(position: RoomPosition) {
@@ -210,12 +357,19 @@ export default class PartyRunnable {
 
   isBlocked(position: RoomPosition, trace: Tracer): boolean {
     let structures: (Terrain | Structure)[] = [];
+    let positions: RoomPosition[] = [];
 
-    let positions = this.formation.map((offset) => {
-      const x = _.min([_.max([position.x + offset.x, 0]), 49]);
-      const y = _.min([_.max([position.y + offset.y, 0]), 49]);
-      return new RoomPosition(x, y, position.roomName);
-    });
+    if (this.formation === FORMATION_SINGLE_FILE) {
+      positions = [
+        RoomPosition(position.x, position.y, position.roomName)
+      ];
+    } else {
+      positions = this.getCreepOffsets().map((offset) => {
+        const x = _.min([_.max([position.x + offset.x, 0]), 49]);
+        const y = _.min([_.max([position.y + offset.y, 0]), 49]);
+        return new RoomPosition(x, y, position.roomName);
+      });
+    }
 
     positions.forEach((position) => {
       structures = structures.concat(position.lookFor(LOOK_STRUCTURES))
@@ -234,15 +388,27 @@ export default class PartyRunnable {
     return structures.length > 0;
   }
 
-  getBlockingObjects(direction: DirectionConstant, position: RoomPosition, trace: Tracer): WarPartyTarget[] {
+  // Returns objects that are blocking the party
+  getBlockingObjects(position: RoomPosition, direction: DirectionConstant, trace: Tracer): WarPartyTarget[] {
     let objects: WarPartyTarget[] = [];
 
-    let positions = this.formation.map((offset) => {
-      const x = _.min([_.max([position.x + offset.x, 0]), 49]);
-      const y = _.min([_.max([position.y + offset.y, 0]), 49]);
-      trace.log("get blocking at position", {position, direction, offset, x, y});
-      return new RoomPosition(x, y, position.roomName);
-    });
+    let positions: RoomPosition[] = [];
+
+    if (this.formation === FORMATION_SINGLE_FILE) {
+      positions = [
+        new RoomPosition(
+          _.min([_.max([position.x, 0]), 49]),
+          _.min([_.max([position.y, 0]), 49]),
+          position.roomName
+        )
+      ];
+    } else if (this.formation === FORMATION_QUAD) {
+      positions = this.getCreepOffsets().map((offset) => {
+        const x = _.min([_.max([position.x + offset.x, 0]), 49]);
+        const y = _.min([_.max([position.y + offset.y, 0]), 49]);
+        return new RoomPosition(x, y, position.roomName);
+      });
+    }
 
     // We cannot lookFor in a room that is not loaded
     if (Game.rooms[position.roomName]) {
@@ -250,7 +416,10 @@ export default class PartyRunnable {
         // Structures can block
         objects = objects.concat(position.lookFor(LOOK_STRUCTURES))
           .filter((structure: Structure) => {
-            return structure.structureType !== STRUCTURE_ROAD;
+            return structure.structureType !== STRUCTURE_ROAD && !(
+              structure.structureType === STRUCTURE_RAMPART &&
+              structure.room?.controller?.my
+            );
           });
       });
     }
@@ -262,8 +431,39 @@ export default class PartyRunnable {
     this.role = role;
   }
 
-  setFormation(formation: {x: number, y: number}[]) {
+  setParts(parts: BodyPartConstant[]) {
+    this.parts = parts;
+  }
+
+  setFormation(formation: FORMATION_TYPE) {
     this.formation = formation;
+  }
+
+  getFormation(): FORMATION_TYPE {
+    return this.formation;
+  }
+
+  getCreepOffsets(): {x: number, y: number}[] {
+    if (this.formation === FORMATION_SINGLE_FILE) {
+      return this.previousPositions;
+    } else if (this.formation === FORMATION_QUAD) {
+      return DIRECTION_2BY2_FORMATION[this.direction];
+    } else {
+      throw new Error("Unknown formation");
+    }
+  }
+
+  getCreepPositions(): RoomPosition[] {
+    return this.getCreepOffsets().map((offset) => {
+      const x = _.max([_.min([this.position.x + offset.x, 49]), 0]);
+      const y = _.max([_.min([this.position.y + offset.y, 49]), 0]);
+      const roomName = this.position.roomName;
+      return new RoomPosition(x, y, roomName);
+    });
+  }
+
+  setDirection(direction: DirectionConstant) {
+    this.direction = direction;
   }
 
   setMinEnergy(minEnergy: number) {
@@ -272,6 +472,15 @@ export default class PartyRunnable {
 
   setPosition(position: RoomPosition) {
     this.position = position;
+
+    if (this.position !== this.previousPositions[0]) {
+      this.previousPositions.unshift(this.position);
+      this.previousPositions.splice(MAX_PREVIOUS_POSITIONS);
+    }
+  }
+
+  getPreviousPositions(): RoomPosition[] {
+    return this.previousPositions;
   }
 
   setTarget(targets: WarPartyTarget[], trace: Tracer): WarPartyTarget {
@@ -350,14 +559,14 @@ export default class PartyRunnable {
   }
 
   requestCreeps(trace: Tracer, kingdom: Kingdom) {
-    const colonyRoom = this.baseConfig.primary;
-    const room = Game.rooms[colonyRoom];
-    if (!room) {
-      trace.log('colony room not visible', {colonyRoom});
+    const baseRoomName = this.baseConfig.primary;
+    const baseRoom = Game.rooms[baseRoomName];
+    if (!baseRoom) {
+      trace.log('base room not visible', {baseRoomName});
       return;
     }
 
-    const spawns = room.find(FIND_MY_STRUCTURES, {
+    const spawns = baseRoom.find(FIND_MY_STRUCTURES, {
       filter: structure => structure.structureType === STRUCTURE_SPAWN,
     });
     if (!spawns || !spawns.length) {
@@ -403,27 +612,24 @@ export default class PartyRunnable {
       return;
     }
 
-    // Determine creeps position at rally point
     const idx = _.max([creeps.length - 1, 0]) % 4;
-    const x = this.position.x + this.formation[idx].x;
-    const y = this.position.y + this.formation[idx].y;
-    const roomName = this.position.roomName;
-
+    const position = this.getCreepPosition(idx, trace);
     const details = {
-      role: this.role,
-      [MEMORY.SPAWN_MIN_ENERGY]: 2000, // TODO add to constructor
+      [SPAWN_REQUEST_ROLE]: this.role,
+      [SPAWN_REQUEST_SPAWN_MIN_ENERGY]: 2000, // TODO add to constructor
+      [SPAWN_REQUEST_PARTS]: this.parts,
       memory: {
         [MEMORY.MEMORY_PARTY_ID]: this.id,
         // Tell creep to move to it's rally point position
-        [MEMORY.MEMORY_POSITION_X]: x,
-        [MEMORY.MEMORY_POSITION_Y]: y,
-        [MEMORY.MEMORY_POSITION_ROOM]: roomName,
-        [MEMORY.MEMORY_ASSIGN_ROOM]: roomName,
+        [MEMORY.MEMORY_POSITION_X]: position.x,
+        [MEMORY.MEMORY_POSITION_Y]: position.y,
+        [MEMORY.MEMORY_POSITION_ROOM]: position.roomName,
+        [MEMORY.MEMORY_ASSIGN_ROOM]: position.roomName,
         [MEMORY.MEMORY_BASE]: this.baseConfig.id,
       },
     };
 
-    trace.log('requesting creep', {
+    trace.info('requesting creep', {
       colonyId: this.baseConfig.id,
       role: this.role,
       priority: this.priority,

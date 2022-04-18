@@ -1,7 +1,7 @@
 import {Event} from "./lib.event_broker";
 import {ANY, buildingCodes, EMPTY, getConstructionPosition, Layout} from "./lib.layouts";
 import {getPath} from "./lib.pathing";
-import {controllerRoadPolicy} from "./lib.pathing_policies";
+import {controllerRoadPolicy} from "./constants.pathing_policies";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
 import {PersistentMemory} from "./os.memory";

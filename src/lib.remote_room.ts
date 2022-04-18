@@ -120,14 +120,14 @@ export function desiredRemotes(colony: Colony, level: number): number {
     case 6:
       // Tried 2 and 3, it was choking - Jan 2022
       // Have since reduced hauler demand, trying 2 again
-      desiredRemotes = 2;
+      desiredRemotes = 1;
       break;
     case 7:
     case 8:
       if (spawns.length < 2) {
         desiredRemotes = 1;
       } else if (spawns.length < 3) {
-        desiredRemotes = 3;
+        desiredRemotes = 2;
       } else {
         desiredRemotes = 6;
       }

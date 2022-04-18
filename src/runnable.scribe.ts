@@ -9,7 +9,7 @@ import {getDashboardStream, HudEventSet, HudIndicator, HudIndicatorStatus} from 
 
 const RUN_TTL = 10;
 const JOURNAL_ENTRY_TTL = 200;
-const MAX_JOURAL_TTL = 500;
+const MAX_JOURNAL_TTL = 1000;
 const WRITE_MEMORY_INTERVAL = 50;
 const REMOVE_STALE_ENTRIES_INTERVAL = 100;
 const UPDATE_COLONY_COUNT = 50;
@@ -46,6 +46,7 @@ export type RoomEntry = {
   spawnLocation: RoomPosition;
   numSources: number;
   hasHostiles: boolean;
+  hostilesDmg: number;
   hasKeepers: boolean;
   invaderCorePos: RoomPosition;
   invaderCoreLevel: number;
@@ -131,7 +132,6 @@ export class Scribe implements Runnable {
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
     trace = trace.begin('run');
-
 
     const updateRoomsTrace = trace.begin('update_rooms');
     // Iterate rooms and update if stale
@@ -260,10 +260,14 @@ export class Scribe implements Runnable {
     return this.globalColonyCount;
   };
 
-  removeStaleJournalEntries() {
+  removeStaleJournalEntries(trace) {
+    const numBefore = Object.keys(this.journal.rooms).length;
+
     this.journal.rooms = _.pick(this.journal.rooms, (room) => {
-      return Game.time - room.lastUpdated < MAX_JOURAL_TTL;
+      return Game.time - room.lastUpdated < MAX_JOURNAL_TTL;
     });
+
+    trace.info('remove_stale', {numBefore, numAfter: Object.keys(this.journal.rooms).length});
   }
 
   getRoomById(roomId): RoomEntry {
@@ -373,17 +377,13 @@ export class Scribe implements Runnable {
     });
   }
 
-  getWeakRooms(): TargetRoom[] {
+  getHostileRooms(): TargetRoom[] {
     return Object.values(this.journal.rooms).filter((room) => {
       if (!room.controller || room.controller.owner === 'ENETDOWN') {
         return false;
       }
 
       if (room.specialRoom) {
-        return false;
-      }
-
-      if (room.controller.level >= 7) {
         return false;
       }
 
@@ -423,6 +423,7 @@ export class Scribe implements Runnable {
       spawnLocation: null,
       numSources: 0,
       hasHostiles: false,
+      hostilesDmg: 0,
       hasKeepers: false,
       invaderCorePos: null,
       invaderCoreLevel: null,
@@ -492,6 +493,14 @@ export class Scribe implements Runnable {
     });
     room.hasHostiles = hostileCreeps.length > 0;
 
+    if (room.hasHostiles) {
+      room.hostilesDmg = _.sum(hostileCreeps, (creep) => {
+        // TODO factor in boosts
+        return creep.getActiveBodyparts(ATTACK) * ATTACK_POWER +
+          creep.getActiveBodyparts(RANGED_ATTACK) * RANGED_ATTACK_POWER
+      });
+    }
+
     let keepers = hostiles.filter((creep) => {
       const owner = creep.owner.username;
       return owner === 'Source Keeper';
@@ -500,7 +509,7 @@ export class Scribe implements Runnable {
 
     let invaderCores: StructureInvaderCore[] = roomObject.find(FIND_HOSTILE_STRUCTURES, {
       filter: (structure) => {
-        return structure.structureType === STRUCTURE_INVADER_CORE;
+        return structure.structureType === STRUCTURE_INVADER_CORE && structure.isActive();
       }
     });
     if (invaderCores.length) {
@@ -513,9 +522,9 @@ export class Scribe implements Runnable {
 
     const towersEnd = trace.startTimer('towers');
 
-    room.numTowers = roomObject.find(FIND_HOSTILE_STRUCTURES, {
+    room.numTowers = roomObject.find(FIND_STRUCTURES, {
       filter: (structure) => {
-        return structure.structureType === STRUCTURE_TOWER;
+        return structure.structureType === STRUCTURE_TOWER && structure.owner?.username !== 'ENETDOWN';
       },
     }).length;
 
@@ -525,10 +534,11 @@ export class Scribe implements Runnable {
 
     room.numKeyStructures = roomObject.find(FIND_HOSTILE_STRUCTURES, {
       filter: (structure) => {
-        return structure.structureType === STRUCTURE_TOWER ||
+        return structure.isActive() && (structure.structureType === STRUCTURE_TOWER ||
           structure.structureType === STRUCTURE_SPAWN ||
           structure.structureType === STRUCTURE_TERMINAL ||
-          structure.structureType === STRUCTURE_NUKER;
+          structure.structureType === STRUCTURE_NUKER ||
+          structure.structureType === STRUCTURE_INVADER_CORE);
       },
     }).length;
 

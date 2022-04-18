@@ -2,7 +2,7 @@ const behaviorTree = require('./lib.behaviortree');
 const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
 const behaviorMovement = require('./behavior.movement');
 const {MEMORY_DESTINATION, MEMORY_IDLE} = require('./constants.memory');
-const {commonPolicy} = require('./lib.pathing_policies');
+const {commonPolicy} = require('./constants.pathing_policies');
 
 const selectNearbyLink = behaviorTree.leafNode(
   'select_nearby_link',

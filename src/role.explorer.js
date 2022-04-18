@@ -8,14 +8,6 @@ const behavior = behaviorTree.sequenceNode(
   'explorer_root',
   [
     behaviorTree.leafNode(
-      'update_room_with_scribe',
-      (creep, trace, kingdom) => {
-        kingdom.getScribe().updateRoom(kingdom, creep.room, trace);
-
-        return SUCCESS;
-      },
-    ),
-    behaviorTree.leafNode(
       'select_next_room',
       (creep, trace, kingdom) => {
         // Don't notify me when creep wonders into hostile room
@@ -50,6 +42,10 @@ const behavior = behaviorTree.sequenceNode(
     behaviorTree.leafNode(
       'move_into_room',
       (creep, trace, kingdom) => {
+        // Record room
+        kingdom.getScribe().updateRoom(kingdom, creep.room, trace);
+
+        // Move one step into the room
         creep.moveTo(new RoomPosition(25, 25, creep.room.name), {maxOps: 100});
 
         return SUCCESS;

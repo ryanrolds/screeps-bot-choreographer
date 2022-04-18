@@ -9,7 +9,7 @@ import * as MEMORY from "./constants.memory";
 import * as TOPICS from "./constants.topics";
 import * as behaviorTree from "./lib.behaviortree";
 import {FAILURE, RUNNING, SUCCESS} from "./lib.behaviortree";
-import {commonPolicy} from "./lib.pathing_policies";
+import {commonPolicy} from "./constants.pathing_policies";
 
 const behavior = behaviorTree.sequenceNode(
   'haul_task',

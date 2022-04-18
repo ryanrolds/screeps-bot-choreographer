@@ -122,7 +122,7 @@ module.exports.tick = (kingdom, trace) => {
   }
 };
 
-module.exports.createCreep = (colony, room, spawn, role, memory, energy, energyLimit) => {
+module.exports.createCreep = (colony, room, spawn, role, parts, memory, energy, energyLimit) => {
   const definition = DEFINITIONS[role];
 
   const ignoreSpawnEnergyLimit = definition.ignoreSpawnEnergyLimit || false;
@@ -135,7 +135,10 @@ module.exports.createCreep = (colony, room, spawn, role, memory, energy, energyL
     energy = roleEnergyLimit;
   }
 
-  const parts = getBodyParts(definition, energy);
+  // if parts not provided, work them out from the definition
+  if (!parts) {
+    parts = getBodyParts(definition, energy);
+  };
 
   const name = [role, Game.shard.name, Game.time].join('_');
 

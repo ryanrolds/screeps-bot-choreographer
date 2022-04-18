@@ -14,6 +14,11 @@ export const roadWorker = (behaviorNode) => {
             return SUCCESS;
           }
 
+          // If work parts, do not build/repair roads
+          if (creep.getActiveBodyparts(WORK) === 0) {
+            return SUCCESS;
+          }
+
           // Check for road to repair
           const road = creep.pos.lookFor(LOOK_STRUCTURES).find((structure) => {
             return structure.structureType === STRUCTURE_ROAD;

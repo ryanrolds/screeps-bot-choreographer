@@ -19,15 +19,14 @@ export default class DefensePartyRunnable {
   noTargetTTL: number;
   minEnergy: number;
 
-  constructor(id: string, baseConfig: BaseConfig, flagId: string, position: RoomPosition,
-    trace: Tracer) {
+  constructor(id: string, baseConfig: BaseConfig, flagId: string, position: RoomPosition, trace: Tracer) {
     this.id = id;
     this.baseConfig = baseConfig;
     this.flagId = flagId;
     this.noTargetTTL = 0;
     this.minEnergy = 0;
     this.party = new PartyRunnable(id, baseConfig, position, WORKER_DEFENDER_DRONE,
-      this.minEnergy, PRIORITY_BUFFER_PATROL, REQUEST_PARTY_MEMBER_TTL);
+      null, this.minEnergy, PRIORITY_BUFFER_PATROL, REQUEST_PARTY_MEMBER_TTL);
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {

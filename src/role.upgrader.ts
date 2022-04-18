@@ -5,7 +5,7 @@ import * as behaviorCommute from "./behavior.commute";
 import {behaviorBoosts} from "./behavior.boosts";
 import behaviorRoom from "./behavior.room";
 import * as MEMORY from "./constants.memory";
-import {commonPolicy} from "./lib.pathing_policies";
+import {commonPolicy} from "./constants.pathing_policies";
 import {roadWorker} from "./behavior.logistics";
 import {FindPathPolicy} from "./lib.pathing";
 import {AllowedCostMatrixTypes} from "./lib.costmatrix_cache";

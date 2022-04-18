@@ -28,6 +28,7 @@ const BALANCE_ENERGY_TTL = 50;
 // Try to ensure that all colonies are ready to
 // boost creeps with these effects
 const MIN_CRITICAL_COMPOUND = 1000;
+const MIN_CRITICAL_COMPOUND_RALLY = 5000;
 const CRITICAL_EFFECTS = {
   'upgradeController': ['XGH2O', 'GH2O', 'GH'],
   // 'capacity': ['XKH2O', 'KH2O', 'KH'],
@@ -336,7 +337,7 @@ class Resources extends OrgBase {
     missingOneInput = this.prioritizeReactions(missingOneInput, 5);
     // overReserve = this.prioritizeReactions(overReserve, 10);
 
-    const nextReactions = [].concat(availableReactions);
+    let nextReactions = [].concat(availableReactions);
     if (missingOneInput.length && Game.market.credits > MIN_CREDITS) {
       nextReactions = nextReactions.concat(missingOneInput);
     }

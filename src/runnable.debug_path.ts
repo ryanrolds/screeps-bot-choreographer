@@ -1,11 +1,11 @@
 import {FindPathPolicy, getPath, PathSearchDetails, visualizePath} from "./lib.pathing";
-import {commonPolicy} from "./lib.pathing_policies";
+import {commonPolicy} from "./constants.pathing_policies";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
 import {running} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 import {BufferPathPolicy} from "./runnable.manager.buffer";
-import {warPartyPolicy} from "./runnable.warparty";
+import {warPartyQuadPolicy, warPartySingleFilePolicy} from "./runnable.warparty";
 
 export default class PathDebugger {
   id: string;
@@ -50,8 +50,11 @@ export default class PathDebugger {
 
     let policy: FindPathPolicy = null;
     switch (policyName) {
-      case 'warparty':
-        policy = warPartyPolicy;
+      case 'warparty_quad':
+        policy = warPartyQuadPolicy;
+        break;
+      case 'warparty_single_file':
+        policy = warPartySingleFilePolicy;
         break;
       case 'buffer_path':
         policy = BufferPathPolicy;

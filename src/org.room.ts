@@ -15,7 +15,7 @@ export const TOPIC_ROOM_KEYVALUE = 'room_keyvalue';
 const MEMORY_HOSTILE_TIME = 'hostile_time';
 const MEMORY_HOSTILE_POS = 'hostile_pos';
 
-const MAX_DEFENDERS = 8;
+const MAX_DEFENDERS = 5;
 
 const WALL_LEVEL = 1000;
 const RAMPART_LEVEL = 1000;
@@ -37,7 +37,7 @@ const UPDATE_DAMAGED_STRUCTURES_TTL = 40;
 const UPDATE_DAMAGED_SECONDARY_TTL = 15;
 const UPDATE_DAMAGED_ROADS_TTL = 25;
 
-const REQUEST_DEFENDERS_TTL = 20;
+const REQUEST_DEFENDERS_TTL = 50;
 const REQUEST_DEFENDERS_DELAY = 20;
 const HOSTILE_PRESENCE_TTL = 200;
 
@@ -265,7 +265,7 @@ export default class OrgRoom extends OrgBase {
         return;
       }
 
-      trace.notice('checking if we need defenders to handle hostile presence', {
+      trace.info('checking if we need defenders to handle hostile presence', {
         enemyPresent,
         enemyPresentRecently,
         hostileTime: this.hostileTime,
@@ -297,7 +297,7 @@ export default class OrgRoom extends OrgBase {
         return;
       }
 
-      trace.notice('request defenders if needed', {neededDefenders});
+      trace.info('request defenders if needed', {neededDefenders});
 
       for (let i = 0; i < neededDefenders; i++) {
         this.requestDefender(kingdom, base, this.lastHostilePosition, true, trace);
@@ -314,12 +314,10 @@ export default class OrgRoom extends OrgBase {
 
     const base = this.getKingdom().getPlanner().getBaseConfigByRoom(this.id);
     if (!base) {
-      trace.error('no base config for room, removing org room', {roomId: this.id});
-
+      trace.error('no base config for room, removing room', {roomId: this.id});
       // Remove the room from the colony
       delete this.getColony().roomMap[this.id];
       delete this.getKingdom().roomNameToOrgRoom[this.id];
-
       trace.end();
       return;
     }
@@ -637,7 +635,7 @@ export default class OrgRoom extends OrgBase {
   }
 
   requestDefender(kingdom: Kingdom, base: BaseConfig, position, spawn, trace) {
-    trace.notice('requesting defender', {position, spawn});
+    trace.info('requesting defender', {position, spawn});
 
     kingdom.sendRequest(getBaseSpawnTopic(base.id), PRIORITIES.PRIORITY_DEFENDER, {
       role: CREEPS.WORKER_DEFENDER,
@@ -800,7 +798,7 @@ export default class OrgRoom extends OrgBase {
       this.hostileTime = Math.min(...Object.values(this.hostileTimes));
       room.memory[MEMORY_HOSTILE_TIME] = this.hostileTime;
 
-      defenseTrace.notice('set hostile time', {
+      defenseTrace.info('set hostile time', {
         hostileTime: this.hostileTime,
       });
 

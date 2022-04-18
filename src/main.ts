@@ -79,8 +79,9 @@ let previousTick = 0; // Track previous tick time for display
 let previousBucket = 0;
 let previousSkipped = 0;
 
-
 console.log('***** STARTING AI *****');
+
+const bootTick = Game.time;
 
 const shardName = Game.shard.name;
 let shardConfig = shards[shardName];
@@ -147,7 +148,10 @@ export const loop = function () {
   scheduler.setCPUThrottle(global.CPU_THROTTLE);
   scheduler.setSlowProcessThreshold(global.SLOW_PROCESS);
 
-  console.log('======== TICK', Game.time, Game.shard.name, '==== prev cpu:', previousTick, previousSkipped, Game.cpu.bucket);
+  const tickSinceStart = Game.time - bootTick;
+
+  console.log('======== TICK', Game.time, Game.shard.name, '==== prev cpu:',
+    previousTick, previousSkipped, Game.cpu.bucket, tickSinceStart);
 
   // Tick the AI
   ai.tick(trace);

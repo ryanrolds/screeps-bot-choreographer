@@ -152,7 +152,7 @@ export default class DefenseManager {
     });
 
     Object.values(Game.flags).forEach((flag) => {
-      if (flag.name.startsWith('defend')) {
+      if (flag.name.startsWith('defend_')) {
         const flagDefensePartyId = `${flag.name}_party`;
         trace.log('defend flag', {flagDefensePartyId})
         if (!this.scheduler.hasProcess(flagDefensePartyId)) {
@@ -436,7 +436,7 @@ function requestAdditionalDefenders(kingdom: Kingdom, base: BaseConfig, needed: 
   const positionStr = [position.x, position.y, position.roomName].join(',');
 
   for (let i = 0; i < needed; i++) {
-    trace.notice('requesting defender', {baseId: base.id});
+    trace.info('requesting defender', {baseId: base.id});
 
     kingdom.sendRequest(getBaseDefenseTopic(base.id), PRIORITIES.PRIORITY_DEFENDER, {
       role: CREEPS.WORKER_DEFENDER,
@@ -453,14 +453,14 @@ function requestAdditionalDefenders(kingdom: Kingdom, base: BaseConfig, needed: 
 function returnDefendersToStation(trace: Tracer, kingdom: Kingdom, hostilesByColony: Record<string, Creep[]>) {
   const flags = Object.values(Game.flags).filter((flag) => {
     trace.log('flag', {flag})
-    if (!flag.name.startsWith('station') && flag.name.startsWith('parking')) {
+    if (!flag.name.startsWith('station') && !flag.name.startsWith('defenders')) {
       return false;
     }
 
     return kingdom.getRoomColony(flag.pos.roomName);
   });
 
-  trace.log('station flags', {flags});
+  trace.log('station/defense flags', {flags});
 
   flags.forEach((flag) => {
     const colony = kingdom.getRoomColony(flag.pos.roomName);
@@ -514,6 +514,7 @@ function updateDefenseStats(trace: Tracer, kingdom: Kingdom, hostilesByColony: R
   trace.log('defense stats', {defenseStats: stats.defense});
 }
 
+// Deprecated, use scoreAttacking
 export function scoreHostile(hostile: Creep): number {
   if (!hostile.body) {
     return 0;
@@ -533,6 +534,7 @@ export function scoreHostile(hostile: Creep): number {
   }, 0)
 }
 
+// Deprecated use scoreHealing
 export function scoreDefender(defender: Creep): number {
   if (!defender.body) {
     return 0;

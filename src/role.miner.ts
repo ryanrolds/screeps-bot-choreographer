@@ -4,7 +4,7 @@ import {behaviorBoosts} from "./behavior.boosts";
 import * as behaviorMovement from "./behavior.movement";
 import * as behaviorCommute from "./behavior.commute";
 import * as MEMORY from "./constants.memory";
-import {commonPolicy} from "./lib.pathing_policies";
+import {commonPolicy} from "./constants.pathing_policies";
 
 const selectSource = behaviorTree.leafNode(
   'selectSource',

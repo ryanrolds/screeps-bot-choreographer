@@ -7,7 +7,7 @@ import * as TASKS from "./constants.tasks";
 import * as TOPICS from "./constants.topics";
 import {Event} from "./lib.event_broker";
 import {getPath} from "./lib.pathing";
-import {roadPolicy} from "./lib.pathing_policies";
+import {roadPolicy} from "./constants.pathing_policies";
 import {Tracer} from './lib.tracing';
 import {Colony} from './org.colony';
 import {Kingdom} from "./org.kingdom";
