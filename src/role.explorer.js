@@ -16,6 +16,17 @@ const behavior = behaviorTree.sequenceNode(
         const currentRoomStatus = Game.map.getRoomStatus(creep.room.name);
         let exits = Object.values(Game.map.describeExits(creep.room.name));
         exits = exits.filter((exit) => {
+          /* REMOVE if not needed 04/17/22
+          let exitStatus = null;
+          try {
+            exitStatus = Game.map.getRoomStatus(exit);
+          } catch (e) {
+            exitStatus = {
+              status: 'normal',
+            };
+          }
+          */
+
           const exitStatus = Game.map.getRoomStatus(exit);
           return currentRoomStatus.status === exitStatus.status;
         });

@@ -11,6 +11,7 @@ export interface BaseConfig {
   isPublic: NonNullable<boolean>;
   automated: NonNullable<boolean>;
   walls: NonNullable<{x: number, y: number}[]>;
+  passages: NonNullable<{x: number, y: number}[]>;
   neighbors: NonNullable<string[]>;
 }
 

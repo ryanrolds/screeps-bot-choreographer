@@ -127,7 +127,7 @@ export default class WarPartyRunnable {
     this.position = position;
     this.destination = new RoomPosition(25, 25, targetRoom);
     this.range = 3;
-    this.direction = TOP;
+    this.direction = BOTTOM;
 
     this.party = new PartyRunnable(id, baseConfig, position, role, parts, this.minEnergy, PRIORITY_ATTACKER,
       REQUEST_ATTACKER_TTL);

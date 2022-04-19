@@ -61,7 +61,7 @@ export class CentralPlanning {
       const parking = new RoomPosition(base.parking.x, base.parking.y, base.parking.roomName);
 
       this.addBase(base.id, base.isPublic, origin, parking,
-        base.automated, base.rooms, base.walls || [], base.neighbors || [], trace);
+        base.automated, base.rooms, base.walls || [], base.passages || [], base.neighbors || [], trace);
     });
 
     // Check for spawns without bases
@@ -74,7 +74,7 @@ export class CentralPlanning {
       const automated = !shard.startsWith('shard') || shard === 'shardSeason';
       if (!this.baseConfigs[roomName]) {
         trace.warn('found unknown base', {roomName});
-        this.addBase(roomName, false, origin, parking, automated, [roomName], [], [], trace);
+        this.addBase(roomName, false, origin, parking, automated, [roomName], [], [], [], trace);
       }
     });
 
@@ -178,7 +178,8 @@ export class CentralPlanning {
   }
 
   addBase(primaryRoom: string, isPublic: boolean, origin: RoomPosition, parking: RoomPosition,
-    automated: boolean, rooms: string[], walls: {x: number, y: number}[], neighbors: string[],
+    automated: boolean, rooms: string[], walls: {x: number, y: number}[],
+    passages: {x: number, y: number}[], neighbors: string[],
     trace: Tracer): BaseConfig {
     if (this.baseConfigs[primaryRoom]) {
       trace.error('colony already exists', {primaryRoom});
@@ -194,6 +195,7 @@ export class CentralPlanning {
       origin: origin,
       parking: parking,
       walls: walls,
+      passages: passages,
       neighbors: neighbors,
     };
 
@@ -391,7 +393,7 @@ export class CentralPlanning {
       const origin = results.origin;
       const parking = new RoomPosition(origin.x + 5, origin.y + 5, origin.roomName);
       trace.notice('selected room, adding colony', {roomName, distance, origin, parking});
-      const base = this.addBase(roomName, false, origin, parking, true, [roomName], [], [], trace);
+      const base = this.addBase(roomName, false, origin, parking, true, [roomName], [], [], [], trace);
       this.updateNeighbors(kingdom, base, trace);
       return;
     }

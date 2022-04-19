@@ -95,7 +95,7 @@ export default class LogisticsRunnable extends PersistentMemory {
     this.threadConsumeEvents(trace, kingdom);
     this.threadCalculateLeg(trace, kingdom);
     this.threadBuildShortestLeg(trace, baseConfig.primary);
-    this.threadEnsureWallPassage(trace);
+    this.threadEnsureWallPassage(trace, baseConfig);
     this.threadProduceEvents(trace, kingdom, baseConfig);
 
     // CLEANUP add LOG_WHEN_PID_CHECK
@@ -240,7 +240,7 @@ export default class LogisticsRunnable extends PersistentMemory {
     return [pathResult.path, remaining];
   }
 
-  private ensureWallPassage(trace: Tracer) {
+  private ensureWallPassage(trace: Tracer, baseConfig: BaseConfig) {
     const legs: Leg[] = _.values(this.legs);
 
     const unfinishedLegs: Leg[] = legs.filter((leg: Leg) => {
@@ -271,15 +271,14 @@ export default class LogisticsRunnable extends PersistentMemory {
           wallSite.remove();
         }
 
-        // If there was a wall site or if we have not built too many road sites, build a road site
+        // If there was a wall site or if we have not built too many road sites, set as a passage
         if (wall || wallSite) {
-          const result = pos.createConstructionSite(STRUCTURE_ROAD);
-          if (result !== OK) {
-            trace.error('failed to build road', {pos, result});
-            continue;
+          if (!_.find(baseConfig.passages, {x: pos.x, y: pos.y})) {
+            trace.warn('set as passage', {pos});
+            baseConfig.passages.push({x: pos.x, y: pos.y});
+          } else {
+            trace.info('already a passage', {pos});
           }
-
-          trace.warn('build road site', {pos});
         }
       }
     });

@@ -316,8 +316,10 @@ export default class BaseConstructionRunnable {
         return site.structureType === STRUCTURE_ROAD;
       });
 
+      const passage = _.find(baseConfig.passages, {x: position.x, y: position.y});
+
       let expectedStructure: (STRUCTURE_WALL | STRUCTURE_RAMPART) = STRUCTURE_WALL;
-      if (road || roadSite) {
+      if (road || roadSite || passage) {
         expectedStructure = STRUCTURE_RAMPART;
       }
 

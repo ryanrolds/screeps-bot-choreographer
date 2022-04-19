@@ -124,7 +124,7 @@ export default class PartyRunnable {
     this.setFormation(FORMATION_QUAD);
     this.setDirection(TOP);
 
-    this.previousPositions = this.getCreepPositions();
+    this.previousPositions = [this.position];
 
     this.threadRequestCreeps = thread('request_creeps', REQUEST_PARTY_MEMBER_TTL)(this.requestCreeps.bind(this));
   }
@@ -296,46 +296,60 @@ export default class PartyRunnable {
         if (showVisuals) {
           visual.text("W", position.x, position.y + 0.5);
         }
+
+        trace.log("not ready: terrain", {
+          name: creep.name,
+          terrain: terrain,
+          position: position,
+          idx,
+        });
+
         positionBlocked = true;
         return;
       }
 
-      // If creep not in position, in the same room, and not single file
-      if (this.formation === FORMATION_QUAD) {
-        if (creep.pos.x !== position.x || creep.pos.y !== position.y ||
-          creep.pos.roomName !== position.roomName) {
-          trace.info("not ready: out of position", {
+      if (creep.pos.x !== position.x || creep.pos.y !== position.y ||
+        creep.pos.roomName !== position.roomName) {
+        trace.info("not ready: out of position", {
+          creepName: creep.name,
+          creepPos: creep.pos,
+          desired: position,
+          formation: this.formation,
+          idx,
+        });
+        inPosition = false;
+
+        /*
+        if (creep.pos.getRangeTo(this.position) < 5) {
+          trace.log("not ready: out of position", {
             creepName: creep.name,
             creepPos: creep.pos,
-            desired: position,
-            formation: this.formation,
+            desired: {x, y, roomName},
           });
+
           inPosition = false;
-
-          /*
-          if (creep.pos.getRangeTo(this.position) < 5) {
-            trace.log("not ready: out of position", {
-              creepName: creep.name,
-              creepPos: creep.pos,
-              desired: {x, y, roomName},
-            });
-
-            inPosition = false;
-          } else {
-            trace.log("far out of position, not halting", {
-              creepName: creep.name,
-              creepPos: creep.pos,
-              desired: {x, y, roomName},
-            });
-          }
-          */
-
-          if (showVisuals) {
-            visual.text("O", creep.pos.x, creep.pos.y + 0.5);
-          }
-          return;
+        } else {
+          trace.log("far out of position, not halting", {
+            creepName: creep.name,
+            creepPos: creep.pos,
+            desired: {x, y, roomName},
+          });
         }
+        */
+
+        if (showVisuals) {
+          visual.text("O", creep.pos.x, creep.pos.y + 0.5);
+        }
+        return;
       }
+
+      trace.info("in position", {
+        creepName: creep.name,
+        creepPos: creep.pos,
+        desired: position,
+        formation: this.formation,
+        idx,
+      });
 
       if (showVisuals) {
         visual.text("R", creep.pos.x, creep.pos.y + 0.5);

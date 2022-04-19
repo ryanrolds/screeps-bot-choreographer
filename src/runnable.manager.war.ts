@@ -279,7 +279,7 @@ export default class WarManager {
     }
 
     const availableEnergyCapacity = baseRoom.energyCapacityAvailable;
-    const roomDamage = scoreRoomDamage(targetRoomEntry) / 4;
+    const roomDamage = scoreRoomDamage(targetRoomEntry) / 3;
     const [parts, ok] = buildAttacker(roomDamage, availableEnergyCapacity, boosts, trace);
     if (ok) {
       this.sendWarParty(kingdom, baseConfig, targetRoomEntry, parts, trace);
@@ -290,6 +290,12 @@ export default class WarManager {
         roomDamage, availableEnergyCapacity, boosts
       });
       this.sendHarassers(kingdom, baseConfig, targetRoomEntry, trace);
+    } else {
+      trace.warn("could not build attacker, do nothing", {
+        base: baseConfig.primary,
+        targetRoom: targetRoomEntry.id,
+        roomDamage, availableEnergyCapacity, boosts
+      })
     }
   }
 

@@ -61,7 +61,7 @@ export const findNextRemoteRoom = (kingdom: Kingdom, baseConfig: BaseConfig, roo
   adjacentRooms = _.sortByOrder(adjacentRooms,
     [
       (roomName) => { // Sort by distance from primary room
-        const route = Game.map.findRoute(baseConfig.primary, roomName) || [];
+        const route = Game.map.findRoute(baseConfig.primary, roomName);
         if (route === ERR_NO_PATH) {
           return 9999;
         }
