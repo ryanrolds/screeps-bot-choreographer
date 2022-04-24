@@ -1,21 +1,23 @@
-import OrgRoom from './org.room';
-import {OrgBase} from './org.base';
-import {Topics} from './lib.topics';
-import * as PID from './lib.pid';
-import {thread, ThreadFunc} from './os.thread';
-
-import * as MEMORY from './constants.memory';
-import * as CREEPS from './constants.creeps';
-import * as TASKS from './constants.tasks';
-import * as PRIORITIES from './constants.priorities';
 import {creepIsFresh} from './behavior.commute';
-
-import {MEMORY_ASSIGN_ROOM, MEMORY_ROLE} from './constants.memory';
-import {PRIORITY_DEFENDER, PRIORITY_HAULER} from './constants.priorities';
-import {Kingdom} from './org.kingdom';
 import {BaseConfig} from './config';
+import * as CREEPS from './constants.creeps';
+import * as MEMORY from './constants.memory';
+import {MEMORY_ROLE} from './constants.memory';
+import * as PRIORITIES from './constants.priorities';
+import {PRIORITY_DEFENDER, PRIORITY_HAULER} from './constants.priorities';
+import * as TASKS from './constants.tasks';
+import {Event} from './lib.event_broker';
+import * as PID from './lib.pid';
+import {Topics} from './lib.topics';
 import {Tracer} from './lib.tracing';
+import {OrgBase} from './org.base';
+import {Kingdom} from './org.kingdom';
+import OrgRoom from './org.room';
+import {thread, ThreadFunc} from './os.thread';
+import {getLinesStream, HudEventSet, HudLine} from './runnable.debug_hud';
 import {getBaseDefenseTopic, getBaseHaulerTopic, getBaseSpawnTopic} from './topics.base';
+
+
 
 const MAX_EXPLORERS = 3;
 
@@ -123,7 +125,7 @@ export class Colony extends OrgBase {
 
       this.numActiveHaulers = this.haulers.filter((creep) => {
         const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
-        return task === TASKS.TASK_HAUL;
+        return task === TASKS.TASK_HAUL || creep.store.getUsedCapacity() > 0;
       }).length;
 
       this.idleHaulers = this.numHaulers - this.numActiveHaulers;
@@ -165,7 +167,7 @@ export class Colony extends OrgBase {
         if (!this.pidSetup) {
           trace.log('setting up pid', {pidDesiredHaulers: this.pidDesiredHaulers});
           this.pidSetup = true;
-          PID.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, 0, 0.2, 0.001, 0);
+          PID.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, 0, 0.2, 0.0005, 0);
         }
 
         const updateHaulerPID = trace.begin('update_hauler_pid');
@@ -175,6 +177,22 @@ export class Colony extends OrgBase {
         updateHaulerPID.end();
 
         trace.log('desired haulers', {desired: this.pidDesiredHaulers});
+
+        if (Game.time % 20) {
+          const hudLine: HudLine = {
+            key: `pid_${this.baseId}`,
+            room: this.primaryRoomId,
+            text: `Hauler PID: ${this.pidDesiredHaulers.toFixed(2)}, ` +
+              `Haul Tasks: ${numHaulTasks}, ` +
+              `Num Haulers: ${this.numHaulers}, ` +
+              `Idle Haulers: ${this.idleHaulers}`,
+            time: Game.time,
+            order: 10,
+          };
+
+          this.getKingdom().getBroker().getStream(getLinesStream()).publish(new Event(this.id, Game.time,
+            HudEventSet, hudLine));
+        }
       }
     })
 

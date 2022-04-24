@@ -13,20 +13,15 @@ const behavior = behaviorTree.sequenceNode(
         // Don't notify me when creep wonders into hostile room
         creep.notifyWhenAttacked(false);
 
+        // If creep is assigned room it is not in, then move to that room
+        if (creep.memory[MEMORY_ASSIGN_ROOM] && creep.pos.roomName !== creep.memory[MEMORY_ASSIGN_ROOM]) {
+          trace.info('creep is assigned room already, moving to it');
+          return SUCCESS;
+        }
+
         const currentRoomStatus = Game.map.getRoomStatus(creep.room.name);
         let exits = Object.values(Game.map.describeExits(creep.room.name));
         exits = exits.filter((exit) => {
-          /* REMOVE if not needed 04/17/22
-          let exitStatus = null;
-          try {
-            exitStatus = Game.map.getRoomStatus(exit);
-          } catch (e) {
-            exitStatus = {
-              status: 'normal',
-            };
-          }
-          */
-
           const exitStatus = Game.map.getRoomStatus(exit);
           return currentRoomStatus.status === exitStatus.status;
         });
@@ -42,10 +37,8 @@ const behavior = behaviorTree.sequenceNode(
 
         entries = _.sortBy(entries, 'lastUpdated');
 
+        trace.info('next room', {next: entries[0].id});
         creep.memory[MEMORY_ASSIGN_ROOM] = entries[0].id;
-
-        trace.log('next room', {next: entries[0].id});
-
         return SUCCESS;
       },
     ),

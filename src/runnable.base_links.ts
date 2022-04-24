@@ -11,7 +11,7 @@ import {RunnableResult} from "./os.runnable";
 
 const TICK_STEP = 2;
 const PROCESS_TTL = 250;
-const HAUL_TTL = 15;
+const HAUL_TTL = 10;
 const ENERGY_READY_AMOUNT = 400;
 
 export default class LinkManager {

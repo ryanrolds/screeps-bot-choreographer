@@ -1,8 +1,7 @@
 import {Event} from './lib.event_broker';
 import {Tracer} from './lib.tracing';
-import {OrgBase} from './org.base';
 import {Kingdom} from './org.kingdom';
-import {running, sleeping} from './os.process';
+import {sleeping} from './os.process';
 import {Runnable, RunnableResult} from './os.runnable';
 import {thread, ThreadFunc} from './os.thread';
 import {getDashboardStream, HudEventSet, HudIndicator, HudIndicatorStatus} from './runnable.debug_hud';
@@ -470,9 +469,15 @@ export class Scribe implements Runnable {
 
     const roomStatusEnd = trace.startTimer('roomStatus');
 
-    const status = Game.map.getRoomStatus(roomObject.name);
-    room.specialRoom = status.status !== 'normal'
-    room.status = status.status
+    let status = null;
+    try {
+      status = Game.map.getRoomStatus(roomObject.name);
+    } catch (e) {
+      trace.warn('problem getting room status from game, assuming normal', e);
+    }
+
+    room.status = status?.status || 'normal';
+    room.specialRoom = room.status !== 'normal'
 
     roomStatusEnd();
 

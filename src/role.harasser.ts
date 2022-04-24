@@ -121,7 +121,6 @@ const behavior = behaviorTree.sequenceNode(
           return SUCCESS; // GO TO THE NEXT ROOM
         }
 
-
         let weakCreep = null;
 
         const targetId = creep.memory[MEMORY_HARASS_CREEP_TARGET];
@@ -162,25 +161,29 @@ const behavior = behaviorTree.sequenceNode(
           return RUNNING;
         }
 
-        // if there are containers, destroy them
-        const containers = creep.room.find(FIND_STRUCTURES, {
-          filter: (s: Structure) => {
-            return s.structureType === STRUCTURE_CONTAINER;
-          }
-        });
-        if (containers.length > 0) {
-          const container = creep.pos.findClosestByRange(containers);
-          const range = creep.pos.getRangeTo(container);
-          if (range <= 3) {
-            trace.info('attack container', {target: container.id});
-            creep.rangedAttack(container);
-          }
+        // attack containers if not one of my bases
+        const baseRoom = kingdom.getPlanner().getBaseConfigByRoom(creep.room.name);
+        if (!baseRoom) {
+          // if there are containers, destroy them
+          const containers = creep.room.find(FIND_STRUCTURES, {
+            filter: (s: Structure) => {
+              return s.structureType === STRUCTURE_CONTAINER;
+            }
+          });
+          if (containers.length > 0) {
+            const container = creep.pos.findClosestByRange(containers);
+            const range = creep.pos.getRangeTo(container);
+            if (range <= 3) {
+              trace.info('attack container', {target: container.id});
+              creep.rangedAttack(container);
+            }
 
-          if (range > 3) {
-            creep.moveTo(container);
-          }
+            if (range > 3) {
+              creep.moveTo(container);
+            }
 
-          return RUNNING;
+            return RUNNING;
+          }
         }
 
         return SUCCESS;

@@ -2,7 +2,7 @@ import {createOpenSpaceMatrix} from "./lib.costmatrix";
 import {Tracer} from "./lib.tracing";
 import {Kingdom} from "./org.kingdom";
 
-const PASSES = 4;
+const PASSES = 5;
 const MIN_DISTANCE_FOR_ORIGIN = 8;
 
 export const DismissedReasonNoRoomEntry = 'no_room_entry';
@@ -132,6 +132,7 @@ export const pickExpansion = (kingdom: Kingdom, trace: Tracer): ExpandResults =>
 
   trace.info('pre-filter candidates', {candidateList});
 
+  // TODO factor in available remotes
   candidateList = _.sortByOrder(candidateList,
     (roomName) => {
       const roomEntry = kingdom.getScribe().getRoomById(roomName);

@@ -10,9 +10,9 @@ import {Runnable, RunnableResult} from "./os.runnable";
 import {thread, ThreadFunc} from "./os.thread";
 import {getLogisticsTopic, LogisticsEventData, LogisticsEventType} from "./runnable.base_logistics";
 
-const RUN_TTL = 100;
-const BUILD_STRUCTURES_TTL = 1000;
-const PRODUCE_EVENTS_TTL = 500;
+const RUN_TTL = 50;
+const BUILD_STRUCTURES_TTL = 200;
+const PRODUCE_EVENTS_TTL = 50;
 
 const padLayout: Record<DirectionConstant, Layout> = {
   [TOP]: {
@@ -190,13 +190,17 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
       return;
     }
 
-    const data: LogisticsEventData = {
-      id: controller.id,
-      position: position,
-    };
+    // If there is not a link, build a road to the controller
+    const link = controller.pos.findInRange(FIND_MY_STRUCTURES, 1, {filter: s => s.structureType === STRUCTURE_LINK})[0];
+    if (!link) {
+      const data: LogisticsEventData = {
+        id: controller.id,
+        position: position,
+      };
 
-    kingdom.getBroker().getStream(getLogisticsTopic(baseConfig.id)).
-      publish(new Event(this.controllerId, Game.time, LogisticsEventType.RequestRoad, data));
+      kingdom.getBroker().getStream(getLogisticsTopic(baseConfig.id)).
+        publish(new Event(this.controllerId, Game.time, LogisticsEventType.RequestRoad, data));
+    }
   }
 
   buildStructures(trace: Tracer, room: Room) {

@@ -1,22 +1,23 @@
-import {Kingdom} from './org.kingdom';
-import {ShardConfig} from './config'
-import {Tracer} from './lib.tracing';
-import {Scheduler, Priorities} from './os.scheduler';
-import {Process} from './os.process';
-import {CreepManager} from './runnable.manager.creeps';
-import WarManager from './runnable.manager.war';
-import KingdomModelRunnable from './runnable.kingdom_model';
-import KingdomGovernorRunnable from './runnable.kingdom_governor'
-import DefenseManager from './runnable.manager.defense';
-import BufferManager from './runnable.manager.buffer';
-import PathDebugger from './runnable.debug_path';
-import CostMatrixDebugger from './runnable.debug_costmatrix';
-import {CentralPlanning} from './runnable.central_planning';
+import {ShardConfig} from './config';
 import {EventBroker} from './lib.event_broker';
-import PlannerDebugger from './runnable.debug_planner';
+import {findNextRemoteRoom} from './lib.remote_room';
+import {Tracer} from './lib.tracing';
+import {Kingdom} from './org.kingdom';
+import {Process} from './os.process';
+import {Priorities, Scheduler} from './os.scheduler';
+import {CentralPlanning} from './runnable.central_planning';
+import CostMatrixDebugger from './runnable.debug_costmatrix';
 import {HUDRunnable} from './runnable.debug_hud';
 import MinCutDebugger from './runnable.debug_mincut';
+import PathDebugger from './runnable.debug_path';
+import PlannerDebugger from './runnable.debug_planner';
+import KingdomGovernorRunnable from './runnable.kingdom_governor';
+import KingdomModelRunnable from './runnable.kingdom_model';
+import BufferManager from './runnable.manager.buffer';
+import {CreepManager} from './runnable.manager.creeps';
+import DefenseManager from './runnable.manager.defense';
 import InvaderManager from './runnable.manager.invaders';
+import WarManager from './runnable.manager.war';
 import {Scribe} from './runnable.scribe';
 
 export class AI {
@@ -150,6 +151,13 @@ export class AI {
 
   getKingdom(): Kingdom {
     return this.kingdom;
+  }
+
+  debugGetNextRemote(baseId: string) {
+    const trace = this.getTracer();
+    const baseConfig = this.planning.getBaseConfig(baseId);
+    const [room, debug] = findNextRemoteRoom(this.getKingdom(), baseConfig, trace);
+    trace.notice('next remote room', {room, debug});
   }
 
   getPathDebugger(): PathDebugger {

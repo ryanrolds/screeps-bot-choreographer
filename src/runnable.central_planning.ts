@@ -1,4 +1,7 @@
 import {BaseConfig, BaseMap, ShardConfig} from "./config";
+import {WORKER_EXPLORER} from "./constants.creeps";
+import {MEMORY_ASSIGN_ROOM, MEMORY_BASE} from "./constants.memory";
+import {EXPLORER} from "./constants.priorities";
 import {pickExpansion} from "./lib.expand";
 import {ENTIRE_ROOM_BOUNDS, getCutTiles} from "./lib.min_cut";
 import {desiredRemotes, findNextRemoteRoom} from "./lib.remote_room";
@@ -9,10 +12,11 @@ import {RunnableResult} from "./os.runnable";
 import {Priorities, Scheduler} from "./os.scheduler";
 import {thread, ThreadFunc} from "./os.thread";
 import BaseRunnable from "./runnable.base";
+import {getBaseSpawnTopic} from "./topics.base";
 
 const RUN_TTL = 10;
 const BASE_PROCESSES_TTL = 50;
-const REMOTE_MINING_TTL = 10; // was 100
+const REMOTE_MINING_TTL = 100;
 const EXPAND_TTL = 250;
 const BASE_WALLS_TTL = 50;
 const NEIGHBORS_THREAD_INTERVAL = 10;
@@ -348,12 +352,45 @@ export class CentralPlanning {
     }
 
     if (baseConfig.rooms.length - 1 < numDesired) {
-      const nextRemote = findNextRemoteRoom(kingdom, baseConfig, primaryRoom, trace);
+      // Check if adjacent rooms to the base have been explored
+      const exits = _.values(Game.map.describeExits(baseConfig.primary));
+      const unexploredClaimable = exits.filter((room) => {
+        // TODO dont wait on always or center rooms
+        const roomEntry = kingdom.getScribe().getRoomById(room);
+        if (!roomEntry) {
+          return true;
+        }
+
+        return false;
+      });
+
+      // If adjacent rooms are unexplored, explore them
+      if (unexploredClaimable.length) {
+        trace.warn('room not explored, do not expand', {unexploredClaimable});
+
+        unexploredClaimable.forEach((roomName) => {
+          // request explorers
+          trace.notice('requesting explorer for adjacent room', roomName);
+
+          kingdom.sendRequest(getBaseSpawnTopic(baseConfig.id), EXPLORER, {
+            role: WORKER_EXPLORER,
+            memory: {
+              [MEMORY_BASE]: baseConfig.id,
+              [MEMORY_ASSIGN_ROOM]: roomName,
+            },
+          }, REMOTE_MINING_TTL);
+        });
+        return;
+      }
+
+      // Pick next room to claim
+      const [nextRemote, debug] = findNextRemoteRoom(kingdom, baseConfig, trace);
       if (!nextRemote) {
         trace.warn('no remote room found', {colonyId: baseConfig.id});
         return;
       }
 
+      // Add room to the base
       trace.notice('adding remote', {room: nextRemote, baseConfig});
       this.addRoom(baseConfig.id, nextRemote, trace);
     }

@@ -1,21 +1,21 @@
-import {OrgBase} from './org.base';
-import {Colony} from './org.colony';
+import {creepIsFresh} from './behavior.commute';
+import {BaseConfig} from './config';
 import * as CREEPS from './constants.creeps';
 import * as MEMORY from './constants.memory';
 import * as PRIORITIES from './constants.priorities';
-import {creepIsFresh} from './behavior.commute';
-import {thread, ThreadFunc} from './os.thread';
-import {Tracer} from './lib.tracing'
+import {Tracer} from './lib.tracing';
+import {OrgBase} from './org.base';
+import {Colony} from './org.colony';
 import {Kingdom} from './org.kingdom';
+import {thread, ThreadFunc} from './os.thread';
 import {BoosterDetails, EffectSet, LabsByResource, TOPIC_ROOM_BOOSTS} from './runnable.base_booster';
 import {getBaseSpawnTopic} from './topics.base';
-import {BaseConfig} from './config';
 
 export const TOPIC_ROOM_KEYVALUE = 'room_keyvalue';
 const MEMORY_HOSTILE_TIME = 'hostile_time';
 const MEMORY_HOSTILE_POS = 'hostile_pos';
 
-const MAX_DEFENDERS = 5;
+const MAX_DEFENDERS = 1;
 
 const WALL_LEVEL = 1000;
 const RAMPART_LEVEL = 1000;
@@ -38,7 +38,7 @@ const UPDATE_DAMAGED_SECONDARY_TTL = 15;
 const UPDATE_DAMAGED_ROADS_TTL = 25;
 
 const REQUEST_DEFENDERS_TTL = 50;
-const REQUEST_DEFENDERS_DELAY = 20;
+const REQUEST_DEFENDERS_DELAY = 100;
 const HOSTILE_PRESENCE_TTL = 200;
 
 const RESERVE_RESOURCES_TTL = 5;
@@ -80,8 +80,6 @@ export default class OrgRoom extends OrgBase {
   damagedStructures: Id<AnyStructure>[];
   defenseHitsLimit: number;
   damagedSecondaryStructures: Id<AnyStructure>[];
-
-  stationFlags: Flag[];
 
   threadUpdateCreeps: ThreadFunc;
   threadUpdateRoom: ThreadFunc;
@@ -250,17 +248,10 @@ export default class OrgRoom extends OrgBase {
         return;
       }
 
-      if (this.stationFlags.length) {
-        const flag = this.stationFlags[0];
-        const position = [flag.pos.x, flag.pos.y, flag.pos.roomName].join(',');
-        trace.notice('request defenders to flag');
-        this.requestDefender(kingdom, base, position, true, trace);
-        return;
-      }
-
       const enemyPresent = this.hostiles.length || this.invaderCores.length;
       const enemyPresentRecently = Game.time - this.hostileTime < HOSTILE_PRESENCE_TTL;
       if (!enemyPresent || !enemyPresentRecently) {
+        // TODO set room alert level green
         trace.info('do not request defender: room is quiet');
         return;
       }
@@ -715,19 +706,6 @@ export default class OrgRoom extends OrgBase {
     }
 
     this.unowned = !this.room.controller?.reservation && !this.room.controller?.owner;
-
-    // Defense
-    this.stationFlags = [];
-    const stationFlags = room.find(FIND_FLAGS, {
-      filter: (flag) => {
-        return flag.name.startsWith('station');
-      },
-    });
-    trace.log('stationed defenders', {stationFlags});
-    if (stationFlags.length) {
-      this.stationFlags = stationFlags;
-    }
-
     this.myStructures = this.room.find(FIND_MY_STRUCTURES);
     this.roomStructures = this.room.find(FIND_STRUCTURES);
     this.hostileStructures = this.room.find(FIND_HOSTILE_STRUCTURES, {

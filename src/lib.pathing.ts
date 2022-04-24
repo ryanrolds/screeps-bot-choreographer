@@ -37,6 +37,7 @@ type PathPolicy = {
   swampCost?: number;
   sourceKeeperBuffer?: number;
   controllerBuffer?: number;
+  preferHighway?: boolean;
 }
 
 export type FindColonyPathPolicy = {

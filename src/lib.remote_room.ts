@@ -1,11 +1,31 @@
-import {trace} from "console";
 import {BaseConfig} from "./config";
 import {Tracer} from "./lib.tracing";
 import {Colony} from "./org.colony";
 import {Kingdom} from "./org.kingdom";
 
-export const findNextRemoteRoom = (kingdom: Kingdom, baseConfig: BaseConfig, room: Room, trace: Tracer): string => {
-  trace.log('checking remote mining', {baseConfig});
+
+type RoomDetails = {
+  distance?: number;
+  rejected?: string;
+  sources?: number;
+}
+
+type DebugDetails = {
+  adjacentRooms: string[];
+  details: Record<string, RoomDetails>;
+};
+
+export const findNextRemoteRoom = (
+  kingdom: Kingdom,
+  baseConfig: BaseConfig,
+  trace: Tracer,
+): [string, DebugDetails] => {
+  trace.notice('checking remote mining', {baseConfig});
+
+  let debug: DebugDetails = {
+    adjacentRooms: [],
+    details: {},
+  };
 
   let exits = baseConfig.rooms.reduce((acc, roomName) => {
     const exits = Game.map.describeExits(roomName);
@@ -15,14 +35,17 @@ export const findNextRemoteRoom = (kingdom: Kingdom, baseConfig: BaseConfig, roo
   let adjacentRooms: string[] = _.uniq(exits);
   adjacentRooms = _.difference(adjacentRooms, baseConfig.rooms);
 
-  trace.log('adjacent rooms', {adjacentRooms});
+  debug.adjacentRooms = adjacentRooms;
 
   const scribe = kingdom.getScribe();
   adjacentRooms = _.filter(adjacentRooms, (roomName) => {
+    debug.details[roomName] = {};
+
     // filter rooms already belonging to a colony
     const roomBaseConfig = kingdom.getPlanner().getBaseConfigByRoom(roomName);
     if (roomBaseConfig && baseConfig.id !== roomBaseConfig.id) {
-      trace.log('room already assigned to colony', {roomName});
+      debug.details[roomName].rejected = 'already assigned';
+      trace.info('room already assigned to colony', {roomName});
       return false;
     }
 
@@ -30,23 +53,27 @@ export const findNextRemoteRoom = (kingdom: Kingdom, baseConfig: BaseConfig, roo
 
     // filter out rooms we have not seen
     if (!roomEntry) {
-      trace.log('no room entry found', {roomName});
+      debug.details[roomName].rejected = 'not seen';
+      trace.info('no room entry found', {roomName});
       return false
     }
 
     // filter out rooms that do not have a source
     if (roomEntry.numSources === 0) {
-      trace.log('room has no sources', {roomName});
+      debug.details[roomName].rejected = 'no source';
+      trace.info('room has no sources', {roomName});
       return false;
     }
 
     if (!roomEntry.controller?.pos) {
-      trace.log('has no controller pos', {roomName});
+      debug.details[roomName].rejected = 'no controller';
+      trace.info('has no controller pos', {roomName});
       return false;
     }
 
     if (roomEntry.controller.owner) {
-      trace.log('has controller owner', {roomName});
+      debug.details[roomName].rejected = 'has owner';
+      trace.info('has controller owner', {roomName});
       return false;
     }
 
@@ -54,38 +81,42 @@ export const findNextRemoteRoom = (kingdom: Kingdom, baseConfig: BaseConfig, roo
   });
 
   if (adjacentRooms.length === 0) {
-    trace.log('no adjacent rooms found', {adjacentRooms, exits, baseConfig});
-    return;
+    trace.info('no adjacent rooms found', {adjacentRooms, exits, baseConfig});
+    return [null, debug];
   }
 
   adjacentRooms = _.sortByOrder(adjacentRooms,
     [
+      (roomName) => { // Sort by number of sources
+        const roomEntry = scribe.getRoomById(roomName);
+
+        debug.details[roomName].sources = roomEntry.numSources;
+        return roomEntry.numSources;
+      },
       (roomName) => { // Sort by distance from primary room
         const route = Game.map.findRoute(baseConfig.primary, roomName);
         if (route === ERR_NO_PATH) {
+          debug.details[roomName].distance = 9999;
           return 9999;
         }
 
+        debug.details[roomName].distance = route.length;
         return route.length;
-      },
-      (roomName) => { // Sort by number of sources
-        const roomEntry = scribe.getRoomById(roomName);
-        return roomEntry.numSources;
       }
     ],
-    ['asc', 'desc'],
+    ['desc', 'asc'],
   );
 
-  trace.notice('next remote mining rooms', {adjacentRooms});
+  trace.info('next remote mining rooms', {adjacentRooms});
 
-  if (adjacentRooms.length !== 0) {
-    const nextRoom = adjacentRooms[0];
-    trace.log('next remote mining room', {nextRoom});
-    return nextRoom;
+  if (adjacentRooms.length === 0) {
+    trace.info('no adjacent rooms found', {adjacentRooms, exits, baseConfig});
+    return [null, debug];
   }
 
-  trace.log('no adjacent rooms found', {adjacentRooms, exits, baseConfig});
-  return null;
+  const nextRoom = adjacentRooms[0];
+  trace.info('next remote mining room', {nextRoom, debug});
+  return [nextRoom, debug];
 }
 
 export function desiredRemotes(colony: Colony, level: number): number {
@@ -120,7 +151,8 @@ export function desiredRemotes(colony: Colony, level: number): number {
     case 6:
       // Tried 2 and 3, it was choking - Jan 2022
       // Have since reduced hauler demand, trying 2 again
-      desiredRemotes = 1;
+      // Other bots are able to do more than 2 at lvl6
+      desiredRemotes = 2;
       break;
     case 7:
     case 8:
