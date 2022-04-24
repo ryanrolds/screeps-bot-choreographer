@@ -37,7 +37,7 @@ type PathPolicy = {
   swampCost?: number;
   sourceKeeperBuffer?: number;
   controllerBuffer?: number;
-  preferHighway?: boolean;
+  preferRoadSites?: boolean;
 }
 
 export type FindColonyPathPolicy = {
@@ -331,6 +331,15 @@ const getRoomCallback = (
       });
     }
 
+    // add road construction sites
+    if (room && pathPolicy.preferRoadSites) {
+      room.find(FIND_MY_CONSTRUCTION_SITES).forEach((site) => {
+        if (site.structureType === STRUCTURE_ROAD) {
+          costMatrix.set(site.pos.x, site.pos.y, 1);
+        }
+      });
+    }
+
     // Add a buffer around source keepers
     if (room && pathPolicy.sourceKeeperBuffer > 0) {
       room.find(FIND_HOSTILE_CREEPS, {
@@ -344,7 +353,7 @@ const getRoomCallback = (
       });
     }
 
-    // Add a buffer around the ccontroller
+    // Add a buffer around the controller
     if (room && pathPolicy.controllerBuffer > 0) {
       const controller = room.controller;
       if (controller && controller.my) {

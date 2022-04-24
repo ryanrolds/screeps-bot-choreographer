@@ -1,6 +1,6 @@
 
 import * as behaviorTree from "./lib.behaviortree";
-import {FAILURE, SUCCESS, RUNNING} from "./lib.behaviortree";
+import {SUCCESS} from "./lib.behaviortree";
 
 export const roadWorker = (behaviorNode) => {
   return behaviorTree.sequenceAlwaysNode(
@@ -10,7 +10,7 @@ export const roadWorker = (behaviorNode) => {
         'build_repair_road',
         (creep, trace, kingdom) => {
           // If energy too low, do not build/repair roads
-          if (creep.store.getUsedCapacity(RESOURCE_ENERGY) <= creep.store.getCapacity(RESOURCE_ENERGY) * 0.9) {
+          if (creep.store.getUsedCapacity(RESOURCE_ENERGY) <= creep.store.getCapacity(RESOURCE_ENERGY) * 0.8) {
             return SUCCESS;
           }
 

@@ -12,21 +12,18 @@
  * - If no drop offs with capacity, then build structures or upgrade controller
  *
  */
-import * as behaviorTree from "./lib.behaviortree";
-import {FAILURE, SUCCESS, RUNNING} from "./lib.behaviortree";
-import * as behaviorCommute from "./behavior.commute";
-import behaviorStorage from "./behavior.storage";
-import * as behaviorMovement from "./behavior.movement";
-import {build, selectInfrastructureSites} from "./behavior.build";
-import * as behaviorHarvest from "./behavior.harvest";
 import {behaviorBoosts} from "./behavior.boosts";
-import * as MEMORY from "./constants.memory";
-import {commonPolicy} from "./constants.pathing_policies";
-import {roadWorker} from "./behavior.logistics";
+import {build, selectInfrastructureSites} from "./behavior.build";
+import * as behaviorCommute from "./behavior.commute";
 import * as behaviorHaul from "./behavior.haul";
-import * as TOPICS from "./constants.topics";
+import {roadWorker} from "./behavior.logistics";
+import * as behaviorMovement from "./behavior.movement";
 import behaviorRoom from "./behavior.room";
 import {WORKER_DISTRIBUTOR} from "./constants.creeps";
+import * as MEMORY from "./constants.memory";
+import * as behaviorTree from "./lib.behaviortree";
+import {FAILURE, SUCCESS} from "./lib.behaviortree";
+import {haulerPolicy} from "./role.hauler";
 
 const selectDropoff = module.exports.selectRoomDropoff = behaviorTree.selectorNode(
   'selectRoomDropoff',
@@ -141,7 +138,7 @@ const behavior = behaviorTree.sequenceNode(
         behaviorRoom.parkingLot,
       ],
     ),
-    behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_PICKUP, 1, commonPolicy),
+    behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_PICKUP, 1, haulerPolicy),
     behaviorHaul.loadCreep,
     behaviorHaul.clearTask,
     behaviorTree.selectorNode(
@@ -163,7 +160,7 @@ const behavior = behaviorTree.sequenceNode(
                 }
               ),
               selectDropoff,
-              behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 1, commonPolicy),
+              behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 1, haulerPolicy),
               behaviorHaul.emptyToDestination,
             ],
           ),
@@ -182,7 +179,7 @@ const behavior = behaviorTree.sequenceNode(
           'build_construction_site',
           [
             selectInfrastructureSites,
-            behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 3, commonPolicy),
+            behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 3, haulerPolicy),
             build,
           ],
         ),
@@ -220,7 +217,7 @@ const behavior = behaviorTree.sequenceNode(
                 return behaviorTree.SUCCESS;
               },
             ),
-            behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 3, commonPolicy),
+            behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 3, haulerPolicy),
             behaviorCommute.setCommuteDuration,
             behaviorTree.repeatUntilSuccess(
               'upgrade_until_empty',

@@ -19,9 +19,9 @@ export const getPrioritizedSites = function (room: Room): ConstructionSite[] {
         return 3 - site.progress / site.progressTotal;
       case STRUCTURE_STORAGE:
         return 4 - site.progress / site.progressTotal;
-      case STRUCTURE_EXTENSION:
-        return 5 - site.progress / site.progressTotal;
       case STRUCTURE_LINK:
+        return 5 - site.progress / site.progressTotal;
+      case STRUCTURE_EXTENSION:
         return 6 - site.progress / site.progressTotal;
       case STRUCTURE_TERMINAL:
         return 7 - site.progress / site.progressTotal;

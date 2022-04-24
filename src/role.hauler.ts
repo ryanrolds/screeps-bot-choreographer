@@ -9,7 +9,7 @@ import * as behaviorTree from "./lib.behaviortree";
 import {AllowedCostMatrixTypes} from "./lib.costmatrix_cache";
 import {FindPathPolicy} from "./lib.pathing";
 
-const haulerPolicy: FindPathPolicy = {
+export const haulerPolicy: FindPathPolicy = {
   room: {
     avoidHostileRooms: true,
     avoidFriendlyRooms: false,
@@ -17,7 +17,7 @@ const haulerPolicy: FindPathPolicy = {
     avoidRoomsWithTowers: false,
     avoidUnloggedRooms: false,
     sameRoomStatus: true,
-    costMatrixType: AllowedCostMatrixTypes.COMMON,
+    costMatrixType: AllowedCostMatrixTypes.HAULER,
   },
   destination: {
     range: 1,
@@ -29,7 +29,7 @@ const haulerPolicy: FindPathPolicy = {
     maxPathRooms: 6,
     ignoreCreeps: true,
     sourceKeeperBuffer: 3,
-    preferHighway: true,
+    preferRoadSites: true,
   },
 };
 

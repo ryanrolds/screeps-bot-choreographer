@@ -9,7 +9,6 @@
  */
 
 import {BaseConfig} from "./config";
-import {returnSuccess} from "./lib.behaviortree";
 import {getRegion} from "./lib.flood_fill";
 import {buildingCodes, Layout} from "./lib.layouts";
 import {getNearbyPositions} from "./lib.position";
@@ -137,6 +136,25 @@ export const singleRoomCommonMatrix = (kingdom: Kingdom, roomName: string, trace
   return costMatrix;
 }
 
+export const haulerCostMatrixMatrix = (kingdom: Kingdom, roomName: string, trace: Tracer): CostMatrix => {
+  const costMatrix = createCommonCostMatrix(kingdom, roomName, trace);
+
+  const terrain = Game.map.getRoomTerrain(roomName);
+
+  // Add roads in base final base layout
+  const baseConfig = kingdom.getPlanner().getBaseConfigById(roomName);
+  if (baseConfig) {
+    if (baseConfig.automated) {
+      applyBaseRoads(baseConfig, costMatrix, terrain, 1, trace);
+    }
+
+    // Don't path through the parking lot
+    applyParkingLotBuffer(baseConfig, costMatrix, terrain, 5, trace);
+  }
+
+  return costMatrix;
+}
+
 export const createSourceRoadMatrix = (kingdom: Kingdom, roomName: string, trace: Tracer): CostMatrix => {
   let costMatrix = new PathFinder.CostMatrix();
 
@@ -174,17 +192,18 @@ export const createSourceRoadMatrix = (kingdom: Kingdom, roomName: string, trace
   });
 
   applySourceMineralBuffer(room, costMatrix, terrain, 5, trace);
-  applyRoads(room, costMatrix, terrain, 1, trace);
+  applyRoads(room, costMatrix, 1, trace);
+  applyRoadSites(room, costMatrix, 1, trace);
 
   // Add roads in base final base layout
   const baseConfig = kingdom.getPlanner().getBaseConfigById(roomName);
   if (baseConfig) {
-    applyControllerBuffer(costMatrix, terrain, room.controller, 5, trace);
-    applyParkingLotBuffer(baseConfig, costMatrix, terrain, 5, trace);
-
     if (baseConfig.automated) {
       applyBaseRoads(baseConfig, costMatrix, terrain, 1, trace);
     }
+
+    applyControllerBuffer(costMatrix, terrain, room.controller, 4, trace);
+    applyParkingLotBuffer(baseConfig, costMatrix, terrain, 5, trace);
   }
 
   return costMatrix;
@@ -396,8 +415,7 @@ const applySourceMineralBuffer = (room: Room, costMatrix: CostMatrix, terrain: R
   });
 };
 
-const applyRoads = (room: Room, costMatrix: CostMatrix, terrain: RoomTerrain,
-  cost: number, trace: Tracer) => {
+const applyRoads = (room: Room, costMatrix: CostMatrix, cost: number, trace: Tracer) => {
   const structures = room.find(FIND_STRUCTURES);
   const roads = structures.filter((s) => s.structureType === STRUCTURE_ROAD)
 
@@ -410,6 +428,21 @@ const applyRoads = (room: Room, costMatrix: CostMatrix, terrain: RoomTerrain,
     }
 
     costMatrix.set(struct.pos.x, struct.pos.y, cost);
+  });
+}
+
+const applyRoadSites = (room: Room, costMatrix: CostMatrix, cost: number, trace: Tracer) => {
+  // add road construction sites
+  room.find(FIND_MY_CONSTRUCTION_SITES).forEach((site) => {
+    if (site.structureType === STRUCTURE_ROAD) {
+      const currentCost = costMatrix.get(site.pos.x, site.pos.y);
+      if (currentCost >= 5 && currentCost != 255) {
+        costMatrix.set(site.pos.x, site.pos.y, currentCost - 2);
+        return;
+      }
+
+      costMatrix.set(site.pos.x, site.pos.y, cost);
+    }
   });
 }
 

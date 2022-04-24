@@ -303,7 +303,12 @@ export default class BaseConstructionRunnable {
       return;
     }
 
-    trace.log('building walls', {roomId: room.name});
+    if (!room.storage) {
+      trace.info('no storage');
+      return;
+    }
+
+    trace.info('building walls', {roomId: room.name});
 
     baseConfig.walls.forEach(wall => {
       const position = new RoomPosition(wall.x, wall.y, room.name)
@@ -327,7 +332,7 @@ export default class BaseConstructionRunnable {
         return structure.structureType === expectedStructure;
       });
       if (structure) {
-        trace.log('structure present', {structure: structure.structureType});
+        trace.info('structure present', {structure: structure.structureType});
         return;
       }
 
@@ -340,7 +345,7 @@ export default class BaseConstructionRunnable {
         });
 
         if (expectedSite) {
-          trace.log('site present', {site: expectedSite.structureType});
+          trace.info('site present', {site: expectedSite.structureType});
           foundSite = true;
         } else {
           sites.forEach(site => {
@@ -349,7 +354,7 @@ export default class BaseConstructionRunnable {
               return;
             }
 
-            trace.log('wrong site, remove', {existing: site.structureType, expected: expectedStructure});
+            trace.info('wrong site, remove', {existing: site.structureType, expected: expectedStructure});
             site.remove();
           });
         }

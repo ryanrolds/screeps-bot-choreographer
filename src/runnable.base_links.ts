@@ -1,18 +1,19 @@
 import * as MEMORY from "./constants.memory";
 import * as PRIORITIES from "./constants.priorities";
 import * as TASKS from "./constants.tasks";
-import * as TOPICS from "./constants.topics";
 import {Tracer} from './lib.tracing';
-import {getBaseDistributorTopic} from "./topics.base";
 import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
 import {sleeping, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
+import {thread, ThreadFunc} from "./os.thread";
+import {getBaseDistributorTopic} from "./topics.base";
 
 const TICK_STEP = 2;
 const PROCESS_TTL = 250;
 const HAUL_TTL = 10;
-const ENERGY_READY_AMOUNT = 400;
+const ENERGY_READY_AMOUNT = 600;
+const UPDATE_STRUCTURES_TTL = 100;
 
 export default class LinkManager {
   id: string;
@@ -26,20 +27,12 @@ export default class LinkManager {
   haulTTL: number;
   prevTime: number;
 
+  threadUpdateStructures: ThreadFunc;
+
   constructor(id: string, baseId: string, orgRoom: OrgRoom) {
     this.id = id;
     this.baseId = baseId;
     this.orgRoom = orgRoom;
-
-    const roomObject = orgRoom.getRoomObject();
-    if (!roomObject) {
-      throw new Error('cannot create a link manager when room does not exist');
-    }
-
-    this.storageId = roomObject.storage?.id;
-    if (!this.storageId) {
-      throw new Error('cannot create a link manager when room does not have storage');
-    }
 
     this.storageLink = null;
     this.sourceLinks = [];
@@ -48,34 +41,7 @@ export default class LinkManager {
     this.haulTTL = 0;
     this.prevTime = Game.time;
 
-    // TODO move these to a thread
-    if (roomObject.storage) {
-      this.storageLink = roomObject.storage.pos.findInRange<StructureLink>(FIND_STRUCTURES, 3, {
-        filter: (structure) => {
-          return structure.structureType === STRUCTURE_LINK && structure.isActive();
-        }
-      })[0]?.id;
-    }
-
-    const sources = roomObject.find(FIND_SOURCES);
-    this.sourceLinks = sources.map((source) => {
-      return source.pos.findInRange<StructureLink>(FIND_STRUCTURES, 2, {
-        filter: (structure) => {
-          return structure.structureType === STRUCTURE_LINK && structure.isActive();
-        }
-      })[0]?.id;
-    }).filter(value => value);
-
-    const controller = roomObject.controller
-    if (controller) {
-      this.sinkLinks = controller.pos.findInRange<StructureLink>(FIND_STRUCTURES, 4, {
-        filter: (structure) => {
-          return structure.structureType === STRUCTURE_LINK && structure.isActive();
-        }
-      }).map((link) => {
-        return link.id;
-      });
-    }
+    this.threadUpdateStructures = thread('update_structures', UPDATE_STRUCTURES_TTL)(this.updateStructures.bind(this));
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
@@ -92,7 +58,9 @@ export default class LinkManager {
       return terminate();
     }
 
-    trace.log('running', {
+    this.threadUpdateStructures(trace);
+
+    trace.info('running', {
       storageId: this.storageId,
       storageLink: this.storageLink,
       sourceLinks: this.sourceLinks,
@@ -101,15 +69,21 @@ export default class LinkManager {
       ttl: this.ttl,
     })
 
-    let performedTransfer = false;
+    if (!this.storageLink) {
+      trace.info("sleeping due to not having a storage link", {});
+      trace.end();
+      return sleeping(PROCESS_TTL);
+    }
 
     const storageLink = Game.getObjectById<Id<StructureLink>>(this.storageLink);
     if (!this.storageId || !storageLink) {
-      trace.log("exiting due to missing storage or storage link", {});
+      trace.log("sleeping due to missing storage or storage link", {});
       trace.end();
 
-      return sleeping(PROCESS_TTL + 1);
+      return sleeping(PROCESS_TTL); // Removed +1 from this 4/25/22
     }
+
+    let performedTransfer = false;
 
     // If our link Ids are old we should terminate
     let shouldTerminate = false;
@@ -122,7 +96,7 @@ export default class LinkManager {
     const hasEnergy = this.sourceLinks.map((linkId) => {
       const link = Game.getObjectById<StructureLink>(linkId);
       if (!link) {
-        trace.log("should terminate due to missing source link", {linkId});
+        trace.info("should terminate due to missing source link", {linkId});
         shouldTerminate = true;
         trace.end();
         return null;
@@ -175,7 +149,7 @@ export default class LinkManager {
       }
     }
 
-    trace.log('has energy', {hasEnergy, haulTTL: this.haulTTL, performedTransfer})
+    trace.info('has energy', {hasEnergy, haulTTL: this.haulTTL, performedTransfer})
 
     if (!performedTransfer && this.haulTTL < 0) {
       // If we have no source ready with energy for sinks, then load energey into storage
@@ -201,7 +175,7 @@ export default class LinkManager {
     // Check if we need to terminate due to being stale
     // TODO change in links or storage should cause termination; then remove ttl
     if (shouldTerminate) {
-      trace.log('terminating link process', {});
+      trace.info('terminating link process', {});
       trace.end();
       return terminate();
     }
@@ -209,6 +183,47 @@ export default class LinkManager {
     trace.end();
 
     return sleeping(TICK_STEP);
+  }
+
+  updateStructures() {
+    const roomObject = this.orgRoom.getRoomObject();
+    if (!roomObject) {
+      throw new Error('cannot create a link manager when room does not exist');
+    }
+
+    this.storageId = roomObject.storage?.id;
+    if (!this.storageId) {
+      throw new Error('cannot create a link manager when room does not have storage');
+    }
+
+    // TODO move these to a thread
+    if (roomObject.storage) {
+      this.storageLink = roomObject.storage.pos.findInRange<StructureLink>(FIND_STRUCTURES, 3, {
+        filter: (structure) => {
+          return structure.structureType === STRUCTURE_LINK && structure.isActive();
+        }
+      })[0]?.id;
+    }
+
+    const sources = roomObject.find(FIND_SOURCES);
+    this.sourceLinks = sources.map((source) => {
+      return source.pos.findInRange<StructureLink>(FIND_STRUCTURES, 2, {
+        filter: (structure) => {
+          return structure.structureType === STRUCTURE_LINK && structure.isActive();
+        }
+      })[0]?.id;
+    }).filter(value => value);
+
+    const controller = roomObject.controller
+    if (controller) {
+      this.sinkLinks = controller.pos.findInRange<StructureLink>(FIND_STRUCTURES, 4, {
+        filter: (structure) => {
+          return structure.structureType === STRUCTURE_LINK && structure.isActive();
+        }
+      }).map((link) => {
+        return link.id;
+      });
+    }
   }
 
   emptyLink(kingdom: Kingdom, link: StructureLink, dropoff: AnyStoreStructure, amount: number, trace: Tracer) {

@@ -220,7 +220,7 @@ module.exports.parkingLot = behaviorTree.leafNode(
       ignoreCreeps: false,
     });
     if (result !== OK && result !== ERR_TIRED) {
-      trace.error('could not move to parking lot', {result, parkingLot: baseConfig.parking});
+      trace.warn('could not move to parking lot', {result, parkingLot: baseConfig.parking});
     }
 
     return FAILURE;
