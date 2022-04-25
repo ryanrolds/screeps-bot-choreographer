@@ -13,11 +13,12 @@ import ReactorRunnable from './runnable.base_reactor';
 
 
 const reactorPositions = [
-  [[-3, -2], [-3, -1], [-2, -2]],
-  [[-3, 2], [-3, 1], [-2, 2]],
+  [[3, -2], [3, -1], [2, -2]], // Top right
+  [[-3, 2], [-3, 1], [-2, 2]], // Bottom left
 ];
 
-const boosterPositions = [[3, -2], [3, -1], [2, -2]];
+// TODO I flipped TR and TL so that boosting was available at RCL6, think this through at a later time
+const boosterPositions = [[-3, -2], [-3, -1], [-2, -2]]; // Top left
 
 const RUN_TTL = 20;
 const ASSIGN_LABS_TTL = 20;
