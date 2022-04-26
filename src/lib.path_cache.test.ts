@@ -1,16 +1,14 @@
-import 'mocha';
 import {expect} from 'chai';
-import * as _ from "lodash";
+import 'mocha';
+import {mockGlobal} from "screeps-test-helper";
 import Sinon, * as sinon from 'sinon';
-import {stubObject, StubbedInstance} from "ts-sinon";
-import {setup, mockGlobal, mockInstanceOf} from "screeps-test-helper";
-import {CACHE_ITEM_TTL, PathCache, PathCacheItem, PathProvider} from './lib.path_cache';
-import {Kingdom} from './org.kingdom';
-import {Scheduler} from './os.scheduler';
-import {BaseConfig, ShardConfig} from './config';
-import {Tracer} from './lib.tracing';
+import {ShardConfig} from './config';
 import {commonPolicy} from './constants.pathing_policies';
 import {EventBroker} from './lib.event_broker';
+import {CACHE_ITEM_TTL, PathCache, PathCacheItem, PathProvider} from './lib.path_cache';
+import {Tracer} from './lib.tracing';
+import {Kingdom} from './org.kingdom';
+import {Scheduler} from './os.scheduler';
 import {CentralPlanning} from './runnable.central_planning';
 import {Scribe} from './runnable.scribe';
 
@@ -57,6 +55,7 @@ describe('Path Cache', function () {
       kos: [],
       authorizedSieges: [],
       maxColonies: 1,
+      autoAttack: false,
       autoExpand: false,
       explorers: true,
     };

@@ -119,6 +119,8 @@ export const findNextRemoteRoom = (
   return [nextRoom, debug];
 }
 
+// Calculate the max number of remotes based on level and number of spawns
+// TODO collect spawner saturation metrics and use that to calculate max remotes
 export function desiredRemotes(colony: Colony, level: number): number {
   const room = colony.primaryRoom;
   const spawns = room.find(FIND_STRUCTURES, {
@@ -136,22 +138,15 @@ export function desiredRemotes(colony: Colony, level: number): number {
     case 1:
     case 2:
     case 3:
-      // Tried 5 at 3 and was choking
       desiredRemotes = 3;
       break;
     case 4:
-      // Tried 4 and was choking
       desiredRemotes = 3;
       break;
     case 5:
-      // Tried 4 & 3 and at level 5 it was choking - Jan 2022
-      // Have since reduced hauler demand, trying 3 again
       desiredRemotes = 2;
       break;
     case 6:
-      // Tried 2 and 3, it was choking - Jan 2022
-      // Have since reduced hauler demand, trying 2 again
-      // Other bots are able to do more than 2 at lvl6
       desiredRemotes = 2;
       break;
     case 7:

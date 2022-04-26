@@ -1,7 +1,7 @@
+import {ShardMap} from './config';
+import {AI} from './lib.ai';
 import * as metrics from './lib.metrics';
 import {Tracer} from './lib.tracing';
-import {AI} from './lib.ai';
-import {ShardConfig, ShardMap} from './config'
 import {Scheduler} from './os.scheduler';
 
 const friends = [
@@ -27,6 +27,7 @@ let shards: ShardMap = {
     authorizedSieges: [],
     maxColonies: 10,
     autoExpand: true,
+    autoAttack: true,
     explorers: true,
   },
   'shard2': {
@@ -35,9 +36,10 @@ let shards: ShardMap = {
     neutral: neutral,
     avoid: avoid,
     kos: kos,
-    authorizedSieges: ['E23S41', 'E25S41'],
-    maxColonies: 8,
+    authorizedSieges: [],
+    maxColonies: 11,
     autoExpand: true,
+    autoAttack: false,
     explorers: true,
   },
   'shard3': {
@@ -49,6 +51,7 @@ let shards: ShardMap = {
     authorizedSieges: [],
     maxColonies: 7,
     autoExpand: false,
+    autoAttack: false,
     explorers: false,
   },
 };

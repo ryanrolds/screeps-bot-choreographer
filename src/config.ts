@@ -29,4 +29,5 @@ export interface ShardConfig {
   maxColonies: number;
   autoExpand: boolean;
   explorers: boolean;
+  autoAttack: boolean;
 }

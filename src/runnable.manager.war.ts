@@ -1,23 +1,23 @@
-import {Priorities, Scheduler} from "./os.scheduler";
-import {Process, running, sleeping} from "./os.process";
+import {creepIsFresh} from './behavior.commute';
+import {BaseConfig} from './config';
+import {AttackStatus, Phase} from './constants.attack';
+import * as CREEPS from './constants.creeps';
+import * as MEMORY from './constants.memory';
+import * as PRIORITIES from './constants.priorities';
+import * as TOPICS from './constants.topics';
+import {buildAttacker, newMultipliers} from "./lib.attacker_builder";
+import {scoreRoomDamage, scoreStorageHealing} from "./lib.scoring";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
-import WarPartyRunnable from './runnable.warparty';
-import * as TOPICS from './constants.topics';
-import {AttackStatus, Phase} from './constants.attack';
-import * as MEMORY from './constants.memory';
-import * as CREEPS from './constants.creeps';
-import * as PRIORITIES from './constants.priorities';
-import {creepIsFresh} from './behavior.commute';
-import {thread, ThreadFunc} from './os.thread';
-import {RoomEntry} from './runnable.scribe';
-import {BaseConfig} from './config';
+import {Process, sleeping} from "./os.process";
 import {RunnableResult} from "./os.runnable";
-import {getKingdomSpawnTopic} from "./topics.kingdom";
-import {buildAttacker, newMultipliers} from "./lib.attacker_builder";
+import {Priorities, Scheduler} from "./os.scheduler";
+import {thread, ThreadFunc} from './os.thread';
 import {MEMORY_HARASS_BASE, ROLE_HARASSER} from "./role.harasser";
+import {RoomEntry} from './runnable.scribe';
+import WarPartyRunnable from './runnable.warparty';
 import {getBaseSpawnTopic} from "./topics.base";
-import {scoreRoomDamage, scoreStorageHealing} from "./lib.scoring";
+import {getKingdomSpawnTopic} from "./topics.kingdom";
 
 const WAR_PARTY_RUN_TTL = 50;
 const COLONY_ATTACK_RANGE = 3;
@@ -60,7 +60,7 @@ export default class WarManager {
   targets: string[] = [];
 
   updateWarPartiesThread: ThreadFunc;
-  processEventsThread: ThreadFunc;
+  consumeEventsThread: ThreadFunc;
   mapUpdateThread: ThreadFunc;
 
   constructor(kingdom: Kingdom, id: string, scheduler: Scheduler, trace: Tracer) {
@@ -69,7 +69,7 @@ export default class WarManager {
     this.warParties = null;
     this.targets = [];
 
-    this.processEventsThread = thread('events_thread', WAR_PARTY_RUN_TTL)(this.processEvents.bind(this));
+    this.consumeEventsThread = thread('events_thread', WAR_PARTY_RUN_TTL)(this.consumeEvents.bind(this));
     this.updateWarPartiesThread = thread('update_warparties', WAR_PARTY_RUN_TTL)(this.updateWarParties.bind(this));
     this.mapUpdateThread = thread('map_thread', 1)(this.mapUpdate.bind(this));
   }
@@ -83,13 +83,14 @@ export default class WarManager {
     }
 
     this.updateWarPartiesThread(trace, kingdom);
-    this.processEventsThread(trace, kingdom);
+    this.consumeEventsThread(trace, kingdom);
     this.mapUpdateThread(trace);
 
     // Write post event status
     trace.info("war manager state", {
       targets: this.targets,
-      warPartyIds: this.warParties.map(warParty => warParty.id)
+      warPartyIds: this.warParties.map(warParty => warParty.id),
+      autoAttack: kingdom.config.autoAttack,
     });
 
     trace.end();
@@ -97,7 +98,7 @@ export default class WarManager {
     return sleeping(WAR_PARTY_RUN_TTL);
   }
 
-  processEvents(trace: Tracer, kingdom: Kingdom) {
+  consumeEvents(trace: Tracer, kingdom: Kingdom) {
     // Process events
     let targets = this.targets;
 
@@ -107,7 +108,7 @@ export default class WarManager {
       return;
     }
 
-    trace.info("processing events", {length: topic.length});
+    trace.info("consuming events", {length: topic.length});
     let event = null;
     while (event = topic.shift()) {
       switch (event.details.status) {
@@ -160,6 +161,10 @@ export default class WarManager {
       return this.scheduler.hasProcess(party.id);
     });
 
+    if (!kingdom.config.autoAttack) {
+      trace.info('auto attack disabled');
+      return;
+    }
 
     if (!this.targets || this.targets.length === 0) {
       trace.info("no target rooms");
