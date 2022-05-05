@@ -4,6 +4,8 @@ import * as metrics from './lib.metrics';
 import {Tracer} from './lib.tracing';
 import {Scheduler} from './os.scheduler';
 
+const version = '__GIT_SHA__';
+
 const friends = [
   'PythonBeatJava',
 ];

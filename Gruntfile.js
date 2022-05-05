@@ -24,6 +24,24 @@ module.exports = function(grunt) {
         tsconfig: './tsconfig.json'
       }
     },
+    githash: {
+      main: {
+        options: {},
+      }
+    },
+    "regex-replace": {
+      gitsha: { //specify a target with any name
+        src: ['built/main.js'],
+        actions: [
+          {
+            name: 'gitsha',
+            search: '__GIT_SHA__',
+            replace: '<%= githash.main.hash %>',
+            flags: ''
+          }
+        ]
+      }
+    },
     clean: {
       'built': ['built']
     },
@@ -85,10 +103,12 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks("grunt-eslint");
   grunt.loadNpmTasks('grunt-mocha-test');
   grunt.loadNpmTasks('grunt-contrib-clean')
+  grunt.loadNpmTasks('grunt-regex-replace');
+  grunt.loadNpmTasks('grunt-githash');
 
   grunt.registerTask('test', ['mochaTest']);
-  grunt.registerTask('check', ['eslint', 'mochaTest']);
-  grunt.registerTask("build", ["clean", "ts"]);
+  grunt.registerTask('check', ['mochaTest']);
+  grunt.registerTask("build", ["clean", "ts", "githash", "regex-replace:gitsha"]);
   grunt.registerTask("default", ["check", "build"]);
 
   // Tasks for uploading to specific servers
