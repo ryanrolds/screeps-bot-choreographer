@@ -19,7 +19,7 @@ import WarPartyRunnable from './runnable.warparty';
 import {getBaseSpawnTopic} from "./topics.base";
 import {getKingdomSpawnTopic} from "./topics.kingdom";
 
-const WAR_PARTY_RUN_TTL = 50;
+const WAR_PARTY_RUN_TTL = 100;
 const COLONY_ATTACK_RANGE = 3;
 const MAX_BASES_PER_TARGET = 3;
 const MAX_WAR_PARTIES_PER_COLONY = 1;
@@ -34,7 +34,6 @@ interface StoredWarParty {
   colony: string;
   phase: Phase;
   role: string;
-  parts: BodyPartConstant[];
 }
 
 interface WarMemory {
@@ -253,7 +252,6 @@ export default class WarManager {
           flagId: party.flagId,
           colony: party.baseConfig.id,
           position: party.getPosition(),
-          parts: party.parts,
         };
       })
     };
@@ -394,7 +392,7 @@ export default class WarManager {
     trace.log("creating war party", {target: targetRoom.id, partyId, flagId});
 
     const warParty = this.createAndScheduleWarParty(baseConfig, partyId, targetRoom.id,
-      Phase.PHASE_MARSHAL, flag.pos, flag.name, CREEPS.WORKER_ATTACKER, parts, trace);
+      Phase.PHASE_MARSHAL, flag.pos, flag.name, CREEPS.WORKER_ATTACKER, trace);
 
     if (warParty) {
       this.warParties.push(warParty);
@@ -402,9 +400,8 @@ export default class WarManager {
   }
 
   createAndScheduleWarParty(baseConfig: BaseConfig, id: string, target: string, phase: Phase,
-    position: RoomPosition, flagId: string, role: string, parts: BodyPartConstant[],
-    trace: Tracer): WarPartyRunnable {
-    const party = new WarPartyRunnable(id, baseConfig, flagId, position, target, role, parts, phase);
+    position: RoomPosition, flagId: string, role: string, trace: Tracer): WarPartyRunnable {
+    const party = new WarPartyRunnable(id, baseConfig, flagId, position, target, role, phase);
     const process = new Process(id, 'war_party', Priorities.OFFENSE, party);
     process.setSkippable(false);
     this.scheduler.registerProcess(process);
@@ -431,7 +428,7 @@ export default class WarManager {
       trace.info("restoring party", {party});
 
       if (!party.id || !party.target || !party.position || !party.colony || !party.flagId
-        || !party.role || !party.parts) {
+        || !party.role) {
         trace.error("invalid party", {party});
         return null;
       }
@@ -444,7 +441,7 @@ export default class WarManager {
       }
 
       return this.createAndScheduleWarParty(baseConfig, party.id, party.target, party.phase,
-        position, party.flagId, party.role, party.parts, trace);
+        position, party.flagId, party.role, trace);
     }).filter((party) => {
       return party;
     });

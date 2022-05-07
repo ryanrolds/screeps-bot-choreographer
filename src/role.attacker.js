@@ -60,7 +60,7 @@ const behavior = behaviorTree.sequenceNode(
           const attackTarget = Game.getObjectById(attack);
           if (attackTarget) {
             const attackDistance = creep.pos.getRangeTo(attackTarget);
-            const didDismantle = false;
+            let didDismantle = false;
 
             if (!didHeal && attackDistance <= 1 && creep.getActiveBodyparts(WORK) > 0) {
               const dismantleResult = creep.dismantle(attackTarget);

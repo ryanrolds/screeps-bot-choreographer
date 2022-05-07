@@ -5,9 +5,9 @@ import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
 import {FindColonyPathPolicy, getClosestColonyByPath} from './lib.pathing';
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
-import {TargetRoom} from './runnable.scribe';
 import {sleeping} from "./os.process";
 import {RunnableResult} from './os.runnable';
+import {TargetRoom} from './runnable.scribe';
 
 export const BufferPathPolicy: FindColonyPathPolicy = {
   colony: {
@@ -86,13 +86,13 @@ export default class BufferManager {
 type HostileRoomsByColony = Record<string, TargetRoom[]>;
 
 function getHostileRoomsByColony(kingdom: Kingdom, trace: Tracer): HostileRoomsByColony {
-  const weakRooms = kingdom.getScribe().getHostileRooms()
-  trace.info('hostile rooms', {weakRooms});
+  const hostileRooms = kingdom.getScribe().getHostileRooms()
+  trace.info('hostile rooms', {hostileRooms});
 
   const config = kingdom.config;
   const dontAttack = config.friends.concat(config.neutral);
-  const candidateRooms = weakRooms.filter((room) => {
-    return dontAttack.indexOf(room.owner) === -1;
+  const candidateRooms = hostileRooms.filter((room) => {
+    return dontAttack.indexOf(room.owner) === -1 && room.level <= 7;
   });
   trace.info('candidate rooms', {config, dontAttack, candidateRooms});
 

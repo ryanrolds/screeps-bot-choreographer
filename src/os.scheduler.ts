@@ -1,8 +1,8 @@
-import {Tracer} from './lib.tracing';
-import {Process} from './os.process';
-import {Kingdom} from './org.kingdom';
 import * as _ from 'lodash';
+import {Tracer} from './lib.tracing';
+import {Kingdom} from './org.kingdom';
 import {prepareMemory, removeOldMemoryObjects} from './os.memory';
+import {Process} from './os.process';
 import {thread, ThreadFunc} from './os.thread';
 
 export const Priorities = {
@@ -41,7 +41,7 @@ export class Scheduler {
     this.ranOutOfTime = 0;
 
     this.cpuThrottle = 0;
-    this.slowProcessThreshold = 10;
+    this.slowProcessThreshold = 7.5;
 
     this.created = 0;
     this.terminated = 0;

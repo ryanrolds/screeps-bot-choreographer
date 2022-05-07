@@ -15,6 +15,7 @@ const neutral = [
   'kobez0r',
   'laj18',
   'Backbite',
+  'Leon_Lee',
 ];
 const avoid = [];
 const kos = [];
@@ -41,7 +42,7 @@ let shards: ShardMap = {
     authorizedSieges: [],
     maxColonies: 11,
     autoExpand: true,
-    autoAttack: false,
+    autoAttack: true,
     explorers: true,
   },
   'shard3': {
@@ -53,7 +54,7 @@ let shards: ShardMap = {
     authorizedSieges: [],
     maxColonies: 7,
     autoExpand: false,
-    autoAttack: false,
+    autoAttack: true,
     explorers: false,
   },
 };

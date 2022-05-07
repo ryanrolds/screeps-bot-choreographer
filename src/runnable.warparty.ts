@@ -1,20 +1,20 @@
 import * as _ from 'lodash';
-import {Kingdom} from "./org.kingdom";
-import {running, sleeping, terminate, STATUS_TERMINATED} from "./os.process";
-import {Tracer} from './lib.tracing';
-import {DEFINITIONS} from './constants.creeps'
-import {PRIORITY_ATTACKER} from "./constants.priorities";
-import PartyRunnable, {FORMATION_QUAD, FORMATION_SINGLE_FILE, FORMATION_TYPE} from './runnable.party';
-import {ATTACK_ROOM_TTL, AttackRequest, AttackStatus, Phase} from './constants.attack';
-import * as TOPICS from './constants.topics';
-import {FindPathPolicy, getPath, visualizePath} from './lib.pathing';
-import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
 import {BaseConfig} from './config';
+import {AttackRequest, AttackStatus, ATTACK_ROOM_TTL, Phase} from './constants.attack';
+import {DEFINITIONS} from './constants.creeps';
+import {PRIORITY_ATTACKER} from "./constants.priorities";
+import * as TOPICS from './constants.topics';
+import {buildAttacker, newMultipliers} from './lib.attacker_builder';
+import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
+import {FindPathPolicy, getPath, visualizePath} from './lib.pathing';
+import {scoreRoomDamage, scoreStorageHealing} from './lib.scoring';
+import {Tracer} from './lib.tracing';
+import {Kingdom} from "./org.kingdom";
+import {running, STATUS_TERMINATED} from "./os.process";
 import {RunnableResult} from './os.runnable';
 import {thread, ThreadFunc} from './os.thread';
-import {buildAttacker, newMultipliers} from './lib.attacker_builder';
+import PartyRunnable, {FORMATION_QUAD, FORMATION_SINGLE_FILE, FORMATION_TYPE} from './runnable.party';
 import {RoomEntry} from './runnable.scribe';
-import {scoreRoomDamage, scoreStorageHealing} from './lib.scoring';
 
 const REQUEST_ATTACKER_TTL = 30;
 const UPDATE_PARTS_INTERVAL = 50;
@@ -95,6 +95,7 @@ export default class WarPartyRunnable {
   targetRoom: string; // Destination room
   role: string;
   parts: BodyPartConstant[];
+  roomDamage: number;
   minEnergy: number;
   phase: Phase;
 
@@ -115,13 +116,14 @@ export default class WarPartyRunnable {
   threadUpdateParts: ThreadFunc;
 
   constructor(id: string, baseConfig: BaseConfig, flagId: string, position: RoomPosition, targetRoom: string,
-    role: string, parts: BodyPartConstant[], phase: Phase) {
+    role: string, phase: Phase) {
     this.id = id;
     this.baseConfig = baseConfig;
     this.flagId = flagId;
     this.targetRoom = targetRoom;
     this.role = role;
-    this.parts = parts;
+    this.parts = null;
+    this.roomDamage = null;
     this.minEnergy = DEFINITIONS[this.role].energyMinimum || 0;
     this.phase = phase || Phase.PHASE_MARSHAL;
     this.position = position;
@@ -129,7 +131,7 @@ export default class WarPartyRunnable {
     this.range = 3;
     this.direction = BOTTOM;
 
-    this.party = new PartyRunnable(id, baseConfig, position, role, parts, this.minEnergy, PRIORITY_ATTACKER,
+    this.party = new PartyRunnable(id, baseConfig, position, role, [], this.minEnergy, PRIORITY_ATTACKER,
       REQUEST_ATTACKER_TTL);
 
     this.kingdom = null;
@@ -168,7 +170,12 @@ export default class WarPartyRunnable {
       return running();
     }
 
-    this.threadUpdateParts(trace, baseRoom, targetRoomEntry);
+    // If no parts, update parts
+    if (!this.parts) {
+      this.updateParts(trace, baseRoom, targetRoomEntry);
+    } else {
+      this.threadUpdateParts(trace, baseRoom, targetRoomEntry);
+    }
 
     if (!targetRoom) {
       trace.error("no target room, terminating war party");
@@ -187,6 +194,7 @@ export default class WarPartyRunnable {
         targetRoom,
         phase: this.phase,
         position: this.position,
+        roomDamage: this.roomDamage,
         formation: this.getFormation(),
         previousPositions: this.getPreviousPositions(),
         creeps: creeps.length,
@@ -239,7 +247,10 @@ export default class WarPartyRunnable {
       }
 
       if (this.phase === Phase.PHASE_ATTACK) {
-        if (!targetRoomObject || !creeps.length ||
+        const numPartyInTargetRoom = this.getAssignedCreeps().
+          filter((creep) => creep.room.name === this.targetRoom).length;
+
+        if (!numPartyInTargetRoom || !targetRoomObject || !creeps.length ||
           this.position.findClosestByRange(creeps)?.pos.getRangeTo(this.position) > 5) {
           this.phase = Phase.PHASE_MARSHAL;
 
@@ -319,6 +330,7 @@ export default class WarPartyRunnable {
 
     trace.info('updating parts', {parts})
     this.setParts(parts);
+    this.roomDamage = roomDamage;
   }
 
   marshal(position: RoomPosition, creeps: Creep[], trace: Tracer) {
@@ -353,12 +365,12 @@ export default class WarPartyRunnable {
 
     let targets: (Creep | Structure)[] = [];
 
-    const friends = kingdom.config.friends;
+    const dontAttack = kingdom.config.friends.concat(kingdom.config.neutral);
 
     if (room) {
       // determine target (hostile creeps, towers, spawns, nukes, all other structures)
       targets = targets.concat(room.find(FIND_HOSTILE_CREEPS, {
-        filter: creep => friends.indexOf(creep.owner.username) === -1
+        filter: creep => dontAttack.indexOf(creep.owner.username) === -1
       }));
     }
 
@@ -420,11 +432,13 @@ export default class WarPartyRunnable {
       this.destination, this.range, trace);
     trace.info("next position", {nextPosition, blockers: blockers.map(blocker => blocker.id)});
 
-    const directionChanged = direction != this.direction;
-    if (directionChanged) {
-      trace.info("changing direction", {direction});
-      this.setDirection(direction);
-    } else if (nextPosition) {
+    // Commented this out until direction actually matters
+    //const directionChanged = direction != this.direction;
+    //if (directionChanged) {
+    //  trace.info("changing direction", {direction});
+    //  this.setDirection(direction);
+    //} else
+    if (nextPosition) {
       trace.info("setting next position", {nextPosition});
       this.setPosition(nextPosition, trace);
     } else {
@@ -439,7 +453,7 @@ export default class WarPartyRunnable {
     if (room) {
       const friends = kingdom.config.friends;
       // determine target (hostile creeps, towers, spawns, nukes, all other structures)
-      nearbyTargets = nearbyTargets.concat(room.find(FIND_HOSTILE_CREEPS, {
+      nearbyTargets = nearbyTargets.concat(this.position.findInRange(FIND_HOSTILE_CREEPS, 2, {
         filter: creep => friends.indexOf(creep.owner.username) === -1
       }));
     }
@@ -455,8 +469,15 @@ export default class WarPartyRunnable {
     }
 
     if (nearbyTargets.length) {
+      nearbyTargets = _.sortBy(nearbyTargets, (target) => {
+        return this.position.getRangeTo(target);
+      });
+
       trace.info("nearby targets", {nearByTargetsLength: nearbyTargets.length})
-      this.party.setTarget(nearbyTargets, trace);
+      const target = this.party.setTarget(nearbyTargets, trace);
+      if (target) {
+        this.alignWithTarget(target, nextPosition, trace);
+      }
     } else {
       trace.info("no targets");
       return false;
@@ -472,30 +493,36 @@ export default class WarPartyRunnable {
         return;
       }
 
-      trace.log("corner", {corner, direction});
+      trace.info("corner", {corner, direction});
 
       const x = _.min([_.max([this.position.x + corner.x, 0]), 49]);
       const y = _.min([_.max([this.position.y + corner.y, 0]), 49]);
       const cornerPosition = new RoomPosition(x, y, this.position.roomName);
 
-      trace.log("cornerPosition", {cornerPosition});
+      trace.info("cornerPosition", {cornerPosition});
       if (target.pos.isEqualTo(cornerPosition)) {
         inCorner = parseInt(direction, 10) as DirectionConstant;
       }
     });
 
     if (inCorner) {
+      trace.info('in corner', {inCorner});
+
       const sides = ADJACENT_SIDES[inCorner];
       if (sides.length) {
+        trace.info('sides', {sides});
+
         const side = _.find(sides, (side) => {
           const shiftedPosition = this.party.shiftPosition(position, side);
           return !this.isBlocked(shiftedPosition, trace);
         });
 
         if (side) {
+          trace.info('side', {side});
+
           const shiftPosition = this.party.shiftPosition(position, side);
           if (shiftPosition) {
-            trace.log("shifting position", {shiftPosition});
+            trace.info("shifting position", {shiftPosition});
             this.setPosition(shiftPosition, trace);
           }
         }
@@ -512,10 +539,6 @@ export default class WarPartyRunnable {
     targets = targets.concat(room.find(FIND_HOSTILE_STRUCTURES, {
       filter: structure => structure.structureType === STRUCTURE_TOWER &&
         friends.indexOf(structure.owner.username) === -1,
-    }));
-
-    targets = targets.concat(room.find(FIND_HOSTILE_CREEPS, {
-      filter: creep => friends.indexOf(creep.owner.username) === -1
     }));
 
     targets = targets.concat(room.find(FIND_HOSTILE_STRUCTURES, {

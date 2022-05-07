@@ -1,13 +1,12 @@
-import * as behaviorTree from './lib.behaviortree';
-import {FAILURE, SUCCESS, RUNNING} from './lib.behaviortree';
 import {behaviorBoosts} from './behavior.boosts';
 import * as behaviorMovement from "./behavior.movement";
+import * as behaviorTree from './lib.behaviortree';
+import {RUNNING, SUCCESS} from './lib.behaviortree';
+import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
+import {FindPathPolicy} from './lib.pathing';
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
 import {Priorities} from './os.scheduler';
-import {commonPolicy} from './constants.pathing_policies';
-import {FindPathPolicy} from './lib.pathing';
-import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
 
 export const ROLE_HARASSER = 'harasser';
 export const MEMORY_HARASS_BASE = 'harasser.target_base';
@@ -105,17 +104,24 @@ const behavior = behaviorTree.sequenceNode(
         }
 
         const creepHeal = scoreHealing(creep);
+        const dontAttack = kingdom.config.friends.concat(kingdom.config.neutral);
 
-        const hostiles = creep.room.find(FIND_HOSTILE_CREEPS, {
+        let hostiles = creep.room.find(FIND_HOSTILE_CREEPS, {
           filter: (c: Creep) => {
             return c.owner.username !== 'Source Keeper'
           }
+        });
+
+        // filter out friendlies and neutrals
+        hostiles = hostiles.filter((c: Creep) => {
+          return dontAttack.indexOf(creep.owner?.username) === -1;
         });
 
         // if strong hostiles our job is done, move to the next room
         const strongHostiles = _.filter(hostiles, (c: Creep) => {
           return scoreAttacking(c) > creepHeal;
         });
+
         if (strongHostiles.length > 0) {
           trace.warn('defenders present', {num: strongHostiles.length});
           return SUCCESS; // GO TO THE NEXT ROOM
