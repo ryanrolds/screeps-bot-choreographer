@@ -11,7 +11,6 @@ const friends = [
 ];
 const neutral = [
   'JavaXCrow',
-  'likeafox',
   'kobez0r',
   'laj18',
   'Backbite',
