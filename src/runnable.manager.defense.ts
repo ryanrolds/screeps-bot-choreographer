@@ -6,13 +6,14 @@ import * as PRIORITIES from './constants.priorities';
 import * as TOPICS from './constants.topics';
 import {DEFENSE_STATUS} from './defense';
 import {Tracer} from './lib.tracing';
-import {getBaseDefenseTopic} from './topics.base';
 import {Kingdom} from './org.kingdom';
 import {Process, sleeping} from "./os.process";
 import {RunnableResult} from './os.runnable';
 import {Priorities, Scheduler} from "./os.scheduler";
 import {thread, ThreadFunc} from './os.thread';
+import {scoreHealing} from './role.harasser';
 import DefensePartyRunnable from './runnable.defense_party';
+import {getBaseDefenseTopic} from './topics.base';
 
 const RUN_INTERVAL = 5;
 const TARGET_REQUEST_TTL = RUN_INTERVAL;
@@ -291,34 +292,25 @@ function addHostilesToColonyTargetTopic(kingdom: Kingdom, hostilesByColony: Reco
     }
 
     hostiles.forEach((hostile) => {
+      let healingPower = scoreHealing(hostile as Creep, true);
+
+      // Get adjacent creeps
+      const adjacentCreeps = hostile.pos.findInRange(FIND_HOSTILE_CREEPS, 1);
+
+      // Sum up total healing (healing of target + healing of adjacent creeps)
+      healingPower = adjacentCreeps.reduce((total, creep) => {
+        return total + scoreHealing(creep, true);
+      }, healingPower);
+
       const details = {
         id: hostile.id,
         roomName: hostile.room.name,
+        healingPower: healingPower,
       };
 
-      let priority = 1;
-      if (hostile.room?.name === orgColony.primaryRoomId) {
-        priority = 2;
-      }
+      trace.log('requesting target', {details, healingPower});
 
-      if (hostile instanceof Creep) {
-        priority += hostile.body.reduce((acc, part) => {
-          if (part.type === HEAL) {
-            acc += 0.1;
-          } else if (part.type === WORK) {
-            acc += 0.4;
-          } else if (part.type === RANGED_ATTACK) {
-            acc += 0.2;
-          } else if (part.type === ATTACK) {
-            acc += 0.3;
-          }
-          return acc;
-        }, 0)
-      }
-
-      trace.log('requesting target', {details, priority});
-
-      orgColony.sendRequest(TOPICS.PRIORITY_TARGETS, priority, details, TARGET_REQUEST_TTL);
+      orgColony.sendRequest(TOPICS.PRIORITY_TARGETS, healingPower, details, TARGET_REQUEST_TTL);
     });
   });
 }

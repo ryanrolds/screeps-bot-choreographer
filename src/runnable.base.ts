@@ -1,4 +1,5 @@
 import {creepIsFresh} from './behavior.commute';
+import {BaseConfig} from './config';
 import * as CREEPS from './constants.creeps';
 import * as MEMORY from './constants.memory';
 import * as PRIORITIES from './constants.priorities';
@@ -9,27 +10,25 @@ import {Event} from './lib.event_broker';
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
 import OrgRoom, {RoomAlertLevel} from "./org.room";
-import {Process, running, sleeping, terminate} from "./os.process";
+import {Process, sleeping, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 import {Priorities, Scheduler} from "./os.scheduler";
 import {thread, ThreadFunc} from './os.thread';
 import BaseConstructionRunnable from "./runnable.base_construction";
-import {getDashboardStream, getLinesStream, HudIndicatorStatus, HudLine, HudEventSet, HudIndicator} from './runnable.debug_hud';
+import ControllerRunnable from './runnable.base_controller';
 import {LabsManager} from "./runnable.base_labs";
 import LinkManager from "./runnable.base_links";
-import SpawnManager from "./runnable.base_spawning";
+import LogisticsRunnable from './runnable.base_logistics';
 import NukerRunnable from "./runnable.base_nuker";
+import ObserverRunnable from './runnable.base_observer';
+import RoomRunnable from './runnable.base_room';
+import SpawnManager from "./runnable.base_spawning";
 import TerminalRunnable from "./runnable.base_terminal";
 import TowerRunnable from "./runnable.base_tower";
-import ObserverRunnable from './runnable.base_observer';
-import LogisticsRunnable from './runnable.base_logistics';
-import ControllerRunnable from './runnable.base_controller';
-import {BaseConfig} from './config';
-import RoomRunnable from './runnable.base_room';
+import {getDashboardStream, getLinesStream, HudEventSet, HudIndicator, HudIndicatorStatus, HudLine} from './runnable.debug_hud';
+import {scoreHostile} from './runnable.manager.defense';
 import {getBaseDistributorTopic} from './topics.base';
 import {getKingdomSpawnTopic} from './topics.kingdom';
-import {scoreHostile} from './runnable.manager.defense';
-import {returnSuccess} from './lib.behaviortree';
 
 const MIN_ENERGY = 100000;
 const MIN_TICKS_TO_DOWNGRADE = 150000;
@@ -755,6 +754,12 @@ export default class BaseRunnable {
     let enableSafeMode = false;
 
     let hostiles = room.find(FIND_HOSTILE_CREEPS);
+    // filter out hostiles without attack, ranged attack, or work parts
+    hostiles = hostiles.filter((hostile) => {
+      return hostile.getActiveBodyparts(ATTACK) ||
+        hostile.getActiveBodyparts(RANGED_ATTACK) ||
+        hostile.getActiveBodyparts(WORK);
+    });
 
     // Filter friendly creeps
     const friends = kingdom.config.friends;
@@ -767,8 +772,10 @@ export default class BaseRunnable {
         }
       });
 
+      // Iterate through critical infrastructure and check if any are under attack
       for (const structure of infrastructure) {
-        if (structure.pos.findInRange(hostiles, 3).length > 3) {
+        if (structure.pos.findInRange(hostiles, 4).length) {
+          trace.notice('critical infrastructure under attack');
           enableSafeMode = true;
           break;
         }
@@ -784,7 +791,7 @@ export default class BaseRunnable {
       // If hostiles present spawn defenders and/or activate safe mode
       if (controller.safeModeAvailable && !controller.safeMode && !controller.safeModeCooldown) {
         controller.activateSafeMode();
-        trace.log('activating safe mode');
+        trace.warn('activating safe mode');
         return;
       }
     } else {

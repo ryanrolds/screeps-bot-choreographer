@@ -1,8 +1,7 @@
-import * as behaviorTree from './lib.behaviortree';
-import {FAILURE, SUCCESS, RUNNING} from './lib.behaviortree';
 import * as behaviorAssign from './behavior.assign';
 import {behaviorBoosts} from './behavior.boosts';
-import {roadWorker} from './behavior.logistics';
+import * as behaviorTree from './lib.behaviortree';
+import {FAILURE, RUNNING, SUCCESS} from './lib.behaviortree';
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
 
@@ -34,7 +33,7 @@ const behavior = behaviorTree.sequenceNode(
           (target) => {
             return target.details.roomName === roomId;
           },
-        ).reverse();
+        );
 
         /*
         // If there are no priority targets, start destroying whatever is there
@@ -127,12 +126,23 @@ const behavior = behaviorTree.sequenceNode(
           // return RUNNING;
         }
 
-        if (creep.pos.getRangeTo(moveTarget) <= 2) {
+        // If we are less then 2/3 health, move back and heal
+        if (creep.hits < creep.hitsMax * 0.666) {
+          trace.info("too damaged, flee");
+          const baseConfig = kingdom.getCreepBaseConfig(creep);
+          if (baseConfig) {
+            const result = creep.moveTo(baseConfig.origin)
+            trace.log('moving to base origin to heal', {result});
+            return RUNNING;
+          }
+        }
+
+        if (creep.pos.getRangeTo(moveTarget) <= 3) {
           trace.log('target in range');
           return RUNNING;
         }
 
-        const result = move(creep, moveTarget, 2);
+        const result = move(creep, moveTarget, 3);
         trace.log('move to target', {result, moveTarget});
 
         return RUNNING;

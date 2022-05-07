@@ -1,11 +1,11 @@
-import {running, sleeping, terminate} from "./os.process";
+import * as MEMORY from "./constants.memory";
+import * as PRIORITIES from "./constants.priorities";
+import * as TASKS from "./constants.tasks";
+import * as TOPICS from "./constants.topics";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
-import * as MEMORY from "./constants.memory"
-import * as TASKS from "./constants.tasks"
-import * as TOPICS from "./constants.topics"
-import * as PRIORITIES from "./constants.priorities";
+import {running, sleeping, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 import {getBaseDistributorTopic} from "./topics.base";
 
@@ -63,18 +63,26 @@ export default class TowerRunnable {
       return sleeping(100);
     }
 
+    // Count towers based on which have energy
+    const numTowers = room.find(FIND_MY_STRUCTURES, {
+      filter: (s: AnyStoreStructure) => {
+        return s.structureType === STRUCTURE_TOWER && s.store.getUsedCapacity(RESOURCE_ENERGY) > 10;
+      }
+    }).length;
+
     this.haulTTL -= ticks;
     this.repairTTL -= ticks;
 
     const towerUsed = tower.store.getUsedCapacity(RESOURCE_ENERGY);
 
-    trace.log("tower runnable", {
+    trace.notice("tower runnable", {
       room: room.name,
       id: this.towerId,
       haulTTL: this.haulTTL,
       repairTTL: this.repairTTL,
       repairTarget: this.repairTarget,
       energy: towerUsed,
+      numTowers,
     });
 
     // Request energy
@@ -86,14 +94,26 @@ export default class TowerRunnable {
 
     // Attack hostiles
     const roomId = this.orgRoom.id;
-    const targets = this.orgRoom.getColony().getFilteredRequests(TOPICS.PRIORITY_TARGETS,
+    let targets = this.orgRoom.getColony().getFilteredRequests(TOPICS.PRIORITY_TARGETS,
       (target) => {
         trace.log('finding target', {target, roomId});
         return target.details.roomName === roomId;
       }
-    ).reverse();
+    );
 
-    trace.log('targets', {targets: targets});
+    // Remove targets that can heal too much
+    targets = targets.filter((target) => {
+      return numTowers * 600 > target.details.healingPower;
+    });
+
+    trace.info('targets', {
+      targets: targets.map((t) => {
+        return {
+          id: t.details.id,
+          healing: t.details.healingPower
+        }
+      }),
+    });
 
     if (targets.length) {
       const target = Game.getObjectById<Id<Creep>>(targets[0].details.id)

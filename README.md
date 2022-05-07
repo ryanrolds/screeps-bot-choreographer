@@ -159,6 +159,7 @@ There are some debugging tools built into the project:
 * Look at central planning results - `AI.getPlanningDebugger().debug()`
 * Look at min cut output - `AI.getMinCutDebugger().debug(AI.getKingdom(), 'W6N1')`
 * Get cached room details from Scribe - `JSON.stringify(AI.getKingdom().getScribe().getRoomById('W8N4'))`
+* Launch Nuke - `AI.kingdom.sendRequest('nuker_targets', 1, {position: '28,35,E19S49'}, 100)`
 
 There are a couple of helpful global variables:
 

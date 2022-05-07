@@ -77,7 +77,7 @@ const behavior = behaviorTree.sequenceNode(
           return true;
         }
 
-        const creepHeal = scoreHealing(creep);
+        const creepHeal = scoreHealing(creep, true);
         // Check for creeps weaker than us
         const hostiles = creep.room.find(FIND_HOSTILE_CREEPS, {
           filter: (hostile: Creep) => {
@@ -103,7 +103,7 @@ const behavior = behaviorTree.sequenceNode(
           creep.heal(creep);
         }
 
-        const creepHeal = scoreHealing(creep);
+        const creepHeal = scoreHealing(creep, true);
         const dontAttack = kingdom.config.friends.concat(kingdom.config.neutral);
 
         let hostiles = creep.room.find(FIND_HOSTILE_CREEPS, {
@@ -217,21 +217,34 @@ export const roleHarasser = {
   run: behaviorTree.rootNode('harasser', behaviorBoosts(behavior)),
 };
 
-function scoreHealing(creep: Creep) {
+export function scoreHealing(creep: Creep, healSelf = false) {
+  let toughBonus = 1;
   return _.reduce(creep.body, (healing, part) => {
+    // Don't count damaged parts
+    if (part.hits < 1) {
+      return healing;
+    }
+
     if (part.type === HEAL) {
       let multiplier = 1;
       if (part.boost) {
         multiplier = BOOSTS[HEAL][part.boost].heal;
       }
-      return healing + ATTACK_POWER * multiplier;
+      return healing + (healSelf ? HEAL_POWER : RANGED_HEAL_POWER) * multiplier;
+    }
+
+    // TODO this need to be solved with a dynamic programming problem that
+    // looks at each part and sums a healing bonus for teach toughness part
+    // up to whatever the damage per tick may be
+    if (healSelf && part.type === TOUGH && part.boost) {
+      toughBonus = _.min([BOOSTS[TOUGH][part.boost].damage, toughBonus]);
     }
 
     return healing;
   }, 0);
 }
 
-function scoreAttacking(creep: Creep) {
+export function scoreAttacking(creep: Creep) {
   return _.reduce(creep.body, (dmg, part) => {
     if (part.type === ATTACK) {
       let multiplier = 1;
