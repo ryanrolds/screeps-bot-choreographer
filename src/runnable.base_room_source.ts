@@ -1,24 +1,24 @@
 import {creepIsFresh} from './behavior.commute';
-import {BaseConfig} from './config';
-import {WORKER_MINER} from "./constants.creeps";
+import {AlertLevel, BaseConfig} from './config';
+import {ROLE_WORKER, WORKER_HAULER, WORKER_MINER} from "./constants.creeps";
 import * as MEMORY from "./constants.memory";
-import {HAUL_BASE_ROOM, HAUL_CONTAINER, LOAD_FACTOR, PRIORITY_HARVESTER, PRIORITY_MINER} from "./constants.priorities";
+import {roadPolicy} from "./constants.pathing_policies";
+import {HAUL_BASE_ROOM, HAUL_CONTAINER, LOAD_FACTOR, PRIORITY_MINER} from "./constants.priorities";
 import * as TASKS from "./constants.tasks";
-import * as TOPICS from "./constants.topics";
 import {Event} from "./lib.event_broker";
 import {getPath} from "./lib.pathing";
-import {roadPolicy} from "./constants.pathing_policies";
+import {getNearbyPositions} from './lib.position';
 import {Tracer} from './lib.tracing';
 import {Colony} from './org.colony';
 import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
 import {PersistentMemory} from "./os.memory";
-import {running, sleeping, terminate} from "./os.process";
+import {sleeping, terminate} from "./os.process";
 import {Runnable, RunnableResult} from "./os.runnable";
 import {thread, ThreadFunc} from "./os.thread";
-import {getLinesStream, HudLine, HudEventSet} from './runnable.debug_hud';
 import {getLogisticsTopic, LogisticsEventData, LogisticsEventType} from "./runnable.base_logistics";
-import {getNearbyPositions} from './lib.position';
+import {createSpawnRequest, getBaseSpawnTopic, requestSpawn} from './runnable.base_spawning';
+import {getLinesStream, HudEventSet, HudLine} from './runnable.debug_hud';
 import {getBaseHaulerTopic} from './topics.base';
 
 const RUN_TTL = 50;
@@ -26,6 +26,7 @@ const STRUCTURE_TTL = 200;
 const DROPOFF_TTL = 200;
 const BUILD_LINK_TTL = 200;
 const CONTAINER_TTL = 250;
+const RED_ALERT_TTL = 200;
 
 export default class SourceRunnable extends PersistentMemory implements Runnable {
   id: string;
@@ -117,10 +118,13 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     this.threadUpdateStructures(trace, source);
     this.threadUpdateDropoff(trace, colony);
 
-    this.threadBuildContainer(trace, kingdom, source);
-    this.threadBuildLink(trace, room, source);
+    // If green, then build stuff
+    if (baseConfig.alertLevel === AlertLevel.GREEN) {
+      this.threadBuildContainer(trace, kingdom, source);
+      this.threadBuildLink(trace, room, source);
+    }
 
-    this.threadRequestMiners(trace, kingdom, colony, room, source);
+    this.threadRequestMiners(trace, kingdom, baseConfig, colony, room, source);
     this.threadRequestHauling(trace, kingdom, baseConfig, colony);
 
     this.updateStats(kingdom, trace);
@@ -276,7 +280,9 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     this.dropoffId = primaryRoom.getReserveStructureWithRoomForResource(RESOURCE_ENERGY)?.id;
   }
 
-  requestMiners(trace: Tracer, kingdom: Kingdom, colony: Colony, room: Room, source: Source) {
+  requestMiners(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig, colony: Colony,
+    room: Room, source: Source) {
+
     if (!this.creepPosition) {
       trace.error('creep position not set', {creepPosition: this.creepPosition});
       return;
@@ -322,19 +328,22 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     if (numMiners < 1) {
       let positionStr = [this.creepPosition.x, this.creepPosition.y, this.creepPosition.roomName].join(',');
 
-      const details = {
-        role: WORKER_MINER,
-        memory: {
-          [MEMORY.MEMORY_SOURCE]: this.sourceId,
-          [MEMORY.MEMORY_SOURCE_CONTAINER]: this.containerId,
-          [MEMORY.MEMORY_SOURCE_POSITION]: positionStr,
-          [MEMORY.MEMORY_ASSIGN_ROOM]: room.name,
-          [MEMORY.MEMORY_BASE]: colony.id,
-        },
-      }
+      const priority = PRIORITY_MINER;
+      const ttl = RUN_TTL;
+      const role = WORKER_MINER;
+      const memory = {
+        [MEMORY.MEMORY_SOURCE]: this.sourceId,
+        [MEMORY.MEMORY_SOURCE_CONTAINER]: this.containerId,
+        [MEMORY.MEMORY_SOURCE_POSITION]: positionStr,
+        [MEMORY.MEMORY_ASSIGN_ROOM]: room.name,
+        [MEMORY.MEMORY_BASE]: colony.id,
+      };
 
-      trace.info('requesting miner', {sourceId: this.sourceId, PRIORITY_MINER, details});
-      colony.getPrimaryRoom().requestSpawn(PRIORITY_MINER, details, RUN_TTL, trace);
+      trace.info('requesting miner', {sourceId: this.sourceId, PRIORITY_MINER, memory});
+
+      const request = createSpawnRequest(priority, ttl, role, memory, 0);
+      requestSpawn(kingdom, getBaseSpawnTopic(baseConfig.id), request);
+      // @CONFIRM that miners are spawned
     }
   }
 
@@ -347,22 +356,24 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
 
     // TODO move to Kingdom level map[base]map[role][]creep
     const avgHaulerCapacity = colony.getAvgHaulerCapacity();
-    const haulers = colony.getHaulers();
+    const haulers = kingdom.getCreepsByBaseAndRole(base.id, WORKER_HAULER);
+    const workers = kingdom.getCreepsByBaseAndRole(base.id, ROLE_WORKER);
+    const creeps = haulers.concat(workers);
 
-    const haulersWithTask = haulers.filter((creep) => {
+    const creepsWithTask = creeps.filter((creep) => {
       const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
       const pickup = creep.memory[MEMORY.MEMORY_HAUL_PICKUP];
       return task === TASKS.TASK_HAUL && pickup === this.containerId;
     });
 
-    const haulerCapacity = haulersWithTask.reduce((total, hauler) => {
+    const creepCapacity = creepsWithTask.reduce((total, hauler) => {
       return total += hauler.store.getFreeCapacity();
     }, 0);
 
     const averageLoad = avgHaulerCapacity;
     const loadSize = _.min([averageLoad, 2000]);
     const storeUsedCapacity = container.store.getUsedCapacity();
-    const untaskedUsedCapacity = storeUsedCapacity - haulerCapacity;
+    const untaskedUsedCapacity = storeUsedCapacity - creepCapacity;
     const loadsToHaul = Math.floor(untaskedUsedCapacity / loadSize);
 
     let priority = HAUL_CONTAINER;

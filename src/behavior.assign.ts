@@ -1,6 +1,6 @@
-import * as behaviorTree from "./lib.behaviortree";
-import {FAILURE, SUCCESS, RUNNING} from "./lib.behaviortree";
 import * as MEMORY from "./constants.memory";
+import * as behaviorTree from "./lib.behaviortree";
+import {RUNNING, SUCCESS} from "./lib.behaviortree";
 
 const MEMORY_PREV_ROOM = 'previous_room';
 
@@ -52,7 +52,7 @@ export const moveToRoom = behaviorTree.repeatUntilSuccess(
 
       const result = creep.moveTo(position, {
         reusePath: 50,
-        maxOps: 5000,
+        maxOps: 10000,
       });
 
       trace.log('move to exit result', {

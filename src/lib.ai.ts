@@ -19,6 +19,7 @@ import DefenseManager from './runnable.manager.defense';
 import InvaderManager from './runnable.manager.invaders';
 import WarManager from './runnable.manager.war';
 import {Scribe} from './runnable.scribe';
+import {SiteJanitor} from './runnable.site_janitor';
 
 export class AI {
   scheduler: Scheduler;
@@ -62,6 +63,12 @@ export class AI {
     const creepManager = new CreepManager(creepManagerId, this.scheduler)
     this.scheduler.registerProcess(new Process(creepManagerId, 'creeps_manager',
       Priorities.CRITICAL, creepManager));
+
+    // Site Janitor
+    const siteJanitorId = 'site_janitor';
+    const siteJanitor = new SiteJanitor();
+    this.scheduler.registerProcess(new Process(siteJanitorId, 'site_janitor',
+      Priorities.CRITICAL, siteJanitor));
 
     // Defense manager, must run before towers and defenders
     const defenseManagerId = 'defense_manager';

@@ -1,3 +1,9 @@
+export enum AlertLevel {
+  GREEN = "green",
+  YELLOW = "yellow",
+  RED = "red",
+};
+
 export interface BaseMap {
   [id: string]: BaseConfig;
 }
@@ -9,10 +15,10 @@ export interface BaseConfig {
   origin: NonNullable<RoomPosition>;
   parking: RoomPosition;
   isPublic: NonNullable<boolean>;
-  automated: NonNullable<boolean>;
   walls: NonNullable<{x: number, y: number}[]>;
   passages: NonNullable<{x: number, y: number}[]>;
   neighbors: NonNullable<string[]>;
+  alertLevel: NonNullable<AlertLevel>;
 }
 
 export interface ShardMap {

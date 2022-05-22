@@ -4,6 +4,7 @@ import {Kingdom} from './org.kingdom';
 import {sleeping} from './os.process';
 import {Runnable, RunnableResult} from './os.runnable';
 import {thread, ThreadFunc} from './os.thread';
+import {scoreAttacking, scoreHealing} from './role.harasser';
 import {getDashboardStream, HudEventSet, HudIndicator, HudIndicatorStatus} from './runnable.debug_hud';
 
 const RUN_TTL = 10;
@@ -46,6 +47,7 @@ export type RoomEntry = {
   numSources: number;
   hasHostiles: boolean;
   hostilesDmg: number;
+  hostilesHealing: number;
   hasKeepers: boolean;
   invaderCorePos: RoomPosition;
   invaderCoreLevel: number;
@@ -423,6 +425,7 @@ export class Scribe implements Runnable {
       numSources: 0,
       hasHostiles: false,
       hostilesDmg: 0,
+      hostilesHealing: 0,
       hasKeepers: false,
       invaderCorePos: null,
       invaderCoreLevel: null,
@@ -500,10 +503,15 @@ export class Scribe implements Runnable {
 
     if (room.hasHostiles) {
       room.hostilesDmg = _.sum(hostileCreeps, (creep) => {
-        // TODO factor in boosts
-        return creep.getActiveBodyparts(ATTACK) * ATTACK_POWER +
-          creep.getActiveBodyparts(RANGED_ATTACK) * RANGED_ATTACK_POWER
+        return scoreAttacking(creep);
       });
+
+      room.hostilesHealing = _.sum(hostileCreeps, (creep) => {
+        return scoreHealing(creep);
+      });
+    } else {
+      room.hostilesDmg = 0;
+      room.hostilesHealing = 0;
     }
 
     let keepers = hostiles.filter((creep) => {

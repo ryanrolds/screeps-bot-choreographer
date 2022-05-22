@@ -1,4 +1,5 @@
 import {BaseConfig} from "./config";
+import {PossibleSite, prioritizeBySitesType} from "./lib.construction";
 import {ANY, buildingCodes, EMPTY, getConstructionPosition} from "./lib.layouts";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
@@ -7,6 +8,8 @@ import {sleeping} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 
 const CONSTRUCTION_INTERVAL = 100;
+const MAX_WALL_SITES = 5;
+const MAX_STRUCTURE_SITES = 5;
 
 export type BaseLayout = {
   origin: {x: number, y: number};
@@ -181,12 +184,6 @@ export default class BaseConstructionRunnable {
       return sleeping(CONSTRUCTION_INTERVAL);
     }
 
-    if (!baseConfig.automated) {
-      trace.log('not automated');
-      trace.end();
-      return sleeping(CONSTRUCTION_INTERVAL);
-    }
-
     const origin = baseConfig.origin;
     if (!origin) {
       trace.error('no origin');
@@ -247,6 +244,9 @@ export default class BaseConstructionRunnable {
   buildLayout(kingdom: Kingdom, layout: BaseLayout, room: Room, origin: RoomPosition, trace: Tracer): void {
     trace.log('building layout', {roomId: room.name, layout});
 
+    let toBuild: PossibleSite[] = [];
+    let numSites = 0;
+
     // const roomVisual = new RoomVisual(room.name);
     for (let y = 0; y < layout.buildings.length; y++) {
       const row = layout.buildings[y];
@@ -272,6 +272,8 @@ export default class BaseConstructionRunnable {
 
         const site = pos.lookFor(LOOK_CONSTRUCTION_SITES)[0];
         if (site) {
+          numSites++;
+
           if (site.structureType !== buildingCodes[code]) {
             trace.warn('wrong site, remove', {existing: site.structureType, expected: buildingCodes[code]});
             site.remove();
@@ -285,16 +287,40 @@ export default class BaseConstructionRunnable {
           continue;
         }
 
-        // roomVisual.text(code, pos.x, pos.y);
-
-        const result = room.createConstructionSite(pos, structureType);
-        if (result !== OK && result !== ERR_FULL) {
-          trace.error('failed to build structure', {structureType, pos, result});
-          return;
-        }
-
-        trace.notice('building', {structureType, pos});
+        toBuild.push({x: pos.x, y: pos.y, structureType});
       }
+    }
+
+    if (numSites > MAX_STRUCTURE_SITES) {
+      trace.info('too many sites', {numSites});
+      return;
+    }
+
+    // Sort by type priority
+    toBuild = prioritizeBySitesType(toBuild);
+
+    // Build sites until we hit max sites
+    while (toBuild.length > 0) {
+      if (numSites >= MAX_STRUCTURE_SITES) {
+        return;
+      }
+
+      const site = toBuild.pop();
+      if (!site) {
+        continue;
+      }
+
+      // roomVisual.text(code, pos.x, pos.y);
+
+      const pos = new RoomPosition(site.x, site.y, room.name);
+      const result = room.createConstructionSite(pos, site.structureType);
+      if (result !== OK && result !== ERR_FULL) {
+        trace.error('failed to build structure', {structureType: site.structureType, pos, result});
+        return;
+      }
+
+      numSites++;
+      trace.notice('building', {structureType: site.structureType, pos, result});
     }
   }
 
@@ -310,7 +336,13 @@ export default class BaseConstructionRunnable {
 
     trace.info('building walls', {roomId: room.name});
 
+    let numWallSites = 0;
+
     baseConfig.walls.forEach(wall => {
+      if (numWallSites >= MAX_WALL_SITES) {
+        return;
+      }
+
       const position = new RoomPosition(wall.x, wall.y, room.name)
 
       const road = position.lookFor(LOOK_STRUCTURES).find(structure => {
@@ -346,6 +378,7 @@ export default class BaseConstructionRunnable {
 
         if (expectedSite) {
           trace.info('site present', {site: expectedSite.structureType});
+          numWallSites++;
           foundSite = true;
         } else {
           sites.forEach(site => {

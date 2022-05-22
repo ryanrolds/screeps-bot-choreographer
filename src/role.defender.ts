@@ -22,8 +22,28 @@ const behavior = behaviorTree.sequenceNode(
           return FAILURE;
         }
 
+        // Heal self or adjacent creep if one has lower HP
+        let healTarget = null;
         if (creep.hits < creep.hitsMax) {
-          const result = creep.heal(creep);
+          healTarget = creep;
+        }
+
+        // heal adjacent creeps with lowest HP
+        let friendlyCreepsNearby = creep.pos.findInRange(FIND_MY_CREEPS, 1, {
+          filter: (c: Creep) => c.hits < c.hitsMax,
+        });
+        friendlyCreepsNearby = _.sortBy(friendlyCreepsNearby, (a, b) => {
+          return a.hits / a.hitsMax;
+        });
+
+        const first = friendlyCreepsNearby[0];
+        if (first && (!healTarget || first.hits < healTarget.hits)) {
+          healTarget = first;
+        }
+
+        // if we have a heal target, heal it
+        if (healTarget) {
+          const result = creep.heal(healTarget);
           trace.log('healing self', {result});
         }
 
@@ -34,27 +54,6 @@ const behavior = behaviorTree.sequenceNode(
             return target.details.roomName === roomId;
           },
         );
-
-        /*
-        // If there are no priority targets, start destroying whatever is there
-        if (targets.length === 0) {
-          targets = creep.pos.findInRange(FIND_HOSTILE_CREEPS, 3);
-
-          targets = targets.concat(creep.room.find(FIND_HOSTILE_STRUCTURES, {
-            filter: (structure) => {
-              return structure.structureType === STRUCTURE_TOWER ||
-                structure.structureType === STRUCTURE_SPAWN;
-            },
-          }));
-
-          targets = targets.concat(creep.room.find(FIND_HOSTILE_STRUCTURES, {
-            filter: (structure) => {
-              return structure.structureType === STRUCTURE_RAMPART ||
-                structure.structureType === STRUCTURE_WALL;
-            },
-          }));
-        }
-        */
 
         trace.log('room targets', {targets});
 
@@ -82,48 +81,9 @@ const behavior = behaviorTree.sequenceNode(
           trace.log('ranged attack result', {result, targetId: attackTarget.id});
         }
 
-        // TODO defender should keep distance unless in rampart
-        // TODO defender should flee and heal if low on hits
-
+        // If not in rampart, move to target
         if (!moveTarget) {
           return moveToAssignedPosition(creep, trace, kingdom);
-        }
-
-        // TODO should not check this often
-        const pathToTarget = creep.pos.findPathTo(moveTarget, {range: 3});
-
-        const lastRampart = pathToTarget.reduce((lastRampart, pos): RoomPosition => {
-          const roomPos = creep.room.getPositionAt(pos.x, pos.y);
-          const posStructures = roomPos.lookFor(LOOK_STRUCTURES);
-          const hasRampart = _.filter(posStructures, (structure) => {
-            return structure.structureType === STRUCTURE_RAMPART;
-          });
-
-          const hasCreep = roomPos.lookFor(LOOK_CREEPS).length > 0;
-
-          if (hasRampart && !hasCreep) {
-            lastRampart = roomPos;
-          }
-
-          return lastRampart;
-        }, null as RoomPosition);
-
-        trace.log('last rampart', {lastRampart});
-
-        if (lastRampart) {
-          const creepPosStructures = creep.pos.lookFor(LOOK_STRUCTURES);
-          const inLastRampart = _.filter(creepPosStructures, (structure) => {
-            return structure.id === structure.id;
-          }).length > 0;
-
-          if (inLastRampart) {
-            trace.log('in rampart');
-            // return RUNNING;
-          }
-
-          const result = creep.moveTo(lastRampart, {visualizePathStyle: {stroke: '#ffffff'}});
-          trace.log('moving to last rampart', {result});
-          // return RUNNING;
         }
 
         // If we are less then 2/3 health, move back and heal
@@ -131,7 +91,7 @@ const behavior = behaviorTree.sequenceNode(
           trace.info("too damaged, flee");
           const baseConfig = kingdom.getCreepBaseConfig(creep);
           if (baseConfig) {
-            const result = creep.moveTo(baseConfig.origin)
+            const result = creep.moveTo(baseConfig.origin);
             trace.log('moving to base origin to heal', {result});
             return RUNNING;
           }

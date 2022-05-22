@@ -1,21 +1,16 @@
-import {creepIsFresh} from './behavior.commute';
 import {BaseConfig} from './config';
 import * as CREEPS from './constants.creeps';
 import * as MEMORY from './constants.memory';
 import {MEMORY_ROLE} from './constants.memory';
 import * as PRIORITIES from './constants.priorities';
-import {PRIORITY_DEFENDER, PRIORITY_HAULER} from './constants.priorities';
-import * as TASKS from './constants.tasks';
-import {Event} from './lib.event_broker';
-import * as PID from './lib.pid';
 import {Topics} from './lib.topics';
 import {Tracer} from './lib.tracing';
 import {OrgBase} from './org.base';
 import {Kingdom} from './org.kingdom';
 import OrgRoom from './org.room';
 import {thread, ThreadFunc} from './os.thread';
-import {getLinesStream, HudEventSet, HudLine} from './runnable.debug_hud';
-import {getBaseDefenseTopic, getBaseHaulerTopic, getBaseSpawnTopic} from './topics.base';
+import {createSpawnRequest, getBaseSpawnTopic, requestSpawn} from './runnable.base_spawning';
+import {getBaseDefenseTopic, getBaseHaulerTopic} from './topics';
 
 
 
@@ -26,7 +21,6 @@ const UPDATE_CREEPS_TTL = 1;
 const UPDATE_HAULERS_TTL = 5;
 
 const REQUEST_MISSING_ROOMS_TTL = 25;
-const REQUEST_HAULER_TTL = 25;
 const REQUEST_DEFENDER_TTL = 5;
 const REQUEST_EXPLORER_TTL = 200;
 const HAULER_PID_TTL = 1;
@@ -45,13 +39,11 @@ export class Colony extends OrgBase {
   primaryOrgRoom: OrgRoom;
 
   isPublic: boolean;
-  automated: boolean;
   origin: RoomPosition;
 
   assignedCreeps: Creep[];
   numCreeps: number;
 
-  haulers: Creep[];
   // TODO refactor to make it more clear that this also counts workers
   numHaulers: number;
   numActiveHaulers: number;
@@ -60,14 +52,9 @@ export class Colony extends OrgBase {
 
   defenders: Creep[];
 
-  pidDesiredHaulers: number;
-  pidSetup: boolean;
-
   threadUpdateOrg: ThreadFunc;
   threadUpdateCreeps: ThreadFunc;
-  threadUpdateHaulers: ThreadFunc;
   threadHandleDefenderRequest: ThreadFunc;
-  threadRequestHaulers: ThreadFunc;
   threadRequestExplorer: ThreadFunc;
   threadHaulerPid: ThreadFunc;
 
@@ -83,11 +70,7 @@ export class Colony extends OrgBase {
     this.desiredRooms = baseConfig.rooms;
     this.primaryRoom = Game.rooms[this.primaryRoomId];
     this.isPublic = baseConfig.isPublic || false;
-    this.automated = baseConfig.automated;
     this.origin = baseConfig.origin;
-
-    this.pidDesiredHaulers = 0;
-    this.pidSetup = false;
 
     this.roomMap = {};
     this.primaryOrgRoom = null;
@@ -107,98 +90,22 @@ export class Colony extends OrgBase {
       this.numCreeps = this.assignedCreeps.length;
     });
 
-    this.haulers = [];
     this.numHaulers = 0;
     this.numActiveHaulers = 0;
     this.idleHaulers = 0;
     this.avgHaulerCapacity = 300;
-    this.threadUpdateHaulers = thread('update_haulers_thread', UPDATE_HAULERS_TTL)(() => {
-      // Get list of haulers and workers
-      this.haulers = this.assignedCreeps.filter((creep) => {
-        return (creep.memory[MEMORY_ROLE] === CREEPS.WORKER_HAULER ||
-          creep.memory[MEMORY_ROLE] === CREEPS.ROLE_WORKER) &&
-          creep.memory[MEMORY.MEMORY_BASE] === this.id &&
-          creepIsFresh(creep);
-      });
 
-      this.numHaulers = this.haulers.length;
-
-      this.numActiveHaulers = this.haulers.filter((creep) => {
-        const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
-        return task === TASKS.TASK_HAUL || creep.store.getUsedCapacity() > 0;
-      }).length;
-
-      this.idleHaulers = this.numHaulers - this.numActiveHaulers;
-
-      // Updating the avg when there are no haulers causes some undesirable
-      // situations (task explosion)
-      if (this.numHaulers) {
-        this.avgHaulerCapacity = this.haulers.reduce((total, hauler) => {
-          return total + hauler.store.getCapacity();
-        }, 0) / this.haulers.length;
-
-        if (this.avgHaulerCapacity < 50) {
-          this.avgHaulerCapacity = 50;
-        }
-      }
-    });
-
-    this.threadHandleDefenderRequest = thread('request_defenders_thread', REQUEST_DEFENDER_TTL)((trace, kingdom: Kingdom) => {
+    this.threadHandleDefenderRequest = thread('request_defenders_thread', REQUEST_DEFENDER_TTL)((trace, kingdom: Kingdom,
+      baseConfig: BaseConfig) => {
       // Check intra-colony requests for defenders
       const request = kingdom.getNextRequest(getBaseDefenseTopic(this.id));
       if (request) {
         trace.log('got defender request', {request});
-        this.handleDefenderRequest(request, trace);
+        this.handleDefenderRequest(request, baseConfig, trace);
       }
     });
 
-    this.threadRequestHaulers = thread('request_haulers_thread', REQUEST_HAULER_TTL)((trace: Tracer) => {
-      this.requestHaulers(trace);
-    });
-
-    this.threadHaulerPid = thread('hauler_pid_thread', HAULER_PID_TTL)((trace: Tracer) => {
-      // Fraction of num haul tasks
-      let numHaulTasks = this.getKingdom().getTopicLength(getBaseHaulerTopic(this.baseId));
-      numHaulTasks -= this.idleHaulers;
-
-      trace.log('haul tasks', {numHaulTasks, numIdleHaulers: this.idleHaulers});
-
-      if (this.primaryRoom) {
-        if (!this.pidSetup) {
-          trace.log('setting up pid', {pidDesiredHaulers: this.pidDesiredHaulers});
-          this.pidSetup = true;
-          PID.setup(this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS, 0, 0.2, 0.0005, 0);
-        }
-
-        const updateHaulerPID = trace.begin('update_hauler_pid');
-        this.pidDesiredHaulers = PID.update(this.primaryRoomId, this.primaryRoom.memory, MEMORY.PID_PREFIX_HAULERS,
-          numHaulTasks, Game.time, updateHaulerPID);
-        updateHaulerPID.log('desired haulers', {desired: this.pidDesiredHaulers});
-        updateHaulerPID.end();
-
-        trace.log('desired haulers', {desired: this.pidDesiredHaulers});
-
-        if (Game.time % 20) {
-          const hudLine: HudLine = {
-            key: `pid_${this.baseId}`,
-            room: this.primaryRoomId,
-            text: `Hauler PID: ${this.pidDesiredHaulers.toFixed(2)}, ` +
-              `Haul Tasks: ${numHaulTasks}, ` +
-              `Num Haulers: ${this.numHaulers}, ` +
-              `Idle Haulers: ${this.idleHaulers}`,
-            time: Game.time,
-            order: 10,
-          };
-
-          this.getKingdom().getBroker().getStream(getLinesStream()).publish(new Event(this.id, Game.time,
-            HudEventSet, hudLine));
-        }
-      }
-    })
-
-    this.threadRequestExplorer = thread('request_explorers_thread', REQUEST_EXPLORER_TTL)((trace, kingdom) => {
-      this.requestExplorer(trace, kingdom);
-    });
+    this.threadRequestExplorer = thread('request_explorers_thread', REQUEST_EXPLORER_TTL)(this.requestExplorer.bind(this))
 
     setupTrace.end();
   }
@@ -214,7 +121,6 @@ export class Colony extends OrgBase {
 
     this.threadUpdateOrg(updateTrace);
     this.threadUpdateCreeps(updateTrace, this.getKingdom());
-    this.threadUpdateHaulers(updateTrace);
     this.threadHaulerPid(updateTrace);
 
     const roomTrace = updateTrace.begin('rooms');
@@ -231,9 +137,11 @@ export class Colony extends OrgBase {
     });
     roomTrace.end();
 
-    this.threadHandleDefenderRequest(updateTrace, this.getKingdom());
-    this.threadRequestHaulers(updateTrace);
-    this.threadRequestExplorer(updateTrace, this.getKingdom());
+    const baseConfig = this.getKingdom().getPlanner().getBaseConfigByRoom(this.primaryRoomId);
+    if (baseConfig) {
+      this.threadHandleDefenderRequest(updateTrace, this.getKingdom(), baseConfig);
+      this.threadRequestExplorer(updateTrace, this.getKingdom(), baseConfig);
+    }
 
     updateTrace.end();
   }
@@ -251,6 +159,7 @@ export class Colony extends OrgBase {
 
     processTrace.end();
   }
+
   toString() {
     const topics = this.getKingdom().getTopics().getCounts();
 
@@ -277,10 +186,6 @@ export class Colony extends OrgBase {
     return this.roomMap[roomId] || null;
   }
 
-  isAutomated(): boolean {
-    return this.automated;
-  }
-
   getOrigin(): RoomPosition {
     return this.origin;
   }
@@ -297,9 +202,7 @@ export class Colony extends OrgBase {
   getCreeps() {
     return this.assignedCreeps;
   }
-  getHaulers() {
-    return this.haulers;
-  }
+
   sendRequest(topic, priority, request, ttl) {
     this.topics.addRequest(topic, priority, request, ttl);
   }
@@ -349,6 +252,7 @@ export class Colony extends OrgBase {
 
     return this.primaryOrgRoom.getReserveStructureWithMostOfAResource(resource, false);
   }
+
   getReserveStructureWithRoomForResource(resource) {
     if (!this.primaryOrgRoom) {
       return null;
@@ -356,16 +260,21 @@ export class Colony extends OrgBase {
 
     return this.primaryOrgRoom.getReserveStructureWithRoomForResource(resource);
   }
+
   getAvgHaulerCapacity() {
     return this.avgHaulerCapacity;
   }
+
+  /**
+   *
+   * @deprecated removing and redoing later
+   */
   updateStats(trace: Tracer) {
     const topicCounts = this.getKingdom().getTopics().getCounts();
 
     const colonyStats = {
       numHaulers: this.numHaulers,
       haulTasks: (topicCounts[getBaseHaulerTopic(this.baseId)] || 0) - this.idleHaulers,
-      pidDesiredHaulers: this.pidDesiredHaulers,
       rooms: {},
       booster: {},
       spawner: {},
@@ -375,20 +284,25 @@ export class Colony extends OrgBase {
     const stats = this.getStats();
     stats.colonies[this.id] = colonyStats;
   }
-  handleDefenderRequest(request, trace) {
+
+  // TODO Move to base defense manager
+  handleDefenderRequest(request, baseConfig: BaseConfig, trace) {
     trace.log('request details', {
       controllerLevel: this.primaryRoom?.controller ? this.primaryRoom?.controller : null,
       request,
     });
 
     if (request.details.spawn) {
-      trace.log('requesting spawning of defenders');
-      this.getKingdom().sendRequest(getBaseSpawnTopic(this.id), PRIORITY_DEFENDER, request.details,
-        REQUEST_DEFENDER_TTL);
+      const spawnRequest = createSpawnRequest(request.priority, request.ttl, request.details.role,
+        request.details.memory, 0)
+      trace.log('requesting spawning of defenders', {request});
+      requestSpawn(this.getKingdom(), getBaseSpawnTopic(baseConfig.id), spawnRequest);
+      // @CONFIRM that defenders spawn
     }
 
     trace.info('requesting existing defense response', {request});
 
+    // TODO replace with base defense topic
     // Order existing defenders to the room
     this.defenders.forEach((defender) => {
       defender.memory[MEMORY.MEMORY_ASSIGN_ROOM] = request.details.memory[MEMORY.MEMORY_ASSIGN_ROOM];
@@ -396,47 +310,7 @@ export class Colony extends OrgBase {
     });
   }
 
-  requestHaulers(trace: Tracer) {
-    if (!this.primaryRoom) {
-      trace.error('not primary room');
-    }
-
-    if (Game.cpu.bucket < 2000) {
-      trace.warn('bucket is low, not requesting haulers', {bucket: Game.cpu.bucket});
-      return;
-    }
-
-    let role = CREEPS.WORKER_HAULER;
-    if (!this.primaryOrgRoom?.hasStorage) {
-      role = CREEPS.ROLE_WORKER;
-    }
-
-    trace.notice('request haulers', {numHaulers: this.numHaulers, desiredHaulers: this.pidDesiredHaulers})
-
-    // PID approach
-    if (this.numHaulers < this.pidDesiredHaulers) {
-      let priority = PRIORITY_HAULER;
-
-      // If we have few haulers/workers we should not be prioritizing haulers
-      if (this.pidDesiredHaulers > 3 && this.numHaulers < 2) {
-        priority += 10;
-      }
-
-      priority -= this.numHaulers * 0.2
-
-      const details = {
-        role,
-        memory: {
-          [MEMORY.MEMORY_BASE]: this.id,
-        }
-      };
-
-      trace.info('requesting hauler/worker', {role, priority, details});
-      this.primaryOrgRoom.requestSpawn(priority, details, REQUEST_HAULER_TTL, trace);
-    }
-  }
-
-  requestExplorer(trace: Tracer, kingdom: Kingdom) {
+  requestExplorer(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig) {
     if (!this.primaryRoom) {
       return;
     }
@@ -466,12 +340,15 @@ export class Colony extends OrgBase {
     if (explorers.length < MAX_EXPLORERS) {
       trace.log('requesting explorer');
 
-      this.getKingdom().sendRequest(getBaseSpawnTopic(this.id), PRIORITIES.EXPLORER, {
-        role: CREEPS.WORKER_EXPLORER,
-        memory: {
-          [MEMORY.MEMORY_BASE]: this.id,
-        },
-      }, REQUEST_EXPLORER_TTL);
+      const priority = PRIORITIES.EXPLORER;
+      const ttl = REQUEST_EXPLORER_TTL;
+      const role = CREEPS.WORKER_EXPLORER;
+      const memory = {
+        [MEMORY.MEMORY_BASE]: baseConfig.id,
+      };
+      const request = createSpawnRequest(priority, ttl, role, memory, 0);
+      requestSpawn(kingdom, getBaseSpawnTopic(baseConfig.id), request);
+      // @CONFIRM that explorers spawns
     } else {
       trace.log('not requesting explorer', {numExplorers: explorers.length});
     }

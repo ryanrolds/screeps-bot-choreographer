@@ -8,7 +8,7 @@ export type Request = {
   ttl: number,
 };
 
-type TopicKey = string;
+export type TopicKey = string;
 type Topic = Array<Request>;
 
 export class Topics {
@@ -54,6 +54,10 @@ export class Topics {
     this.topics[key] = [];
     return this.topics[key];
   }
+
+  /**
+   * @deprecated Use addRequestV2 instead.
+   */
   addRequest(key: TopicKey, priority, details: RequestDetails, ttl = DEFAULT_TTL) {
     let topic = this.getTopic(key);
     if (!topic) {
@@ -69,6 +73,22 @@ export class Topics {
     topic.push(request);
     this.topics[key] = _.sortBy(topic, 'priority');
   }
+
+  addRequestV2(key: TopicKey, request: any) {
+    let topic = this.getTopic(key);
+    if (!topic) {
+      topic = this.createTopic(key);
+    }
+
+    // Add current game time to tll so we know when to expire the message
+    request.ttl = Game.time + request.ttl;
+
+    topic.push(request);
+
+    // TODO doing this each message we push is a bit slow
+    this.topics[key] = _.sortBy(topic, 'priority');
+  }
+
   peekNextRequest(key: TopicKey) {
     const topic = this.getTopic(key);
     if (!topic) {

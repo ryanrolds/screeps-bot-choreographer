@@ -1,4 +1,5 @@
 import {creepIsFresh} from './behavior.commute';
+import {BaseConfig} from './config';
 import * as CREEPS from './constants.creeps';
 import * as MEMORY from './constants.memory';
 import * as PRIORITIES from './constants.priorities';
@@ -12,12 +13,11 @@ import {Process, sleeping, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 import {Priorities, Scheduler} from "./os.scheduler";
 import {thread, ThreadFunc} from './os.thread';
-import {getLinesStream, HudLine, HudEventSet} from './runnable.debug_hud';
-import SourceRunnable from "./runnable.base_room_source";
 import MineralRunnable from './runnable.base_room_mineral';
-import {BaseConfig} from './config';
-import {getBaseSpawnTopic, getBaseHaulerTopic} from './topics.base';
-import {getKingdomSpawnTopic} from './topics.kingdom';
+import SourceRunnable from "./runnable.base_room_source";
+import {createSpawnRequest, getBaseSpawnTopic, getShardSpawnTopic, requestSpawn} from './runnable.base_spawning';
+import {getLinesStream, HudEventSet, HudLine} from './runnable.debug_hud';
+import {getBaseHaulerTopic} from './topics';
 
 const MIN_RESERVATION_TICKS = 4000;
 const NO_VISION_TTL = 20;
@@ -85,7 +85,7 @@ export default class RoomRunnable {
     this.threadUpdateProcessSpawning(trace, orgRoom, room);
     this.threadRequestHaulDroppedResources(trace, kingdom, baseConfig, orgRoom, room);
     this.threadRequestHaulTombstones(trace, kingdom, baseConfig, orgRoom, room);
-    this.threadProduceStatus(trace, orgRoom);
+    this.threadProduceStatus(trace, baseConfig, orgRoom);
 
     trace.end();
     return sleeping(MIN_TTL);
@@ -116,7 +116,7 @@ export default class RoomRunnable {
     }
   }
 
-  requestReserver(trace: Tracer, kingdom: Kingdom, base: BaseConfig, orgRoom: OrgRoom, room: Room) {
+  requestReserver(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig, orgRoom: OrgRoom, room: Room) {
     const numReservers = _.filter(Game.creeps, (creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
       return (role === CREEPS.WORKER_RESERVER) &&
@@ -146,20 +146,21 @@ export default class RoomRunnable {
     if (notOwned && !orgRoom.numHostiles || reservedByMeAndEndingSoon) {
       trace.log('sending reserve request to colony');
 
-      const details = {
-        role: CREEPS.WORKER_RESERVER,
-        memory: {
-          [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
-          [MEMORY.MEMORY_BASE]: (orgRoom as any).getColony().id,
-        },
+      const priority = PRIORITIES.PRIORITY_RESERVER;
+      const ttl = REQUEST_RESERVER_TTL;
+      const role = CREEPS.WORKER_RESERVER;
+      const memory = {
+        [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
+        [MEMORY.MEMORY_BASE]: baseConfig.id,
       }
 
-      let topic = getKingdomSpawnTopic()
+      let topic = getShardSpawnTopic()
       if (orgRoom.getColony().primaryRoom.energyCapacityAvailable > 800) {
-        topic = getBaseSpawnTopic(base.id);
+        topic = getBaseSpawnTopic(baseConfig.id);
       }
 
-      kingdom.sendRequest(topic, PRIORITIES.PRIORITY_RESERVER, details, REQUEST_RESERVER_TTL);
+      const request = createSpawnRequest(priority, ttl, role, memory, 0);
+      requestSpawn(kingdom, topic, request);
     }
   }
 
@@ -277,7 +278,7 @@ export default class RoomRunnable {
     });
   }
 
-  produceStatus(trace: Tracer, orgRoom: OrgRoom) {
+  produceStatus(trace: Tracer, baseConfig: BaseConfig, orgRoom: OrgRoom) {
     const resources = orgRoom.getReserveResources();
 
     const status = {
@@ -286,7 +287,7 @@ export default class RoomRunnable {
       [MEMORY.ROOM_STATUS_LEVEL_COMPLETED]: orgRoom.getRoomLevelCompleted(),
       [MEMORY.ROOM_STATUS_TERMINAL]: orgRoom.hasTerminal(),
       [MEMORY.ROOM_STATUS_ENERGY]: resources[RESOURCE_ENERGY] || 0,
-      [MEMORY.ROOM_STATUS_ALERT_LEVEL]: orgRoom.getAlertLevel(),
+      [MEMORY.ROOM_STATUS_ALERT_LEVEL]: baseConfig.alertLevel,
     };
 
     trace.log('producing room status', {status});
@@ -297,7 +298,7 @@ export default class RoomRunnable {
       key: `room_${orgRoom.id}`,
       room: orgRoom.id,
       order: 1,
-      text: `Room: ${orgRoom.id} - status: ${orgRoom.getAlertLevel()}, level: ${orgRoom.getRoomLevel()}`,
+      text: `Room: ${orgRoom.id} - status: ${baseConfig.alertLevel}, level: ${orgRoom.getRoomLevel()}`,
       time: Game.time,
     };
     const event = new Event(orgRoom.id, Game.time, HudEventSet, line);

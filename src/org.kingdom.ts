@@ -1,20 +1,20 @@
+import {BaseConfig, ShardConfig} from './config';
+import * as MEMORY from './constants.memory';
+import {CostMatrixCache} from './lib.costmatrix_cache';
+import {EventBroker} from './lib.event_broker';
+import {getPath} from './lib.pathing';
+import {PathCache} from './lib.path_cache';
+import {Request, RequestDetails, TopicKey, Topics} from './lib.topics';
+import {Tracer} from './lib.tracing';
 import {OrgBase} from './org.base';
 import {Colony} from './org.colony';
 import ResourceGovernor from './org.resource_governor';
-import {Scribe} from './runnable.scribe';
-import {RequestDetails, Topics} from './lib.topics';
-import {PathCache} from './lib.path_cache';
-import {thread, ThreadFunc} from './os.thread';
-import * as MEMORY from './constants.memory';
-import {BaseConfig, ShardConfig} from './config';
-import {Scheduler} from './os.scheduler';
-import {Tracer} from './lib.tracing';
 import OrgRoom from './org.room';
-import WarManager from './runnable.manager.war';
-import {CostMatrixCache} from './lib.costmatrix_cache';
-import {getPath} from './lib.pathing';
-import {EventBroker} from './lib.event_broker';
+import {Scheduler} from './os.scheduler';
+import {thread, ThreadFunc} from './os.thread';
 import {CentralPlanning} from './runnable.central_planning';
+import WarManager from './runnable.manager.war';
+import {Scribe} from './runnable.scribe';
 
 const UPDATE_ORG_TTL = 1;
 
@@ -33,6 +33,7 @@ export class Kingdom extends OrgBase {
   creeps: Creep[];
   creepsByRoom: Record<string, Creep[]>;
   creepsByColony: Record<string, Creep[]>;
+  creepCountsByBaseAndRole: Record<string, Record<string, Creep[]>>;
 
   resourceGovernor: ResourceGovernor;
   scribe: Scribe;
@@ -69,6 +70,7 @@ export class Kingdom extends OrgBase {
     this.creeps = [];
     this.creepsByRoom = {};
     this.creepsByColony = {};
+    this.creepCountsByBaseAndRole = {};
 
     this.threadUpdateOrg = thread('update_org_thread', UPDATE_ORG_TTL)(this.updateOrg.bind(this));
 
@@ -85,6 +87,7 @@ export class Kingdom extends OrgBase {
 
     setupTrace.end();
   }
+
   update(trace: Tracer) {
     const updateTrace = trace.begin('update');
 
@@ -111,10 +114,14 @@ export class Kingdom extends OrgBase {
     this.resourceGovernor.update(resourceGovTrace);
     resourceGovTrace.end();
 
+    this.updateCreepsByBaseAndRole(updateTrace);
+
+    // TODO do I still need this? May 2022
     // this.threadStoreSavePathCacheToMemory(updateTrace);
 
     updateTrace.end();
   }
+
   process(trace: Tracer) {
     const processTrace = trace.begin('process');
 
@@ -298,8 +305,15 @@ export class Kingdom extends OrgBase {
     stats.credits = Game.market.credits;
   }
 
-  sendRequest(topic: string, priority: number, details: RequestDetails, ttl: number) {
+  /**
+   * @DEPRECATED Use sendRequestV2
+   */
+  sendRequest(topic: TopicKey, priority: number, details: RequestDetails, ttl: number) {
     this.topics.addRequest(topic, priority, details, ttl);
+  }
+
+  sendRequestV2(topic: TopicKey, request: Request) {
+    this.topics.addRequestV2(topic, request);
   }
 
   getNextRequest(topic: string): any {
@@ -389,5 +403,34 @@ export class Kingdom extends OrgBase {
     extraColonyIds.forEach((id) => {
       delete this.colonies[id];
     });
+  }
+
+  updateCreepsByBaseAndRole(trace) {
+    this.creepCountsByBaseAndRole = _.reduce(Game.creeps, (bases, creep) => {
+      const base = creep.memory[MEMORY.MEMORY_BASE]
+      if (!base) {
+        return bases;
+      }
+
+      if (!bases[base]) {
+        bases[base] = {};
+      }
+
+      const role = creep.memory[MEMORY.MEMORY_ROLE];
+      if (!role) {
+        return bases;
+      }
+
+      if (!bases[base][role]) {
+        bases[base][role] = [];
+      }
+
+      bases[base][role].push(creep);
+      return bases;
+    }, {} as Record<string, Record<string, Creep[]>>)
+  }
+
+  getCreepsByBaseAndRole(base: string, role: string): Creep[] {
+    return _.get(this.creepCountsByBaseAndRole, [base, role], []);
   }
 }

@@ -14,10 +14,9 @@ import {RunnableResult} from "./os.runnable";
 import {Priorities, Scheduler} from "./os.scheduler";
 import {thread, ThreadFunc} from './os.thread';
 import {MEMORY_HARASS_BASE, ROLE_HARASSER} from "./role.harasser";
+import {createSpawnRequest, getBaseSpawnTopic, getShardSpawnTopic, requestSpawn} from './runnable.base_spawning';
 import {RoomEntry} from './runnable.scribe';
 import WarPartyRunnable from './runnable.warparty';
-import {getBaseSpawnTopic} from "./topics.base";
-import {getKingdomSpawnTopic} from "./topics.kingdom";
 
 const WAR_PARTY_RUN_TTL = 100;
 const COLONY_ATTACK_RANGE = 3;
@@ -310,16 +309,17 @@ export default class WarManager {
     }).length;
 
     if (numReservers < 1) {
-      const details = {
-        role: CREEPS.WORKER_RESERVER,
-        memory: {
-          [MEMORY.MEMORY_ASSIGN_ROOM]: target,
-        },
-      }
 
-      trace.notice("requesting reserver", {details});
-      kingdom.sendRequest(getKingdomSpawnTopic(), PRIORITIES.PRIORITY_RESERVER,
-        details, WAR_PARTY_RUN_TTL);
+      const priority = PRIORITIES.PRIORITY_RESERVER;
+      const ttl = WAR_PARTY_RUN_TTL;
+      const role = CREEPS.WORKER_RESERVER;
+      const memory = {
+        [MEMORY.MEMORY_ASSIGN_ROOM]: target,
+      };
+
+      const request = createSpawnRequest(priority, ttl, role, memory, 0);
+      trace.notice("requesting reserver", {request});
+      requestSpawn(kingdom, getShardSpawnTopic(), request);
     } else {
       trace.info("reserver already exists", {numReservers});
     }
@@ -352,17 +352,17 @@ export default class WarManager {
     */
 
     // request more
-    const details = {
-      role: ROLE_HARASSER,
-      memory: {
-        [MEMORY.MEMORY_BASE]: baseConfig.id,
-        [MEMORY_HARASS_BASE]: targetRoom.id,
-      }
-    }
+    const priorities = PRIORITIES.PRIORITY_HARASSER;
+    const ttl = WAR_PARTY_RUN_TTL;
+    const role = ROLE_HARASSER;
+    const memory = {
+      [MEMORY.MEMORY_BASE]: baseConfig.id,
+      [MEMORY_HARASS_BASE]: targetRoom.id,
+    };
 
-    trace.info("requesting harasser", {details});
-    kingdom.sendRequest(getBaseSpawnTopic(baseConfig.id), PRIORITIES.PRIORITY_HARASSER,
-      details, WAR_PARTY_RUN_TTL);
+    const request = createSpawnRequest(priorities, ttl, role, memory, 0);
+    trace.info("requesting harasser", {request});
+    requestSpawn(kingdom, getBaseSpawnTopic(baseConfig.id), request);
   }
 
   sendWarParty(kingdom: Kingdom, baseConfig: BaseConfig, targetRoom: RoomEntry, parts: BodyPartConstant[],

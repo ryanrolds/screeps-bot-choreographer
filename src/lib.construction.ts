@@ -41,6 +41,46 @@ export const getPrioritizedSites = function (room: Room): ConstructionSite[] {
   return sites;
 }
 
+
+export type PossibleSite = {
+  x: number;
+  y: number;
+  structureType: BuildableStructureConstant;
+}
+
+export const prioritizeBySitesType = (sites: PossibleSite[]): PossibleSite[] => {
+  return _.sortBy(sites, (site) => {
+    switch (site.structureType) {
+      case STRUCTURE_SPAWN:
+        return 0;
+      case STRUCTURE_TOWER:
+        return 1;
+      case STRUCTURE_RAMPART:
+        return 2;
+      case STRUCTURE_WALL:
+        return 3;
+      case STRUCTURE_STORAGE:
+        return 4;
+      case STRUCTURE_LINK:
+        return 5;
+      case STRUCTURE_EXTENSION:
+        return 6;
+      case STRUCTURE_TERMINAL:
+        return 7;
+      case STRUCTURE_EXTRACTOR:
+        return 8;
+      case STRUCTURE_LAB:
+        return 9;
+      case STRUCTURE_CONTAINER:
+        return 10;
+      case STRUCTURE_ROAD:
+        return 20;
+      default:
+        return 15;
+    }
+  });
+}
+
 export const getInfrastructureSites = function (room: Room): ConstructionSite[] {
   let sites = room.find(FIND_MY_CONSTRUCTION_SITES).filter((site) => {
     return site.structureType === STRUCTURE_SPAWN || site.structureType === STRUCTURE_TOWER ||

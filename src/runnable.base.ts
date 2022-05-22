@@ -1,5 +1,5 @@
 import {creepIsFresh} from './behavior.commute';
-import {BaseConfig} from './config';
+import {AlertLevel, BaseConfig} from './config';
 import * as CREEPS from './constants.creeps';
 import * as MEMORY from './constants.memory';
 import * as PRIORITIES from './constants.priorities';
@@ -9,11 +9,12 @@ import {DEFENSE_STATUS} from './defense';
 import {Event} from './lib.event_broker';
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
-import OrgRoom, {RoomAlertLevel} from "./org.room";
+import OrgRoom from "./org.room";
 import {Process, sleeping, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 import {Priorities, Scheduler} from "./os.scheduler";
 import {thread, ThreadFunc} from './os.thread';
+import {scoreAttacking} from './role.harasser';
 import BaseConstructionRunnable from "./runnable.base_construction";
 import ControllerRunnable from './runnable.base_controller';
 import {LabsManager} from "./runnable.base_labs";
@@ -22,13 +23,12 @@ import LogisticsRunnable from './runnable.base_logistics';
 import NukerRunnable from "./runnable.base_nuker";
 import ObserverRunnable from './runnable.base_observer';
 import RoomRunnable from './runnable.base_room';
-import SpawnManager from "./runnable.base_spawning";
+import SpawnManager, {createSpawnRequest, getBaseSpawnTopic, getShardSpawnTopic, requestSpawn} from "./runnable.base_spawning";
 import TerminalRunnable from "./runnable.base_terminal";
 import TowerRunnable from "./runnable.base_tower";
 import {getDashboardStream, getLinesStream, HudEventSet, HudIndicator, HudIndicatorStatus, HudLine} from './runnable.debug_hud';
-import {scoreHostile} from './runnable.manager.defense';
-import {getBaseDistributorTopic} from './topics.base';
-import {getKingdomSpawnTopic} from './topics.kingdom';
+import {RoomEntry} from './runnable.scribe';
+import {getBaseDistributorTopic} from './topics';
 
 const MIN_ENERGY = 100000;
 const MIN_TICKS_TO_DOWNGRADE = 150000;
@@ -52,7 +52,11 @@ const HAUL_EXTENSION_TTL = 10;
 const RAMPART_ACCESS_TTL = 10;
 const UPDATE_PROCESSES_TTL = 20;
 const PRODUCE_STATUS_TTL = 30;
-const ABANDON_BASE_TTL = 10;
+const ABANDON_BASE_TTL = 50;
+
+const MIN_HOSTILE_ATTACK_SCORE_TO_ABANDON = 3000;
+const HOSTILE_DAMAGE_THRESHOLD = 0;
+const HOSTILE_HEALING_THRESHOLD = 600;
 
 enum DEFENSE_POSTURE {
   OPEN = 'open',
@@ -86,6 +90,7 @@ export default class BaseRunnable {
   threadRequestEnergy: ThreadFunc;
   threadProduceStatus: ThreadFunc;
   threadAbandonBase: ThreadFunc;
+  threadUpdateAlertLevel: ThreadFunc;
 
   constructor(id: string, scheduler: Scheduler) {
     this.id = id;
@@ -107,6 +112,7 @@ export default class BaseRunnable {
     this.threadRequestEnergy = thread('request_energy_thread', ENERGY_REQUEST_TTL)(this.requestEnergy.bind(this));
     this.threadProduceStatus = thread('produce_status_thread', PRODUCE_STATUS_TTL)(this.produceStatus.bind(this));
     this.threadAbandonBase = thread('abandon_base_check', ABANDON_BASE_TTL)(this.abandonBase.bind(this));
+    this.threadUpdateAlertLevel = thread('update_alert_level_thread', UPDATE_PROCESSES_TTL)(this.updateAlertLevel.bind(this));
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
@@ -153,13 +159,19 @@ export default class BaseRunnable {
     this.threadRequestExtensionFilling(trace, kingdom, orgRoom, room);
 
     // Creeps
-    this.threadRequestBuilder(trace, orgRoom, room);
-    this.threadRequestRepairer(trace, orgRoom, room);
-    this.threadRequestUpgrader(trace, orgRoom, room);
-    this.threadRequestDistributor(trace, kingdom, orgRoom, room);
+    if (baseConfig.alertLevel === AlertLevel.GREEN) {
+      this.threadRequestBuilder(trace, kingdom, baseConfig, orgRoom, room);
+      this.threadRequestRepairer(trace, kingdom, baseConfig, orgRoom, room);
+    }
+
+    this.threadRequestUpgrader(trace, kingdom, baseConfig, orgRoom, room);
+    this.threadRequestDistributor(trace, kingdom, baseConfig, orgRoom, room);
 
     // Inform other processes of room status
     this.threadProduceStatus(trace, kingdom, orgRoom, baseConfig);
+
+    // Alert level
+    this.threadUpdateAlertLevel(trace, baseConfig, kingdom);
 
     const roomVisual = new RoomVisual(this.id);
     roomVisual.text("O", baseConfig.origin.x, baseConfig.origin.y, {color: '#FFFFFF'});
@@ -180,17 +192,17 @@ export default class BaseRunnable {
     // TODO attempt to resist, by sending groups of defenders from nearby bases
 
     const hostileCreeps = room.find(FIND_HOSTILE_CREEPS);
-    const hostileScore = hostileCreeps.reduce((acc, hostile) => {
-      return acc + scoreHostile(hostile);
+    const hostileAttackScore = hostileCreeps.reduce((acc, hostile) => {
+      return acc + scoreAttacking(hostile);
     }, 0);
 
-    if (hostileScore < 100) {
+    if (hostileAttackScore < MIN_HOSTILE_ATTACK_SCORE_TO_ABANDON) {
       trace.end();
       return;
     }
 
     trace.notice('hostile creeps detected', {
-      hostileScore: hostileScore,
+      hostileScore: hostileAttackScore,
     });
 
     const spawns = room.find(FIND_MY_SPAWNS);
@@ -200,7 +212,7 @@ export default class BaseRunnable {
 
     const towers = room.find(FIND_MY_STRUCTURES, {
       filter: (structure) => {
-        return structure.structureType === STRUCTURE_TOWER;
+        return structure.structureType === STRUCTURE_TOWER && structure.isActive();
       },
     });
 
@@ -208,7 +220,11 @@ export default class BaseRunnable {
       return;
     }
 
-    trace.notice('abandoning base', {
+    if (room.controller?.level > 4) {
+      return;
+    }
+
+    trace.warn('abandoning base', {
       id: this.id,
     });
 
@@ -244,7 +260,7 @@ export default class BaseRunnable {
 
     trace.notice('requesting claimer', {id: this.id, detail});
 
-    kingdom.sendRequest(getKingdomSpawnTopic(), PRIORITIES.PRIORITY_RESERVER, detail, REQUEST_CLAIMER_TTL);
+    kingdom.sendRequest(getShardSpawnTopic(), PRIORITIES.PRIORITY_RESERVER, detail, REQUEST_CLAIMER_TTL);
   }
 
   handleProcessSpawning(trace: Tracer, baseConfig: BaseConfig, orgRoom: OrgRoom, room: Room) {
@@ -392,7 +408,7 @@ export default class BaseRunnable {
     this.missingProcesses = missingProcesses;
   }
 
-  requestRepairer(trace: Tracer, orgRoom: OrgRoom, room: Room) {
+  requestRepairer(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig, orgRoom: OrgRoom, room: Room) {
     if (!orgRoom.isPrimary) {
       trace.log('not primary room, skipping');
       return;
@@ -418,6 +434,7 @@ export default class BaseRunnable {
       hitsPercentage = hits / maxHits;
     }
 
+    //
     const numRepairers = _.filter(orgRoom.getCreeps(), (creep) => {
       return creep.memory[MEMORY.MEMORY_ROLE] === CREEPS.WORKER_REPAIRER && creepIsFresh(creep);
     }).length;
@@ -450,15 +467,18 @@ export default class BaseRunnable {
 
     trace.log('request repairers', {id: this.id, desiredRepairers, numRepairers});
 
-    orgRoom.requestSpawn(repairerPriority, {
-      role: CREEPS.WORKER_REPAIRER,
-      memory: {
-        [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
-      },
-    }, REQUEST_REPAIRER_TTL, trace);
+    // @TODO create role base creation methods
+    const memory = {
+      [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
+    };
+
+    const request = createSpawnRequest(repairerPriority, REQUEST_REPAIRER_TTL, CREEPS.WORKER_REPAIRER,
+      memory, 0)
+    requestSpawn(kingdom, getBaseSpawnTopic(baseConfig.id), request)
+    // @CONFIRM that repairers are spawning
   }
 
-  requestBuilder(trace: Tracer, orgRoom: OrgRoom, room: Room) {
+  requestBuilder(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig, orgRoom: OrgRoom, room: Room) {
     if (!Object.values(Game.spawns).length) {
       trace.log('no spawns, dont spawn builders');
       return;
@@ -492,38 +512,54 @@ export default class BaseRunnable {
       return;
     }
 
-    orgRoom.requestSpawn(PRIORITIES.PRIORITY_BUILDER - (builders.length * 2), {
-      role: CREEPS.WORKER_BUILDER,
-      memory: {
-        [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
-        [MEMORY.MEMORY_ASSIGN_SHARD]: Game.shard.name,
-        [MEMORY.MEMORY_BASE]: (orgRoom as any).getColony().id,
-      },
-    }, REQUEST_BUILDER_TTL, trace);
+    const priority = PRIORITIES.PRIORITY_BUILDER - (builders.length * 2);
+    const ttl = REQUEST_BUILDER_TTL;
+    const memory = {
+      [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
+      [MEMORY.MEMORY_ASSIGN_SHARD]: Game.shard.name,
+      [MEMORY.MEMORY_BASE]: (orgRoom as any).getColony().id,
+    };
+    const request = createSpawnRequest(priority, ttl, CREEPS.WORKER_BUILDER, memory, 0);
+    requestSpawn(kingdom, getBaseSpawnTopic(baseConfig.id), request);
+    // @CONFIRM builders are being spawned
   }
 
-  requestDistributor(trace: Tracer, kingdom: Kingdom, orgRoom: OrgRoom, room: Room) {
+  requestDistributor(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig, orgRoom: OrgRoom,
+    room: Room) {
     const numDistributors = _.filter(orgRoom.getCreeps(), (creep) => {
       return creep.memory[MEMORY.MEMORY_ROLE] === CREEPS.WORKER_DISTRIBUTOR &&
         creep.memory[MEMORY.MEMORY_ASSIGN_ROOM] === this.id && creepIsFresh(creep);
     }).length;
 
+
+    // If low on bucket base not under threat
+    if (Game.cpu.bucket < 1000 && numDistributors > 0 && baseConfig.alertLevel === AlertLevel.GREEN) {
+      trace.log('low CPU, limit distributors');
+      return;
+    }
+
+    let distributorRequests: number[] = [];
+
     let desiredDistributors = MIN_DISTRIBUTORS;
     if (room.controller.level < 3) {
-      desiredDistributors = 1;
+      distributorRequests.push(1);
     }
 
     const fullness = room.energyAvailable / room.energyCapacityAvailable;
     if (room.controller.level >= 3 && fullness < 0.5) {
-      desiredDistributors = 3;
+      distributorRequests.push(3);
     }
 
     const numCoreHaulTasks = kingdom.getTopicLength(getBaseDistributorTopic(this.id));
     if (numCoreHaulTasks > 30) {
-      desiredDistributors = 2;
+      distributorRequests.push(2);
     }
     if (numCoreHaulTasks > 50) {
-      desiredDistributors = 3;
+      distributorRequests.push(3);
+    }
+
+    if (baseConfig.alertLevel !== AlertLevel.GREEN) {
+      distributorRequests.push(3);
     }
 
     if (orgRoom.numHostiles) {
@@ -534,15 +570,10 @@ export default class BaseRunnable {
       }).length;
 
       trace.log('hostiles in room and we need more distributors', {numTowers, desiredDistributors});
-      desiredDistributors = Math.ceil(numTowers / 2) + desiredDistributors;
+      distributorRequests.push((numTowers / 2) + desiredDistributors);
     }
 
-    if (Game.cpu.bucket < 1000) {
-      trace.log('low CPU, limit distributors');
-      desiredDistributors = 1;
-    }
-
-    if (!orgRoom.hasStorage || numDistributors >= desiredDistributors) {
+    if (!orgRoom.hasStorage || numDistributors >= _.max(distributorRequests)) {
       trace.log('do not request distributors', {
         hasStorage: orgRoom.hasStorage,
         numDistributors,
@@ -560,28 +591,25 @@ export default class BaseRunnable {
       distributorPriority = PRIORITIES.DISTRIBUTOR_NO_RESERVE;
     }
 
-    //if (orgRoom.getAmountInReserve(RESOURCE_ENERGY) > 25000) {
-    //  distributorPriority += 3;
-    //}
-
     if (numDistributors === 0) {
       distributorPriority += 10;
     }
 
-    const request = {
-      role: CREEPS.WORKER_DISTRIBUTOR,
-      memory: {
-        [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
-        [MEMORY.MEMORY_BASE]: (orgRoom as any).getColony().id,
-      },
+    const priority = distributorPriority;
+    const ttl = REQUEST_DISTRIBUTOR_TTL;
+    const role = CREEPS.WORKER_DISTRIBUTOR;
+    const memory = {
+      [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
+      [MEMORY.MEMORY_BASE]: baseConfig.id,
     };
 
-    trace.log('request distributor', {desiredDistributors, distributorPriority, fullness, request});
-
-    orgRoom.requestSpawn(distributorPriority, request, REQUEST_DISTRIBUTOR_TTL, trace);
+    const request = createSpawnRequest(priority, ttl, role, memory, 0);
+    trace.log('request distributor', {desiredDistributors, fullness, request});
+    requestSpawn(kingdom, getBaseSpawnTopic(baseConfig.id), request);
+    // @CHECK that distributors are being spawned
   }
 
-  requestUpgrader(trace: Tracer, orgRoom: OrgRoom, room: Room) {
+  requestUpgrader(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig, orgRoom: OrgRoom, room: Room) {
     if (!orgRoom.isPrimary) {
       trace.error('not primary room', {id: this.id, orgRoomid: orgRoom.id});
       return;
@@ -622,7 +650,7 @@ export default class BaseRunnable {
         parts, desiredUpgraders, ticksToDowngrade: room.controller.ticksToDowngrade,
         reserveEnergy, reserveBuffer
       });
-    } else if (orgRoom.hasStorage) {
+    } else if (orgRoom.hasStorage) { // @ORG-REFACTOR replace has storage with base phase
       const roomCapacity = room.energyCapacityAvailable;
       maxParts = Math.floor(roomCapacity / 200);
       if (maxParts > 15) {
@@ -647,7 +675,7 @@ export default class BaseRunnable {
       desiredUpgraders = MAX_UPGRADERS;
     }
 
-    trace.log('request upgrader', {
+    trace.log('request upgraders', {
       desiredUpgraders,
       numUpgraders,
       parts,
@@ -657,14 +685,16 @@ export default class BaseRunnable {
     for (let i = 0; i < desiredUpgraders - numUpgraders; i++) {
       // Reduce priority by number of existing and requested upgraders
       const upgraderPriority = PRIORITIES.PRIORITY_UPGRADER - ((numUpgraders + i) * 2);
-      orgRoom.requestSpawn(upgraderPriority, {
-        role: CREEPS.WORKER_UPGRADER,
-        energyLimit: energyLimit,
-        memory: {
-          [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
-          [MEMORY.MEMORY_BASE]: (orgRoom as any).getColony().id,
-        },
-      }, REQUEST_UPGRADER_TTL, trace);
+
+      const memory = {
+        [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
+        [MEMORY.MEMORY_BASE]: baseConfig.id,
+      };
+
+      const request = createSpawnRequest(upgraderPriority, REQUEST_UPGRADER_TTL,
+        CREEPS.WORKER_UPGRADER, memory, energyLimit);
+      requestSpawn(kingdom, getBaseSpawnTopic(baseConfig.id), request);
+      // @CONFIRM that upgraders are being created
     }
   }
 
@@ -849,7 +879,7 @@ export default class BaseRunnable {
         [MEMORY.ROOM_STATUS_LEVEL_COMPLETED]: orgRoom.getRoomLevelCompleted(),
         [MEMORY.ROOM_STATUS_TERMINAL]: orgRoom.hasTerminal(),
         [MEMORY.ROOM_STATUS_ENERGY]: resources[RESOURCE_ENERGY] || 0,
-        [MEMORY.ROOM_STATUS_ALERT_LEVEL]: orgRoom.getAlertLevel(),
+        [MEMORY.ROOM_STATUS_ALERT_LEVEL]: baseConfig.alertLevel,
       },
     }
 
@@ -861,8 +891,8 @@ export default class BaseRunnable {
       key: `base_${orgRoom.id}`,
       room: orgRoom.id,
       order: 0,
-      text: `Base: ${orgRoom.id} - status: ${orgRoom.getAlertLevel()}, level: ${orgRoom.getRoomLevel()}, ` +
-        `Auto: ${baseConfig.automated},  Rooms: ${baseConfig.rooms.join(',')}  `,
+      text: `Base: ${orgRoom.id} - status: ${baseConfig.alertLevel}, level: ${orgRoom.getRoomLevel()}, ` +
+        `Rooms: ${baseConfig.rooms.join(',')}  `,
       time: Game.time,
     };
     const event = new Event(orgRoom.id, Game.time, HudEventSet, line);
@@ -893,9 +923,9 @@ export default class BaseRunnable {
 
       // Alert indicator
       let alertLevelStatus = HudIndicatorStatus.Green;
-      if (orgRoom.getAlertLevel() === RoomAlertLevel.RED) {
+      if (baseConfig.alertLevel === AlertLevel.RED) {
         alertLevelStatus = HudIndicatorStatus.Red;
-      } else if (orgRoom.getAlertLevel() === RoomAlertLevel.YELLOW) {
+      } else if (baseConfig.alertLevel === AlertLevel.YELLOW) {
         alertLevelStatus = HudIndicatorStatus.Yellow;
       }
       const alertLevelIndicator: HudIndicator = {
@@ -919,4 +949,84 @@ export default class BaseRunnable {
     };
     indicatorStream.publish(new Event(baseConfig.id, Game.time, HudEventSet, keyProcessesIndicator));
   }
+
+  updateAlertLevel(trace: Tracer, baseConfig: BaseConfig, kingdom: Kingdom) {
+    // check if strong enemies are present in base
+    const roomEntry = kingdom.getScribe().getRoomById(baseConfig.primary);
+    if (!roomEntry) {
+      trace.warn('room not found, assuming hostile presence', {room: baseConfig.primary});
+      baseConfig.alertLevel = AlertLevel.YELLOW;
+      return;
+    }
+
+    if (beingSieged(roomEntry)) {
+      trace.warn('room being sieged', {
+        room: baseConfig.primary,
+        hostileDamage: roomEntry.hostilesDmg,
+        hostileHealing: roomEntry.hostilesHealing,
+      });
+      baseConfig.alertLevel = AlertLevel.RED;
+      return;
+    }
+
+    // check if strong enemies are present in rooms
+    const rooms = baseConfig.rooms;
+    let hostileRoom = rooms.find((roomName) => {
+      const roomEntry = kingdom.getScribe().getRoomById(roomName);
+      if (!roomEntry) {
+        trace.info('room not found', {room: roomName});
+        return false;
+      }
+
+      if (beingSieged(roomEntry)) {
+        return true;
+      }
+
+      return false;
+    });
+
+    if (hostileRoom) {
+      trace.warn('hostile presence detected', {
+        room: hostileRoom,
+      });
+      baseConfig.alertLevel = AlertLevel.YELLOW;
+      return;
+    }
+
+    // check if neighbor is under red alert
+    const neighbors = baseConfig.neighbors;
+    const redNeighbor = neighbors.find((id) => {
+      const neighborBaseConfig = kingdom.getPlanner().getBaseConfigById(id);
+      if (!neighborBaseConfig) {
+        trace.warn('neighbor base not found, should not happen', {id});
+        return false;
+      }
+
+      if (neighborBaseConfig.alertLevel === AlertLevel.RED) {
+        return true;
+      }
+
+      return false;
+    });
+
+    if (redNeighbor) {
+      trace.warn('red neighbor detected', {
+        redNeighbor,
+      });
+      baseConfig.alertLevel = AlertLevel.YELLOW;
+      return;
+    }
+
+    trace.notice('no significant hostile presence', {level: baseConfig.alertLevel});
+    baseConfig.alertLevel = AlertLevel.GREEN;
+  }
+}
+
+function beingSieged(roomEntry: RoomEntry) {
+  if (roomEntry.hostilesDmg > HOSTILE_DAMAGE_THRESHOLD ||
+    roomEntry.hostilesHealing > HOSTILE_HEALING_THRESHOLD) {
+    return true;
+  }
+
+  return false;
 }

@@ -1,4 +1,3 @@
-import {trace} from "console";
 import {Tracer} from "./lib.tracing";
 
 const MEMORY_OBJECT_TTL = 5000;

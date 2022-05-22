@@ -9,7 +9,7 @@ import {Colony} from './org.colony';
 import {Kingdom} from './org.kingdom';
 import {thread, ThreadFunc} from './os.thread';
 import {BoosterDetails, EffectSet, LabsByResource, TOPIC_ROOM_BOOSTS} from './runnable.base_booster';
-import {getBaseSpawnTopic} from './topics.base';
+import {createSpawnRequest, getBaseSpawnTopic, requestSpawn} from './runnable.base_spawning';
 
 export const TOPIC_ROOM_KEYVALUE = 'room_keyvalue';
 const MEMORY_HOSTILE_TIME = 'hostile_time';
@@ -42,12 +42,6 @@ const REQUEST_DEFENDERS_DELAY = 100;
 const HOSTILE_PRESENCE_TTL = 200;
 
 const RESERVE_RESOURCES_TTL = 5;
-
-export enum RoomAlertLevel {
-  GREEN = "green",
-  YELLOW = "yellow",
-  RED = "red",
-};
 
 export type ResourceCounts = Partial<Record<ResourceConstant, number>>;
 
@@ -291,7 +285,7 @@ export default class OrgRoom extends OrgBase {
       trace.info('request defenders if needed', {neededDefenders});
 
       for (let i = 0; i < neededDefenders; i++) {
-        this.requestDefender(kingdom, base, this.lastHostilePosition, true, trace);
+        this.requestDefender(kingdom, base, this.lastHostilePosition, trace);
       }
     });
 
@@ -625,18 +619,22 @@ export default class OrgRoom extends OrgBase {
     stats.colonies[this.getColony().id].rooms[this.id] = roomStats;
   }
 
-  requestDefender(kingdom: Kingdom, base: BaseConfig, position, spawn, trace) {
-    trace.info('requesting defender', {position, spawn});
+  // TODO move this to base defense manager
+  requestDefender(kingdom: Kingdom, baseConfig: BaseConfig, position, trace) {
+    trace.info('requesting defender', {position});
 
-    kingdom.sendRequest(getBaseSpawnTopic(base.id), PRIORITIES.PRIORITY_DEFENDER, {
-      role: CREEPS.WORKER_DEFENDER,
-      spawn,
-      memory: {
-        [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
-        [MEMORY.MEMORY_ASSIGN_ROOM_POS]: position,
-        [MEMORY.MEMORY_BASE]: base.id,
-      },
-    }, REQUEST_DEFENDERS_TTL);
+    const priority = PRIORITIES.PRIORITY_DEFENDER;
+    const ttl = REQUEST_DEFENDERS_TTL;
+    const role = CREEPS.WORKER_DEFENDER;
+    const memory = {
+      [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
+      [MEMORY.MEMORY_ASSIGN_ROOM_POS]: position,
+      [MEMORY.MEMORY_BASE]: baseConfig.id,
+    };
+
+    const request = createSpawnRequest(priority, ttl, role, memory, 0);
+    requestSpawn(kingdom, getBaseSpawnTopic(baseConfig.id), request);
+    // @CONFIRM that defenders are spawned
   }
 
   getReserveBuffer() {
@@ -675,20 +673,6 @@ export default class OrgRoom extends OrgBase {
     }
 
     return this.room.controller.progress / this.room.controller.progressTotal;
-  }
-
-  getAlertLevel(): RoomAlertLevel {
-    return RoomAlertLevel.GREEN;
-  }
-
-  requestSpawn(priority, details, ttl, trace: Tracer) {
-    const base = this.getKingdom().getPlanner().getBaseConfigByRoom(this.room.name);
-    if (!base) {
-      trace.error('No base found for room:', this.room.name);
-      return;
-    }
-
-    this.getKingdom().sendRequest(getBaseSpawnTopic(base.id), priority, details, ttl);
   }
 
   updateRoom(trace: Tracer, kingdom: Kingdom) {

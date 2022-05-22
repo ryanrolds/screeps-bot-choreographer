@@ -75,7 +75,7 @@ export default class TowerRunnable {
 
     const towerUsed = tower.store.getUsedCapacity(RESOURCE_ENERGY);
 
-    trace.notice("tower runnable", {
+    trace.info("tower runnable", {
       room: room.name,
       id: this.towerId,
       haulTTL: this.haulTTL,

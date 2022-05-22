@@ -144,9 +144,7 @@ export const haulerCostMatrixMatrix = (kingdom: Kingdom, roomName: string, trace
   // Add roads in base final base layout
   const baseConfig = kingdom.getPlanner().getBaseConfigById(roomName);
   if (baseConfig) {
-    if (baseConfig.automated) {
-      applyBaseRoads(baseConfig, costMatrix, terrain, 1, trace);
-    }
+    applyBaseRoads(baseConfig, costMatrix, terrain, 1, trace);
 
     // Don't path through the parking lot
     applyParkingLotBuffer(baseConfig, costMatrix, terrain, 5, trace);
@@ -198,10 +196,7 @@ export const createSourceRoadMatrix = (kingdom: Kingdom, roomName: string, trace
   // Add roads in base final base layout
   const baseConfig = kingdom.getPlanner().getBaseConfigById(roomName);
   if (baseConfig) {
-    if (baseConfig.automated) {
-      applyBaseRoads(baseConfig, costMatrix, terrain, 1, trace);
-    }
-
+    applyBaseRoads(baseConfig, costMatrix, terrain, 1, trace);
     applyControllerBuffer(costMatrix, terrain, room.controller, 4, trace);
     applyParkingLotBuffer(baseConfig, costMatrix, terrain, 5, trace);
   }

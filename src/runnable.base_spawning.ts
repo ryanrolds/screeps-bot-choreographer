@@ -5,25 +5,21 @@
  *
  * TODO - Move to topic with base id in the name - IN PROGRESS
  */
-import {title} from "process";
-import {getBaseSpawnTopic} from "./topics.base";
 import {BaseConfig} from "./config";
 import * as CREEPS from "./constants.creeps";
 import {DEFINITIONS} from './constants.creeps';
 import * as MEMORY from "./constants.memory";
 import * as TOPICS from "./constants.topics";
 import {createCreep} from "./helpers.creeps";
-import {getKingdomSpawnTopic} from "./topics.kingdom";
 import {Event} from "./lib.event_broker";
-import {Request} from "./lib.topics";
+import {Request, RequestDetails, TopicKey} from "./lib.topics";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
 import {running, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 import {thread, ThreadFunc} from "./os.thread";
-import {getLinesStream, HudLine, HudEventSet, HudIndicatorStatus, HudIndicator, getDashboardStream} from "./runnable.debug_hud";
-import {request} from "http";
+import {getDashboardStream, getLinesStream, HudEventSet, HudIndicator, HudIndicatorStatus, HudLine} from "./runnable.debug_hud";
 
 const SPAWN_TTL = 5;
 const REQUEST_BOOSTS_TTL = 5;
@@ -41,22 +37,42 @@ export const SPAWN_REQUEST_PARTS = "parts";
 type SpawnRequestDetails = {
   role: string;
   memory: any;
-};
+  energyLimit: number;
+}
 
 type SpawnRequest = Request & {
   details: SpawnRequestDetails;
 };
 
-export function createSpawnRequest(role: string, memory: any, priority: number,
-  ttl: number): SpawnRequest {
+type TopicProvider = {
+  sendRequest(topic: TopicKey, priority: number, details: RequestDetails, ttl: number)
+  sendRequestV2(topic: TopicKey, request: Request)
+}
+
+export function createSpawnRequest(priority: number, ttl: number, role: string,
+  memory: any, energyLimit: number): SpawnRequest {
   return {
     priority,
-    details: {
-      role: role,
-      memory: memory,
-    },
     ttl,
+    details: {
+      role,
+      memory,
+      energyLimit,
+    }
   };
+}
+
+export function requestSpawn(topicProvider: TopicProvider, topic: string,
+  request: SpawnRequest): void {
+  topicProvider.sendRequestV2(topic, request);
+}
+
+export function getShardSpawnTopic(): TopicKey {
+  return 'shard_spawn';
+}
+
+export function getBaseSpawnTopic(baseId: string): TopicKey {
+  return `base_${baseId}_spawn`;
 }
 
 export default class SpawnManager {
@@ -65,7 +81,7 @@ export default class SpawnManager {
   spawnIds: Id<StructureSpawn>[];
   checkCount: number = 0;
 
-  threadProduceEvents: ThreadFunc;
+  consumeEventsThread: ThreadFunc;
   threadSpawn: ThreadFunc
 
   constructor(id: string, room: OrgRoom) {
@@ -85,9 +101,9 @@ export default class SpawnManager {
       this.spawning(trace, kingdom, baseConfig);
     });
 
-    this.threadProduceEvents = thread('produce_events_thread',
+    this.consumeEventsThread = thread('produce_events_thread',
       PRODUCE_EVENTS_TTL)((trace, kingdom, baseConfig) => {
-        this.processEvents(trace, kingdom, baseConfig)
+        this.consumeEvents(trace, kingdom, baseConfig)
       });
   }
 
@@ -111,7 +127,7 @@ export default class SpawnManager {
     trace.log('Spawn manager run', {id: this.id, spawnIds: this.spawnIds});
 
     this.threadSpawn(trace, kingdom, baseConfig);
-    this.threadProduceEvents(trace, kingdom, baseConfig);
+    this.consumeEventsThread(trace, kingdom, baseConfig);
 
     trace.end();
     return running();
@@ -125,7 +141,7 @@ export default class SpawnManager {
       let request: SpawnRequest = null;
       while (request = kingdom.getNextRequest(getBaseSpawnTopic(base.id))) {
         trace.notice('sending kingdom spawn request', {request: request});
-        kingdom.sendRequest(getKingdomSpawnTopic(), request.priority, request.details,
+        kingdom.sendRequest(getShardSpawnTopic(), request.priority, request.details,
           request.ttl);
       }
 
@@ -259,7 +275,7 @@ export default class SpawnManager {
 
   getNeighborRequest(kingdom: Kingdom, base: BaseConfig, trace: Tracer) {
     const topic = this.orgRoom.getKingdom().getTopics()
-    const request = topic.getMessageOfMyChoice(getKingdomSpawnTopic(), (messages) => {
+    const request = topic.getMessageOfMyChoice(getShardSpawnTopic(), (messages) => {
       // Reverse message so we get higher priority first
       const selected = _.find(messages.reverse(), (message: any) => {
         // Select message if portal nearby
@@ -326,7 +342,7 @@ export default class SpawnManager {
     return request;
   }
 
-  processEvents(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig) {
+  consumeEvents(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig) {
     const baseTopic = kingdom.getTopics().getTopic(getBaseSpawnTopic(baseConfig.id));
 
     let creeps = [];

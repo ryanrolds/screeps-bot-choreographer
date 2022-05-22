@@ -161,6 +161,13 @@ There are some debugging tools built into the project:
 * Get cached room details from Scribe - `JSON.stringify(AI.getKingdom().getScribe().getRoomById('W8N4'))`
 * Launch Nuke - `AI.kingdom.sendRequest('nuker_targets', 1, {position: '28,35,E19S49'}, 100)`
 
+
+```
+// Example of converting old base to being automated
+AI.getKingdom().getPlanner().baseConfigs['E22S49'].origin = new RoomPosition(42,16,'E22S49')
+AI.getKingdom().getPlanner().baseConfigs['E22S49'].automated = true
+```
+
 There are a couple of helpful global variables:
 
 > Many of these persist between restarts, so make sure to unset them when you're finished with them.

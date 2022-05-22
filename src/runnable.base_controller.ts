@@ -1,7 +1,8 @@
+import {AlertLevel} from "./config";
+import {controllerRoadPolicy} from "./constants.pathing_policies";
 import {Event} from "./lib.event_broker";
 import {ANY, buildingCodes, EMPTY, getConstructionPosition, Layout} from "./lib.layouts";
 import {getPath} from "./lib.pathing";
-import {controllerRoadPolicy} from "./constants.pathing_policies";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
 import {PersistentMemory} from "./os.memory";
@@ -115,13 +116,21 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
       return sleeping(RUN_TTL);
     }
 
+    const baseConfig = kingdom.getPlanner().getBaseConfigByRoom(controller.room.name);
+    if (!baseConfig) {
+      trace.error('missing origin', {id: controller.room.name});
+      return sleeping(RUN_TTL);
+    }
+
     if (!this.nodePosition || !this.nodeDirection) {
       trace.log('node and road position not set, populating');
       this.populateNodePosition(kingdom, controller, trace);
     }
 
-    this.threadBuildStructures(trace, controller.room);
-    this.threadProduceEvents(trace, kingdom, controller);
+    if (baseConfig.alertLevel === AlertLevel.GREEN) {
+      this.threadBuildStructures(trace, controller.room);
+      this.threadProduceEvents(trace, kingdom, controller);
+    }
 
     return sleeping(RUN_TTL);
   }

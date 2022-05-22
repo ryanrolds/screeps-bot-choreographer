@@ -1,24 +1,22 @@
 import {creepIsFresh} from './behavior.commute';
-import {BaseConfig} from './config';
+import {AlertLevel, BaseConfig} from './config';
 import {WORKER_HARVESTER} from "./constants.creeps";
 import * as MEMORY from "./constants.memory";
-import {PRIORITY_HARVESTER, PRIORITY_MINER} from "./constants.priorities";
-import * as TASKS from "./constants.tasks";
-import * as TOPICS from "./constants.topics";
+import {roadPolicy} from "./constants.pathing_policies";
+import {PRIORITY_MINER} from "./constants.priorities";
 import {Event} from "./lib.event_broker";
 import {getPath} from "./lib.pathing";
-import {roadPolicy} from "./constants.pathing_policies";
 import {Tracer} from './lib.tracing';
 import {Colony} from './org.colony';
 import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
 import {PersistentMemory} from "./os.memory";
-import {running, sleeping, terminate} from "./os.process";
+import {sleeping, terminate} from "./os.process";
 import {Runnable, RunnableResult} from "./os.runnable";
 import {thread, ThreadFunc} from "./os.thread";
-import {getLinesStream, HudLine, HudEventSet} from './runnable.debug_hud';
 import {getLogisticsTopic, LogisticsEventData, LogisticsEventType} from "./runnable.base_logistics";
-import {getNearbyPositions} from './lib.position';
+import {createSpawnRequest, getBaseSpawnTopic, requestSpawn} from './runnable.base_spawning';
+import {getLinesStream, HudEventSet, HudLine} from './runnable.debug_hud';
 
 const STRUCTURE_TTL = 50;
 const DROPOFF_TTL = 200;
@@ -26,6 +24,7 @@ const REQUEST_WORKER_TTL = 50;
 const REQUEST_HAULING_TTL = 20;
 const PRODUCE_EVENTS_TTL = 20;
 const BUILD_LINK_TTL = 200;
+const RED_ALERT_TTL = 200;
 
 const CONTAINER_TTL = 250;
 
@@ -84,6 +83,13 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
       return terminate();
     }
 
+    // If red alert, don't do anything
+    if (baseConfig.alertLevel === AlertLevel.RED) {
+      trace.error('red alert', {room: mineral.room.name});
+      trace.end();
+      return sleeping(RED_ALERT_TTL);
+    }
+
     if (!this.creepPosition) {
       this.populatePositions(trace, kingdom, baseConfig, mineral);
     }
@@ -105,7 +111,7 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
 
     this.threadProduceEvents(trace, kingdom, mineral);
     this.threadUpdateDropoff(trace, colony);
-    this.threadRequestHarvesters(trace, kingdom, colony, room, mineral);
+    this.threadRequestHarvesters(trace, kingdom, baseConfig, colony, room, mineral);
     this.threadBuildExtractor(trace, room, mineral);
 
     trace.end();
@@ -188,7 +194,8 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
     this.dropoffId = primaryRoom.getReserveStructureWithRoomForResource(RESOURCE_ENERGY)?.id;
   }
 
-  requestHarvesters(trace: Tracer, kingdom: Kingdom, colony: Colony, room: Room, mineral: Mineral) {
+  requestHarvesters(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig, colony: Colony,
+    room: Room, mineral: Mineral) {
     if (mineral.mineralAmount === 0) {
       trace.log('no minerals to harvest')
       return;
@@ -217,19 +224,17 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
     if (numHarvesters < 1) {
       let positionStr = [this.creepPosition.x, this.creepPosition.y, this.creepPosition.roomName].join(',');
 
-      const details = {
-        role: WORKER_HARVESTER,
-        memory: {
-          [MEMORY.MEMORY_SOURCE]: this.mineralId,
-          [MEMORY.MEMORY_SOURCE_POSITION]: positionStr,
-          [MEMORY.MEMORY_ASSIGN_ROOM]: room.name,
-          [MEMORY.MEMORY_BASE]: this.orgRoom.getColony().id,
-        },
+      const memory = {
+        [MEMORY.MEMORY_SOURCE]: this.mineralId,
+        [MEMORY.MEMORY_SOURCE_POSITION]: positionStr,
+        [MEMORY.MEMORY_ASSIGN_ROOM]: room.name,
+        [MEMORY.MEMORY_BASE]: this.orgRoom.getColony().id,
       }
 
-      trace.log('requesting harvester', {mineralId: this.mineralId, details});
+      trace.log('requesting harvester', {mineralId: this.mineralId, memory});
 
-      colony.getPrimaryRoom().requestSpawn(PRIORITY_MINER, details, REQUEST_WORKER_TTL, trace);
+      const request = createSpawnRequest(PRIORITY_MINER, REQUEST_WORKER_TTL, WORKER_HARVESTER, memory, 0);
+      requestSpawn(kingdom, getBaseSpawnTopic(baseConfig.id), request);
     }
   }
 

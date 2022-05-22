@@ -14,9 +14,8 @@ import {Kingdom} from "./org.kingdom";
 import {running, terminate} from "./os.process";
 import {RunnableResult} from './os.runnable';
 import {thread, ThreadFunc} from './os.thread';
-import {getBaseSpawnTopic} from './topics.base';
+import {createSpawnRequest, getBaseSpawnTopic, requestSpawn} from './runnable.base_spawning';
 import {WarPartyTarget} from './runnable.warparty';
-import {SPAWN_REQUEST_PARTS, SPAWN_REQUEST_ROLE, SPAWN_REQUEST_SPAWN_MIN_ENERGY} from './runnable.base_spawning';
 
 const REQUEST_PARTY_MEMBER_TTL = 25;
 const MAX_PARTY_SIZE = 4;
@@ -572,7 +571,7 @@ export default class PartyRunnable {
     return [].concat(quad, creeps.slice(4));
   }
 
-  requestCreeps(trace: Tracer, kingdom: Kingdom) {
+  requestCreeps(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig) {
     const baseRoomName = this.baseConfig.primary;
     const baseRoom = Game.rooms[baseRoomName];
     if (!baseRoom) {
@@ -628,30 +627,27 @@ export default class PartyRunnable {
 
     const idx = _.max([creeps.length - 1, 0]) % 4;
     const position = this.getCreepPosition(idx, trace);
-    const details = {
-      [SPAWN_REQUEST_ROLE]: this.role,
-      [SPAWN_REQUEST_SPAWN_MIN_ENERGY]: 2000, // TODO add to constructor
-      [SPAWN_REQUEST_PARTS]: this.parts,
-      memory: {
-        [MEMORY.MEMORY_PARTY_ID]: this.id,
-        // Tell creep to move to it's rally point position
-        [MEMORY.MEMORY_POSITION_X]: position.x,
-        [MEMORY.MEMORY_POSITION_Y]: position.y,
-        [MEMORY.MEMORY_POSITION_ROOM]: position.roomName,
-        [MEMORY.MEMORY_ASSIGN_ROOM]: position.roomName,
-        [MEMORY.MEMORY_BASE]: this.baseConfig.id,
-      },
+
+    const priority = this.priority;
+    const ttl = this.requestCreepTTL;
+    const role = this.role;
+    const memory = {
+      [MEMORY.MEMORY_PARTY_ID]: this.id,
+      // Tell creep to move to it's rally point position
+      [MEMORY.MEMORY_POSITION_X]: position.x,
+      [MEMORY.MEMORY_POSITION_Y]: position.y,
+      [MEMORY.MEMORY_POSITION_ROOM]: position.roomName,
+      [MEMORY.MEMORY_ASSIGN_ROOM]: position.roomName,
+      [MEMORY.MEMORY_BASE]: this.baseConfig.id,
     };
 
+    const request = createSpawnRequest(priority, ttl, role, memory, 0);
+
     trace.info('requesting creep', {
-      colonyId: this.baseConfig.id,
-      role: this.role,
-      priority: this.priority,
       deployTicks: this.deployTicks,
-      ttl: this.requestCreepTTL,
-      details,
+      request,
     });
 
-    kingdom.sendRequest(getBaseSpawnTopic(this.baseConfig.id), this.priority, details, this.requestCreepTTL);
+    requestSpawn(kingdom, getBaseSpawnTopic(baseConfig.id), request)
   }
 }

@@ -1,14 +1,13 @@
 import * as WORKERS from './constants.creeps';
 import * as MEMORY from './constants.memory';
 import * as PRIORITIES from './constants.priorities';
-import * as TOPICS from './constants.topics';
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
-import {CreepRequest, ShardMemory} from "./runnable.scribe";
 import {sleeping} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 import {thread, ThreadFunc} from "./os.thread";
-import {getKingdomSpawnTopic} from './topics.kingdom';
+import {createSpawnRequest, getShardSpawnTopic, requestSpawn} from './runnable.base_spawning';
+import {CreepRequest, ShardMemory} from "./runnable.scribe";
 
 const SHARD_MEMORY_TTL = 50;
 
@@ -125,32 +124,34 @@ export default class KingdomGovernor {
   }
 
   handleClaimerRequests(kingdom: Kingdom, requests: Record<string, CreepRequest>, trace: Tracer) {
-    Object.values(requests).forEach((request: CreepRequest) => {
+    Object.values(requests).forEach((creepRequest: CreepRequest) => {
+      const memory = {
+        [MEMORY.MEMORY_ASSIGN_SHARD]: creepRequest.shard,
+        [MEMORY.MEMORY_ASSIGN_ROOM]: creepRequest.room,
+        [MEMORY.MEMORY_BASE]: creepRequest.colony,
+      };
+
       const enroute = this.findCreeps({
-        memory: {
-          [MEMORY.MEMORY_ROLE]: WORKERS.WORKER_RESERVER,
-          [MEMORY.MEMORY_ASSIGN_SHARD]: request.shard,
-          [MEMORY.MEMORY_ASSIGN_ROOM]: request.room,
-          [MEMORY.MEMORY_BASE]: request.colony,
-        }
+        [MEMORY.MEMORY_ROLE]: WORKERS.WORKER_RESERVER,
+        memory,
       });
 
-      trace.log('checking if claimer in-flight', {shardName: request.shard, enroute: enroute.map(creep => creep.id)})
+      trace.log('checking if claimer in-flight', {
+        shardName: creepRequest.shard,
+        enroute: enroute.map(creep => creep.id),
+      });
 
       if (enroute.length) {
         return;
       }
 
-      kingdom.sendRequest(getKingdomSpawnTopic(), PRIORITIES.PRIORITY_RESERVER, {
-        role: WORKERS.WORKER_RESERVER,
-        memory: {
-          [MEMORY.MEMORY_ASSIGN_SHARD]: request.shard,
-          [MEMORY.MEMORY_ASSIGN_ROOM]: request.room,
-          [MEMORY.MEMORY_BASE]: request.colony,
-        },
-      }, SHARD_MEMORY_TTL);
+      const priorities = PRIORITIES.PRIORITY_RESERVER;
+      const ttl = SHARD_MEMORY_TTL;
+      const role = WORKERS.WORKER_RESERVER;
 
+      const request = createSpawnRequest(priorities, ttl, role, memory, 0);
       trace.log('relaying claimer request from remote shard', {request})
+      requestSpawn(kingdom, getShardSpawnTopic(), request);
     });
   }
 
@@ -207,32 +208,31 @@ export default class KingdomGovernor {
   }
 
   handleBuilderRequests(kingdom: Kingdom, requests: Record<string, CreepRequest>, trace: Tracer) {
-    Object.values(requests).forEach((request: CreepRequest) => {
+    Object.values(requests).forEach((creepRequest: CreepRequest) => {
+      const memory = {
+        [MEMORY.MEMORY_ASSIGN_SHARD]: creepRequest.shard,
+        [MEMORY.MEMORY_ASSIGN_ROOM]: creepRequest.room,
+        [MEMORY.MEMORY_BASE]: creepRequest.colony,
+      }
+
       const enroute = this.findCreeps({
-        memory: {
-          [MEMORY.MEMORY_ROLE]: WORKERS.WORKER_BUILDER,
-          [MEMORY.MEMORY_ASSIGN_SHARD]: request.shard,
-          [MEMORY.MEMORY_ASSIGN_ROOM]: request.room,
-          [MEMORY.MEMORY_BASE]: request.colony,
-        }
+        [MEMORY.MEMORY_ROLE]: WORKERS.WORKER_BUILDER,
+        memory,
       });
 
-      trace.log('checking if builder in-flight', {shardName: request.shard, enroute: enroute.map(creep => creep.id)})
+      trace.log('checking if builder in-flight', {shardName: creepRequest.shard, enroute: enroute.map(creep => creep.id)})
 
       if (enroute.length) {
         return;
       }
 
-      kingdom.sendRequest(getKingdomSpawnTopic(), PRIORITIES.PRIORITY_BUILDER, {
-        role: WORKERS.WORKER_BUILDER,
-        memory: {
-          [MEMORY.MEMORY_ASSIGN_SHARD]: request.shard,
-          [MEMORY.MEMORY_ASSIGN_ROOM]: request.room,
-          [MEMORY.MEMORY_BASE]: request.colony,
-        },
-      }, SHARD_MEMORY_TTL);
+      const priority = PRIORITIES.PRIORITY_BUILDER;
+      const ttl = SHARD_MEMORY_TTL;
+      const role = WORKERS.WORKER_BUILDER;
 
-      trace.log('relaying builder request from remote shard', {request})
+      const request = createSpawnRequest(priority, ttl, role, memory, 0);
+      trace.log('relaying builder request from remote shard', {request});
+      requestSpawn(kingdom, getShardSpawnTopic(), request);
     });
   }
 }

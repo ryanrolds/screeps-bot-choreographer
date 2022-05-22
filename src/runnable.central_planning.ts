@@ -1,4 +1,4 @@
-import {BaseConfig, BaseMap, ShardConfig} from "./config";
+import {AlertLevel, BaseConfig, BaseMap, ShardConfig} from "./config";
 import {WORKER_EXPLORER} from "./constants.creeps";
 import {MEMORY_ASSIGN_ROOM, MEMORY_BASE} from "./constants.memory";
 import {EXPLORER} from "./constants.priorities";
@@ -12,7 +12,7 @@ import {RunnableResult} from "./os.runnable";
 import {Priorities, Scheduler} from "./os.scheduler";
 import {thread, ThreadFunc} from "./os.thread";
 import BaseRunnable from "./runnable.base";
-import {getBaseSpawnTopic} from "./topics.base";
+import {createSpawnRequest, getBaseSpawnTopic, requestSpawn} from "./runnable.base_spawning";
 
 const RUN_TTL = 10;
 const BASE_PROCESSES_TTL = 50;
@@ -65,7 +65,8 @@ export class CentralPlanning {
       const parking = new RoomPosition(base.parking.x, base.parking.y, base.parking.roomName);
 
       this.addBase(base.id, base.isPublic, origin, parking,
-        base.automated, base.rooms, base.walls || [], base.passages || [], base.neighbors || [], trace);
+        base.rooms, base.walls || [], base.passages || [], base.neighbors || [],
+        base.alertLevel || AlertLevel.GREEN, trace);
     });
 
     // Check for spawns without bases
@@ -75,10 +76,10 @@ export class CentralPlanning {
       const origin = new RoomPosition(spawn.pos.x, spawn.pos.y + 4, spawn.pos.roomName);
       trace.log('checking spawn', {roomName, origin});
       const parking = new RoomPosition(origin.x + 5, origin.y, origin.roomName);
-      const automated = !shard.startsWith('shard') || shard === 'shardSeason';
       if (!this.baseConfigs[roomName]) {
         trace.warn('found unknown base', {roomName});
-        this.addBase(roomName, false, origin, parking, automated, [roomName], [], [], [], trace);
+        this.addBase(roomName, false, origin, parking, [roomName], [],
+          [], [], AlertLevel.GREEN, trace);
       }
     });
 
@@ -151,10 +152,6 @@ export class CentralPlanning {
     return this.getBaseConfig(baseId);
   }
 
-  setColonyAutomation(colonyId: string, automated: boolean) {
-    this.baseConfigs[colonyId].automated = automated;
-  }
-
   getUsername() {
     if (!this.username) {
       const spawn = _.first(_.values<StructureSpawn>(Game.spawns));
@@ -182,8 +179,8 @@ export class CentralPlanning {
   }
 
   addBase(primaryRoom: string, isPublic: boolean, origin: RoomPosition, parking: RoomPosition,
-    automated: boolean, rooms: string[], walls: {x: number, y: number}[],
-    passages: {x: number, y: number}[], neighbors: string[],
+    rooms: string[], walls: {x: number, y: number}[],
+    passages: {x: number, y: number}[], neighbors: string[], alertLevel: AlertLevel,
     trace: Tracer): BaseConfig {
     if (this.baseConfigs[primaryRoom]) {
       trace.error('colony already exists', {primaryRoom});
@@ -195,12 +192,12 @@ export class CentralPlanning {
       isPublic: isPublic,
       primary: primaryRoom,
       rooms: [],
-      automated: automated,
       origin: origin,
       parking: parking,
       walls: walls,
       passages: passages,
       neighbors: neighbors,
+      alertLevel: alertLevel,
     };
 
     this.roomByBaseId[primaryRoom] = primaryRoom;
@@ -310,11 +307,6 @@ export class CentralPlanning {
   private remoteMining(kingdom: Kingdom, baseConfig: BaseConfig, trace: Tracer) {
     trace.log('remote mining', {baseConfig});
 
-    if (!baseConfig.automated) {
-      trace.log('not automated', {baseConfig});
-      return null;
-    }
-
     const colony = kingdom.getColonyById(baseConfig.id);
     if (!colony) {
       trace.log('no colony', {baseConfig});
@@ -370,15 +362,17 @@ export class CentralPlanning {
 
         unexploredClaimable.forEach((roomName) => {
           // request explorers
-          trace.notice('requesting explorer for adjacent room', roomName);
+          const priorities = EXPLORER;
+          const ttl = REMOTE_MINING_TTL;
+          const role = WORKER_EXPLORER;
+          const memory = {
+            [MEMORY_BASE]: baseConfig.id,
+            [MEMORY_ASSIGN_ROOM]: roomName,
+          };
 
-          kingdom.sendRequest(getBaseSpawnTopic(baseConfig.id), EXPLORER, {
-            role: WORKER_EXPLORER,
-            memory: {
-              [MEMORY_BASE]: baseConfig.id,
-              [MEMORY_ASSIGN_ROOM]: roomName,
-            },
-          }, REMOTE_MINING_TTL);
+          const request = createSpawnRequest(priorities, ttl, role, memory, 0);
+          trace.notice('requesting explorer for adjacent room', {request});
+          requestSpawn(kingdom, getBaseSpawnTopic(baseConfig.id), request);
         });
         return;
       }
@@ -430,7 +424,8 @@ export class CentralPlanning {
       const origin = results.origin;
       const parking = new RoomPosition(origin.x + 5, origin.y + 5, origin.roomName);
       trace.notice('selected room, adding colony', {roomName, distance, origin, parking});
-      const base = this.addBase(roomName, false, origin, parking, true, [roomName], [], [], [], trace);
+      const base = this.addBase(roomName, false, origin, parking, [roomName],
+        [], [], [], AlertLevel.GREEN, trace);
       this.updateNeighbors(kingdom, base, trace);
       return;
     }
@@ -446,7 +441,7 @@ export class CentralPlanning {
       const trace = details.trace;
 
       const needWalls = _.find(this.getBaseConfigs(), (baseConfig) => {
-        return baseConfig.automated && !baseConfig.walls.length;
+        return !baseConfig.walls.length;
       });
       if (needWalls) {
         trace.info('need walls', {baseConfig: needWalls});
