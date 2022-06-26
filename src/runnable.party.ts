@@ -155,7 +155,7 @@ export default class PartyRunnable {
     });
 
     if (!Game.flags['debug']) {
-      this.threadRequestCreeps(trace, kingdom);
+      this.threadRequestCreeps(trace, kingdom, this.baseConfig);
     } else {
       trace.log('in debug mode, not spawning');
     }

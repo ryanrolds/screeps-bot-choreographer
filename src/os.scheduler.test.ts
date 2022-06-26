@@ -4,6 +4,7 @@ import {mockGlobal} from "screeps-test-helper";
 import * as sinon from 'sinon';
 import {ShardConfig} from './config';
 import {EventBroker} from './lib.event_broker';
+import {Topics} from './lib.topics';
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
 import {Process, running} from './os.process';
@@ -16,6 +17,7 @@ import {Scribe} from './runnable.scribe';
 describe('Scheduler', () => {
   let trace = null;
   let broker = null;
+  let topics = null;
   let kingdom = null;
   let sandbox = null;
   let runnable = null;
@@ -50,6 +52,7 @@ describe('Scheduler', () => {
     trace = new Tracer('scheduler_test', {}, 0);
 
     broker = new EventBroker();
+    topics = new Topics();
 
     runnable = {
       run: (trace: Tracer): RunnableResult => {
@@ -83,7 +86,7 @@ describe('Scheduler', () => {
     const scheduler = new Scheduler();
     const scribe = new Scribe();
     const planner = new CentralPlanning(config, scheduler, trace)
-    const kingdom = new Kingdom(config, scheduler, scribe, broker, planner, trace);
+    const kingdom = new Kingdom(config, scheduler, scribe, topics, broker, planner, trace);
 
     scheduler.registerProcess(process);
     scheduler.tick(kingdom, trace);
@@ -101,7 +104,7 @@ describe('Scheduler', () => {
     const scheduler = new Scheduler();
     const scribe = new Scribe();
     const planner = new CentralPlanning(config, scheduler, trace)
-    const kingdom = new Kingdom(config, scheduler, scribe, broker, planner, trace);
+    const kingdom = new Kingdom(config, scheduler, scribe, topics, broker, planner, trace);
 
     scheduler.registerProcess(process);
     scheduler.tick(kingdom, trace);
@@ -116,8 +119,8 @@ describe('Scheduler', () => {
     const config = {} as ShardConfig;
     const scheduler = new Scheduler();
     const scribe = new Scribe();
-    const planner = new CentralPlanning(config, scheduler, trace)
-    const kingdom = new Kingdom(config, scheduler, scribe, broker, planner, trace);
+    const planner = new CentralPlanning(config, scheduler, trace);
+    const kingdom = new Kingdom(config, scheduler, scribe, topics, broker, planner, trace);
 
     scheduler.registerProcess(process);
 
@@ -165,7 +168,7 @@ describe('Scheduler', () => {
     const scheduler = new Scheduler();
     const scribe = new Scribe();
     const planner = new CentralPlanning(config, scheduler, trace)
-    const kingdom = new Kingdom(config, scheduler, scribe, broker, planner, trace);
+    const kingdom = new Kingdom(config, scheduler, scribe, topics, broker, planner, trace);
 
     scheduler.registerProcess(process);
 

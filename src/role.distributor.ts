@@ -1,14 +1,13 @@
-import * as behaviorTree from './lib.behaviortree';
-import {FAILURE, SUCCESS, RUNNING} from './lib.behaviortree';
-import * as behaviorMovement from './behavior.movement';
-import * as behaviorHaul from './behavior.haul';
-import * as behaviorRoom from './behavior.room';
 import {behaviorBoosts} from './behavior.boosts';
-
-import * as MEMORY from './constants.memory';
-import * as TOPICS from './constants.topics';
+import * as behaviorHaul from './behavior.haul';
 import {roadWorker} from './behavior.logistics';
-import {getBaseDistributorTopic} from './topics.base';
+import * as behaviorMovement from './behavior.movement';
+import * as behaviorRoom from './behavior.room';
+import * as MEMORY from './constants.memory';
+import * as behaviorTree from './lib.behaviortree';
+import {FAILURE, RUNNING, SUCCESS} from './lib.behaviortree';
+import {getBaseDistributorTopic} from './topics';
+
 
 const selectNextTaskOrPark = behaviorTree.selectorNode(
   'pick_something',

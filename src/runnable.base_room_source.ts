@@ -16,10 +16,9 @@ import {PersistentMemory} from "./os.memory";
 import {sleeping, terminate} from "./os.process";
 import {Runnable, RunnableResult} from "./os.runnable";
 import {thread, ThreadFunc} from "./os.thread";
-import {getLogisticsTopic, LogisticsEventData, LogisticsEventType} from "./runnable.base_logistics";
+import {getBaseHaulerTopic, getLogisticsTopic, LogisticsEventData, LogisticsEventType} from "./runnable.base_logistics";
 import {createSpawnRequest, getBaseSpawnTopic, requestSpawn} from './runnable.base_spawning';
 import {getLinesStream, HudEventSet, HudLine} from './runnable.debug_hud';
-import {getBaseHaulerTopic} from './topics.base';
 
 const RUN_TTL = 50;
 const STRUCTURE_TTL = 200;

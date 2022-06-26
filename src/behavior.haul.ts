@@ -1,6 +1,6 @@
 import * as behaviorTree from './lib.behaviortree';
-import {FAILURE, SUCCESS, RUNNING} from './lib.behaviortree';
-import {getBaseHaulerTopic} from './topics.base';
+import {FAILURE, RUNNING, SUCCESS} from './lib.behaviortree';
+import {getBaseHaulerTopic} from './runnable.base_logistics';
 
 const MEMORY = require('./constants.memory');
 const TASKS = require('./constants.tasks');

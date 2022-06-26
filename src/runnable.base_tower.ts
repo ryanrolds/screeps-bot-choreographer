@@ -7,7 +7,7 @@ import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
 import {running, sleeping, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
-import {getBaseDistributorTopic} from "./topics.base";
+import {getBaseDistributorTopic} from "./topics";
 
 const REQUEST_ENERGY_TTL = 10;
 const REQUEST_ENERGY_THRESHOLD = 500;

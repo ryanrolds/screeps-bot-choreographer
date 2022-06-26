@@ -1,5 +1,3 @@
-
-import {trace} from 'console';
 import * as CREEPS from './constants.creeps';
 import {DEFINITIONS} from './constants.creeps';
 import {MEMORY_ROLE, MEMORY_START_TICK} from './constants.memory';
@@ -14,6 +12,7 @@ import {roleDefender} from './role.defender';
 import roleDefenderDrone from './role.defender_drone';
 import {roleDistributor} from './role.distributor';
 import roleExplorer from './role.explorer';
+import {roleHarasser, ROLE_HARASSER} from './role.harasser';
 import {roleHarvester} from './role.harvester';
 import {roleHauler} from './role.hauler';
 import {roleMiner} from './role.miner';
@@ -21,7 +20,6 @@ import {roleRepairer} from './role.repairer';
 import {roleReserver} from './role.reserver';
 import {roleUpgrader} from './role.upgrader';
 import {roleWorker} from './role.worker';
-import {roleHarasser, ROLE_HARASSER} from './role.harasser';
 
 export class CreepManager {
   id: string;

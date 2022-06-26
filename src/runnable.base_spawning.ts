@@ -10,7 +10,6 @@ import * as CREEPS from "./constants.creeps";
 import {DEFINITIONS} from './constants.creeps';
 import * as MEMORY from "./constants.memory";
 import * as TOPICS from "./constants.topics";
-import {createCreep} from "./helpers.creeps";
 import {Event} from "./lib.event_broker";
 import {Request, RequestDetails, TopicKey} from "./lib.topics";
 import {Tracer} from './lib.tracing';
@@ -398,4 +397,84 @@ export default class SpawnManager {
       [MEMORY.PREPARE_BOOSTS]: boosts,
     }, REQUEST_BOOSTS_TTL);
   }
+}
+
+function createCreep(colony, room, spawn, role, parts, memory, energy, energyLimit) {
+  const definition = DEFINITIONS[role];
+
+  const ignoreSpawnEnergyLimit = definition.ignoreSpawnEnergyLimit || false;
+  if (energy > energyLimit && !ignoreSpawnEnergyLimit) {
+    energy = energyLimit;
+  }
+
+  const roleEnergyLimit = definition.energyLimit;
+  if (roleEnergyLimit && energy > roleEnergyLimit) {
+    energy = roleEnergyLimit;
+  }
+
+  // if parts not provided, work them out from the definition
+  if (!parts) {
+    parts = getBodyParts(definition, energy);
+  };
+
+  const name = [role, Game.shard.name, Game.time].join('_');
+
+  // Requests to the kingdom should include the destination colony, don't overwrite it
+  if (!memory[MEMORY.MEMORY_BASE]) {
+    memory[MEMORY.MEMORY_BASE] = colony;
+  }
+
+  // Used for debugging, don't use for decision making, use MEMORY_BASE instead
+  memory[MEMORY.MEMORY_ORIGIN_SHARD] = Game.shard.name;
+  memory[MEMORY.MEMORY_ORIGIN] = room;
+
+  memory[MEMORY.MEMORY_ROLE] = role;
+  memory[MEMORY.DESIRED_BOOSTS] = definition.boosts;
+
+  //   `${parts}, ${JSON.stringify(memory)}`);
+
+  const result = spawn.spawnCreep(parts, name, {memory});
+  return result;
+};
+
+function getBodyParts(definition, maxEnergy) {
+  let base = definition.base.slice(0);
+  let i = 0;
+
+  while (true) {
+    const nextPart = definition.parts[i % definition.parts.length];
+    const estimate = base.concat([nextPart]).reduce((acc, part) => {
+      return acc + BODYPART_COST[part];
+    }, 0);
+
+    if (estimate <= maxEnergy && base.length < 50) {
+      base.push(nextPart);
+    } else {
+      break;
+    }
+
+    i++;
+  }
+
+  base = _.sortBy(base, (part) => {
+    switch (part) {
+      case TOUGH:
+        return 0;
+      case WORK:
+      case CARRY:
+        return 1;
+      case MOVE:
+        return 2;
+      case ATTACK:
+        return 8;
+      case RANGED_ATTACK:
+        return 9;
+      case HEAL:
+        return 10;
+      default:
+        return 1;
+    }
+  });
+
+  return base;
 }

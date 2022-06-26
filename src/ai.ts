@@ -1,6 +1,8 @@
+import {CreepManager} from './ai.creeps';
 import {ShardConfig} from './config';
 import {EventBroker} from './lib.event_broker';
 import {findNextRemoteRoom} from './lib.remote_room';
+import {Topics} from './lib.topics';
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
 import {Process} from './os.process';
@@ -14,7 +16,6 @@ import PlannerDebugger from './runnable.debug_planner';
 import KingdomGovernorRunnable from './runnable.kingdom_governor';
 import KingdomModelRunnable from './runnable.kingdom_model';
 import BufferManager from './runnable.manager.buffer';
-import {CreepManager} from './runnable.manager.creeps';
 import DefenseManager from './runnable.manager.defense';
 import InvaderManager from './runnable.manager.invaders';
 import WarManager from './runnable.manager.war';
@@ -22,13 +23,14 @@ import {Scribe} from './runnable.scribe';
 import {SiteJanitor} from './runnable.site_janitor';
 
 export class AI {
-  scheduler: Scheduler;
-  config: ShardConfig;
-  kingdom: Kingdom;
-  planning: CentralPlanning;
-  scribe: Scribe;
-  broker: EventBroker;
-  gameMapExport: string;
+  private config: ShardConfig;
+  private scheduler: Scheduler;
+  private broker: EventBroker;
+  private topics: Topics;
+  private kingdom: Kingdom;
+  private planning: CentralPlanning;
+  private scribe: Scribe;
+  private creeps: CreepManager;
 
   constructor(config: ShardConfig, scheduler: Scheduler, trace: Tracer) {
     trace = trace.begin('ai_constructor');
@@ -44,10 +46,11 @@ export class AI {
     trace.notice('scribe created', {numRooms: this.scribe.getRooms().length});
 
     this.broker = new EventBroker();
+    this.topics = new Topics();
 
     // Kingdom Model & Messaging process
     // Pump messages through kingdom, colonies, room, ect...
-    this.kingdom = new Kingdom(config, this.scheduler, this.scribe, this.broker, this.planning, trace);
+    this.kingdom = new Kingdom(config, this.scheduler, this.scribe, this.topics, this.broker, this.planning, trace);
     this.scheduler.registerProcess(new Process('kingdom_model', 'kingdom_model',
       Priorities.CRITICAL, new KingdomModelRunnable()));
 
@@ -60,9 +63,9 @@ export class AI {
 
     // Creep manager
     const creepManagerId = 'creeps_manager';
-    const creepManager = new CreepManager(creepManagerId, this.scheduler)
+    this.creeps = new CreepManager(creepManagerId, this.scheduler)
     this.scheduler.registerProcess(new Process(creepManagerId, 'creeps_manager',
-      Priorities.CRITICAL, creepManager));
+      Priorities.CRITICAL, this.creeps));
 
     // Site Janitor
     const siteJanitorId = 'site_janitor';
@@ -158,6 +161,10 @@ export class AI {
 
   getKingdom(): Kingdom {
     return this.kingdom;
+  }
+
+  getCreepsManager(): CreepManager {
+    return this.creeps;
   }
 
   debugGetNextRemote(baseId: string) {

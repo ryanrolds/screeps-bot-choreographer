@@ -715,6 +715,7 @@ export default class OrgRoom extends OrgBase {
 
     updateCreepsTrace.end();
   }
+
   updateDefenseStatus(kingdom: Kingdom, room: Room, trace: Tracer) {
     const defenseTrace = trace.begin('defenses');
 

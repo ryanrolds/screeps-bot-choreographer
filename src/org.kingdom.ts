@@ -32,7 +32,7 @@ export class Kingdom extends OrgBase {
   roomNameToOrgRoom: Record<string, OrgRoom>;
   creeps: Creep[];
   creepsByRoom: Record<string, Creep[]>;
-  creepsByColony: Record<string, Creep[]>;
+  creepsByBase: Record<string, Creep[]>;
   creepCountsByBaseAndRole: Record<string, Record<string, Creep[]>>;
 
   resourceGovernor: ResourceGovernor;
@@ -42,7 +42,7 @@ export class Kingdom extends OrgBase {
 
   threadUpdateOrg: ThreadFunc;
 
-  constructor(config: ShardConfig, scheduler: Scheduler, scribe: Scribe, broker: EventBroker,
+  constructor(config: ShardConfig, scheduler: Scheduler, scribe: Scribe, topics: Topics, broker: EventBroker,
     planner: CentralPlanning, trace: Tracer) {
     super(null, 'kingdom', trace);
 
@@ -54,7 +54,7 @@ export class Kingdom extends OrgBase {
     this.scribe = scribe;;
     this.broker = broker;
     this.planner = planner;
-    this.topics = new Topics();
+    this.topics = topics;
 
     this.stats = {
       colonies: {},
@@ -69,7 +69,7 @@ export class Kingdom extends OrgBase {
     this.roomNameToOrgRoom = {};
     this.creeps = [];
     this.creepsByRoom = {};
-    this.creepsByColony = {};
+    this.creepsByBase = {};
     this.creepCountsByBaseAndRole = {};
 
     this.threadUpdateOrg = thread('update_org_thread', UPDATE_ORG_TTL)(this.updateOrg.bind(this));
@@ -221,7 +221,11 @@ export class Kingdom extends OrgBase {
   }
 
   getColonyCreeps(id: string): Creep[] {
-    return this.creepsByColony[id] || [];
+    return this.creepsByBase[id] || [];
+  }
+
+  getBaseCreeps(id: string): Creep[] {
+    return this.creepsByBase[id] || [];
   }
 
   getRoomCreeps(id: string): Creep[] {
@@ -365,7 +369,7 @@ export class Kingdom extends OrgBase {
   }
 
   updateColonyCreeps(trace: Tracer) {
-    this.creepsByColony = this.creeps.reduce((acc, creep) => {
+    this.creepsByBase = this.creeps.reduce((acc, creep) => {
       const colony = creep.memory[MEMORY.MEMORY_BASE];
       if (!colony) {
         return acc;

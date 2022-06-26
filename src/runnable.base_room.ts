@@ -3,7 +3,6 @@ import {BaseConfig} from './config';
 import * as CREEPS from './constants.creeps';
 import * as MEMORY from './constants.memory';
 import * as PRIORITIES from './constants.priorities';
-import * as TASKS from './constants.tasks';
 import * as TOPICS from './constants.topics';
 import {Event} from './lib.event_broker';
 import {Tracer} from './lib.tracing';
@@ -17,14 +16,12 @@ import MineralRunnable from './runnable.base_room_mineral';
 import SourceRunnable from "./runnable.base_room_source";
 import {createSpawnRequest, getBaseSpawnTopic, getShardSpawnTopic, requestSpawn} from './runnable.base_spawning';
 import {getLinesStream, HudEventSet, HudLine} from './runnable.debug_hud';
-import {getBaseHaulerTopic} from './topics';
 
 const MIN_RESERVATION_TICKS = 4000;
 const NO_VISION_TTL = 20;
 const MIN_TTL = 10;
 
 const REQUEST_RESERVER_TTL = 25;
-const REQUEST_HAUL_DROPPED_RESOURCES_TTL = 30;
 const UPDATE_PROCESSES_TTL = 50;
 const PRODUCE_STATUS_TTL = 25;
 
@@ -34,8 +31,6 @@ export default class RoomRunnable {
 
   threadUpdateProcessSpawning: ThreadFunc;
   threadRequestReserver: ThreadFunc;
-  threadRequestHaulDroppedResources: ThreadFunc;
-  threadRequestHaulTombstones: ThreadFunc;
   threadProduceStatus: ThreadFunc;
 
   constructor(id: string, scheduler: Scheduler) {
@@ -45,8 +40,6 @@ export default class RoomRunnable {
     // Threads
     this.threadUpdateProcessSpawning = thread('spawn_room_processes_thread', UPDATE_PROCESSES_TTL)(this.handleProcessSpawning.bind(this));
     this.threadRequestReserver = thread('request_reserver_thread', REQUEST_RESERVER_TTL)(this.requestReserver.bind(this));
-    this.threadRequestHaulDroppedResources = thread('request_haul_dropped_thread', REQUEST_HAUL_DROPPED_RESOURCES_TTL)(this.requestHaulDroppedResources.bind(this));
-    this.threadRequestHaulTombstones = thread('request_haul_tombstone_thread', REQUEST_HAUL_DROPPED_RESOURCES_TTL)(this.requestHaulTombstones.bind(this));
     this.threadProduceStatus = thread('produce_status_thread', PRODUCE_STATUS_TTL)(this.produceStatus.bind(this));
   }
 
@@ -83,8 +76,6 @@ export default class RoomRunnable {
     }
 
     this.threadUpdateProcessSpawning(trace, orgRoom, room);
-    this.threadRequestHaulDroppedResources(trace, kingdom, baseConfig, orgRoom, room);
-    this.threadRequestHaulTombstones(trace, kingdom, baseConfig, orgRoom, room);
     this.threadProduceStatus(trace, baseConfig, orgRoom);
 
     trace.end();
@@ -162,120 +153,6 @@ export default class RoomRunnable {
       const request = createSpawnRequest(priority, ttl, role, memory, 0);
       requestSpawn(kingdom, topic, request);
     }
-  }
-
-  requestHaulDroppedResources(trace: Tracer, kingdom: Kingdom, base: BaseConfig,
-    orgRoom: OrgRoom, room: Room) {
-    if (orgRoom.numHostiles) {
-      return;
-    }
-
-    // Get resources to haul
-    let droppedResourcesToHaul = room.find(FIND_DROPPED_RESOURCES);
-
-    // No resources to haul, we are done
-    if (!droppedResourcesToHaul.length) {
-      return;
-    }
-
-    const primaryRoom = orgRoom.getColony().getPrimaryRoom();
-    const haulers = orgRoom.getColony().getHaulers();
-    const avgHaulerCapacity = orgRoom.getColony().getAvgHaulerCapacity();
-
-    trace.log('avg hauler capacity', {numHaulers: haulers.length, avgHaulerCapacity});
-
-    droppedResourcesToHaul.forEach((resource) => {
-      const topic = getBaseHaulerTopic(base.id);
-      let priority = PRIORITIES.HAUL_DROPPED;
-
-      // Increase priority if primary room
-      // TODO factor distance (or number of rooms from base)
-      if (orgRoom.getColony().primaryRoomId === resource.room.name) {
-        priority += PRIORITIES.HAUL_BASE_ROOM;
-      }
-
-      if (room.storage?.pos.isNearTo(resource.pos)) {
-        priority += PRIORITIES.DUMP_NEXT_TO_STORAGE;
-      }
-
-      const dropoff = primaryRoom.getReserveStructureWithRoomForResource(resource.resourceType);
-
-      const haulersWithTask = haulers.filter((creep) => {
-        const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
-        const pickup = creep.memory[MEMORY.MEMORY_HAUL_PICKUP];
-        return task === TASKS.TASK_HAUL && pickup === resource.id;
-      });
-
-      const haulerCapacity = haulersWithTask.reduce((total, hauler) => {
-        return total += hauler.store.getFreeCapacity();
-      }, 0);
-
-      const untaskedUsedCapacity = resource.amount - haulerCapacity;
-      const loadsToHaul = Math.floor(untaskedUsedCapacity / avgHaulerCapacity);
-
-      trace.log('loads', {avgHaulerCapacity, haulerCapacity, untaskedUsedCapacity, loadsToHaul});
-
-      for (let i = 0; i < loadsToHaul; i++) {
-        // Reduce priority for each load after first
-        const loadPriority = priority - PRIORITIES.LOAD_FACTOR * i;
-
-        const details = {
-          [MEMORY.TASK_ID]: `pickup-${this.id}-${Game.time}`,
-          [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
-          [MEMORY.MEMORY_HAUL_PICKUP]: resource.id,
-          [MEMORY.MEMORY_HAUL_DROPOFF]: dropoff?.id || undefined,
-          [MEMORY.MEMORY_HAUL_RESOURCE]: resource.resourceType,
-          [MEMORY.MEMORY_HAUL_AMOUNT]: resource.amount,
-        };
-
-        trace.log('haul dropped', {room: primaryRoom.id, topic, i, loadPriority, details});
-
-        kingdom.sendRequest(topic, loadPriority, details, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
-      }
-    });
-  }
-
-  requestHaulTombstones(trace: Tracer, kingdom: Kingdom, base: BaseConfig, orgRoom: OrgRoom, room: Room) {
-    if (orgRoom.numHostiles) {
-      return;
-    }
-
-    const tombstones = room.find(FIND_TOMBSTONES, {
-      filter: (tombstone) => {
-        const numAssigned = _.filter((orgRoom as any).getColony().getHaulers(), (hauler: Creep) => {
-          return hauler.memory[MEMORY.MEMORY_HAUL_PICKUP] === tombstone.id;
-        }).length;
-
-        return numAssigned === 0;
-      },
-    });
-
-    const primaryRoom = (orgRoom as any).getColony().getPrimaryRoom();
-
-    tombstones.forEach((tombstone) => {
-      Object.keys(tombstone.store).forEach((resourceType) => {
-        trace.log("tombstone", {id: tombstone.id, resource: resourceType, amount: tombstone.store[resourceType]});
-        const dropoff = primaryRoom.getReserveStructureWithRoomForResource(resourceType);
-        if (!dropoff) {
-          return;
-        }
-
-        const details = {
-          [MEMORY.TASK_ID]: `pickup-${this.id}-${Game.time}`,
-          [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
-          [MEMORY.MEMORY_HAUL_PICKUP]: tombstone.id,
-          [MEMORY.MEMORY_HAUL_DROPOFF]: dropoff.id,
-          [MEMORY.MEMORY_HAUL_RESOURCE]: resourceType,
-          [MEMORY.MEMORY_HAUL_AMOUNT]: tombstone.store[resourceType],
-        };
-
-        let topic = getBaseHaulerTopic(base.id);
-        let priority = PRIORITIES.HAUL_DROPPED;
-
-        trace.log('haul tombstone', {topic, priority, details});
-        kingdom.sendRequest(topic, priority, details, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
-      });
-    });
   }
 
   produceStatus(trace: Tracer, baseConfig: BaseConfig, orgRoom: OrgRoom) {

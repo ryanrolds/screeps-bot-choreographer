@@ -3,11 +3,11 @@ import * as PRIORITIES from "./constants.priorities";
 import * as TASKS from "./constants.tasks";
 import * as TOPICS from "./constants.topics";
 import {Tracer} from './lib.tracing';
-import {getBaseDistributorTopic} from "./topics.base";
 import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
 import {sleeping, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
+import {getBaseDistributorTopic} from "./topics";
 
 const REQUEST_RESOURCES_TTL = 25;
 

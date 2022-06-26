@@ -2,13 +2,13 @@ import {expect} from 'chai';
 import 'mocha';
 import {mockGlobal, mockInstanceOf, setup} from "screeps-test-helper";
 import * as sinon from 'sinon';
+import {CreepManager} from './ai.creeps';
 import * as CREEPS from './constants.creeps';
 import * as MEMORY from './constants.memory';
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
 import {Process} from './os.process';
 import {Scheduler} from './os.scheduler';
-import {CreepManager} from './runnable.manager.creeps';
 
 describe('Creeps Manager', () => {
   let kingdom: Kingdom = null;
@@ -35,6 +35,10 @@ describe('Creeps Manager', () => {
       memory: {
         [MEMORY.MEMORY_ROLE]: CREEPS.WORKER_MINER,
       },
+    });
+
+    mockGlobal<Memory>('Memory', {
+      proc: {},
     });
 
     mockGlobal<Game>('Game', {

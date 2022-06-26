@@ -6,6 +6,7 @@ import {ShardConfig} from './config';
 import {commonPolicy} from './constants.pathing_policies';
 import {EventBroker} from './lib.event_broker';
 import {CACHE_ITEM_TTL, PathCache, PathCacheItem, PathProvider} from './lib.path_cache';
+import {Topics} from './lib.topics';
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
 import {Scheduler} from './os.scheduler';
@@ -62,9 +63,10 @@ describe('Path Cache', function () {
     const scheduler = new Scheduler();
     const scribe = new Scribe();
     const broker = new EventBroker();
+    const topics = new Topics();
     const planner = new CentralPlanning(config, scheduler, trace);
 
-    kingdom = new Kingdom(config, scheduler, scribe, broker, planner, trace);
+    kingdom = new Kingdom(config, scheduler, scribe, topics, broker, planner, trace);
 
     pathProvider = sandbox.stub().callsFake(() => [path, {}]);
   });

@@ -9,10 +9,9 @@ import {OrgBase} from './org.base';
 import {Kingdom} from './org.kingdom';
 import OrgRoom from './org.room';
 import {thread, ThreadFunc} from './os.thread';
+import {getBaseHaulerTopic} from './runnable.base_logistics';
 import {createSpawnRequest, getBaseSpawnTopic, requestSpawn} from './runnable.base_spawning';
-import {getBaseDefenseTopic, getBaseHaulerTopic} from './topics';
-
-
+import {getBaseDefenseTopic} from './topics';
 
 const MAX_EXPLORERS = 3;
 
@@ -56,7 +55,6 @@ export class Colony extends OrgBase {
   threadUpdateCreeps: ThreadFunc;
   threadHandleDefenderRequest: ThreadFunc;
   threadRequestExplorer: ThreadFunc;
-  threadHaulerPid: ThreadFunc;
 
   constructor(parent: Kingdom, baseConfig: BaseConfig, trace: Tracer) {
     super(parent, baseConfig.id, trace);
@@ -121,7 +119,6 @@ export class Colony extends OrgBase {
 
     this.threadUpdateOrg(updateTrace);
     this.threadUpdateCreeps(updateTrace, this.getKingdom());
-    this.threadHaulerPid(updateTrace);
 
     const roomTrace = updateTrace.begin('rooms');
     Object.values(this.roomMap).forEach((room) => {
@@ -160,18 +157,6 @@ export class Colony extends OrgBase {
     processTrace.end();
   }
 
-  toString() {
-    const topics = this.getKingdom().getTopics().getCounts();
-
-    // TODO this should be shown on HUD
-    return `* Colony - ID: ${this.id}, #Rooms: ${Object.keys(this.roomMap).length}, ` +
-      `#Missing: ${this.missingRooms.length}, ` +
-      `#Creeps: ${this.numCreeps}, ` +
-      `#Haulers: ${this.numHaulers}, ` +
-      `#HaulTasks: ${topics[getBaseHaulerTopic(this.baseId)] || 0}, ` +
-      `AvgHaulerCapacity: ${this.avgHaulerCapacity}, ` +
-      `#Defenders: ${this.defenders.length}`;
-  }
   getColony(): Colony {
     return this;
   }

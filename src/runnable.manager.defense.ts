@@ -13,7 +13,7 @@ import {Priorities, Scheduler} from "./os.scheduler";
 import {thread, ThreadFunc} from './os.thread';
 import {scoreHealing} from './role.harasser';
 import DefensePartyRunnable from './runnable.defense_party';
-import {getBaseDefenseTopic} from './topics.base';
+import {getBaseDefenseTopic} from './topics';
 
 const RUN_INTERVAL = 5;
 const TARGET_REQUEST_TTL = RUN_INTERVAL;

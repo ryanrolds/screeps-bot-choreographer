@@ -1,16 +1,16 @@
-import {Process, running, sleeping, terminate} from "./os.process";
+import {PRICES} from "./constants.market";
+import * as MEMORY from "./constants.memory";
+import * as PRIORITIES from "./constants.priorities";
+import * as TASKS from "./constants.tasks";
+import * as TOPICS from "./constants.topics";
+import {ResourcePricer, SigmoidPricing} from './lib.sigmoid_pricing';
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
-import * as MEMORY from "./constants.memory"
-import * as TASKS from "./constants.tasks"
-import * as TOPICS from "./constants.topics"
-import {PRICES} from "./constants.market"
-import * as PRIORITIES from "./constants.priorities"
-import {thread, ThreadFunc} from "./os.thread";
-import {ResourcePricer, SigmoidPricing} from './lib.sigmoid_pricing';
+import {running, sleeping, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
-import {getBaseDistributorTopic} from "./topics.base";
+import {thread, ThreadFunc} from "./os.thread";
+import {getBaseDistributorTopic} from "./topics";
 
 const TASK_PHASE_HAUL_RESOURCE = 'phase_transfer_resource';
 const TASK_PHASE_TRANSACT = 'phase_transact';

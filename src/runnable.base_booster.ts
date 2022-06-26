@@ -1,15 +1,15 @@
-import {sleeping, terminate} from "./os.process";
+import {BaseConfig} from "./config";
+import * as MEMORY from "./constants.memory";
+import * as PRIORITIES from "./constants.priorities";
+import * as TASKS from "./constants.tasks";
+import * as TOPICS from "./constants.topics";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
 import OrgRoom, {ResourceCounts} from "./org.room";
-import * as MEMORY from "./constants.memory"
-import * as TASKS from "./constants.tasks"
-import * as TOPICS from "./constants.topics"
-import * as PRIORITIES from "./constants.priorities"
-import {thread, ThreadFunc} from "./os.thread";
+import {sleeping, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
-import {BaseConfig} from "./config";
-import {getBaseDistributorTopic} from "./topics.base";
+import {thread, ThreadFunc} from "./os.thread";
+import {getBaseDistributorTopic} from "./topics";
 
 const MIN_COMPOUND = 500;
 const MAX_COMPOUND = 2000;

@@ -1,5 +1,5 @@
+import {AI} from './ai';
 import {ShardMap} from './config';
-import {AI} from './lib.ai';
 import * as metrics from './lib.metrics';
 import {Tracer} from './lib.tracing';
 import {Scheduler} from './os.scheduler';
