@@ -71,13 +71,11 @@ export default class OrgRoom extends OrgBase {
   defenseHitsLimit: number;
   damagedSecondaryStructures: Id<AnyStructure>[];
 
-  threadUpdateCreeps: ThreadFunc;
   threadUpdateRoom: ThreadFunc;
   threadUpdateResources: ThreadFunc;
   threadUpdateDefenseStatus: ThreadFunc;
   threadUpdateDamagedCreeps: ThreadFunc;
   threadUpdateBoosters: ThreadFunc;
-  updateDamagedCreeps: ThreadFunc;
   updateDamagedStructure: ThreadFunc;
   updateDamagedSecondaryStructures: ThreadFunc;
 
@@ -236,14 +234,12 @@ export default class OrgRoom extends OrgBase {
       return;
     }
 
-    this.threadUpdateCreeps(trace, this.getKingdom());
     this.threadUpdateDefenseStatus(trace, room, this.getKingdom());
     this.threadUpdateRoom(trace, this.getKingdom());
 
     if (this.isPrimary) {
       this.threadUpdateResources(trace);
       this.threadUpdateBoosters(trace);
-      this.updateDamagedCreeps(trace);
       this.updateDamagedStructure(trace);
       this.updateDamagedSecondaryStructures(trace);
     }

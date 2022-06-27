@@ -31,8 +31,8 @@ export const selectHarvestSource = behaviorTree.leafNode(
         return 0;
       }
 
-      const roomCreeps = kingdom.creepManager.getCreepsByRoom(creep.room.name)
-      const numAssigned = _.filter(roomCreeps, (creep) => {
+      const baseCreeps = kingdom.creepManager.getCreepsByBase(creep.room.name)
+      const numAssigned = _.filter(baseCreeps, (creep) => {
         return creep.memory[MEMORY_SOURCE] === source.id;
       }).length;
 

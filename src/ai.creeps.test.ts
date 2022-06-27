@@ -20,6 +20,7 @@ describe('Creeps Manager', () => {
 
     const creepA = mockInstanceOf<Creep>({
       id: 'creepA' as Id<Creep>,
+      name: 'creepA',
       spawning: false,
       memory: {
         [MEMORY.MEMORY_ASSIGN_ROOM]: 'W1N1',
@@ -29,6 +30,7 @@ describe('Creeps Manager', () => {
     });
     const creepB = mockInstanceOf<Creep>({
       id: 'creepB' as Id<Creep>,
+      name: 'creepB',
       spawning: false,
       memory: {
         [MEMORY.MEMORY_ASSIGN_ROOM]: 'W1N1',
@@ -38,6 +40,7 @@ describe('Creeps Manager', () => {
     });
     const creepC = mockInstanceOf<Creep>({
       id: 'creepC' as Id<Creep>,
+      name: 'creepC',
       spawning: false,
       memory: {
         [MEMORY.MEMORY_ASSIGN_ROOM]: 'W1N1',
@@ -90,6 +93,7 @@ describe('Creeps Manager', () => {
 
     Game.creeps['creepD'] = mockInstanceOf<Creep>({
       id: 'creepD' as Id<Creep>,
+      name: 'creepD',
       spawning: false,
       memory: {
         [MEMORY.MEMORY_ASSIGN_ROOM]: 'W1N1',

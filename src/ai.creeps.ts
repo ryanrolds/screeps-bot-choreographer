@@ -1,6 +1,6 @@
 import * as CREEPS from './constants.creeps';
 import {DEFINITIONS} from './constants.creeps';
-import {MEMORY_ASSIGN_ROOM, MEMORY_BASE, MEMORY_ROLE, MEMORY_START_TICK} from './constants.memory';
+import {MEMORY_BASE, MEMORY_ROLE, MEMORY_START_TICK} from './constants.memory';
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
 import {Process, running, terminate} from "./os.process";
@@ -26,7 +26,6 @@ export class CreepManager {
 
   private scheduler: Scheduler;
   private creeps: Creep[];
-  private creepsByRoom: Record<string, Creep[]>;
   private creepsByBase: Record<string, Creep[]>;
   private creepCountsByBaseAndRole: Record<string, Record<string, Creep[]>>;
 
@@ -39,12 +38,6 @@ export class CreepManager {
     trace = trace.begin('creep_manager_run');
 
     this.creeps = Object.values(Game.creeps);
-    this.creepsByRoom = _.groupBy(this.creeps, (creep) => {
-      if (!creep.memory[MEMORY_ASSIGN_ROOM]) {
-        trace.warn(`Creep ${creep.name} has no room assigned`);
-      }
-      return creep.memory[MEMORY_ASSIGN_ROOM];
-    });
     this.creepsByBase = _.groupBy(this.creeps, (creep) => {
       if (!creep.memory[MEMORY_BASE]) {
         trace.warn(`Creep ${creep.name} has no base assigned`);
@@ -75,8 +68,7 @@ export class CreepManager {
       return bases;
     }, {} as Record<string, Record<string, Creep[]>>)
 
-    // Create processes for any creeps that do not have a process
-    // registered with the scheduler
+    trace.info(`Found ${this.creeps.length} creeps`);
 
     // TODO, make this more efficient.
     this.creeps.forEach((creep) => {
@@ -84,7 +76,7 @@ export class CreepManager {
         return;
       }
 
-      const hasProcess = this.scheduler.hasProcess(creep.id);
+      const hasProcess = this.scheduler.hasProcess(creep.name);
       if (hasProcess) {
         return;
       }
@@ -107,9 +99,12 @@ export class CreepManager {
         })
       }
 
-      const process = this.getCreepProcess(creep.id, creep);
+      // Create processes for any creeps that do not have a process
+      // registered with the scheduler
+      const process = this.getCreepProcess(creep.name, creep);
       if (!process) {
         trace.error('creep has no process', {creep: creep.name, memory: creep.memory});
+
         let result = creep.suicide();
         if (result !== OK) {
           trace.error('suicide failed', {result, creep: creep.name, memory: creep.memory})
@@ -117,6 +112,8 @@ export class CreepManager {
 
         return;
       }
+
+      trace.info(`Creating process for ${creep.name}`);
 
       this.scheduler.registerProcess(process);
     });
@@ -139,10 +136,6 @@ export class CreepManager {
     return this.creeps;
   }
 
-  getCreepsByRoom(roomName: string): Creep[] {
-    return this.creepsByRoom[roomName] || [];
-  }
-
   getCreepsByBase(baseName: string): Creep[] {
     return this.creepsByBase[baseName] || [];
   }
@@ -151,38 +144,38 @@ export class CreepManager {
     return _.get(this.creepCountsByBaseAndRole, [base, role], []);
   }
 
-  private getCreepProcess(id: string, creep: Creep): Process {
+  private getCreepProcess(name: string, creep: Creep): Process {
     const role = creep.memory[MEMORY_ROLE] || null;
     if (!role) {
-      return null;
+      throw new Error(`Creep ${creep.name} has no role`);
     }
 
     const roleDefinition = DEFINITIONS[role];
     if (!roleDefinition) {
-      throw new Error(`Creep ${id} has ${role} which does not have role definition`)
+      throw new Error(`Creep ${name} has ${role} which does not have role definition`)
     }
 
-    const behavior = this.getCreepBehavior(id, role)
+    const behavior = this.getCreepBehavior(name, role)
     if (!behavior) {
-      throw new Error(`Creep ${id} has ${role} which does not have behavior defined`);
+      throw new Error(`Creep ${name} has ${role} which does not have behavior defined`);
     }
 
     // add 1 to the priority because creeps need to be lower priority than their manager
     const priority = roleDefinition.processPriority + 1;
-    const process = new Process(id, role, priority, behavior)
+    const process = new Process(name, role, priority, behavior)
     process.setSkippable(roleDefinition.skippable);
 
     return process;
   }
 
-  private getCreepBehavior(id: string, role: string): Runnable {
+  private getCreepBehavior(name: string, role: string): Runnable {
     const behavior = this.getBehaviorByRole(role);
 
     return {
       run: (kingdom: Kingdom, trace: Tracer): RunnableResult => {
-        const creep = Game.creeps[id];
+        const creep = Game.creeps[name];
         if (!creep) {
-          trace.log("creep not found; terminating process", {})
+          trace.error("creep not found; terminating process", {name})
           return terminate();
         }
 
