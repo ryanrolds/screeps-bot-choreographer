@@ -71,7 +71,6 @@ export class CentralPlanning {
 
     // Check for spawns without bases
     Object.values(Game.spawns).forEach((spawn) => {
-      const shard = Game.shard.name;
       const roomName = spawn.room.name;
       const origin = new RoomPosition(spawn.pos.x, spawn.pos.y + 4, spawn.pos.roomName);
       trace.log('checking spawn', {roomName, origin});

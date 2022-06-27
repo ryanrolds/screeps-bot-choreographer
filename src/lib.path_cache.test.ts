@@ -2,6 +2,7 @@ import {expect} from 'chai';
 import 'mocha';
 import {mockGlobal} from "screeps-test-helper";
 import Sinon, * as sinon from 'sinon';
+import {CreepManager} from './ai.creeps';
 import {ShardConfig} from './config';
 import {commonPolicy} from './constants.pathing_policies';
 import {EventBroker} from './lib.event_broker';
@@ -65,8 +66,10 @@ describe('Path Cache', function () {
     const broker = new EventBroker();
     const topics = new Topics();
     const planner = new CentralPlanning(config, scheduler, trace);
+    const creepsManager = new CreepManager(scheduler)
 
-    kingdom = new Kingdom(config, scheduler, scribe, topics, broker, planner, trace);
+    kingdom = new Kingdom(config, scheduler, scribe, topics, broker, planner,
+      creepsManager, trace);
 
     pathProvider = sandbox.stub().callsFake(() => [path, {}]);
   });

@@ -91,12 +91,12 @@ export default class BoosterRunnable {
 
     let labs = this.getLabs();
     if (labs.length !== 3) {
-      trace.log('not right number of labs - terminating', {num: labs.length})
+      trace.info('not right number of labs - terminating', {num: labs.length})
       trace.end();
       return terminate();
     }
 
-    trace.log('booster run', {labId: labs.map(lab => lab.id)});
+    trace.info('booster run', {labId: labs.map(lab => lab.id)});
 
     const resourceEnd = trace.startTimer("resource");
     const loadedEffects = this.getLoadedEffects();
@@ -104,14 +104,13 @@ export default class BoosterRunnable {
     resourceEnd();
 
     const [needToLoad, couldUnload, emptyLabs] = this.getNeeds(loadedEffects, desiredEffects, trace);
-    this.updateStats(loadedEffects, couldUnload, needToLoad, trace);
 
-    trace.log('room status', {
+    trace.info('room status', {
       loaded: loadedEffects,
       desired: desiredEffects,
     });
 
-    trace.log('booster needs', {
+    trace.info('booster needs', {
       labIds: this.labIds,
       needToLoad,
       couldUnload,
@@ -137,37 +136,6 @@ export default class BoosterRunnable {
 
   getLabs() {
     return this.labIds.map(labId => Game.getObjectById(labId)).filter((lab => lab));
-  }
-
-  updateStats(prepared, toUnLoad, toLoad, trace: Tracer) {
-    const stats = this.orgRoom.getStats();
-    const colony = this.orgRoom.getColony();
-    if (!colony) {
-      trace.log('could not find colony', {roomId: this.orgRoom.id});
-      return;
-    }
-
-    const boosterStats = {
-      prepared: prepared.length,
-      toUnload: toUnLoad.length,
-      toLoad: toLoad.length,
-      boostedCreeps: (colony.getCreeps() as Creep[]).reduce((total, creep) => {
-        // stale creeps are possible
-        if (!Game.creeps[creep.name]) {
-          return;
-        }
-
-        if (_.find(creep.body, part => {return !!part.boost;})) {
-          return total + 1;
-        }
-
-        return total;
-      }, 0),
-    };
-
-    trace.log('updating booster stats', {boosterStats});
-
-    stats.colonies[colony.id].booster = boosterStats;
   }
 
   updateRoomBooster(trace: Tracer) {
@@ -452,7 +420,8 @@ export default class BoosterRunnable {
         return;
       }
 
-      const assignedCreeps = this.orgRoom.getCreeps().filter((creep) => {
+      const baseCreeps = kingdom.creepManager.getCreepsByBase(this.baseId);
+      const assignedCreeps = baseCreeps.filter((creep) => {
         const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
         const taskPickup = creep.memory[MEMORY.MEMORY_HAUL_PICKUP];
         const resource = creep.memory[MEMORY.MEMORY_HAUL_RESOURCE];
@@ -503,7 +472,8 @@ export default class BoosterRunnable {
 
       const emptyLab = emptyLabs[0];
 
-      const assignedCreeps = this.orgRoom.getCreeps().filter((creep) => {
+      const baseCreeps = kingdom.creepManager.getCreepsByBase(this.baseId);
+      const assignedCreeps = baseCreeps.filter((creep) => {
         const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
         const taskDropoff = creep.memory[MEMORY.MEMORY_HAUL_DROPOFF];
         const resource = creep.memory[MEMORY.MEMORY_HAUL_RESOURCE];

@@ -1,11 +1,11 @@
-import {Request, RequestDetails, Topics} from './lib.topics';
-import {Tracer} from './lib.tracing'
-import {Kingdom} from './org.kingdom';
-import OrgRoom from './org.room';
-import {Colony} from './org.colony';
-import {Scheduler} from './os.scheduler';
 import {EventBroker} from './lib.event_broker';
+import {Request, RequestDetails, Topics} from './lib.topics';
+import {Tracer} from './lib.tracing';
+import {Colony} from './org.colony';
+import {Kingdom} from './org.kingdom';
 import Resources from './org.resource_governor';
+import OrgRoom from './org.room';
+import {Scheduler} from './os.scheduler';
 
 export class OrgBase {
   parent: OrgBase;
@@ -44,10 +44,6 @@ export class OrgBase {
 
   getRoom(): OrgRoom {
     return this.getParent().getRoom();
-  }
-
-  getCreeps(): Creep[] {
-    return this.getParent().getCreeps();
   }
 
   getTopics(): Topics {

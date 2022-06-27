@@ -4,6 +4,7 @@ import * as behaviorTree from './lib.behaviortree';
 import {FAILURE, RUNNING, SUCCESS} from './lib.behaviortree';
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
+import {getBasePriorityTargetsTopic} from './runnable.manager.defense';
 
 const MEMORY = require('./constants.memory');
 const TOPICS = require('./constants.topics');
@@ -20,6 +21,11 @@ const behavior = behaviorTree.sequenceNode(
           trace.error('creep has no room', creep.memory);
           creep.suicide();
           return FAILURE;
+        }
+
+        const base = kingdom.getCreepBaseConfig(creep);
+        if (!base) {
+          trace.error("creep has no base", creep.memory)
         }
 
         // Heal self or adjacent creep if one has lower HP
@@ -49,7 +55,7 @@ const behavior = behaviorTree.sequenceNode(
 
         // Get targets in the room
         const roomId = room.id;
-        const targets = room.getColony().getFilteredRequests(TOPICS.PRIORITY_TARGETS,
+        const targets = kingdom.getFilteredRequests(getBasePriorityTargetsTopic(base.id),
           (target) => {
             return target.details.roomName === roomId;
           },

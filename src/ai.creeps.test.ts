@@ -19,20 +19,29 @@ describe('Creeps Manager', () => {
     setup(global);
 
     const creepA = mockInstanceOf<Creep>({
+      id: 'creepA' as Id<Creep>,
       spawning: false,
       memory: {
+        [MEMORY.MEMORY_ASSIGN_ROOM]: 'W1N1',
+        [MEMORY.MEMORY_BASE]: 'W1N1',
         [MEMORY.MEMORY_ROLE]: CREEPS.WORKER_MINER,
       },
     });
     const creepB = mockInstanceOf<Creep>({
+      id: 'creepB' as Id<Creep>,
       spawning: false,
       memory: {
+        [MEMORY.MEMORY_ASSIGN_ROOM]: 'W1N1',
+        [MEMORY.MEMORY_BASE]: 'W1N1',
         [MEMORY.MEMORY_ROLE]: CREEPS.WORKER_MINER,
       },
     });
     const creepC = mockInstanceOf<Creep>({
+      id: 'creepC' as Id<Creep>,
       spawning: false,
       memory: {
+        [MEMORY.MEMORY_ASSIGN_ROOM]: 'W1N1',
+        [MEMORY.MEMORY_BASE]: 'W1N1',
         [MEMORY.MEMORY_ROLE]: CREEPS.WORKER_MINER,
       },
     });
@@ -67,21 +76,24 @@ describe('Creeps Manager', () => {
   });
 
   it("should create a process for each creep", () => {
-    const creepManager = new CreepManager('creep_manager', scheduler);
+    const creepManager = new CreepManager(scheduler);
     creepManager.run(kingdom, tracer);
 
     expect(scheduler.registerProcess.callCount).to.equal(3);
   });
 
   it("should allow adding new creeps in later ticks", () => {
-    const creepManager = new CreepManager('creep_manager', scheduler);
+    const creepManager = new CreepManager(scheduler);
     creepManager.run(kingdom, tracer);
 
     expect(scheduler.registerProcess.callCount).to.equal(3)
 
     Game.creeps['creepD'] = mockInstanceOf<Creep>({
+      id: 'creepD' as Id<Creep>,
       spawning: false,
       memory: {
+        [MEMORY.MEMORY_ASSIGN_ROOM]: 'W1N1',
+        [MEMORY.MEMORY_BASE]: 'W1N1',
         [MEMORY.MEMORY_ROLE]: CREEPS.WORKER_MINER,
       },
     });
@@ -92,7 +104,7 @@ describe('Creeps Manager', () => {
   });
 
   it("should terminate process when creep is no longer around", () => {
-    const creepManager = new CreepManager('creep_manager', scheduler);
+    const creepManager = new CreepManager(scheduler);
     creepManager.run(kingdom, tracer);
 
     expect(scheduler.registerProcess.callCount).to.equal(3);

@@ -1,9 +1,7 @@
 import * as _ from 'lodash';
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
-import {prepareMemory, removeOldMemoryObjects} from './os.memory';
 import {Process} from './os.process';
-import {thread, ThreadFunc} from './os.thread';
 
 export const Priorities = {
   CRITICAL: 0,
@@ -19,7 +17,6 @@ export const Priorities = {
 }
 
 const LOW_BUCKET_MIN_PRIORITY = Priorities.RESOURCES;
-const MEMORY_CLEANUP_TTL = 1000;
 
 export class Scheduler {
   processTable: Process[];
@@ -33,8 +30,6 @@ export class Scheduler {
   created: number;
   terminated: number;
 
-  threadMemoryCleanup: ThreadFunc;
-
   constructor() {
     this.processTable = [];
     this.processMap = {};
@@ -47,11 +42,6 @@ export class Scheduler {
     this.terminated = 0;
 
     this.updateTimeLimit();
-
-    // Prepare memory for runnables
-    prepareMemory()
-
-    this.threadMemoryCleanup = thread('cleanup_memory', MEMORY_CLEANUP_TTL)(removeOldMemoryObjects);
   }
 
   setCPUThrottle(throttle: number) {
@@ -181,9 +171,7 @@ export class Scheduler {
 
     toRemove.forEach((remove) => {
       this.unregisterProcess(remove);
-    })
-
-    this.threadMemoryCleanup(trace);
+    });
 
     const schedulerCpu = Game.cpu.getUsed() - startCpu;
 

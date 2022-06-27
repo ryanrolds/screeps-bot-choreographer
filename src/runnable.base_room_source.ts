@@ -1,4 +1,3 @@
-import {creepIsFresh} from './behavior.commute';
 import {AlertLevel, BaseConfig} from './config';
 import {ROLE_WORKER, WORKER_HAULER, WORKER_MINER} from "./constants.creeps";
 import * as MEMORY from "./constants.memory";
@@ -279,7 +278,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     this.dropoffId = primaryRoom.getReserveStructureWithRoomForResource(RESOURCE_ENERGY)?.id;
   }
 
-  requestMiners(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig, colony: Colony,
+  requestMiners(trace: Tracer, kingdom: Kingdom, base: BaseConfig, colony: Colony,
     room: Room, source: Source) {
 
     if (!this.creepPosition) {
@@ -299,11 +298,8 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       return;
     }
 
-    const numMiners = colony.getCreeps().filter((creep) => {
-      const role = creep.memory[MEMORY.MEMORY_ROLE];
-      return role === WORKER_MINER &&
-        creep.memory[MEMORY.MEMORY_SOURCE] === this.sourceId &&
-        creepIsFresh(creep);
+    const numMiners = kingdom.creepManager.getCreepsByBaseAndRole(base.id, WORKER_MINER).filter((creep) => {
+      return creep.memory[MEMORY.MEMORY_SOURCE] === this.sourceId
     }).length;
 
     trace.info('num miners', {numMiners});
@@ -341,7 +337,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       trace.info('requesting miner', {sourceId: this.sourceId, PRIORITY_MINER, memory});
 
       const request = createSpawnRequest(priority, ttl, role, memory, 0);
-      requestSpawn(kingdom, getBaseSpawnTopic(baseConfig.id), request);
+      requestSpawn(kingdom, getBaseSpawnTopic(base.id), request);
       // @CONFIRM that miners are spawned
     }
   }
@@ -353,11 +349,13 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       return;
     }
 
-    // TODO move to Kingdom level map[base]map[role][]creep
-    const avgHaulerCapacity = colony.getAvgHaulerCapacity();
-    const haulers = kingdom.getCreepsByBaseAndRole(base.id, WORKER_HAULER);
-    const workers = kingdom.getCreepsByBaseAndRole(base.id, ROLE_WORKER);
+    const haulers = kingdom.creepManager.getCreepsByBaseAndRole(base.id, WORKER_HAULER);
+    const workers = kingdom.creepManager.getCreepsByBaseAndRole(base.id, ROLE_WORKER);
     const creeps = haulers.concat(workers);
+
+    const avgHaulerCapacity = _.sum(creeps, (creep) => {
+      return creep.store.getCapacity(RESOURCE_ENERGY);
+    });
 
     const creepsWithTask = creeps.filter((creep) => {
       const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
@@ -365,14 +363,14 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       return task === TASKS.TASK_HAUL && pickup === this.containerId;
     });
 
-    const creepCapacity = creepsWithTask.reduce((total, hauler) => {
+    const creepWithTaskCapacity = creepsWithTask.reduce((total, hauler) => {
       return total += hauler.store.getFreeCapacity();
     }, 0);
 
     const averageLoad = avgHaulerCapacity;
     const loadSize = _.min([averageLoad, 2000]);
     const storeUsedCapacity = container.store.getUsedCapacity();
-    const untaskedUsedCapacity = storeUsedCapacity - creepCapacity;
+    const untaskedUsedCapacity = storeUsedCapacity - creepWithTaskCapacity;
     const loadsToHaul = Math.floor(untaskedUsedCapacity / loadSize);
 
     let priority = HAUL_CONTAINER;

@@ -1,3 +1,5 @@
+import {CreepManager} from './ai.creeps';
+import {Kernel} from './ai.kernel';
 import {BaseConfig, ShardConfig} from './config';
 import * as MEMORY from './constants.memory';
 import {CostMatrixCache} from './lib.costmatrix_cache';
@@ -18,7 +20,7 @@ import {Scribe} from './runnable.scribe';
 
 const UPDATE_ORG_TTL = 1;
 
-export class Kingdom extends OrgBase {
+export class Kingdom extends OrgBase implements Kernel {
   config: ShardConfig; // deprecated
   shardConfig: ShardConfig
   scheduler: Scheduler;
@@ -30,10 +32,8 @@ export class Kingdom extends OrgBase {
 
   colonies: Record<string, Colony>;
   roomNameToOrgRoom: Record<string, OrgRoom>;
-  creeps: Creep[];
-  creepsByRoom: Record<string, Creep[]>;
-  creepsByBase: Record<string, Creep[]>;
-  creepCountsByBaseAndRole: Record<string, Record<string, Creep[]>>;
+
+  creepManager: CreepManager;
 
   resourceGovernor: ResourceGovernor;
   scribe: Scribe;
@@ -43,7 +43,7 @@ export class Kingdom extends OrgBase {
   threadUpdateOrg: ThreadFunc;
 
   constructor(config: ShardConfig, scheduler: Scheduler, scribe: Scribe, topics: Topics, broker: EventBroker,
-    planner: CentralPlanning, trace: Tracer) {
+    planner: CentralPlanning, creepManager: CreepManager, trace: Tracer) {
     super(null, 'kingdom', trace);
 
     const setupTrace = this.trace.begin('constructor');
@@ -67,10 +67,7 @@ export class Kingdom extends OrgBase {
 
     this.colonies = {};
     this.roomNameToOrgRoom = {};
-    this.creeps = [];
-    this.creepsByRoom = {};
-    this.creepsByBase = {};
-    this.creepCountsByBaseAndRole = {};
+    this.creepManager = creepManager;
 
     this.threadUpdateOrg = thread('update_org_thread', UPDATE_ORG_TTL)(this.updateOrg.bind(this));
 
@@ -113,8 +110,6 @@ export class Kingdom extends OrgBase {
     const resourceGovTrace = updateTrace.begin('resource_governor');
     this.resourceGovernor.update(resourceGovTrace);
     resourceGovTrace.end();
-
-    this.updateCreepsByBaseAndRole(updateTrace);
 
     // TODO do I still need this? May 2022
     // this.threadStoreSavePathCacheToMemory(updateTrace);
@@ -214,22 +209,6 @@ export class Kingdom extends OrgBase {
 
   getRoomByName(name: string): OrgRoom {
     return this.roomNameToOrgRoom[name] || null;
-  }
-
-  getCreeps(): Creep[] {
-    return this.creeps;
-  }
-
-  getColonyCreeps(id: string): Creep[] {
-    return this.creepsByBase[id] || [];
-  }
-
-  getBaseCreeps(id: string): Creep[] {
-    return this.creepsByBase[id] || [];
-  }
-
-  getRoomCreeps(id: string): Creep[] {
-    return this.creepsByRoom[id] || [];
   }
 
   getCreepColony(creep: Creep): Colony {
@@ -335,54 +314,11 @@ export class Kingdom extends OrgBase {
   getFilteredRequests(topicId, filter): any[] {
     return this.topics.getFilteredRequests(topicId, filter);
   }
+
   updateOrg(trace: Tracer) {
-    this.creeps = _.values(Game.creeps);
-
-    const roomCreepsTrace = trace.begin('room_creeps');
-    this.updateRoomCreeps(roomCreepsTrace);
-    roomCreepsTrace.end();
-
-    const colonyCreepsTrace = trace.begin('colony_creeps');
-    this.updateColonyCreeps(colonyCreepsTrace);
-    colonyCreepsTrace.end();
-
     const updateColoniesTrace = trace.begin('colony_colonies');
     this.updateColonies(updateColoniesTrace);
     updateColoniesTrace.end();
-  }
-
-  updateRoomCreeps(trace: Tracer) {
-    this.creepsByRoom = this.creeps.reduce((acc, creep) => {
-      let room = creep.memory[MEMORY.MEMORY_ASSIGN_ROOM];
-      if (!room) {
-        return acc;
-      }
-
-      if (!acc[room]) {
-        acc[room] = [];
-      }
-
-      acc[room].push(creep);
-
-      return acc;
-    }, {} as Record<string, Creep[]>);
-  }
-
-  updateColonyCreeps(trace: Tracer) {
-    this.creepsByBase = this.creeps.reduce((acc, creep) => {
-      const colony = creep.memory[MEMORY.MEMORY_BASE];
-      if (!colony) {
-        return acc;
-      }
-
-      if (!acc[colony]) {
-        acc[colony] = [];
-      }
-
-      acc[colony].push(creep);
-
-      return acc;
-    }, {} as Record<string, Creep[]>);
   }
 
   // TODO replace all need for Colony with IPC
@@ -407,34 +343,5 @@ export class Kingdom extends OrgBase {
     extraColonyIds.forEach((id) => {
       delete this.colonies[id];
     });
-  }
-
-  updateCreepsByBaseAndRole(trace) {
-    this.creepCountsByBaseAndRole = _.reduce(Game.creeps, (bases, creep) => {
-      const base = creep.memory[MEMORY.MEMORY_BASE]
-      if (!base) {
-        return bases;
-      }
-
-      if (!bases[base]) {
-        bases[base] = {};
-      }
-
-      const role = creep.memory[MEMORY.MEMORY_ROLE];
-      if (!role) {
-        return bases;
-      }
-
-      if (!bases[base][role]) {
-        bases[base][role] = [];
-      }
-
-      bases[base][role].push(creep);
-      return bases;
-    }, {} as Record<string, Record<string, Creep[]>>)
-  }
-
-  getCreepsByBaseAndRole(base: string, role: string): Creep[] {
-    return _.get(this.creepCountsByBaseAndRole, [base, role], []);
   }
 }

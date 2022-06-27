@@ -1,4 +1,3 @@
-import {creepIsFresh} from './behavior.commute';
 import {AlertLevel, BaseConfig} from './config';
 import * as CREEPS from './constants.creeps';
 import * as MEMORY from './constants.memory';
@@ -37,6 +36,7 @@ const MIN_UPGRADERS = 1;
 const MAX_UPGRADERS = 10;
 const UPGRADER_ENERGY = 25000;
 const MIN_DISTRIBUTORS = 1;
+const MAX_EXPLORERS = 3;
 
 const NO_VISION_TTL = 20;
 const MIN_TTL = 10;
@@ -53,6 +53,7 @@ const RAMPART_ACCESS_TTL = 10;
 const UPDATE_PROCESSES_TTL = 20;
 const PRODUCE_STATUS_TTL = 30;
 const ABANDON_BASE_TTL = 50;
+const REQUEST_EXPLORER_TTL = 200;
 
 const MIN_HOSTILE_ATTACK_SCORE_TO_ABANDON = 3000;
 const HOSTILE_DAMAGE_THRESHOLD = 0;
@@ -80,10 +81,13 @@ export default class BaseRunnable {
   missingProcesses: number;
 
   threadUpdateProcessSpawning: ThreadFunc;
+
   threadRequestRepairer: ThreadFunc;
   threadRequestBuilder: ThreadFunc;
   threadRequestDistributor: ThreadFunc;
   threadRequestUpgrader: ThreadFunc;
+  threadRequestExplorer: ThreadFunc;
+
   threadCheckSafeMode: ThreadFunc;
   threadRequestExtensionFilling: ThreadFunc;
   //threadUpdateRampartAccess: ThreadFunc;
@@ -102,10 +106,13 @@ export default class BaseRunnable {
 
     // Threads
     this.threadUpdateProcessSpawning = thread('spawn_room_processes_thread', UPDATE_PROCESSES_TTL)(this.handleProcessSpawning.bind(this));
+
     this.threadRequestRepairer = thread('request_repairs_thread', REQUEST_REPAIRER_TTL)(this.requestRepairer.bind(this));
     this.threadRequestBuilder = thread('request_builder_thead', REQUEST_BUILDER_TTL)(this.requestBuilder.bind(this));
     this.threadRequestDistributor = thread('request_distributer_thread', REQUEST_DISTRIBUTOR_TTL)(this.requestDistributor.bind(this));
     this.threadRequestUpgrader = thread('request_upgrader_thread', REQUEST_UPGRADER_TTL)(this.requestUpgrader.bind(this));
+    this.threadRequestExplorer = thread('request_explorers_thread', REQUEST_EXPLORER_TTL)(this.requestExplorer.bind(this))
+
     this.threadCheckSafeMode = thread('check_safe_mode_thread', CHECK_SAFE_MODE_TTL)(this.checkSafeMode.bind(this));
     this.threadRequestExtensionFilling = thread('request_extension_filling_thread', HAUL_EXTENSION_TTL)(this.requestExtensionFilling.bind(this));
     //this.threadUpdateRampartAccess = thread('update_rampart_access_thread', RAMPART_ACCESS_TTL)(this.updateRampartAccess.bind(this));
@@ -162,6 +169,7 @@ export default class BaseRunnable {
     if (baseConfig.alertLevel === AlertLevel.GREEN) {
       this.threadRequestBuilder(trace, kingdom, baseConfig, orgRoom, room);
       this.threadRequestRepairer(trace, kingdom, baseConfig, orgRoom, room);
+      this.threadRequestExplorer(trace, kingdom, baseConfig, orgRoom, room);
     }
 
     this.threadRequestUpgrader(trace, kingdom, baseConfig, orgRoom, room);
@@ -434,10 +442,8 @@ export default class BaseRunnable {
       hitsPercentage = hits / maxHits;
     }
 
-    //
-    const numRepairers = _.filter(orgRoom.getCreeps(), (creep) => {
-      return creep.memory[MEMORY.MEMORY_ROLE] === CREEPS.WORKER_REPAIRER && creepIsFresh(creep);
-    }).length;
+    const numRepairers = kingdom.creepManager.getCreepsByBaseAndRole(this.id,
+      CREEPS.WORKER_REPAIRER).length;
 
     trace.log('need repairers?', {id: this.id, hitsPercentage, numRepairers});
 
@@ -489,9 +495,8 @@ export default class BaseRunnable {
       return;
     }
 
-    const builders = _.filter(orgRoom.getCreeps(), (creep) => {
-      return creep.memory[MEMORY.MEMORY_ROLE] === CREEPS.WORKER_BUILDER && creepIsFresh(creep);
-    });
+    const builders = kingdom.creepManager.getCreepsByBaseAndRole(this.id,
+      CREEPS.WORKER_BUILDER);
 
     const numConstructionSites = room.find(FIND_MY_CONSTRUCTION_SITES).length;
     trace.log('num constructions sites', {numConstructionSites})
@@ -526,11 +531,9 @@ export default class BaseRunnable {
 
   requestDistributor(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig, orgRoom: OrgRoom,
     room: Room) {
-    const numDistributors = _.filter(orgRoom.getCreeps(), (creep) => {
-      return creep.memory[MEMORY.MEMORY_ROLE] === CREEPS.WORKER_DISTRIBUTOR &&
-        creep.memory[MEMORY.MEMORY_ASSIGN_ROOM] === this.id && creepIsFresh(creep);
-    }).length;
 
+    const numDistributors = kingdom.creepManager.getCreepsByBaseAndRole(this.id,
+      CREEPS.WORKER_DISTRIBUTOR).length;
 
     // If low on bucket base not under threat
     if (Game.cpu.bucket < 1000 && numDistributors > 0 && baseConfig.alertLevel === AlertLevel.GREEN) {
@@ -620,10 +623,8 @@ export default class BaseRunnable {
       return;
     }
 
-    const numUpgraders = _.filter(orgRoom.getCreeps(), (creep) => {
-      return creep.memory[MEMORY.MEMORY_ROLE] == CREEPS.WORKER_UPGRADER &&
-        creepIsFresh(creep);
-    }).length;
+    const numUpgraders = kingdom.creepManager.getCreepsByBaseAndRole(this.id,
+      CREEPS.WORKER_UPGRADER).length;
 
     let parts = 1;
     let desiredUpgraders = MIN_UPGRADERS;
@@ -695,6 +696,33 @@ export default class BaseRunnable {
         CREEPS.WORKER_UPGRADER, memory, energyLimit);
       requestSpawn(kingdom, getBaseSpawnTopic(baseConfig.id), request);
       // @CONFIRM that upgraders are being created
+    }
+  }
+
+  requestExplorer(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig) {
+    const shardConfig = kingdom.config;
+    if (!shardConfig.explorers) {
+      trace.log('shard does not allow explorers');
+      return;
+    }
+
+    const explorers = kingdom.creepManager.getCreepsByBaseAndRole(this.id,
+      CREEPS.WORKER_EXPLORER);
+
+    if (explorers.length < MAX_EXPLORERS) {
+      trace.log('requesting explorer');
+
+      const priority = PRIORITIES.EXPLORER;
+      const ttl = REQUEST_EXPLORER_TTL;
+      const role = CREEPS.WORKER_EXPLORER;
+      const memory = {
+        [MEMORY.MEMORY_BASE]: baseConfig.id,
+      };
+      const request = createSpawnRequest(priority, ttl, role, memory, 0);
+      requestSpawn(kingdom, getBaseSpawnTopic(baseConfig.id), request);
+      // @CONFIRM that explorers spawns
+    } else {
+      trace.log('not requesting explorer', {numExplorers: explorers.length});
     }
   }
 

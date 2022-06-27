@@ -21,6 +21,10 @@ export interface BaseConfig {
   alertLevel: NonNullable<AlertLevel>;
 }
 
+export function getBasePrimaryRoom(base: BaseConfig): Room {
+  return Game.rooms[base.primary];
+}
+
 export interface ShardMap {
   [id: string]: ShardConfig;
 }

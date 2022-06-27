@@ -522,7 +522,8 @@ export default class TerminalRunnable {
   }
 
   haulResourceToTerminal(kingdom: Kingdom, terminal: StructureTerminal, pickup, resource, amount) {
-    const numHaulers = this.orgRoom.getCreeps().filter((creep) => {
+    const baseCreeps = kingdom.creepManager.getCreepsByBase(this.baseId);
+    const numHaulers = baseCreeps.filter((creep) => {
       return creep.memory[MEMORY.MEMORY_TASK_TYPE] === TASKS.TASK_HAUL &&
         creep.memory[MEMORY.MEMORY_HAUL_RESOURCE] === resource &&
         creep.memory[MEMORY.MEMORY_HAUL_DROPOFF] === terminal.id;

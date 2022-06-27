@@ -19,6 +19,7 @@ import * as behaviorHaul from "./behavior.haul";
 import {roadWorker} from "./behavior.logistics";
 import * as behaviorMovement from "./behavior.movement";
 import behaviorRoom from "./behavior.room";
+import {getBasePrimaryRoom} from "./config";
 import {WORKER_DISTRIBUTOR} from "./constants.creeps";
 import * as MEMORY from "./constants.memory";
 import * as behaviorTree from "./lib.behaviortree";
@@ -43,35 +44,38 @@ const selectDropoff = module.exports.selectRoomDropoff = behaviorTree.selectorNo
     behaviorTree.leafNode(
       'pick_storage',
       (creep, trace, kingdom) => {
-        const colony = kingdom.getCreepColony(creep);
-        if (!colony) {
-          trace.error('could not find creep colony', {name: creep.name, memory: creep.memory});
-          creep.suicide();
+        const base = kingdom.getCreepBaseConfig(creep);
+        if (!base) {
+          trace.error('could not find creep base', {name: creep.name, memory: creep.memory});
+          // creep.suicide();
           return FAILURE;
         }
 
-        const room = colony.getPrimaryRoom();
+        const room = getBasePrimaryRoom(base)
         if (!room) {
+          trace.error("could not find base primary room", {base})
           return FAILURE;
         }
 
-        if (!room.hasStorage) {
+        if (!room.storage) {
           return FAILURE;
         }
 
-        if (!room.room.storage?.isActive()) {
+        if (!room.storage?.isActive()) {
           return FAILURE;
         }
 
-        const distributors = _.filter(room.getCreeps(), (creep) => {
-          return creep.memory[MEMORY.MEMORY_ROLE] === WORKER_DISTRIBUTOR;
-        });
+        const distributors = _.filter(kingdom.creepManager.getCreepsByBase(base.id),
+          (creep) => {
+            return creep.memory[MEMORY.MEMORY_ROLE] === WORKER_DISTRIBUTOR;
+          }
+        );
 
         if (!distributors.length) {
           return FAILURE;
         }
 
-        behaviorMovement.setDestination(creep, room.room.storage.id);
+        behaviorMovement.setDestination(creep, room.storage.id);
         return SUCCESS;
       },
     ),

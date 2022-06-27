@@ -2,6 +2,7 @@ import {expect} from 'chai';
 import 'mocha';
 import {mockGlobal} from "screeps-test-helper";
 import * as sinon from 'sinon';
+import {CreepManager} from './ai.creeps';
 import {ShardConfig} from './config';
 import {EventBroker} from './lib.event_broker';
 import {Topics} from './lib.topics';
@@ -85,8 +86,10 @@ describe('Scheduler', () => {
     const config = {} as ShardConfig;
     const scheduler = new Scheduler();
     const scribe = new Scribe();
-    const planner = new CentralPlanning(config, scheduler, trace)
-    const kingdom = new Kingdom(config, scheduler, scribe, topics, broker, planner, trace);
+    const planner = new CentralPlanning(config, scheduler, trace);
+    const creepManager = new CreepManager(scheduler);
+    const kingdom = new Kingdom(config, scheduler, scribe, topics, broker, planner,
+      creepManager, trace);
 
     scheduler.registerProcess(process);
     scheduler.tick(kingdom, trace);
@@ -103,8 +106,10 @@ describe('Scheduler', () => {
     const config = {} as ShardConfig;
     const scheduler = new Scheduler();
     const scribe = new Scribe();
-    const planner = new CentralPlanning(config, scheduler, trace)
-    const kingdom = new Kingdom(config, scheduler, scribe, topics, broker, planner, trace);
+    const planner = new CentralPlanning(config, scheduler, trace);
+    const creepManager = new CreepManager(scheduler);
+    const kingdom = new Kingdom(config, scheduler, scribe, topics, broker, planner,
+      creepManager, trace);
 
     scheduler.registerProcess(process);
     scheduler.tick(kingdom, trace);
@@ -120,7 +125,8 @@ describe('Scheduler', () => {
     const scheduler = new Scheduler();
     const scribe = new Scribe();
     const planner = new CentralPlanning(config, scheduler, trace);
-    const kingdom = new Kingdom(config, scheduler, scribe, topics, broker, planner, trace);
+    const creepManager = new CreepManager(scheduler);
+    const kingdom = new Kingdom(config, scheduler, scribe, topics, broker, planner, creepManager, trace);
 
     scheduler.registerProcess(process);
 
@@ -167,8 +173,10 @@ describe('Scheduler', () => {
     const config = {} as ShardConfig;
     const scheduler = new Scheduler();
     const scribe = new Scribe();
-    const planner = new CentralPlanning(config, scheduler, trace)
-    const kingdom = new Kingdom(config, scheduler, scribe, topics, broker, planner, trace);
+    const planner = new CentralPlanning(config, scheduler, trace);
+    const creepManager = new CreepManager(scheduler);
+    const kingdom = new Kingdom(config, scheduler, scribe, topics, broker, planner,
+      creepManager, trace);
 
     scheduler.registerProcess(process);
 

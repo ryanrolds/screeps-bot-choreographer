@@ -1,5 +1,5 @@
 import * as _ from 'lodash';
-import {BaseConfig} from './config';
+import {BaseConfig, getBasePrimaryRoom} from './config';
 import * as CREEPS from './constants.creeps';
 import * as MEMORY from './constants.memory';
 import * as PRIORITIES from './constants.priorities';
@@ -12,6 +12,7 @@ import {RunnableResult} from './os.runnable';
 import {Priorities, Scheduler} from "./os.scheduler";
 import {thread, ThreadFunc} from './os.thread';
 import {scoreHealing} from './role.harasser';
+import {createSpawnRequest, getBaseSpawnTopic, requestSpawn} from './runnable.base_spawning';
 import DefensePartyRunnable from './runnable.defense_party';
 import {getBaseDefenseTopic} from './topics';
 
@@ -20,6 +21,11 @@ const TARGET_REQUEST_TTL = RUN_INTERVAL;
 const DEFENSE_STATUS_TTL = RUN_INTERVAL;
 const REQUEST_DEFENDERS_TTL = 25;
 const UPDATE_DEFENSE_STATS_TTL = 5;
+const REQUEST_DEFENDER_TTL = 5;
+
+export function getBasePriorityTargetsTopic(baseId: string): string {
+  return `base_${baseId}_priority_targets`;
+}
 
 const hostileParts = {
   'attack': true,
@@ -49,6 +55,7 @@ export default class DefenseManager {
   threadCheckColonyDefenses: ThreadFunc;
   threadReturnDefendersToStation: ThreadFunc;
   threadUpdateDefenseStats: ThreadFunc;
+  threadHandleDefenderRequest: ThreadFunc;
 
   constructor(kingdom: Kingdom, id: string, scheduler: Scheduler, trace: Tracer) {
     this.id = id;
@@ -58,6 +65,7 @@ export default class DefenseManager {
     this.threadCheckColonyDefenses = thread('check_defense_thread', REQUEST_DEFENDERS_TTL)(checkColonyDefenses);
     this.threadReturnDefendersToStation = thread('recall_defenders_thread', REQUEST_DEFENDERS_TTL)(returnDefendersToStation);
     this.threadUpdateDefenseStats = thread('update_defense_stats_thread', UPDATE_DEFENSE_STATS_TTL)(updateDefenseStats);
+    this.threadHandleDefenderRequest = thread('request_defenders_thread', REQUEST_DEFENDER_TTL)(this.requestDefenders.bind(this));
   }
 
   private restoreFromMemory(kingdom: Kingdom, trace: Tracer) {
@@ -138,15 +146,15 @@ export default class DefenseManager {
     this.handleDefendFlags(kingdom, trace);
     this.threadCheckColonyDefenses(trace, kingdom, hostilesByColony);
     this.threadReturnDefendersToStation(trace, kingdom, hostilesByColony);
-
     this.threadUpdateDefenseStats(trace, kingdom, hostilesByColony);
+    this.threadHandleDefenderRequest(trace, kingdom, hostilesByColony);
 
     trace.end();
 
     return sleeping(RUN_INTERVAL);
   }
 
-  handleDefendFlags(kingdom: Kingdom, trace: Tracer) {
+  private handleDefendFlags(kingdom: Kingdom, trace: Tracer) {
     // Removed old defense parties
     this.defenseParties = this.defenseParties.filter((party) => {
       return this.scheduler.hasProcess(party.id);
@@ -180,6 +188,53 @@ export default class DefenseManager {
     };
 
     trace.log("defense memory", {memory: (Memory as any).defense});
+  }
+
+  private requestDefenders(trace, kingdom: Kingdom, hostilesByColony: HostilesByColony) {
+    // Check intra-colony requests for defenders
+    _.forEach(hostilesByColony, (hostiles, baseId) => {
+      const baseConfig = kingdom.planner.getBaseConfigById(baseId);
+      if (!baseConfig) {
+        trace.error("cannot find base config", {baseId});
+        return;
+      }
+
+      const request = kingdom.getNextRequest(getBaseDefenseTopic(baseConfig.id));
+      if (request) {
+        trace.log('got defender request', {request});
+        this.handleDefenderRequest(kingdom, baseConfig, request, trace);
+      }
+    });
+  }
+
+  private handleDefenderRequest(kingdom: Kingdom, baseConfig: BaseConfig, request, trace) {
+    const room = getBasePrimaryRoom(baseConfig);
+    if (!room) {
+      trace.error("cannot find primary room", {baseConfig});
+      return;
+    }
+
+    trace.log('request details', {
+      controllerLevel: room?.controller || null,
+      request,
+    });
+
+    if (request.details.spawn) {
+      const spawnRequest = createSpawnRequest(request.priority, request.ttl, request.details.role,
+        request.details.memory, 0)
+      trace.log('requesting spawning of defenders', {request});
+      requestSpawn(kingdom, getBaseSpawnTopic(baseConfig.id), spawnRequest);
+      // @CONFIRM that defenders spawn
+    }
+
+    trace.info('requesting existing defense response', {request});
+
+    // TODO replace with base defense topic
+    // Order existing defenders to the room
+    kingdom.creepManager.getCreepsByBaseAndRole(baseConfig.id, CREEPS.WORKER_DEFENDER).forEach((defender) => {
+      defender.memory[MEMORY.MEMORY_ASSIGN_ROOM] = request.details.memory[MEMORY.MEMORY_ASSIGN_ROOM];
+      defender.memory[MEMORY.MEMORY_ASSIGN_ROOM_POS] = request.details.memory[MEMORY.MEMORY_ASSIGN_ROOM_POS];
+    });
   }
 }
 
@@ -310,15 +365,15 @@ function addHostilesToColonyTargetTopic(kingdom: Kingdom, hostilesByColony: Reco
 
       trace.log('requesting target', {details, healingPower});
 
-      orgColony.sendRequest(TOPICS.PRIORITY_TARGETS, healingPower, details, TARGET_REQUEST_TTL);
+      orgColony.sendRequest(getBasePriorityTargetsTopic(colonyId), healingPower, details, TARGET_REQUEST_TTL);
     });
   });
 }
 
 function publishDefenseStatuses(kingdom: Kingdom, hostilesByColony: HostilesByColony, trace) {
-  kingdom.getColonies().forEach((colony) => {
-    const numHostiles = (hostilesByColony[colony.id] || []).length;
-    const numDefenders = Object.values<Creep>(colony.getCreeps()).filter((creep) => {
+  kingdom.planner.getBaseConfigList().forEach((base) => {
+    const numHostiles = (hostilesByColony[base.id] || []).length;
+    const numDefenders = Object.values<Creep>(kingdom.creepManager.getCreepsByBase(base.id)).filter((creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
       return role === CREEPS.WORKER_DEFENDER || role === CREEPS.WORKER_DEFENDER_DRONE ||
         role === CREEPS.WORKER_DEFENDER_BOOSTED;
@@ -332,7 +387,7 @@ function publishDefenseStatuses(kingdom: Kingdom, hostilesByColony: HostilesByCo
     }
 
     const details = {
-      colonyId: colony.id,
+      baseId: base.id,
       status,
       numHostiles,
       numDefenders,
@@ -340,32 +395,27 @@ function publishDefenseStatuses(kingdom: Kingdom, hostilesByColony: HostilesByCo
 
     trace.log('defense status update', details);
 
-    colony.sendRequest(TOPICS.DEFENSE_STATUSES, 0, details, DEFENSE_STATUS_TTL)
+    kingdom.sendRequest(TOPICS.DEFENSE_STATUSES, 0, details, DEFENSE_STATUS_TTL)
   });
 }
 
+// TODO move into base defense runnable
 function checkColonyDefenses(trace: Tracer, kingdom: Kingdom, hostilesByColony: Record<string, Creep[]>) {
   // Check for defenders
-  _.forEach(hostilesByColony, (hostiles, colonyId) => {
-    const colony = kingdom.getColonyById(colonyId);
-    if (!colony) {
-      trace.error('expect to find colony, but did not', {colonyId});
-      return;
-    }
-
-    const base = kingdom.getPlanner().getBaseConfigById(colonyId);
+  _.forEach(hostilesByColony, (hostiles, baseId) => {
+    const base = kingdom.getPlanner().getBaseConfigById(baseId);
     if (!base) {
-      trace.error('expect to find base, but did not', {colonyId});
+      trace.error('expect to find base, but did not', {colonyId: baseId});
       return;
     }
 
-    const defenders = colony.getCreeps().filter((creep) => {
+    const defenders = kingdom.creepManager.getCreepsByBase(base.id).filter((creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
       return role === CREEPS.WORKER_DEFENDER || role === CREEPS.WORKER_DEFENDER_DRONE ||
         role === CREEPS.WORKER_DEFENDER_BOOSTED;
     });
 
-    trace.log('colony threat status', {colonyId, numHostiles: hostiles.length, numDefenders: defenders.length});
+    trace.log('colony threat status', {colonyId: baseId, numHostiles: hostiles.length, numDefenders: defenders.length});
 
     if (hostiles.length) {
       requestExistingDefenders(defenders, hostiles[0].pos);
@@ -379,7 +429,7 @@ function checkColonyDefenses(trace: Tracer, kingdom: Kingdom, hostilesByColony: 
 
       // are hostiles not in primary room?
       const hostilesNotInPrimaryRoom = hostiles.filter((hostile) => {
-        return hostile.room.name !== colony.primaryRoomId;
+        return hostile.room.name !== base.primary;
       });
 
       let numNeededDefenders = 0;
@@ -466,7 +516,7 @@ function returnDefendersToStation(trace: Tracer, kingdom: Kingdom, hostilesByCol
       return;
     }
 
-    const defenders = colony.getCreeps().filter((creep) => {
+    const defenders = kingdom.creepManager.getCreepsByBase(colony.id).filter((creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
       return role === CREEPS.WORKER_DEFENDER || role === CREEPS.WORKER_DEFENDER_DRONE ||
         role === CREEPS.WORKER_DEFENDER_BOOSTED;

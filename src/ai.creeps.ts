@@ -1,6 +1,6 @@
 import * as CREEPS from './constants.creeps';
 import {DEFINITIONS} from './constants.creeps';
-import {MEMORY_ROLE, MEMORY_START_TICK} from './constants.memory';
+import {MEMORY_ASSIGN_ROOM, MEMORY_BASE, MEMORY_ROLE, MEMORY_START_TICK} from './constants.memory';
 import {Tracer} from './lib.tracing';
 import {Kingdom} from './org.kingdom';
 import {Process, running, terminate} from "./os.process";
@@ -23,26 +23,68 @@ import {roleWorker} from './role.worker';
 
 export class CreepManager {
   id: string;
-  scheduler: Scheduler;
 
-  constructor(id: string, scheduler: Scheduler) {
-    this.id = id;
+  private scheduler: Scheduler;
+  private creeps: Creep[];
+  private creepsByRoom: Record<string, Creep[]>;
+  private creepsByBase: Record<string, Creep[]>;
+  private creepCountsByBaseAndRole: Record<string, Record<string, Creep[]>>;
+
+  constructor(scheduler: Scheduler) {
+    this.id = 'creep_manager';
     this.scheduler = scheduler;
   }
 
   run(kingdom: Kingdom, trace: Tracer): RunnableResult {
     trace = trace.begin('creep_manager_run');
 
+    this.creeps = Object.values(Game.creeps);
+    this.creepsByRoom = _.groupBy(this.creeps, (creep) => {
+      if (!creep.memory[MEMORY_ASSIGN_ROOM]) {
+        trace.warn(`Creep ${creep.name} has no room assigned`);
+      }
+      return creep.memory[MEMORY_ASSIGN_ROOM];
+    });
+    this.creepsByBase = _.groupBy(this.creeps, (creep) => {
+      if (!creep.memory[MEMORY_BASE]) {
+        trace.warn(`Creep ${creep.name} has no base assigned`);
+      }
+      return creep.memory[MEMORY_BASE];
+    });
+
+    this.creepCountsByBaseAndRole = _.reduce(this.creeps, (bases, creep) => {
+      const base = creep.memory[MEMORY_BASE]
+      if (!base) {
+        return bases;
+      }
+
+      if (!bases[base]) {
+        bases[base] = {};
+      }
+
+      const role = creep.memory[MEMORY_ROLE];
+      if (!role) {
+        return bases;
+      }
+
+      if (!bases[base][role]) {
+        bases[base][role] = [];
+      }
+
+      bases[base][role].push(creep);
+      return bases;
+    }, {} as Record<string, Record<string, Creep[]>>)
+
     // Create processes for any creeps that do not have a process
     // registered with the scheduler
 
     // TODO, make this more efficient.
-    Object.entries(Game.creeps).forEach(([id, creep]) => {
+    this.creeps.forEach((creep) => {
       if (creep.spawning) {
         return;
       }
 
-      const hasProcess = this.scheduler.hasProcess(id);
+      const hasProcess = this.scheduler.hasProcess(creep.id);
       if (hasProcess) {
         return;
       }
@@ -65,7 +107,7 @@ export class CreepManager {
         })
       }
 
-      const process = this.getCreepProcess(id, creep);
+      const process = this.getCreepProcess(creep.id, creep);
       if (!process) {
         trace.error('creep has no process', {creep: creep.name, memory: creep.memory});
         let result = creep.suicide();
@@ -91,6 +133,22 @@ export class CreepManager {
     trace.end();
 
     return running();
+  }
+
+  getCreeps(): Creep[] {
+    return this.creeps;
+  }
+
+  getCreepsByRoom(roomName: string): Creep[] {
+    return this.creepsByRoom[roomName] || [];
+  }
+
+  getCreepsByBase(baseName: string): Creep[] {
+    return this.creepsByBase[baseName] || [];
+  }
+
+  getCreepsByBaseAndRole(base: string, role: string): Creep[] {
+    return _.get(this.creepCountsByBaseAndRole, [base, role], []);
   }
 
   private getCreepProcess(id: string, creep: Creep): Process {

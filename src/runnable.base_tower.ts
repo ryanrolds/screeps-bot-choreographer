@@ -1,12 +1,12 @@
 import * as MEMORY from "./constants.memory";
 import * as PRIORITIES from "./constants.priorities";
 import * as TASKS from "./constants.tasks";
-import * as TOPICS from "./constants.topics";
 import {Tracer} from './lib.tracing';
 import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
 import {running, sleeping, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
+import {getBasePriorityTargetsTopic} from "./runnable.manager.defense";
 import {getBaseDistributorTopic} from "./topics";
 
 const REQUEST_ENERGY_TTL = 10;
@@ -88,15 +88,15 @@ export default class TowerRunnable {
     // Request energy
     if (towerUsed < REQUEST_ENERGY_THRESHOLD && this.haulTTL < 0) {
       this.haulTTL = REQUEST_ENERGY_TTL;
-      trace.log('requesting energy', {});
+      trace.info('requesting energy', {});
       this.requestEnergy(kingdom, this.orgRoom, tower, REQUEST_ENERGY_TTL, trace);
     }
 
     // Attack hostiles
     const roomId = this.orgRoom.id;
-    let targets = this.orgRoom.getColony().getFilteredRequests(TOPICS.PRIORITY_TARGETS,
+    let targets = kingdom.getFilteredRequests(getBasePriorityTargetsTopic(this.baseId),
       (target) => {
-        trace.log('finding target', {target, roomId});
+        trace.info('finding target', {target, roomId});
         return target.details.roomName === roomId;
       }
     );
@@ -118,15 +118,16 @@ export default class TowerRunnable {
     if (targets.length) {
       const target = Game.getObjectById<Id<Creep>>(targets[0].details.id)
       const result = tower.attack(target);
-      trace.log('attacking', {target: targets[0].details.id, result})
+      trace.info('attacking', {target: targets[0].details.id, result})
       trace.end();
       return running();
     }
 
+    // TODO enable this later
     // Heal damaged creeps
-    if (!this.damagedCreep && this.orgRoom.damagedCreeps.length) {
-      this.damagedCreep = this.orgRoom.damagedCreeps.shift();
-    }
+    // if (!this.damagedCreep && this.orgRoom.damagedCreeps.length) {
+    //  this.damagedCreep = this.orgRoom.damagedCreeps.shift();
+    // }
 
     if (this.damagedCreep) {
       const creep = Game.creeps[this.damagedCreep];

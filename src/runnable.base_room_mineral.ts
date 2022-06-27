@@ -212,7 +212,8 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
       return;
     }
 
-    const numHarvesters = colony.getCreeps().filter((creep) => {
+    const baseCreeps = kingdom.creepManager.getCreepsByBase(baseConfig.id);
+    const numHarvesters = baseCreeps.filter((creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
       return role === WORKER_HARVESTER &&
         creep.memory[MEMORY.MEMORY_SOURCE] === this.mineralId &&

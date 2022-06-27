@@ -1,9 +1,9 @@
 
-import * as behaviorTree from "./lib.behaviortree";
-import {FAILURE, SUCCESS, RUNNING} from "./lib.behaviortree";
 import * as behaviorMovement from "./behavior.movement";
-import {MEMORY_SOURCE, MEMORY_ASSIGN_ROOM} from "./constants.memory";
+import {MEMORY_ASSIGN_ROOM, MEMORY_SOURCE} from "./constants.memory";
 import {numEnemeiesNearby, numOfSourceSpots} from "./helpers.proximity";
+import * as behaviorTree from "./lib.behaviortree";
+import {FAILURE, RUNNING, SUCCESS} from "./lib.behaviortree";
 
 export const selectHarvestSource = behaviorTree.leafNode(
   'bt.harvest.selectHarvestSource',
@@ -31,7 +31,8 @@ export const selectHarvestSource = behaviorTree.leafNode(
         return 0;
       }
 
-      const numAssigned = _.filter(room.assignedCreeps, (creep) => {
+      const roomCreeps = kingdom.creepManager.getCreepsByRoom(creep.room.name)
+      const numAssigned = _.filter(roomCreeps, (creep) => {
         return creep.memory[MEMORY_SOURCE] === source.id;
       }).length;
 

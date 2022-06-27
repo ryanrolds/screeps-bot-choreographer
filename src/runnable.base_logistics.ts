@@ -1,7 +1,6 @@
-import {creepIsFresh} from "./behavior.commute";
 import {AlertLevel, BaseConfig} from "./config";
 import {ROLE_WORKER, WORKER_HAULER} from "./constants.creeps";
-import {MEMORY_BASE, MEMORY_HAUL_AMOUNT, MEMORY_HAUL_DROPOFF, MEMORY_HAUL_PICKUP, MEMORY_HAUL_RESOURCE, MEMORY_ROLE, MEMORY_TASK_TYPE, TASK_ID} from "./constants.memory";
+import {MEMORY_BASE, MEMORY_HAUL_AMOUNT, MEMORY_HAUL_DROPOFF, MEMORY_HAUL_PICKUP, MEMORY_HAUL_RESOURCE, MEMORY_TASK_TYPE, TASK_ID} from "./constants.memory";
 import {roadPolicy} from "./constants.pathing_policies";
 import {DUMP_NEXT_TO_STORAGE, HAUL_BASE_ROOM, HAUL_DROPPED, LOAD_FACTOR, PRIORITY_HAULER} from "./constants.priorities";
 import {TASK_HAUL} from "./constants.tasks";
@@ -189,13 +188,7 @@ export default class LogisticsRunnable extends PersistentMemory {
 
   private updateHaulers(trace: Tracer, kingdom: Kingdom) {
     // Get list of haulers and workers
-    this.haulers = kingdom.getBaseCreeps(this.baseId).filter((creep) => {
-      return (creep.memory[MEMORY_ROLE] === WORKER_HAULER ||
-        creep.memory[MEMORY_ROLE] === ROLE_WORKER) &&
-        creep.memory[MEMORY_BASE] === this.baseId &&
-        creepIsFresh(creep);
-    });
-
+    this.haulers = kingdom.creepManager.getCreepsByBaseAndRole(this.baseId, ROLE_WORKER)
     this.numHaulers = this.haulers.length;
 
     this.numActiveHaulers = this.haulers.filter((creep) => {
