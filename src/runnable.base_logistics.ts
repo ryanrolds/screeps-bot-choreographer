@@ -678,3 +678,13 @@ const visualizeLegs = (legs: Leg[], trace: Tracer) => {
     new RoomVisual(leg.destination.roomName).text('X', leg.destination.x, leg.destination.y);
   }
 }
+
+
+// Resources / logistics
+this.resources = null;
+this.hasStorage = false;
+this.threadUpdateResources = thread('update_resource', UPDATE_RESOURCES_TTL)((trace) => {
+  // Storage
+  this.hasStorage = this.getReserveStructures(false).length > 0;
+  this.resources = this.updateReserveResources();
+});

@@ -106,6 +106,15 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks('grunt-regex-replace');
   grunt.loadNpmTasks('grunt-githash');
 
+  grunt.registerTask('prune', '', function() {
+    var exec = require('child_process').execSync;
+    var result = exec("./node_modules/.bin/ts-prune", {encoding: 'utf8'});
+    if (result) {
+      grunt.log.writeln(result);
+      return false;
+    }
+  });
+
   grunt.registerTask('test', ['mochaTest']);
   grunt.registerTask('check', ['mochaTest']);
   grunt.registerTask("build", ["clean", "ts", "githash", "regex-replace:gitsha"]);

@@ -39,7 +39,7 @@ export class AI {
     this.config = config;
     this.scheduler = scheduler;
 
-    // ========= IPC =========
+    // ========= IPC ==========
     this.broker = new EventBroker();
     this.topics = new Topics();
 

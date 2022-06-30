@@ -52,7 +52,22 @@ An AI for [Screeps](screeps.com).
 - [X] Automatic layout and expansion
 - [X] System for a Room and Map(beta) HUD
 - [ ] Scale creep parts and remote mining based on spawner saturation
-- [ ] Refactor runnable/process threads
+- [ ] Remove "org" model
+  - [ ] Room
+    - [x] Move hostile tracking (deleted logic)
+    - [ ] Move defense
+    - [ ] Move tracking of damaged creeps
+    - [ ] Move structure repairing
+    - [ ] Move sharing of boost details
+    - [ ] Move resource tracking
+  - [ ] Observer (move into Base Observer)
+  - [ ] Colony
+  - [ ] Kingdom
+    - [ ] Use AI for accessing topics, planner, scheduler, etc...
+    - [ ] Move path cache, cost matrix cache, and resource gov. to AI
+  - [ ] Refactor Resource Governor into a Process\
+    - [ ] Move to TypeScript
+- [ ] All of project on TypeScript
 - [ ] TD: Room process and sources processes no longer require room visibility
 - [ ] TD: Replace spawn topics (TTL) with event streams (manages own queue)
 - [ ] TD: Cleanup old construction sites automatically
@@ -64,12 +79,11 @@ An AI for [Screeps](screeps.com).
 - [ ] Quads moving coherently 100% of time
 - [ ] Replace references to 'colony' with 'base'
 - [ ] Buff ramparts and walls to withstand nuke
-- [ ] Move Org/Kingdom work to scheduler
 - [ ] Move all data sharing between processes to topics/IPC (remove direct access)
 - [ ] Improved defenders that hide in ramparts
 - [ ] Collect Power
 - [ ] Create & drive Power Creeps
-- [ ] Apply buffer to lvl8 rooms
+- [ ] Apply buffer to lvl 8 rooms
 - [ ] Allow buffer manager to nuke and time sending attackers
 - [ ] Police portal rooms
 - [ ] Attack other players getting commodities/power

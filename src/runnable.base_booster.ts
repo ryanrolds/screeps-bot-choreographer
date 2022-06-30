@@ -561,3 +561,28 @@ export default class BoosterRunnable {
     });
   }
 }
+
+
+
+
+this.boosterPosition = null;
+this.boosterEffects = null;
+this.boosterAllEffects = null;
+this.boosterLabs = null;
+this.threadUpdateBoosters = thread('update_booster_thread', UPDATE_BOOSTER_TTL)((trace, room, kingdom) => {
+  const topic = this.getTopics().getTopic(TOPIC_ROOM_BOOSTS);
+  if (!topic) {
+    trace.log('no topic', {room: this.id});
+    return;
+  }
+
+  topic.forEach((event) => {
+    const details: BoosterDetails = event.details;
+    trace.log('booster position', {room: this.id, details});
+
+    this.boosterPosition = details.position;
+    this.boosterEffects = details.availableEffects;
+    this.boosterAllEffects = details.allEffects;
+    this.boosterLabs = details.labsByResource;
+  })
+});
