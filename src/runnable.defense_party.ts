@@ -1,9 +1,8 @@
 import * as _ from 'lodash';
-import {BaseConfig} from './config';
+import {Base} from './config';
 import {WORKER_DEFENDER_DRONE} from './constants.creeps';
 import {PRIORITY_BUFFER_PATROL} from "./constants.priorities";
 import {Tracer} from './lib.tracing';
-import {Kingdom} from './org.kingdom';
 import {running, STATUS_TERMINATED, terminate} from "./os.process";
 import {RunnableResult} from './os.runnable';
 import PartyRunnable from './runnable.party';
@@ -13,23 +12,23 @@ const NO_TARGET_TTL = 20;
 
 export default class DefensePartyRunnable {
   id: string;
-  baseConfig: BaseConfig;
+  base: Base;
   flagId: string;
   party: PartyRunnable;
   noTargetTTL: number;
   minEnergy: number;
 
-  constructor(id: string, baseConfig: BaseConfig, flagId: string, position: RoomPosition, trace: Tracer) {
+  constructor(id: string, base: Base, flagId: string, position: RoomPosition, trace: Tracer) {
     this.id = id;
-    this.baseConfig = baseConfig;
+    this.base = base;
     this.flagId = flagId;
     this.noTargetTTL = 0;
     this.minEnergy = 0;
-    this.party = new PartyRunnable(id, baseConfig, position, WORKER_DEFENDER_DRONE,
+    this.party = new PartyRunnable(id, base, position, WORKER_DEFENDER_DRONE,
       null, this.minEnergy, PRIORITY_BUFFER_PATROL, REQUEST_PARTY_MEMBER_TTL);
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('defense_party_run')
 
     trace.log("defense party run top", {id: this.id})

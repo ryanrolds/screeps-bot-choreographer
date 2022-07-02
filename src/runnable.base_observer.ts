@@ -12,7 +12,7 @@ export default class ObserverRunnable {
     this.id = id;
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.as('observer_run');
 
     const structure = Game.getObjectById(this.id);

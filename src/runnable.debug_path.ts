@@ -1,7 +1,6 @@
-import {FindPathPolicy, getPath, PathSearchDetails, visualizePath} from "./lib.pathing";
 import {commonPolicy} from "./constants.pathing_policies";
+import {FindPathPolicy, getPath, PathSearchDetails, visualizePath} from "./lib.pathing";
 import {Tracer} from './lib.tracing';
-import {Kingdom} from "./org.kingdom";
 import {running} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 import {BufferPathPolicy} from "./runnable.manager.buffer";
@@ -11,16 +10,16 @@ export default class PathDebugger {
   id: string;
   results: PathFinderPath;
   resultsDebug: PathSearchDetails;
-  kingdom: Kingdom;
+  kernel: Kernel;
 
-  constructor(id: string, kingdom: Kingdom) {
+  constructor(id: string, kernel: Kernel) {
     this.id = id;
     this.results = null;
     this.resultsDebug = null;
     this.kingdom = kingdom;
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace.log("path debugger", {path: this.results})
 
     if (this.results) {

@@ -3,7 +3,6 @@ import {
   DismissedReasonOwned, ExpandResults, pickExpansion
 } from "./lib.expand";
 import {Tracer} from './lib.tracing';
-import {Kingdom} from "./org.kingdom";
 import {running} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 
@@ -12,14 +11,14 @@ export default class PlannerDebugger {
   id: string;
   results: ExpandResults = null;
   display: boolean = false;
-  kingdom: Kingdom;
+  kernel: Kernel;
 
-  constructor(id: string, kingdom: Kingdom) {
+  constructor(id: string, kernel: Kernel) {
     this.id = id;
     this.kingdom = kingdom;
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace.log("expand debugger run", {results: this.results});
 
     if (this.display) {

@@ -1,6 +1,4 @@
 import {Tracer} from './lib.tracing';
-import {Kingdom} from './org.kingdom';
-import * as _ from 'lodash';
 import {Runnable, RunnableResult} from './os.runnable';
 
 
@@ -93,7 +91,7 @@ export class Process {
     this.adjustedPriority -= 1;
   }
 
-  run(kingdom: Kingdom, trace: Tracer) {
+  run(kernel: Kernel, trace: Tracer) {
     this.lastRun = Game.time;
 
     const result = this.runnable.run(kingdom, trace);

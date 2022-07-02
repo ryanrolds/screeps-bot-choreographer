@@ -2,7 +2,6 @@ import {
   createCommonCostMatrix, createDefenderCostMatrix, createOpenSpaceMatrix, createPartyCostMatrix, createSourceRoadMatrix, haulerCostMatrixMatrix, singleRoomCommonMatrix
 } from "./lib.costmatrix";
 import {Tracer} from "./lib.tracing";
-import {Kingdom} from "./org.kingdom";
 
 const COST_MATRIX_TTL = 1000;
 
@@ -30,7 +29,7 @@ export class CostMatrixCacheItem {
     this.time = 0;
   }
 
-  update(kingdom: Kingdom, trace: Tracer) {
+  update(kernel: Kernel, trace: Tracer) {
     let costMatrix: CostMatrix = new PathFinder.CostMatrix();
 
     trace.log('updating', {room: this.roomId, type: this.costMatrixType});
@@ -65,7 +64,7 @@ export class CostMatrixCacheItem {
     this.time = Game.time;
   }
 
-  getCostMatrix(kingdom: Kingdom, trace: Tracer) {
+  getCostMatrix(kernel: Kernel, trace: Tracer) {
     if (!this.costMatrix || this.isExpired(Game.time)) {
       trace.log('cache miss/expired', {
         room: this.roomId,
@@ -90,7 +89,7 @@ export class CostMatrixCache {
     this.rooms = {};
   }
 
-  getCostMatrix(kingdom: Kingdom, roomId: string, costMatrixType: AllowedCostMatrixTypes, trace: Tracer): CostMatrix {
+  getCostMatrix(kernel: Kernel, roomId: string, costMatrixType: AllowedCostMatrixTypes, trace: Tracer): CostMatrix {
     if (!this.rooms[roomId]) {
       trace.log('room not in cache', {roomId});
       this.rooms[roomId] = {} as Record<Partial<AllowedCostMatrixTypes>, CostMatrixCacheItem>;

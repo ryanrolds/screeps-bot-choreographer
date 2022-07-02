@@ -1,13 +1,12 @@
 import * as behaviorTree from "./lib.behaviortree";
-import {FAILURE, SUCCESS, RUNNING, NodeTickResult} from "./lib.behaviortree";
+import {FAILURE, NodeTickResult, RUNNING, SUCCESS} from "./lib.behaviortree";
 
 import * as MEMORY from "./constants.memory";
-import {MEMORY_ORIGIN, MEMORY_SOURCE} from "./constants.memory";
+import {MEMORY_SOURCE} from "./constants.memory";
+import {commonPolicy} from "./constants.pathing_policies";
+import {FindPathPolicy, visualizePath} from "./lib.pathing";
 import {PathCache, PathCacheItem} from "./lib.path_cache";
 import {Tracer} from "./lib.tracing";
-import {Kingdom} from "./org.kingdom";
-import {FindPathPolicy, visualizePath} from "./lib.pathing";
-import {commonPolicy} from "./constants.pathing_policies";
 
 const MAX_POSITION_TTL = 5;
 const MEMORY_MOVE_POS_TTL = 'move_pos_ttl';
@@ -154,7 +153,7 @@ const getDestinationFromMemory = (creep: Creep, memoryId: string): RoomPosition 
   return dest.pos;
 };
 
-const getAndSetCreepPath = (kingdom: Kingdom, pathCache: PathCache, creep: Creep, destination: RoomPosition,
+const getAndSetCreepPath = (kernel: Kernel, pathCache: PathCache, creep: Creep, destination: RoomPosition,
   range: number, policy: FindPathPolicy, trace: Tracer): [PathFinderPath, string, string] => {
   const path = pathCache.getPath(kingdom, creep.pos, destination, range, policy, trace);
   const originKey = pathCache.getKey(creep.pos, 0);
@@ -169,7 +168,7 @@ const clearMovementCache = (creep) => {
   delete creep.memory[PATH_DESTINATION_KEY];
 };
 
-const updateCreepCachedPath = (kingdom: Kingdom, creep: Creep, destination: RoomPosition,
+const updateCreepCachedPath = (kernel: Kernel, creep: Creep, destination: RoomPosition,
   range: number, policy: FindPathPolicy, trace: Tracer): PathFinderPath => {
   const pathCache = kingdom.getPathCache();
 
@@ -263,7 +262,7 @@ export const cachedMoveToMemoryObjectId = (memoryId: string, range: number = 1, 
   );
 };
 
-const cachedMoveToPosition = (kingdom: Kingdom, creep: Creep, destination: RoomPosition,
+const cachedMoveToPosition = (kernel: Kernel, creep: Creep, destination: RoomPosition,
   range: number = 1, policy: FindPathPolicy, trace: Tracer) => {
 
   // Check if creep has arrived

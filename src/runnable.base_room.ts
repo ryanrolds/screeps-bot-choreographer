@@ -1,12 +1,11 @@
 import {creepIsFresh} from './behavior.commute';
-import {BaseConfig} from './config';
+import {Base} from './config';
 import * as CREEPS from './constants.creeps';
 import * as MEMORY from './constants.memory';
 import * as PRIORITIES from './constants.priorities';
 import * as TOPICS from './constants.topics';
 import {Event} from './lib.event_broker';
 import {Tracer} from './lib.tracing';
-import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
 import {Process, sleeping, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
@@ -43,15 +42,15 @@ export default class RoomRunnable {
     this.threadProduceStatus = thread('produce_status_thread', PRODUCE_STATUS_TTL)(this.produceStatus.bind(this));
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('room_run');
 
     trace.log('room run', {
       id: this.id,
     });
 
-    const baseConfig = kingdom.getPlanner().getBaseConfigByRoom(this.id);
-    if (!baseConfig) {
+    const base = kingdom.getPlanner().getBaseByRoom(this.id);
+    if (!base) {
       trace.error("no colony config, terminating", {id: this.id})
       trace.end();
       return terminate();
@@ -72,11 +71,11 @@ export default class RoomRunnable {
     }
 
     if (!orgRoom.isPrimary) {
-      this.threadRequestReserver(trace, kingdom, baseConfig, orgRoom, room);
+      this.threadRequestReserver(trace, kingdom, base, orgRoom, room);
     }
 
     this.threadUpdateProcessSpawning(trace, orgRoom, room);
-    this.threadProduceStatus(trace, baseConfig, orgRoom);
+    this.threadProduceStatus(trace, base, orgRoom);
 
     trace.end();
     return sleeping(MIN_TTL);
@@ -107,7 +106,7 @@ export default class RoomRunnable {
     }
   }
 
-  requestReserver(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig, orgRoom: OrgRoom, room: Room) {
+  requestReserver(trace: Tracer, kernel: Kernel, base: Base, orgRoom: OrgRoom, room: Room) {
     const numReservers = _.filter(Game.creeps, (creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
       return (role === CREEPS.WORKER_RESERVER) &&
@@ -142,12 +141,12 @@ export default class RoomRunnable {
       const role = CREEPS.WORKER_RESERVER;
       const memory = {
         [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
-        [MEMORY.MEMORY_BASE]: baseConfig.id,
+        [MEMORY.MEMORY_BASE]: base.id,
       }
 
       let topic = getShardSpawnTopic()
       if (orgRoom.getColony().primaryRoom.energyCapacityAvailable > 800) {
-        topic = getBaseSpawnTopic(baseConfig.id);
+        topic = getBaseSpawnTopic(base.id);
       }
 
       const request = createSpawnRequest(priority, ttl, role, memory, 0);
@@ -155,7 +154,7 @@ export default class RoomRunnable {
     }
   }
 
-  produceStatus(trace: Tracer, baseConfig: BaseConfig, orgRoom: OrgRoom) {
+  produceStatus(trace: Tracer, base: Base, orgRoom: OrgRoom) {
     const resources = orgRoom.getReserveResources();
 
     const status = {
@@ -164,7 +163,7 @@ export default class RoomRunnable {
       [MEMORY.ROOM_STATUS_LEVEL_COMPLETED]: orgRoom.getRoomLevelCompleted(),
       [MEMORY.ROOM_STATUS_TERMINAL]: orgRoom.hasTerminal(),
       [MEMORY.ROOM_STATUS_ENERGY]: resources[RESOURCE_ENERGY] || 0,
-      [MEMORY.ROOM_STATUS_ALERT_LEVEL]: baseConfig.alertLevel,
+      [MEMORY.ROOM_STATUS_ALERT_LEVEL]: base.alertLevel,
     };
 
     trace.log('producing room status', {status});
@@ -175,7 +174,7 @@ export default class RoomRunnable {
       key: `room_${orgRoom.id}`,
       room: orgRoom.id,
       order: 1,
-      text: `Room: ${orgRoom.id} - status: ${baseConfig.alertLevel}, level: ${orgRoom.getRoomLevel()}`,
+      text: `Room: ${orgRoom.id} - status: ${base.alertLevel}, level: ${orgRoom.getRoomLevel()}`,
       time: Game.time,
     };
     const event = new Event(orgRoom.id, Game.time, HudEventSet, line);

@@ -4,7 +4,6 @@ import {Event} from "./lib.event_broker";
 import {ANY, buildingCodes, EMPTY, getConstructionPosition, Layout} from "./lib.layouts";
 import {getPath} from "./lib.pathing";
 import {Tracer} from './lib.tracing';
-import {Kingdom} from "./org.kingdom";
 import {PersistentMemory} from "./os.memory";
 import {sleeping} from "./os.process";
 import {Runnable, RunnableResult} from "./os.runnable";
@@ -101,7 +100,7 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
     this.threadProduceEvents = thread('consume_events', PRODUCE_EVENTS_TTL)(this.produceEvents.bind(this));
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.as('controller_run');
     trace.log('run', {
       controller: this.controllerId,
@@ -116,8 +115,8 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
       return sleeping(RUN_TTL);
     }
 
-    const baseConfig = kingdom.getPlanner().getBaseConfigByRoom(controller.room.name);
-    if (!baseConfig) {
+    const base = kingdom.getPlanner().getBaseByRoom(controller.room.name);
+    if (!base) {
       trace.error('missing origin', {id: controller.room.name});
       return sleeping(RUN_TTL);
     }
@@ -127,7 +126,7 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
       this.populateNodePosition(kingdom, controller, trace);
     }
 
-    if (baseConfig.alertLevel === AlertLevel.GREEN) {
+    if (base.alertLevel === AlertLevel.GREEN) {
       this.threadBuildStructures(trace, controller.room);
       this.threadProduceEvents(trace, kingdom, controller);
     }
@@ -135,7 +134,7 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
     return sleeping(RUN_TTL);
   }
 
-  populateNodePosition(kingdom: Kingdom, controller: StructureController, trace: Tracer) {
+  populateNodePosition(kernel: Kernel, controller: StructureController, trace: Tracer) {
     const memory = this.getMemory(trace) || {};
 
     if (memory.nodePosition && memory.roadPosition) {
@@ -154,17 +153,17 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
       return;
     }
 
-    const baseConfig = kingdom.getPlanner().getBaseConfigByRoom(controller.pos.roomName)
-    if (!baseConfig) {
+    const base = kingdom.getPlanner().getBaseByRoom(controller.pos.roomName)
+    if (!base) {
       trace.error('missing colony config', {room: controller.pos.roomName});
       return;
     }
 
-    const [pathResult, details] = getPath(kingdom, baseConfig.origin, controller.pos, controllerRoadPolicy, trace);
-    trace.log('path result', {origin: baseConfig.origin, dest: controller.pos, pathResult});
+    const [pathResult, details] = getPath(kingdom, base.origin, controller.pos, controllerRoadPolicy, trace);
+    trace.log('path result', {origin: base.origin, dest: controller.pos, pathResult});
 
     if (!pathResult || !pathResult.path.length) {
-      trace.error('no path found', {origin: baseConfig.origin, dest: controller.pos, pathResult});
+      trace.error('no path found', {origin: base.origin, dest: controller.pos, pathResult});
       return;
     }
 
@@ -186,15 +185,15 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
     this.setMemory(memory, false);
   }
 
-  produceEvents(trace: Tracer, kingdom: Kingdom, controller: StructureController) {
+  produceEvents(trace: Tracer, kernel: Kernel, controller: StructureController) {
     const position = this.roadPosition;
     if (!position) {
       trace.error('no road position', {room: controller.room.name});
       return;
     }
 
-    const baseConfig = kingdom.getPlanner().getBaseConfigByRoom(controller.room.name);
-    if (!baseConfig) {
+    const base = kingdom.getPlanner().getBaseByRoom(controller.room.name);
+    if (!base) {
       trace.error('no colony config', {room: controller.room.name});
       return;
     }
@@ -207,7 +206,7 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
         position: position,
       };
 
-      kingdom.getBroker().getStream(getLogisticsTopic(baseConfig.id)).
+      kingdom.getBroker().getStream(getLogisticsTopic(base.id)).
         publish(new Event(this.controllerId, Game.time, LogisticsEventType.RequestRoad, data));
     }
   }

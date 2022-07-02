@@ -2,7 +2,6 @@ import * as WORKERS from './constants.creeps';
 import * as MEMORY from './constants.memory';
 import * as PRIORITIES from './constants.priorities';
 import {Tracer} from './lib.tracing';
-import {Kingdom} from "./org.kingdom";
 import {sleeping} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 import {thread, ThreadFunc} from "./os.thread";
@@ -18,7 +17,7 @@ export default class KingdomGovernor {
     this.threadUpdateShardMemory = thread('update_shard_memory', SHARD_MEMORY_TTL)(this.updateShardMemory.bind(this));
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('kingdom_governor');
 
     trace.log('kingdom governor run', {})
@@ -30,16 +29,16 @@ export default class KingdomGovernor {
     return sleeping(SHARD_MEMORY_TTL);
   }
 
-  updateShardMemory(trace: Tracer, kingdom: Kingdom) {
+  updateShardMemory(trace: Tracer, kernel: Kernel) {
     trace.log('update_shard_memory');
 
     const scribe = kingdom.getScribe();
 
     let shardMemory = scribe.getLocalShardMemory();
 
-    const baseConfigs = kingdom.getPlanner().getBaseConfigs();
+    const bases = kingdom.getPlanner().getBases();
     shardMemory.status = {
-      numColonies: baseConfigs.length,
+      numColonies: bases.length,
     };
 
     shardMemory.time = Game.time;
@@ -65,7 +64,7 @@ export default class KingdomGovernor {
 
       trace.log('kingdom governor shard', {shardName, shardConfig})
 
-      const primaryColony: BaseConfig = Object.values(shardConfig)[0];
+      const primaryColony: Base = Object.values(shardConfig)[0];
       if (!primaryColony || !primaryColony.primary) {
         return;
       }
@@ -89,7 +88,7 @@ export default class KingdomGovernor {
     return _.filter(Game.creeps, needle);
   }
 
-  requestClaimersFromOtherShards(kingdom: Kingdom, localMemory: ShardMemory, trace: Tracer): ShardMemory {
+  requestClaimersFromOtherShards(kernel: Kernel, localMemory: ShardMemory, trace: Tracer): ShardMemory {
     localMemory.request_claimer = {};
 
     // Check if we need to request reservers
@@ -123,7 +122,7 @@ export default class KingdomGovernor {
     return localMemory;
   }
 
-  handleClaimerRequests(kingdom: Kingdom, requests: Record<string, CreepRequest>, trace: Tracer) {
+  handleClaimerRequests(kernel: Kernel, requests: Record<string, CreepRequest>, trace: Tracer) {
     Object.values(requests).forEach((creepRequest: CreepRequest) => {
       const memory = {
         [MEMORY.MEMORY_ASSIGN_SHARD]: creepRequest.shard,
@@ -173,7 +172,7 @@ export default class KingdomGovernor {
     return memory;
   }
 
-  requestBuildersFromOtherShards(kingdom: Kingdom, localMemory: ShardMemory, trace: Tracer): ShardMemory {
+  requestBuildersFromOtherShards(kernel: Kernel, localMemory: ShardMemory, trace: Tracer): ShardMemory {
     localMemory.request_builder = {};
 
     // Check if we need to request builders
@@ -207,7 +206,7 @@ export default class KingdomGovernor {
     return localMemory;
   }
 
-  handleBuilderRequests(kingdom: Kingdom, requests: Record<string, CreepRequest>, trace: Tracer) {
+  handleBuilderRequests(kernel: Kernel, requests: Record<string, CreepRequest>, trace: Tracer) {
     Object.values(requests).forEach((creepRequest: CreepRequest) => {
       const memory = {
         [MEMORY.MEMORY_ASSIGN_SHARD]: creepRequest.shard,

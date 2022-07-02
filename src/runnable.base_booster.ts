@@ -1,10 +1,9 @@
-import {BaseConfig} from "./config";
+import {Base} from "./config";
 import * as MEMORY from "./constants.memory";
 import * as PRIORITIES from "./constants.priorities";
 import * as TASKS from "./constants.tasks";
 import * as TOPICS from "./constants.topics";
 import {Tracer} from './lib.tracing';
-import {Kingdom} from "./org.kingdom";
 import OrgRoom, {ResourceCounts} from "./org.room";
 import {sleeping, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
@@ -79,10 +78,10 @@ export default class BoosterRunnable {
     this.threadUpdateRoomBooster = thread('update_room_booster', UPDATE_ROOM_BOOSTER_INTERVAL)(this.updateRoomBooster.bind(this));
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('booster_run');
 
-    const base = kingdom.getPlanner().getBaseConfigById(this.baseId);
+    const base = kingdom.getPlanner().getBaseById(this.baseId);
     if (!base) {
       trace.error('Base not found', {baseId: this.baseId});
       trace.end();
@@ -352,7 +351,7 @@ export default class BoosterRunnable {
     return [needToLoad, couldUnload, emptyLabs]
   }
 
-  sendHaulRequests(kingdom: Kingdom, loadedEffects, needToLoad, emptyLabs, couldUnload, trace: Tracer) {
+  sendHaulRequests(kernel: Kernel, loadedEffects, needToLoad, emptyLabs, couldUnload, trace: Tracer) {
     const numToLoad = needToLoad.length;
     const numEmpty = emptyLabs.length;
 
@@ -368,7 +367,7 @@ export default class BoosterRunnable {
       this.requestUnloadOfLabs(kingdom, loadedEffects, unload, trace);
     }
   }
-  rebalanceLabs(kingdom: Kingdom, base: BaseConfig, trace: Tracer) {
+  rebalanceLabs(kernel: Kernel, base: Base, trace: Tracer) {
     const labs = this.getLabs();
     labs.forEach((lab) => {
       if (!lab.mineralType) {
@@ -409,7 +408,7 @@ export default class BoosterRunnable {
       }
     });
   }
-  requestUnloadOfLabs(kingdom: Kingdom, loadedEffects, couldUnload, trace: Tracer) {
+  requestUnloadOfLabs(kernel: Kernel, loadedEffects, couldUnload, trace: Tracer) {
     couldUnload.forEach((toUnload) => {
       const effect = loadedEffects[toUnload];
       const compound = effect.compounds[0];
@@ -453,7 +452,7 @@ export default class BoosterRunnable {
         details, REQUEST_UNLOAD_TTL);
     });
   }
-  requestMaterialsForLabs(kingdom: Kingdom, needToLoad, trace: Tracer) {
+  requestMaterialsForLabs(kernel: Kernel, needToLoad, trace: Tracer) {
     const reserveResources = this.orgRoom.getReserveResources();
 
     needToLoad.forEach((toLoad) => {
@@ -514,7 +513,7 @@ export default class BoosterRunnable {
     });
   }
 
-  requestHaulingOfMaterial(kingdom: Kingdom, compound, lab, trace: Tracer) {
+  requestHaulingOfMaterial(kernel: Kernel, compound, lab, trace: Tracer) {
     const pickup = this.orgRoom.getReserveStructureWithMostOfAResource(compound.name, true);
     if (!pickup) {
       trace.log('no pickup for available compound', {resource: compound.name});
@@ -535,7 +534,7 @@ export default class BoosterRunnable {
     kingdom.sendRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.HAUL_BOOST, details, REQUEST_LOAD_TTL);
   }
 
-  requestEnergyForLabs(kingdom: Kingdom, trace: Tracer) {
+  requestEnergyForLabs(kernel: Kernel, trace: Tracer) {
     const labs = this.getLabs();
     labs.forEach((lab) => {
       // Only fill lab if needed

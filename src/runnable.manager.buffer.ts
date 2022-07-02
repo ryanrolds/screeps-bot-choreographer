@@ -4,7 +4,6 @@ import * as TOPICS from './constants.topics';
 import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
 import {FindColonyPathPolicy, getClosestColonyByPath} from './lib.pathing';
 import {Tracer} from './lib.tracing';
-import {Kingdom} from './org.kingdom';
 import {sleeping} from "./os.process";
 import {RunnableResult} from './os.runnable';
 import {TargetRoom} from './runnable.scribe';
@@ -44,7 +43,7 @@ export default class BufferManager {
     this.id = id;
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('buffer_manager_run');
 
     const hostileRoomsByColony = getHostileRoomsByColony(kingdom, trace);
@@ -54,7 +53,7 @@ export default class BufferManager {
         return;
       }
 
-      const base = kingdom.getPlanner().getBaseConfigById(baseId);
+      const base = kingdom.getPlanner().getBaseById(baseId);
       if (!base) {
         trace.log('no base', {baseId});
         return;
@@ -85,7 +84,7 @@ export default class BufferManager {
 
 type HostileRoomsByColony = Record<string, TargetRoom[]>;
 
-function getHostileRoomsByColony(kingdom: Kingdom, trace: Tracer): HostileRoomsByColony {
+function getHostileRoomsByColony(kernel: Kernel, trace: Tracer): HostileRoomsByColony {
   const hostileRooms = kingdom.getScribe().getHostileRooms()
   trace.info('hostile rooms', {hostileRooms});
 

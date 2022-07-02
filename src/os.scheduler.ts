@@ -1,6 +1,5 @@
 import * as _ from 'lodash';
 import {Tracer} from './lib.tracing';
-import {Kingdom} from './org.kingdom';
 import {Process} from './os.process';
 
 export const Priorities = {
@@ -104,7 +103,7 @@ export class Scheduler {
     }
   }
 
-  tick(kingdom: Kingdom, trace: Tracer) {
+  tick(kernel: Kernel, trace: Tracer) {
     trace = trace.begin('scheduler_tick');
 
     // Time limit change between ticks

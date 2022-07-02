@@ -1,7 +1,5 @@
-import {trace} from "console";
 import {Consumer} from "./lib.event_broker";
 import {Tracer} from "./lib.tracing";
-import {Kingdom} from "./org.kingdom";
 import {running} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 import {thread, ThreadFunc} from "./os.thread";
@@ -81,7 +79,7 @@ export class HUDRunnable {
     this.threadLinesEvents = thread('consume_events', CONSUME_EVENTS_TTL)(this.consumeLinesEvents.bind(this));
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     if (!this.hudLinesConsumer) {
       const linesStreamId = getLinesStream();
       const consumer = kingdom.getBroker().getStream(linesStreamId).addConsumer('hud');

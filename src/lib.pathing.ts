@@ -1,8 +1,7 @@
-import {BaseConfig} from "./config";
+import {Base} from "./config";
 import {AllowedCostMatrixTypes} from "./lib.costmatrix_cache";
 import {getNearbyPositions} from "./lib.position";
 import {Tracer} from "./lib.tracing";
-import {Kingdom} from "./org.kingdom";
 import {RoomEntry} from "./runnable.scribe";
 
 type ColonyPolicy = {
@@ -70,7 +69,7 @@ interface RoomCallbackFunc {
   (roomName: string): (boolean | CostMatrix);
 }
 
-export const getPath = (kingdom: Kingdom, origin: RoomPosition, destination: RoomPosition,
+export const getPath = (kernel: Kernel, origin: RoomPosition, destination: RoomPosition,
   policy: FindPathPolicy, trace: Tracer): [PathFinderPath, PathSearchDetails] => {
 
   const pathDetails: PathSearchDetails = {
@@ -152,18 +151,18 @@ export const getPath = (kingdom: Kingdom, origin: RoomPosition, destination: Roo
   return [null, pathDetails];
 }
 
-export const getClosestColonyByPath = (kingdom: Kingdom, destination: RoomPosition,
-  policy: FindColonyPathPolicy, trace: Tracer): BaseConfig => {
+export const getClosestColonyByPath = (kernel: Kernel, destination: RoomPosition,
+  policy: FindColonyPathPolicy, trace: Tracer): Base => {
   const roomEntry = kingdom.getScribe().getRoomById(destination.roomName);
 
-  let selectedColony: BaseConfig = null;
+  let selectedColony: Base = null;
   let selectedPathLength = 99999;
 
   // Get colonies and filter by the policy
-  let baseConfigs = kingdom.getPlanner().getBaseConfigs();
-  baseConfigs = applyAllowedColonyPolicy(baseConfigs, roomEntry, policy.colony, trace);
+  let bases = kingdom.getPlanner().getBases();
+  bases = applyAllowedColonyPolicy(bases, roomEntry, policy.colony, trace);
   // Iterate colonies and find the closest one within the policies
-  baseConfigs.forEach((config) => {
+  bases.forEach((config) => {
     // Get the origin position from the colony by apply the colony policy
     const originPosition = getOriginPosition(kingdom, config, policy.colony, trace);
     if (!originPosition) {
@@ -199,12 +198,12 @@ export const getClosestColonyByPath = (kingdom: Kingdom, destination: RoomPositi
   return selectedColony;
 }
 
-const applyAllowedColonyPolicy = (baseConfigs: BaseConfig[], destRoomEntry: RoomEntry,
-  policy: ColonyPolicy, trace: Tracer): BaseConfig[] => {
+const applyAllowedColonyPolicy = (bases: Base[], destRoomEntry: RoomEntry,
+  policy: ColonyPolicy, trace: Tracer): Base[] => {
 
   // Do not search colonies below the minimum level
   if (policy.minRoomLevel) {
-    baseConfigs = baseConfigs.filter((config) => {
+    bases = bases.filter((config) => {
       const room = Game.rooms[config.primary];
       if (!room) {
         trace.warn('room not found', {room: config.primary});
@@ -217,28 +216,28 @@ const applyAllowedColonyPolicy = (baseConfigs: BaseConfig[], destRoomEntry: Room
 
   // Do not search colonies further than the max linear distance
   if (policy.maxLinearDistance) {
-    baseConfigs = baseConfigs.filter((config) => {
+    bases = bases.filter((config) => {
       return Game.map.getRoomLinearDistance(destRoomEntry.id, config.primary) <= policy.maxLinearDistance;
     });
   }
 
-  trace.log('filtered colonies', {colonies: baseConfigs.map((colony) => colony.id)});
+  trace.log('filtered colonies', {colonies: bases.map((colony) => colony.id)});
 
-  return baseConfigs
+  return bases
 }
 
-const getOriginPosition = (kingdom: Kingdom, baseConfig: BaseConfig, policy: ColonyPolicy,
+const getOriginPosition = (kernel: Kernel, base: Base, policy: ColonyPolicy,
   trace: Tracer): RoomPosition => {
 
   if (policy.start === "spawn") {
-    return baseConfig.origin;
+    return base.origin;
   }
 
   return null;
 }
 
 const getRoomRouteCallback = (
-  kingdom: Kingdom,
+  kernel: Kernel,
   originRoom: string,
   destRoom: string,
   policy: RoomPolicy,
@@ -282,7 +281,7 @@ const getRoomRouteCallback = (
 }
 
 const getRoomCallback = (
-  kingdom: Kingdom,
+  kernel: Kernel,
   originRoom: string,
   destRoom: string,
   pathPolicy: PathPolicy,
@@ -368,7 +367,7 @@ const getRoomCallback = (
 }
 
 const applyRoomCallbackPolicy = (
-  kingdom: Kingdom,
+  kernel: Kernel,
   roomEntry: RoomEntry,
   policy: RoomPolicy,
   trace: Tracer

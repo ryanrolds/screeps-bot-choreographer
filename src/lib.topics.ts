@@ -58,13 +58,13 @@ export class Topics {
   /**
    * @deprecated Use addRequestV2 instead.
    */
-  addRequest(key: TopicKey, priority, details: RequestDetails, ttl = DEFAULT_TTL) {
+  addRequest(key: TopicKey, priority: number, details: RequestDetails, ttl = DEFAULT_TTL) {
     let topic = this.getTopic(key);
     if (!topic) {
       topic = this.createTopic(key);
     }
 
-    const request = {
+    const request: Request = {
       priority,
       details,
       ttl: Game.time + ttl,
@@ -74,7 +74,7 @@ export class Topics {
     this.topics[key] = _.sortBy(topic, 'priority');
   }
 
-  addRequestV2(key: TopicKey, request: any) {
+  addRequestV2(key: TopicKey, request: Request) {
     let topic = this.getTopic(key);
     if (!topic) {
       topic = this.createTopic(key);

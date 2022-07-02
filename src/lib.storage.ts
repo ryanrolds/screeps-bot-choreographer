@@ -1,13 +1,13 @@
-import {BaseConfig} from "./config";
+import {Base} from "./config";
 
 export function getReserveStructures(
   game: Game,
-  baseConfig: BaseConfig,
+  base: Base,
   includeTerminal: boolean
 ): AnyStoreStructure[] {
   const reserveStructures = [];
 
-  const room = game.rooms[baseConfig.primary];
+  const room = game.rooms[base.primary];
   if (!room) {
     return reserveStructures;
   }
@@ -25,10 +25,10 @@ export function getReserveStructures(
 
 export function getReserveStructureWithRoomForResource(
   game: Game,
-  baseConfig: BaseConfig,
+  base: Base,
   resource: ResourceConstant
 ): AnyStoreStructure | undefined {
-  let structures = getReserveStructures(game, baseConfig, false);
+  let structures = getReserveStructures(game, base, false);
   if (!structures.length) {
     return null;
   }

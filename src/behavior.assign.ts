@@ -1,6 +1,8 @@
+import {Kernel} from "./ai.kernel";
 import * as MEMORY from "./constants.memory";
 import * as behaviorTree from "./lib.behaviortree";
 import {RUNNING, SUCCESS} from "./lib.behaviortree";
+import {Tracer} from "./lib.tracing";
 
 const MEMORY_PREV_ROOM = 'previous_room';
 
@@ -17,7 +19,7 @@ export const moveToRoom = behaviorTree.repeatUntilSuccess(
   'moveToAssignedRoom',
   behaviorTree.leafNode(
     'move_to_exit',
-    (creep, trace, kingdom) => {
+    (creep: Creep, trace: Tracer, kernel: Kernel) => {
       const roomID = creep.memory[MEMORY.MEMORY_ASSIGN_ROOM];
       if (!roomID) {
         return SUCCESS;

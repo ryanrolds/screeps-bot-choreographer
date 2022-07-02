@@ -1,7 +1,6 @@
-import {BaseConfig} from "./config";
+import {Base} from "./config";
 import {Tracer} from "./lib.tracing";
 import {Colony} from "./org.colony";
-import {Kingdom} from "./org.kingdom";
 
 
 type RoomDetails = {
@@ -16,24 +15,24 @@ type DebugDetails = {
 };
 
 export const findNextRemoteRoom = (
-  kingdom: Kingdom,
-  baseConfig: BaseConfig,
+  kernel: Kernel,
+  base: Base,
   trace: Tracer,
 ): [string, DebugDetails] => {
-  trace.notice('checking remote mining', {baseConfig});
+  trace.notice('checking remote mining', {base});
 
   let debug: DebugDetails = {
     adjacentRooms: [],
     details: {},
   };
 
-  let exits = baseConfig.rooms.reduce((acc, roomName) => {
+  let exits = base.rooms.reduce((acc, roomName) => {
     const exits = Game.map.describeExits(roomName);
     return acc.concat(Object.values(exits));
   }, [] as string[]);
 
   let adjacentRooms: string[] = _.uniq(exits);
-  adjacentRooms = _.difference(adjacentRooms, baseConfig.rooms);
+  adjacentRooms = _.difference(adjacentRooms, base.rooms);
 
   debug.adjacentRooms = adjacentRooms;
 
@@ -42,8 +41,8 @@ export const findNextRemoteRoom = (
     debug.details[roomName] = {};
 
     // filter rooms already belonging to a colony
-    const roomBaseConfig = kingdom.getPlanner().getBaseConfigByRoom(roomName);
-    if (roomBaseConfig && baseConfig.id !== roomBaseConfig.id) {
+    const roomBase = kingdom.getPlanner().getBaseByRoom(roomName);
+    if (roomBase && base.id !== roomBase.id) {
       debug.details[roomName].rejected = 'already assigned';
       trace.info('room already assigned to colony', {roomName});
       return false;
@@ -81,7 +80,7 @@ export const findNextRemoteRoom = (
   });
 
   if (adjacentRooms.length === 0) {
-    trace.info('no adjacent rooms found', {adjacentRooms, exits, baseConfig});
+    trace.info('no adjacent rooms found', {adjacentRooms, exits, base});
     return [null, debug];
   }
 
@@ -94,7 +93,7 @@ export const findNextRemoteRoom = (
         return roomEntry.numSources;
       },
       (roomName) => { // Sort by distance from primary room
-        const route = Game.map.findRoute(baseConfig.primary, roomName);
+        const route = Game.map.findRoute(base.primary, roomName);
         if (route === ERR_NO_PATH) {
           debug.details[roomName].distance = 9999;
           return 9999;
@@ -110,7 +109,7 @@ export const findNextRemoteRoom = (
   trace.info('next remote mining rooms', {adjacentRooms});
 
   if (adjacentRooms.length === 0) {
-    trace.info('no adjacent rooms found', {adjacentRooms, exits, baseConfig});
+    trace.info('no adjacent rooms found', {adjacentRooms, exits, base});
     return [null, debug];
   }
 

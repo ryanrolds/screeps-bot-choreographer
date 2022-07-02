@@ -16,7 +16,7 @@ const selectNextTaskOrPark = behaviorTree.selectorNode(
       'pick_haul_task',
       (creep, trace, kingdom) => {
         // lookup base from kingdom
-        const base = kingdom.getCreepBaseConfig(creep);
+        const base = kingdom.getCreepBase(creep);
         if (!base) {
           trace.error('could not find creep base', {name: creep.name, memory: creep.memory});
           creep.suicide();

@@ -4,7 +4,6 @@ import * as TASKS from "./constants.tasks";
 import * as TOPICS from "./constants.topics";
 import {Event} from "./lib.event_broker";
 import {Tracer} from './lib.tracing';
-import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
 import {running, sleeping, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
@@ -51,7 +50,7 @@ export default class ReactorRunnable {
     this.threadProduceStatus = thread('produce_status_thread', PRODUCE_STATUS_TTL)(this.produceUpdateStatus.bind(this));
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('reactor_run');
 
     const ticks = Game.time - this.prevTime;
@@ -139,7 +138,7 @@ export default class ReactorRunnable {
   }
 
   // TODO create type for task
-  processTask(kingdom: Kingdom, room: Room, labs: StructureLab[], task: any, ticks: number, trace: Tracer): number {
+  processTask(kernel: Kernel, room: Room, labs: StructureLab[], task: any, ticks: number, trace: Tracer): number {
     const inputA = task.details[MEMORY.REACTOR_INPUT_A];
     const amount = task.details[MEMORY.REACTOR_AMOUNT];
     const inputB = task.details[MEMORY.REACTOR_INPUT_B];
@@ -208,7 +207,7 @@ export default class ReactorRunnable {
     }
   }
 
-  unloadLabs(kingdom: Kingdom, labs: StructureLab[], trace: Tracer) {
+  unloadLabs(kernel: Kernel, labs: StructureLab[], trace: Tracer) {
     labs.forEach((lab) => {
       if (lab.mineralType) {
         this.unloadLab(kingdom, lab, trace);
@@ -216,7 +215,7 @@ export default class ReactorRunnable {
     });
   }
 
-  prepareInput(kingdom: Kingdom, lab: StructureLab, resource, desiredAmount: number, trace: Tracer) {
+  prepareInput(kernel: Kernel, lab: StructureLab, resource, desiredAmount: number, trace: Tracer) {
     let currentAmount = 0;
     if (lab.mineralType) {
       currentAmount = lab.store.getUsedCapacity(lab.mineralType);
@@ -256,7 +255,7 @@ export default class ReactorRunnable {
     }
   }
 
-  loadLab(kingdom: Kingdom, lab: StructureLab, pickup: AnyStoreStructure, resource: ResourceConstant, amount: number, trace: Tracer) {
+  loadLab(kernel: Kernel, lab: StructureLab, pickup: AnyStoreStructure, resource: ResourceConstant, amount: number, trace: Tracer) {
     trace.log('requesting load', {
       lab: lab.id,
       resource: resource,
@@ -275,7 +274,7 @@ export default class ReactorRunnable {
     }, REQUEST_LOAD_TTL);
   }
 
-  unloadLab(kingdom: Kingdom, lab, trace: Tracer) {
+  unloadLab(kernel: Kernel, lab, trace: Tracer) {
     const currentAmount = lab.store.getUsedCapacity(lab.mineralType);
     const dropoff = this.orgRoom.getReserveStructureWithRoomForResource(lab.mineralType);
 

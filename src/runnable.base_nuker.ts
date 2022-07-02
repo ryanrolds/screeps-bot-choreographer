@@ -3,7 +3,6 @@ import * as PRIORITIES from "./constants.priorities";
 import * as TASKS from "./constants.tasks";
 import * as TOPICS from "./constants.topics";
 import {Tracer} from './lib.tracing';
-import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
 import {sleeping, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
@@ -30,7 +29,7 @@ export default class NukerRunnable {
     this.prevTime = Game.time;
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('nuker_run');
 
     const ticks = Game.time - this.prevTime;
@@ -99,7 +98,7 @@ export default class NukerRunnable {
     return sleeping(REQUEST_RESOURCES_TTL);
   }
 
-  requestResource(kingdom: Kingdom, resource: ResourceConstant, amount: number, trace: Tracer) {
+  requestResource(kernel: Kernel, resource: ResourceConstant, amount: number, trace: Tracer) {
     const pickup = this.orgRoom.getReserveStructureWithMostOfAResource(resource, true);
     if (!pickup) {
       trace.log('unable to get resource from reserve', {resource, amount});

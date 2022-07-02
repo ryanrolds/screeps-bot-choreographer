@@ -10,7 +10,7 @@ export const getHaulTaskFromBaseTopic = behaviorTree.leafNode(
   (creep, trace, kingdom) => {
     // lookup colony from kingdom
     const baseId = creep.memory[MEMORY.MEMORY_BASE];
-    const base = kingdom.getPlanner().getBaseConfigById(baseId);
+    const base = kingdom.getPlanner().getBaseById(baseId);
     if (!base) {
       trace.error('could not find base', {name: creep.name, memory: creep.memory});
       creep.suicide();

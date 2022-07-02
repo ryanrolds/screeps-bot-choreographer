@@ -1,12 +1,12 @@
 
-import * as behaviorTree from './lib.behaviortree';
-import {FAILURE} from './lib.behaviortree';
+import {behaviorBoosts} from "./behavior.boosts";
 import * as behaviorCommute from "./behavior.commute";
 import * as behaviorMovement from "./behavior.movement";
-import {behaviorBoosts} from "./behavior.boosts";
 import behaviorRoom from "./behavior.room";
 import * as MEMORY from "./constants.memory";
 import {commonPolicy} from './constants.pathing_policies';
+import * as behaviorTree from './lib.behaviortree';
+import {FAILURE} from './lib.behaviortree';
 
 const behavior = behaviorTree.sequenceNode(
   'reserver_root',
@@ -64,8 +64,8 @@ const behavior = behaviorTree.sequenceNode(
             return behaviorTree.SUCCESS;
           }
 
-          const baseConfig = kingdom.getCreepBaseConfig(creep);
-          if (!baseConfig) {
+          const base = kingdom.getCreepBase(creep);
+          if (!base) {
             trace.error('no base config', creep.memory);
             creep.suicide();
             return FAILURE;
@@ -87,7 +87,7 @@ const behavior = behaviorTree.sequenceNode(
           const username = kingdom.getPlanner().getUsername();
           const reservedByMe = room.controller && room.controller.reservation &&
             room.controller.reservation.username === username;
-          const isPrimary = room.name === baseConfig.primary;
+          const isPrimary = room.name === base.primary;
           const controller = room.controller;
 
           trace.log('reserver', {

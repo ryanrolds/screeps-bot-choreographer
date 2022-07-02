@@ -1,6 +1,5 @@
 import {createOpenSpaceMatrix} from "./lib.costmatrix";
 import {Tracer} from "./lib.tracing";
-import {Kingdom} from "./org.kingdom";
 
 const PASSES = 5;
 const MIN_DISTANCE_FOR_ORIGIN = 8;
@@ -22,26 +21,26 @@ export type ExpandResults = {
   seen: Record<string, boolean>;
 }
 
-export const pickExpansion = (kingdom: Kingdom, trace: Tracer): ExpandResults => {
+export const pickExpansion = (kernel: Kernel, trace: Tracer): ExpandResults => {
   let candidates: Record<string, boolean> = {};
   let claimed: Record<string, boolean> = {};
   let dismissed: Record<string, DismissedReason> = {};
   let seen: Record<string, boolean> = {};
 
-  const baseConfigs = kingdom.getPlanner().getBaseConfigs();
+  const bases = kingdom.getPlanner().getBases();
 
   let baseRoomStatus = null;
-  if (baseConfigs.length) {
-    baseRoomStatus = Game.map.getRoomStatus(baseConfigs[0].primary).status;
+  if (bases.length) {
+    baseRoomStatus = Game.map.getRoomStatus(bases[0].primary).status;
   }
 
   trace.notice('base room status', {baseRoomStatus});
 
   // First pass through colonies, find all the rooms that are assigned to a colony already
-  baseConfigs.forEach((baseConfig) => {
-    claimed[baseConfig.primary] = true;
+  bases.forEach((base) => {
+    claimed[base.primary] = true;
     // Build map of claimed rooms
-    baseConfig.rooms.forEach((roomName) => {
+    base.rooms.forEach((roomName) => {
       claimed[roomName] = true;
     });
   });

@@ -1,4 +1,4 @@
-import {AlertLevel, BaseConfig} from './config';
+import {AlertLevel, Base} from './config';
 import {ROLE_WORKER, WORKER_HAULER, WORKER_MINER} from "./constants.creeps";
 import * as MEMORY from "./constants.memory";
 import {roadPolicy} from "./constants.pathing_policies";
@@ -9,7 +9,6 @@ import {getPath} from "./lib.pathing";
 import {getNearbyPositions} from './lib.position';
 import {Tracer} from './lib.tracing';
 import {Colony} from './org.colony';
-import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
 import {PersistentMemory} from "./os.memory";
 import {sleeping, terminate} from "./os.process";
@@ -66,7 +65,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     this.threadRequestHauling = thread('reqeust_hauling', RUN_TTL)(this.requestHauling.bind(this));
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('source_run')
 
     trace.log('source run', {
@@ -85,8 +84,8 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       return terminate();
     }
 
-    const baseConfig = kingdom.getPlanner().getBaseConfigByRoom(source.room.name);
-    if (!baseConfig) {
+    const base = kingdom.getPlanner().getBaseByRoom(source.room.name);
+    if (!base) {
       trace.error('no colony config', {room: source.room.name});
       trace.end();
       return terminate();
@@ -94,7 +93,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
 
     if (!this.creepPosition || !this.linkPosition) {
       trace.info('creep or link position not set');
-      this.populatePositions(trace, kingdom, baseConfig, source);
+      this.populatePositions(trace, kingdom, base, source);
     }
 
     // TODO try to remove the need for this
@@ -117,13 +116,13 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     this.threadUpdateDropoff(trace, colony);
 
     // If green, then build stuff
-    if (baseConfig.alertLevel === AlertLevel.GREEN) {
+    if (base.alertLevel === AlertLevel.GREEN) {
       this.threadBuildContainer(trace, kingdom, source);
       this.threadBuildLink(trace, room, source);
     }
 
-    this.threadRequestMiners(trace, kingdom, baseConfig, colony, room, source);
-    this.threadRequestHauling(trace, kingdom, baseConfig, colony);
+    this.threadRequestMiners(trace, kingdom, base, colony, room, source);
+    this.threadRequestHauling(trace, kingdom, base, colony);
 
     this.updateStats(kingdom, trace);
 
@@ -132,15 +131,15 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     return sleeping(RUN_TTL);
   }
 
-  produceEvents(trace: Tracer, kingdom: Kingdom, source: Source) {
+  produceEvents(trace: Tracer, kernel: Kernel, source: Source) {
     const creepPosition = this.creepPosition;
     if (!creepPosition) {
       trace.error('no creep position', {room: source.room.name});
       return;
     }
 
-    const baseConfig = kingdom.getPlanner().getBaseConfigByRoom(source.room.name);
-    if (!baseConfig) {
+    const base = kingdom.getPlanner().getBaseByRoom(source.room.name);
+    if (!base) {
       trace.error('no colony config', {room: source.room.name});
       return;
     }
@@ -150,7 +149,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       position: creepPosition,
     };
 
-    kingdom.getBroker().getStream(getLogisticsTopic(baseConfig.id)).
+    kingdom.getBroker().getStream(getLogisticsTopic(base.id)).
       publish(new Event(this.id, Game.time, LogisticsEventType.RequestRoad, data));
 
     const hudLine: HudLine = {
@@ -167,7 +166,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       HudEventSet, hudLine));
   }
 
-  populatePositions(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig, source: Source) {
+  populatePositions(trace: Tracer, kernel: Kernel, base: Base, source: Source) {
     const memory = this.getMemory(trace) || {};
 
     // Check memory for creep position
@@ -188,8 +187,8 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       return;
     }
 
-    const colonyPos = new RoomPosition(baseConfig.origin.x, baseConfig.origin.y - 1,
-      baseConfig.origin.roomName);
+    const colonyPos = new RoomPosition(base.origin.x, base.origin.y - 1,
+      base.origin.roomName);
 
     const [pathResult, details] = getPath(kingdom, source.pos, colonyPos, roadPolicy, trace);
     trace.log('path found', {origin: source.pos, dest: colonyPos, pathResult});
@@ -278,7 +277,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     this.dropoffId = primaryRoom.getReserveStructureWithRoomForResource(RESOURCE_ENERGY)?.id;
   }
 
-  requestMiners(trace: Tracer, kingdom: Kingdom, base: BaseConfig, colony: Colony,
+  requestMiners(trace: Tracer, kernel: Kernel, base: Base, colony: Colony,
     room: Room, source: Source) {
 
     if (!this.creepPosition) {
@@ -342,7 +341,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     }
   }
 
-  requestHauling(trace: Tracer, kingdom: Kingdom, base: BaseConfig, colony: Colony) {
+  requestHauling(trace: Tracer, kernel: Kernel, base: Base, colony: Colony) {
     const container = Game.getObjectById(this.containerId);
     if (!container) {
       trace.info('no container')
@@ -398,7 +397,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     }
   }
 
-  updateStats(kingdom: Kingdom, trace: Tracer) {
+  updateStats(kernel: Kernel, trace: Tracer) {
     const source = Game.getObjectById(this.sourceId);
     if (!source || !(source instanceof Source)) {
       return;
@@ -422,7 +421,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     }
   }
 
-  buildContainer(trace: Tracer, kingdom: Kingdom, source: (Source)) {
+  buildContainer(trace: Tracer, kernel: Kernel, source: (Source)) {
     if (source.energy) {
       trace.log('only build container if exhausting source', {id: this.sourceId});
       return;

@@ -3,15 +3,15 @@ import 'mocha';
 import {mockGlobal, mockInstanceOf, setup} from "screeps-test-helper";
 import * as sinon from 'sinon';
 import {CreepManager} from './ai.creeps';
+import {Kernel} from './ai.kernel';
 import * as CREEPS from './constants.creeps';
 import * as MEMORY from './constants.memory';
 import {Tracer} from './lib.tracing';
-import {Kingdom} from './org.kingdom';
 import {Process} from './os.process';
 import {Scheduler} from './os.scheduler';
 
 describe('Creeps Manager', () => {
-  let kingdom: Kingdom = null;
+  let kernel: Kernel = null;
   let scheduler = null;
   let tracer: Tracer = null;
 
@@ -80,14 +80,14 @@ describe('Creeps Manager', () => {
 
   it("should create a process for each creep", () => {
     const creepManager = new CreepManager(scheduler);
-    creepManager.run(kingdom, tracer);
+    creepManager.run(kernel, tracer);
 
     expect(scheduler.registerProcess.callCount).to.equal(3);
   });
 
   it("should allow adding new creeps in later ticks", () => {
     const creepManager = new CreepManager(scheduler);
-    creepManager.run(kingdom, tracer);
+    creepManager.run(kernel, tracer);
 
     expect(scheduler.registerProcess.callCount).to.equal(3)
 
@@ -102,21 +102,21 @@ describe('Creeps Manager', () => {
       },
     });
 
-    creepManager.run(kingdom, tracer);
+    creepManager.run(kernel, tracer);
 
     expect(scheduler.registerProcess.callCount).to.equal(4);
   });
 
   it("should terminate process when creep is no longer around", () => {
     const creepManager = new CreepManager(scheduler);
-    creepManager.run(kingdom, tracer);
+    creepManager.run(kernel, tracer);
 
     expect(scheduler.registerProcess.callCount).to.equal(3);
 
     Game.creeps['creepA'] = undefined;
 
     const process = scheduler.registerProcess.getCall(0).args[0];
-    (process as unknown as Process).run(kingdom, tracer);
+    (process as Process).run(kernel, tracer);
     expect(process.isTerminated()).to.be.true;
   });
 })

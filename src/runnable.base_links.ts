@@ -2,7 +2,6 @@ import * as MEMORY from "./constants.memory";
 import * as PRIORITIES from "./constants.priorities";
 import * as TASKS from "./constants.tasks";
 import {Tracer} from './lib.tracing';
-import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
 import {sleeping, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
@@ -44,7 +43,7 @@ export default class LinkManager {
     this.threadUpdateStructures = thread('update_structures', UPDATE_STRUCTURES_TTL)(this.updateStructures.bind(this));
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('link_manager_run');
 
     const ticks = Game.time - this.prevTime;
@@ -226,7 +225,7 @@ export default class LinkManager {
     }
   }
 
-  emptyLink(kingdom: Kingdom, link: StructureLink, dropoff: AnyStoreStructure, amount: number, trace: Tracer) {
+  emptyLink(kernel: Kernel, link: StructureLink, dropoff: AnyStoreStructure, amount: number, trace: Tracer) {
     this.haulTTL = HAUL_TTL;
 
     const details = {
@@ -242,7 +241,7 @@ export default class LinkManager {
     trace.log('haul energy from storage link', {request: details});
   }
 
-  fillLink(kingdom: Kingdom, link: StructureLink, pickup: AnyStoreStructure, amount: number, trace: Tracer) {
+  fillLink(kernel: Kernel, link: StructureLink, pickup: AnyStoreStructure, amount: number, trace: Tracer) {
     this.haulTTL = HAUL_TTL;
 
     const details = {

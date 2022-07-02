@@ -5,7 +5,6 @@ import {RUNNING, SUCCESS} from './lib.behaviortree';
 import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
 import {FindPathPolicy} from './lib.pathing';
 import {Tracer} from './lib.tracing';
-import {Kingdom} from './org.kingdom';
 import {Priorities} from './os.scheduler';
 
 export const ROLE_HARASSER = 'harasser';
@@ -54,7 +53,7 @@ const behavior = behaviorTree.sequenceNode(
   [
     behaviorTree.leafNode(
       'pick_next_room',
-      (creep: Creep, trace: Tracer, kingdom: Kingdom) => {
+      (creep: Creep, trace: Tracer, kernel: Kernel) => {
         let targetRooms = creep.memory[MEMORY_HARASS_ROOMS]
         if (!targetRooms) {
           const targetBase = creep.memory[MEMORY_HARASS_BASE];
@@ -71,7 +70,7 @@ const behavior = behaviorTree.sequenceNode(
     ),
     behaviorTree.repeatUntilConditionMet(
       'stop_and_attack',
-      (creep: Creep, trace: Tracer, kingdom: Kingdom): boolean => {
+      (creep: Creep, trace: Tracer, kernel: Kernel): boolean => {
         // if we reach the target room, move to attack phase
         if (creep.memory[MEMORY_HARASS_CURRENT] === creep.room.name) {
           return true;
@@ -95,7 +94,7 @@ const behavior = behaviorTree.sequenceNode(
     ),
     behaviorTree.leafNode(
       'attack_phase',
-      (creep: Creep, trace: Tracer, kingdom: Kingdom) => {
+      (creep: Creep, trace: Tracer, kernel: Kernel) => {
         trace.info('harass room', {room: creep.memory[MEMORY_HARASS_CURRENT]});
 
         // Heal if damaged and have heal parts
@@ -168,7 +167,7 @@ const behavior = behaviorTree.sequenceNode(
         }
 
         // attack containers if not one of my bases
-        const baseRoom = kingdom.getPlanner().getBaseConfigByRoom(creep.room.name);
+        const baseRoom = kingdom.getPlanner().getBaseByRoom(creep.room.name);
         if (!baseRoom) {
           // if there are containers, destroy them
           const containers = creep.room.find(FIND_STRUCTURES, {
@@ -197,7 +196,7 @@ const behavior = behaviorTree.sequenceNode(
     ),
     behaviorTree.leafNode(
       'harass_room_done',
-      (creep: Creep, trace: Tracer, kingdom: Kingdom) => {
+      (creep: Creep, trace: Tracer, kernel: Kernel) => {
         // if we are not in target room, don't switch rooms (we probably picked
         // on someone along the way)
         if (creep.room.name !== creep.memory[MEMORY_HARASS_CURRENT]) {

@@ -178,8 +178,8 @@ module.exports.getEnergy = behaviorTree.repeatUntilConditionMet(
 module.exports.parkingLot = behaviorTree.leafNode(
   'parking_lot',
   (creep, trace, kingdom) => {
-    const baseConfig = kingdom.getCreepBaseConfig(creep);
-    if (!baseConfig?.parking) {
+    const base = kingdom.getCreepBase(creep);
+    if (!base?.parking) {
       trace.error('no parking config for creep', {creepName: creep.name});
       return FAILURE;
     }
@@ -192,11 +192,11 @@ module.exports.parkingLot = behaviorTree.leafNode(
     }
     creep.memory[MEMORY_IDLE] = idle;
 
-    if (creep.pos.inRangeTo(baseConfig.parking, 1)) {
+    if (creep.pos.inRangeTo(base.parking, 1)) {
       trace.log('in range of parking lot');
 
       // TODO may move this to something cheaper
-      const hasNuker = baseConfig.parking.lookFor(LOOK_STRUCTURES).find((structure) => {
+      const hasNuker = base.parking.lookFor(LOOK_STRUCTURES).find((structure) => {
         return structure.structureType === STRUCTURE_NUKER;
       });
 
@@ -212,15 +212,15 @@ module.exports.parkingLot = behaviorTree.leafNode(
       return FAILURE;
     }
 
-    trace.log('moving to parking lot', {parkingLot: baseConfig.parking});
+    trace.log('moving to parking lot', {parkingLot: base.parking});
 
-    const result = creep.moveTo(baseConfig.parking, {
+    const result = creep.moveTo(base.parking, {
       reusePath: 50,
       maxOps: 1500,
       ignoreCreeps: false,
     });
     if (result !== OK && result !== ERR_TIRED) {
-      trace.warn('could not move to parking lot', {result, parkingLot: baseConfig.parking});
+      trace.warn('could not move to parking lot', {result, parkingLot: base.parking});
     }
 
     return FAILURE;

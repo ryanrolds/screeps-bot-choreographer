@@ -1,6 +1,5 @@
 import {ENTIRE_ROOM_BOUNDS, getCutTiles, Graph, NORMAL, NO_BUILD, PROTECTED, RoomMatrix, TO_EXIT, UNWALKABLE} from "./lib.min_cut";
 import {Tracer} from './lib.tracing';
-import {Kingdom} from "./org.kingdom";
 import {running} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 
@@ -10,14 +9,14 @@ export default class MinCutDebugger {
   matrix: RoomMatrix;
   cut: RoomPosition[];
 
-  constructor(id: string, kingdom: Kingdom) {
+  constructor(id: string, kernel: Kernel) {
     this.id = id;
     this.graph = null;
     this.matrix = null;
     this.cut = null;
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace.log("mincut debugger", {});
 
     if (this.graph && Game.time % 1 === 0) {
@@ -74,13 +73,13 @@ export default class MinCutDebugger {
     return running();
   }
 
-  debug(kingdom: Kingdom, roomName: string) {
+  debug(kernel: Kernel, roomName: string) {
     const trace = new Tracer('mincut_deugger', {pid: 'mincut_debugger'}, 0);
 
-    const baseConfig = kingdom.getPlanner().getBaseConfigById(roomName);
-    trace.notice('baseConfig', {origin: baseConfig?.origin});
+    const base = kingdom.getPlanner().getBaseById(roomName);
+    trace.notice('base', {origin: base?.origin});
 
-    const baseOrigin = baseConfig.origin;
+    const baseOrigin = base.origin;
     const baseBounds = {
       x1: baseOrigin.x - 9, y1: baseOrigin.y - 9,
       x2: baseOrigin.x + 9, y2: baseOrigin.y + 9,

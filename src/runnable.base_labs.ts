@@ -1,8 +1,7 @@
 
 import * as _ from 'lodash';
-import {BaseConfig} from './config';
+import {Base} from './config';
 import {Tracer} from './lib.tracing';
-import {Kingdom} from './org.kingdom';
 import Room from './org.room';
 import {Process, sleeping, terminate} from "./os.process";
 import {RunnableResult} from './os.runnable';
@@ -44,7 +43,7 @@ export class LabsManager {
     this.threadAssignLabs = thread('assign_labs', ASSIGN_LABS_TTL)(this.assignLabs.bind(this))
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('labs_manager_run');
 
     trace.log('labs manager run', {
@@ -52,20 +51,20 @@ export class LabsManager {
       boosterIds: this.boosterIds,
     });
 
-    const baseConfig = kingdom.getPlanner().getBaseConfigByRoom(this.orgRoom.id);
-    if (!baseConfig) {
+    const base = kingdom.getPlanner().getBaseByRoom(this.orgRoom.id);
+    if (!base) {
       trace.log('no base config for room', {room: this.orgRoom.id});
       return terminate();
     }
 
-    this.threadAssignLabs(trace, kingdom, baseConfig, this.orgRoom);
+    this.threadAssignLabs(trace, kingdom, base, this.orgRoom);
 
     trace.end();
 
     return sleeping(RUN_TTL);
   }
 
-  assignLabs(trace: Tracer, kingdom: Kingdom, base: BaseConfig, orgRoom: Room) {
+  assignLabs(trace: Tracer, kernel: Kernel, base: Base, orgRoom: Room) {
     this.assignBasedOnPosition(kingdom, base, orgRoom, trace);
 
     trace.info('assigned labs', {reactors: this.reactorsIds, booster: this.boosterIds});
@@ -95,7 +94,7 @@ export class LabsManager {
   }
 
   // Automated assignment of labs based on position
-  assignBasedOnPosition(kingdom: Kingdom, baseConfig: BaseConfig, orgRoom: Room, trace: Tracer) {
+  assignBasedOnPosition(kernel: Kernel, base: Base, orgRoom: Room, trace: Tracer) {
     trace = trace.begin('assign_labs');
 
     const room = orgRoom.getRoomObject();
@@ -106,7 +105,7 @@ export class LabsManager {
 
     this.reactorsIds = [];
 
-    const origin = baseConfig.origin;
+    const origin = base.origin;
 
     reactorPositions.forEach((offsets) => {
       let reactorIds = offsets.map(([x, y]): Id<StructureLab> => {

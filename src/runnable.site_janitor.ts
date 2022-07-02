@@ -1,5 +1,4 @@
 import {Tracer} from "./lib.tracing";
-import {Kingdom} from "./org.kingdom";
 import {sleeping} from "./os.process";
 import {Runnable} from "./os.runnable";
 
@@ -19,7 +18,7 @@ export class SiteJanitor implements Runnable {
     this.sites = {};
   }
 
-  run(kingdom: Kingdom, trace: Tracer) {
+  run(kernel: Kernel, trace: Tracer) {
     trace.warn('running site janitor');
 
     let purged = 0;

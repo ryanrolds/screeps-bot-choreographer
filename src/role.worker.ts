@@ -44,7 +44,7 @@ const selectDropoff = module.exports.selectRoomDropoff = behaviorTree.selectorNo
     behaviorTree.leafNode(
       'pick_storage',
       (creep, trace, kingdom) => {
-        const base = kingdom.getCreepBaseConfig(creep);
+        const base = kingdom.getCreepBase(creep);
         if (!base) {
           trace.error('could not find creep base', {name: creep.name, memory: creep.memory});
           // creep.suicide();
@@ -203,12 +203,12 @@ const behavior = behaviorTree.sequenceNode(
             behaviorTree.leafNode(
               'pick_room_controller',
               (creep, trace, kingdom) => {
-                const baseConfig = kingdom.getCreepBaseConfig(creep);
-                if (!baseConfig) {
+                const base = kingdom.getCreepBase(creep);
+                if (!base) {
                   return FAILURE;
                 }
 
-                const room = Game.rooms[baseConfig.primary];
+                const room = Game.rooms[base.primary];
                 if (!room) {
                   return FAILURE;
                 }

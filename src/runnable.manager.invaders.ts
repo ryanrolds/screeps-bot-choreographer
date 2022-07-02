@@ -1,13 +1,12 @@
 import {AttackRequest, AttackStatus, ATTACK_ROOM_TTL} from "./constants.attack";
 import {ATTACK_ROOM} from "./constants.topics";
 import {AllowedCostMatrixTypes} from "./lib.costmatrix_cache";
-import {FindColonyPathPolicy, getClosestColonyByPath} from "./lib.pathing";
+import {FindColonyPathPolicy} from "./lib.pathing";
 import {Tracer} from './lib.tracing';
-import {Kingdom} from "./org.kingdom";
-import {RoomEntry} from "./runnable.scribe";
 import {sleeping} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 import {Scheduler} from "./os.scheduler";
+import {RoomEntry} from "./runnable.scribe";
 
 const RUN_TTL = 50;
 const MAX_BASE_LEVEL = 2;
@@ -49,7 +48,7 @@ export default class InvaderManager {
     this.scheduler = scheduler;
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('invader_manager_run');
 
     const rooms = getRoomEntriesWithInvaderBases(kingdom, trace);
@@ -76,7 +75,7 @@ export default class InvaderManager {
   }
 }
 
-const getRoomEntriesWithInvaderBases = (kingdom: Kingdom, trace: Tracer): RoomEntry[] => {
+const getRoomEntriesWithInvaderBases = (kernel: Kernel, trace: Tracer): RoomEntry[] => {
   const end = trace.startTimer('getRoomEntriesWithInvaderBases');
 
   const weakRooms = kingdom.getScribe().getRooms().filter((roomEntry) => {

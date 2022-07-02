@@ -2,24 +2,20 @@ import {expect} from 'chai';
 import 'mocha';
 import {mockGlobal} from "screeps-test-helper";
 import * as sinon from 'sinon';
-import {CreepManager} from './ai.creeps';
+import {AI} from './ai';
 import {ShardConfig} from './config';
 import {EventBroker} from './lib.event_broker';
 import {Topics} from './lib.topics';
 import {Tracer} from './lib.tracing';
-import {Kingdom} from './org.kingdom';
 import {Process, running} from './os.process';
 import {RunnableResult} from './os.runnable';
 import {Scheduler} from './os.scheduler';
-import {CentralPlanning} from './runnable.central_planning';
-import {Scribe} from './runnable.scribe';
 
 
 describe('Scheduler', () => {
   let trace = null;
   let broker = null;
   let topics = null;
-  let kingdom = null;
   let sandbox = null;
   let runnable = null;
   let runSpy = null;
@@ -85,14 +81,10 @@ describe('Scheduler', () => {
   it('should run the process', () => {
     const config = {} as ShardConfig;
     const scheduler = new Scheduler();
-    const scribe = new Scribe();
-    const planner = new CentralPlanning(config, scheduler, trace);
-    const creepManager = new CreepManager(scheduler);
-    const kingdom = new Kingdom(config, scheduler, scribe, topics, broker, planner,
-      creepManager, trace);
+    const kernel = new AI(config, scheduler, trace);
 
     scheduler.registerProcess(process);
-    scheduler.tick(kingdom, trace);
+    scheduler.tick(kernel, trace);
 
     expect(runSpy.calledOnce).to.be.true;
   });
@@ -105,28 +97,19 @@ describe('Scheduler', () => {
 
     const config = {} as ShardConfig;
     const scheduler = new Scheduler();
-    const scribe = new Scribe();
-    const planner = new CentralPlanning(config, scheduler, trace);
-    const creepManager = new CreepManager(scheduler);
-    const kingdom = new Kingdom(config, scheduler, scribe, topics, broker, planner,
-      creepManager, trace);
+    const kernel = new AI(config, scheduler, trace);
 
     scheduler.registerProcess(process);
-    scheduler.tick(kingdom, trace);
+    scheduler.tick(kernel, trace);
 
     expect(runSpy.calledOnce).to.be.false;
     expect(scheduler.ranOutOfTime).to.equal(1);
   })
 
   it('should execute skipped processes next tick', () => {
-    const tracer = new Tracer('scheduler', {}, 0);
-
     const config = {} as ShardConfig;
     const scheduler = new Scheduler();
-    const scribe = new Scribe();
-    const planner = new CentralPlanning(config, scheduler, trace);
-    const creepManager = new CreepManager(scheduler);
-    const kingdom = new Kingdom(config, scheduler, scribe, topics, broker, planner, creepManager, trace);
+    const kernel = new AI(config, scheduler, trace);
 
     scheduler.registerProcess(process);
 
@@ -139,7 +122,7 @@ describe('Scheduler', () => {
 
     scheduler.registerProcess(processTwo);
 
-    scheduler.tick(kingdom, trace);
+    scheduler.tick(kernel, trace);
 
     expect(processSpy.calledOnce).to.be.true;
     expect(processTwoSpy.calledOnce).to.be.false;
@@ -152,7 +135,7 @@ describe('Scheduler', () => {
 
     // Increment game time
     Game.time += 1;
-    scheduler.tick(kingdom, trace);
+    scheduler.tick(kernel, trace);
 
     expect(processSpy.calledOnce).to.be.false;
     expect(processTwoSpy.calledOnce).to.be.true;
@@ -172,25 +155,21 @@ describe('Scheduler', () => {
   it("should remove and not run terminated processes", () => {
     const config = {} as ShardConfig;
     const scheduler = new Scheduler();
-    const scribe = new Scribe();
-    const planner = new CentralPlanning(config, scheduler, trace);
-    const creepManager = new CreepManager(scheduler);
-    const kingdom = new Kingdom(config, scheduler, scribe, topics, broker, planner,
-      creepManager, trace);
+    const kernel = new AI(config, scheduler, trace);
 
     scheduler.registerProcess(process);
 
     expect(scheduler.hasProcess('processId')).to.be.true;
     expect(processSpy.calledOnce).to.be.false;
 
-    scheduler.tick(kingdom, trace);
+    scheduler.tick(kernel, trace);
     expect(processSpy.calledOnce).to.be.true;
     expect(processSpy.calledTwice).to.be.false;
 
     process.setTerminated();
     expect(scheduler.processTable.length).to.equal(1);
 
-    scheduler.tick(kingdom, trace);
+    scheduler.tick(kernel, trace);
     expect(processSpy.calledOnce).to.be.true;
     expect(processSpy.calledTwice).to.be.false;
     expect(scheduler.processTable.length).to.equal(0);

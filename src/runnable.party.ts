@@ -7,10 +7,9 @@
  *
  */
 import * as _ from 'lodash';
-import {BaseConfig} from './config';
+import {Base} from './config';
 import * as MEMORY from './constants.memory';
 import {Tracer} from './lib.tracing';
-import {Kingdom} from "./org.kingdom";
 import {running, terminate} from "./os.process";
 import {RunnableResult} from './os.runnable';
 import {thread, ThreadFunc} from './os.thread';
@@ -89,7 +88,7 @@ const DIRECTION_OFFSET = {
 
 export default class PartyRunnable {
   id: string;
-  baseConfig: BaseConfig;
+  base: Base;
   formation: FORMATION_TYPE;
   position: RoomPosition;
   role: string;
@@ -106,10 +105,10 @@ export default class PartyRunnable {
 
   threadRequestCreeps: ThreadFunc;
 
-  constructor(id: string, baseConfig: BaseConfig, position: RoomPosition, role: string,
+  constructor(id: string, base: Base, position: RoomPosition, role: string,
     parts: BodyPartConstant[], minEnergy: number, priority: number, ttl: number) {
     this.id = id;
-    this.baseConfig = baseConfig;
+    this.base = base;
     this.role = role;
     this.parts = parts;
     this.minEnergy = minEnergy;
@@ -128,7 +127,7 @@ export default class PartyRunnable {
     this.threadRequestCreeps = thread('request_creeps', REQUEST_PARTY_MEMBER_TTL)(this.requestCreeps.bind(this));
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('party_run');
 
     // TODO possible race condition with outer layer and this
@@ -155,7 +154,7 @@ export default class PartyRunnable {
     });
 
     if (!Game.flags['debug']) {
-      this.threadRequestCreeps(trace, kingdom, this.baseConfig);
+      this.threadRequestCreeps(trace, kingdom, this.base);
     } else {
       trace.log('in debug mode, not spawning');
     }
@@ -571,8 +570,8 @@ export default class PartyRunnable {
     return [].concat(quad, creeps.slice(4));
   }
 
-  requestCreeps(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig) {
-    const baseRoomName = this.baseConfig.primary;
+  requestCreeps(trace: Tracer, kernel: Kernel, base: Base) {
+    const baseRoomName = this.base.primary;
     const baseRoom = Game.rooms[baseRoomName];
     if (!baseRoom) {
       trace.log('base room not visible', {baseRoomName});
@@ -638,7 +637,7 @@ export default class PartyRunnable {
       [MEMORY.MEMORY_POSITION_Y]: position.y,
       [MEMORY.MEMORY_POSITION_ROOM]: position.roomName,
       [MEMORY.MEMORY_ASSIGN_ROOM]: position.roomName,
-      [MEMORY.MEMORY_BASE]: this.baseConfig.id,
+      [MEMORY.MEMORY_BASE]: this.base.id,
     };
 
     const request = createSpawnRequest(priority, ttl, role, memory, 0);
@@ -648,6 +647,6 @@ export default class PartyRunnable {
       request,
     });
 
-    requestSpawn(kingdom, getBaseSpawnTopic(baseConfig.id), request)
+    requestSpawn(kingdom, getBaseSpawnTopic(base.id), request)
   }
 }

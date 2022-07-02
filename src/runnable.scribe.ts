@@ -1,6 +1,5 @@
 import {Event} from './lib.event_broker';
 import {Tracer} from './lib.tracing';
-import {Kingdom} from './org.kingdom';
 import {sleeping} from './os.process';
 import {Runnable, RunnableResult} from './os.runnable';
 import {thread, ThreadFunc} from './os.thread';
@@ -131,7 +130,7 @@ export class Scribe implements Runnable {
 
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('run');
 
     const updateRoomsTrace = trace.begin('update_rooms');
@@ -197,7 +196,7 @@ export class Scribe implements Runnable {
     (Memory as any).scribe = this.journal;
   }
 
-  updateColonyCount(trace: Tracer, kingdom: Kingdom) {
+  updateColonyCount(trace: Tracer, kernel: Kernel) {
     if (this.globalColonyCount === -2) {
       // skip the first time, we want to give shards time to update their remote memory
       trace.log('skipping updateColonyCount');
@@ -205,8 +204,8 @@ export class Scribe implements Runnable {
       return;
     }
 
-    const baseConfigs = kingdom.getPlanner().getBaseConfigs();
-    let colonyCount = baseConfigs.length;
+    const bases = kingdom.getPlanner().getBases();
+    let colonyCount = bases.length;
 
     // Iterate shards and get their colony counts
     this.getShardList().forEach((shard) => {
@@ -223,7 +222,7 @@ export class Scribe implements Runnable {
     this.globalColonyCount = colonyCount;
   }
 
-  produceEvents(trace: Tracer, kingdom: Kingdom) {
+  produceEvents(trace: Tracer, kernel: Kernel) {
     const indicatorStream = kingdom.getBroker().getStream(getDashboardStream());
 
     const rooms = this.getRooms();
@@ -409,7 +408,7 @@ export class Scribe implements Runnable {
     });
   }
 
-  updateRoom(kingdom: Kingdom, roomObject: Room, trace: Tracer) {
+  updateRoom(kernel: Kernel, roomObject: Room, trace: Tracer) {
     trace = trace.begin('update_room');
     trace = trace.withFields({room: roomObject.name});
     const end = trace.startTimer('update_room');

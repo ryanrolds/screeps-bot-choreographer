@@ -17,7 +17,7 @@ import {Scribe} from './runnable.scribe';
 describe('Path Cache', function () {
   let sandbox: Sinon.SinonSandbox = null;
   let trace: Tracer = null;
-  let kingdom: Kingdom = null;
+  let kernel: Kernel = null;
   let pathProvider: PathProvider = null;
 
   const originKey = 'source';

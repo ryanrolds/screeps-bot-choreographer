@@ -1,13 +1,16 @@
 
+import {Kernel} from "./ai.kernel";
+import {getCreepBase} from "./base";
 import * as behaviorMovement from "./behavior.movement";
 import {MEMORY_ASSIGN_ROOM, MEMORY_SOURCE} from "./constants.memory";
 import {numEnemeiesNearby, numOfSourceSpots} from "./helpers.proximity";
 import * as behaviorTree from "./lib.behaviortree";
 import {FAILURE, RUNNING, SUCCESS} from "./lib.behaviortree";
+import {Tracer} from "./lib.tracing";
 
 export const selectHarvestSource = behaviorTree.leafNode(
   'bt.harvest.selectHarvestSource',
-  (creep, trace, kingdom) => {
+  (creep: Creep, trace: Tracer, kernel: Kernel) => {
     // If creep already has source assigned, use that
     if (creep.memory[MEMORY_SOURCE]) {
       return SUCCESS;
@@ -19,19 +22,19 @@ export const selectHarvestSource = behaviorTree.leafNode(
       return numEnemeiesNearby(source.pos, 5) < 1;
     });
 
-    const room = kingdom.getCreepRoom(creep);
-    if (!room) {
-      trace.error('creep room not found', {name: creep.name, memory: creep.memory});
+    const base = getCreepBase(kernel, creep);
+    if (!base) {
+      trace.error('creep base not found', {name: creep.name, memory: creep.memory});
       creep.suicide();
       return FAILURE;
     }
 
     sources = _.sortByAll(sources, (source) => {
-      if (!room) {
+      if (!base) {
         return 0;
       }
 
-      const baseCreeps = kingdom.creepManager.getCreepsByBase(creep.room.name)
+      const baseCreeps = kernel.getCreepsManager().getCreepsByBase(creep.room.name)
       const numAssigned = _.filter(baseCreeps, (creep) => {
         return creep.memory[MEMORY_SOURCE] === source.id;
       }).length;

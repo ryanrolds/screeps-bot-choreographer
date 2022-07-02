@@ -1,7 +1,6 @@
+import {Kernel} from './ai.kernel';
 import * as featureFlags from './lib.feature_flags';
 import {Tracer} from './lib.tracing';
-import {Kingdom} from './org.kingdom';
-import {running} from './os.process';
 
 export const RUNNING = 'running';
 export const SUCCESS = 'success';
@@ -9,7 +8,7 @@ export const FAILURE = 'failure';
 export type NodeTickResult = 'running' | 'success' | 'failure';
 
 export interface TickFunc {
-  (creep: Creep, trace: Tracer, kingdom: Kingdom): NodeTickResult;
+  (creep: Creep, trace: Tracer, kernel: Kernel): NodeTickResult;
 }
 
 export interface TreeNode {
@@ -20,10 +19,10 @@ export interface TreeNode {
 }
 
 export const rootNode = (id: string, behavior: TreeNode) => {
-  return function (creep: Creep, trace: Tracer, kingdom: Kingdom): void {
+  return function (creep: Creep, trace: Tracer, kernel: Kernel): void {
     const rootTrace = trace.begin(id);
 
-    const result = behavior.tick(creep, rootTrace, kingdom);
+    const result = behavior.tick(creep, rootTrace, kernel);
     trace.log('root result', {id});
 
     if (result === FAILURE) {
@@ -212,7 +211,7 @@ export const repeatUntilSuccess = (id: string, node: TreeNode): TreeNode => {
 };
 
 interface ConditionFunc {
-  (creep: Creep, trace: Tracer, kingdom: Kingdom): boolean
+  (creep: Creep, trace: Tracer, kernel: Kernel): boolean
 }
 
 export const runUntilConditionMet = (id: string, condition: ConditionFunc,
@@ -429,7 +428,7 @@ export const featureFlagBool = (id: string, flag: string, defaultNode: TreeNode,
     flag,
     defaultNode,
     enabledNode,
-    tick: function (creep: Creep, trace: Tracer, kingdom: Kingdom) {
+    tick: function (creep: Creep, trace: Tracer, kernel: Kernel) {
       trace = trace.begin(this.id);
 
       let result = null;

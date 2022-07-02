@@ -1,11 +1,10 @@
-import {FindPathPolicy, getPath, PathSearchDetails} from "./lib.pathing";
+import {FindPathPolicy, PathSearchDetails} from "./lib.pathing";
 import {Tracer} from "./lib.tracing";
-import {Kingdom} from "./org.kingdom";
 
 
 export const CACHE_ITEM_TTL = 1000;
 
-export type PathProvider = (kingdom: Kingdom, origin: RoomPosition, goal: RoomPosition,
+export type PathProvider = (kernel: Kernel, origin: RoomPosition, goal: RoomPosition,
   policy: FindPathPolicy, trace: Tracer) => [PathFinderPath, PathSearchDetails];
 
 export class PathCacheItem {
@@ -83,7 +82,7 @@ export class PathCache {
     this.expired = 0;
   }
 
-  getPath(kingdom: Kingdom, origin: RoomPosition, goal: RoomPosition, range: number, policy: FindPathPolicy,
+  getPath(kernel: Kernel, origin: RoomPosition, goal: RoomPosition, range: number, policy: FindPathPolicy,
     trace: Tracer): PathFinderPath {
     const originId = this.getKey(origin, 0);
     const goalId = this.getKey(goal, range);

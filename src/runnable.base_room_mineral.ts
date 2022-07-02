@@ -1,5 +1,5 @@
 import {creepIsFresh} from './behavior.commute';
-import {AlertLevel, BaseConfig} from './config';
+import {AlertLevel, Base} from './config';
 import {WORKER_HARVESTER} from "./constants.creeps";
 import * as MEMORY from "./constants.memory";
 import {roadPolicy} from "./constants.pathing_policies";
@@ -8,7 +8,6 @@ import {Event} from "./lib.event_broker";
 import {getPath} from "./lib.pathing";
 import {Tracer} from './lib.tracing';
 import {Colony} from './org.colony';
-import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
 import {PersistentMemory} from "./os.memory";
 import {sleeping, terminate} from "./os.process";
@@ -60,7 +59,7 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
     this.threadBuildExtractor = thread('build_extractor', CONTAINER_TTL)(this.buildExtractor.bind(this));
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('mineral_run')
 
     trace.log('mineral run', {
@@ -76,22 +75,22 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
       return terminate();
     }
 
-    const baseConfig = kingdom.getPlanner().getBaseConfigByRoom(mineral.room.name);
-    if (!baseConfig) {
+    const base = kingdom.getPlanner().getBaseByRoom(mineral.room.name);
+    if (!base) {
       trace.error('no colony config', {room: mineral.room.name});
       trace.end();
       return terminate();
     }
 
     // If red alert, don't do anything
-    if (baseConfig.alertLevel === AlertLevel.RED) {
+    if (base.alertLevel === AlertLevel.RED) {
       trace.error('red alert', {room: mineral.room.name});
       trace.end();
       return sleeping(RED_ALERT_TTL);
     }
 
     if (!this.creepPosition) {
-      this.populatePositions(trace, kingdom, baseConfig, mineral);
+      this.populatePositions(trace, kingdom, base, mineral);
     }
 
     // TODO try to remove the need for this
@@ -111,7 +110,7 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
 
     this.threadProduceEvents(trace, kingdom, mineral);
     this.threadUpdateDropoff(trace, colony);
-    this.threadRequestHarvesters(trace, kingdom, baseConfig, colony, room, mineral);
+    this.threadRequestHarvesters(trace, kingdom, base, colony, room, mineral);
     this.threadBuildExtractor(trace, room, mineral);
 
     trace.end();
@@ -124,15 +123,15 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
     return sleeping(sleepFor)
   }
 
-  produceEvents(trace: Tracer, kingdom: Kingdom, mineral: Mineral) {
+  produceEvents(trace: Tracer, kernel: Kernel, mineral: Mineral) {
     const creepPosition = this.creepPosition;
     if (!creepPosition) {
       trace.error('no creep position', {room: mineral.room.name});
       return;
     }
 
-    const baseConfig = kingdom.getPlanner().getBaseConfigByRoom(mineral.room.name);
-    if (!baseConfig) {
+    const base = kingdom.getPlanner().getBaseByRoom(mineral.room.name);
+    if (!base) {
       trace.error('no colony config', {room: mineral.room.name});
       return;
     }
@@ -142,7 +141,7 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
       position: creepPosition,
     };
 
-    kingdom.getBroker().getStream(getLogisticsTopic(baseConfig.id)).
+    kingdom.getBroker().getStream(getLogisticsTopic(base.id)).
       publish(new Event(this.id, Game.time, LogisticsEventType.RequestRoad, data));
 
     const hudLine: HudLine = {
@@ -157,7 +156,7 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
       HudEventSet, hudLine));
   }
 
-  populatePositions(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig, mineral: Mineral) {
+  populatePositions(trace: Tracer, kernel: Kernel, base: Base, mineral: Mineral) {
     trace.log('populate positions', {room: mineral.room.name});
 
     const memory = this.getMemory(trace) || {};
@@ -169,8 +168,8 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
       this.creepPosition = new RoomPosition(creepPosition.x, creepPosition.y, creepPosition.roomName);
     }
 
-    const colonyPos = new RoomPosition(baseConfig.origin.x, baseConfig.origin.y - 1,
-      baseConfig.origin.roomName);
+    const colonyPos = new RoomPosition(base.origin.x, base.origin.y - 1,
+      base.origin.roomName);
 
     const [pathResult, details] = getPath(kingdom, mineral.pos, colonyPos, roadPolicy, trace);
     trace.log('path found', {origin: mineral.pos, dest: colonyPos, pathResult});
@@ -194,7 +193,7 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
     this.dropoffId = primaryRoom.getReserveStructureWithRoomForResource(RESOURCE_ENERGY)?.id;
   }
 
-  requestHarvesters(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig, colony: Colony,
+  requestHarvesters(trace: Tracer, kernel: Kernel, base: Base, colony: Colony,
     room: Room, mineral: Mineral) {
     if (mineral.mineralAmount === 0) {
       trace.log('no minerals to harvest')
@@ -212,7 +211,7 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
       return;
     }
 
-    const baseCreeps = kingdom.creepManager.getCreepsByBase(baseConfig.id);
+    const baseCreeps = kingdom.creepManager.getCreepsByBase(base.id);
     const numHarvesters = baseCreeps.filter((creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
       return role === WORKER_HARVESTER &&
@@ -235,7 +234,7 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
       trace.log('requesting harvester', {mineralId: this.mineralId, memory});
 
       const request = createSpawnRequest(PRIORITY_MINER, REQUEST_WORKER_TTL, WORKER_HARVESTER, memory, 0);
-      requestSpawn(kingdom, getBaseSpawnTopic(baseConfig.id), request);
+      requestSpawn(kingdom, getBaseSpawnTopic(base.id), request);
     }
   }
 

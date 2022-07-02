@@ -1,8 +1,8 @@
+import {Kernel} from './ai.kernel';
 import * as CREEPS from './constants.creeps';
 import {DEFINITIONS} from './constants.creeps';
 import {MEMORY_BASE, MEMORY_ROLE, MEMORY_START_TICK} from './constants.memory';
 import {Tracer} from './lib.tracing';
-import {Kingdom} from './org.kingdom';
 import {Process, running, terminate} from "./os.process";
 import {Runnable, RunnableResult} from './os.runnable';
 import {Scheduler} from "./os.scheduler";
@@ -21,7 +21,7 @@ import {roleReserver} from './role.reserver';
 import {roleUpgrader} from './role.upgrader';
 import {roleWorker} from './role.worker';
 
-export class CreepManager {
+export class CreepManager implements Runnable {
   id: string;
 
   private scheduler: Scheduler;
@@ -34,7 +34,7 @@ export class CreepManager {
     this.scheduler = scheduler;
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('creep_manager_run');
 
     this.creeps = Object.values(Game.creeps);
@@ -91,7 +91,7 @@ export class CreepManager {
           const destination: any = portal.destination
 
           if (destination.shard) {
-            const backup = kingdom.getScribe().getCreepBackup(destination.shard, creep.name)
+            const backup = kernel.getScribe().getCreepBackup(destination.shard, creep.name)
             if (backup) {
               creep.memory = backup.memory;
             }
@@ -172,7 +172,7 @@ export class CreepManager {
     const behavior = this.getBehaviorByRole(role);
 
     return {
-      run: (kingdom: Kingdom, trace: Tracer): RunnableResult => {
+      run: (kernel: Kernel, trace: Tracer): RunnableResult => {
         const creep = Game.creeps[name];
         if (!creep) {
           trace.error("creep not found; terminating process", {name})
@@ -194,7 +194,7 @@ export class CreepManager {
           creep.memory[MEMORY_START_TICK] = Game.time;
         }
 
-        behavior.run(creep, trace, kingdom)
+        behavior.run(creep, trace, kernel)
 
         return running();
       }

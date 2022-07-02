@@ -1,8 +1,7 @@
-import {BaseConfig} from "./config";
+import {Base} from "./config";
 import {PossibleSite, prioritizeBySitesType} from "./lib.construction";
 import {ANY, buildingCodes, EMPTY, getConstructionPosition} from "./lib.layouts";
 import {Tracer} from './lib.tracing';
-import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
 import {sleeping} from "./os.process";
 import {RunnableResult} from "./os.runnable";
@@ -172,19 +171,19 @@ export default class BaseConstructionRunnable {
     this.orgRoom = orgRoom;
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('base_construction_run');
 
     trace.log('base construction run', {id: this.id, orgRoomId: this.orgRoom.id});
 
-    const baseConfig = kingdom.getPlanner().getBaseConfigById(this.orgRoom.id);
-    if (!baseConfig) {
+    const base = kingdom.getPlanner().getBaseById(this.orgRoom.id);
+    if (!base) {
       trace.error('no base config');
       trace.end();
       return sleeping(CONSTRUCTION_INTERVAL);
     }
 
-    const origin = baseConfig.origin;
+    const origin = base.origin;
     if (!origin) {
       trace.error('no origin');
       trace.end();
@@ -222,7 +221,7 @@ export default class BaseConstructionRunnable {
     }
 
     if (roomLevel >= 3) {
-      this.buildWalls(kingdom, room, baseConfig, trace);
+      this.buildWalls(kingdom, room, base, trace);
     }
 
     trace.end();
@@ -241,7 +240,7 @@ export default class BaseConstructionRunnable {
     return null;
   }
 
-  buildLayout(kingdom: Kingdom, layout: BaseLayout, room: Room, origin: RoomPosition, trace: Tracer): void {
+  buildLayout(kernel: Kernel, layout: BaseLayout, room: Room, origin: RoomPosition, trace: Tracer): void {
     trace.log('building layout', {roomId: room.name, layout});
 
     let toBuild: PossibleSite[] = [];
@@ -324,8 +323,8 @@ export default class BaseConstructionRunnable {
     }
   }
 
-  buildWalls(kingdom: Kingdom, room: Room, baseConfig: BaseConfig, trace: Tracer): void {
-    if (!baseConfig.walls) {
+  buildWalls(kernel: Kernel, room: Room, base: Base, trace: Tracer): void {
+    if (!base.walls) {
       return;
     }
 
@@ -338,7 +337,7 @@ export default class BaseConstructionRunnable {
 
     let numWallSites = 0;
 
-    baseConfig.walls.forEach(wall => {
+    base.walls.forEach(wall => {
       if (numWallSites >= MAX_WALL_SITES) {
         return;
       }
@@ -353,7 +352,7 @@ export default class BaseConstructionRunnable {
         return site.structureType === STRUCTURE_ROAD;
       });
 
-      const passage = _.find(baseConfig.passages, {x: position.x, y: position.y});
+      const passage = _.find(base.passages, {x: position.x, y: position.y});
 
       let expectedStructure: (STRUCTURE_WALL | STRUCTURE_RAMPART) = STRUCTURE_WALL;
       if (road || roadSite || passage) {
@@ -405,14 +404,14 @@ export default class BaseConstructionRunnable {
     });
   }
 
-  setParking(kingdom: Kingdom, layout: BaseLayout, origin: RoomPosition, room: Room, trace: Tracer): void {
-    const baseConfig = kingdom.getPlanner().getBaseConfigByRoom(room.name);
-    if (!baseConfig) {
+  setParking(kernel: Kernel, layout: BaseLayout, origin: RoomPosition, room: Room, trace: Tracer): void {
+    const base = kingdom.getPlanner().getBaseByRoom(room.name);
+    if (!base) {
       trace.error('no base config when setting parking', {roomId: room.name});
       return null;
     }
 
-    baseConfig.parking = new RoomPosition(layout.parking.x + origin.x, layout.parking.y + origin.y, origin.roomName);
+    base.parking = new RoomPosition(layout.parking.x + origin.x, layout.parking.y + origin.y, origin.roomName);
   }
 
   layoutComplete(layout: BaseLayout, room: Room, origin: RoomPosition, trace: Tracer): boolean {

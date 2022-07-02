@@ -5,7 +5,7 @@
  *
  * TODO - Move to topic with base id in the name - IN PROGRESS
  */
-import {BaseConfig} from "./config";
+import {Base} from "./config";
 import * as CREEPS from "./constants.creeps";
 import {DEFINITIONS} from './constants.creeps';
 import * as MEMORY from "./constants.memory";
@@ -13,8 +13,6 @@ import * as TOPICS from "./constants.topics";
 import {Event} from "./lib.event_broker";
 import {Request, RequestDetails, TopicKey} from "./lib.topics";
 import {Tracer} from './lib.tracing';
-import {Kingdom} from "./org.kingdom";
-import OrgRoom from "./org.room";
 import {running, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 import {thread, ThreadFunc} from "./os.thread";
@@ -75,7 +73,6 @@ export function getBaseSpawnTopic(baseId: string): TopicKey {
 }
 
 export default class SpawnManager {
-  orgRoom: OrgRoom;
   id: string;
   spawnIds: Id<StructureSpawn>[];
   checkCount: number = 0;
@@ -83,30 +80,24 @@ export default class SpawnManager {
   consumeEventsThread: ThreadFunc;
   threadSpawn: ThreadFunc
 
-  constructor(id: string, room: OrgRoom) {
+  constructor(id: string) {
     this.id = id;
-    this.orgRoom = room;
 
-    const roomObject: Room = this.orgRoom.getRoomObject()
-    if (!roomObject) {
-      throw new Error('cannot create a spawn manager when room does not exist');
-    }
-
-    this.threadSpawn = thread('spawn_thread', SPAWN_TTL)((trace, kingdom, baseConfig) => {
+    this.threadSpawn = thread('spawn_thread', SPAWN_TTL)((trace, kingdom, base) => {
       this.spawnIds = roomObject.find<StructureSpawn>(FIND_MY_STRUCTURES, {
         filter: structure => structure.structureType === STRUCTURE_SPAWN && structure.isActive(),
       }).map(spawn => spawn.id);
 
-      this.spawning(trace, kingdom, baseConfig);
+      this.spawning(trace, kingdom, base);
     });
 
     this.consumeEventsThread = thread('produce_events_thread',
-      PRODUCE_EVENTS_TTL)((trace, kingdom, baseConfig) => {
-        this.consumeEvents(trace, kingdom, baseConfig)
+      PRODUCE_EVENTS_TTL)((trace, kingdom, base) => {
+        this.consumeEvents(trace, kingdom, base)
       });
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('spawn_manager_run');
 
     const roomObject: Room = this.orgRoom.getRoomObject()
@@ -116,8 +107,8 @@ export default class SpawnManager {
       return terminate();
     }
 
-    const baseConfig = kingdom.getPlanner().getBaseConfigByRoom(this.orgRoom.id);
-    if (!baseConfig) {
+    const base = kingdom.getPlanner().getBaseByRoom(this.orgRoom.id);
+    if (!base) {
       trace.error('no base config for room', {room: this.orgRoom.id});
       trace.end();
       return terminate();
@@ -125,14 +116,14 @@ export default class SpawnManager {
 
     trace.log('Spawn manager run', {id: this.id, spawnIds: this.spawnIds});
 
-    this.threadSpawn(trace, kingdom, baseConfig);
-    this.consumeEventsThread(trace, kingdom, baseConfig);
+    this.threadSpawn(trace, kingdom, base);
+    this.consumeEventsThread(trace, kingdom, base);
 
     trace.end();
     return running();
   }
 
-  spawning(trace: Tracer, kingdom: Kingdom, base: BaseConfig) {
+  spawning(trace: Tracer, kernel: Kernel, base: Base) {
     // If there are no spawns then we should request another base in the kingdom produce the creep
     if (this.spawnIds.length === 0) {
       trace.warn('base has no spawns', {id: this.id, spawnIds: this.spawnIds});
@@ -272,7 +263,7 @@ export default class SpawnManager {
     });
   }
 
-  getNeighborRequest(kingdom: Kingdom, base: BaseConfig, trace: Tracer) {
+  getNeighborRequest(kernel: Kernel, base: Base, trace: Tracer) {
     const topic = this.orgRoom.getKingdom().getTopics()
     const request = topic.getMessageOfMyChoice(getShardSpawnTopic(), (messages) => {
       // Reverse message so we get higher priority first
@@ -318,7 +309,7 @@ export default class SpawnManager {
         }
 
         // If the room is part of a colony, check if the colony is a neighbor
-        const destinationBase = kingdom.getPlanner().getBaseConfigByRoom(destinationRoom);
+        const destinationBase = kingdom.getPlanner().getBaseByRoom(destinationRoom);
         if (destinationBase) {
           const isNeighbor = base.neighbors.some((neighborId) => {
             return neighborId == destinationBase.id;
@@ -341,8 +332,8 @@ export default class SpawnManager {
     return request;
   }
 
-  consumeEvents(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig) {
-    const baseTopic = kingdom.getTopics().getTopic(getBaseSpawnTopic(baseConfig.id));
+  consumeEvents(trace: Tracer, kernel: Kernel, base: Base) {
+    const baseTopic = kingdom.getTopics().getTopic(getBaseSpawnTopic(base.id));
 
     let creeps = [];
     let topicLength = 9999;

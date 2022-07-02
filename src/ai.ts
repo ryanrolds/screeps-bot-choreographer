@@ -1,10 +1,10 @@
 import {CreepManager} from './ai.creeps';
+import {Kernel} from './ai.kernel';
 import {ShardConfig} from './config';
 import {EventBroker} from './lib.event_broker';
 import {findNextRemoteRoom} from './lib.remote_room';
 import {Topics} from './lib.topics';
 import {Tracer} from './lib.tracing';
-import {Kingdom} from './org.kingdom';
 import {MemoryManager} from './os.memory';
 import {Process} from './os.process';
 import {Priorities, Scheduler} from './os.scheduler';
@@ -15,7 +15,6 @@ import MinCutDebugger from './runnable.debug_mincut';
 import PathDebugger from './runnable.debug_path';
 import PlannerDebugger from './runnable.debug_planner';
 import KingdomGovernorRunnable from './runnable.kingdom_governor';
-import KingdomModelRunnable from './runnable.kingdom_model';
 import BufferManager from './runnable.manager.buffer';
 import DefenseManager from './runnable.manager.defense';
 import InvaderManager from './runnable.manager.invaders';
@@ -23,12 +22,11 @@ import WarManager from './runnable.manager.war';
 import {Scribe} from './runnable.scribe';
 import {SiteJanitor} from './runnable.site_janitor';
 
-export class AI {
+export class AI implements Kernel {
   private config: ShardConfig;
   private scheduler: Scheduler;
   private broker: EventBroker;
   private topics: Topics;
-  private kingdom: Kingdom;
   private planning: CentralPlanning;
   private scribe: Scribe;
   private creeps: CreepManager;
@@ -66,14 +64,6 @@ export class AI {
     scheduler.registerProcess(new Process(this.creeps.id, 'creeps_manager',
       Priorities.CRITICAL, this.creeps));
 
-    // TODO remove Kingdom and replace with passing AI around instead
-    // Kingdom Model & Messaging process
-    // Pump messages through kingdom, colonies, room, ect...
-    this.kingdom = new Kingdom(config, scheduler, this.scribe, this.topics, this.broker,
-      this.planning, this.creeps, trace);
-    scheduler.registerProcess(new Process('kingdom_model', 'kingdom_model',
-      Priorities.CRITICAL, new KingdomModelRunnable()));
-
     // TODO rename this
     // Kingdom Governor (Inter-shard communication)
     scheduler.registerProcess(new Process('kingdom_governor', 'kingdom_governor',
@@ -89,7 +79,7 @@ export class AI {
 
     // Defense manager, must run before towers and defenders
     const defenseManagerId = 'defense_manager';
-    const defenseManager = new DefenseManager(this.kingdom, defenseManagerId, scheduler, trace);
+    const defenseManager = new DefenseManager(this, defenseManagerId, scheduler, trace);
     scheduler.registerProcess(new Process(defenseManagerId, 'defense_manager',
       Priorities.CRITICAL, defenseManager));
 
@@ -109,7 +99,7 @@ export class AI {
 
     // War manager
     const warManagerId = 'war_manager';
-    const warManager = new WarManager(this.kingdom, warManagerId, scheduler, trace);
+    const warManager = new WarManager(this, warManagerId, scheduler, trace);
     scheduler.registerProcess(new Process(warManagerId, 'war_manager',
       Priorities.ATTACK, warManager));
 
@@ -121,25 +111,25 @@ export class AI {
 
     // Path debugger
     const pathDebuggerId = 'path_debugger';
-    const pathDebugger = new PathDebugger(pathDebuggerId, this.kingdom);
+    const pathDebugger = new PathDebugger(pathDebuggerId, this);
     scheduler.registerProcess(new Process(pathDebuggerId, 'path_debugger',
       Priorities.DEBUG, pathDebugger));
 
     // CostMatrix debugger
     const costMatrixDebuggerId = 'costmatrix_debugger';
-    const costMatrixDebugger = new CostMatrixDebugger(costMatrixDebuggerId, this.kingdom);
+    const costMatrixDebugger = new CostMatrixDebugger(costMatrixDebuggerId, this);
     scheduler.registerProcess(new Process(costMatrixDebuggerId, 'costmatrix_debugger',
       Priorities.DEBUG, costMatrixDebugger));
 
     // Expansion debugger
     const expandDebuggerId = 'expand_debugger';
-    const expandDebugger = new PlannerDebugger(expandDebuggerId, this.kingdom);
+    const expandDebugger = new PlannerDebugger(expandDebuggerId, this);
     scheduler.registerProcess(new Process(expandDebuggerId, 'expand_debugger',
       Priorities.DEBUG, expandDebugger));
 
     // Min cut debugger
     const minCutDebuggerId = 'mincut_debugger';
-    const minCutDebugger = new MinCutDebugger(minCutDebuggerId, this.kingdom);
+    const minCutDebugger = new MinCutDebugger(minCutDebuggerId, this);
     scheduler.registerProcess(new Process(minCutDebuggerId, 'mincut_debugger',
       Priorities.DEBUG, minCutDebugger));
 
@@ -155,26 +145,31 @@ export class AI {
     }
 
     // Run the scheduler
-    this.scheduler.tick(this.kingdom, trace);
+    this.scheduler.tick(this, trace);
 
     if (Game.time % 5 === 0) {
       const end = trace.startTimer('update_stats');
-      this.kingdom.updateStats(trace);
-
-      // Set stats in memory for pulling and display in Grafana
-      (Memory as any).stats = this.kingdom.getStats();
+      (Memory as any).stats = {};
       end();
     }
 
     trace.end();
   }
 
-  getScheduler(): Scheduler {
-    return this.scheduler;
+  getConfig(): ShardConfig {
+    return this.config;
   }
 
-  getKingdom(): Kingdom {
-    return this.kingdom;
+  getTopics(): Topics {
+    return this.topics;
+  }
+
+  getEventBroker(): EventBroker {
+    return this.broker;
+  }
+
+  getScheduler(): Scheduler {
+    return this.scheduler;
   }
 
   getCreepsManager(): CreepManager {
@@ -185,10 +180,18 @@ export class AI {
     return this.planning;
   }
 
+  getScribe(): Scribe {
+    return this.scribe;
+  }
+
+  getNewTracer(): Tracer {
+    return new Tracer('tracer', {}, Game.time);
+  }
+
   debugGetNextRemote(baseId: string) {
-    const trace = this.getTracer();
-    const baseConfig = this.planning.getBaseConfig(baseId);
-    const [room, debug] = findNextRemoteRoom(this.getKingdom(), baseConfig, trace);
+    const trace = this.getNewTracer();
+    const base = this.planning.getBase(baseId);
+    const [room, debug] = findNextRemoteRoom(this, base, trace);
     trace.notice('next remote room', {room, debug});
   }
 
@@ -206,9 +209,5 @@ export class AI {
 
   getMinCutDebugger(): MinCutDebugger {
     return this.scheduler.getProcess('mincut_debugger').runnable as MinCutDebugger;
-  }
-
-  getTracer(): Tracer {
-    return new Tracer('tracer', {}, Game.time);
   }
 }

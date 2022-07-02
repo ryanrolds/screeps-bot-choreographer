@@ -2,7 +2,6 @@ import * as MEMORY from "./constants.memory";
 import * as PRIORITIES from "./constants.priorities";
 import * as TASKS from "./constants.tasks";
 import {Tracer} from './lib.tracing';
-import {Kingdom} from "./org.kingdom";
 import OrgRoom from "./org.room";
 import {running, sleeping, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
@@ -40,7 +39,7 @@ export default class TowerRunnable {
     this.prevTime = Game.time;
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('tower_run');
 
     const ticks = Game.time - this.prevTime;
@@ -242,7 +241,7 @@ export default class TowerRunnable {
     return running();
   }
 
-  private requestEnergy(kingdom: Kingdom, room: OrgRoom, tower: StructureTower, ttl: number, trace: Tracer) {
+  private requestEnergy(kernel: Kernel, room: OrgRoom, tower: StructureTower, ttl: number, trace: Tracer) {
     const towerUsed = tower.store.getUsedCapacity(RESOURCE_ENERGY);
     const towerFree = tower.store.getFreeCapacity(RESOURCE_ENERGY);
     const towerTotal = tower.store.getCapacity(RESOURCE_ENERGY);

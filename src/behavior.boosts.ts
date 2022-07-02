@@ -1,8 +1,9 @@
-import * as behaviorTree from "./lib.behaviortree";
-import {SUCCESS, RUNNING} from "./lib.behaviortree";
+import {Kernel} from "./ai.kernel";
+import {getBoostPosition, getCreepBase, getLabsForAction} from "./base";
 import * as behaviorMovement from "./behavior.movement";
-
 import * as MEMORY from "./constants.memory";
+import * as behaviorTree from "./lib.behaviortree";
+import {RUNNING, SUCCESS} from "./lib.behaviortree";
 
 const BOOST_PHASE = 'boost_phase';
 const BOOST_PHASE_START = 'boosting_start';
@@ -16,31 +17,31 @@ export const behaviorBoosts = (behaviorNode) => {
     [
       behaviorTree.leafNode(
         'get_boosted',
-        (creep, trace, kingdom) => {
+        (creep, trace, kernel: Kernel) => {
           const phase = creep.memory[BOOST_PHASE] || BOOST_PHASE_START;
           if (phase === BOOST_PHASE_DONE) {
-            trace.log('boosting complete');
+            trace.info('boosting complete');
             return SUCCESS;
           }
 
           // Mark done of no requested boosts
-          const desiredBoosts = creep.memory[MEMORY.DESIRED_BOOSTS] || [];
-          if (!desiredBoosts.length) {
-            trace.log('no requested boosts');
+          const desiredActions = creep.memory[MEMORY.DESIRED_BOOSTS] || [];
+          if (!desiredActions.length) {
+            trace.info('no requested action boosts');
             creep.memory[BOOST_PHASE] = BOOST_PHASE_DONE;
             return SUCCESS;
           }
 
-          const room = kingdom.getCreepRoom(creep);
-          if (!room) {
-            trace.error('no room on creep', {name: creep.name, memory: creep.memory});
-            creep.suicide();
-            return behaviorTree.FAILURE;
+          const base = getCreepBase(kernel, creep);
+          if (!base) {
+            trace.error('no base config', {creep: creep.name});
+            creep.memory[BOOST_PHASE] = BOOST_PHASE_DONE;
+            return SUCCESS;
           }
 
-          const boosterPos = room.getBoosterPosition();
+          const boosterPos = getBoostPosition(base)
           if (!boosterPos) {
-            trace.log('no booster position');
+            trace.info('no booster position');
             creep.memory[BOOST_PHASE] = BOOST_PHASE_DONE;
             return SUCCESS;
           }
@@ -50,9 +51,7 @@ export const behaviorBoosts = (behaviorNode) => {
               creep.memory[BOOST_PHASE] = BOOST_PHASE_MOVE;
             case BOOST_PHASE_MOVE:
               // Move to booster location
-              const destination = boosterPos;
-
-              const result = behaviorMovement.moveTo(creep, destination, 0, false, 50, 1000);
+              const result = behaviorMovement.moveTo(creep, boosterPos, 0, false, 50, 1000);
               if (result === SUCCESS) {
                 creep.memory[BOOST_PHASE] = BOOST_PHASE_READY;
                 return RUNNING;
@@ -60,35 +59,19 @@ export const behaviorBoosts = (behaviorNode) => {
 
               return result;
             case BOOST_PHASE_READY:
-              // Request boosts
-              const loadedEffects = room.getLoadedEffects();
-              desiredBoosts.forEach((desiredBoost) => {
-                const boost = loadedEffects[desiredBoost];
-                if (!boost) {
-                  trace.log(`no boost ${desiredBoost}`);
+              desiredActions.forEach((desiredAction) => {
+                const labs = getLabsForAction(base, desiredAction)
+                if (!labs.length) {
+                  trace.info('no labs for action', {action: desiredAction});
                   return;
                 }
 
-                // Find loaded compound
-                const compound = boost.compounds.find((compound) => {
-                  return room.getBoosterLabByResource(compound.name);
-                });
-                if (!compound) {
-                  trace.error(`no compound for ${desiredBoost}`, {room: room.id, boost, compound});
-                  return;
-                }
-
-                // Get lab for loaded compound
-                const lab = room.getBoosterLabByResource(compound.name)
-                if (!lab) {
-                  trace.error('loaded boost out of date', {room: room.id, boost, compound})
-                  return;
-                }
+                const lab = labs[0];
 
                 const result = lab.boostCreep(creep);
-                trace.log('boosted', {
+                trace.info('boosted', {
                   labId: lab.id,
-                  compound: compound.name,
+                  compound: lab.mineralType,
                   result,
                 });
               });
