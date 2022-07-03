@@ -2,7 +2,7 @@
 import {behaviorBoosts} from "./behavior.boosts";
 import * as behaviorCommute from "./behavior.commute";
 import * as behaviorMovement from "./behavior.movement";
-import behaviorRoom from "./behavior.room";
+import {updateSign} from "./behavior.room";
 import * as MEMORY from "./constants.memory";
 import {commonPolicy} from './constants.pathing_policies';
 import * as behaviorTree from './lib.behaviortree';
@@ -130,7 +130,7 @@ const behavior = behaviorTree.sequenceNode(
         },
       ),
     ),
-    behaviorRoom.updateSign,
+    updateSign,
   ],
 );
 

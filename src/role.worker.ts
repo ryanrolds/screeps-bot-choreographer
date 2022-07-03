@@ -12,16 +12,17 @@
  * - If no drop offs with capacity, then build structures or upgrade controller
  *
  */
+import {getBasePrimaryRoom, getCreepBase} from "./base";
 import {behaviorBoosts} from "./behavior.boosts";
 import {build, selectInfrastructureSites} from "./behavior.build";
 import * as behaviorCommute from "./behavior.commute";
 import * as behaviorHaul from "./behavior.haul";
 import {roadWorker} from "./behavior.logistics";
 import * as behaviorMovement from "./behavior.movement";
-import behaviorRoom from "./behavior.room";
-import {getBasePrimaryRoom} from "./config";
+import {parkingLot} from "./behavior.room";
 import {WORKER_DISTRIBUTOR} from "./constants.creeps";
 import * as MEMORY from "./constants.memory";
+import {Kernel} from "./kernel";
 import * as behaviorTree from "./lib.behaviortree";
 import {FAILURE, SUCCESS} from "./lib.behaviortree";
 import {haulerPolicy} from "./role.hauler";
@@ -43,8 +44,8 @@ const selectDropoff = module.exports.selectRoomDropoff = behaviorTree.selectorNo
     ),
     behaviorTree.leafNode(
       'pick_storage',
-      (creep, trace, kingdom) => {
-        const base = kingdom.getCreepBase(creep);
+      (creep, trace, kernel: Kernel) => {
+        const base = getCreepBase(kernel, creep);
         if (!base) {
           trace.error('could not find creep base', {name: creep.name, memory: creep.memory});
           // creep.suicide();
@@ -65,7 +66,7 @@ const selectDropoff = module.exports.selectRoomDropoff = behaviorTree.selectorNo
           return FAILURE;
         }
 
-        const distributors = _.filter(kingdom.creepManager.getCreepsByBase(base.id),
+        const distributors = _.filter(kernel.getCreepsManager().getCreepsByBase(base.id),
           (creep) => {
             return creep.memory[MEMORY.MEMORY_ROLE] === WORKER_DISTRIBUTOR;
           }
@@ -81,7 +82,7 @@ const selectDropoff = module.exports.selectRoomDropoff = behaviorTree.selectorNo
     ),
     behaviorTree.leafNode(
       'pick_tower',
-      (creep, trace, kingdom) => {
+      (creep, trace, kernel) => {
         const targets = creep.room.find(FIND_STRUCTURES, {
           filter: (structure) => {
             return structure.structureType == STRUCTURE_TOWER &&
@@ -100,19 +101,20 @@ const selectDropoff = module.exports.selectRoomDropoff = behaviorTree.selectorNo
     ),
     behaviorTree.leafNode(
       'pick_spawner_extension',
-      (creep, trace, kingdom) => {
-        const colony = kingdom.getCreepColony(creep);
-        if (!colony) {
-          trace.error('could not find creep colony', {name: creep.name, memory: creep.memory});
+      (creep, trace, kernel) => {
+        const base = getCreepBase(kernel, creep);
+        if (!base) {
+          trace.error('could not find creep base', {name: creep.name, memory: creep.memory});
           creep.suicide();
           return FAILURE;
         }
 
-        if (!colony.primaryRoom) {
+        const room = getBasePrimaryRoom(base);
+        if (!room) {
           return FAILURE;
         }
 
-        const targets = colony.primaryRoom.find(FIND_STRUCTURES, {
+        const targets = room.find(FIND_STRUCTURES, {
           filter: (structure) => {
             return (structure.structureType == STRUCTURE_EXTENSION ||
               structure.structureType == STRUCTURE_SPAWN) &&
@@ -139,7 +141,7 @@ const behavior = behaviorTree.sequenceNode(
       'pick_something',
       [
         behaviorHaul.getHaulTaskFromBaseTopic,
-        behaviorRoom.parkingLot,
+        parkingLot,
       ],
     ),
     behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_PICKUP, 1, haulerPolicy),
@@ -155,7 +157,7 @@ const behavior = behaviorTree.sequenceNode(
             [
               behaviorTree.leafNode(
                 'fail_when_empty',
-                (creep, trace, kingdom) => {
+                (creep, trace, kernel) => {
                   if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
                     return SUCCESS;
                   }
@@ -171,7 +173,7 @@ const behavior = behaviorTree.sequenceNode(
         ),
         behaviorTree.leafNode(
           'succeed_when_empty',
-          (creep, trace, kingdom) => {
+          (creep, trace, kernel) => {
             if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
               return SUCCESS;
             }
@@ -189,7 +191,7 @@ const behavior = behaviorTree.sequenceNode(
         ),
         behaviorTree.leafNode(
           'succeed_when_empty',
-          (creep, trace, kingdom) => {
+          (creep, trace, kernel) => {
             if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
               return SUCCESS;
             }
@@ -202,8 +204,8 @@ const behavior = behaviorTree.sequenceNode(
           [
             behaviorTree.leafNode(
               'pick_room_controller',
-              (creep, trace, kingdom) => {
-                const base = kingdom.getCreepBase(creep);
+              (creep, trace, kernel) => {
+                const base = kernel.getCreepBase(creep);
                 if (!base) {
                   return FAILURE;
                 }
@@ -227,7 +229,7 @@ const behavior = behaviorTree.sequenceNode(
               'upgrade_until_empty',
               behaviorTree.leafNode(
                 'upgrade_controller',
-                (creep, trace, kingdom) => {
+                (creep, trace, kernel) => {
                   const result = creep.upgradeController(creep.room.controller);
                   trace.log("upgrade result", {result})
 
