@@ -1,3 +1,4 @@
+import {Kernel} from "./kernel";
 import {Tracer} from "./lib.tracing";
 import {sleeping} from "./os.process";
 import {Runnable, RunnableResult} from "./os.runnable";

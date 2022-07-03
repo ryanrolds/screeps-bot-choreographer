@@ -1,4 +1,5 @@
-import {Base} from "./config";
+import {Base} from "./base";
+import {Kernel} from "./kernel";
 import {AllowedCostMatrixTypes} from "./lib.costmatrix_cache";
 import {getNearbyPositions} from "./lib.position";
 import {Tracer} from "./lib.tracing";
@@ -84,7 +85,7 @@ export const getPath = (kernel: Kernel, origin: RoomPosition, destination: RoomP
   for (; pathDetails.passes < pathDetails.tries; pathDetails.passes++) {
     // Get list of rooms on the way to destination
     const roomRoute = Game.map.findRoute(origin.roomName, destination.roomName, {
-      routeCallback: getRoomRouteCallback(kingdom, origin.roomName, destination.roomName,
+      routeCallback: getRoomRouteCallback(kernel, origin.roomName, destination.roomName,
         policy.room, pathDetails, trace),
     });
 
@@ -110,7 +111,7 @@ export const getPath = (kernel: Kernel, origin: RoomPosition, destination: RoomP
 
     const opts: PathFinderOpts = {
       maxRooms: policy.path.maxSearchRooms,
-      roomCallback: getRoomCallback(kingdom, origin.roomName, destination.roomName,
+      roomCallback: getRoomCallback(kernel, origin.roomName, destination.roomName,
         policy.path, policy.room, allowedRooms, pathDetails, trace),
       maxOps: policy.path.maxOps,
       plainCost: policy.path.plainCost || 2,
@@ -153,25 +154,25 @@ export const getPath = (kernel: Kernel, origin: RoomPosition, destination: RoomP
 
 export const getClosestColonyByPath = (kernel: Kernel, destination: RoomPosition,
   policy: FindColonyPathPolicy, trace: Tracer): Base => {
-  const roomEntry = kingdom.getScribe().getRoomById(destination.roomName);
+  const roomEntry = kernel.getScribe().getRoomById(destination.roomName);
 
   let selectedColony: Base = null;
   let selectedPathLength = 99999;
 
   // Get colonies and filter by the policy
-  let bases = kingdom.getPlanner().getBases();
+  let bases = kernel.getPlanner().getBases();
   bases = applyAllowedColonyPolicy(bases, roomEntry, policy.colony, trace);
   // Iterate colonies and find the closest one within the policies
   bases.forEach((config) => {
     // Get the origin position from the colony by apply the colony policy
-    const originPosition = getOriginPosition(kingdom, config, policy.colony, trace);
+    const originPosition = getOriginPosition(kernel, config, policy.colony, trace);
     if (!originPosition) {
       trace.error('no origin position', {config, policy});
       return;
     }
 
     // Find the path from the origin to the destination
-    const [result, debug] = getPath(kingdom, originPosition, destination, policy, trace);
+    const [result, debug] = getPath(kernel, originPosition, destination, policy, trace);
     if (!result) {
       trace.info('no path', {config, policy, debug});
       return;
@@ -261,7 +262,7 @@ const getRoomRouteCallback = (
       return Infinity;
     }
 
-    const roomEntry = kingdom.getScribe().getRoomById(toRoom);
+    const roomEntry = kernel.getScribe().getRoomById(toRoom);
 
     // If we have not scanned the room, dont enter it
     if (!roomEntry && policy.avoidUnloggedRooms) {
@@ -269,7 +270,7 @@ const getRoomRouteCallback = (
     }
 
     if (roomEntry) {
-      const [allow, reason] = applyRoomCallbackPolicy(kingdom, roomEntry, policy, trace);
+      const [allow, reason] = applyRoomCallbackPolicy(kernel, roomEntry, policy, trace);
       if (!allow) {
         searchDetails.rejectedRooms[toRoom] = reason;
         return Infinity;
@@ -298,7 +299,7 @@ const getRoomCallback = (
         return false;
       }
 
-      const roomEntry = kingdom.getScribe().getRoomById(roomName);
+      const roomEntry = kernel.getScribe().getRoomById(roomName);
 
       // If we have not scanned the room, dont enter it
       if (!roomEntry && roomPolicy.avoidUnloggedRooms) {
@@ -307,7 +308,7 @@ const getRoomCallback = (
       }
 
       if (roomEntry) {
-        const [allow, reason] = applyRoomCallbackPolicy(kingdom, roomEntry, roomPolicy, trace);
+        const [allow, reason] = applyRoomCallbackPolicy(kernel, roomEntry, roomPolicy, trace);
         if (!allow) {
           pathDetails.rejectedRooms[roomName] = reason;
           return false;
@@ -316,7 +317,7 @@ const getRoomCallback = (
     }
 
     // Fetch cached cost matrix for the room
-    let costMatrix = kingdom.getCostMatrixCache().getCostMatrix(kingdom, roomName,
+    let costMatrix = kernel.getCostMatrixCache().getCostMatrix(kernel, roomName,
       roomPolicy.costMatrixType, trace);
 
     const room = Game.rooms[roomName];
@@ -374,7 +375,7 @@ const applyRoomCallbackPolicy = (
 ): [boolean, string] => {
   const owner = roomEntry.controller?.owner;
   const ownerIsNotMe = owner !== 'ENETDOWN';
-  const isFriendly = kingdom.config.friends.includes(owner)
+  const isFriendly = kernel.getFriends().includes(owner)
 
   if (owner && ownerIsNotMe && policy.avoidFriendlyRooms && isFriendly) {
     return [false, 'friendly'];

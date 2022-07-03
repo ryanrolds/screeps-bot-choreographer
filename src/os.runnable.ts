@@ -1,4 +1,4 @@
-import {Kernel} from "./ai.kernel";
+import {Kernel} from "./kernel";
 import {Tracer} from "./lib.tracing";
 import {ProcessStatus} from "./os.process";
 

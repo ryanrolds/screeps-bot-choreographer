@@ -1,3 +1,4 @@
+import {Kernel} from "./kernel";
 import {FindPathPolicy, PathSearchDetails} from "./lib.pathing";
 import {Tracer} from "./lib.tracing";
 
@@ -96,7 +97,7 @@ export class PathCache {
       const getPolicy = _.cloneDeep(policy);
       getPolicy.destination.range = range;
 
-      const [result, debug] = this.pathProvider(kingdom, origin, goal, getPolicy, trace);
+      const [result, debug] = this.pathProvider(kernel, origin, goal, getPolicy, trace);
       if (!result) {
         return null;
       }

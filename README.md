@@ -68,6 +68,7 @@ An AI for [Screeps](screeps.com).
   - [ ] Refactor Resource Governor into a Process\
     - [ ] Move to TypeScript
 - [ ] All of project on TypeScript
+- [ ] Refactor PID controller
 - [ ] Move creep definitions into individual creep files
 - [ ] TD: Room process and sources processes no longer require room visibility
 - [ ] TD: Replace spawn topics (TTL) with event streams (manages own queue)
@@ -172,7 +173,7 @@ There are some debugging tools built into the project:
 * Cost matrix clear - `AI.getCostMatrixDebugger().clear()`
 * Get debug info on path cache - `AI.kingdom.getPathCache().debug()`
 * Attack a room (requires rally_<room> flag) - `AI.scheduler.processMap['war_manager'].runnable.targetRoom = 'E16S51'`
-* Look at central planning results - `AI.getPlanningDebugger().debug()`
+* Look at central planning results - `AI.getPlannerDebugger().debug()`
 * Look at min cut output - `AI.getMinCutDebugger().debug(AI.getKingdom(), 'W6N1')`
 * Get cached room details from Scribe - `JSON.stringify(AI.getKingdom().getScribe().getRoomById('W8N4'))`
 * Launch Nuke - `AI.kingdom.sendRequest('nuker_targets', 1, {position: '28,35,E19S49'}, 100)`

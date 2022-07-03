@@ -2,7 +2,7 @@ import * as behaviorTree from "./lib.behaviortree";
 import * as behaviorCommute from "./behavior.commute";
 import * as behaviorMovement from "./behavior.movement";
 import {build, selectSite} from "./behavior.build";
-import behaviorRoom from "./behavior.room";
+import {getEnergy, parkingLot} from "./behavior.room";
 import {behaviorBoosts} from "./behavior.boosts";
 
 import * as MEMORY from "./constants.memory";
@@ -51,7 +51,7 @@ const behavior = behaviorTree.sequenceNode(
       ),
     ),
     behaviorCommute.setCommuteDuration,
-    behaviorRoom.getEnergy,
+    getEnergy,
     behaviorTree.repeatUntilConditionMet(
       'build_sites',
       (creep, trace, kingdom) => {
@@ -64,7 +64,7 @@ const behavior = behaviorTree.sequenceNode(
             'pick_something',
             [
               selectSite,
-              behaviorRoom.parkingLot,
+              parkingLot,
             ],
           ),
           behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 3, singleRoomPolicy),

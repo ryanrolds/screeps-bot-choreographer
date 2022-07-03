@@ -1,3 +1,4 @@
+import {Kernel} from './kernel';
 import {Tracer} from './lib.tracing';
 import {Runnable, RunnableResult} from './os.runnable';
 
@@ -94,7 +95,7 @@ export class Process {
   run(kernel: Kernel, trace: Tracer) {
     this.lastRun = Game.time;
 
-    const result = this.runnable.run(kingdom, trace);
+    const result = this.runnable.run(kernel, trace);
     switch (result.status) {
       case STATUS_RUNNING:
         this.setRunning();

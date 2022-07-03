@@ -1,4 +1,4 @@
-import {Kernel} from "./ai.kernel";
+import {Kernel} from "./kernel";
 
 export enum AlertLevel {
   GREEN = "green",
@@ -35,7 +35,7 @@ export function getCreepBase(kernel: Kernel, creep: Creep): Base {
     return null;
   }
 
-  const base = kernel.getPlanning().getBaseById(baseId);
+  const base = kernel.getPlanner().getBaseById(baseId);
   if (!base) {
     return null;
   }
@@ -60,10 +60,63 @@ export function setActionLabs(base: Base, action: string, labs: StructureLab[]):
 }
 
 export function getStructureWithResource(base: Base, resource: ResourceConstant): Structure | null {
-  const structures = base.getStructuresWithResource(resource);
-  if (!structructures.length) {
+  const structures = getStructuresWithResource(base, resource);
+  if (!structures.length) {
     return null;
   }
 
   return structures[0];
+}
+
+export function getStructureForResource(base: Base, resource: ResourceConstant): Structure | null {
+  const structures = getStructuresForResource(base, resource);
+  if (!structures.length) {
+    return null;
+  }
+
+  return structures[0];
+}
+
+export function getStructuresWithResource(base: Base, resource: ResourceConstant): Structure[] {
+  const structures: Structure[] = [];
+
+  const room = getBasePrimaryRoom(base);
+  if (!room) {
+    return null;
+  }
+
+  if (room.storage?.store.getUsedCapacity(resource) > 0) {
+    structures.push(room.storage);
+  }
+
+  if (room.terminal?.store.getUsedCapacity(resource) > 0) {
+    structures.push(room.terminal);
+  }
+
+  return structures;
+}
+
+export function getStructuresForResource(base: Base, resource: ResourceConstant): Structure[] {
+  const structures: Structure[] = [];
+
+  const room = getBasePrimaryRoom(base);
+  if (!room) {
+    return null;
+  }
+
+  if (room.storage?.store.getFreeCapacity() > 0) {
+    structures.push(room.storage);
+  }
+
+  if (room.terminal?.store.getFreeCapacity() > 0) {
+    structures.push(room.terminal);
+  }
+
+  return structures;
+}
+
+export function getBaseSpawns(base: Base): StructureSpawn[] {
+  const spawns: StructureSpawn[] = [];
+
+  return spawns;
 }

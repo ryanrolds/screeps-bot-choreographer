@@ -1,4 +1,4 @@
-import {Base} from "./config";
+import {Base} from "./base";
 
 export function getReserveStructures(
   game: Game,

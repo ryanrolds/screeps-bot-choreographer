@@ -1,11 +1,11 @@
-import {Kernel} from './ai.kernel';
+import {Kernel} from './kernel';
 import {AlertLevel, Base} from './config';
 import * as CREEPS from './constants.creeps';
 import * as MEMORY from './constants.memory';
 import * as PRIORITIES from './constants.priorities';
 import * as TASKS from './constants.tasks';
 import * as TOPICS from './constants.topics';
-import {DEFENSE_STATUS} from './defense';
+import {DEFENSE_STATUS} from './constants.defense';
 import {Event} from './lib.event_broker';
 import {Tracer} from './lib.tracing';
 import OrgRoom from "./org.room";

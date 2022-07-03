@@ -4,7 +4,7 @@ import * as CREEPS from './constants.creeps';
 import * as MEMORY from './constants.memory';
 import * as PRIORITIES from './constants.priorities';
 import * as TOPICS from './constants.topics';
-import {DEFENSE_STATUS} from './defense';
+import {DEFENSE_STATUS} from './constants.defense';
 import {Tracer} from './lib.tracing';
 import {Process, sleeping} from "./os.process";
 import {RunnableResult} from './os.runnable';

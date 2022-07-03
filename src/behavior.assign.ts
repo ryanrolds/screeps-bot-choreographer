@@ -1,4 +1,4 @@
-import {Kernel} from "./ai.kernel";
+import {Kernel} from "./kernel";
 import * as MEMORY from "./constants.memory";
 import * as behaviorTree from "./lib.behaviortree";
 import {RUNNING, SUCCESS} from "./lib.behaviortree";

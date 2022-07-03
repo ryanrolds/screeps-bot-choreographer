@@ -1,4 +1,4 @@
-import {Kernel} from './ai.kernel';
+import {Kernel} from './kernel';
 import * as featureFlags from './lib.feature_flags';
 import {Tracer} from './lib.tracing';
 
@@ -37,12 +37,12 @@ export const selectorNode = (id: string, children: TreeNode[]): TreeNode => {
   return {
     id,
     children,
-    tickChildren: function (creep, trace, kingdom) {
+    tickChildren: function (creep, trace, kernel) {
       let i = getState(creep, this.id, trace);
       setState(creep, this.id, 0, trace);
 
       for (; i < this.children.length; i++) {
-        const result = this.children[i].tick(creep, trace, kingdom);
+        const result = this.children[i].tick(creep, trace, kernel);
         trace.log('result', {result});
         switch (result) {
           case RUNNING:
@@ -57,10 +57,10 @@ export const selectorNode = (id: string, children: TreeNode[]): TreeNode => {
 
       return FAILURE;
     },
-    tick: function (creep, trace, kingdom): NodeTickResult {
+    tick: function (creep, trace, kernel): NodeTickResult {
       trace = trace.begin(this.id);
       trace.log('tick', {id: this.id});
-      const result = this.tickChildren(creep, trace, kingdom);
+      const result = this.tickChildren(creep, trace, kernel);
       trace.log('result', result);
       trace.end();
       return result;
@@ -78,10 +78,10 @@ export const sequenceNode = (id: string, children: TreeNode[]): TreeNode => {
   return {
     id, // used track state in memory
     children,
-    tickChildren: function (creep, trace, kingdom) {
+    tickChildren: function (creep, trace, kernel) {
       let i = getState(creep, this.id, trace);
       for (; i < this.children.length; i++) {
-        const result = this.children[i].tick(creep, trace, kingdom);
+        const result = this.children[i].tick(creep, trace, kernel);
         switch (result) {
           case RUNNING:
             setState(creep, this.id, i, trace);
@@ -95,9 +95,9 @@ export const sequenceNode = (id: string, children: TreeNode[]): TreeNode => {
 
       return SUCCESS;
     },
-    tick: function (creep, trace, kingdom) {
+    tick: function (creep, trace, kernel) {
       trace = trace.begin(this.id);
-      const result = this.tickChildren(creep, trace, kingdom);
+      const result = this.tickChildren(creep, trace, kernel);
       trace.log('result', result);
       trace.end();
       return result;
@@ -115,9 +115,9 @@ export const alwaysNode = (id: string, node: TreeNode): TreeNode => {
   return {
     id, // used track state in memory
     node,
-    tick: function (creep, trace, kingdom) {
+    tick: function (creep, trace, kernel) {
       trace = trace.begin(this.id);
-      const result = this.node.tick(creep, trace, kingdom);
+      const result = this.node.tick(creep, trace, kernel);
       trace.log('result', result);
       trace.end();
       return result;
@@ -133,9 +133,9 @@ export const sequenceAlwaysNode = (id: string, children: TreeNode[]): TreeNode =
   return {
     id, // used track state in memory
     children,
-    tickChildren: function (creep, trace, kingdom) {
+    tickChildren: function (creep, trace, kernel) {
       for (let i = 0; i < this.children.length; i++) {
-        const result = this.children[i].tick(creep, trace, kingdom);
+        const result = this.children[i].tick(creep, trace, kernel);
         switch (result) {
           case RUNNING:
             return RUNNING;
@@ -148,9 +148,9 @@ export const sequenceAlwaysNode = (id: string, children: TreeNode[]): TreeNode =
 
       return SUCCESS;
     },
-    tick: function (creep, trace, kingdom) {
+    tick: function (creep, trace, kernel) {
       trace = trace.begin(this.id);
-      const result = this.tickChildren(creep, trace, kingdom);
+      const result = this.tickChildren(creep, trace, kernel);
       trace.log('result', result);
       trace.end();
       return result;
@@ -168,9 +168,9 @@ export const repeatUntilFailure = (id: string, node: TreeNode): TreeNode => {
   return {
     id,
     node,
-    tick: function (creep, trace, kingdom) {
+    tick: function (creep, trace, kernel) {
       trace = trace.begin(this.id);
-      const result = this.node.tick(creep, trace, kingdom);
+      const result = this.node.tick(creep, trace, kernel);
       trace.log('result', result);
       trace.end();
 
@@ -191,9 +191,9 @@ export const repeatUntilSuccess = (id: string, node: TreeNode): TreeNode => {
   return {
     id,
     node,
-    tick: function (creep, trace, kingdom) {
+    tick: function (creep, trace, kernel) {
       trace = trace.begin(this.id);
-      const result = this.node.tick(creep, trace, kingdom);
+      const result = this.node.tick(creep, trace, kernel);
       trace.log('result', result);
       trace.end();
 
@@ -220,7 +220,7 @@ export const runUntilConditionMet = (id: string, condition: ConditionFunc,
     id,
     node,
     condition,
-    tick: function (creep, trace, kingdom) {
+    tick: function (creep, trace, kernel) {
       trace = trace.begin(this.id);
 
       // if previous tick set that it was running, then skip condition check
@@ -233,7 +233,7 @@ export const runUntilConditionMet = (id: string, condition: ConditionFunc,
         trace.log('previous tick returned running, so dont check condition and tick node');
       } else {
         trace.log('checking condition', {id: this.id});
-        const conditionResult = this.condition(creep, trace, kingdom);
+        const conditionResult = this.condition(creep, trace, kernel);
         if (conditionResult) {
           // We made it through the condition, clear that branches state so that
           // next time around we start from scratch
@@ -249,7 +249,7 @@ export const runUntilConditionMet = (id: string, condition: ConditionFunc,
         trace.log('condition not met, tick node', {id: this.id});
       }
 
-      const result = this.node.tick(creep, trace, kingdom);
+      const result = this.node.tick(creep, trace, kernel);
       trace.log('result', {result});
 
       if (result === FAILURE) {
@@ -277,15 +277,15 @@ export const repeatUntilConditionMet = (id: string, condition: ConditionFunc,
     id,
     node,
     condition,
-    tick: function (creep, trace, kingdom) {
+    tick: function (creep, trace, kernel) {
       trace = trace.begin(this.id);
 
       trace.log('checking condition', {id: this.id});
 
-      const conditionResult = this.condition(creep, trace, kingdom);
+      const conditionResult = this.condition(creep, trace, kernel);
       if (!conditionResult) {
         trace.log('condition not met', {id: this.id});
-        const result = this.node.tick(creep, trace, kingdom);
+        const result = this.node.tick(creep, trace, kernel);
         trace.log('result', {result});
         trace.end();
 
@@ -318,7 +318,7 @@ export const tripIfCalledXTimes = (id: string, limit: number, regular: TreeNode,
     limit,
     regular,
     tripped,
-    tick: function (creep, trace, kingdom): NodeTickResult {
+    tick: function (creep, trace, kernel): NodeTickResult {
       let i = getState(creep, this.id, trace);
       setState(creep, this.id, i + 1, trace);
 
@@ -326,10 +326,10 @@ export const tripIfCalledXTimes = (id: string, limit: number, regular: TreeNode,
 
       if (i > this.limit) {
         trace.log("tripped")
-        return this.tripped.tick(creep, trace, kingdom);
+        return this.tripped.tick(creep, trace, kernel);
       }
 
-      return this.regular.tick(creep, trace, kingdom);
+      return this.regular.tick(creep, trace, kernel);
     },
     clear: function (creep, trace): void {
       clearState(creep, this.id, trace);
@@ -342,7 +342,7 @@ export const resetTripCounter = (id: string, counterId: string): TreeNode => {
   return {
     id,
     counterId,
-    tick: function (creep, trace, kingdom): NodeTickResult {
+    tick: function (creep, trace, kernel): NodeTickResult {
       // Clear the counter
       trace.log("clear trip counter", {counter: creep.memory[this.counterId]});
       clearState(creep, this.counterId, trace);
@@ -359,10 +359,10 @@ export const invert = (id: string, node: TreeNode): TreeNode => {
   return {
     id,
     node,
-    tick: function (creep, trace, kingdom) {
+    tick: function (creep, trace, kernel) {
       trace = trace.begin(this.id);
 
-      let result = this.node.tick(creep, trace, kingdom);
+      let result = this.node.tick(creep, trace, kernel);
       trace.log('result', result);
 
       if (result === FAILURE) {
@@ -387,10 +387,10 @@ export const returnSuccess = (id: string, node: TreeNode): TreeNode => {
   return {
     id,
     node,
-    tick: function (creep, trace, kingdom) {
+    tick: function (creep, trace, kernel) {
       trace = trace.begin(this.id);
 
-      const result = this.node.tick(creep, trace, kingdom);
+      const result = this.node.tick(creep, trace, kernel);
       trace.log('result', result);
 
       trace.end();
@@ -408,9 +408,9 @@ export const leafNode = (id: string, behavior: TickFunc): TreeNode => {
   return {
     id,
     behavior,
-    tick: function (creep, trace, kingdom) {
+    tick: function (creep, trace, kernel) {
       trace = trace.begin(this.id);
-      const result = this.behavior(creep, trace, kingdom);
+      const result = this.behavior(creep, trace, kernel);
       trace.log('result', result);
       trace.end();
       return result;
@@ -433,9 +433,9 @@ export const featureFlagBool = (id: string, flag: string, defaultNode: TreeNode,
 
       let result = null;
       if (featureFlags.getFlag(this.flag)) {
-        result = this.enabledNode.tick(creep, trace, kingdom);
+        result = this.enabledNode.tick(creep, trace, kernel);
       } else {
-        result = this.defaultNode.tick(creep, trace, kingdom);
+        result = this.defaultNode.tick(creep, trace, kernel);
       }
 
       trace.log('result', result);

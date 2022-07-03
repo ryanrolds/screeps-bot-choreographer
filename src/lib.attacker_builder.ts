@@ -1,5 +1,3 @@
-import {trace} from "console";
-import {max} from "lodash";
 import {Tracer} from "./lib.tracing";
 
 const QUAD_SIZE = 4;

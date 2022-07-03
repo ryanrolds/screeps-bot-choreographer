@@ -1,4 +1,4 @@
-import {Kernel} from "./ai.kernel";
+import {Kernel} from "./kernel";
 import {getBoostPosition, getCreepBase, getLabsForAction} from "./base";
 import * as behaviorMovement from "./behavior.movement";
 import * as MEMORY from "./constants.memory";

@@ -1,4 +1,4 @@
-import {Kernel} from './ai.kernel';
+import {Kernel} from './kernel';
 import {getCreepBase} from './base';
 import * as behaviorMovement from './behavior.movement';
 import {MEMORY_DESTINATION, MEMORY_FLAG} from './constants.memory';

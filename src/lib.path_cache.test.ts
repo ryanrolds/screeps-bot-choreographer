@@ -2,14 +2,15 @@ import {expect} from 'chai';
 import 'mocha';
 import {mockGlobal} from "screeps-test-helper";
 import Sinon, * as sinon from 'sinon';
+import {AI} from './ai';
 import {CreepManager} from './ai.creeps';
 import {ShardConfig} from './config';
 import {commonPolicy} from './constants.pathing_policies';
+import {Kernel} from './kernel';
 import {EventBroker} from './lib.event_broker';
 import {CACHE_ITEM_TTL, PathCache, PathCacheItem, PathProvider} from './lib.path_cache';
 import {Topics} from './lib.topics';
 import {Tracer} from './lib.tracing';
-import {Kingdom} from './org.kingdom';
 import {Scheduler} from './os.scheduler';
 import {CentralPlanning} from './runnable.central_planning';
 import {Scribe} from './runnable.scribe';
@@ -68,8 +69,7 @@ describe('Path Cache', function () {
     const planner = new CentralPlanning(config, scheduler, trace);
     const creepsManager = new CreepManager(scheduler)
 
-    kingdom = new Kingdom(config, scheduler, scribe, topics, broker, planner,
-      creepsManager, trace);
+    kernel = new AI(config, scheduler, trace);
 
     pathProvider = sandbox.stub().callsFake(() => [path, {}]);
   });
@@ -92,14 +92,14 @@ describe('Path Cache', function () {
     it('should calculate path and cache', () => {
       const cache = new PathCache(10, pathProvider);
 
-      const result = cache.getPath(kingdom, origin, dest, range, policy, trace);
+      const result = cache.getPath(kernel, origin, dest, range, policy, trace);
       expect(result).to.equal(path);
       expect(cache.getSize(trace)).to.equal(1);
 
       const pathProviderStub = (pathProvider as Sinon.SinonStub)
       expect(pathProviderStub.callCount).to.equal(1);
       const call = pathProviderStub.getCall(0);
-      expect(call.args[0]).to.equal(kingdom);
+      expect(call.args[0]).to.equal(kernel);
       expect(call.args[1]).to.equal(origin);
       expect(call.args[2]).to.equal(dest);
       expect(call.args[3].destination.range).to.equal(range);
@@ -109,10 +109,10 @@ describe('Path Cache', function () {
     it('should only calculate the path once', () => {
       const cache = new PathCache(10, pathProvider);
 
-      let result = cache.getPath(kingdom, origin, dest, range, policy, trace);
+      let result = cache.getPath(kernel, origin, dest, range, policy, trace);
       expect(result).to.equal(path);
 
-      result = cache.getPath(kingdom, origin, dest, range, policy, trace);
+      result = cache.getPath(kernel, origin, dest, range, policy, trace);
       expect(result).to.equal(path);
 
       expect(cache.getSize(trace)).to.equal(1);

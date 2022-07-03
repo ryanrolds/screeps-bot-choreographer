@@ -8,7 +8,8 @@
  * TODO add tests
  */
 
-import {Base} from "./config";
+import {Base} from "./base";
+import {Kernel} from "./kernel";
 import {getRegion} from "./lib.flood_fill";
 import {buildingCodes, Layout} from "./lib.layouts";
 import {getNearbyPositions} from "./lib.position";
@@ -110,7 +111,7 @@ export const createCommonCostMatrix = (kernel: Kernel, roomName: string, trace: 
   // avoid sources
   applySourceMineralBuffer(room, costMatrix, terrain, 5, trace);
 
-  const base = kingdom.getPlanner().getBaseById(roomName);
+  const base = kernel.getPlanner().getBaseById(roomName);
   if (base) {
     // Dont path through the parking lot
     applyParkingLotBuffer(base, costMatrix, terrain, 5, trace);
@@ -120,7 +121,7 @@ export const createCommonCostMatrix = (kernel: Kernel, roomName: string, trace: 
 }
 
 export const singleRoomCommonMatrix = (kernel: Kernel, roomName: string, trace: Tracer): CostMatrix => {
-  const costMatrix = createCommonCostMatrix(kingdom, roomName, trace);
+  const costMatrix = createCommonCostMatrix(kernel, roomName, trace);
 
   // Block all exits
   for (let x = 0; x < 50; x++) {
@@ -136,12 +137,12 @@ export const singleRoomCommonMatrix = (kernel: Kernel, roomName: string, trace: 
 }
 
 export const haulerCostMatrixMatrix = (kernel: Kernel, roomName: string, trace: Tracer): CostMatrix => {
-  const costMatrix = createCommonCostMatrix(kingdom, roomName, trace);
+  const costMatrix = createCommonCostMatrix(kernel, roomName, trace);
 
   const terrain = Game.map.getRoomTerrain(roomName);
 
   // Add roads in base final base layout
-  const base = kingdom.getPlanner().getBaseById(roomName);
+  const base = kernel.getPlanner().getBaseById(roomName);
   if (base) {
     applyBaseRoads(base, costMatrix, terrain, 1, trace);
 
@@ -193,7 +194,7 @@ export const createSourceRoadMatrix = (kernel: Kernel, roomName: string, trace: 
   applyRoadSites(room, costMatrix, 1, trace);
 
   // Add roads in base final base layout
-  const base = kingdom.getPlanner().getBaseById(roomName);
+  const base = kernel.getPlanner().getBaseById(roomName);
   if (base) {
     applyBaseRoads(base, costMatrix, terrain, 1, trace);
     applyControllerBuffer(costMatrix, terrain, room.controller, 4, trace);

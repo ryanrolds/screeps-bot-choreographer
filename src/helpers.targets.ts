@@ -1,8 +1,8 @@
 const WALL_LEVEL = 1000;
 const RAMPART_LEVEL = 1000;
 
-module.exports.getEnergyContainerTargets = (creep) => {
-  let targets = creep.room.find(FIND_STRUCTURES, {
+export const getEnergyContainerTargets = (creep: Creep): StructureContainer | null => {
+  let targets = creep.room.find<StructureContainer>(FIND_STRUCTURES, {
     filter: (structure) => {
       return structure.structureType == STRUCTURE_CONTAINER && structure.store.getUsedCapacity() >= 50;
     },
@@ -16,11 +16,11 @@ module.exports.getEnergyContainerTargets = (creep) => {
     return target.store.getFreeCapacity();
   });
 
-  return getClosestTarget(creep, targets);
+  return getClosestTarget(creep, targets) as StructureContainer | null;
 };
 
-module.exports.getDamagedStructure = (creep) => {
-  let targets = creep.room.find(FIND_STRUCTURES, {
+export const getDamagedStructure = (creep: Creep): AnyStructure => {
+  let targets = creep.room.find<AnyStructure>(FIND_STRUCTURES, {
     filter: (structure) => {
       return (
         (structure.hits < structure.hitsMax &&
@@ -46,9 +46,9 @@ module.exports.getDamagedStructure = (creep) => {
   return targets[0];
 };
 
-const getClosestTarget = module.exports.getClosestTarget = (creep, targets) => {
-  targets = _.sortBy(targets, (target) => {
-    const result = PathFinder.search(creep.pos, {pos: target.pos});
+const getClosestTarget = (creep: Creep, targets: _HasRoomPosition[]) => {
+  const sorted = _.sortBy(targets, (target) => {
+    const result = PathFinder.search(creep.pos, target.pos);
     if (result.incomplete) {
       return 99999;
     }
@@ -56,9 +56,9 @@ const getClosestTarget = module.exports.getClosestTarget = (creep, targets) => {
     return result.cost;
   });
 
-  if (!targets || !targets.length) {
+  if (!sorted || !sorted.length) {
     return null;
   }
 
-  return targets.shift();
+  return sorted.shift();
 };

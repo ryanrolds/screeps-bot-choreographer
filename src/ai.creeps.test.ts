@@ -3,7 +3,7 @@ import 'mocha';
 import {mockGlobal, mockInstanceOf, setup} from "screeps-test-helper";
 import * as sinon from 'sinon';
 import {CreepManager} from './ai.creeps';
-import {Kernel} from './ai.kernel';
+import {Kernel} from './kernel';
 import * as CREEPS from './constants.creeps';
 import * as MEMORY from './constants.memory';
 import {Tracer} from './lib.tracing';

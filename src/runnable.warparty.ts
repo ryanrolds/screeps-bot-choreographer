@@ -1,5 +1,5 @@
 import * as _ from 'lodash';
-import {Kernel} from './ai.kernel';
+import {Kernel} from './kernel';
 import {Base} from './config';
 import {AttackRequest, AttackStatus, ATTACK_ROOM_TTL, Phase} from './constants.attack';
 import {DEFINITIONS} from './constants.creeps';

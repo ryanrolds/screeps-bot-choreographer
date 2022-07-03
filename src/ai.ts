@@ -1,5 +1,5 @@
 import {CreepManager} from './ai.creeps';
-import {Kernel} from './ai.kernel';
+import {Kernel} from './kernel';
 import {ShardConfig} from './config';
 import {EventBroker} from './lib.event_broker';
 import {getPath} from './lib.pathing';
@@ -23,6 +23,7 @@ import InvaderManager from './runnable.manager.invaders';
 import WarManager from './runnable.manager.war';
 import {Scribe} from './runnable.scribe';
 import {SiteJanitor} from './runnable.site_janitor';
+import {CostMatrixCache} from './lib.costmatrix_cache';
 
 export class AI implements Kernel {
   private config: ShardConfig;
@@ -33,6 +34,7 @@ export class AI implements Kernel {
   private scribe: Scribe;
   private creeps: CreepManager;
   private pathCache: PathCache;
+  private costMatrixCache: CostMatrixCache;
 
   constructor(config: ShardConfig, scheduler: Scheduler, trace: Tracer) {
     trace = trace.begin('ai_constructor');
@@ -46,6 +48,7 @@ export class AI implements Kernel {
 
     // ========= Caches =======
     this.pathCache = new PathCache(250, getPath);
+    this.costMatrixCache = new CostMatrixCache();
 
     // ========= Core =========
 
@@ -182,7 +185,7 @@ export class AI implements Kernel {
     return this.creeps;
   }
 
-  getPlanning(): CentralPlanning {
+  getPlanner(): CentralPlanning {
     return this.planning;
   }
 
@@ -192,6 +195,14 @@ export class AI implements Kernel {
 
   getPathCache(): PathCache {
     return this.pathCache;
+  }
+
+  getCostMatrixCache(): CostMatrixCache {
+    return this.costMatrixCache;
+  }
+
+  getFriends(): string[] {
+    return this.config.friends;
   }
 
   getNewTracer(): Tracer {
@@ -213,7 +224,7 @@ export class AI implements Kernel {
     return this.scheduler.getProcess('costmatrix_debugger').runnable as CostMatrixDebugger;
   }
 
-  getPlanningDebugger(): PlannerDebugger {
+  getPlannerDebugger(): PlannerDebugger {
     return this.scheduler.getProcess('expand_debugger').runnable as PlannerDebugger;
   }
 

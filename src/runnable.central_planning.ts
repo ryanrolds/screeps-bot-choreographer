@@ -1,7 +1,9 @@
-import {AlertLevel, Base, BaseMap, ShardConfig} from "./config";
+import {AlertLevel, Base, BaseMap} from "./base";
+import {ShardConfig} from "./config";
 import {WORKER_EXPLORER} from "./constants.creeps";
 import {MEMORY_ASSIGN_ROOM, MEMORY_BASE} from "./constants.memory";
 import {EXPLORER} from "./constants.priorities";
+import {Kernel} from "./kernel";
 import {pickExpansion} from "./lib.expand";
 import {ENTIRE_ROOM_BOUNDS, getCutTiles} from "./lib.min_cut";
 import {desiredRemotes, findNextRemoteRoom} from "./lib.remote_room";
@@ -87,7 +89,7 @@ export class CentralPlanning {
 
     this.remoteMiningIterator = this.remoteMiningGenerator();
     this.remoteMiningThread = thread('remote_mining', REMOTE_MINING_TTL)((trace: Tracer, kernel: Kernel) => {
-      this.remoteMiningIterator.next({kingdom, trace});
+      this.remoteMiningIterator.next({kernel, trace});
     });
 
     // TODO make this an iterator
@@ -96,21 +98,21 @@ export class CentralPlanning {
     // Calculate base walls
     this.baseWallsIterator = this.baseWallsGenerator();
     this.baseWallsThread = thread('base_walls', BASE_WALLS_TTL)((trace: Tracer, kernel: Kernel) => {
-      this.baseWallsIterator.next({kingdom, trace});
+      this.baseWallsIterator.next({kernel, trace});
     });
 
     this.neighborsIterator = this.neighborhoodsGenerator();
     this.neighborsThread = thread('neighbors', NEIGHBORS_THREAD_INTERVAL)((trace: Tracer, kernel: Kernel) => {
-      this.neighborsIterator.next({kingdom, trace});
+      this.neighborsIterator.next({kernel, trace});
     });
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
-    this.threadBaseProcesses(trace, kingdom);
-    this.remoteMiningThread(trace, kingdom);
-    this.expandColoniesThread(trace, kingdom);
-    this.baseWallsThread(trace, kingdom);
-    this.neighborsThread(trace, kingdom);
+    this.threadBaseProcesses(trace, kernel);
+    this.remoteMiningThread(trace, kernel);
+    this.expandColoniesThread(trace, kernel);
+    this.baseWallsThread(trace, kernel);
+    this.neighborsThread(trace, kernel);
 
     (Memory as any).bases = this.bases;
 
@@ -196,6 +198,8 @@ export class CentralPlanning {
       passages: passages,
       neighbors: neighbors,
       alertLevel: alertLevel,
+      boostPosition: null,
+      boosts: {},
     };
 
     this.roomByBaseId[primaryRoom] = primaryRoom;
@@ -264,7 +268,7 @@ export class CentralPlanning {
 
   private baseProcesses(trace: Tracer, kernel: Kernel) {
     // If any defined colonies don't exist, run it
-    const bases = kingdom.getPlanner().getBases();
+    const bases = kernel.getPlanner().getBases();
     bases.forEach((base) => {
       const baseProcessId = `base_${base.id}`;
       const hasProcess = this.scheduler.hasProcess(baseProcessId);
@@ -283,7 +287,7 @@ export class CentralPlanning {
     let bases: Base[] = []
     while (true) {
       const details: {kernel: Kernel, trace: Tracer} = yield;
-      const kingdom = details.kingdom;
+      const kernel = details.kernel;
       const trace = details.trace;
 
       trace.log('remote mining', {bases});
@@ -296,7 +300,7 @@ export class CentralPlanning {
       const base = bases.shift();
       trace.log('getting next base', {base});
       if (base) {
-        this.remoteMining(kingdom, base, trace);
+        this.remoteMining(kernel, base, trace);
       }
     }
   }
@@ -305,12 +309,6 @@ export class CentralPlanning {
   private remoteMining(kernel: Kernel, base: Base, trace: Tracer) {
     trace.log('remote mining', {base});
 
-    const colony = kingdom.getColonyById(base.id);
-    if (!colony) {
-      trace.log('no colony', {base});
-      return null;
-    }
-
     const primaryRoom = Game.rooms[base.primary];
     if (!primaryRoom) {
       trace.warn('primary room not found', {base});
@@ -318,12 +316,12 @@ export class CentralPlanning {
     }
 
     const level = primaryRoom?.controller?.level || 0;
-    let numDesired = desiredRemotes(colony, level);
+    let numDesired = desiredRemotes(base, level);
 
     trace.log('current rooms', {current: base.rooms.length - 1, numDesired});
 
     base.rooms.forEach((roomName) => {
-      const roomEntry = kingdom.getScribe().getRoomById(roomName);
+      const roomEntry = kernel.getScribe().getRoomById(roomName);
       if (!roomEntry) {
         trace.warn('room not found', {roomName});
         return;
@@ -346,7 +344,7 @@ export class CentralPlanning {
       const exits = _.values(Game.map.describeExits(base.primary));
       const unexploredClaimable = exits.filter((room) => {
         // TODO dont wait on always or center rooms
-        const roomEntry = kingdom.getScribe().getRoomById(room);
+        const roomEntry = kernel.getScribe().getRoomById(room);
         if (!roomEntry) {
           return true;
         }
@@ -370,13 +368,13 @@ export class CentralPlanning {
 
           const request = createSpawnRequest(priorities, ttl, role, memory, 0);
           trace.notice('requesting explorer for adjacent room', {request});
-          requestSpawn(kingdom, getBaseSpawnTopic(base.id), request);
+          requestSpawn(kernel.getTopics(), getBaseSpawnTopic(base.id), request);
         });
         return;
       }
 
       // Pick next room to claim
-      const [nextRemote, debug] = findNextRemoteRoom(kingdom, base, trace);
+      const [nextRemote, debug] = findNextRemoteRoom(kernel, base, trace);
       if (!nextRemote) {
         trace.warn('no remote room found', {colonyId: base.id});
         return;
@@ -394,7 +392,7 @@ export class CentralPlanning {
       return;
     }
 
-    const scribe = kingdom.getScribe();
+    const scribe = kernel.getScribe();
     const globalColonyCount = scribe.getGlobalColonyCount();
     if (!globalColonyCount) {
       trace.log('do not know global colony count yet');
@@ -415,7 +413,7 @@ export class CentralPlanning {
       return;
     }
 
-    const results = pickExpansion(kingdom, trace);
+    const results = pickExpansion(kernel, trace);
     if (results.selected) {
       const roomName = results.selected;
       const distance = results.distance;
@@ -424,7 +422,7 @@ export class CentralPlanning {
       trace.notice('selected room, adding colony', {roomName, distance, origin, parking});
       const base = this.addBase(roomName, false, origin, parking, [roomName],
         [], [], [], AlertLevel.GREEN, trace);
-      this.updateNeighbors(kingdom, base, trace);
+      this.updateNeighbors(kernel, base, trace);
       return;
     }
 
@@ -435,7 +433,7 @@ export class CentralPlanning {
     let bases: Base[] = []
     while (true) {
       const details: {kernel: Kernel, trace: Tracer} = yield;
-      const kingdom = details.kingdom;
+      const kernel = details.kernel;
       const trace = details.trace;
 
       const needWalls = _.find(this.getBases(), (base) => {
@@ -443,7 +441,7 @@ export class CentralPlanning {
       });
       if (needWalls) {
         trace.info('need walls', {base: needWalls});
-        this.updateBaseWalls(kingdom, needWalls, trace);
+        this.updateBaseWalls(kernel, needWalls, trace);
       }
     }
   }
@@ -464,7 +462,7 @@ export class CentralPlanning {
     let bases: Base[] = []
     while (true) {
       const details: {kernel: Kernel, trace: Tracer} = yield;
-      const kingdom = details.kingdom;
+      const kernel = details.kernel;
       const trace = details.trace;
 
       if (!bases.length) {
@@ -474,7 +472,7 @@ export class CentralPlanning {
       const base = bases.shift();
       trace.info('getting next base', {base});
       if (base) {
-        this.updateNeighbors(kingdom, base, trace);
+        this.updateNeighbors(kernel, base, trace);
       }
     }
   }

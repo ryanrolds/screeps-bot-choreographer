@@ -1,7 +1,7 @@
 import * as behaviorTree from "./lib.behaviortree";
 import {FAILURE, NodeTickResult, RUNNING, SUCCESS} from "./lib.behaviortree";
 
-import {Kernel} from "./ai.kernel";
+import {Kernel} from "./kernel";
 import * as MEMORY from "./constants.memory";
 import {MEMORY_SOURCE} from "./constants.memory";
 import {commonPolicy} from "./constants.pathing_policies";

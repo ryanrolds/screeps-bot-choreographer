@@ -1,4 +1,5 @@
 import * as _ from 'lodash';
+import {Kernel} from './kernel';
 import {Tracer} from './lib.tracing';
 import {Process} from './os.process';
 
@@ -142,7 +143,7 @@ export class Scheduler {
         const startProcessCpu = Game.cpu.getUsed();
 
         try {
-          process.run(kingdom, processTrace);
+          process.run(kernel, processTrace);
         } catch (e) {
           processTrace.error('process error', {id: process.id, error: e.stack});
         }
@@ -171,22 +172,6 @@ export class Scheduler {
     toRemove.forEach((remove) => {
       this.unregisterProcess(remove);
     });
-
-    const schedulerCpu = Game.cpu.getUsed() - startCpu;
-
-    // TODO move stats to tracing/telemetry
-    const stats = kingdom.getStats();
-    stats.scheduler = {
-      tickLimit: Game.cpu.tickLimit,
-      cpuLimit: Game.cpu.limit,
-      ranOutOfTime: this.ranOutOfTime,
-      timeLimit: this.timeLimit,
-      numProcesses: this.processTable.length,
-      schedulerCpu: schedulerCpu,
-      processCpu: processCpu,
-      created: this.created,
-      terminated: this.terminated
-    };
 
     trace.end();
   };

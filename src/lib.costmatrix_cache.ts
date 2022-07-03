@@ -1,3 +1,4 @@
+import {Kernel} from "./kernel";
 import {
   createCommonCostMatrix, createDefenderCostMatrix, createOpenSpaceMatrix, createPartyCostMatrix, createSourceRoadMatrix, haulerCostMatrixMatrix, singleRoomCommonMatrix
 } from "./lib.costmatrix";
@@ -39,19 +40,19 @@ export class CostMatrixCacheItem {
         costMatrix = createPartyCostMatrix(this.roomId, trace);
         break;
       case AllowedCostMatrixTypes.COMMON:
-        costMatrix = createCommonCostMatrix(kingdom, this.roomId, trace);
+        costMatrix = createCommonCostMatrix(kernel, this.roomId, trace);
         break;
       case AllowedCostMatrixTypes.SINGLE_ROOM_COMMON:
-        costMatrix = singleRoomCommonMatrix(kingdom, this.roomId, trace);
+        costMatrix = singleRoomCommonMatrix(kernel, this.roomId, trace);
         break;
       case AllowedCostMatrixTypes.HAULER:
-        costMatrix = haulerCostMatrixMatrix(kingdom, this.roomId, trace);
+        costMatrix = haulerCostMatrixMatrix(kernel, this.roomId, trace);
         break;
       case AllowedCostMatrixTypes.BASE_DEFENSE:
         costMatrix = createDefenderCostMatrix(this.roomId, trace);
         break;
       case AllowedCostMatrixTypes.SOURCE_ROAD:
-        costMatrix = createSourceRoadMatrix(kingdom, this.roomId, trace);
+        costMatrix = createSourceRoadMatrix(kernel, this.roomId, trace);
         break;
       case AllowedCostMatrixTypes.OPEN_SPACE:
         [costMatrix] = createOpenSpaceMatrix(this.roomId, trace);
@@ -71,7 +72,7 @@ export class CostMatrixCacheItem {
         type: this.costMatrixType,
         expired: this.isExpired(Game.time)
       });
-      this.update(kingdom, trace);
+      this.update(kernel, trace);
     }
 
     return this.costMatrix;
@@ -102,7 +103,7 @@ export class CostMatrixCache {
       this.rooms[roomId][costMatrixType] = roomMatrix;
     }
 
-    return roomMatrix.getCostMatrix(kingdom, trace);
+    return roomMatrix.getCostMatrix(kernel, trace);
   }
 
   getStats() {

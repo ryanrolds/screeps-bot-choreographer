@@ -1,3 +1,4 @@
+import {Kernel} from "./kernel";
 import {createOpenSpaceMatrix} from "./lib.costmatrix";
 import {Tracer} from "./lib.tracing";
 
@@ -27,7 +28,7 @@ export const pickExpansion = (kernel: Kernel, trace: Tracer): ExpandResults => {
   let dismissed: Record<string, DismissedReason> = {};
   let seen: Record<string, boolean> = {};
 
-  const bases = kingdom.getPlanner().getBases();
+  const bases = kernel.getPlanner().getBases();
 
   let baseRoomStatus = null;
   if (bases.length) {
@@ -36,7 +37,7 @@ export const pickExpansion = (kernel: Kernel, trace: Tracer): ExpandResults => {
 
   trace.notice('base room status', {baseRoomStatus});
 
-  // First pass through colonies, find all the rooms that are assigned to a colony already
+  // First pass through bases, find all the rooms that are assigned to a base already
   bases.forEach((base) => {
     claimed[base.primary] = true;
     // Build map of claimed rooms
@@ -77,7 +78,7 @@ export const pickExpansion = (kernel: Kernel, trace: Tracer): ExpandResults => {
           }
         }
 
-        const roomEntry = kingdom.getScribe().getRoomById(roomName);
+        const roomEntry = kernel.getScribe().getRoomById(roomName);
         if (!roomEntry) {
           trace.info('no room entry', {roomName});
           dismissed[roomName] = DismissedReasonNoRoomEntry;
@@ -134,7 +135,7 @@ export const pickExpansion = (kernel: Kernel, trace: Tracer): ExpandResults => {
   // TODO factor in available remotes
   candidateList = _.sortByOrder(candidateList,
     (roomName) => {
-      const roomEntry = kingdom.getScribe().getRoomById(roomName);
+      const roomEntry = kernel.getScribe().getRoomById(roomName);
       if (!roomEntry) {
         trace.error('no room entry', {roomName});
         return 0;

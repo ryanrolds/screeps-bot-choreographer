@@ -1,4 +1,4 @@
-import {Kernel} from './ai.kernel';
+import {Kernel} from './kernel';
 import * as CREEPS from './constants.creeps';
 import {DEFINITIONS} from './constants.creeps';
 import {MEMORY_BASE, MEMORY_ROLE, MEMORY_START_TICK} from './constants.memory';

@@ -1,6 +1,6 @@
-import {Base} from "./config";
+import {Base, getBasePrimaryRoom} from "./base";
+import {Kernel} from "./kernel";
 import {Tracer} from "./lib.tracing";
-import {Colony} from "./org.colony";
 
 
 type RoomDetails = {
@@ -36,12 +36,12 @@ export const findNextRemoteRoom = (
 
   debug.adjacentRooms = adjacentRooms;
 
-  const scribe = kingdom.getScribe();
+  const scribe = kernel.getScribe();
   adjacentRooms = _.filter(adjacentRooms, (roomName) => {
     debug.details[roomName] = {};
 
     // filter rooms already belonging to a colony
-    const roomBase = kingdom.getPlanner().getBaseByRoom(roomName);
+    const roomBase = kernel.getPlanner().getBaseByRoom(roomName);
     if (roomBase && base.id !== roomBase.id) {
       debug.details[roomName].rejected = 'already assigned';
       trace.info('room already assigned to colony', {roomName});
@@ -120,8 +120,8 @@ export const findNextRemoteRoom = (
 
 // Calculate the max number of remotes based on level and number of spawns
 // TODO collect spawner saturation metrics and use that to calculate max remotes
-export function desiredRemotes(colony: Colony, level: number): number {
-  const room = colony.primaryRoom;
+export function desiredRemotes(base: Base, level: number): number {
+  const room = getBasePrimaryRoom(base);
   const spawns = room.find(FIND_STRUCTURES, {
     filter: s => s.structureType === STRUCTURE_SPAWN && s.isActive()
   });
