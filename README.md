@@ -69,6 +69,7 @@ An AI for [Screeps](screeps.com).
     - [ ] Move to TypeScript
 - [ ] All of project on TypeScript
 - [ ] Refactor PID controller
+- [ ] Influence map library
 - [ ] Move creep definitions into individual creep files
 - [ ] TD: Room process and sources processes no longer require room visibility
 - [ ] TD: Replace spawn topics (TTL) with event streams (manages own queue)

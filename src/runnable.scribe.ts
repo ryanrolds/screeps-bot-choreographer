@@ -1,3 +1,4 @@
+import {Kernel} from './kernel';
 import {Event} from './lib.event_broker';
 import {Tracer} from './lib.tracing';
 import {sleeping} from './os.process';
@@ -99,7 +100,7 @@ export type CreepBackup = {
 
 export type CreepRequest = {
   shard: string;
-  colony: string;
+  baseId: string;
   room: string;
   ttl: number;
 }
@@ -111,21 +112,21 @@ export class Scribe implements Runnable {
 
   threadWriteMemory: ThreadFunc;
   threadRemoveStaleJournalEntries: ThreadFunc;
-  threadUpdateColonyCount: ThreadFunc;
+  threadUpdateBaseCount: ThreadFunc;
   threadProduceEvents: ThreadFunc;
 
   constructor() {
     this.journal = (Memory as any).scribe || {
       rooms: {},
       defenderCostMatrices: {},
-      colonyCostMatrices: {},
+      baseCostMatrices: {},
     };
 
     this.globalColonyCount = -2;
 
     this.threadRemoveStaleJournalEntries = thread('remove_stale', REMOVE_STALE_ENTRIES_INTERVAL)(this.removeStaleJournalEntries.bind(this));
     this.threadWriteMemory = thread('write_memory', WRITE_MEMORY_INTERVAL)(this.writeMemory.bind(this));
-    this.threadUpdateColonyCount = thread('update_colony_count', UPDATE_COLONY_COUNT)(this.updateColonyCount.bind(this));
+    this.threadUpdateBaseCount = thread('update_base_count', UPDATE_COLONY_COUNT)(this.updateBaseCount.bind(this));
     this.threadProduceEvents = thread('produce_events', PRODUCE_EVENTS_INTERVAL)(this.produceEvents.bind(this));
 
   }
@@ -138,15 +139,15 @@ export class Scribe implements Runnable {
     Object.values(Game.rooms).forEach((room) => {
       const entry = this.getRoomById(room.name);
       if (!entry || Game.time - entry.lastUpdated > JOURNAL_ENTRY_TTL) {
-        this.updateRoom(kingdom, room, updateRoomsTrace);
+        this.updateRoom(kernel, room, updateRoomsTrace);
       }
     });
     updateRoomsTrace.end();
 
     this.threadRemoveStaleJournalEntries(trace);
     this.threadWriteMemory(trace);
-    this.threadUpdateColonyCount(trace, kingdom);
-    this.threadProduceEvents(trace, kingdom);
+    this.threadUpdateBaseCount(trace, kernel);
+    this.threadProduceEvents(trace, kernel);
 
     /*
     const username = this.getKingdom().config.username;
@@ -196,37 +197,37 @@ export class Scribe implements Runnable {
     (Memory as any).scribe = this.journal;
   }
 
-  updateColonyCount(trace: Tracer, kernel: Kernel) {
+  updateBaseCount(trace: Tracer, kerne: Kernel) {
     if (this.globalColonyCount === -2) {
       // skip the first time, we want to give shards time to update their remote memory
-      trace.log('skipping updateColonyCount');
+      trace.info('skipping updateColonyCount');
       this.globalColonyCount = -1;
       return;
     }
 
-    const bases = kingdom.getPlanner().getBases();
-    let colonyCount = bases.length;
+    const bases = kerne.getPlanner().getBases();
+    let baseCount = bases.length;
 
-    // Iterate shards and get their colony counts
+    // Iterate shards and get their base counts
     this.getShardList().forEach((shard) => {
       if (shard === Game.shard.name) {
         return;
       }
 
       const shardMemory = this.getRemoteShardMemory(shard);
-      colonyCount += shardMemory?.status?.numColonies || 0;
+      baseCount += shardMemory?.status?.numColonies || 0;
     });
 
-    trace.log('update_colony_count', {colonyCount});
+    trace.info('update_base_count', {baseCount: baseCount});
 
-    this.globalColonyCount = colonyCount;
+    this.globalColonyCount = baseCount;
   }
 
   produceEvents(trace: Tracer, kernel: Kernel) {
-    const indicatorStream = kingdom.getBroker().getStream(getDashboardStream());
+    const indicatorStream = kernel.getBroker().getStream(getDashboardStream());
 
     const rooms = this.getRooms();
-    trace.log('produce_events', {rooms: rooms.length});
+    trace.info('produce_events', {rooms: rooms.length});
     rooms.forEach((roomEntry) => {
       const age = Game.time - roomEntry.lastUpdated;
 
@@ -493,7 +494,7 @@ export class Scribe implements Runnable {
 
     let hostiles = roomObject.find(FIND_HOSTILE_CREEPS);
     // Filter friendly creeps
-    const friends = kingdom.config.friends;
+    const friends = kernel.getFriends();
     const hostileCreeps = hostiles.filter((creep) => {
       const owner = creep.owner.username;
       return friends.indexOf(owner) === -1 && owner !== 'Source Keeper';

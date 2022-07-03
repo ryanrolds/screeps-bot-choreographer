@@ -98,7 +98,7 @@ export default class KingdomGovernor {
 
     if (kingdom.getColonies().length && !claimedRooms.length) {
       const request = {
-        colony: kingdom.getColonies()[0].id,
+        baseId: kingdom.getColonies()[0].id,
         base: kingdom.getColonies()[0].id,
         shard: Game.shard.name,
         room: kingdom.getColonies()[0].primaryRoomId,
@@ -110,7 +110,7 @@ export default class KingdomGovernor {
           [MEMORY.MEMORY_ROLE]: WORKERS.WORKER_RESERVER,
           [MEMORY.MEMORY_ASSIGN_SHARD]: request.shard,
           [MEMORY.MEMORY_ASSIGN_ROOM]: request.room,
-          [MEMORY.MEMORY_BASE]: request.colony,
+          [MEMORY.MEMORY_BASE]: request.baseId,
         }
       });
       if (!enroute.length) {
@@ -127,7 +127,7 @@ export default class KingdomGovernor {
       const memory = {
         [MEMORY.MEMORY_ASSIGN_SHARD]: creepRequest.shard,
         [MEMORY.MEMORY_ASSIGN_ROOM]: creepRequest.room,
-        [MEMORY.MEMORY_BASE]: creepRequest.colony,
+        [MEMORY.MEMORY_BASE]: creepRequest.baseId,
       };
 
       const enroute = this.findCreeps({
@@ -182,7 +182,7 @@ export default class KingdomGovernor {
 
     if (!Object.values(Game.spawns).length && claimedRooms.length) {
       const request = {
-        colony: kingdom.getColonies()[0].id,
+        baseId: kingdom.getColonies()[0].id,
         base: kingdom.getColonies()[0].id,
         shard: Game.shard.name,
         room: kingdom.getColonies()[0].primaryRoomId,
@@ -194,7 +194,7 @@ export default class KingdomGovernor {
           [MEMORY.MEMORY_ROLE]: WORKERS.WORKER_BUILDER,
           [MEMORY.MEMORY_ASSIGN_SHARD]: request.shard,
           [MEMORY.MEMORY_ASSIGN_ROOM]: request.room,
-          [MEMORY.MEMORY_BASE]: request.colony,
+          [MEMORY.MEMORY_BASE]: request.baseId,
         }
       });
       if (enroute.length < 6) {
@@ -211,7 +211,7 @@ export default class KingdomGovernor {
       const memory = {
         [MEMORY.MEMORY_ASSIGN_SHARD]: creepRequest.shard,
         [MEMORY.MEMORY_ASSIGN_ROOM]: creepRequest.room,
-        [MEMORY.MEMORY_BASE]: creepRequest.colony,
+        [MEMORY.MEMORY_BASE]: creepRequest.baseId,
       }
 
       const enroute = this.findCreeps({

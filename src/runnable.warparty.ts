@@ -1,10 +1,10 @@
 import * as _ from 'lodash';
-import {Kernel} from './kernel';
-import {Base} from './config';
+import {Base} from './base';
 import {AttackRequest, AttackStatus, ATTACK_ROOM_TTL, Phase} from './constants.attack';
 import {DEFINITIONS} from './constants.creeps';
 import {PRIORITY_ATTACKER} from "./constants.priorities";
 import * as TOPICS from './constants.topics';
+import {Kernel} from './kernel';
 import {buildAttacker, newMultipliers} from './lib.attacker_builder';
 import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
 import {FindPathPolicy, getPath, visualizePath} from './lib.pathing';
@@ -183,10 +183,10 @@ export default class WarPartyRunnable {
       trace.error(`no flag (${this.flagId}), terminating war party`);
       this.party.done();
     } else {
-      trace.log('war party run', {
+      trace.info('war party run', {
         id: this.id,
         flag: flag.name,
-        colonyId: this.base.id,
+        baseId: this.base.id,
         primaryRoomId: this.base.primary,
         targetRoom,
         phase: this.phase,

@@ -1,10 +1,11 @@
+import {Base} from './base';
 import {creepIsFresh} from './behavior.commute';
-import {Base} from './config';
 import {AttackStatus, Phase} from './constants.attack';
 import * as CREEPS from './constants.creeps';
 import * as MEMORY from './constants.memory';
 import * as PRIORITIES from './constants.priorities';
 import * as TOPICS from './constants.topics';
+import {Kernel} from './kernel';
 import {buildAttacker, newMultipliers} from "./lib.attacker_builder";
 import {scoreRoomDamage, scoreStorageHealing} from "./lib.scoring";
 import {Tracer} from './lib.tracing';
@@ -13,7 +14,7 @@ import {RunnableResult} from "./os.runnable";
 import {Priorities, Scheduler} from "./os.scheduler";
 import {thread, ThreadFunc} from './os.thread';
 import {MEMORY_HARASS_BASE, ROLE_HARASSER} from "./role.harasser";
-import {createSpawnRequest, getBaseSpawnTopic, getShardSpawnTopic, requestSpawn} from './runnable.base_spawning';
+import {createSpawnRequest, getBaseSpawnTopic, getShardSpawnTopic} from './runnable.base_spawning';
 import {RoomEntry} from './runnable.scribe';
 import WarPartyRunnable from './runnable.warparty';
 
@@ -76,18 +77,18 @@ export default class WarManager {
 
     if (this.warParties === null) {
       trace.info('restoring war parites');
-      this.restoreFromMemory(kingdom, trace);
+      this.restoreFromMemory(kernel, trace);
     }
 
-    this.updateWarPartiesThread(trace, kingdom);
-    this.consumeEventsThread(trace, kingdom);
+    this.updateWarPartiesThread(trace, kernel);
+    this.consumeEventsThread(trace, kernel);
     this.mapUpdateThread(trace);
 
     // Write post event status
     trace.info("war manager state", {
       targets: this.targets,
       warPartyIds: this.warParties.map(warParty => warParty.id),
-      autoAttack: kingdom.config.autoAttack,
+      autoAttack: kernel.getConfig().autoAttack,
     });
 
     trace.end();
@@ -99,7 +100,7 @@ export default class WarManager {
     // Process events
     let targets = this.targets;
 
-    const topic = kingdom.getTopics().getTopic(TOPICS.ATTACK_ROOM);
+    const topic = kernel.getTopics().getTopic(TOPICS.ATTACK_ROOM);
     if (!topic) {
       trace.warn("no attack room topic");
       return;
@@ -121,7 +122,7 @@ export default class WarManager {
           trace.info('attack completed', {roomId: event.details.roomId});
 
           // clear target room so we don't try to pick it before it's journal entry is updated
-          kingdom.getScribe().clearRoom(event.details.roomId);
+          kernel.getScribe().clearRoom(event.details.roomId);
 
           // remove room from targets when completed
           targets = targets.filter(target => target !== event.details.roomId);
@@ -134,7 +135,7 @@ export default class WarManager {
     // address bug with duplicate entries
     targets = _.uniq(targets);
 
-    let bases = kingdom.getPlanner().getBases();
+    let bases = kernel.getPlanner().getBases();
     bases = _.filter(bases, base => Game.rooms[base.primary]?.controller.level >= 5);
 
     trace.log('allowed bases', {bases: bases.map(base => base.primary)});
@@ -158,7 +159,7 @@ export default class WarManager {
       return this.scheduler.hasProcess(party.id);
     });
 
-    if (!kingdom.config.autoAttack) {
+    if (!kernel.getConfig().autoAttack) {
       trace.info('auto attack disabled');
       return;
     }
@@ -168,12 +169,12 @@ export default class WarManager {
       return;
     }
 
-    let bases = kingdom.getPlanner().getBases();
+    let bases = kernel.getPlanner().getBases();
     let targetNumBasesAssigned = {};
     let baseAssignments = {};
 
     this.targets.forEach((target) => {
-      const roomEntry = kingdom.getScribe().getRoomById(target);
+      const roomEntry = kernel.getScribe().getRoomById(target);
       if (!roomEntry) {
         trace.error("no room entry", {target});
         return;
@@ -192,7 +193,7 @@ export default class WarManager {
         // Send reservers to block if no towers and not in safe mode
         if (roomEntry.numTowers === 0 && roomEntry.controller?.level > 0) {
           trace.info('no towers and still claimed, send reserver', {target});
-          this.sendReserver(kingdom, target, trace);
+          this.sendReserver(kernel, target, trace);
         }
       }
 
@@ -231,7 +232,7 @@ export default class WarManager {
           targetNumBasesAssigned[target]++;
           baseAssignments[base.id] = target;
 
-          this.attack(kingdom, base, baseRoom, roomEntry, trace);
+          this.attack(kernel, base, baseRoom, roomEntry, trace);
 
           return;
         });
@@ -283,14 +284,14 @@ export default class WarManager {
     const roomDamage = scoreRoomDamage(targetRoomEntry) / 3;
     const [parts, ok] = buildAttacker(roomDamage, availableEnergyCapacity, boosts, trace);
     if (ok) {
-      this.sendWarParty(kingdom, base, targetRoomEntry, parts, trace);
+      this.sendWarParty(kernel, base, targetRoomEntry, parts, trace);
     } else if (targetRoomEntry.invaderCoreLevel < 1) { // don't harass invaders bases
       trace.warn("could not build attacker, harass", {
         base: base.primary,
         targetRoom: targetRoomEntry.id,
         roomDamage, availableEnergyCapacity, boosts
       });
-      this.sendHarassers(kingdom, base, targetRoomEntry, trace);
+      this.sendHarassers(kernel, base, targetRoomEntry, trace);
     } else {
       trace.warn("could not build attacker, do nothing", {
         base: base.primary,
@@ -318,7 +319,7 @@ export default class WarManager {
 
       const request = createSpawnRequest(priority, ttl, role, memory, 0);
       trace.notice("requesting reserver", {request});
-      requestSpawn(kingdom, getShardSpawnTopic(), request);
+      kernel.getTopics().addRequestV2(getShardSpawnTopic(), request);
     } else {
       trace.info("reserver already exists", {numReservers});
     }
@@ -361,7 +362,7 @@ export default class WarManager {
 
     const request = createSpawnRequest(priorities, ttl, role, memory, 0);
     trace.info("requesting harasser", {request});
-    requestSpawn(kingdom, getBaseSpawnTopic(base.id), request);
+    kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
   }
 
   sendWarParty(kernel: Kernel, base: Base, targetRoom: RoomEntry, parts: BodyPartConstant[],
@@ -433,7 +434,7 @@ export default class WarManager {
       }
 
       const position = new RoomPosition(party.position.x, party.position.y, party.position.roomName);
-      const base = kingdom.getPlanner().getBaseById(party.colony);
+      const base = kernel.getPlanner().getBaseById(party.colony);
       if (!base) {
         trace.warn('not create war party, cannot find colony config', {colonyId: party.colony});
         return null;

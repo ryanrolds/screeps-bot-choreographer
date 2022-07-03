@@ -7,13 +7,14 @@
  *
  */
 import * as _ from 'lodash';
-import {Base} from './config';
+import {Base} from './base';
 import * as MEMORY from './constants.memory';
+import {Kernel} from './kernel';
 import {Tracer} from './lib.tracing';
 import {running, terminate} from "./os.process";
 import {RunnableResult} from './os.runnable';
 import {thread, ThreadFunc} from './os.thread';
-import {createSpawnRequest, getBaseSpawnTopic, requestSpawn} from './runnable.base_spawning';
+import {createSpawnRequest, getBaseSpawnTopic} from './runnable.base_spawning';
 import {WarPartyTarget} from './runnable.warparty';
 
 const REQUEST_PARTY_MEMBER_TTL = 25;
@@ -154,7 +155,7 @@ export default class PartyRunnable {
     });
 
     if (!Game.flags['debug']) {
-      this.threadRequestCreeps(trace, kingdom, this.base);
+      this.threadRequestCreeps(trace, kernel, this.base);
     } else {
       trace.log('in debug mode, not spawning');
     }
@@ -647,6 +648,6 @@ export default class PartyRunnable {
       request,
     });
 
-    requestSpawn(kingdom, getBaseSpawnTopic(base.id), request)
+    kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request)
   }
 }

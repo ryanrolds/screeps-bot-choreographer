@@ -1,11 +1,11 @@
-import {Kernel} from './kernel';
 import {AlertLevel, Base} from './config';
 import * as CREEPS from './constants.creeps';
+import {DEFENSE_STATUS} from './constants.defense';
 import * as MEMORY from './constants.memory';
 import * as PRIORITIES from './constants.priorities';
 import * as TASKS from './constants.tasks';
 import * as TOPICS from './constants.topics';
-import {DEFENSE_STATUS} from './constants.defense';
+import {Kernel} from './kernel';
 import {Event} from './lib.event_broker';
 import {Tracer} from './lib.tracing';
 import OrgRoom from "./org.room";
@@ -27,7 +27,6 @@ import TerminalRunnable from "./runnable.base_terminal";
 import TowerRunnable from "./runnable.base_tower";
 import {getDashboardStream, getLinesStream, HudEventSet, HudIndicator, HudIndicatorStatus, HudLine} from './runnable.debug_hud';
 import {RoomEntry} from './runnable.scribe';
-import {getBaseDistributorTopic} from './topics';
 
 const MIN_ENERGY = 100000;
 const MIN_TICKS_TO_DOWNGRADE = 150000;

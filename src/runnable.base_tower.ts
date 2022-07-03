@@ -2,11 +2,9 @@ import * as MEMORY from "./constants.memory";
 import * as PRIORITIES from "./constants.priorities";
 import * as TASKS from "./constants.tasks";
 import {Tracer} from './lib.tracing';
-import OrgRoom from "./org.room";
 import {running, sleeping, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 import {getBasePriorityTargetsTopic} from "./runnable.manager.defense";
-import {getBaseDistributorTopic} from "./topics";
 
 const REQUEST_ENERGY_TTL = 10;
 const REQUEST_ENERGY_THRESHOLD = 500;

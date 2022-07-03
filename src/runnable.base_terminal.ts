@@ -5,11 +5,9 @@ import * as TASKS from "./constants.tasks";
 import * as TOPICS from "./constants.topics";
 import {ResourcePricer, SigmoidPricing} from './lib.sigmoid_pricing';
 import {Tracer} from './lib.tracing';
-import OrgRoom from "./org.room";
 import {running, sleeping, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 import {thread, ThreadFunc} from "./os.thread";
-import {getBaseDistributorTopic} from "./topics";
 
 const TASK_PHASE_HAUL_RESOURCE = 'phase_transfer_resource';
 const TASK_PHASE_TRANSACT = 'phase_transact';

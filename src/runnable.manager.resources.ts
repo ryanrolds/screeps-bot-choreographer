@@ -1,13 +1,17 @@
-const {OrgBase} = require('./org.base');
-const TOPICS = require('./constants.topics');
-const MEMORY = require('./constants.memory');
-const TASKS = require('./constants.tasks');
-const PRIORITIES = require('./constants.priorities');
-const {thread} = require('./os.thread');
-const {SigmoidPricing} = require('./lib.sigmoid_pricing');
-const {PRICES} = require('./constants.market');
-const {TASK_PHASE_REACT, REACTION_STATUS_STREAM, REACTION_STATUS_START,
-  REACTION_STATUS_UPDATE} = require('./runnable.base_reactor');
+import {getBasePrimaryRoom} from "./base";
+import {PRICES} from "./constants.market";
+import {MEMORY_ORDER_AMOUNT, MEMORY_ORDER_RESOURCE, MEMORY_ORDER_TYPE, REACTION_STATUS_PHASE, REACTION_STATUS_RESOURCE, REACTOR_AMOUNT, REACTOR_INPUT_A, REACTOR_INPUT_B, REACTOR_OUTPUT, REACTOR_TASK_TYPE, ROOM_STATUS_ENERGY, ROOM_STATUS_LEVEL, ROOM_STATUS_LEVEL_COMPLETED, ROOM_STATUS_NAME, ROOM_STATUS_TERMINAL, TERMINAL_TASK_TYPE, TRANSFER_AMOUNT, TRANSFER_RESOURCE, TRANSFER_ROOM} from "./constants.memory";
+import {REACTION_PRIORITIES, TERMINAL_BUY, TERMINAL_ENERGY_BALANCE, TERMINAL_SELL, TERMINAL_TRANSFER} from "./constants.priorities";
+import {REACTION, TASK_MARKET_ORDER, TASK_TRANSFER} from "./constants.tasks";
+import {ACTIVE_REACTIONS, ROOM_STATUES, TASK_REACTION, TOPIC_TERMINAL_TASK} from "./constants.topics";
+import {Kernel} from "./kernel";
+import {Consumer} from "./lib.event_broker";
+import {SigmoidPricing} from "./lib.sigmoid_pricing";
+import {Tracer} from "./lib.tracing";
+import {running} from "./os.process";
+import {Runnable, RunnableResult} from "./os.runnable";
+import {thread, ThreadFunc} from "./os.thread";
+import {REACTION_STATUS_START, REACTION_STATUS_STOP, REACTION_STATUS_STREAM, REACTION_STATUS_UPDATE, TASK_PHASE_REACT} from "./runnable.base_reactor";
 
 const RESERVE_LIMIT = 20000;
 const REACTION_BATCH_SIZE = 1000;
@@ -39,11 +43,27 @@ const CRITICAL_EFFECTS = {
   'dismantle': ['XZH2O', 'ZH2O', 'ZH'],
 };
 
-class Resources extends OrgBase {
-  constructor(parent, trace) {
-    super(parent, 'resources', trace);
+export class Resources implements Runnable {
+  pricer: SigmoidPricing;
+  resources = {};
+  sharedResources = {};
+  availableReactions = {};
+  reactorStatuses = [];
+  roomStatuses = [];
+  reactionStats = {};
+  reactionStatuses = {};
+  reactionStatusStreamConsumer: Consumer;
+  threadUpdateResources: ThreadFunc;
+  threadRequestReactions: ThreadFunc;
+  threadRequestSellExtraResources: ThreadFunc;
+  threadDistributeBoosts: ThreadFunc;
+  threadConsumeStatuses: ThreadFunc;
+  threadConsumeReactionStatusStream: ThreadFunc;
+  threadBalanceEnergy: ThreadFunc;
 
-    const setupTrace = this.trace.begin('constructor');
+
+  constructor(kernel: Kernel, trace: Tracer) {
+    const setupTrace = trace.begin('constructor');
 
     this.pricer = new SigmoidPricing(PRICES);
     this.resources = {};
@@ -53,25 +73,25 @@ class Resources extends OrgBase {
     this.roomStatuses = [];
     this.reactionStats = {};
     this.reactionStatuses = {};
-    this.reactionStatusStreamConsumer = this.getKingdom().getBroker().
+    this.reactionStatusStreamConsumer = kernel.getBroker().
       getStream(REACTION_STATUS_STREAM).addConsumer('resource_governor');
 
-    this.threadUpdateResources = thread('update_resources_thread', UPDATE_RESOURCES_TTL)((trace) => {
-      this.resources = this.getReserveResources();
-      this.sharedResources = this.getSharedResources();
+    this.threadUpdateResources = thread('update_resources_thread', UPDATE_RESOURCES_TTL)((trace: Tracer, kernel: Kernel) => {
+      this.resources = this.getReserveResources(kernel);
+      this.sharedResources = this.getSharedResources(kernel);
     });
 
-    this.threadRequestReactions = thread('request_reactions_thread', REQUEST_REACTION_TTL)((trace) => {
-      this.availableReactions = this.getReactions(trace);
-      this.requestReactions(trace);
+    this.threadRequestReactions = thread('request_reactions_thread', REQUEST_REACTION_TTL)((trace: Tracer, kernel: Kernel) => {
+      this.availableReactions = this.getReactions(trace, kernel);
+      this.requestReactions(trace, kernel);
     });
 
-    this.threadRequestSellExtraResources = thread('request_sell_resources_tread', REQUEST_SELL_TTL)((trace) => {
-      this.requestSellResource(trace);
+    this.threadRequestSellExtraResources = thread('request_sell_resources_tread', REQUEST_SELL_TTL)((trace: Tracer, kernel: Kernel) => {
+      this.requestSellResource(trace, kernel);
     });
 
-    this.threadDistributeBoosts = thread('distribute_boosts_thread', REQUEST_DISTRIBUTE_BOOSTS)((trace) => {
-      this.distributeBoosts(trace);
+    this.threadDistributeBoosts = thread('distribute_boosts_thread', REQUEST_DISTRIBUTE_BOOSTS)((trace: Tracer, kernel: Kernel) => {
+      this.distributeBoosts(trace, kernel);
     });
 
     this.threadConsumeStatuses = thread('statuses_thread', CONSUME_STATUS_TTL)(this.consumeStatuses.bind(this));
@@ -82,75 +102,33 @@ class Resources extends OrgBase {
 
     setupTrace.end();
   }
-  update(trace) {
-    trace = trace.begin('resource_governor_run');
 
-    this.threadUpdateResources(trace);
-    this.threadRequestReactions(trace);
-    this.threadRequestSellExtraResources(trace);
-    this.threadDistributeBoosts(trace);
-    this.threadConsumeStatuses(trace);
-    this.threadConsumeReactionStatusStream(trace);
-    this.threadBalanceEnergy(trace);
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
+    this.threadUpdateResources(trace, kernel);
+    this.threadRequestReactions(trace, kernel);
+    this.threadRequestSellExtraResources(trace, kernel);
+    this.threadDistributeBoosts(trace, kernel);
+    this.threadConsumeStatuses(trace, kernel);
+    this.threadConsumeReactionStatusStream(trace, kernel);
+    this.threadBalanceEnergy(trace, kernel);
 
-    trace.end();
+    return running();
   }
-  process(trace) {
-    const processTrace = trace.begin('process');
 
-    this.updateStats(processTrace);
-
-    processTrace.end();
-  }
-  updateStats(trace) {
-    const stats = this.getStats();
-    stats.resources = this.resources;
-    stats.reactions = _.reduce(this.reactionStatuses, (acc, reaction) => {
-      if (reaction) {
-        const resource = reaction[MEMORY.REACTION_STATUS_RESOURCE] || null;
-        const phase = reaction[MEMORY.REACTION_STATUS_PHASE] || null;
-        if (resource && phase === TASK_PHASE_REACT) {
-          if (!acc[resource]) {
-            acc[resource] = 0;
-          }
-
-          acc[resource]++;
-        }
-      }
-
-      return acc;
-    }, {});
-
-    const colonies = this.getKingdom().getColonies();
-    stats.critical_resources = colonies.reduce((acc, colony) => {
-      const colonyResources = colony.getReserveResources();
-      acc[colony.id] = Object.values(CRITICAL_EFFECTS).reduce((totalScore, effectResources) => {
-        for (let i = 0; i < effectResources.length; i++) {
-          if (colonyResources[effectResources[i]] >= MIN_CRITICAL_COMPOUND) {
-            return totalScore + 3 - i;
-          }
-        }
-
-        return totalScore;
-      }, 0);
-
-      return acc;
-    }, {});
-  }
-  getRoomWithTerminalWithResource(resource, notRoomName = null) {
-    const terminals = this.getKingdom().getColonies().reduce((acc, colony) => {
-      const room = colony.getPrimaryRoom();
+  getRoomWithTerminalWithResource(kernel: Kernel, resource, notRoomName = null) {
+    const terminals = kernel.getPlanner().getBases().reduce((acc, base) => {
+      const room = getBasePrimaryRoom(base);
       if (!room) {
         return acc;
       }
 
       // Don't return the room needing the resources
-      if (notRoomName && room.id === notRoomName) {
+      if (notRoomName && room.name === notRoomName) {
         return acc;
       }
 
       // If colony doesn't have a terminal don't include it
-      if (!room.hasTerminal()) {
+      if (!room.terminal) {
         return acc;
       }
 
@@ -166,7 +144,7 @@ class Resources extends OrgBase {
         return false;
       }, false);
 
-      let amount = colony.getAmountInReserve(resource, true);
+      let amount = base.getAmountInReserve(resource, true);
 
       if (isCritical) {
         amount -= MIN_CRITICAL_COMPOUND;
@@ -185,8 +163,9 @@ class Resources extends OrgBase {
 
     return _.sortBy(terminals, 'amount').reverse().shift();
   }
-  getTerminals() {
-    return this.getKingdom().getColonies().reduce((acc, colony) => {
+
+  getTerminals(kernel: Kernel) {
+    return kernel.getPlanner().getBases().reduce((acc, colony) => {
       const room = colony.getPrimaryRoom();
       if (!room) {
         return acc;
@@ -200,10 +179,11 @@ class Resources extends OrgBase {
       return acc.concat(room.terminal);
     }, []);
   }
-  getSharedResources() {
+
+  getSharedResources(kernel: Kernel) {
     const sharedResources = {};
 
-    this.getKingdom().getColonies().forEach((colony) => {
+    kernel.getPlanner().getBases().forEach((colony) => {
       const room = colony.getPrimaryRoom();
       if (!room) {
         return;
@@ -249,8 +229,8 @@ class Resources extends OrgBase {
     return sharedResources;
   }
 
-  getReserveResources() {
-    return this.getKingdom().getColonies().reduce((acc, colony) => {
+  getReserveResources(kernel: Kernel) {
+    return kernel.getPlanner().getBases().reduce((acc, colony) => {
       // If colony doesn't have a terminal don't include it
       if (!colony.getPrimaryRoom() || !colony.getPrimaryRoom().hasTerminal()) {
         return acc;
@@ -266,13 +246,13 @@ class Resources extends OrgBase {
     }, {});
   }
 
-  getAmountInReserve(resource) {
-    return this.getKingdom().getColonies().reduce((acc, colony) => {
+  getAmountInReserve(kernel: Kernel, resource) {
+    return kernel.getPlanner().getBases().reduce((acc, colony) => {
       return acc + colony.getAmountInReserve(resource);
     }, 0);
   }
 
-  getReactions(trace) {
+  getReactions(trace: Tracer, kernel: Kernel) {
     let availableReactions = {};
     let missingOneInput = {};
     const overReserve = {};
@@ -350,7 +330,7 @@ class Resources extends OrgBase {
 
   prioritizeReactions(reactions, penalty) {
     return _.sortBy(Object.values(reactions), (reaction) => {
-      let priority = PRIORITIES.REACTION_PRIORITIES[reaction['output']];
+      let priority = REACTION_PRIORITIES[reaction['output']];
 
       // Reduce priority linearly based on amount of resource (more = lower priority)
       const amount = this.resources[reaction['output']] || 0;
@@ -400,10 +380,10 @@ class Resources extends OrgBase {
     }
 
     const details = {
-      [MEMORY.TERMINAL_TASK_TYPE]: TASKS.TASK_MARKET_ORDER,
-      [MEMORY.MEMORY_ORDER_TYPE]: ORDER_BUY,
-      [MEMORY.MEMORY_ORDER_RESOURCE]: resource,
-      [MEMORY.MEMORY_ORDER_AMOUNT]: amount,
+      [TERMINAL_TASK_TYPE]: TASK_MARKET_ORDER,
+      [MEMORY_ORDER_TYPE]: ORDER_BUY,
+      [MEMORY_ORDER_RESOURCE]: resource,
+      [MEMORY_ORDER_AMOUNT]: amount,
     };
 
     if (Game.market.credits < MIN_CREDITS) {
@@ -412,12 +392,12 @@ class Resources extends OrgBase {
     }
 
     trace.log('purchase resource', {room: room.id, resource, amount});
-    room.sendRequest(TOPICS.TOPIC_TERMINAL_TASK, PRIORITIES.TERMINAL_BUY,
+    room.sendRequest(TOPIC_TERMINAL_TASK, TERMINAL_BUY,
       details, ttl);
 
     return true;
   }
-  requestResource(room, resource, amount, ttl, trace) {
+  requestResource(kernel: Kernel, room, resource, amount, ttl, trace) {
     trace.log('requesting resource transfer', {room: room.id, resource, amount, ttl});
 
     // We can't request a transfer if room lacks a terminal
@@ -427,14 +407,14 @@ class Resources extends OrgBase {
     }
 
     // Don't send transfer request if a terminal already has the task
-    const inProgress = this.getTerminals().filter((orgTerminal) => {
+    const inProgress = this.getTerminals(kernel).filter((orgTerminal) => {
       const task = orgTerminal.getTask();
       if (!task) {
         return false;
       }
 
-      return task.details[MEMORY.TRANSFER_RESOURCE] === resource &&
-        task.details[MEMORY.TRANSFER_ROOM] === room.id;
+      return task.details[TRANSFER_RESOURCE] === resource &&
+        task.details[TRANSFER_ROOM] === room.id;
     }).length > 0;
 
     if (inProgress) {
@@ -452,11 +432,11 @@ class Resources extends OrgBase {
 
     trace.log('requesting resource from other room', {room: result.room.id, resource, amount});
 
-    result.room.sendRequest(TOPICS.TOPIC_TERMINAL_TASK, PRIORITIES.TERMINAL_TRANSFER, {
-      [MEMORY.TERMINAL_TASK_TYPE]: TASKS.TASK_TRANSFER,
-      [MEMORY.TRANSFER_RESOURCE]: resource,
-      [MEMORY.TRANSFER_AMOUNT]: amount,
-      [MEMORY.TRANSFER_ROOM]: room.id,
+    result.room.sendRequest(TOPIC_TERMINAL_TASK, TERMINAL_TRANSFER, {
+      [TERMINAL_TASK_TYPE]: TASK_TRANSFER,
+      [TRANSFER_RESOURCE]: resource,
+      [TRANSFER_AMOUNT]: amount,
+      [TRANSFER_ROOM]: room.id,
     }, ttl);
 
     return true;
@@ -492,20 +472,20 @@ class Resources extends OrgBase {
     trace.log('create order result', {order, result});
   }
 
-  requestReactions(trace) {
+  requestReactions(trace: Tracer, kernel: Kernel) {
     this.availableReactions.forEach((reaction) => {
       const details = {
-        [MEMORY.REACTOR_TASK_TYPE]: TASKS.REACTION,
-        [MEMORY.REACTOR_INPUT_A]: reaction['inputA'],
-        [MEMORY.REACTOR_INPUT_B]: reaction['inputB'],
-        [MEMORY.REACTOR_OUTPUT]: reaction['output'],
-        [MEMORY.REACTOR_AMOUNT]: REACTION_BATCH_SIZE,
+        [REACTOR_TASK_TYPE]: REACTION,
+        [REACTOR_INPUT_A]: reaction['inputA'],
+        [REACTOR_INPUT_B]: reaction['inputB'],
+        [REACTOR_OUTPUT]: reaction['output'],
+        [REACTOR_AMOUNT]: REACTION_BATCH_SIZE,
       };
 
-      this.getKingdom().sendRequest(TOPICS.TASK_REACTION, reaction['priority'], details, REQUEST_REACTION_TTL);
+      kernel.getTopics().addRequest(TASK_REACTION, reaction['priority'], details, REQUEST_REACTION_TTL);
     });
 
-    const reactions = this.getKingdom().getTopics().getTopic(TOPICS.TASK_REACTION);
+    const reactions = kernel.getTopics().getTopic(TASK_REACTION);
     if (!reactions || !reactions.length) {
       trace.log('no reactions to request');
       return;
@@ -514,14 +494,14 @@ class Resources extends OrgBase {
     trace.log('requested reactions', {
       reactions: reactions.map((r) => {
         return {
-          output: r.details[MEMORY.REACTOR_OUTPUT],
+          output: r.details[REACTOR_OUTPUT],
           priority: r.priority,
         };
       }),
     });
   }
 
-  requestSellResource() {
+  requestSellResource(trace: Tracer, kernel: Kernel) {
     Object.entries(this.sharedResources).forEach(([resource, amount]) => {
       if (resource === RESOURCE_ENERGY) {
         return;
@@ -548,21 +528,21 @@ class Resources extends OrgBase {
       const sellAmount = _.min([result.amount, excess, MAX_SELL_AMOUNT]);
 
       const details = {
-        [MEMORY.TERMINAL_TASK_TYPE]: TASKS.TASK_MARKET_ORDER,
-        [MEMORY.MEMORY_ORDER_TYPE]: ORDER_SELL,
-        [MEMORY.MEMORY_ORDER_RESOURCE]: resource,
-        [MEMORY.MEMORY_ORDER_AMOUNT]: sellAmount,
+        [TERMINAL_TASK_TYPE]: TASK_MARKET_ORDER,
+        [MEMORY_ORDER_TYPE]: ORDER_SELL,
+        [MEMORY_ORDER_RESOURCE]: resource,
+        [MEMORY_ORDER_AMOUNT]: sellAmount,
       };
 
-      result.room.sendRequest(TOPICS.TOPIC_TERMINAL_TASK, PRIORITIES.TERMINAL_SELL,
+      result.room.sendRequest(TOPIC_TERMINAL_TASK, TERMINAL_SELL,
         details, REQUEST_SELL_TTL);
     });
   }
 
-  distributeBoosts(trace) {
+  distributeBoosts(trace: Tracer, kernel: Kernel) {
     trace.log('balancing boosts');
 
-    this.getKingdom().getColonies().forEach((colony) => {
+    kernel.getPlanner().getBases().forEach((colony) => {
       const colonyTrace = trace.withFields({colony: colony.id});
       const colonyEnd = colonyTrace.startTimer('colony');
 
@@ -625,7 +605,7 @@ class Resources extends OrgBase {
             minimumCritical = MIN_CRITICAL_COMPOUND_RALLY;
           }
 
-          const requested = this.requestResource(primaryRoom, bestCompound, minimumCritical - currentAmount,
+          const requested = this.requestResource(kernel, primaryRoom, bestCompound, minimumCritical - currentAmount,
             REQUEST_DISTRIBUTE_BOOSTS, effectTrace);
 
           // If we couldnt request resource, try buying
@@ -655,7 +635,7 @@ class Resources extends OrgBase {
         case REACTION_STATUS_UPDATE:
           this.reactionStatuses[event.key] = event.data;
           break;
-        case REACTION_STATUS_END:
+        case REACTION_STATUS_STOP:
           delete this.reactionStatuses[event.key];
           break;
         default:
@@ -664,20 +644,20 @@ class Resources extends OrgBase {
     });
   }
 
-  consumeStatuses(trace) {
+  consumeStatuses(trace: Tracer, kernel: Kernel) {
     trace.log('consuming statues');
 
-    const reactorStatuses = this.getKingdom().getTopics().getTopic(TOPICS.ACTIVE_REACTIONS) || [];
+    const reactorStatuses = kernel.getTopics().getTopic(ACTIVE_REACTIONS) || [];
     this.reactorStatuses = reactorStatuses;
     trace.log('reactor statuses', {length: reactorStatuses.length});
 
     this.reactionStats = reactorStatuses.reduce((acc, status) => {
-      const resource = status.details[MEMORY.REACTION_STATUS_RESOURCE];
+      const resource = status.details[REACTION_STATUS_RESOURCE];
       if (!acc[resource]) {
         acc[resource] = 0;
       }
 
-      const phase = status.details[MEMORY.REACTION_STATUS_PHASE];
+      const phase = status.details[REACTION_STATUS_PHASE];
       if (phase === TASK_PHASE_REACT) {
         acc[resource] += 1;
       }
@@ -685,30 +665,30 @@ class Resources extends OrgBase {
       return acc;
     }, {});
 
-    const roomStatuses = this.getKingdom().getTopics().getTopic(TOPICS.ROOM_STATUES) || [];
+    const roomStatuses = kernel.getTopics().getTopic(ROOM_STATUES) || [];
     this.roomStatuses = roomStatuses;
     trace.log('room statuses', {length: roomStatuses.length});
   }
 
-  balanceEnergy(trace) {
+  balanceEnergy(trace: Tracer, kernel: Kernel) {
     if (this.roomStatuses.length < 2) {
       trace.log('not enough rooms to balance');
       return;
     }
 
-    const hasTerminals = _.filter(this.roomStatuses, {details: {[MEMORY.ROOM_STATUS_TERMINAL]: true}});
+    const hasTerminals = _.filter(this.roomStatuses, {details: {[ROOM_STATUS_TERMINAL]: true}});
     if (hasTerminals.length < 2) {
       trace.log('not enough terminals to balance');
       return;
     }
 
     const energySorted = _.sortByAll(hasTerminals, [
-      ['details', MEMORY.ROOM_STATUS_ENERGY].join('.'),
+      ['details', ROOM_STATUS_ENERGY].join('.'),
     ]);
     const levelAndEnergySorted = _.sortByAll(hasTerminals, [
-      ['details', MEMORY.ROOM_STATUS_LEVEL].join('.'),
-      ['details', 1 - MEMORY.ROOM_STATUS_LEVEL_COMPLETED].join('.'),
-      ['details', MEMORY.ROOM_STATUS_ENERGY].join('.'),
+      ['details', ROOM_STATUS_LEVEL].join('.'),
+      ['details', 1 - ROOM_STATUS_LEVEL_COMPLETED].join('.'),
+      ['details', ROOM_STATUS_ENERGY].join('.'),
     ]);
 
     trace.log('sorted', {energySorted, levelAndEnergySorted});
@@ -721,26 +701,24 @@ class Resources extends OrgBase {
       return;
     }
 
-    const energyDiff = sourceRoom.details[MEMORY.ROOM_STATUS_ENERGY] - sinkRoom.details[MEMORY.ROOM_STATUS_ENERGY];
+    const energyDiff = sourceRoom.details[ROOM_STATUS_ENERGY] - sinkRoom.details[ROOM_STATUS_ENERGY];
     if (energyDiff < ENERGY_BALANCE_AMOUNT * 2) {
       trace.log('energy different too small, no need to send energy', {energyDiff});
       return;
     }
 
-    const sourceRoomName = sourceRoom.details[MEMORY.ROOM_STATUS_NAME];
-    const sinkRoomName = sinkRoom.details[MEMORY.ROOM_STATUS_NAME];
+    const sourceRoomName = sourceRoom.details[ROOM_STATUS_NAME];
+    const sinkRoomName = sinkRoom.details[ROOM_STATUS_NAME];
     const request = {
-      [MEMORY.TERMINAL_TASK_TYPE]: TASKS.TASK_TRANSFER,
-      [MEMORY.TRANSFER_RESOURCE]: RESOURCE_ENERGY,
-      [MEMORY.TRANSFER_AMOUNT]: ENERGY_BALANCE_AMOUNT,
-      [MEMORY.TRANSFER_ROOM]: sinkRoomName,
+      [TERMINAL_TASK_TYPE]: TASK_TRANSFER,
+      [TRANSFER_RESOURCE]: RESOURCE_ENERGY,
+      [TRANSFER_AMOUNT]: ENERGY_BALANCE_AMOUNT,
+      [TRANSFER_ROOM]: sinkRoomName,
     };
 
     trace.notice('send energy request', {request});
 
-    this.getKingdom().getRoomByName(sourceRoomName).sendRequest(TOPICS.TOPIC_TERMINAL_TASK,
-      PRIORITIES.TERMINAL_ENERGY_BALANCE, request, BALANCE_ENERGY_TTL);
+    kernel.getTopics().addRequest(TOPIC_TERMINAL_TASK, TERMINAL_ENERGY_BALANCE,
+      request, BALANCE_ENERGY_TTL);
   }
 }
-
-module.exports = Resources;

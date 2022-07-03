@@ -1,5 +1,6 @@
 import {AttackRequest, AttackStatus, ATTACK_ROOM_TTL} from "./constants.attack";
 import {ATTACK_ROOM} from "./constants.topics";
+import {Kernel} from "./kernel";
 import {AllowedCostMatrixTypes} from "./lib.costmatrix_cache";
 import {FindColonyPathPolicy} from "./lib.pathing";
 import {Tracer} from './lib.tracing';
@@ -51,7 +52,7 @@ export default class InvaderManager {
   run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('invader_manager_run');
 
-    const rooms = getRoomEntriesWithInvaderBases(kingdom, trace);
+    const rooms = getRoomEntriesWithInvaderBases(kernel, trace);
     trace.notice('found defeatable invader bases', {
       rooms: rooms.map((roomEntry) => {
         return {id: roomEntry.id, pos: roomEntry.invaderCorePos}
@@ -66,7 +67,7 @@ export default class InvaderManager {
         roomId: roomEntry.id,
       };
 
-      kingdom.sendRequest(ATTACK_ROOM, 1, attackRequest, ATTACK_ROOM_TTL);
+      kernel.getTopics().addRequest(ATTACK_ROOM, 1, attackRequest, ATTACK_ROOM_TTL);
     });
 
     trace.end();
@@ -78,7 +79,7 @@ export default class InvaderManager {
 const getRoomEntriesWithInvaderBases = (kernel: Kernel, trace: Tracer): RoomEntry[] => {
   const end = trace.startTimer('getRoomEntriesWithInvaderBases');
 
-  const weakRooms = kingdom.getScribe().getRooms().filter((roomEntry) => {
+  const weakRooms = kernel.getScribe().getRooms().filter((roomEntry) => {
     if (!roomEntry.invaderCoreLevel) {
       return false;
     }

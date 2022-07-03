@@ -1,19 +1,20 @@
 import * as _ from 'lodash';
-import {Base, getBasePrimaryRoom} from './config';
+import {Base, getBasePrimaryRoom} from './base';
 import * as CREEPS from './constants.creeps';
+import {DEFENSE_STATUS} from './constants.defense';
 import * as MEMORY from './constants.memory';
 import * as PRIORITIES from './constants.priorities';
 import * as TOPICS from './constants.topics';
-import {DEFENSE_STATUS} from './constants.defense';
+import {getBaseDefenseTopic} from "./getBaseDefenseTopic";
+import {Kernel} from './kernel';
 import {Tracer} from './lib.tracing';
 import {Process, sleeping} from "./os.process";
 import {RunnableResult} from './os.runnable';
 import {Priorities, Scheduler} from "./os.scheduler";
 import {thread, ThreadFunc} from './os.thread';
 import {scoreHealing} from './role.harasser';
-import {createSpawnRequest, getBaseSpawnTopic, requestSpawn} from './runnable.base_spawning';
+import {createSpawnRequest, getBaseSpawnTopic} from './runnable.base_spawning';
 import DefensePartyRunnable from './runnable.defense_party';
-import {getBaseDefenseTopic} from './topics';
 
 const RUN_INTERVAL = 5;
 const TARGET_REQUEST_TTL = RUN_INTERVAL;
@@ -59,7 +60,7 @@ export default class DefenseManager {
   constructor(kernel: Kernel, id: string, scheduler: Scheduler, trace: Tracer) {
     this.id = id;
     this.scheduler = scheduler;
-    this.restoreFromMemory(kingdom, trace);
+    this.restoreFromMemory(kernel, trace);
 
     this.threadCheckColonyDefenses = thread('check_defense_thread', REQUEST_DEFENDERS_TTL)(checkColonyDefenses);
     this.threadReturnDefendersToStation = thread('recall_defenders_thread', REQUEST_DEFENDERS_TTL)(returnDefendersToStation);
@@ -84,7 +85,7 @@ export default class DefenseManager {
       }
 
       party.position = new RoomPosition(party.position.x, party.position.y, party.position.roomName);
-      return this.createAndScheduleDefenseParty(kingdom, party.id, party.flagId, party.position, trace);
+      return this.createAndScheduleDefenseParty(kernel, party.id, party.flagId, party.position, trace);
     }).filter((party) => {
       return !!party
     });
@@ -100,13 +101,13 @@ export default class DefenseManager {
     }
 
     // TODO replace this with planner usage
-    const colony = kingdom.getClosestColonyInRange(flag.pos.roomName, 5);
+    const colony = kernel.getClosestColonyInRange(flag.pos.roomName, 5);
     if (!colony) {
       trace.error('could not find colony in range, not creating defense party', {roomName: flag.pos.roomName});
       return;
     }
 
-    const base = kingdom.getPlanner().getBaseById(colony.id);
+    const base = kernel.getPlanner().getBaseById(colony.id);
     if (!base) {
       trace.error('not create defense party, cannot find colony config', {colonyId: colony.id});
       return null;
@@ -117,7 +118,7 @@ export default class DefenseManager {
     const party = new DefensePartyRunnable(id, base, flagId, position, trace)
     const process = new Process(id, 'defense_party', Priorities.DEFENCE, {
       run(kernel: Kernel, trace: Tracer): RunnableResult {
-        return party.run(kingdom, trace);
+        return party.run(kernel, trace);
       }
     });
     this.scheduler.registerProcess(process);

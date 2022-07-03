@@ -6,8 +6,11 @@ import * as behaviorRoom from './behavior.room';
 import * as MEMORY from './constants.memory';
 import * as behaviorTree from './lib.behaviortree';
 import {FAILURE, RUNNING, SUCCESS} from './lib.behaviortree';
-import {getBaseDistributorTopic} from './topics';
+import {TopicKey} from './lib.topics';
 
+export function getBaseDistributorTopic(baseId: string): TopicKey {
+  return `base_${baseId}_distributor`;
+}
 
 const selectNextTaskOrPark = behaviorTree.selectorNode(
   'pick_something',

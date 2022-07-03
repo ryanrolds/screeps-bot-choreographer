@@ -59,11 +59,6 @@ export function createSpawnRequest(priority: number, ttl: number, role: string,
   };
 }
 
-export function requestSpawn(topicProvider: TopicProvider, topic: string,
-  request: SpawnRequest): void {
-  topicProvider.sendRequestV2(topic, request);
-}
-
 export function getShardSpawnTopic(): TopicKey {
   return 'shard_spawn';
 }

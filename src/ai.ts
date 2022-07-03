@@ -1,6 +1,7 @@
 import {CreepManager} from './ai.creeps';
-import {Kernel} from './kernel';
 import {ShardConfig} from './config';
+import {Kernel} from './kernel';
+import {CostMatrixCache} from './lib.costmatrix_cache';
 import {EventBroker} from './lib.event_broker';
 import {getPath} from './lib.pathing';
 import {PathCache} from './lib.path_cache';
@@ -23,7 +24,6 @@ import InvaderManager from './runnable.manager.invaders';
 import WarManager from './runnable.manager.war';
 import {Scribe} from './runnable.scribe';
 import {SiteJanitor} from './runnable.site_janitor';
-import {CostMatrixCache} from './lib.costmatrix_cache';
 
 export class AI implements Kernel {
   private config: ShardConfig;
@@ -173,7 +173,7 @@ export class AI implements Kernel {
     return this.topics;
   }
 
-  getEventBroker(): EventBroker {
+  getBroker(): EventBroker {
     return this.broker;
   }
 
