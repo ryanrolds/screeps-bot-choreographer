@@ -1,6 +1,7 @@
 import * as _ from 'lodash';
 import {AttackRequest, AttackStatus, ATTACK_ROOM_TTL} from './constants.attack';
 import * as TOPICS from './constants.topics';
+import {Kernel} from './kernel';
 import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
 import {FindColonyPathPolicy, getClosestColonyByPath} from './lib.pathing';
 import {Tracer} from './lib.tracing';
@@ -46,14 +47,14 @@ export default class BufferManager {
   run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('buffer_manager_run');
 
-    const hostileRoomsByColony = getHostileRoomsByColony(kingdom, trace);
+    const hostileRoomsByColony = getHostileRoomsByColony(kernel, trace);
     _.forEach(hostileRoomsByColony, (rooms, baseId) => {
       if (rooms.length < 1) {
         trace.log("no hostiles rooms", {baseId, rooms});
         return;
       }
 
-      const base = kingdom.getPlanner().getBaseById(baseId);
+      const base = kernel.getPlanner().getBaseById(baseId);
       if (!base) {
         trace.log('no base', {baseId});
         return;
@@ -71,7 +72,7 @@ export default class BufferManager {
         roomId: room.id,
       };
 
-      kingdom.sendRequest(TOPICS.ATTACK_ROOM, 1, attackRequest, ATTACK_ROOM_TTL);
+      kernel.getTopics().addRequest(TOPICS.ATTACK_ROOM, 1, attackRequest, ATTACK_ROOM_TTL);
     });
 
     // TODO add HUD line and attack lines on map
@@ -85,10 +86,10 @@ export default class BufferManager {
 type HostileRoomsByColony = Record<string, TargetRoom[]>;
 
 function getHostileRoomsByColony(kernel: Kernel, trace: Tracer): HostileRoomsByColony {
-  const hostileRooms = kingdom.getScribe().getHostileRooms()
+  const hostileRooms = kernel.getScribe().getHostileRooms()
   trace.info('hostile rooms', {hostileRooms});
 
-  const config = kingdom.config;
+  const config = kernel.getConfig();
   const dontAttack = config.friends.concat(config.neutral);
   const candidateRooms = hostileRooms.filter((room) => {
     return dontAttack.indexOf(room.owner) === -1 && room.level <= 7;
@@ -98,10 +99,10 @@ function getHostileRoomsByColony(kernel: Kernel, trace: Tracer): HostileRoomsByC
   const hostileRoomsByColony: Record<string, TargetRoom[]> = {};
 
   // TODO fix this
-  BufferPathPolicy.colony.maxLinearDistance = kingdom.config.buffer;
+  BufferPathPolicy.colony.maxLinearDistance = config.buffer;
 
   candidateRooms.forEach((room) => {
-    const colony = getClosestColonyByPath(kingdom, room.controllerPos, BufferPathPolicy, trace)
+    const colony = getClosestColonyByPath(kernel, room.controllerPos, BufferPathPolicy, trace)
     if (!colony) {
       trace.info('no colony', {room});
       return;

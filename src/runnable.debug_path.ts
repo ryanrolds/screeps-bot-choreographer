@@ -1,4 +1,5 @@
 import {commonPolicy} from "./constants.pathing_policies";
+import {Kernel} from "./kernel";
 import {FindPathPolicy, getPath, PathSearchDetails, visualizePath} from "./lib.pathing";
 import {Tracer} from './lib.tracing';
 import {running} from "./os.process";
@@ -16,7 +17,7 @@ export default class PathDebugger {
     this.id = id;
     this.results = null;
     this.resultsDebug = null;
-    this.kingdom = kingdom;
+    this.kernel = kernel;
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
@@ -66,7 +67,7 @@ export default class PathDebugger {
         return;
     }
 
-    const [path, debug] = getPath(this.kingdom, origin, goal, policy, trace);
+    const [path, debug] = getPath(this.kernel, origin, goal, policy, trace);
 
     trace.notice('path', {origin, goal, range, policy, path, debug});
     this.results = path;

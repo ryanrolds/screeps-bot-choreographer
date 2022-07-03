@@ -1,4 +1,4 @@
-import {AlertLevel, Base} from './config';
+import {AlertLevel, Base, getBasePrimaryRoom} from './base';
 import * as CREEPS from './constants.creeps';
 import {DEFENSE_STATUS} from './constants.defense';
 import * as MEMORY from './constants.memory';
@@ -8,7 +8,6 @@ import * as TOPICS from './constants.topics';
 import {Kernel} from './kernel';
 import {Event} from './lib.event_broker';
 import {Tracer} from './lib.tracing';
-import OrgRoom from "./org.room";
 import {Process, sleeping, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 import {Priorities, Scheduler} from "./os.scheduler";
@@ -128,7 +127,7 @@ export default class BaseRunnable {
       id: this.id,
     });
 
-    const base = kingdom.getPlanner().getBaseByRoom(this.id);
+    const base = kernel.getPlanner().getBaseByRoom(this.id);
     if (!base) {
       trace.error("no colony config, terminating", {id: this.id})
       trace.end();
@@ -138,13 +137,13 @@ export default class BaseRunnable {
     const room = Game.rooms[this.id];
     if (!room || room.controller?.level === 0) {
       trace.notice('cannot see room or level 0', {id: this.id});
-      this.requestClaimer(kingdom, trace);
+      this.requestClaimer(kernel, trace);
       trace.end();
       return sleeping(NO_VISION_TTL);
     }
 
     // TODO try to remove dependency on OrgRoom
-    const orgRoom = kingdom.getRoomByName(this.id);
+    const orgRoom = getBasePrimaryRoom(base);
     if (!orgRoom) {
       trace.error("no org room, terminating", {id: this.id})
       trace.end();
@@ -154,31 +153,31 @@ export default class BaseRunnable {
     this.threadUpdateProcessSpawning(trace, base, orgRoom, room);
 
     // Base life cycle
-    this.threadAbandonBase(trace, kingdom, base, room);
+    this.threadAbandonBase(trace, kernel, base, room);
 
     // Defense
     // this.threadUpdateRampartAccess(trace, orgRoom, room);
-    this.threadCheckSafeMode(trace, kingdom, room);
+    this.threadCheckSafeMode(trace, kernel, room);
 
     // Logistics
     this.threadRequestEnergy(trace, orgRoom, room);
-    this.threadRequestExtensionFilling(trace, kingdom, orgRoom, room);
+    this.threadRequestExtensionFilling(trace, kernel, orgRoom, room);
 
     // Creeps
     if (base.alertLevel === AlertLevel.GREEN) {
-      this.threadRequestBuilder(trace, kingdom, base, orgRoom, room);
-      this.threadRequestRepairer(trace, kingdom, base, orgRoom, room);
-      this.threadRequestExplorer(trace, kingdom, base, orgRoom, room);
+      this.threadRequestBuilder(trace, kernel, base, orgRoom, room);
+      this.threadRequestRepairer(trace, kernel, base, orgRoom, room);
+      this.threadRequestExplorer(trace, kernel, base, orgRoom, room);
     }
 
-    this.threadRequestUpgrader(trace, kingdom, base, orgRoom, room);
-    this.threadRequestDistributor(trace, kingdom, base, orgRoom, room);
+    this.threadRequestUpgrader(trace, kernel, base, orgRoom, room);
+    this.threadRequestDistributor(trace, kernel, base, orgRoom, room);
 
     // Inform other processes of room status
-    this.threadProduceStatus(trace, kingdom, orgRoom, base);
+    this.threadProduceStatus(trace, kernel, orgRoom, base);
 
     // Alert level
-    this.threadUpdateAlertLevel(trace, base, kingdom);
+    this.threadUpdateAlertLevel(trace, base, kernel);
 
     const roomVisual = new RoomVisual(this.id);
     roomVisual.text("O", base.origin.x, base.origin.y, {color: '#FFFFFF'});

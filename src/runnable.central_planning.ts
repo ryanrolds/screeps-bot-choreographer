@@ -13,7 +13,7 @@ import {RunnableResult} from "./os.runnable";
 import {Priorities, Scheduler} from "./os.scheduler";
 import {thread, ThreadFunc} from "./os.thread";
 import BaseRunnable from "./runnable.base";
-import {createSpawnRequest, getBaseSpawnTopic, requestSpawn} from "./runnable.base_spawning";
+import {createSpawnRequest, getBaseSpawnTopic} from "./runnable.base_spawning";
 
 const RUN_TTL = 10;
 const BASE_PROCESSES_TTL = 50;
@@ -165,17 +165,19 @@ export class CentralPlanning {
     return this.username;
   }
 
-  // TODO move to planner
-  getFriends(): string[] {
-    return this.config.friends;
-  }
+  getClosestBaseInRange(roomName: string, range: Number = 5): Base {
+    let selectedBase = null;
+    let selectedBaseDistance = 99999;
 
-  getAvoid(): string[] {
-    return this.config.avoid;
-  }
+    Object.values(this.getBases()).forEach((base) => {
+      const distance = Game.map.getRoomLinearDistance(base.primary, roomName)
+      if (distance <= range && selectedBaseDistance > distance) {
+        selectedBase = base;
+        selectedBaseDistance = distance;
+      }
+    })
 
-  getKOS(): string[] {
-    return this.config.kos;
+    return selectedBase;
   }
 
   addBase(primaryRoom: string, isPublic: boolean, origin: RoomPosition, parking: RoomPosition,
@@ -368,7 +370,7 @@ export class CentralPlanning {
 
           const request = createSpawnRequest(priorities, ttl, role, memory, 0);
           trace.notice('requesting explorer for adjacent room', {request});
-          requestSpawn(kernel.getTopics(), getBaseSpawnTopic(base.id), request);
+          kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
         });
         return;
       }

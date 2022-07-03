@@ -11,7 +11,7 @@ import {Scribe} from "./runnable.scribe";
 export interface Kernel {
   getConfig(): ShardConfig;
   getTopics(): Topics;
-  getEventBroker(): EventBroker;
+  getBroker(): EventBroker;
   getScheduler(): Scheduler;
   getCreepsManager(): CreepManager;
   getScribe(): Scribe;
@@ -20,4 +20,6 @@ export interface Kernel {
   getCostMatrixCache(): CostMatrixCache;
 
   getFriends(): string[];
+  getAvoid(): string[];
+  getKOS(): string[];
 }

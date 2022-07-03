@@ -205,6 +205,14 @@ export class AI implements Kernel {
     return this.config.friends;
   }
 
+  getAvoid(): string[] {
+    return this.config.avoid;
+  }
+
+  getKOS(): string[] {
+    return this.config.kos;
+  }
+
   getNewTracer(): Tracer {
     return new Tracer('tracer', {}, Game.time);
   }
