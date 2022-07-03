@@ -1,3 +1,4 @@
+import {getCreepBase} from './base';
 import * as behaviorTree from './lib.behaviortree';
 import {FAILURE, RUNNING, SUCCESS} from './lib.behaviortree';
 import {getBaseHaulerTopic} from './runnable.base_logistics';
@@ -7,10 +8,10 @@ const TASKS = require('./constants.tasks');
 
 export const getHaulTaskFromBaseTopic = behaviorTree.leafNode(
   'pick_haul_task',
-  (creep, trace, kingdom) => {
+  (creep, trace, kernel) => {
     // lookup colony from kingdom
     const baseId = creep.memory[MEMORY.MEMORY_BASE];
-    const base = kingdom.getPlanner().getBaseById(baseId);
+    const base = kernel.getPlanning().getBaseById(baseId);
     if (!base) {
       trace.error('could not find base', {name: creep.name, memory: creep.memory});
       creep.suicide();
@@ -18,7 +19,7 @@ export const getHaulTaskFromBaseTopic = behaviorTree.leafNode(
     }
 
     // get next haul task
-    const task = kingdom.getNextRequest(getBaseHaulerTopic(baseId));
+    const task = kernel.getTopics().getNextRequest(getBaseHaulerTopic(baseId));
     if (!task) {
       trace.log('no haul task');
       return FAILURE;
@@ -33,19 +34,16 @@ export const getHaulTaskFromBaseTopic = behaviorTree.leafNode(
 export const getNearbyHaulTaskFromTopic = function (topic) {
   return behaviorTree.leafNode(
     'pick_nearby_haul_task',
-    (creep, trace, kingdom) => {
-      // lookup colony from kingdom
-      const colonyId = creep.memory[MEMORY.MEMORY_BASE];
-      const colony = kingdom.getColonyById(colonyId);
-
-      if (!colony) {
+    (creep, trace, kernel) => {
+      const base = getCreepBase(kernel, creep);
+      if (!base) {
         trace.log('could not find colony', {name: creep.name, memory: creep.memory});
         creep.suicide();
         return FAILURE;
       }
 
       // get next haul task
-      const task = colony.getTopics().getMessageOfMyChoice(topic, (messages) => {
+      const task = kernel.getTopics().getMessageOfMyChoice(topic, (messages) => {
         let selected = null;
         let selectedDistance = 99999;
 

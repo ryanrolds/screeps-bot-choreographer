@@ -84,6 +84,8 @@ export default class SpawnManager {
     this.id = id;
 
     this.threadSpawn = thread('spawn_thread', SPAWN_TTL)((trace, kingdom, base) => {
+
+      // NOTE made some changes while looking at this file 7/2/22
       this.spawnIds = roomObject.find<StructureSpawn>(FIND_MY_STRUCTURES, {
         filter: structure => structure.structureType === STRUCTURE_SPAWN && structure.isActive(),
       }).map(spawn => spawn.id);

@@ -1,12 +1,11 @@
-const behaviorTree = require('./lib.behaviortree');
-const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
-const behaviorMovement = require('./behavior.movement');
-const {MEMORY_DESTINATION, MEMORY_IDLE} = require('./constants.memory');
-const {commonPolicy} = require('./constants.pathing_policies');
+import * as behaviorMovement from "./behavior.movement";
+import {commonPolicy} from "./constants.pathing_policies";
+import * as behaviorTree from "./lib.behaviortree";
+import {FAILURE, RUNNING, SUCCESS} from "./lib.behaviortree";
 
 const selectNearbyLink = behaviorTree.leafNode(
   'select_nearby_link',
-  (creep, trace, kingdom) => {
+  (creep, trace, kernal) => {
     // Favor near by stores
     let nearByLinks = creep.pos.findInRange(FIND_STRUCTURES, 8, {
       filter: (structure) => {
@@ -37,8 +36,8 @@ const selectNearbyLink = behaviorTree.leafNode(
 
 const selectStorage = behaviorTree.leafNode(
   'select_storage',
-  (creep, trace, kingdom) => {
-    const room = kingdom.getRoomByName(creep.room.name);
+  (creep, trace, kernel) => {
+    const room = kernel.getRoomByName(creep.room.name);
     if (!room) {
       trace.log('unable to get creep org room', {roomName: creep.room.name});
       return FAILURE;
@@ -60,7 +59,7 @@ const selectStorage = behaviorTree.leafNode(
 
 const selectContainer = behaviorTree.leafNode(
   'select_container',
-  (creep, trace, kingdom) => {
+  (creep, trace, kernel) => {
     // If no nearby stores or the room lacks storage, try to get energy from the nearest container
     const containerInRoom = creep.pos.findClosestByRange(FIND_STRUCTURES, {
       filter: (structure) => {

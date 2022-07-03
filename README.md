@@ -68,6 +68,7 @@ An AI for [Screeps](screeps.com).
   - [ ] Refactor Resource Governor into a Process\
     - [ ] Move to TypeScript
 - [ ] All of project on TypeScript
+- [ ] Move creep definitions into individual creep files
 - [ ] TD: Room process and sources processes no longer require room visibility
 - [ ] TD: Replace spawn topics (TTL) with event streams (manages own queue)
 - [ ] TD: Cleanup old construction sites automatically

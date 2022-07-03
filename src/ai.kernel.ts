@@ -1,6 +1,7 @@
 import {CreepManager} from "./ai.creeps";
 import {ShardConfig} from "./config";
 import {EventBroker} from "./lib.event_broker";
+import {PathCache} from "./lib.path_cache";
 import {Topics} from "./lib.topics";
 import {Scheduler} from "./os.scheduler";
 import {CentralPlanning} from "./runnable.central_planning";
@@ -14,4 +15,5 @@ export interface Kernel {
   getCreepsManager(): CreepManager;
   getScribe(): Scribe;
   getPlanning(): CentralPlanning;
+  getPathCache(): PathCache;
 }

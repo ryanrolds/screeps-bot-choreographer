@@ -58,3 +58,12 @@ export function getLabsForAction(base: Base, action: string): StructureLab[] {
 export function setActionLabs(base: Base, action: string, labs: StructureLab[]): void {
   base.boosts[action] = labs;
 }
+
+export function getStructureWithResource(base: Base, resource: ResourceConstant): Structure | null {
+  const structures = base.getStructuresWithResource(resource);
+  if (!structructures.length) {
+    return null;
+  }
+
+  return structures[0];
+}

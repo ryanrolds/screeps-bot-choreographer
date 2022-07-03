@@ -2,6 +2,8 @@ import {CreepManager} from './ai.creeps';
 import {Kernel} from './ai.kernel';
 import {ShardConfig} from './config';
 import {EventBroker} from './lib.event_broker';
+import {getPath} from './lib.pathing';
+import {PathCache} from './lib.path_cache';
 import {findNextRemoteRoom} from './lib.remote_room';
 import {Topics} from './lib.topics';
 import {Tracer} from './lib.tracing';
@@ -30,6 +32,7 @@ export class AI implements Kernel {
   private planning: CentralPlanning;
   private scribe: Scribe;
   private creeps: CreepManager;
+  private pathCache: PathCache;
 
   constructor(config: ShardConfig, scheduler: Scheduler, trace: Tracer) {
     trace = trace.begin('ai_constructor');
@@ -40,6 +43,9 @@ export class AI implements Kernel {
     // ========= IPC ==========
     this.broker = new EventBroker();
     this.topics = new Topics();
+
+    // ========= Caches =======
+    this.pathCache = new PathCache(250, getPath);
 
     // ========= Core =========
 
@@ -182,6 +188,10 @@ export class AI implements Kernel {
 
   getScribe(): Scribe {
     return this.scribe;
+  }
+
+  getPathCache(): PathCache {
+    return this.pathCache;
   }
 
   getNewTracer(): Tracer {

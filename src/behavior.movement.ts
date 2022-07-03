@@ -1,6 +1,7 @@
 import * as behaviorTree from "./lib.behaviortree";
 import {FAILURE, NodeTickResult, RUNNING, SUCCESS} from "./lib.behaviortree";
 
+import {Kernel} from "./ai.kernel";
 import * as MEMORY from "./constants.memory";
 import {MEMORY_SOURCE} from "./constants.memory";
 import {commonPolicy} from "./constants.pathing_policies";
@@ -155,7 +156,7 @@ const getDestinationFromMemory = (creep: Creep, memoryId: string): RoomPosition 
 
 const getAndSetCreepPath = (kernel: Kernel, pathCache: PathCache, creep: Creep, destination: RoomPosition,
   range: number, policy: FindPathPolicy, trace: Tracer): [PathFinderPath, string, string] => {
-  const path = pathCache.getPath(kingdom, creep.pos, destination, range, policy, trace);
+  const path = pathCache.getPath(kernel, creep.pos, destination, range, policy, trace);
   const originKey = pathCache.getKey(creep.pos, 0);
   const destKey = pathCache.getKey(destination, range);
 
@@ -170,7 +171,7 @@ const clearMovementCache = (creep) => {
 
 const updateCreepCachedPath = (kernel: Kernel, creep: Creep, destination: RoomPosition,
   range: number, policy: FindPathPolicy, trace: Tracer): PathFinderPath => {
-  const pathCache = kingdom.getPathCache();
+  const pathCache = kernel.getPathCache();
 
   let path: PathCacheItem = null;
   let originKey = creep.memory[PATH_ORIGIN_KEY] || null;
@@ -189,7 +190,7 @@ const updateCreepCachedPath = (kernel: Kernel, creep: Creep, destination: RoomPo
 
   if (!path) {
     trace.log('heap cache miss', {originKey, destKey});
-    const getSetResult = getAndSetCreepPath(kingdom, pathCache, creep, destination, range, policy, trace);
+    const getSetResult = getAndSetCreepPath(kernel, pathCache, creep, destination, range, policy, trace);
     originKey = getSetResult[1];
     destKey = getSetResult[2];
 
@@ -277,7 +278,7 @@ const cachedMoveToPosition = (kernel: Kernel, creep: Creep, destination: RoomPos
   let result: CreepMoveReturnCode | -5 | -10 | -2 | -7 = null;
 
   if (!stuck) {
-    const pathfinderResult = updateCreepCachedPath(kingdom, creep, destination, range, policy, trace)
+    const pathfinderResult = updateCreepCachedPath(kernel, creep, destination, range, policy, trace)
     trace.log('pathfinder result', {result: pathfinderResult, creepName: creep.name, destination, range, policy});
     if (!pathfinderResult) {
       creep.say('🚧')
