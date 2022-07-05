@@ -1,12 +1,14 @@
-import {Base} from "./config";
+import {Base, getResources, getStructureForResource, getStructureWithResource} from "./base";
 import * as MEMORY from "./constants.memory";
 import * as PRIORITIES from "./constants.priorities";
 import * as TASKS from "./constants.tasks";
 import * as TOPICS from "./constants.topics";
+import {Kernel} from "./kernel";
 import {Tracer} from './lib.tracing';
 import {sleeping, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 import {thread, ThreadFunc} from "./os.thread";
+import {getBaseDistributorTopic} from "./role.distributor";
 
 const MIN_COMPOUND = 500;
 const MAX_COMPOUND = 2000;
@@ -20,13 +22,17 @@ const REQUEST_REBALANCE_TTL = 10;
 const UPDATE_ROOM_BOOSTER_INTERVAL = 5;
 
 export const TOPIC_ROOM_BOOSTS = "room_boosts";
+
 export type BoosterDetails = {
-  roomId: string;
+  baseId: string;
   position: RoomPosition;
   allEffects: EffectSet;
   availableEffects: EffectSet;
   labsByResource: LabsByResource;
+  labsByAction: LabsByAction;
 }
+
+export type ResourceCounts = Partial<Record<ResourceConstant, number>>;
 
 class Compound {
   name: ResourceConstant;
@@ -54,21 +60,20 @@ class Effect {
 
 export type EffectSet = Record<string, Effect>;
 export type LabsByResource = Record<Partial<MineralConstant | MineralCompoundConstant>, StructureLab>;
+export type LabsByAction = Record<string, StructureLab[]>;
 
 export default class BoosterRunnable {
   id: string;
   baseId: string;
-  orgRoom: OrgRoom;
   labIds: Id<StructureLab>[];
   boostPosition: RoomPosition;
   allEffects: EffectSet;
 
   threadUpdateRoomBooster: ThreadFunc;
 
-  constructor(id: string, baseId: string, orgRoom: OrgRoom, labIds: Id<StructureLab>[]) {
+  constructor(id: string, baseId: string, labIds: Id<StructureLab>[]) {
     this.id = id;
     this.baseId = baseId;
-    this.orgRoom = orgRoom;
     this.labIds = labIds;
     this.allEffects = null;
 
@@ -79,7 +84,7 @@ export default class BoosterRunnable {
   run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('booster_run');
 
-    const base = kingdom.getPlanner().getBaseById(this.baseId);
+    const base = kernel.getPlanner().getBaseById(this.baseId);
     if (!base) {
       trace.error('Base not found', {baseId: this.baseId});
       trace.end();
@@ -97,7 +102,7 @@ export default class BoosterRunnable {
 
     const resourceEnd = trace.startTimer("resource");
     const loadedEffects = this.getLoadedEffects();
-    const desiredEffects = this.getDesiredEffects();
+    const desiredEffects = this.getDesiredEffects(kernel);
     resourceEnd();
 
     const [needToLoad, couldUnload, emptyLabs] = this.getNeeds(loadedEffects, desiredEffects, trace);
@@ -115,15 +120,15 @@ export default class BoosterRunnable {
     });
 
     let sleepFor = REQUEST_ENERGY_TTL;
-    this.requestEnergyForLabs(kingdom, trace);
-    this.threadUpdateRoomBooster(trace);
+    this.requestEnergyForLabs(kernel, base, trace);
+    this.threadUpdateRoomBooster(trace, kernel, base);
 
     if (Object.keys(desiredEffects).length) {
       sleepFor = REQUEST_LOAD_TTL;
-      this.sendHaulRequests(kingdom, loadedEffects, needToLoad, emptyLabs, couldUnload, trace);
+      this.sendHaulRequests(kernel, base, loadedEffects, needToLoad, emptyLabs, couldUnload, trace);
     } else {
       sleepFor = REQUEST_UNLOAD_TTL;
-      this.rebalanceLabs(kingdom, base, trace);
+      this.rebalanceLabs(kernel, base, trace);
     }
 
     trace.end();
@@ -135,23 +140,25 @@ export default class BoosterRunnable {
     return this.labIds.map(labId => Game.getObjectById(labId)).filter((lab => lab));
   }
 
-  updateRoomBooster(trace: Tracer) {
+  updateRoomBooster(trace: Tracer, kernel: Kernel, base: Base) {
     const resourceEnd = trace.startTimer("resources");
     const allEffects = this.getEffects();
-    const availableEffects = this.getAvailableEffects();
+    const availableEffects = this.getAvailableEffects(kernel, base);
     const labsByResource = this.getLabsByResource();
+    const labsByAction = this.getLabsByAction();
     resourceEnd();
 
     const details: BoosterDetails = {
-      roomId: this.orgRoom.id,
+      baseId: this.baseId,
       position: this.boostPosition,
       allEffects,
       availableEffects,
       labsByResource,
+      labsByAction: labsByAction,
     };
 
     trace.log('publishing room boosts', {
-      room: this.orgRoom.id,
+      baseId: this.baseId,
       position: this.boostPosition,
       labsByResource: _.reduce(labsByResource, (labs, lab) => {
         labs[lab.id] = lab.mineralType;
@@ -160,7 +167,7 @@ export default class BoosterRunnable {
       availableEffects
     });
 
-    this.orgRoom.sendRequest(TOPIC_ROOM_BOOSTS, 1, details, UPDATE_ROOM_BOOSTER_INTERVAL);
+    kernel.getTopics().addRequest(TOPIC_ROOM_BOOSTS, 1, details, UPDATE_ROOM_BOOSTER_INTERVAL);
   }
 
   getBoostPosition() {
@@ -172,6 +179,8 @@ export default class BoosterRunnable {
     if (!labs.length) {
       return null;
     }
+
+    const roomName = labs[0].room.name;
 
     const topLeft = labs.reduce((acc, lab) => {
       if (lab.pos.x < acc.x) {
@@ -186,30 +195,28 @@ export default class BoosterRunnable {
     }, {x: 50, y: 50});
 
     let position = null;
-    const roomId = (this.orgRoom as any).id;
-
-    position = new RoomPosition(topLeft.x, topLeft.y, roomId);
+    position = new RoomPosition(topLeft.x, topLeft.y, roomName);
     if (position.lookFor(LOOK_STRUCTURES).filter((structure) => {
       return structure.structureType !== STRUCTURE_ROAD;
     }).length === 0) {
       return position;
     }
 
-    position = new RoomPosition(topLeft.x, topLeft.y + 1, roomId);
+    position = new RoomPosition(topLeft.x, topLeft.y + 1, roomName);
     if (position.lookFor(LOOK_STRUCTURES).filter((structure) => {
       return structure.structureType !== STRUCTURE_ROAD;
     }).length === 0) {
       return position;
     }
 
-    position = new RoomPosition(topLeft.x + 1, topLeft.y, roomId);
+    position = new RoomPosition(topLeft.x + 1, topLeft.y, roomName);
     if (position.lookFor(LOOK_STRUCTURES).filter((structure) => {
       return structure.structureType !== STRUCTURE_ROAD;
     }).length === 0) {
       return position;
     }
 
-    position = new RoomPosition(topLeft.x + 1, topLeft.y + 1, roomId);
+    position = new RoomPosition(topLeft.x + 1, topLeft.y + 1, roomName);
     if (position.lookFor(LOOK_STRUCTURES).filter((structure) => {
       return structure.structureType !== STRUCTURE_ROAD;
     }).length === 0) {
@@ -219,6 +226,22 @@ export default class BoosterRunnable {
     return labs[0].pos;
   }
 
+  getLabsByAction(): LabsByAction {
+    return this.getLabs().reduce((acc, lab) => {
+      if (lab.mineralType) {
+        const action = this.allEffects[lab.mineralType];
+        if (!acc[action.name]) {
+          acc[action.name] = [];
+        }
+
+        acc[action.name].push(lab);
+      }
+
+      return acc;
+    }, {} as LabsByAction);
+  }
+
+  // @deprecated - use getLabsByAction()
   getLabsByResource(): Record<Partial<(MineralConstant | MineralCompoundConstant)>, StructureLab> {
     const labs = this.getLabs();
     return labs.reduce((acc, lab) => {
@@ -229,6 +252,8 @@ export default class BoosterRunnable {
       return acc;
     }, {} as LabsByResource);
   }
+
+  // @deprecated - use getLabsByAction()
   getLabByResource(resource) {
     const labs = this.getLabs();
     for (let i = 0; i < labs.length; i++) {
@@ -239,6 +264,7 @@ export default class BoosterRunnable {
 
     return null;
   }
+
   getLabResources(): ResourceCounts {
     const labs = this.getLabs();
     return labs.reduce((acc, lab) => {
@@ -249,6 +275,7 @@ export default class BoosterRunnable {
       return acc;
     }, {});
   }
+
   getEmptyLabs() {
     const labs = this.getLabs();
     return labs.filter((lab) => {
@@ -298,20 +325,20 @@ export default class BoosterRunnable {
     return this.getEffects(resources);
   }
 
-  getAvailableEffects(): EffectSet {
-    const availableResources = this.orgRoom.getReserveResources();
+  getAvailableEffects(kernel: Kernel, base: Base): EffectSet {
+    const availableResources = getResources(kernel, base)
     const loadedResource = this.getLabResources();
 
     // TODO the merge does not sum values
     return this.getEffects(_.assign(availableResources, loadedResource));
   }
 
-  getDesiredEffects(): EffectSet {
+  getDesiredEffects(kernel: Kernel): EffectSet {
     const desiredEffects: EffectSet = {};
     const allEffects = this.getEffects();
 
     let request = null;
-    while (request = (this.orgRoom as any).getNextRequest(TOPICS.BOOST_PREP)) {
+    while (request = kernel.getTopics().getNextRequest(TOPICS.BOOST_PREP)) {
       const requestedEffects = request.details[MEMORY.PREPARE_BOOSTS];
       if (!requestedEffects) {
         continue;
@@ -349,20 +376,20 @@ export default class BoosterRunnable {
     return [needToLoad, couldUnload, emptyLabs]
   }
 
-  sendHaulRequests(kernel: Kernel, loadedEffects, needToLoad, emptyLabs, couldUnload, trace: Tracer) {
+  sendHaulRequests(kernel: Kernel, base: Base, loadedEffects, needToLoad, emptyLabs, couldUnload, trace: Tracer) {
     const numToLoad = needToLoad.length;
     const numEmpty = emptyLabs.length;
 
     if (numEmpty && numToLoad) {
       const numReadyToLoad = _.min([numEmpty, numToLoad]);
       const load = needToLoad.slice(0, numReadyToLoad);
-      this.requestMaterialsForLabs(kingdom, load, trace);
+      this.requestMaterialsForLabs(kernel, base, load, trace);
     }
 
     if (numToLoad > numEmpty) {
       const numToUnload = numToLoad - numEmpty;
       const unload = couldUnload.slice(0, numToUnload);
-      this.requestUnloadOfLabs(kingdom, loadedEffects, unload, trace);
+      this.requestUnloadOfLabs(kernel, base, loadedEffects, unload, trace);
     }
   }
   rebalanceLabs(kernel: Kernel, base: Base, trace: Tracer) {
@@ -384,7 +411,7 @@ export default class BoosterRunnable {
       }
 
       if (amount) {
-        const dropoff = this.orgRoom.getReserveStructureWithRoomForResource(lab.mineralType);
+        const dropoff = getStructureForResource(base, lab.mineralType);
         if (!dropoff) {
           trace.log('no dropoff for already loaded compound', {resource: lab.mineralType});
           return;
@@ -401,12 +428,13 @@ export default class BoosterRunnable {
 
         trace.log('boost clear low', {priority: PRIORITIES.HAUL_BOOST, details});
 
-        kingdom.sendRequest(getBaseDistributorTopic(base.id), PRIORITIES.HAUL_BOOST,
+        kernel.getTopics().addRequest(getBaseDistributorTopic(base.id), PRIORITIES.HAUL_BOOST,
           details, REQUEST_REBALANCE_TTL);
       }
     });
   }
-  requestUnloadOfLabs(kernel: Kernel, loadedEffects, couldUnload, trace: Tracer) {
+
+  requestUnloadOfLabs(kernel: Kernel, base: Base, loadedEffects, couldUnload, trace: Tracer) {
     couldUnload.forEach((toUnload) => {
       const effect = loadedEffects[toUnload];
       const compound = effect.compounds[0];
@@ -417,7 +445,7 @@ export default class BoosterRunnable {
         return;
       }
 
-      const baseCreeps = kingdom.creepManager.getCreepsByBase(this.baseId);
+      const baseCreeps = kernel.getCreepsManager().getCreepsByBase(this.baseId);
       const assignedCreeps = baseCreeps.filter((creep) => {
         const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
         const taskPickup = creep.memory[MEMORY.MEMORY_HAUL_PICKUP];
@@ -429,7 +457,7 @@ export default class BoosterRunnable {
         return;
       }
 
-      const dropoff = this.orgRoom.getReserveStructureWithRoomForResource(compound.name);
+      const dropoff = getStructureForResource(base, compound.name);
       if (!dropoff) {
         trace.log('no dropoff for already loaded compound', {resource: compound.name});
         return;
@@ -446,12 +474,13 @@ export default class BoosterRunnable {
 
       trace.log('boost unload', {priority: PRIORITIES.HAUL_BOOST, details});
 
-      kingdom.sendRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.UNLOAD_BOOST,
+      kernel.getTopics().addRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.UNLOAD_BOOST,
         details, REQUEST_UNLOAD_TTL);
     });
   }
-  requestMaterialsForLabs(kernel: Kernel, needToLoad, trace: Tracer) {
-    const reserveResources = this.orgRoom.getReserveResources();
+
+  requestMaterialsForLabs(kernel: Kernel, base: Base, needToLoad, trace: Tracer) {
+    const reserveResources = getResources(kernel, base);
 
     needToLoad.forEach((toLoad) => {
       trace.log('need to load', {toLoad})
@@ -469,7 +498,7 @@ export default class BoosterRunnable {
 
       const emptyLab = emptyLabs[0];
 
-      const baseCreeps = kingdom.creepManager.getCreepsByBase(this.baseId);
+      const baseCreeps = kernel.getCreepsManager().getCreepsByBase(this.baseId);
       const assignedCreeps = baseCreeps.filter((creep) => {
         const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
         const taskDropoff = creep.memory[MEMORY.MEMORY_HAUL_DROPOFF];
@@ -507,12 +536,12 @@ export default class BoosterRunnable {
         return;
       }
 
-      this.requestHaulingOfMaterial(kingdom, compound, emptyLab, trace);
+      this.requestHaulingOfMaterial(kernel, base, compound, emptyLab, trace);
     });
   }
 
-  requestHaulingOfMaterial(kernel: Kernel, compound, lab, trace: Tracer) {
-    const pickup = this.orgRoom.getReserveStructureWithMostOfAResource(compound.name, true);
+  requestHaulingOfMaterial(kernel: Kernel, base: Base, compound, lab, trace: Tracer) {
+    const pickup = getStructureWithResource(base, compound.name);
     if (!pickup) {
       trace.log('no pickup for available compound', {resource: compound.name});
       return;
@@ -529,10 +558,11 @@ export default class BoosterRunnable {
 
     trace.log('boost load material', {priority: PRIORITIES.HAUL_BOOST, details});
 
-    kingdom.sendRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.HAUL_BOOST, details, REQUEST_LOAD_TTL);
+    kernel.getTopics().addRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.HAUL_BOOST,
+      details, REQUEST_LOAD_TTL);
   }
 
-  requestEnergyForLabs(kernel: Kernel, trace: Tracer) {
+  requestEnergyForLabs(kernel: Kernel, base: Base, trace: Tracer) {
     const labs = this.getLabs();
     labs.forEach((lab) => {
       // Only fill lab if needed
@@ -541,7 +571,7 @@ export default class BoosterRunnable {
         return;
       }
 
-      const pickup = this.orgRoom.getReserveStructureWithMostOfAResource(RESOURCE_ENERGY, false);
+      const pickup = getStructureWithResource(base, RESOURCE_ENERGY);
       const currentEnergy = lab.store.getUsedCapacity(RESOURCE_ENERGY);
       const details = {
         [MEMORY.TASK_ID]: `bel-${this.id}-${Game.time}`,
@@ -554,32 +584,8 @@ export default class BoosterRunnable {
 
       trace.log('boost load energy', {labId: lab.id, priority: PRIORITIES.HAUL_BOOST, details});
 
-      kingdom.sendRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.HAUL_BOOST, details, REQUEST_ENERGY_TTL);
+      kernel.getTopics().addRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.HAUL_BOOST,
+        details, REQUEST_ENERGY_TTL);
     });
   }
 }
-
-
-
-
-this.boosterPosition = null;
-this.boosterEffects = null;
-this.boosterAllEffects = null;
-this.boosterLabs = null;
-this.threadUpdateBoosters = thread('update_booster_thread', UPDATE_BOOSTER_TTL)((trace, room, kingdom) => {
-  const topic = this.getTopics().getTopic(TOPIC_ROOM_BOOSTS);
-  if (!topic) {
-    trace.log('no topic', {room: this.id});
-    return;
-  }
-
-  topic.forEach((event) => {
-    const details: BoosterDetails = event.details;
-    trace.log('booster position', {room: this.id, details});
-
-    this.boosterPosition = details.position;
-    this.boosterEffects = details.availableEffects;
-    this.boosterAllEffects = details.allEffects;
-    this.boosterLabs = details.labsByResource;
-  })
-});

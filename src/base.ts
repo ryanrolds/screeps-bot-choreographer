@@ -1,4 +1,5 @@
 import {Kernel} from "./kernel";
+import {LabsByAction, ResourceCounts} from "./runnable.base_booster";
 
 export enum AlertLevel {
   GREEN = "green",
@@ -21,6 +22,7 @@ export interface Base {
   passages: NonNullable<{x: number, y: number}[]>;
   neighbors: NonNullable<string[]>;
   alertLevel: NonNullable<AlertLevel>;
+
   boostPosition: RoomPosition; // TODO refactor lab arrangement to be more flexible and efficient
   boosts: NonNullable<{[action: string]: StructureLab[]}>;
 }
@@ -47,6 +49,10 @@ export function getBoostPosition(base: Base): RoomPosition {
   return base.boostPosition;
 }
 
+export function setBoostPosition(base: Base, pos: RoomPosition) {
+  base.boostPosition = pos;
+}
+
 export function getLabsForAction(base: Base, action: string): StructureLab[] {
   if (!base.boosts[action]) {
     return [];
@@ -55,8 +61,14 @@ export function getLabsForAction(base: Base, action: string): StructureLab[] {
   return base.boosts[action];
 }
 
-export function setActionLabs(base: Base, action: string, labs: StructureLab[]): void {
-  base.boosts[action] = labs;
+export function setLabsByAction(base: Base, labsByAction: LabsByAction) {
+  base.boosts = labsByAction;
+}
+
+export function getResources(kernel: Kernel, base: Base): ResourceCounts {
+  const resources = {};
+
+  return resources;
 }
 
 export function getStructureWithResource(base: Base, resource: ResourceConstant): Structure | null {

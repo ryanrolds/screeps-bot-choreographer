@@ -1,4 +1,4 @@
-import {AlertLevel, Base, getBasePrimaryRoom} from './base';
+import {AlertLevel, Base, getBasePrimaryRoom, setBoostPosition, setLabsByAction} from './base';
 import * as CREEPS from './constants.creeps';
 import {DEFENSE_STATUS} from './constants.defense';
 import * as MEMORY from './constants.memory';
@@ -13,6 +13,7 @@ import {RunnableResult} from "./os.runnable";
 import {Priorities, Scheduler} from "./os.scheduler";
 import {thread, ThreadFunc} from './os.thread';
 import {scoreAttacking} from './role.harasser';
+import {BoosterDetails, TOPIC_ROOM_BOOSTS} from './runnable.base_booster';
 import BaseConstructionRunnable from "./runnable.base_construction";
 import ControllerRunnable from './runnable.base_controller';
 import {LabsManager} from "./runnable.base_labs";
@@ -21,7 +22,7 @@ import LogisticsRunnable from './runnable.base_logistics';
 import NukerRunnable from "./runnable.base_nuker";
 import ObserverRunnable from './runnable.base_observer';
 import RoomRunnable from './runnable.base_room';
-import SpawnManager, {createSpawnRequest, getBaseSpawnTopic, getShardSpawnTopic, requestSpawn} from "./runnable.base_spawning";
+import SpawnManager, {createSpawnRequest, getBaseSpawnTopic, getShardSpawnTopic} from "./runnable.base_spawning";
 import TerminalRunnable from "./runnable.base_terminal";
 import TowerRunnable from "./runnable.base_tower";
 import {getDashboardStream, getLinesStream, HudEventSet, HudIndicator, HudIndicatorStatus, HudLine} from './runnable.debug_hud';
@@ -52,6 +53,7 @@ const UPDATE_PROCESSES_TTL = 20;
 const PRODUCE_STATUS_TTL = 30;
 const ABANDON_BASE_TTL = 50;
 const REQUEST_EXPLORER_TTL = 200;
+const UPDATE_BOOSTER_TTL = 5;
 
 const MIN_HOSTILE_ATTACK_SCORE_TO_ABANDON = 3000;
 const HOSTILE_DAMAGE_THRESHOLD = 0;
@@ -86,6 +88,7 @@ export default class BaseRunnable {
   threadRequestUpgrader: ThreadFunc;
   threadRequestExplorer: ThreadFunc;
 
+  threadUpdateBoosters: ThreadFunc;
   threadCheckSafeMode: ThreadFunc;
   threadRequestExtensionFilling: ThreadFunc;
   //threadUpdateRampartAccess: ThreadFunc;
@@ -93,6 +96,7 @@ export default class BaseRunnable {
   threadProduceStatus: ThreadFunc;
   threadAbandonBase: ThreadFunc;
   threadUpdateAlertLevel: ThreadFunc;
+
 
   constructor(id: string, scheduler: Scheduler) {
     this.id = id;
@@ -134,6 +138,7 @@ export default class BaseRunnable {
       return terminate();
     }
 
+    // if room not visible, request room be claimed
     const room = Game.rooms[this.id];
     if (!room || room.controller?.level === 0) {
       trace.notice('cannot see room or level 0', {id: this.id});
@@ -152,6 +157,22 @@ export default class BaseRunnable {
 
     this.threadUpdateProcessSpawning(trace, base, orgRoom, room);
 
+    // Pump events from booster runnable and set booster state on the Base
+    this.threadUpdateBoosters = thread('update_booster_thread', UPDATE_BOOSTER_TTL)((trace, room, kernel) => {
+      const topic = kernel.getTopics().getTopic(TOPIC_ROOM_BOOSTS);
+      if (!topic) {
+        trace.log('no topic', {room: this.id});
+        return;
+      }
+
+      topic.forEach((event) => {
+        const details: BoosterDetails = event.details;
+        trace.log('booster position', {room: this.id, details});
+        setBoostPosition(base, details.position);
+        setLabsByAction(base, details.labsByAction);
+      });
+    });
+
     // Base life cycle
     this.threadAbandonBase(trace, kernel, base, room);
 
@@ -164,14 +185,13 @@ export default class BaseRunnable {
     this.threadRequestExtensionFilling(trace, kernel, orgRoom, room);
 
     // Creeps
+    this.threadRequestUpgrader(trace, kernel, base, orgRoom, room);
+    this.threadRequestDistributor(trace, kernel, base, orgRoom, room);
     if (base.alertLevel === AlertLevel.GREEN) {
       this.threadRequestBuilder(trace, kernel, base, orgRoom, room);
       this.threadRequestRepairer(trace, kernel, base, orgRoom, room);
       this.threadRequestExplorer(trace, kernel, base, orgRoom, room);
     }
-
-    this.threadRequestUpgrader(trace, kernel, base, orgRoom, room);
-    this.threadRequestDistributor(trace, kernel, base, orgRoom, room);
 
     // Inform other processes of room status
     this.threadProduceStatus(trace, kernel, orgRoom, base);
@@ -234,7 +254,7 @@ export default class BaseRunnable {
       id: this.id,
     });
 
-    //kingdom.getPlanner().removeBase(base.id, trace);
+    //kernel.getPlanner().removeBase(base.id, trace);
 
     trace.end();
   }
@@ -266,10 +286,11 @@ export default class BaseRunnable {
 
     trace.notice('requesting claimer', {id: this.id, detail});
 
-    kingdom.sendRequest(getShardSpawnTopic(), PRIORITIES.PRIORITY_RESERVER, detail, REQUEST_CLAIMER_TTL);
+    kernel.getTopics().addRequest(getShardSpawnTopic(), PRIORITIES.PRIORITY_RESERVER,
+      detail, REQUEST_CLAIMER_TTL);
   }
 
-  handleProcessSpawning(trace: Tracer, base: Base, orgRoom: OrgRoom, room: Room) {
+  handleProcessSpawning(trace: Tracer, base: Base, room: Room) {
     let missingProcesses = 0;
 
     // Spawn Manager
@@ -279,7 +300,7 @@ export default class BaseRunnable {
       missingProcesses++;
 
       this.scheduler.registerProcess(new Process(spawnManagerId, 'spawns', Priorities.CORE_LOGISTICS,
-        new SpawnManager(spawnManagerId, orgRoom)));
+        new SpawnManager(spawnManagerId, base.id)));
     }
 
     // Towers
@@ -440,7 +461,7 @@ export default class BaseRunnable {
       hitsPercentage = hits / maxHits;
     }
 
-    const numRepairers = kingdom.creepManager.getCreepsByBaseAndRole(this.id,
+    const numRepairers = kernel.creepManager.getCreepsByBaseAndRole(this.id,
       CREEPS.WORKER_REPAIRER).length;
 
     trace.log('need repairers?', {id: this.id, hitsPercentage, numRepairers});
@@ -478,7 +499,7 @@ export default class BaseRunnable {
 
     const request = createSpawnRequest(repairerPriority, REQUEST_REPAIRER_TTL, CREEPS.WORKER_REPAIRER,
       memory, 0)
-    requestSpawn(kingdom, getBaseSpawnTopic(base.id), request)
+    requestSpawn(kernel, getBaseSpawnTopic(base.id), request)
     // @CONFIRM that repairers are spawning
   }
 
@@ -493,7 +514,7 @@ export default class BaseRunnable {
       return;
     }
 
-    const builders = kingdom.creepManager.getCreepsByBaseAndRole(this.id,
+    const builders = kernel.creepManager.getCreepsByBaseAndRole(this.id,
       CREEPS.WORKER_BUILDER);
 
     const numConstructionSites = room.find(FIND_MY_CONSTRUCTION_SITES).length;
@@ -523,14 +544,14 @@ export default class BaseRunnable {
       [MEMORY.MEMORY_BASE]: (orgRoom as any).getColony().id,
     };
     const request = createSpawnRequest(priority, ttl, CREEPS.WORKER_BUILDER, memory, 0);
-    requestSpawn(kingdom, getBaseSpawnTopic(base.id), request);
+    requestSpawn(kernel, getBaseSpawnTopic(base.id), request);
     // @CONFIRM builders are being spawned
   }
 
   requestDistributor(trace: Tracer, kernel: Kernel, base: Base, orgRoom: OrgRoom,
     room: Room) {
 
-    const numDistributors = kingdom.creepManager.getCreepsByBaseAndRole(this.id,
+    const numDistributors = kernel.creepManager.getCreepsByBaseAndRole(this.id,
       CREEPS.WORKER_DISTRIBUTOR).length;
 
     // If low on bucket base not under threat
@@ -551,7 +572,7 @@ export default class BaseRunnable {
       distributorRequests.push(3);
     }
 
-    const numCoreHaulTasks = kingdom.getTopicLength(getBaseDistributorTopic(this.id));
+    const numCoreHaulTasks = kernel.getTopicLength(getBaseDistributorTopic(this.id));
     if (numCoreHaulTasks > 30) {
       distributorRequests.push(2);
     }
@@ -606,7 +627,7 @@ export default class BaseRunnable {
 
     const request = createSpawnRequest(priority, ttl, role, memory, 0);
     trace.log('request distributor', {desiredDistributors, fullness, request});
-    requestSpawn(kingdom, getBaseSpawnTopic(base.id), request);
+    requestSpawn(kernel, getBaseSpawnTopic(base.id), request);
     // @CHECK that distributors are being spawned
   }
 
@@ -621,7 +642,7 @@ export default class BaseRunnable {
       return;
     }
 
-    const numUpgraders = kingdom.creepManager.getCreepsByBaseAndRole(this.id,
+    const numUpgraders = kernel.creepManager.getCreepsByBaseAndRole(this.id,
       CREEPS.WORKER_UPGRADER).length;
 
     let parts = 1;
@@ -692,19 +713,19 @@ export default class BaseRunnable {
 
       const request = createSpawnRequest(upgraderPriority, REQUEST_UPGRADER_TTL,
         CREEPS.WORKER_UPGRADER, memory, energyLimit);
-      requestSpawn(kingdom, getBaseSpawnTopic(base.id), request);
+      requestSpawn(kernel, getBaseSpawnTopic(base.id), request);
       // @CONFIRM that upgraders are being created
     }
   }
 
   requestExplorer(trace: Tracer, kernel: Kernel, base: Base) {
-    const shardConfig = kingdom.config;
+    const shardConfig = kernel.config;
     if (!shardConfig.explorers) {
       trace.log('shard does not allow explorers');
       return;
     }
 
-    const explorers = kingdom.creepManager.getCreepsByBaseAndRole(this.id,
+    const explorers = kernel.creepManager.getCreepsByBaseAndRole(this.id,
       CREEPS.WORKER_EXPLORER);
 
     if (explorers.length < MAX_EXPLORERS) {
@@ -717,7 +738,7 @@ export default class BaseRunnable {
         [MEMORY.MEMORY_BASE]: base.id,
       };
       const request = createSpawnRequest(priority, ttl, role, memory, 0);
-      requestSpawn(kingdom, getBaseSpawnTopic(base.id), request);
+      requestSpawn(kernel, getBaseSpawnTopic(base.id), request);
       // @CONFIRM that explorers spawns
     } else {
       trace.log('not requesting explorer', {numExplorers: explorers.length});
@@ -750,7 +771,7 @@ export default class BaseRunnable {
         [MEMORY.MEMORY_HAUL_AMOUNT]: extension.store.getFreeCapacity(RESOURCE_ENERGY),
       };
 
-      kingdom.sendRequest(getBaseDistributorTopic(this.id), PRIORITIES.HAUL_EXTENSION,
+      kernel.sendRequest(getBaseDistributorTopic(this.id), PRIORITIES.HAUL_EXTENSION,
         details, HAUL_EXTENSION_TTL);
     });
 
@@ -818,7 +839,7 @@ export default class BaseRunnable {
     });
 
     // Filter friendly creeps
-    const friends = kingdom.config.friends;
+    const friends = kernel.config.friends;
     hostiles = hostiles.filter(creep => friends.indexOf(creep.owner.username) === -1);
 
     if (hostiles) {
@@ -941,7 +962,7 @@ export default class BaseRunnable {
     const indicatorStream = orgRoom.getKingdom().getBroker().getStream(getDashboardStream())
 
     base.rooms.forEach((roomName) => {
-      const orgRoom = kingdom.getRoomByName(roomName);
+      const orgRoom = kernel.getRoomByName(roomName);
       if (!orgRoom) {
         trace.warn('room not found', {roomName});
         return;
@@ -978,7 +999,7 @@ export default class BaseRunnable {
 
   updateAlertLevel(trace: Tracer, base: Base, kernel: Kernel) {
     // check if strong enemies are present in base
-    const roomEntry = kingdom.getScribe().getRoomById(base.primary);
+    const roomEntry = kernel.getScribe().getRoomById(base.primary);
     if (!roomEntry) {
       trace.warn('room not found, assuming hostile presence', {room: base.primary});
       base.alertLevel = AlertLevel.YELLOW;
@@ -998,7 +1019,7 @@ export default class BaseRunnable {
     // check if strong enemies are present in rooms
     const rooms = base.rooms;
     let hostileRoom = rooms.find((roomName) => {
-      const roomEntry = kingdom.getScribe().getRoomById(roomName);
+      const roomEntry = kernel.getScribe().getRoomById(roomName);
       if (!roomEntry) {
         trace.info('room not found', {room: roomName});
         return false;
@@ -1022,7 +1043,7 @@ export default class BaseRunnable {
     // check if neighbor is under red alert
     const neighbors = base.neighbors;
     const redNeighbor = neighbors.find((id) => {
-      const neighborBase = kingdom.getPlanner().getBaseById(id);
+      const neighborBase = kernel.getPlanner().getBaseById(id);
       if (!neighborBase) {
         trace.warn('neighbor base not found, should not happen', {id});
         return false;
