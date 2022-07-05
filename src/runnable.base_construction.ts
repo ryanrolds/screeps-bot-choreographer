@@ -1,9 +1,9 @@
-import {Base} from "./config";
+import {Base, getBaseLevel, getBasePrimaryRoom, setParking} from "./base";
+import {Kernel} from "./kernel";
 import {PossibleSite, prioritizeBySitesType} from "./lib.construction";
 import {ANY, buildingCodes, EMPTY, getConstructionPosition} from "./lib.layouts";
 import {Tracer} from './lib.tracing';
-import OrgRoom from "./org.room";
-import {sleeping} from "./os.process";
+import {sleeping, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 
 const CONSTRUCTION_INTERVAL = 100;
@@ -164,23 +164,23 @@ export const baseLayouts: BaseLayout[] = [
 
 export default class BaseConstructionRunnable {
   id: string;
-  orgRoom: OrgRoom;
+  baseId: string;
 
-  constructor(id: string, orgRoom: OrgRoom) {
+  constructor(id: string, baseId: string) {
     this.id = id;
-    this.orgRoom = orgRoom;
+    this.baseId = baseId;
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('base_construction_run');
 
-    trace.log('base construction run', {id: this.id, orgRoomId: this.orgRoom.id});
+    trace.log('base construction run', {id: this.id, baseId: this.baseId});
 
-    const base = kingdom.getPlanner().getBaseById(this.orgRoom.id);
+    const base = kernel.getPlanner().getBaseById(this.baseId);
     if (!base) {
       trace.error('no base config');
       trace.end();
-      return sleeping(CONSTRUCTION_INTERVAL);
+      return terminate();
     }
 
     const origin = base.origin;
@@ -190,49 +190,37 @@ export default class BaseConstructionRunnable {
       return sleeping(CONSTRUCTION_INTERVAL);
     }
 
-    const room = this.orgRoom.getRoomObject();
-    if (!room) {
-      trace.error('no room object')
-      trace.end();
-      return sleeping(CONSTRUCTION_INTERVAL);
-    }
-
-    const roomLevel = this.orgRoom.getRoomLevel();
-    if (roomLevel < 1) {
-      trace.log('room level low', {roomLevel});
-      trace.end();
-      return sleeping(CONSTRUCTION_INTERVAL);
-    }
+    const baseLevel = getBaseLevel(base);
 
     // Update parking lot for room level
-    const levelLayout = baseLayouts[roomLevel];
+    const levelLayout = baseLayouts[baseLevel];
     if (levelLayout) {
-      this.setParking(kingdom, levelLayout, origin, room, trace);
+      setParking(base, levelLayout, origin);
     } else {
-      trace.error('no level layout', {roomLevel});
+      trace.error('no level layout', {roomLevel: baseLevel});
     }
 
     // We have check all the things, now it's time to work out what we are building and build it
-    const unfinished = this.selectLayout(roomLevel, room, origin, trace);
+    const unfinished = this.selectLayout(baseLevel, origin, trace);
     if (unfinished) {
-      this.buildLayout(kingdom, unfinished, room, origin, trace);
+      this.buildLayout(base, unfinished, origin, trace);
     } else {
-      trace.log('no unfinished layout', {roomLevel});
+      trace.log('no unfinished layout', {roomLevel: baseLevel});
     }
 
-    if (roomLevel >= 3) {
-      this.buildWalls(kingdom, room, base, trace);
+    if (baseLevel >= 3) {
+      this.buildWalls(kernel, base, trace);
     }
 
     trace.end();
     return sleeping(CONSTRUCTION_INTERVAL);
   }
 
-  selectLayout(roomLevel: number, room: Room, origin: RoomPosition, trace: Tracer): BaseLayout {
+  selectLayout(roomLevel: number, origin: RoomPosition, trace: Tracer): BaseLayout {
     //for (let i = 0; i <= roomLevel; i++) {
     //  const layout = baseLayouts[i];
     const layout = baseLayouts[roomLevel];
-    if (!this.layoutComplete(layout, room, origin, trace)) {
+    if (!this.layoutComplete(layout, origin, trace)) {
       return layout;
     }
     //}
@@ -240,11 +228,17 @@ export default class BaseConstructionRunnable {
     return null;
   }
 
-  buildLayout(kernel: Kernel, layout: BaseLayout, room: Room, origin: RoomPosition, trace: Tracer): void {
-    trace.log('building layout', {roomId: room.name, layout});
+  buildLayout(base: Base, layout: BaseLayout, origin: RoomPosition, trace: Tracer): void {
+    trace.log('building layout', {layout});
 
     let toBuild: PossibleSite[] = [];
     let numSites = 0;
+
+    const room = getBasePrimaryRoom(base);
+    if (!room) {
+      trace.error('no primary room');
+      return;
+    }
 
     // const roomVisual = new RoomVisual(room.name);
     for (let y = 0; y < layout.buildings.length; y++) {
@@ -323,8 +317,14 @@ export default class BaseConstructionRunnable {
     }
   }
 
-  buildWalls(kernel: Kernel, room: Room, base: Base, trace: Tracer): void {
+  buildWalls(kernel: Kernel, base: Base, trace: Tracer): void {
     if (!base.walls) {
+      return;
+    }
+
+    const room = getBasePrimaryRoom(base);
+    if (!room) {
+      trace.error('no primary room');
       return;
     }
 
@@ -404,17 +404,7 @@ export default class BaseConstructionRunnable {
     });
   }
 
-  setParking(kernel: Kernel, layout: BaseLayout, origin: RoomPosition, room: Room, trace: Tracer): void {
-    const base = kingdom.getPlanner().getBaseByRoom(room.name);
-    if (!base) {
-      trace.error('no base config when setting parking', {roomId: room.name});
-      return null;
-    }
-
-    base.parking = new RoomPosition(layout.parking.x + origin.x, layout.parking.y + origin.y, origin.roomName);
-  }
-
-  layoutComplete(layout: BaseLayout, room: Room, origin: RoomPosition, trace: Tracer): boolean {
+  layoutComplete(layout: BaseLayout, origin: RoomPosition, trace: Tracer): boolean {
     if (layout.buildings.length === 0) {
       return true;
     }

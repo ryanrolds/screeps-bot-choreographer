@@ -1,8 +1,8 @@
 
 import * as _ from 'lodash';
-import {Base} from './config';
+import {Base} from './base';
+import {Kernel} from './kernel';
 import {Tracer} from './lib.tracing';
-import Room from './org.room';
 import {Process, sleeping, terminate} from "./os.process";
 import {RunnableResult} from './os.runnable';
 import {Priorities, Scheduler} from "./os.scheduler";
@@ -24,7 +24,7 @@ const ASSIGN_LABS_TTL = 20;
 
 export class LabsManager {
   id: string;
-  orgRoom: Room;
+  baseId: string;
   scheduler: Scheduler;
 
   reactorsIds: Id<StructureLab>[][];
@@ -32,9 +32,9 @@ export class LabsManager {
 
   threadAssignLabs: ThreadFunc;
 
-  constructor(id: string, orgRoom: Room, scheduler: Scheduler, trace: Tracer) {
+  constructor(id: string, baseId: string, scheduler: Scheduler, trace: Tracer) {
     this.id = id;
-    this.orgRoom = orgRoom;
+    this.baseId = baseId;
     this.scheduler = scheduler;
 
     this.reactorsIds = [];
@@ -51,13 +51,13 @@ export class LabsManager {
       boosterIds: this.boosterIds,
     });
 
-    const base = kingdom.getPlanner().getBaseByRoom(this.orgRoom.id);
+    const base = kernel.getPlanner().getBaseById(this.baseId);
     if (!base) {
-      trace.log('no base config for room', {room: this.orgRoom.id});
+      trace.log('no base config for room', {baseId: this.baseId});
       return terminate();
     }
 
-    this.threadAssignLabs(trace, kingdom, base, this.orgRoom);
+    this.threadAssignLabs(trace, kernel, base);
 
     trace.end();
 
@@ -65,7 +65,7 @@ export class LabsManager {
   }
 
   assignLabs(trace: Tracer, kernel: Kernel, base: Base, orgRoom: Room) {
-    this.assignBasedOnPosition(kingdom, base, orgRoom, trace);
+    this.assignBasedOnPosition(kernel, base, orgRoom, trace);
 
     trace.info('assigned labs', {reactors: this.reactorsIds, booster: this.boosterIds});
 
@@ -76,7 +76,7 @@ export class LabsManager {
       if (!hasProcess) {
         trace.info('creating process for reactor', {reactorId});
         this.scheduler.registerProcess(new Process(reactorId, 'reactors', Priorities.RESOURCES,
-          new ReactorRunnable(reactorId, base.id, this.orgRoom, reactorIds)));
+          new ReactorRunnable(reactorId, base.id, reactorIds)));
       }
     });
 
@@ -86,7 +86,7 @@ export class LabsManager {
       const hasProcess = this.scheduler.hasProcess(boosterId);
       if (!hasProcess) {
         trace.info('creating process for booster', {boosterId});
-        const booster = new BoosterRunnable(boosterId, base.id, this.orgRoom, this.boosterIds);
+        const booster = new BoosterRunnable(boosterId, base.id, this.boosterIds);
         this.scheduler.registerProcess(new Process(boosterId, 'boosters', Priorities.RESOURCES,
           booster));
       }

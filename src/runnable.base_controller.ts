@@ -1,5 +1,6 @@
-import {AlertLevel} from "./config";
+import {AlertLevel} from "./base";
 import {controllerRoadPolicy} from "./constants.pathing_policies";
+import {Kernel} from "./kernel";
 import {Event} from "./lib.event_broker";
 import {ANY, buildingCodes, EMPTY, getConstructionPosition, Layout} from "./lib.layouts";
 import {getPath} from "./lib.pathing";
@@ -115,7 +116,7 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
       return sleeping(RUN_TTL);
     }
 
-    const base = kingdom.getPlanner().getBaseByRoom(controller.room.name);
+    const base = kernel.getPlanner().getBaseByRoom(controller.room.name);
     if (!base) {
       trace.error('missing origin', {id: controller.room.name});
       return sleeping(RUN_TTL);
@@ -123,12 +124,12 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
 
     if (!this.nodePosition || !this.nodeDirection) {
       trace.log('node and road position not set, populating');
-      this.populateNodePosition(kingdom, controller, trace);
+      this.populateNodePosition(kernel, controller, trace);
     }
 
     if (base.alertLevel === AlertLevel.GREEN) {
       this.threadBuildStructures(trace, controller.room);
-      this.threadProduceEvents(trace, kingdom, controller);
+      this.threadProduceEvents(trace, kernel, controller);
     }
 
     return sleeping(RUN_TTL);
@@ -153,13 +154,13 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
       return;
     }
 
-    const base = kingdom.getPlanner().getBaseByRoom(controller.pos.roomName)
+    const base = kernel.getPlanner().getBaseByRoom(controller.pos.roomName)
     if (!base) {
       trace.error('missing colony config', {room: controller.pos.roomName});
       return;
     }
 
-    const [pathResult, details] = getPath(kingdom, base.origin, controller.pos, controllerRoadPolicy, trace);
+    const [pathResult, details] = getPath(kernel, base.origin, controller.pos, controllerRoadPolicy, trace);
     trace.log('path result', {origin: base.origin, dest: controller.pos, pathResult});
 
     if (!pathResult || !pathResult.path.length) {
@@ -192,7 +193,7 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
       return;
     }
 
-    const base = kingdom.getPlanner().getBaseByRoom(controller.room.name);
+    const base = kernel.getPlanner().getBaseByRoom(controller.room.name);
     if (!base) {
       trace.error('no colony config', {room: controller.room.name});
       return;
@@ -206,7 +207,7 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
         position: position,
       };
 
-      kingdom.getBroker().getStream(getLogisticsTopic(base.id)).
+      kernel.getBroker().getStream(getLogisticsTopic(base.id)).
         publish(new Event(this.controllerId, Game.time, LogisticsEventType.RequestRoad, data));
     }
   }

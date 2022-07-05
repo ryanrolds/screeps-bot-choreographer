@@ -2,6 +2,7 @@ import * as MEMORY from "./constants.memory";
 import * as PRIORITIES from "./constants.priorities";
 import * as TASKS from "./constants.tasks";
 import * as TOPICS from "./constants.topics";
+import {Kernel} from "./kernel";
 import {Event} from "./lib.event_broker";
 import {Tracer} from './lib.tracing';
 import {running, sleeping, terminate} from "./os.process";
@@ -32,16 +33,14 @@ export const REACTION_STATUS_STOP = 'reaction_status_stop';
 export default class ReactorRunnable {
   id: string;
   baseId: string;
-  orgRoom: OrgRoom;
   labIds: Id<StructureLab>[];
   prevTime: number;
 
   threadProduceStatus: ThreadFunc;
 
-  constructor(id: string, baseId: string, orgRoom: OrgRoom, labIds: Id<StructureLab>[]) {
+  constructor(id: string, baseId: string, labIds: Id<StructureLab>[]) {
     this.id = id;
     this.baseId = baseId;
-    this.orgRoom = orgRoom;
     this.labIds = labIds;
     this.prevTime = Game.time;
 

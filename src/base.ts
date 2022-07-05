@@ -1,5 +1,6 @@
 import {Kernel} from "./kernel";
 import {LabsByAction, ResourceCounts} from "./runnable.base_booster";
+import {BaseLayout} from "./runnable.base_construction";
 
 export enum AlertLevel {
   GREEN = "green",
@@ -43,6 +44,11 @@ export function getCreepBase(kernel: Kernel, creep: Creep): Base {
   }
 
   return base;
+}
+
+export function setParking(base: Base, layout: BaseLayout, origin: RoomPosition): void {
+  base.parking = new RoomPosition(layout.parking.x + origin.x, layout.parking.y + origin.y,
+    origin.roomName);
 }
 
 export function getBoostPosition(base: Base): RoomPosition {
@@ -131,4 +137,19 @@ export function getBaseSpawns(base: Base): StructureSpawn[] {
   const spawns: StructureSpawn[] = [];
 
   return spawns;
+}
+
+export function getBaseLevel(base: Base): number {
+  let level = 0;
+
+  const room = getBasePrimaryRoom(base);
+  if (!room) {
+    return level
+  }
+
+  if (room.controller?.level) {
+    level = room.controller.level;
+  }
+
+  return level;
 }
