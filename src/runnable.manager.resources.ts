@@ -43,7 +43,7 @@ const CRITICAL_EFFECTS = {
   'dismantle': ['XZH2O', 'ZH2O', 'ZH'],
 };
 
-export class Resources implements Runnable {
+export class ResourceManager implements Runnable {
   pricer: SigmoidPricing;
   resources = {};
   sharedResources = {};
@@ -62,9 +62,7 @@ export class Resources implements Runnable {
   threadBalanceEnergy: ThreadFunc;
 
 
-  constructor(kernel: Kernel, trace: Tracer) {
-    const setupTrace = trace.begin('constructor');
-
+  constructor(kernel: Kernel) {
     this.pricer = new SigmoidPricing(PRICES);
     this.resources = {};
     this.sharedResources = {};
@@ -99,8 +97,6 @@ export class Resources implements Runnable {
       CONSUME_STATUS_TTL)(this.consumeReactionStatusStream.bind(this));
     this.threadBalanceEnergy = thread('balance_energy_thread',
       BALANCE_ENERGY_TTL)(this.balanceEnergy.bind(this));
-
-    setupTrace.end();
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {

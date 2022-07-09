@@ -1,9 +1,10 @@
-import {AlertLevel, Base} from "./config";
+import {AlertLevel, Base} from "./base";
 import {ROLE_WORKER, WORKER_HAULER} from "./constants.creeps";
 import {MEMORY_BASE, MEMORY_HAUL_AMOUNT, MEMORY_HAUL_DROPOFF, MEMORY_HAUL_PICKUP, MEMORY_HAUL_RESOURCE, MEMORY_TASK_TYPE, TASK_ID} from "./constants.memory";
 import {roadPolicy} from "./constants.pathing_policies";
 import {DUMP_NEXT_TO_STORAGE, HAUL_BASE_ROOM, HAUL_DROPPED, LOAD_FACTOR, PRIORITY_HAULER} from "./constants.priorities";
 import {TASK_HAUL} from "./constants.tasks";
+import {Kernel} from "./kernel";
 import {Consumer, Event} from "./lib.event_broker";
 import {getPath, visualizePath} from "./lib.pathing";
 import * as PID from "./lib.pid";
@@ -14,7 +15,7 @@ import {PersistentMemory} from "./os.memory";
 import {sleeping} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 import {thread, ThreadFunc} from "./os.thread";
-import {createSpawnRequest, getBaseSpawnTopic, requestSpawn} from "./runnable.base_spawning";
+import {createSpawnRequest, getBaseSpawnTopic} from "./runnable.base_spawning";
 import {getLinesStream, HudEventSet, HudLine} from "./runnable.debug_hud";
 
 const CALCULATE_LEG_TTL = 20;
@@ -110,7 +111,7 @@ export default class LogisticsRunnable extends PersistentMemory {
     // Iterate through all destinations and calculate the remaining roads to build
     this.calculateLegIterator = this.calculateLegGenerator();
     this.threadCalculateLeg = thread('calculate_leg', CALCULATE_LEG_TTL)((trace: Tracer, kernel: Kernel) => {
-      this.calculateLegIterator.next({trace, kingdom});
+      this.calculateLegIterator.next({trace, kernel});
     });
 
     this.threadUpdateHaulers = thread('update_haulers_thread', UPDATE_HAULERS_TTL)(this.updateHaulers.bind(this));
@@ -132,34 +133,34 @@ export default class LogisticsRunnable extends PersistentMemory {
     // Setup the stream consumer
     if (this.logisticsStreamConsumer === null) {
       const streamId = getLogisticsTopic(this.baseId);
-      this.logisticsStreamConsumer = kingdom.getBroker().getStream(streamId).
+      this.logisticsStreamConsumer = kernel.getBroker().getStream(streamId).
         addConsumer('logistics');
     }
 
-    const base = kingdom.getPlanner().getBaseById(this.baseId);
+    const base = kernel.getPlanner().getBaseById(this.baseId);
     if (!base) {
       trace.error('missing origin', {id: this.baseId});
       return sleeping(20);
     }
 
-    this.threadConsumeEvents(trace, kingdom);
-    this.threadUpdateStorage(trace, kingdom, base)
+    this.threadConsumeEvents(trace, kernel);
+    this.threadUpdateStorage(trace, kernel, base)
 
     // If red alert, don't do anything
     if (base.alertLevel === AlertLevel.GREEN) {
-      this.threadCalculateLeg(trace, kingdom, base);
+      this.threadCalculateLeg(trace, kernel, base);
       this.threadBuildShortestLeg(trace, base);
       this.threadEnsureWallPassage(trace, base);
     }
 
-    this.threadUpdateHaulers(trace, kingdom, base);
-    this.threadHaulerPID(trace, kingdom, base);
-    this.threadRequestHaulers(trace, kingdom, base);
+    this.threadUpdateHaulers(trace, kernel, base);
+    this.threadHaulerPID(trace, kernel, base);
+    this.threadRequestHaulers(trace, kernel, base);
 
-    this.threadRequestHaulDroppedResources(trace, kingdom, base);
-    this.threadRequestHaulTombstones(trace, kingdom, base);
+    this.threadRequestHaulDroppedResources(trace, kernel, base);
+    this.threadRequestHaulTombstones(trace, kernel, base);
 
-    this.threadProduceEvents(trace, kingdom, base);
+    this.threadProduceEvents(trace, kernel, base);
 
     // CLEANUP add LOG_WHEN_PID_CHECK
     if (this.selectedLeg) {
@@ -175,7 +176,7 @@ export default class LogisticsRunnable extends PersistentMemory {
     this.logisticsStreamConsumer.getEvents().forEach((event) => {
       switch (event.type) {
         case LogisticsEventType.RequestRoad:
-          this.requestRoad(kingdom, event.data.id, event.data.position, event.time, trace);
+          this.requestRoad(kernel, event.data.id, event.data.position, event.time, trace);
           break;
       }
     });
@@ -187,7 +188,7 @@ export default class LogisticsRunnable extends PersistentMemory {
 
   private updateHaulers(trace: Tracer, kernel: Kernel) {
     // Get list of haulers and workers
-    this.haulers = kingdom.creepManager.getCreepsByBaseAndRole(this.baseId, ROLE_WORKER)
+    this.haulers = kernel.getCreepsManager().getCreepsByBaseAndRole(this.baseId, ROLE_WORKER)
     this.numHaulers = this.haulers.length;
 
     this.numActiveHaulers = this.haulers.filter((creep) => {
@@ -211,7 +212,7 @@ export default class LogisticsRunnable extends PersistentMemory {
   }
 
   private updatePID(trace: Tracer, kernel: Kernel, base: Base) {
-    let numHaulTasks = kingdom.getTopicLength(getBaseHaulerTopic(this.baseId));
+    let numHaulTasks = kernel.getTopics().getLength(getBaseHaulerTopic(this.baseId));
     numHaulTasks -= this.numIdleHaulers;
 
     trace.log('haul tasks', {numHaulTasks, numIdleHaulers: this.numIdleHaulers});
@@ -231,7 +232,7 @@ export default class LogisticsRunnable extends PersistentMemory {
         order: 10,
       };
 
-      kingdom.getBroker().getStream(getLinesStream()).publish(new Event(this.baseId, Game.time,
+      kernel.getBroker().getStream(getLinesStream()).publish(new Event(this.baseId, Game.time,
         HudEventSet, hudLine));
     }
   }
@@ -274,7 +275,7 @@ export default class LogisticsRunnable extends PersistentMemory {
 
       const request = createSpawnRequest(priority, ttl, role, memory, 0);
       trace.info('requesting hauler/worker', {role, priority, request});
-      requestSpawn(kingdom, getBaseSpawnTopic(base.id), request);
+      kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
       // @CHECK that haulers and workers are spawning
     }
   }
@@ -290,7 +291,7 @@ export default class LogisticsRunnable extends PersistentMemory {
       order: 5,
     };
 
-    kingdom.getBroker().getStream(getLinesStream()).publish(new Event(this.baseId, Game.time,
+    kernel.getBroker().getStream(getLinesStream()).publish(new Event(this.baseId, Game.time,
       HudEventSet, hudLine));
   }
 
@@ -366,7 +367,7 @@ export default class LogisticsRunnable extends PersistentMemory {
 
           trace.log('haul dropped', {room: roomName, topic, i, loadPriority, details});
 
-          kingdom.sendRequest(topic, loadPriority, details, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
+          kernel.getTopics().addRequest(topic, loadPriority, details, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
         }
       });
     });
@@ -416,7 +417,7 @@ export default class LogisticsRunnable extends PersistentMemory {
           let priority = HAUL_DROPPED;
 
           trace.info('haul tombstone', {topic, priority, details});
-          kingdom.sendRequest(topic, priority, details, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
+          kernel.getTopics().addRequest(topic, priority, details, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
         });
       });
     });
@@ -444,7 +445,7 @@ export default class LogisticsRunnable extends PersistentMemory {
     let legs: Leg[] = [];
     while (true) {
       const details: {kernel: Kernel, trace: Tracer} = yield;
-      const kingdom = details.kingdom;
+      const kernel = details.kernel;
       const trace = details.trace;
 
       if (!legs.length) {
@@ -465,7 +466,7 @@ export default class LogisticsRunnable extends PersistentMemory {
 
       const leg = legs.shift();
       if (leg) {
-        const [path, remaining] = this.calculateLeg(kingdom, leg, trace);
+        const [path, remaining] = this.calculateLeg(kernel, leg, trace);
         leg.path = path || [];
         leg.remaining = remaining || [];
         leg.updatedAt = Game.time;
@@ -485,13 +486,13 @@ export default class LogisticsRunnable extends PersistentMemory {
   private calculateLeg(kernel: Kernel, leg: Leg, trace: Tracer): [path: RoomPosition[], remaining: RoomPosition[]] {
     trace.log('updating leg', {leg});
 
-    const base = kingdom.getPlanner().getBaseById(this.baseId);
+    const base = kernel.getPlanner().getBaseById(this.baseId);
     if (!base) {
       trace.error('missing origin', {id: this.baseId});
       return [null, null];
     }
 
-    const [pathResult, details] = getPath(kingdom, base.origin, leg.destination, roadPolicy, trace);
+    const [pathResult, details] = getPath(kernel, base.origin, leg.destination, roadPolicy, trace);
     trace.log('path result', {origin: base.origin, dest: leg.destination, pathResult});
 
     if (!pathResult) {
@@ -677,13 +678,3 @@ const visualizeLegs = (legs: Leg[], trace: Tracer) => {
     new RoomVisual(leg.destination.roomName).text('X', leg.destination.x, leg.destination.y);
   }
 }
-
-
-// Resources / logistics
-this.resources = null;
-this.hasStorage = false;
-this.threadUpdateResources = thread('update_resource', UPDATE_RESOURCES_TTL)((trace) => {
-  // Storage
-  this.hasStorage = this.getReserveStructures(false).length > 0;
-  this.resources = this.updateReserveResources();
-});

@@ -1,3 +1,4 @@
+import {Base, getBasePrimaryRoom, getStructureForResource, getStructureWithResource} from "./base";
 import * as MEMORY from "./constants.memory";
 import * as PRIORITIES from "./constants.priorities";
 import * as TASKS from "./constants.tasks";
@@ -5,9 +6,11 @@ import * as TOPICS from "./constants.topics";
 import {Kernel} from "./kernel";
 import {Event} from "./lib.event_broker";
 import {Tracer} from './lib.tracing';
+import {PersistentMemory} from "./os.memory";
 import {running, sleeping, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 import {thread, ThreadFunc} from './os.thread';
+import {getBaseDistributorTopic} from "./role.distributor";
 
 const TASK_PHASE_START = 'phase_start';
 const TASK_PHASE_LOAD = 'phase_transfer_resources';
@@ -30,7 +33,7 @@ export const REACTION_STATUS_START = 'reaction_status_start';
 export const REACTION_STATUS_UPDATE = 'reaction_status_update';
 export const REACTION_STATUS_STOP = 'reaction_status_stop';
 
-export default class ReactorRunnable {
+export default class ReactorRunnable extends PersistentMemory {
   id: string;
   baseId: string;
   labIds: Id<StructureLab>[];
@@ -39,6 +42,8 @@ export default class ReactorRunnable {
   threadProduceStatus: ThreadFunc;
 
   constructor(id: string, baseId: string, labIds: Id<StructureLab>[]) {
+    super(id)
+
     this.id = id;
     this.baseId = baseId;
     this.labIds = labIds;
@@ -53,11 +58,18 @@ export default class ReactorRunnable {
     const ticks = Game.time - this.prevTime;
     this.prevTime = Game.time;
 
-    const room = this.orgRoom.getRoomObject();
+    const base = kernel.getPlanner().getBaseById(this.baseId);
+    if (!base) {
+      trace.log('base not found');
+      trace.end();
+      return terminate()
+    };
+
+    const room = getBasePrimaryRoom(base);
     if (!room) {
       trace.log("room not found - terminating", {});
       trace.end();
-      return terminate();
+      return sleeping(50);
     }
 
     let labs = this.labIds.map(labId => Game.getObjectById(labId));
@@ -71,7 +83,7 @@ export default class ReactorRunnable {
     if (!task) {
       trace.log('no current task', {})
 
-      const task = (this.orgRoom as any).getKingdom().getNextRequest(TOPICS.TASK_REACTION);
+      const task = kernel.getTopics().getNextRequest(TOPICS.TASK_REACTION);
       if (!task) {
         trace.log('no available tasks', {});
         trace.end();
@@ -84,7 +96,7 @@ export default class ReactorRunnable {
       trace.log('got new task', {task})
     }
 
-    this.threadProduceStatus(trace, labs, task);
+    this.threadProduceStatus(trace, kernel, room, labs, task);
 
     trace.log('reactor run', {
       labIds: this.labIds,
@@ -93,7 +105,7 @@ export default class ReactorRunnable {
     });
 
     if (task) {
-      const sleepFor = this.processTask(kingdom, room, labs, task, ticks, trace)
+      const sleepFor = this.processTask(kernel, base, room, labs, task, ticks, trace)
       if (sleepFor) {
         trace.end();
         return sleeping(sleepFor);
@@ -115,6 +127,8 @@ export default class ReactorRunnable {
     return `${MEMORY.REACTOR_TASK}_${this.labIds[0]}`;
   }
   getTask() {
+    // @REFACTOR persistent memory
+    // TODO - left off here, need to finish switching to persistent memory
     const room = this.orgRoom.getRoomObject();
     if (!room) {
       return null;
@@ -126,6 +140,7 @@ export default class ReactorRunnable {
     return !this.getTask();
   }
   clearTask() {
+    // @REFACTOR persistent memory
     const room = this.orgRoom.getRoomObject();
     if (!room) {
       return;
@@ -135,7 +150,7 @@ export default class ReactorRunnable {
   }
 
   // TODO create type for task
-  processTask(kernel: Kernel, room: Room, labs: StructureLab[], task: any, ticks: number, trace: Tracer): number {
+  processTask(kernel: Kernel, base: Base, room: Room, labs: StructureLab[], task: any, ticks: number, trace: Tracer): number {
     const inputA = task.details[MEMORY.REACTOR_INPUT_A];
     const amount = task.details[MEMORY.REACTOR_AMOUNT];
     const inputB = task.details[MEMORY.REACTOR_INPUT_B];
@@ -162,8 +177,8 @@ export default class ReactorRunnable {
           room.memory[this.getTaskMemoryId()][MEMORY.REACTOR_TTL] = ttl - ticks;
         }
 
-        const readyA = this.prepareInput(kingdom, labs[1], inputA, amount, trace);
-        const readyB = this.prepareInput(kingdom, labs[2], inputB, amount, trace);
+        const readyA = this.prepareInput(kernel, base, labs[1], inputA, amount, trace);
+        const readyB = this.prepareInput(kernel, base, labs[2], inputB, amount, trace);
 
         if (readyA && readyB) {
           trace.log('loaded, moving to react phase', {});
@@ -194,7 +209,7 @@ export default class ReactorRunnable {
           return NO_SLEEP;
         }
 
-        this.unloadLab(kingdom, labs[0], trace);
+        this.unloadLab(kernel, base, labs[0], trace);
 
         return REQUEST_UNLOAD_TTL;
       default:
@@ -204,15 +219,15 @@ export default class ReactorRunnable {
     }
   }
 
-  unloadLabs(kernel: Kernel, labs: StructureLab[], trace: Tracer) {
+  unloadLabs(kernel: Kernel, base: Base, labs: StructureLab[], trace: Tracer) {
     labs.forEach((lab) => {
       if (lab.mineralType) {
-        this.unloadLab(kingdom, lab, trace);
+        this.unloadLab(kernel, base, lab, trace);
       }
     });
   }
 
-  prepareInput(kernel: Kernel, lab: StructureLab, resource, desiredAmount: number, trace: Tracer) {
+  prepareInput(kernel: Kernel, base: Base, lab: StructureLab, resource, desiredAmount: number, trace: Tracer) {
     let currentAmount = 0;
     if (lab.mineralType) {
       currentAmount = lab.store.getUsedCapacity(lab.mineralType);
@@ -220,19 +235,19 @@ export default class ReactorRunnable {
 
     // Unload the lab if it's not the right mineral
     if (lab.mineralType && lab.mineralType !== resource && lab.store.getUsedCapacity(lab.mineralType) > 0) {
-      this.unloadLab(kingdom, lab, trace);
+      this.unloadLab(kernel, base, lab, trace);
       return false;
     }
 
     // Load the lab with the right mineral
     if (currentAmount < desiredAmount) {
-      const pickup = this.orgRoom.getReserveStructureWithMostOfAResource(resource, true);
+      const pickup = getStructureWithResource(base, resource);
       const missingAmount = desiredAmount - currentAmount;
 
       if (!pickup) {
         this.requestResource(resource, missingAmount, trace);
       } else {
-        this.loadLab(kingdom, lab, pickup, resource, missingAmount, trace);
+        this.loadLab(kernel, lab, pickup, resource, missingAmount, trace);
       }
 
       return false;
@@ -245,6 +260,7 @@ export default class ReactorRunnable {
     // TODO this really should use topics/IPC
     trace.log('requesting resource from governor', {resource, amount});
 
+    // @REFACTOR resource governor
     const resourceGovernor = (this.orgRoom as any).getKingdom().getResourceGovernor();
     const requested = resourceGovernor.requestResource(this.orgRoom, resource, amount, REQUEST_LOAD_TTL, trace);
     if (!requested) {
@@ -261,7 +277,7 @@ export default class ReactorRunnable {
       ttl: REQUEST_LOAD_TTL,
     });
 
-    kingdom.sendRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.HAUL_REACTION, {
+    kernel.getTopics().addRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.HAUL_REACTION, {
       [MEMORY.TASK_ID]: `load-${this.id}-${Game.time}`,
       [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
       [MEMORY.MEMORY_HAUL_PICKUP]: pickup.id,
@@ -271,9 +287,9 @@ export default class ReactorRunnable {
     }, REQUEST_LOAD_TTL);
   }
 
-  unloadLab(kernel: Kernel, lab, trace: Tracer) {
+  unloadLab(kernel: Kernel, base: Base, lab, trace: Tracer) {
     const currentAmount = lab.store.getUsedCapacity(lab.mineralType);
-    const dropoff = this.orgRoom.getReserveStructureWithRoomForResource(lab.mineralType);
+    const dropoff = getStructureForResource(base, lab.mineralType);
 
     trace.log('requesting unload', {
       lab: lab.id,
@@ -283,7 +299,7 @@ export default class ReactorRunnable {
       ttl: REQUEST_LOAD_TTL,
     });
 
-    kingdom.sendRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.HAUL_REACTION, {
+    kernel.getTopics().addRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.HAUL_REACTION, {
       [MEMORY.TASK_ID]: `unload-${this.id}-${Game.time}`,
       [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
       [MEMORY.MEMORY_HAUL_PICKUP]: lab.id,
@@ -293,7 +309,7 @@ export default class ReactorRunnable {
     }, REQUEST_LOAD_TTL);
   }
 
-  produceUpdateStatus(trace: Tracer, labs: StructureLab[], task) {
+  produceUpdateStatus(trace: Tracer, kernel: Kernel, room: Room, labs: StructureLab[], task) {
     if (!task) {
       trace.log('no task', {});
       return;
@@ -304,7 +320,7 @@ export default class ReactorRunnable {
     const amount = labs[0]?.store.getUsedCapacity(task?.details[MEMORY.REACTOR_OUTPUT]) || 0;
 
     const status = {
-      [MEMORY.REACTION_STATUS_ROOM]: this.orgRoom.id,
+      [MEMORY.REACTION_STATUS_ROOM]: room.name,
       [MEMORY.REACTION_STATUS_LAB]: labs[0].id,
       [MEMORY.REACTION_STATUS_RESOURCE]: resource,
       [MEMORY.REACTION_STATUS_RESOURCE_AMOUNT]: amount,
@@ -313,13 +329,13 @@ export default class ReactorRunnable {
 
     trace.log('producing reactor status', {status});
 
-    this.orgRoom.getKingdom().sendRequest(TOPICS.ACTIVE_REACTIONS, 1, status, PRODUCE_STATUS_TTL);
+    kernel.getTopics().addRequest(TOPICS.ACTIVE_REACTIONS, 1, status, PRODUCE_STATUS_TTL);
 
     if (resource) {
-      this.orgRoom.getKingdom().getBroker().getStream(REACTION_STATUS_STREAM).
+      kernel.getBroker().getStream(REACTION_STATUS_STREAM).
         publish(new Event(this.id, Game.time, REACTION_STATUS_UPDATE, status));
     } else {
-      this.orgRoom.getKingdom().getBroker().getStream(REACTION_STATUS_STREAM).
+      kernel.getBroker().getStream(REACTION_STATUS_STREAM).
         publish(new Event(this.id, Game.time, REACTION_STATUS_STOP, {}));
     }
   }

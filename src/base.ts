@@ -1,6 +1,9 @@
+import {MEMORY_BASE} from "./constants.memory";
 import {Kernel} from "./kernel";
 import {LabsByAction, ResourceCounts} from "./runnable.base_booster";
 import {BaseLayout} from "./runnable.base_construction";
+
+const PER_LEVEL_ENERGY = 100000;
 
 export enum AlertLevel {
   GREEN = "green",
@@ -33,7 +36,7 @@ export function getBasePrimaryRoom(base: Base): Room {
 }
 
 export function getCreepBase(kernel: Kernel, creep: Creep): Base {
-  const baseId = creep.memory[MEMORY.MEMORY_BASE];
+  const baseId = creep.memory[MEMORY_BASE];
   if (!baseId) {
     return null;
   }
@@ -71,13 +74,74 @@ export function setLabsByAction(base: Base, labsByAction: LabsByAction) {
   base.boosts = labsByAction;
 }
 
-export function getResources(kernel: Kernel, base: Base): ResourceCounts {
-  const resources = {};
+export function getStoredResources(base: Base): ResourceCounts {
+  return getStorageStructures(base).reduce((acc, structure) => {
+    Object.keys(structure.store).forEach((resource: ResourceConstant) => {
+      const current = acc[resource] || 0;
+      acc[resource] = structure.store.getUsedCapacity(resource) + current;
+    });
 
-  return resources;
+    return acc;
+  }, {} as ResourceCounts);
 }
 
-export function getStructureWithResource(base: Base, resource: ResourceConstant): Structure | null {
+export function getStoredResourceAmount(base: Base, resource: ResourceConstant): number {
+  const resources = getStoredResources(base);
+  return resources[resource] || 0;
+}
+
+export function getEnergyFullness(base: Base): number {
+  const structures = getStorageStructures(base)
+  if (!structures.length) {
+    return 0;
+  }
+
+  const stores = structures.reduce((acc, structure) => {
+    acc.capacity += structure.store.getCapacity(RESOURCE_ENERGY);
+    acc.used += structure.store.getUsedCapacity(RESOURCE_ENERGY);
+    return acc;
+  }, {capacity: 0, used: 0});
+
+  if (!stores.capacity) {
+    return 0;
+  }
+
+  return stores.used / stores.capacity;
+}
+
+export function getReserveBuffer(base: Base): number {
+  if (!this.room.controller?.my) {
+    return 0;
+  }
+
+  const roomLevel = this.getRoomLevel();
+
+  if (roomLevel < 4) {
+    return 2000;
+  }
+
+  return (roomLevel - 3) * PER_LEVEL_ENERGY;
+}
+
+export function getStorageStructures(base: Base): StructureStorage[] {
+  const structures = [];
+
+  if (!this.room) {
+    return structures;
+  }
+
+  if (this.room.storage?.isActive()) {
+    structures.push(this.room.storage);
+  }
+
+  if (this.room.terminal?.isActive()) {
+    structures.push(this.room.terminal);
+  }
+
+  return structures;
+}
+
+export function getStructureWithResource(base: Base, resource: ResourceConstant): AnyStoreStructure | null {
   const structures = getStructuresWithResource(base, resource);
   if (!structures.length) {
     return null;
@@ -86,7 +150,7 @@ export function getStructureWithResource(base: Base, resource: ResourceConstant)
   return structures[0];
 }
 
-export function getStructureForResource(base: Base, resource: ResourceConstant): Structure | null {
+export function getStructureForResource(base: Base, resource: ResourceConstant): AnyStoreStructure | null {
   const structures = getStructuresForResource(base, resource);
   if (!structures.length) {
     return null;
@@ -95,8 +159,8 @@ export function getStructureForResource(base: Base, resource: ResourceConstant):
   return structures[0];
 }
 
-export function getStructuresWithResource(base: Base, resource: ResourceConstant): Structure[] {
-  const structures: Structure[] = [];
+export function getStructuresWithResource(base: Base, resource: ResourceConstant): AnyStoreStructure[] {
+  const structures: AnyStoreStructure[] = [];
 
   const room = getBasePrimaryRoom(base);
   if (!room) {
@@ -114,8 +178,8 @@ export function getStructuresWithResource(base: Base, resource: ResourceConstant
   return structures;
 }
 
-export function getStructuresForResource(base: Base, resource: ResourceConstant): Structure[] {
-  const structures: Structure[] = [];
+export function getStructuresForResource(base: Base, resource: ResourceConstant): AnyStoreStructure[] {
+  const structures: AnyStoreStructure[] = [];
 
   const room = getBasePrimaryRoom(base);
   if (!room) {
@@ -152,4 +216,43 @@ export function getBaseLevel(base: Base): number {
   }
 
   return level;
+}
+
+export function getBaseLevelCompleted(base: Base) {
+  const room = getBasePrimaryRoom(base);
+  if (!room) {
+    return 0
+  }
+
+  if (!room.controller?.my) {
+    return 0;
+  }
+
+  return room.controller.progress / room.controller.progressTotal;
+}
+
+export function getDamagedStructures(base: Base): Structure[] {
+  const structures: Structure[] = [];
+
+  // @REFACTOR decide how to share damaged structures
+
+  return structures;
+}
+
+export function getNextDamagedStructure(base: Base): Structure | null {
+  const structures = getDamagedStructures(base);
+  if (!structures.length) {
+    return null;
+  }
+
+  return structures[0];
+}
+
+export function baseEnergyStorageCapacity(base: Base): number {
+  const room = getBasePrimaryRoom(base);
+  if (!room) {
+    return 0;
+  }
+
+  return room.energyCapacityAvailable || 0;
 }

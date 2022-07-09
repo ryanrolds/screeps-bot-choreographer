@@ -21,6 +21,7 @@ import KingdomGovernorRunnable from './runnable.kingdom_governor';
 import BufferManager from './runnable.manager.buffer';
 import DefenseManager from './runnable.manager.defense';
 import InvaderManager from './runnable.manager.invaders';
+import {ResourceManager} from './runnable.manager.resources';
 import WarManager from './runnable.manager.war';
 import {Scribe} from './runnable.scribe';
 import {SiteJanitor} from './runnable.site_janitor';
@@ -35,6 +36,7 @@ export class AI implements Kernel {
   private creeps: CreepManager;
   private pathCache: PathCache;
   private costMatrixCache: CostMatrixCache;
+  private resourceManager: ResourceManager;
 
   constructor(config: ShardConfig, scheduler: Scheduler, trace: Tracer) {
     trace = trace.begin('ai_constructor');
@@ -79,6 +81,11 @@ export class AI implements Kernel {
       Priorities.CRITICAL, new KingdomGovernorRunnable()));
 
     // ========= High-level managers
+
+    // Resource Manager
+    this.resourceManager = new ResourceManager(this);
+    scheduler.registerProcess(new Process('resource_manager', 'resource_manager',
+      Priorities.LOGISTICS, this.resourceManager));
 
     // Site Janitor
     const siteJanitorId = 'site_janitor';
@@ -199,6 +206,10 @@ export class AI implements Kernel {
 
   getCostMatrixCache(): CostMatrixCache {
     return this.costMatrixCache;
+  }
+
+  getResourceManager(): ResourceManager {
+    return this.resourceManager;
   }
 
   getFriends(): string[] {

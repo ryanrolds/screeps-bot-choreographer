@@ -1,6 +1,6 @@
 
 import * as _ from 'lodash';
-import {Base} from './base';
+import {Base, getBasePrimaryRoom} from './base';
 import {Kernel} from './kernel';
 import {Tracer} from './lib.tracing';
 import {Process, sleeping, terminate} from "./os.process";
@@ -97,7 +97,7 @@ export class LabsManager {
   assignBasedOnPosition(kernel: Kernel, base: Base, orgRoom: Room, trace: Tracer) {
     trace = trace.begin('assign_labs');
 
-    const room = orgRoom.getRoomObject();
+    const room = getBasePrimaryRoom(base);
     if (!room) {
       trace.end();
       return;

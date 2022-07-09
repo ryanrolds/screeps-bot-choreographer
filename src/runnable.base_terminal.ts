@@ -3,6 +3,7 @@ import * as MEMORY from "./constants.memory";
 import * as PRIORITIES from "./constants.priorities";
 import * as TASKS from "./constants.tasks";
 import * as TOPICS from "./constants.topics";
+import {Kernel} from "./kernel";
 import {ResourcePricer, SigmoidPricing} from './lib.sigmoid_pricing';
 import {Tracer} from './lib.tracing';
 import {running, sleeping, terminate} from "./os.process";
@@ -24,7 +25,6 @@ const UPDATE_ENERGY_VALUE_TTL = 2500;
 
 export default class TerminalRunnable {
   baseId: string;
-  orgRoom: OrgRoom;
   terminalId: Id<StructureTerminal>;
   prevTime: number;
   processTaskTTL: number;
@@ -36,11 +36,10 @@ export default class TerminalRunnable {
   threadHaulOldSellOrders: ThreadFunc;
   threadUpdateEnergyValue: ThreadFunc;
 
-  constructor(baseId: string, room: OrgRoom, terminal: StructureTerminal) {
+  constructor(baseId: string, terminal: StructureTerminal) {
     this.baseId = baseId;
-    this.orgRoom = room;
-
     this.terminalId = terminal.id;
+
     this.prevTime = Game.time;
     this.processTaskTTL = 0;
     this.returnEnergyTTL = REQUEST_RETURN_ENERGY_TTL;
@@ -61,6 +60,12 @@ export default class TerminalRunnable {
     this.updateOrdersTTL -= ticks;
     this.returnEnergyTTL -= ticks;
 
+    const base = kernel.getPlanner().getBaseById(this.baseId);
+    if (!base) {
+      trace.error('no base config for room', {baseId: this.baseId});
+      return terminate();
+    }
+
     const terminal = Game.getObjectById(this.terminalId);
     // If terminal no longer exists, terminate
     if (!terminal) {
@@ -74,8 +79,8 @@ export default class TerminalRunnable {
       return sleeping(100);
     }
 
-    this.threadHaulOldSellOrders(trace, kingdom, terminal);
-    this.threadUpdateEnergyValue(trace);
+    this.threadHaulOldSellOrders(trace, kernel, base, terminal);
+    this.threadUpdateEnergyValue(trace, kernel, base, terminal);
 
     let task = terminal.room.memory[MEMORY.TERMINAL_TASK] || null;
     if (!task) {

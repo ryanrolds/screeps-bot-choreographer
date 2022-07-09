@@ -1,19 +1,19 @@
+import {AlertLevel, Base, baseEnergyStorageCapacity, getBaseLevel, getBaseLevelCompleted, getStoredResources} from './base';
 import {creepIsFresh} from './behavior.commute';
-import {Base} from './config';
 import * as CREEPS from './constants.creeps';
 import * as MEMORY from './constants.memory';
 import * as PRIORITIES from './constants.priorities';
 import * as TOPICS from './constants.topics';
+import {Kernel} from './kernel';
 import {Event} from './lib.event_broker';
 import {Tracer} from './lib.tracing';
-import OrgRoom from "./org.room";
 import {Process, sleeping, terminate} from "./os.process";
-import {RunnableResult} from "./os.runnable";
+import {Runnable, RunnableResult} from "./os.runnable";
 import {Priorities, Scheduler} from "./os.scheduler";
 import {thread, ThreadFunc} from './os.thread';
 import MineralRunnable from './runnable.base_room_mineral';
 import SourceRunnable from "./runnable.base_room_source";
-import {createSpawnRequest, getBaseSpawnTopic, getShardSpawnTopic, requestSpawn} from './runnable.base_spawning';
+import {createSpawnRequest, getBaseSpawnTopic, getShardSpawnTopic} from './runnable.base_spawning';
 import {getLinesStream, HudEventSet, HudLine} from './runnable.debug_hud';
 
 const MIN_RESERVATION_TICKS = 4000;
@@ -24,7 +24,7 @@ const REQUEST_RESERVER_TTL = 25;
 const UPDATE_PROCESSES_TTL = 50;
 const PRODUCE_STATUS_TTL = 25;
 
-export default class RoomRunnable {
+export default class RoomRunnable implements Runnable {
   id: string;
   scheduler: Scheduler;
 
@@ -49,17 +49,9 @@ export default class RoomRunnable {
       id: this.id,
     });
 
-    const base = kingdom.getPlanner().getBaseByRoom(this.id);
+    const base = kernel.getPlanner().getBaseByRoom(this.id);
     if (!base) {
-      trace.error("no colony config, terminating", {id: this.id})
-      trace.end();
-      return terminate();
-    }
-
-    // TODO try to remove dependency on OrgRoom
-    const orgRoom = kingdom.getRoomByName(this.id);
-    if (!orgRoom) {
-      trace.error("no org room, terminating", {id: this.id})
+      trace.error("no base config, terminating", {id: this.id})
       trace.end();
       return terminate();
     }
@@ -70,18 +62,18 @@ export default class RoomRunnable {
       return sleeping(NO_VISION_TTL);
     }
 
-    if (!orgRoom.isPrimary) {
-      this.threadRequestReserver(trace, kingdom, base, orgRoom, room);
+    if (room.name != base.primary) {
+      this.threadRequestReserver(trace, kernel, base, room);
     }
 
-    this.threadUpdateProcessSpawning(trace, orgRoom, room);
-    this.threadProduceStatus(trace, base, orgRoom);
+    this.threadUpdateProcessSpawning(trace, kernel, base, room);
+    this.threadProduceStatus(trace, base, kernel, base, room);
 
     trace.end();
     return sleeping(MIN_TTL);
   }
 
-  handleProcessSpawning(trace: Tracer, orgRoom: OrgRoom, room: Room) {
+  handleProcessSpawning(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
     if (room.controller?.my || !room.controller?.owner?.username) {
       // Sources
       room.find(FIND_SOURCES).forEach((source) => {
@@ -89,95 +81,116 @@ export default class RoomRunnable {
         if (!this.scheduler.hasProcess(sourceId)) {
           trace.log("found source without process, starting", {sourceId: source.id, room: this.id});
           this.scheduler.registerProcess(new Process(sourceId, 'sources', Priorities.RESOURCES,
-            new SourceRunnable(orgRoom, source)));
+            new SourceRunnable(source)));
         }
       });
 
-      if (orgRoom.isPrimary && orgRoom.getRoomLevel() >= 6) {
+      if (base.primary === room.name && room.controller?.level >= 6) {
         // Mineral
         room.find(FIND_MINERALS).forEach((mineral) => {
           const mineralId = `${mineral.id}`
           if (!this.scheduler.hasProcess(mineralId)) {
             this.scheduler.registerProcess(new Process(mineralId, 'mineral', Priorities.RESOURCES,
-              new MineralRunnable(orgRoom, mineral)));
+              new MineralRunnable(mineral)));
           }
         });
       }
     }
   }
 
-  requestReserver(trace: Tracer, kernel: Kernel, base: Base, orgRoom: OrgRoom, room: Room) {
+  requestReserver(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
     const numReservers = _.filter(Game.creeps, (creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
       return (role === CREEPS.WORKER_RESERVER) &&
         creep.memory[MEMORY.MEMORY_ASSIGN_ROOM] === this.id && creepIsFresh(creep);
     }).length;
 
-    let reservationTicks = 0;
-    if (room?.controller?.reservation) {
-      reservationTicks = room.controller.reservation.ticksToEnd;
-    }
-
-    trace.log('deciding to request reserver', {
-      numReservers: numReservers,
-      ownedByMe: (orgRoom?.reservedByMe || orgRoom?.claimedByMe),
-      numHostiles: orgRoom?.numHostiles,
-      numDefenders: orgRoom?.numDefenders,
-      reservationTicks: (orgRoom?.reservedByMe && reservationTicks) ?
-        reservationTicks < MIN_RESERVATION_TICKS : false,
-    });
-
     if (numReservers) {
       return;
     }
 
-    const notOwned = orgRoom && !orgRoom.reservedByMe && !orgRoom.claimedByMe;
-    const reservedByMeAndEndingSoon = orgRoom.reservedByMe && reservationTicks < MIN_RESERVATION_TICKS;
-    if (notOwned && !orgRoom.numHostiles || reservedByMeAndEndingSoon) {
-      trace.log('sending reserve request to colony');
+    // If base is under threat, don't worry about remotes
+    if (base.alertLevel !== AlertLevel.GREEN) {
+      trace.info('not requesting reserver, base alert level is not green', {
+        roomName: room.name,
+        baseId: base.id,
+        alertLevel: base.alertLevel,
+      });
 
-      const priority = PRIORITIES.PRIORITY_RESERVER;
-      const ttl = REQUEST_RESERVER_TTL;
-      const role = CREEPS.WORKER_RESERVER;
-      const memory = {
-        [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
-        [MEMORY.MEMORY_BASE]: base.id,
-      }
-
-      let topic = getShardSpawnTopic()
-      if (orgRoom.getColony().primaryRoom.energyCapacityAvailable > 800) {
-        topic = getBaseSpawnTopic(base.id);
-      }
-
-      const request = createSpawnRequest(priority, ttl, role, memory, 0);
-      requestSpawn(kingdom, topic, request);
+      return;
     }
+
+    // If owned by me we don't need reserver
+    if (room.controller?.owner?.username === 'ENETDOWN') {
+      trace.info('not requesting reserver, room is owned by me', {
+        roomName: room.name,
+        baseId: base.id,
+      });
+
+      return;
+    }
+
+    if (room.controller?.reservation?.username === 'ENETDOWN') {
+      let reservationTicks = 0;
+      if (room?.controller?.reservation) {
+        reservationTicks = room.controller.reservation.ticksToEnd;
+      }
+
+      // If reserved by me and reservation is not over soon, don't request reserver
+      if (reservationTicks > MIN_RESERVATION_TICKS) {
+        trace.info('not requesting reserver, room is owned by me', {
+          roomName: room.name,
+          baseId: base.id,
+        });
+
+        return;
+      }
+    }
+
+    trace.log('sending reserve request to colony');
+
+    const priority = PRIORITIES.PRIORITY_RESERVER;
+    const ttl = REQUEST_RESERVER_TTL;
+    const role = CREEPS.WORKER_RESERVER;
+    const memory = {
+      [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
+      [MEMORY.MEMORY_BASE]: base.id,
+    }
+
+    let topic = getShardSpawnTopic()
+    if (baseEnergyStorageCapacity(base) >= 800) {
+      topic = getBaseSpawnTopic(base.id);
+    }
+
+    const request = createSpawnRequest(priority, ttl, role, memory, 0);
+    kernel.getTopics().addRequestV2(topic, request);
   }
 
-  produceStatus(trace: Tracer, base: Base, orgRoom: OrgRoom) {
-    const resources = orgRoom.getReserveResources();
-
+  produceStatus(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
+    const baseLevel = getBaseLevel(base);
+    const baseLevelCompleted = getBaseLevelCompleted(base);
+    const resources = getStoredResources(base);
     const status = {
-      [MEMORY.ROOM_STATUS_NAME]: orgRoom.id,
-      [MEMORY.ROOM_STATUS_LEVEL]: orgRoom.getRoomLevel(),
-      [MEMORY.ROOM_STATUS_LEVEL_COMPLETED]: orgRoom.getRoomLevelCompleted(),
-      [MEMORY.ROOM_STATUS_TERMINAL]: orgRoom.hasTerminal(),
+      [MEMORY.ROOM_STATUS_NAME]: room.name,
+      [MEMORY.ROOM_STATUS_LEVEL]: baseLevel,
+      [MEMORY.ROOM_STATUS_LEVEL_COMPLETED]: baseLevelCompleted,
+      [MEMORY.ROOM_STATUS_TERMINAL]: !!room.terminal,
       [MEMORY.ROOM_STATUS_ENERGY]: resources[RESOURCE_ENERGY] || 0,
       [MEMORY.ROOM_STATUS_ALERT_LEVEL]: base.alertLevel,
     };
 
-    trace.log('producing room status', {status});
+    trace.info('producing room status', {status});
 
-    orgRoom.getKingdom().sendRequest(TOPICS.ROOM_STATUES, 1, status, PRODUCE_STATUS_TTL);
+    kernel.getTopics().addRequest(TOPICS.ROOM_STATUES, 1, status, PRODUCE_STATUS_TTL);
 
     const line: HudLine = {
-      key: `room_${orgRoom.id}`,
-      room: orgRoom.id,
+      key: `room_${room.name}`,
+      room: room.name,
       order: 1,
-      text: `Room: ${orgRoom.id} - status: ${base.alertLevel}, level: ${orgRoom.getRoomLevel()}`,
+      text: `Room: ${room.name} - status: ${base.alertLevel}, level: ${baseLevel}`,
       time: Game.time,
     };
-    const event = new Event(orgRoom.id, Game.time, HudEventSet, line);
-    orgRoom.getKingdom().getBroker().getStream(getLinesStream()).publish(event);
+    const event = new Event(room.name, Game.time, HudEventSet, line);
+    kernel.getBroker().getStream(getLinesStream()).publish(event);
   }
 }

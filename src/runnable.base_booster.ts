@@ -1,4 +1,4 @@
-import {Base, getResources, getStructureForResource, getStructureWithResource} from "./base";
+import {Base, getStoredResources, getStructureForResource, getStructureWithResource} from "./base";
 import * as MEMORY from "./constants.memory";
 import * as PRIORITIES from "./constants.priorities";
 import * as TASKS from "./constants.tasks";
@@ -326,7 +326,7 @@ export default class BoosterRunnable {
   }
 
   getAvailableEffects(kernel: Kernel, base: Base): EffectSet {
-    const availableResources = getResources(kernel, base)
+    const availableResources = getStoredResources(base)
     const loadedResource = this.getLabResources();
 
     // TODO the merge does not sum values
@@ -480,7 +480,7 @@ export default class BoosterRunnable {
   }
 
   requestMaterialsForLabs(kernel: Kernel, base: Base, needToLoad, trace: Tracer) {
-    const reserveResources = getResources(kernel, base);
+    const storedResources = getStoredResources(base);
 
     needToLoad.forEach((toLoad) => {
       trace.log('need to load', {toLoad})
@@ -512,7 +512,7 @@ export default class BoosterRunnable {
 
       // Refactor this to a a function that further filters a set of effects
       const compound = effect.compounds.reduce((selected, compound) => {
-        if (reserveResources[compound.name] >= MIN_COMPOUND) {
+        if (storedResources[compound.name] >= MIN_COMPOUND) {
           if (!selected) {
             selected = compound;
           }

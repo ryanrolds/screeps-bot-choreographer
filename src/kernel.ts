@@ -6,6 +6,7 @@ import {PathCache} from "./lib.path_cache";
 import {Topics} from "./lib.topics";
 import {Scheduler} from "./os.scheduler";
 import {CentralPlanning} from "./runnable.central_planning";
+import {ResourceManager} from "./runnable.manager.resources";
 import {Scribe} from "./runnable.scribe";
 
 export interface Kernel {
@@ -18,6 +19,7 @@ export interface Kernel {
   getPlanner(): CentralPlanning;
   getPathCache(): PathCache;
   getCostMatrixCache(): CostMatrixCache;
+  getResourceManager(): ResourceManager;
 
   getFriends(): string[];
   getAvoid(): string[];

@@ -1,8 +1,7 @@
+import {Kernel} from './kernel';
 import {Tracer} from './lib.tracing';
-import {Kingdom} from "./org.kingdom";
-import {Observer} from "./org.observer";
 import {running, terminate} from "./os.process";
-import {RunnableResult} from "./os.runnable";
+import {Runnable, RunnableResult} from "./os.runnable";
 
 export default class ObserverRunnable {
   id: Id<StructureObserver>;
@@ -12,79 +11,47 @@ export default class ObserverRunnable {
     this.id = id;
   }
 
-  run(kernel: Kernel, trace: Tracer): RunnableResult {
-    trace = trace.as('observer_run');
 
-    const structure = Game.getObjectById(this.id);
-    if (!structure) {
-      trace.error('missing structure', {id: this.id});
-      return terminate();
-    }
-
-    if (!this.observer) {
-      this.observer = new Observer(kingdom, structure, trace);
-    }
-
-    this.observer.update(trace);
-    this.observer.process(trace);
-
-    return running();
-  }
 }
 
-
-import {OrgBase} from './org.base';
-import {Scribe} from './runnable.scribe';
-
-export class Observer extends OrgBase {
-  observer: StructureObserver;
+export class Observer implements Runnable {
+  id: Id<StructureObserver>;
   inRangeRooms: Id<Room>[];
   justObserved: Id<Room>;
 
-  scribe: Scribe;
-
-  constructor(parent: Kingdom, observer: StructureObserver, trace: Tracer) {
-    super(parent, observer.id, trace);
-
-    const setupTrace = this.trace.begin('constructor');
-
-    this.observer = observer;
-    this.inRangeRooms = inRangeRoomNames(observer.room.name);
-    this.scribe = this.getKingdom().getScribe();
-
-    setupTrace.end();
+  constructor(id: Id<StructureObserver>) {
+    this.id = id;
   }
 
-  update(trace: Tracer) {
-    const updateTrace = trace.begin('observer_update');
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
+    trace = trace.as('observer_run');
 
-    this.observer = Game.getObjectById(this.id as Id<StructureObserver>);
-    if (!this.observer) {
-      updateTrace.error('missing observer', {id: this.id});
-      updateTrace.end();
-      return;
+    const observer = Game.getObjectById(this.id);
+    if (!observer) {
+      trace.error('missing structure', {id: this.id});
+      trace.end();
+      return terminate();
     }
 
     if (this.justObserved && Game.rooms[this.justObserved]) {
-      const kingdom = this.getKingdom();
-      kingdom.getScribe().updateRoom(kingdom, Game.rooms[this.justObserved], trace);
+      kernel.getScribe().updateRoom(kernel, Game.rooms[this.justObserved], trace);
     }
 
-    updateTrace.log('in range rooms', {inRange: this.inRangeRooms});
+    trace.log('in range rooms', {inRange: this.inRangeRooms});
 
-    const getOldestRoomTrace = updateTrace.begin('get_oldest_room');
-    const nextRoom = this.scribe.getOldestRoomInList(this.inRangeRooms);
+    const getOldestRoomTrace = trace.begin('get_oldest_room');
+    const nextRoom = kernel.getScribe().getOldestRoomInList(this.inRangeRooms);
     getOldestRoomTrace.end();
 
-    updateTrace.log('next room', {nextRoom});
+    trace.log('next room', {nextRoom});
 
     if (!nextRoom) {
-      updateTrace.end();
-      return;
+      trace.end();
+      return running();
     }
 
-    const observeRoomTrace = updateTrace.begin('observe_room');
-    const result = this.observer.observeRoom(nextRoom);
+    const observeRoomTrace = trace.begin('observe_room');
+    const result = observer.observeRoom(nextRoom);
     observeRoomTrace.end();
 
     if (result === OK) {
@@ -93,19 +60,10 @@ export class Observer extends OrgBase {
       this.justObserved = null;
     }
 
-    updateTrace.end();
+    trace.end();
+    return running();
   }
 
-  process(trace: Tracer) {
-    const processTrace = trace.begin('process');
-
-    processTrace.end();
-  }
-
-  toString() {
-    return `** Observer - Id: ${this.id}, Room: ${this.observer.room.name}, ` +
-      `LastScanned: ${this.justObserved}, #InRange: ${this.inRangeRooms.length}`;
-  }
 }
 
 const inRangeRoomNames = (centerRoomName: string): Id<Room>[] => {

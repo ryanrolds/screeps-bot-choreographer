@@ -1,10 +1,13 @@
+import {Base, getBasePrimaryRoom, getStructureForResource, getStructureWithResource} from "./base";
 import * as MEMORY from "./constants.memory";
 import * as PRIORITIES from "./constants.priorities";
 import * as TASKS from "./constants.tasks";
+import {Kernel} from "./kernel";
 import {Tracer} from './lib.tracing';
 import {sleeping, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 import {thread, ThreadFunc} from "./os.thread";
+import {getBaseDistributorTopic} from "./role.distributor";
 
 const TICK_STEP = 2;
 const PROCESS_TTL = 250;
@@ -15,7 +18,6 @@ const UPDATE_STRUCTURES_TTL = 100;
 export default class LinkManager {
   id: string;
   baseId: string;
-  orgRoom: OrgRoom;
   storageId: Id<StructureStorage>;
   storageLink: Id<StructureLink>;
   sourceLinks: Id<StructureLink>[];
@@ -26,10 +28,9 @@ export default class LinkManager {
 
   threadUpdateStructures: ThreadFunc;
 
-  constructor(id: string, baseId: string, orgRoom: OrgRoom) {
+  constructor(id: string, baseId: string) {
     this.id = id;
     this.baseId = baseId;
-    this.orgRoom = orgRoom;
 
     this.storageLink = null;
     this.sourceLinks = [];
@@ -49,13 +50,20 @@ export default class LinkManager {
 
     this.haulTTL -= ticks;
 
-    const room = this.orgRoom.getRoomObject();
-    if (!room) {
-      trace.end();
+    const base = kernel.getPlanner().getBaseById(this.baseId);
+    if (!base) {
+      trace.log('no base config for room', {baseId: this.baseId});
       return terminate();
     }
 
-    this.threadUpdateStructures(trace);
+    const room = getBasePrimaryRoom(base);
+    if (!room) {
+      trace.error('base primary room not visible', {baseId: this.baseId});
+      trace.end();
+      return;
+    }
+
+    this.threadUpdateStructures(trace, base, room);
 
     trace.info('running', {
       storageId: this.storageId,
@@ -153,17 +161,17 @@ export default class LinkManager {
       if (!hasEnergy.length) {
         const amount = storageLink.store.getFreeCapacity(RESOURCE_ENERGY);
         if (amount) {
-          const pickup = this.orgRoom.getReserveStructureWithMostOfAResource(RESOURCE_ENERGY, true);
+          const pickup = getStructureWithResource(base, RESOURCE_ENERGY);
           if (pickup) {
-            this.fillLink(kingdom, storageLink, pickup, _.min([amount, ENERGY_READY_AMOUNT]), trace);
+            this.fillLink(kernel, storageLink, pickup, _.min([amount, ENERGY_READY_AMOUNT]), trace);
           }
         }
       } else if (hasEnergy.length > 1) { // If we have more than one source link ready, unload storage link
         const amount = storageLink.store.getUsedCapacity(RESOURCE_ENERGY);
         if (amount) {
-          const dropoff = this.orgRoom.getReserveStructureWithRoomForResource(RESOURCE_ENERGY);
+          const dropoff = getStructureForResource(base, RESOURCE_ENERGY);
           if (dropoff) {
-            this.emptyLink(kingdom, storageLink, dropoff, amount, trace);
+            this.emptyLink(kernel, storageLink, dropoff, amount, trace);
           }
         }
       }
@@ -182,27 +190,22 @@ export default class LinkManager {
     return sleeping(TICK_STEP);
   }
 
-  updateStructures() {
-    const roomObject = this.orgRoom.getRoomObject();
-    if (!roomObject) {
-      throw new Error('cannot create a link manager when room does not exist');
-    }
-
-    this.storageId = roomObject.storage?.id;
+  updateStructures(trace: Tracer, base: Base, room: Room) {
+    this.storageId = room.storage?.id;
     if (!this.storageId) {
       throw new Error('cannot create a link manager when room does not have storage');
     }
 
     // TODO move these to a thread
-    if (roomObject.storage) {
-      this.storageLink = roomObject.storage.pos.findInRange<StructureLink>(FIND_STRUCTURES, 3, {
+    if (room.storage) {
+      this.storageLink = room.storage.pos.findInRange<StructureLink>(FIND_STRUCTURES, 3, {
         filter: (structure) => {
           return structure.structureType === STRUCTURE_LINK && structure.isActive();
         }
       })[0]?.id;
     }
 
-    const sources = roomObject.find(FIND_SOURCES);
+    const sources = room.find(FIND_SOURCES);
     this.sourceLinks = sources.map((source) => {
       return source.pos.findInRange<StructureLink>(FIND_STRUCTURES, 2, {
         filter: (structure) => {
@@ -211,7 +214,7 @@ export default class LinkManager {
       })[0]?.id;
     }).filter(value => value);
 
-    const controller = roomObject.controller
+    const controller = room.controller
     if (controller) {
       this.sinkLinks = controller.pos.findInRange<StructureLink>(FIND_STRUCTURES, 4, {
         filter: (structure) => {
@@ -235,7 +238,7 @@ export default class LinkManager {
       [MEMORY.MEMORY_HAUL_DROPOFF]: dropoff.id,
     };
 
-    kingdom.sendRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.UNLOAD_LINK, details, HAUL_TTL);
+    kernel.getTopics().addRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.UNLOAD_LINK, details, HAUL_TTL);
     trace.log('haul energy from storage link', {request: details});
   }
 
@@ -252,7 +255,7 @@ export default class LinkManager {
     };
 
     trace.log('haul energy to storage link', {request: details});
-    kingdom.sendRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.LOAD_LINK, details, HAUL_TTL);
+    kernel.getTopics().addRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.LOAD_LINK, details, HAUL_TTL);
 
   }
 }

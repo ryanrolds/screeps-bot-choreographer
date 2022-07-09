@@ -1,28 +1,29 @@
+import {Base, getBasePrimaryRoom, getStructureWithResource} from "./base";
 import * as MEMORY from "./constants.memory";
 import * as PRIORITIES from "./constants.priorities";
 import * as TASKS from "./constants.tasks";
 import * as TOPICS from "./constants.topics";
+import {Kernel} from "./kernel";
 import {Tracer} from './lib.tracing';
 import {sleeping, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
+import {getBaseDistributorTopic} from "./role.distributor";
 
 const REQUEST_RESOURCES_TTL = 25;
 
 export default class NukerRunnable {
-  baseId: string;
-  orgRoom: OrgRoom;
   id: Id<StructureNuker>;
+  baseId: string;
 
   damagedCreep: Id<Creep>;
 
   haulTTL: number;
   prevTime: number;
 
-  constructor(baseId: string, room: OrgRoom, tower: StructureNuker) {
+  constructor(id: Id<StructureNuker>, baseId: string) {
+    this.id = id;
     this.baseId = baseId;
-    this.orgRoom = room;
 
-    this.id = tower.id;
     this.haulTTL = 0;
     this.prevTime = Game.time;
   }
@@ -35,7 +36,13 @@ export default class NukerRunnable {
 
     this.haulTTL -= ticks;
 
-    const room = this.orgRoom.getRoomObject()
+    const base = kernel.getPlanner().getBaseById(this.baseId);
+    if (!base) {
+      trace.error('no base config for room', {baseId: this.baseId});
+      return terminate();
+    }
+
+    const room = getBasePrimaryRoom(base);
     if (!room) {
       trace.end();
       return terminate();
@@ -57,21 +64,21 @@ export default class NukerRunnable {
     const neededEnergy = nuker.store.getFreeCapacity(RESOURCE_ENERGY);
     if (neededEnergy > 0) {
       trace.log('need energy', {neededEnergy});
-      this.requestResource(kingdom, RESOURCE_ENERGY, neededEnergy, trace);
+      this.requestResource(kernel, base, RESOURCE_ENERGY, neededEnergy, trace);
       readyToFire = false;
     }
 
     const neededGhodium = nuker.store.getFreeCapacity(RESOURCE_GHODIUM);
     if (neededGhodium > 0) {
       trace.log('need ghodium', {neededGhodium});
-      this.requestResource(kingdom, RESOURCE_GHODIUM, neededGhodium, trace);
+      this.requestResource(kernel, base, RESOURCE_GHODIUM, neededGhodium, trace);
       readyToFire = false;
     }
 
     if (readyToFire) {
       trace.log('lets play global thermonuclear war');
 
-      const request = (kingdom as any).getNextRequest(TOPICS.NUKER_TARGETS);
+      const request = (kernel as any).getNextRequest(TOPICS.NUKER_TARGETS);
       if (request) {
         const positionStr = request.details.position;
         const posArray = positionStr.split(',');
@@ -96,15 +103,16 @@ export default class NukerRunnable {
     return sleeping(REQUEST_RESOURCES_TTL);
   }
 
-  requestResource(kernel: Kernel, resource: ResourceConstant, amount: number, trace: Tracer) {
-    const pickup = this.orgRoom.getReserveStructureWithMostOfAResource(resource, true);
+  requestResource(kernel: Kernel, base: Base, resource: ResourceConstant, amount: number, trace: Tracer) {
+    const pickup = getStructureWithResource(base, resource);
     if (!pickup) {
       trace.log('unable to get resource from reserve', {resource, amount});
 
       trace.log('requesting resource from governor', {resource, amount});
-      const resourceGovernor = (this.orgRoom as any).getKingdom().getResourceGovernor();
+      const resourceGovernor = kernel.getResourceManager();
 
-      const requested = resourceGovernor.requestResource(this.orgRoom, resource, amount, REQUEST_RESOURCES_TTL, trace);
+      // @REFACTOR resource governor
+      const requested = resourceGovernor.requestResource(kernel, resource, amount, REQUEST_RESOURCES_TTL, trace);
       if (!requested) {
         resourceGovernor.buyResource(this.orgRoom, resource, amount, REQUEST_RESOURCES_TTL, trace);
       }
@@ -120,7 +128,7 @@ export default class NukerRunnable {
       ttl: REQUEST_RESOURCES_TTL,
     });
 
-    kingdom.sendRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.HAUL_NUKER, {
+    kernel.getTopics().addRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.HAUL_NUKER, {
       [MEMORY.TASK_ID]: `load-${this.id}-${Game.time}`,
       [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
       [MEMORY.MEMORY_HAUL_PICKUP]: pickup.id,
