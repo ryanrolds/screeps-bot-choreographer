@@ -1,8 +1,6 @@
-
-const behaviorTree = require('./lib.behaviortree');
-const {SUCCESS} = require('./lib.behaviortree');
-const behaviorAssign = require('./behavior.assign');
-const {MEMORY_ASSIGN_ROOM} = require('./constants.memory');
+import * as behaviorAssign from './behavior.assign';
+import {MEMORY_ASSIGN_ROOM} from './constants.memory';
+import * as behaviorTree from './lib.behaviortree';
 
 const behavior = behaviorTree.sequenceNode(
   'explorer_root',
@@ -16,7 +14,7 @@ const behavior = behaviorTree.sequenceNode(
         // If creep is assigned room it is not in, then move to that room
         if (creep.memory[MEMORY_ASSIGN_ROOM] && creep.pos.roomName !== creep.memory[MEMORY_ASSIGN_ROOM]) {
           trace.info('creep is assigned room already, moving to it');
-          return SUCCESS;
+          return behaviorTree.SUCCESS;
         }
 
         const currentRoomStatus = Game.map.getRoomStatus(creep.room.name);
@@ -39,7 +37,7 @@ const behavior = behaviorTree.sequenceNode(
 
         trace.info('next room', {next: entries[0].id});
         creep.memory[MEMORY_ASSIGN_ROOM] = entries[0].id;
-        return SUCCESS;
+        return behaviorTree.SUCCESS;
       },
     ),
     behaviorAssign.moveToRoom,
@@ -52,7 +50,7 @@ const behavior = behaviorTree.sequenceNode(
         // Move one step into the room
         creep.moveTo(new RoomPosition(25, 25, creep.room.name), {maxOps: 100});
 
-        return SUCCESS;
+        return behaviorTree.SUCCESS;
       },
     ),
   ],

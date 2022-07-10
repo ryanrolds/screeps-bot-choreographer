@@ -3,8 +3,8 @@ env:
   node: true
   screeps/screeps: true
 extends:
- - google
- - eslint:recommended
+# - google
+# - eslint:recommended
  - plugin:@typescript-eslint/recommended
 parserOptions:
   ecmaVersion: 12
@@ -12,7 +12,7 @@ parserOptions:
 rules:
   require-jsdoc: 0
   max-len:
-    - error
+    - warn
     - code: 120
   indent: off
 plugins:

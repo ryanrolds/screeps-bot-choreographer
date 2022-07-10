@@ -395,7 +395,7 @@ export default class PartyRunnable {
         });
     });
 
-    trace.log('blocking structures', (structures));
+    trace.log('blocking structures', {structures});
 
     return structures.length > 0;
   }

@@ -1,14 +1,12 @@
 import {getCreepBase} from './base';
 import * as behaviorAssign from './behavior.assign';
 import {behaviorBoosts} from './behavior.boosts';
+import {MEMORY_ASSIGN_ROOM_POS} from './constants.memory';
 import {Kernel} from './kernel';
 import * as behaviorTree from './lib.behaviortree';
 import {FAILURE, RUNNING, SUCCESS} from './lib.behaviortree';
 import {Tracer} from './lib.tracing';
 import {getBasePriorityTargetsTopic} from './runnable.manager.defense';
-
-const MEMORY = require('./constants.memory');
-const TOPICS = require('./constants.topics');
 
 const behavior = behaviorTree.sequenceNode(
   'defender_root',
@@ -19,7 +17,7 @@ const behavior = behaviorTree.sequenceNode(
       (creep: Creep, trace: Tracer, kernel: Kernel) => {
         const base = getCreepBase(kernel, creep);
         if (!base) {
-          trace.error('creep has no base', creep.memory);
+          trace.error('creep has no base', {memory: creep.memory});
         }
 
         // Heal self or adjacent creep if one has lower HP
@@ -115,7 +113,7 @@ const moveToAssignedPosition = (creep: Creep, trace: Tracer, kernel: Kernel) => 
   let position: RoomPosition = null;
 
   // Check if creep knows last known position
-  const positionString = creep.memory[MEMORY.MEMORY_ASSIGN_ROOM_POS] || null;
+  const positionString = creep.memory[MEMORY_ASSIGN_ROOM_POS] || null;
   if (positionString) {
     const posArray = positionString.split(',');
     if (posArray && posArray.length === 3) {

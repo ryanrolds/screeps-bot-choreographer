@@ -106,8 +106,6 @@ export default class LogisticsRunnable extends PersistentMemory {
     this.logisticsStreamConsumer = null;
     this.threadConsumeEvents = thread('consume_events', CONSUME_EVENTS_TTL)(this.consumeEvents.bind(this));
 
-    this.threadUpdateStorage = thread('update_storage', UPDATE_HAULERS_TTL)(this.updateStorage.bind(this));
-
     // Iterate through all destinations and calculate the remaining roads to build
     this.calculateLegIterator = this.calculateLegGenerator();
     this.threadCalculateLeg = thread('calculate_leg', CALCULATE_LEG_TTL)((trace: Tracer, kernel: Kernel) => {
@@ -180,10 +178,6 @@ export default class LogisticsRunnable extends PersistentMemory {
           break;
       }
     });
-  }
-
-  private updateStorage(trace: Tracer, kernel: Kernel, base: Base) {
-
   }
 
   private updateHaulers(trace: Tracer, kernel: Kernel) {
@@ -441,7 +435,7 @@ export default class LogisticsRunnable extends PersistentMemory {
     }
   }
 
-  private* calculateLegGenerator(): Generator<any, void, {kernel: Kernel, trace: Tracer}> {
+  private * calculateLegGenerator(): Generator<any, void, {kernel: Kernel, trace: Tracer}> {
     let legs: Leg[] = [];
     while (true) {
       const details: {kernel: Kernel, trace: Tracer} = yield;

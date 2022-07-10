@@ -67,7 +67,7 @@ const behavior = behaviorTree.sequenceNode(
 
           const base = getCreepBase(kernel, creep);
           if (!base) {
-            trace.error('no base config', creep.memory);
+            trace.error('no base config', {memory: creep.memory});
             creep.suicide();
             return FAILURE;
           }

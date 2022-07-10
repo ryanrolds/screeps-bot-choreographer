@@ -54,11 +54,11 @@ export class Tracer {
   /**
    * @deprecated Use `info(...)` instead.
    */
-  log(message: string, details: Object = {}): void {
+  log(message: string, details: Record<string, unknown> = {}): void {
     this.info(message, details);
   }
 
-  info(message: string, details: Object = {}): void {
+  info(message: string, details: Record<string, unknown> = {}): void {
     if (!this.shouldLog()) {
       return;
     }
@@ -67,17 +67,17 @@ export class Tracer {
       JSON.stringify(this.kv), '</font>');
   }
 
-  notice(message: string, details: Object = {}): void {
+  notice(message: string, details: Record<string, unknown> = {}): void {
     console.log(`<font color="#2B7FD3">[NOTICE]`, this.name, '::', message, JSON.stringify(details),
       JSON.stringify(this.kv), '</font>');
   }
 
-  warn(message: string, details: Object = {}): void {
+  warn(message: string, details: Record<string, unknown> = {}): void {
     console.log(`<font color="#ffbb00">[WARN]`, this.name, '::', message, JSON.stringify(details),
       JSON.stringify(this.kv), '</font>');
   }
 
-  error(message: string, details: Object = {}): void {
+  error(message: string, details: Record<string, unknown> = {}): void {
     console.log(`<font color="#FF5555">[ERROR]`, this.name, '::', message, JSON.stringify(details),
       JSON.stringify(this.kv), '</font>');
   }

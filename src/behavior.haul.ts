@@ -1,10 +1,9 @@
 import {getCreepBase} from './base';
+import * as MEMORY from './constants.memory';
+import * as TASKS from './constants.tasks';
 import * as behaviorTree from './lib.behaviortree';
 import {FAILURE, RUNNING, SUCCESS} from './lib.behaviortree';
 import {getBaseHaulerTopic} from './runnable.base_logistics';
-
-const MEMORY = require('./constants.memory');
-const TASKS = require('./constants.tasks');
 
 export const getHaulTaskFromBaseTopic = behaviorTree.leafNode(
   'pick_haul_task',
@@ -31,7 +30,7 @@ export const getHaulTaskFromBaseTopic = behaviorTree.leafNode(
   },
 );
 
-export const getNearbyHaulTaskFromTopic = function(topic) {
+export const getNearbyHaulTaskFromTopic = function (topic) {
   return behaviorTree.leafNode(
     'pick_nearby_haul_task',
     (creep, trace, kernel) => {

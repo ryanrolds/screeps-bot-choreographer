@@ -2,10 +2,7 @@ module.exports = function(grunt) {
   const config = require('./.screeps.json');
   grunt.initConfig({
     'eslint': {
-      options: {
-        configFile: '.eslintrc.yml',
-      },
-      target: ['src/**/*.js'],
+      target: ['src/*.ts'],
     },
     'mochaTest': {
       test: {
@@ -115,10 +112,9 @@ module.exports = function(grunt) {
     }
   });
 
-  grunt.registerTask('test', ['mochaTest']);
-  grunt.registerTask('check', ['mochaTest']);
+  grunt.registerTask('test', ['eslint', 'mochaTest']);
   grunt.registerTask('build', ['clean', 'ts', 'githash', 'regex-replace:gitsha']);
-  grunt.registerTask('default', ['check', 'build']);
+  grunt.registerTask('default', ['test', 'build']);
 
   // Tasks for uploading to specific servers
   grunt.registerTask('mmo', ['default', 'screeps:mmo']);

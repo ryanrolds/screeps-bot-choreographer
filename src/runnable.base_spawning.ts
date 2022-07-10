@@ -367,7 +367,7 @@ export default class SpawnManager {
       time: Game.time,
     };
     const event = new Event(this.id, Game.time, HudEventSet, line);
-    trace.log('produce_events', event);
+    trace.log('produce_events', {event});
     kernel.getBroker().getStream(getLinesStream()).publish(event);
 
     const indicatorStream = kernel.getBroker().getStream(getDashboardStream());

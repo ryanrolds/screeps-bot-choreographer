@@ -106,7 +106,7 @@ export class HUDRunnable {
       });
     });
 
-    trace.log('dashboards', this.dashboards);
+    trace.log('dashboards', {dashboards: this.dashboards});
 
     _.forEach(this.dashboards, (dashboard) => {
       const indicators = dashboard.getIndicators();

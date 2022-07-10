@@ -1,14 +1,10 @@
-import {Kernel} from './kernel';
 import * as MEMORY from './constants.memory';
+import {Kernel} from './kernel';
 import * as behaviorTree from './lib.behaviortree';
 import {RUNNING, SUCCESS} from './lib.behaviortree';
 import {Tracer} from './lib.tracing';
 
 const MEMORY_PREV_ROOM = 'previous_room';
-
-export const assignRoom = (creep: Creep, position: RoomPosition) => {
-
-};
 
 export const clearRoom = (creep: Creep) => {
   delete creep.memory[MEMORY.MEMORY_ASSIGN_ROOM];
