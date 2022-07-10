@@ -1,4 +1,5 @@
 
+import {getCreepBase} from "./base";
 import {behaviorBoosts} from "./behavior.boosts";
 import * as behaviorCommute from "./behavior.commute";
 import * as behaviorMovement from "./behavior.movement";
@@ -12,12 +13,12 @@ const behavior = behaviorTree.sequenceNode(
   'reserver_root',
   [
     behaviorMovement.moveToShard(MEMORY.MEMORY_ASSIGN_SHARD),
-    behaviorTree.leafNode('set_controller_location', (creep, trace, kingdom) => {
+    behaviorTree.leafNode('set_controller_location', (creep, trace, kernel) => {
       const assignedRoom = creep.memory[MEMORY.MEMORY_ASSIGN_ROOM];
 
       let posStr = [25, 25, assignedRoom].join(',');
 
-      const roomEntry = kingdom.getScribe().getRoomById(assignedRoom);
+      const roomEntry = kernel.getScribe().getRoomById(assignedRoom);
       if (roomEntry?.controller?.pos) {
         const pos = roomEntry.controller?.pos;
         posStr = [pos.x, pos.y, pos.roomName].join(',');
@@ -52,7 +53,7 @@ const behavior = behaviorTree.sequenceNode(
       'reserve',
       behaviorTree.leafNode(
         'claim',
-        (creep, trace, kingdom) => {
+        (creep, trace, kernel) => {
           const roomId = creep.memory[MEMORY.MEMORY_ASSIGN_ROOM];
           // If reserver doesn't have a room assigned, we are done
           if (!roomId) {
@@ -64,7 +65,7 @@ const behavior = behaviorTree.sequenceNode(
             return behaviorTree.SUCCESS;
           }
 
-          const base = kingdom.getCreepBase(creep);
+          const base = getCreepBase(kernel, creep);
           if (!base) {
             trace.error('no base config', creep.memory);
             creep.suicide();
@@ -84,7 +85,7 @@ const behavior = behaviorTree.sequenceNode(
 
           const unowned = !room.controller?.owner && !room.controller?.reservation;
           const claimedByMe = room.controller?.my || false;
-          const username = kingdom.getPlanner().getUsername();
+          const username = kernel.getPlanner().getUsername();
           const reservedByMe = room.controller && room.controller.reservation &&
             room.controller.reservation.username === username;
           const isPrimary = room.name === base.primary;

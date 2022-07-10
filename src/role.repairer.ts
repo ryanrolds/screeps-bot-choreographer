@@ -6,7 +6,7 @@ import {behaviorBoosts} from "./behavior.boosts";
 import * as behaviorCommute from "./behavior.commute";
 import * as behaviorMovement from "./behavior.movement";
 
-import {getCreepBase} from "./base";
+import {getCreepBase, getNextDamagedStructure} from "./base";
 import {getEnergy} from "./behavior.room";
 import {MEMORY_DESTINATION} from "./constants.memory";
 import {Kernel} from "./kernel";

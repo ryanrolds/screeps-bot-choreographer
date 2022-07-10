@@ -2,7 +2,7 @@ import {behaviorBoosts} from "./behavior.boosts";
 import * as behaviorHaul from "./behavior.haul";
 import {roadWorker} from "./behavior.logistics";
 import * as behaviorMovement from "./behavior.movement";
-import behaviorRoom from "./behavior.room";
+import * as behaviorRoom from "./behavior.room";
 import * as behaviorTree from "./lib.behaviortree";
 
 import * as MEMORY from "./constants.memory";

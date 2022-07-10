@@ -336,9 +336,9 @@ export class Scribe implements Runnable {
     });
   }
 
-  getRoomsWithHostileTowers(): [Id<Room>, number, string][] {
+  getRoomsWithHostileTowers(kernel): [Id<Room>, number, string][] {
     return Object.values(this.journal.rooms).filter((room) => {
-      if (!room.controller || room.controller.owner === 'ENETDOWN') {
+      if (!room.controller || room.controller.owner === kernel.getPlanner().getUsername()) {
         return false;
       }
 
@@ -378,9 +378,9 @@ export class Scribe implements Runnable {
     });
   }
 
-  getHostileRooms(): TargetRoom[] {
+  getHostileRooms(kernel): TargetRoom[] {
     return Object.values(this.journal.rooms).filter((room) => {
-      if (!room.controller || room.controller.owner === 'ENETDOWN') {
+      if (!room.controller || room.controller.owner === kernel.getPlanner().getUsername()) {
         return false;
       }
 
@@ -537,7 +537,8 @@ export class Scribe implements Runnable {
 
     room.numTowers = roomObject.find(FIND_STRUCTURES, {
       filter: (structure) => {
-        return structure.structureType === STRUCTURE_TOWER && structure.owner?.username !== 'ENETDOWN';
+        return structure.structureType === STRUCTURE_TOWER &&
+          structure.owner?.username !== kernel.getPlanner().getUsername();
       },
     }).length;
 

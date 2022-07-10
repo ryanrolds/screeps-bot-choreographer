@@ -1,3 +1,4 @@
+import {Kernel} from "./kernel";
 import {
   createCommonCostMatrix, createDefenderCostMatrix, createOpenSpaceMatrix, createPartyCostMatrix, createSourceRoadMatrix, visualizeCostMatrix
 } from "./lib.costmatrix";
@@ -12,10 +13,9 @@ export default class CostMatrixDebugger {
   costMatrix: CostMatrix;
   kernel: Kernel;
 
-  constructor(id: string, kernel: Kernel) {
+  constructor(id: string) {
     this.id = id;
     this.costMatrix = null;
-    this.kingdom = kingdom;
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
@@ -30,7 +30,7 @@ export default class CostMatrixDebugger {
   }
 
   debug(roomId: string, costMatrixType: AllowedCostMatrixTypes) {
-    const kingdom = global.AI.getKingdom();
+    const kernel = global.AI;
     const trace = new Tracer('costmatrix_debugger_debug', {}, 0)
     trace.log('debug matrix', {roomId, costMatrixType})
 
@@ -41,13 +41,13 @@ export default class CostMatrixDebugger {
         costMatrix = createPartyCostMatrix(roomId, trace);
         break;
       case AllowedCostMatrixTypes.COMMON:
-        costMatrix = createCommonCostMatrix(kingdom, roomId, trace);
+        costMatrix = createCommonCostMatrix(kernel, roomId, trace);
         break;
       case AllowedCostMatrixTypes.BASE_DEFENSE:
         costMatrix = createDefenderCostMatrix(roomId, trace);
         break;
       case AllowedCostMatrixTypes.SOURCE_ROAD:
-        costMatrix = createSourceRoadMatrix(kingdom, roomId, trace);
+        costMatrix = createSourceRoadMatrix(kernel, roomId, trace);
         break;
       case AllowedCostMatrixTypes.OPEN_SPACE:
         [costMatrix] = createOpenSpaceMatrix(roomId, trace);

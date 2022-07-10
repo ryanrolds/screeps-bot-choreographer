@@ -1,7 +1,6 @@
 // require('util.min_cut').test('W5N9');
 
 import {getNearbyPositions} from "./lib.position";
-import BaseConstructionRunnable from "./runnable.base_construction";
 
 /**
  * Posted 10 may 2018 by @saruss

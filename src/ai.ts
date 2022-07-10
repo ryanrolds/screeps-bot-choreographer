@@ -133,7 +133,7 @@ export class AI implements Kernel {
 
     // CostMatrix debugger
     const costMatrixDebuggerId = 'costmatrix_debugger';
-    const costMatrixDebugger = new CostMatrixDebugger(costMatrixDebuggerId, this);
+    const costMatrixDebugger = new CostMatrixDebugger(costMatrixDebuggerId);
     scheduler.registerProcess(new Process(costMatrixDebuggerId, 'costmatrix_debugger',
       Priorities.DEBUG, costMatrixDebugger));
 

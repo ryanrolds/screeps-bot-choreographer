@@ -1,9 +1,12 @@
+import {AlertLevel, Base, getStructuresWithResource} from "./base";
 import * as MEMORY from "./constants.memory";
 import * as PRIORITIES from "./constants.priorities";
 import * as TASKS from "./constants.tasks";
+import {Kernel} from "./kernel";
 import {Tracer} from './lib.tracing';
 import {running, sleeping, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
+import {getBaseDistributorTopic} from "./role.distributor";
 import {getBasePriorityTargetsTopic} from "./runnable.manager.defense";
 
 const REQUEST_ENERGY_TTL = 10;
@@ -17,7 +20,6 @@ interface Point {
 
 export default class TowerRunnable {
   baseId: string;
-  orgRoom: OrgRoom;
   towerId: Id<StructureTower>;
 
   damagedCreep: string; // Creep name FIX
@@ -27,11 +29,10 @@ export default class TowerRunnable {
   repairTTL: number;
   prevTime: number;
 
-  constructor(baseId: string, room: OrgRoom, tower: StructureTower) {
+  constructor(baseId: string, tower: StructureTower) {
     this.baseId = baseId;
-    this.orgRoom = room;
-
     this.towerId = tower.id;
+
     this.haulTTL = 0;
     this.repairTTL = 0;
     this.prevTime = Game.time;
@@ -43,25 +44,28 @@ export default class TowerRunnable {
     const ticks = Game.time - this.prevTime;
     this.prevTime = Game.time;
 
-    const room = this.orgRoom.getRoomObject()
-    if (!room) {
+    const base = kernel.getPlanner().getBaseById(this.baseId);
+    if (!base) {
+      trace.error("no base config, terminating", {id: this.baseId})
       trace.end();
       return terminate();
     }
 
     const tower = Game.getObjectById(this.towerId);
     if (!tower) {
+      trace.error("no tower, terminating", {id: this.towerId})
       trace.end();
       return terminate();
     }
 
     if (!tower.isActive()) {
+      trace.error("tower is inactive, sleeping", {id: this.towerId})
       trace.end();
       return sleeping(100);
     }
 
     // Count towers based on which have energy
-    const numTowers = room.find(FIND_MY_STRUCTURES, {
+    const numPoweredTowers = tower.room.find(FIND_MY_STRUCTURES, {
       filter: (s: AnyStoreStructure) => {
         return s.structureType === STRUCTURE_TOWER && s.store.getUsedCapacity(RESOURCE_ENERGY) > 10;
       }
@@ -73,34 +77,34 @@ export default class TowerRunnable {
     const towerUsed = tower.store.getUsedCapacity(RESOURCE_ENERGY);
 
     trace.info("tower runnable", {
-      room: room.name,
+      room: tower.room.name,
       id: this.towerId,
       haulTTL: this.haulTTL,
       repairTTL: this.repairTTL,
       repairTarget: this.repairTarget,
       energy: towerUsed,
-      numTowers,
+      numPoweredTowers: numPoweredTowers,
     });
 
     // Request energy
     if (towerUsed < REQUEST_ENERGY_THRESHOLD && this.haulTTL < 0) {
       this.haulTTL = REQUEST_ENERGY_TTL;
       trace.info('requesting energy', {});
-      this.requestEnergy(kingdom, this.orgRoom, tower, REQUEST_ENERGY_TTL, trace);
+      this.requestEnergy(kernel, base, tower, REQUEST_ENERGY_TTL, trace);
     }
 
     // Attack hostiles
-    const roomId = this.orgRoom.id;
-    let targets = kingdom.getFilteredRequests(getBasePriorityTargetsTopic(this.baseId),
+    const roomName = tower.room.name;
+    let targets = kernel.getTopics().getFilteredRequests(getBasePriorityTargetsTopic(this.baseId),
       (target) => {
-        trace.info('finding target', {target, roomId});
-        return target.details.roomName === roomId;
+        trace.info('finding target', {target, roomId: roomName});
+        return target.details.roomName === roomName;
       }
     );
 
     // Remove targets that can heal too much
     targets = targets.filter((target) => {
-      return numTowers * 600 > target.details.healingPower;
+      return numPoweredTowers * 600 > target.details.healingPower;
     });
 
     trace.info('targets', {
@@ -168,6 +172,8 @@ export default class TowerRunnable {
         this.repairTTL = 0;
       }
     }
+
+    // @REFACTOR damaged structure event streams
 
     // Repair damaged structure
     if (!this.repairTarget && this.orgRoom.damagedStructures.length) {
@@ -239,13 +245,13 @@ export default class TowerRunnable {
     return running();
   }
 
-  private requestEnergy(kernel: Kernel, room: OrgRoom, tower: StructureTower, ttl: number, trace: Tracer) {
+  private requestEnergy(kernel: Kernel, base: Base, tower: StructureTower, ttl: number, trace: Tracer) {
     const towerUsed = tower.store.getUsedCapacity(RESOURCE_ENERGY);
     const towerFree = tower.store.getFreeCapacity(RESOURCE_ENERGY);
     const towerTotal = tower.store.getCapacity(RESOURCE_ENERGY);
 
-    const pickupId = this.orgRoom.getClosestStoreWithEnergy(tower);
-    const priority = ((room.numHostiles) ?
+    const pickupId = getStructuresWithResource(base, RESOURCE_ENERGY).shift();
+    const priority = (base.alertLevel !== AlertLevel.GREEN ?
       PRIORITIES.HAUL_TOWER_HOSTILES : PRIORITIES.HAUL_TOWER) - (towerUsed / towerTotal);
 
     const details = {
@@ -257,7 +263,7 @@ export default class TowerRunnable {
       [MEMORY.MEMORY_HAUL_DROPOFF]: tower.id,
     };
 
-    kingdom.sendRequest(getBaseDistributorTopic(this.baseId), priority, details, ttl);
+    kernel.getTopics().addRequest(getBaseDistributorTopic(this.baseId), priority, details, ttl);
 
     trace.log('request energy', {priority, details, towerUsed, towerTotal});
   }

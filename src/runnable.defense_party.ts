@@ -1,7 +1,8 @@
 import * as _ from 'lodash';
-import {Base} from './config';
+import {Base} from './base';
 import {WORKER_DEFENDER_DRONE} from './constants.creeps';
 import {PRIORITY_BUFFER_PATROL} from "./constants.priorities";
+import {Kernel} from './kernel';
 import {Tracer} from './lib.tracing';
 import {running, STATUS_TERMINATED, terminate} from "./os.process";
 import {RunnableResult} from './os.runnable';
@@ -62,7 +63,7 @@ export default class DefensePartyRunnable {
     let targetStructures: Structure[] = [];
     // Get target requests and map to creeps
     if (flag.room) {
-      const friends = kingdom.config.friends;
+      const friends = kernel.getConfig().friends;
       targetCreeps = flag.room.find(FIND_HOSTILE_CREEPS).filter((creep) => {
         return friends.indexOf(creep.owner.username) === -1;
       });
@@ -71,7 +72,7 @@ export default class DefensePartyRunnable {
         return 50 - creep.getActiveBodyparts(ATTACK);
       });
 
-      const username = kingdom.getPlanner().getUsername();
+      const username = kernel.getPlanner().getUsername();
       if (!flag.room.controller?.my && flag.room.controller?.reservation?.username !== username) {
         targetStructures = flag.room.find(FIND_STRUCTURES, {
           filter: (structure) => {
@@ -112,7 +113,7 @@ export default class DefensePartyRunnable {
     this.setTarget(targets, trace);
     this.setHeal(trace);
 
-    const partyResult = this.party.run(kingdom, trace);
+    const partyResult = this.party.run(kernel, trace);
 
     partyTrace.end();
 

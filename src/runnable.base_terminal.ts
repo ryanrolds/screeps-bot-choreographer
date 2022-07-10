@@ -1,3 +1,4 @@
+import {Base, getStoredResourceAmount, getStructureForResource, getStructureWithResource} from "./base";
 import {PRICES} from "./constants.market";
 import * as MEMORY from "./constants.memory";
 import * as PRIORITIES from "./constants.priorities";
@@ -6,9 +7,11 @@ import * as TOPICS from "./constants.topics";
 import {Kernel} from "./kernel";
 import {ResourcePricer, SigmoidPricing} from './lib.sigmoid_pricing';
 import {Tracer} from './lib.tracing';
+import {PersistentMemory} from "./os.memory";
 import {running, sleeping, terminate} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 import {thread, ThreadFunc} from "./os.thread";
+import {getBaseDistributorTopic} from "./role.distributor";
 
 const TASK_PHASE_HAUL_RESOURCE = 'phase_transfer_resource';
 const TASK_PHASE_TRANSACT = 'phase_transact';
@@ -23,7 +26,7 @@ const ORDER_MGMT_TTL = 1000;
 const HAUL_OLD_SELL_ORDER_TTL = 20;
 const UPDATE_ENERGY_VALUE_TTL = 2500;
 
-export default class TerminalRunnable {
+export default class TerminalRunnable extends PersistentMemory {
   baseId: string;
   terminalId: Id<StructureTerminal>;
   prevTime: number;
@@ -37,6 +40,8 @@ export default class TerminalRunnable {
   threadUpdateEnergyValue: ThreadFunc;
 
   constructor(baseId: string, terminal: StructureTerminal) {
+    super(terminal.id);
+
     this.baseId = baseId;
     this.terminalId = terminal.id;
 
@@ -85,7 +90,7 @@ export default class TerminalRunnable {
     let task = terminal.room.memory[MEMORY.TERMINAL_TASK] || null;
     if (!task) {
       this.processTaskTTL = -1;
-      task = (this.orgRoom as any).getNextRequest(TOPICS.TOPIC_TERMINAL_TASK);
+      task = kernel.getTopics().getNextRequest(TOPICS.TOPIC_TERMINAL_TASK);
       if (task) {
         terminal.room.memory[MEMORY.TERMINAL_TASK] = task;
       }
@@ -101,14 +106,14 @@ export default class TerminalRunnable {
 
     if (task && this.processTaskTTL < 0) {
       this.processTaskTTL = PROCESS_TASK_TTL;
-      this.processTask(kingdom, terminal, task, ticks, trace);
+      this.processTask(kernel, base, terminal, task, ticks, trace);
     } else if (!task) {
       const terminalAmount = terminal.store.getUsedCapacity(RESOURCE_ENERGY);
       if (terminalAmount > MAX_TERMINAL_ENERGY && this.returnEnergyTTL < 0) {
         this.returnEnergyTTL = REQUEST_RETURN_ENERGY_TTL;
         const amountToTransfer = terminalAmount - MAX_TERMINAL_ENERGY;
         trace.log('send energy to storage', {amountToTransfer})
-        this.sendEnergyToStorage(kingdom, terminal, amountToTransfer, REQUEST_RETURN_ENERGY_TTL, trace);
+        this.sendEnergyToStorage(kernel, base, terminal, amountToTransfer, REQUEST_RETURN_ENERGY_TTL, trace);
       }
     }
 
@@ -121,6 +126,8 @@ export default class TerminalRunnable {
     return running();
   }
 
+  // @REFACTOR implement persistent memory
+
   isIdle() {
     return !!this.orgRoom.getRoomObject()?.memory[MEMORY.TERMINAL_TASK];
   }
@@ -132,7 +139,7 @@ export default class TerminalRunnable {
     delete this.orgRoom.getRoomObject()?.memory[MEMORY.TERMINAL_TASK];
   }
 
-  processTask(kernel: Kernel, terminal: StructureTerminal, task, ticks: number, trace: Tracer) {
+  processTask(kernel: Kernel, base: Base, terminal: StructureTerminal, task, ticks: number, trace: Tracer) {
     const details = task.details;
     const taskType = details[MEMORY.TERMINAL_TASK_TYPE];
 
@@ -153,15 +160,15 @@ export default class TerminalRunnable {
 
     switch (taskType) {
       case TASKS.TASK_TRANSFER:
-        this.transferResource(kingdom, terminal, details, trace);
+        this.transferResource(kernel, base, terminal, details, trace);
         break;
       case TASKS.TASK_MARKET_ORDER:
         // Perform market order
         const orderType = details[MEMORY.MEMORY_ORDER_TYPE];
         if (orderType === ORDER_SELL) {
-          this.sell(kingdom, terminal, details, trace);
+          this.sell(kernel, base, terminal, details, trace);
         } else if (orderType === ORDER_BUY) {
-          this.buy(kingdom, terminal, details, trace);
+          this.buy(kernel, base, terminal, details, trace);
         } else {
           this.clearTask(trace);
         }
@@ -173,7 +180,7 @@ export default class TerminalRunnable {
     return;
   }
 
-  transferResource(kernel: Kernel, terminal: StructureTerminal, task, trace: Tracer) {
+  transferResource(kernel: Kernel, base: Base, terminal: StructureTerminal, task, trace: Tracer) {
     const resource = task[MEMORY.TRANSFER_RESOURCE];
     let amount = task[MEMORY.TRANSFER_AMOUNT];
     const roomName = task[MEMORY.TRANSFER_ROOM];
@@ -191,7 +198,7 @@ export default class TerminalRunnable {
           break;
         }
 
-        const pickup = this.orgRoom.getReserveStructureWithMostOfAResource(resource, false);
+        const pickup = getStructureWithResource(base, resource);
         if (!pickup) {
           if (!terminalAmount) {
             trace.log('no pickup and no resources in terminal', {});
@@ -209,7 +216,7 @@ export default class TerminalRunnable {
 
         trace.log('requesting resource transfer to terminal', {pickup: pickup.id, resource, amount});
 
-        this.haulResourceToTerminal(kingdom, terminal, pickup, resource, amount);
+        this.haulResourceToTerminal(kernel, base, terminal, pickup, resource, amount);
         break;
       case TASK_PHASE_TRANSFER:
         let haulAmount = amount;
@@ -221,7 +228,7 @@ export default class TerminalRunnable {
           trace.log('padded energy', {amount, added: energyRequired});
         }
 
-        const energyReady = this.haulTransferEnergyToTerminal(kingdom, terminal, resource, haulAmount, roomName, trace);
+        const energyReady = this.haulTransferEnergyToTerminal(kernel, base, terminal, resource, haulAmount, roomName, trace);
         if (!energyReady) {
           trace.log('energy not ready', {amount, roomName, haulAmount});
           break;
@@ -242,7 +249,7 @@ export default class TerminalRunnable {
     }
   }
 
-  buy(kernel: Kernel, terminal: StructureTerminal, task, trace: Tracer) {
+  buy(kernel: Kernel, base: Base, terminal: StructureTerminal, task, trace: Tracer) {
     const resource = task[MEMORY.MEMORY_ORDER_RESOURCE] as ResourceConstant;
     const amount = task[MEMORY.MEMORY_ORDER_AMOUNT] as number;
     const currentAmount = terminal.store.getUsedCapacity(resource);
@@ -276,6 +283,8 @@ export default class TerminalRunnable {
       return order.price + (transferEnergy * this.energyValue);
     })[0];
 
+    // @REFACTOR resource governor
+
     const resources = this.orgRoom.getKingdom().getResourceGovernor().getSharedResources();
     const reserveAmount = resources[resource] || 0;
 
@@ -288,7 +297,7 @@ export default class TerminalRunnable {
     }
 
     let dealAmount = Math.min(missingAmount, sellOrder.remainingAmount);
-    const energyReady = this.prepareTransferEnergy(kingdom, terminal, sellOrder, dealAmount, trace);
+    const energyReady = this.prepareTransferEnergy(kernel, base, terminal, sellOrder, dealAmount, trace);
     if (!energyReady) {
       trace.log('deal energy not ready', {dealAmount})
       return;
@@ -304,7 +313,7 @@ export default class TerminalRunnable {
     });
   }
 
-  sell(kernel: Kernel, terminal: StructureTerminal, task, trace: Tracer) {
+  sell(kernel: Kernel, base: Base, terminal: StructureTerminal, task, trace: Tracer) {
     const resource = task[MEMORY.MEMORY_ORDER_RESOURCE];
     const amount = task[MEMORY.MEMORY_ORDER_AMOUNT];
     const phase = task[MEMORY.TASK_PHASE] || TASK_PHASE_HAUL_RESOURCE;
@@ -318,7 +327,7 @@ export default class TerminalRunnable {
           break;
         }
 
-        const pickup = this.orgRoom.getReserveStructureWithMostOfAResource(resource, false);
+        const pickup = getStructureWithResource(base, resource);
         if (!pickup) {
           if (!terminalAmount) {
 
@@ -332,7 +341,7 @@ export default class TerminalRunnable {
           break;
         }
 
-        this.haulResourceToTerminal(kingdom, terminal, pickup, resource, amount);
+        this.haulResourceToTerminal(kernel, base, terminal, pickup, resource, amount);
         break;
       case TASK_PHASE_TRANSACT:
         // Check if we are done selling
@@ -352,6 +361,8 @@ export default class TerminalRunnable {
           return order.price + (transferEnergy * this.energyValue);
         }).reverse()[0];
 
+        // @REFACTOR resource governor
+
         // Get desired purchase price based on current stockpile
         const resources = this.orgRoom.getKingdom().getResourceGovernor().getSharedResources();
         const currentAmount = resources[resource] || 0;
@@ -367,7 +378,7 @@ export default class TerminalRunnable {
 
         // Make sure we have enough energy to perform the deal
         const dealAmount = _.min([amount, buyOrder.remainingAmount]);
-        const energyReady = this.prepareTransferEnergy(kingdom, terminal, buyOrder, dealAmount, trace);
+        const energyReady = this.prepareTransferEnergy(kernel, base, terminal, buyOrder, dealAmount, trace);
         if (!energyReady) {
           trace.log('deal energy not ready', {dealAmount})
           return;
@@ -400,7 +411,7 @@ export default class TerminalRunnable {
     }
   }
 
-  prepareTransferEnergy(kernel: Kernel, terminal: StructureTerminal, order: Order, amount: number, trace: Tracer) {
+  prepareTransferEnergy(kernel: Kernel, base: Base, terminal: StructureTerminal, order: Order, amount: number, trace: Tracer) {
     const energyRequired = Game.market.calcTransactionCost(amount, terminal.room.name,
       order.roomName);
     // If we are transfering energy we need energy in addition to what we want to transfer
@@ -410,7 +421,7 @@ export default class TerminalRunnable {
       trace.log('padded haul amount', {haulAmount, added: energyRequired});
     }
 
-    return this.haulTransferEnergyToTerminal(kingdom, terminal, order.resourceType as ResourceConstant,
+    return this.haulTransferEnergyToTerminal(kernel, base, terminal, order.resourceType as ResourceConstant,
       haulAmount, order.roomName, trace);
   }
 
@@ -478,6 +489,8 @@ export default class TerminalRunnable {
         return;
       }
 
+      // @REFACTOR resource governor
+
       const resources = this.orgRoom.getKingdom().getResourceGovernor().getSharedResources();
       const currentAmount = resources[order.resourceType] || 0;
       const price = this.pricer.getPrice(order.type as (ORDER_BUY | ORDER_SELL),
@@ -492,7 +505,7 @@ export default class TerminalRunnable {
     });
   }
 
-  haulOldSellOrders(trace: Tracer, kernel: Kernel, terminal: StructureTerminal) {
+  haulOldSellOrders(trace: Tracer, kernel: Kernel, base: Base, terminal: StructureTerminal) {
     trace.log('checking for incomplete sell orders');
 
     const ordersWithMissingResources = Object.values(Game.market.orders).filter((order) => {
@@ -503,7 +516,8 @@ export default class TerminalRunnable {
     trace.log('incomplete orders', {ordersWithMissingResources})
 
     ordersWithMissingResources.forEach((order) => {
-      const pickup = this.orgRoom.getReserveStructureWithMostOfAResource(order.resourceType, false);
+      const resourceType = order.resourceType;
+      const pickup = getStructureWithResource(base, resourceType as ResourceConstant);
       if (!pickup) {
         const result = Game.market.cancelOrder(order.id);
         trace.log('cancelling order: resource not available', {result, order});
@@ -519,12 +533,12 @@ export default class TerminalRunnable {
 
       trace.log('requesting hauling', {resource: order.resourceType, missingAmount});
 
-      this.sendHaulRequest(kingdom, terminal, pickup, order.resourceType as ResourceConstant, missingAmount, PRIORITIES.HAUL_TERMINAL);
+      this.sendHaulRequest(kernel, base, terminal, pickup, order.resourceType as ResourceConstant, missingAmount, PRIORITIES.HAUL_TERMINAL);
     });
   }
 
-  haulResourceToTerminal(kernel: Kernel, terminal: StructureTerminal, pickup, resource, amount) {
-    const baseCreeps = kingdom.creepManager.getCreepsByBase(this.baseId);
+  haulResourceToTerminal(kernel: Kernel, base: Base, terminal: StructureTerminal, pickup, resource, amount) {
+    const baseCreeps = kernel.getCreepsManager().getCreepsByBase(this.baseId);
     const numHaulers = baseCreeps.filter((creep) => {
       return creep.memory[MEMORY.MEMORY_TASK_TYPE] === TASKS.TASK_HAUL &&
         creep.memory[MEMORY.MEMORY_HAUL_RESOURCE] === resource &&
@@ -536,23 +550,23 @@ export default class TerminalRunnable {
       return;
     }
 
-    this.sendHaulRequest(kingdom, terminal, pickup, resource, amount, PRIORITIES.HAUL_TERMINAL);
+    this.sendHaulRequest(kernel, base, terminal, pickup, resource, amount, PRIORITIES.HAUL_TERMINAL);
   }
 
-  haulTransferEnergyToTerminal(kernel: Kernel, terminal: StructureTerminal, resource: ResourceConstant,
+  haulTransferEnergyToTerminal(kernel: Kernel, base: Base, terminal: StructureTerminal, resource: ResourceConstant,
     amount: number, destinationRoom: string, trace: Tracer) {
     const currentEnergy = terminal.store.getUsedCapacity(RESOURCE_ENERGY);
     if (currentEnergy < amount) {
       // If we are low on energy don't take any from reserve
-      if (this.orgRoom.getAmountInReserve(RESOURCE_ENERGY) > 20000) {
-        const pickup = this.orgRoom.getReserveStructureWithMostOfAResource(RESOURCE_ENERGY, false);
+      if (getStoredResourceAmount(base, RESOURCE_ENERGY) > 20000) {
+        const pickup = getStructureWithResource(base, RESOURCE_ENERGY);
         if (!pickup) {
           return false;
         }
 
         const requestAmount = amount - currentEnergy;
         trace.log('requesting', {resource, amount: requestAmount});
-        this.sendHaulRequest(kingdom, terminal, pickup, RESOURCE_ENERGY, requestAmount, PRIORITIES.HAUL_TERMINAL);
+        this.sendHaulRequest(kernel, base, terminal, pickup, RESOURCE_ENERGY, requestAmount, PRIORITIES.HAUL_TERMINAL);
         return false;
       }
 
@@ -562,7 +576,7 @@ export default class TerminalRunnable {
     return true;
   }
 
-  sendHaulRequest(kernel: Kernel, terminal: StructureTerminal, pickup: AnyStoreStructure, resource: ResourceConstant, amount: number, priority: number) {
+  sendHaulRequest(kernel: Kernel, base: Base, terminal: StructureTerminal, pickup: AnyStoreStructure, resource: ResourceConstant, amount: number, priority: number) {
     amount = _.min([amount, pickup.store.getUsedCapacity(resource)]);
 
     const details = {
@@ -574,11 +588,11 @@ export default class TerminalRunnable {
       [MEMORY.MEMORY_HAUL_DROPOFF]: terminal.id,
     };
 
-    kingdom.sendRequest(getBaseDistributorTopic(this.baseId), priority, details, PROCESS_TASK_TTL);
+    kernel.getTopics().addRequest(getBaseDistributorTopic(base.id), priority, details, PROCESS_TASK_TTL);
   }
 
-  sendEnergyToStorage(kernel: Kernel, terminal: StructureTerminal, amount: number, ttl: number, trace: Tracer) {
-    const reserve = this.orgRoom.getReserveStructureWithRoomForResource(RESOURCE_ENERGY);
+  sendEnergyToStorage(kernel: Kernel, base: Base, terminal: StructureTerminal, amount: number, ttl: number, trace: Tracer) {
+    const reserve = getStructureForResource(base, RESOURCE_ENERGY);
     if (!reserve) {
       trace.log('could not find dropoff for energy', {amount});
       return;
@@ -595,7 +609,7 @@ export default class TerminalRunnable {
       [MEMORY.MEMORY_HAUL_DROPOFF]: reserve.id,
     };
 
-    kingdom.sendRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.HAUL_TERMINAL, details, ttl);
+    kernel.getTopics().addRequest(getBaseDistributorTopic(base.id), PRIORITIES.HAUL_TERMINAL, details, ttl);
   }
 
   updateEnergyValue(trace: Tracer) {

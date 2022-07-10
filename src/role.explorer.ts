@@ -58,6 +58,6 @@ const behavior = behaviorTree.sequenceNode(
   ],
 );
 
-module.exports = {
+export const roleExplorer = {
   run: behaviorTree.rootNode('explorer', behavior),
 };

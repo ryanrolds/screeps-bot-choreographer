@@ -4,7 +4,7 @@ const {behaviorBoosts} = require('./behavior.boosts');
 
 const MEMORY = require('./constants.memory');
 
-const behavior = behaviorTree.sequenceNode(
+export const behavior = behaviorTree.sequenceNode(
   'defender_drone_root',
   [
     behaviorTree.leafNode(
@@ -91,6 +91,6 @@ const behavior = behaviorTree.sequenceNode(
   ],
 );
 
-module.exports = {
+export const roleDefenderDrone = {
   run: behaviorTree.rootNode('defender_drone', behaviorBoosts(behavior)),
 };

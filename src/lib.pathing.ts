@@ -374,7 +374,7 @@ const applyRoomCallbackPolicy = (
   trace: Tracer
 ): [boolean, string] => {
   const owner = roomEntry.controller?.owner;
-  const ownerIsNotMe = owner !== 'ENETDOWN';
+  const ownerIsNotMe = owner !== kernel.getPlanner().getUsername();
   const isFriendly = kernel.getFriends().includes(owner)
 
   if (owner && ownerIsNotMe && policy.avoidFriendlyRooms && isFriendly) {

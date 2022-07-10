@@ -1,11 +1,12 @@
 import * as WORKERS from './constants.creeps';
 import * as MEMORY from './constants.memory';
 import * as PRIORITIES from './constants.priorities';
+import {Kernel} from './kernel';
 import {Tracer} from './lib.tracing';
 import {sleeping} from "./os.process";
 import {RunnableResult} from "./os.runnable";
 import {thread, ThreadFunc} from "./os.thread";
-import {createSpawnRequest, getShardSpawnTopic, requestSpawn} from './runnable.base_spawning';
+import {createSpawnRequest, getShardSpawnTopic} from './runnable.base_spawning';
 import {CreepRequest, ShardMemory} from "./runnable.scribe";
 
 const SHARD_MEMORY_TTL = 50;
@@ -18,11 +19,11 @@ export default class KingdomGovernor {
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
-    trace = trace.begin('kingdom_governor');
+    trace = trace.begin('kernel_governor');
 
-    trace.log('kingdom governor run', {})
+    trace.log('kernel governor run', {})
 
-    this.threadUpdateShardMemory(trace, kingdom);
+    this.threadUpdateShardMemory(trace, kernel);
 
     trace.end();
 
@@ -32,44 +33,44 @@ export default class KingdomGovernor {
   updateShardMemory(trace: Tracer, kernel: Kernel) {
     trace.log('update_shard_memory');
 
-    const scribe = kingdom.getScribe();
+    const scribe = kernel.getScribe();
 
     let shardMemory = scribe.getLocalShardMemory();
 
-    const bases = kingdom.getPlanner().getBases();
+    const bases = kernel.getPlanner().getBases();
     shardMemory.status = {
       numColonies: bases.length,
     };
 
     shardMemory.time = Game.time;
-    shardMemory = this.requestClaimersFromOtherShards(kingdom, shardMemory, trace);
-    shardMemory = this.requestBuildersFromOtherShards(kingdom, shardMemory, trace);
+    shardMemory = this.requestClaimersFromOtherShards(kernel, shardMemory, trace);
+    shardMemory = this.requestBuildersFromOtherShards(kernel, shardMemory, trace);
 
-    kingdom.getPlanner().getShards().forEach((shardName) => {
+    kernel.getPlanner().getShards().forEach((shardName) => {
       if (shardName === Game.shard.name) {
         return;
       }
 
-      let shardMemory = kingdom.getScribe().getRemoteShardMemory(shardName);
+      let shardMemory = kernel.getScribe().getRemoteShardMemory(shardName);
       trace.log('shard memory', {shardName, shardMemory});
 
-      this.handleClaimerRequests(kingdom, shardMemory.request_claimer || {}, trace);
-      this.handleBuilderRequests(kingdom, shardMemory.request_builder || {}, trace);
+      this.handleClaimerRequests(kernel, shardMemory.request_claimer || {}, trace);
+      this.handleBuilderRequests(kernel, shardMemory.request_builder || {}, trace);
 
       /* TODO remove if not used Jan 2022
-      const shardConfig: ShardConfig = kingdom.getPlanner().getShardConfig(shardName);
+      const shardConfig: ShardConfig = kernel.getPlanner().getShardConfig(shardName);
       if (!shardConfig) {
         return;
       }
 
-      trace.log('kingdom governor shard', {shardName, shardConfig})
+      trace.log('kernel governor shard', {shardName, shardConfig})
 
       const primaryColony: Base = Object.values(shardConfig)[0];
       if (!primaryColony || !primaryColony.primary) {
         return;
       }
 
-      trace.log('kingdom governor colony', {shardName, primaryColony})
+      trace.log('kernel governor colony', {shardName, primaryColony})
      */
 
       /* TODO
@@ -96,12 +97,17 @@ export default class KingdomGovernor {
       return room.controller?.my;
     });
 
-    if (kingdom.getColonies().length && !claimedRooms.length) {
+    const bases = kernel.getPlanner().getBases()
+    if (!bases.length) {
+      return localMemory;
+    }
+
+    if (bases.length && !claimedRooms.length) {
       const request = {
-        baseId: kingdom.getColonies()[0].id,
-        base: kingdom.getColonies()[0].id,
+        baseId: bases[0].id,
+        base: bases[0].id,
         shard: Game.shard.name,
-        room: kingdom.getColonies()[0].primaryRoomId,
+        room: bases[0].primary,
         ttl: Game.time,
       } as CreepRequest;
 
@@ -114,7 +120,7 @@ export default class KingdomGovernor {
         }
       });
       if (!enroute.length) {
-        localMemory.request_claimer[kingdom.getColonies()[0].primaryRoomId] = request;
+        localMemory.request_claimer[bases[0].primary] = request;
         trace.log('requesting claimer from another shard', {request});
       }
     }
@@ -150,7 +156,7 @@ export default class KingdomGovernor {
 
       const request = createSpawnRequest(priorities, ttl, role, memory, 0);
       trace.log('relaying claimer request from remote shard', {request})
-      requestSpawn(kingdom, getShardSpawnTopic(), request);
+      kernel.getTopics().addRequestV2(getShardSpawnTopic(), request);
     });
   }
 
@@ -180,12 +186,18 @@ export default class KingdomGovernor {
       return room.controller?.my;
     });
 
+
+    const bases = kernel.getPlanner().getBases()
+    if (!bases.length) {
+      return localMemory;
+    }
+
     if (!Object.values(Game.spawns).length && claimedRooms.length) {
       const request = {
-        baseId: kingdom.getColonies()[0].id,
-        base: kingdom.getColonies()[0].id,
+        baseId: bases[0].id,
+        base: bases[0].id,
         shard: Game.shard.name,
-        room: kingdom.getColonies()[0].primaryRoomId,
+        room: bases[0].primary,
         ttl: Game.time,
       } as CreepRequest;
 
@@ -198,7 +210,7 @@ export default class KingdomGovernor {
         }
       });
       if (enroute.length < 6) {
-        localMemory.request_builder[kingdom.getColonies()[0].primaryRoomId] = request;
+        localMemory.request_builder[bases[0].primary] = request;
         trace.log('requesting builder from another shard', {request});
       }
     }
@@ -231,7 +243,7 @@ export default class KingdomGovernor {
 
       const request = createSpawnRequest(priority, ttl, role, memory, 0);
       trace.log('relaying builder request from remote shard', {request});
-      requestSpawn(kingdom, getShardSpawnTopic(), request);
+      kernel.getTopics().addRequestV2(getShardSpawnTopic(), request);
     });
   }
 }

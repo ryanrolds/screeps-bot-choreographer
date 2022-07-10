@@ -1,3 +1,4 @@
+import {Kernel} from "./kernel";
 import {
   DismissedReasonAdjacentClaimed, DismissedReasonDifferentRoomStatus, DismissedReasonNoController, DismissedReasonNoRoomEntry,
   DismissedReasonOwned, ExpandResults, pickExpansion
@@ -15,7 +16,7 @@ export default class PlannerDebugger {
 
   constructor(id: string, kernel: Kernel) {
     this.id = id;
-    this.kingdom = kingdom;
+    this.kernel = kernel;
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
@@ -23,7 +24,7 @@ export default class PlannerDebugger {
 
     if (this.display) {
       if (!this.results || Game.time % 50 === 0) {
-        this.results = pickExpansion(this.kingdom, trace);
+        this.results = pickExpansion(this.kernel, trace);
       }
 
       trace.notice("expand debugger", {results: this.results});

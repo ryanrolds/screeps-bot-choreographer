@@ -86,7 +86,7 @@ export default class BufferManager {
 type HostileRoomsByColony = Record<string, TargetRoom[]>;
 
 function getHostileRoomsByColony(kernel: Kernel, trace: Tracer): HostileRoomsByColony {
-  const hostileRooms = kernel.getScribe().getHostileRooms()
+  const hostileRooms = kernel.getScribe().getHostileRooms(kernel)
   trace.info('hostile rooms', {hostileRooms});
 
   const config = kernel.getConfig();

@@ -205,7 +205,7 @@ const behavior = behaviorTree.sequenceNode(
             behaviorTree.leafNode(
               'pick_room_controller',
               (creep, trace, kernel) => {
-                const base = kernel.getCreepBase(creep);
+                const base = getCreepBase(kernel, creep);
                 if (!base) {
                   return FAILURE;
                 }

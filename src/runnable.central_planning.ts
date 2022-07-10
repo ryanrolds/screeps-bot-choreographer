@@ -330,7 +330,8 @@ export class CentralPlanning {
       }
 
       // If room is controlled by someone else, don't claim it
-      if (roomEntry?.controller?.owner !== 'ENETDOWN' && roomEntry?.controller?.level > 0) {
+      if (roomEntry?.controller?.owner !== kernel.getPlanner().getUsername() &&
+        roomEntry?.controller?.level > 0) {
         trace.warn('room owned, removing remove', {roomName});
         this.removeRoom(roomName, trace);
       }

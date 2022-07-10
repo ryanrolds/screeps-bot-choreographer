@@ -1,3 +1,4 @@
+import {Kernel} from "./kernel";
 import {Consumer} from "./lib.event_broker";
 import {Tracer} from "./lib.tracing";
 import {running} from "./os.process";
@@ -82,13 +83,13 @@ export class HUDRunnable {
   run(kernel: Kernel, trace: Tracer): RunnableResult {
     if (!this.hudLinesConsumer) {
       const linesStreamId = getLinesStream();
-      const consumer = kingdom.getBroker().getStream(linesStreamId).addConsumer('hud');
+      const consumer = kernel.getBroker().getStream(linesStreamId).addConsumer('hud');
       this.hudLinesConsumer = consumer;
     }
 
     if (!this.dashboardConsumer) {
       const dashboardStreamId = getDashboardStream();
-      const consumer = kingdom.getBroker().getStream(dashboardStreamId).addConsumer('hud');
+      const consumer = kernel.getBroker().getStream(dashboardStreamId).addConsumer('hud');
       this.dashboardConsumer = consumer;
     }
 

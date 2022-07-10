@@ -1,8 +1,6 @@
-const behaviorTree = require('./lib.behaviortree');
-const {SUCCESS} = require('./lib.behaviortree');
-const {behaviorBoosts} = require('./behavior.boosts');
-
-const MEMORY = require('./constants.memory');
+import {behaviorBoosts} from './behavior.boosts';
+import * as MEMORY from './constants.memory';
+import * as behaviorTree from './lib.behaviortree';
 
 const behavior = behaviorTree.sequenceNode(
   'attacker_root',
@@ -15,7 +13,7 @@ const behavior = behaviorTree.sequenceNode(
         const roomId = creep.memory[MEMORY.MEMORY_POSITION_ROOM];
         if (x === undefined || y === undefined || !roomId) {
           trace.log('missing position memory', {x, y, roomId});
-          return SUCCESS;
+          return behaviorTree.SUCCESS;
         }
 
         const position = new RoomPosition(x, y, roomId);
@@ -23,21 +21,21 @@ const behavior = behaviorTree.sequenceNode(
 
         if (creep.pos.isEqualTo(position)) {
           trace.log('creep in position', {position});
-          return SUCCESS;
+          return behaviorTree.SUCCESS;
         }
 
         const ignoreCreeps = creep.pos.inRangeTo(position, 1);
         const result = creep.moveTo(position, {reusePath: 5, ignoreCreeps});
         trace.log('move to', {result, creepPos: creep.pos, position});
 
-        return SUCCESS;
+        return behaviorTree.SUCCESS;
       },
     ),
     behaviorTree.leafNode(
       'attack_heal_node',
       (creep, trace) => {
         let didHeal = false;
-        const heal = creep.memory[MEMORY.MEMORY_HEAL];
+        const heal = creep.memory[MEMORY.MEMORY_HEAL] as Id<Creep>;
         if (heal) {
           const healTarget = Game.getObjectById(heal);
           if (healTarget) {
@@ -57,7 +55,7 @@ const behavior = behaviorTree.sequenceNode(
 
         const attack = creep.memory[MEMORY.MEMORY_ATTACK];
         if (attack) {
-          const attackTarget = Game.getObjectById(attack);
+          const attackTarget = Game.getObjectById(attack as Id<Structure>);
           if (attackTarget) {
             const attackDistance = creep.pos.getRangeTo(attackTarget);
             let didDismantle = false;
@@ -80,12 +78,12 @@ const behavior = behaviorTree.sequenceNode(
           }
         }
 
-        return SUCCESS;
+        return behaviorTree.SUCCESS;
       },
     ),
   ],
 );
 
-module.exports = {
+export const roleAttacker = {
   run: behaviorTree.rootNode('attacker', behaviorBoosts(behavior)),
 };

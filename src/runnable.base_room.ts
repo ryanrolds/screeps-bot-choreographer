@@ -121,7 +121,7 @@ export default class RoomRunnable implements Runnable {
     }
 
     // If owned by me we don't need reserver
-    if (room.controller?.owner?.username === 'ENETDOWN') {
+    if (room.controller?.owner?.username === kernel.getPlanner().getUsername()) {
       trace.info('not requesting reserver, room is owned by me', {
         roomName: room.name,
         baseId: base.id,
@@ -130,7 +130,7 @@ export default class RoomRunnable implements Runnable {
       return;
     }
 
-    if (room.controller?.reservation?.username === 'ENETDOWN') {
+    if (room.controller?.reservation?.username === kernel.getPlanner().getUsername()) {
       let reservationTicks = 0;
       if (room?.controller?.reservation) {
         reservationTicks = room.controller.reservation.ticksToEnd;
