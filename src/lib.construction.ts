@@ -1,7 +1,6 @@
 
 
-
-export const getPrioritizedSites = function (room: Room): ConstructionSite[] {
+export const getPrioritizedSites = function(room: Room): ConstructionSite[] {
   let sites = room.find(FIND_MY_CONSTRUCTION_SITES);
   if (!sites || !sites.length) {
     return [];
@@ -39,7 +38,7 @@ export const getPrioritizedSites = function (room: Room): ConstructionSite[] {
   });
 
   return sites;
-}
+};
 
 
 export type PossibleSite = {
@@ -79,9 +78,9 @@ export const prioritizeBySitesType = (sites: PossibleSite[]): PossibleSite[] => 
         return 15;
     }
   });
-}
+};
 
-export const getInfrastructureSites = function (room: Room): ConstructionSite[] {
+export const getInfrastructureSites = function(room: Room): ConstructionSite[] {
   let sites = room.find(FIND_MY_CONSTRUCTION_SITES).filter((site) => {
     return site.structureType === STRUCTURE_SPAWN || site.structureType === STRUCTURE_TOWER ||
       site.structureType === STRUCTURE_STORAGE || site.structureType === STRUCTURE_EXTENSION;
@@ -106,4 +105,4 @@ export const getInfrastructureSites = function (room: Room): ConstructionSite[] 
   });
 
   return sites;
-}
+};

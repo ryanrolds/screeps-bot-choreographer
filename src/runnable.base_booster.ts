@@ -1,14 +1,14 @@
-import {Base, getStoredResources, getStructureForResource, getStructureWithResource} from "./base";
-import * as MEMORY from "./constants.memory";
-import * as PRIORITIES from "./constants.priorities";
-import * as TASKS from "./constants.tasks";
-import * as TOPICS from "./constants.topics";
-import {Kernel} from "./kernel";
+import {Base, getStoredResources, getStructureForResource, getStructureWithResource, ResourceCounts} from './base';
+import * as MEMORY from './constants.memory';
+import * as PRIORITIES from './constants.priorities';
+import * as TASKS from './constants.tasks';
+import * as TOPICS from './constants.topics';
+import {Kernel} from './kernel';
 import {Tracer} from './lib.tracing';
-import {sleeping, terminate} from "./os.process";
-import {RunnableResult} from "./os.runnable";
-import {thread, ThreadFunc} from "./os.thread";
-import {getBaseDistributorTopic} from "./role.distributor";
+import {sleeping, terminate} from './os.process';
+import {RunnableResult} from './os.runnable';
+import {thread, ThreadFunc} from './os.thread';
+import {getBaseDistributorTopic} from './role.distributor';
 
 const MIN_COMPOUND = 500;
 const MAX_COMPOUND = 2000;
@@ -21,7 +21,7 @@ const REQUEST_ENERGY_TTL = 5;
 const REQUEST_REBALANCE_TTL = 10;
 const UPDATE_ROOM_BOOSTER_INTERVAL = 5;
 
-export const TOPIC_ROOM_BOOSTS = "room_boosts";
+export const TOPIC_ROOM_BOOSTS = 'room_boosts';
 
 export type BoosterDetails = {
   baseId: string;
@@ -32,9 +32,16 @@ export type BoosterDetails = {
   labsByAction: LabsByAction;
 }
 
-export type ResourceCounts = Partial<Record<ResourceConstant, number>>;
+export type Reaction = {
+  inputA: ResourceConstant,
+  inputB: ResourceConstant,
+  output: ResourceConstant,
+  priority: number,
+};
 
-class Compound {
+export type ReactionMap = Partial<Map<ResourceConstant, Reaction>>;
+
+export class Compound {
   name: ResourceConstant;
   effect: any;
   bonus: number;
@@ -46,7 +53,7 @@ class Compound {
   }
 }
 
-class Effect {
+export class Effect {
   name: string;
   part: string;
   compounds: Compound[];
@@ -58,9 +65,10 @@ class Effect {
   }
 }
 
-export type EffectSet = Record<string, Effect>;
-export type LabsByResource = Record<Partial<MineralConstant | MineralCompoundConstant>, StructureLab>;
-export type LabsByAction = Record<string, StructureLab[]>;
+export type EffectSet = Map<string, Effect>;
+export type LabsByResource = Map<MineralConstant | MineralCompoundConstant, StructureLab>;
+export type ResourceByLabs = Map<StructureLab, MineralConstant | MineralCompoundConstant>;
+export type LabsByAction = Map<string, StructureLab[]>;
 
 export default class BoosterRunnable {
   id: string;
@@ -91,16 +99,16 @@ export default class BoosterRunnable {
       return terminate();
     }
 
-    let labs = this.getLabs();
+    const labs = this.getLabs();
     if (labs.length !== 3) {
-      trace.info('not right number of labs - terminating', {num: labs.length})
+      trace.info('not right number of labs - terminating', {num: labs.length});
       trace.end();
       return terminate();
     }
 
-    trace.info('booster run', {labId: labs.map(lab => lab.id)});
+    trace.info('booster run', {labId: labs.map((lab) => lab.id)});
 
-    const resourceEnd = trace.startTimer("resource");
+    const resourceEnd = trace.startTimer('resource');
     const loadedEffects = this.getLoadedEffects();
     const desiredEffects = this.getDesiredEffects(kernel);
     resourceEnd();
@@ -116,7 +124,7 @@ export default class BoosterRunnable {
       labIds: this.labIds,
       needToLoad,
       couldUnload,
-      emptyLabIds: emptyLabs.map(lab => lab.id),
+      emptyLabIds: emptyLabs.map((lab) => lab.id),
     });
 
     let sleepFor = REQUEST_ENERGY_TTL;
@@ -137,11 +145,11 @@ export default class BoosterRunnable {
   }
 
   getLabs() {
-    return this.labIds.map(labId => Game.getObjectById(labId)).filter((lab => lab));
+    return this.labIds.map((labId) => Game.getObjectById(labId)).filter(((lab) => lab));
   }
 
   updateRoomBooster(trace: Tracer, kernel: Kernel, base: Base) {
-    const resourceEnd = trace.startTimer("resources");
+    const resourceEnd = trace.startTimer('resources');
     const allEffects = this.getEffects();
     const availableEffects = this.getAvailableEffects(kernel, base);
     const labsByResource = this.getLabsByResource();
@@ -160,11 +168,11 @@ export default class BoosterRunnable {
     trace.log('publishing room boosts', {
       baseId: this.baseId,
       position: this.boostPosition,
-      labsByResource: _.reduce(labsByResource, (labs, lab) => {
+      labsByResource: _.reduce(Object.values(labsByResource), (labs, lab: StructureLab) => {
         labs[lab.id] = lab.mineralType;
         return labs;
-      }, {}),
-      availableEffects
+      }, {} as ResourceByLabs),
+      availableEffects,
     });
 
     kernel.getTopics().addRequest(TOPIC_ROOM_BOOSTS, 1, details, UPDATE_ROOM_BOOSTER_INTERVAL);
@@ -242,7 +250,7 @@ export default class BoosterRunnable {
   }
 
   // @deprecated - use getLabsByAction()
-  getLabsByResource(): Record<Partial<(MineralConstant | MineralCompoundConstant)>, StructureLab> {
+  getLabsByResource(): LabsByResource {
     const labs = this.getLabs();
     return labs.reduce((acc, lab) => {
       if (lab.mineralType) {
@@ -273,7 +281,7 @@ export default class BoosterRunnable {
       }
 
       return acc;
-    }, {});
+    }, {} as ResourceCounts);
   }
 
   getEmptyLabs() {
@@ -289,7 +297,7 @@ export default class BoosterRunnable {
       return this.allEffects;
     }
 
-    const allEffects: EffectSet = {};
+    const allEffects: EffectSet = new Map();
 
     Object.keys(BOOSTS).forEach((part) => {
       const resources = BOOSTS[part];
@@ -326,7 +334,7 @@ export default class BoosterRunnable {
   }
 
   getAvailableEffects(kernel: Kernel, base: Base): EffectSet {
-    const availableResources = getStoredResources(base)
+    const availableResources = getStoredResources(base);
     const loadedResource = this.getLabResources();
 
     // TODO the merge does not sum values
@@ -334,7 +342,7 @@ export default class BoosterRunnable {
   }
 
   getDesiredEffects(kernel: Kernel): EffectSet {
-    const desiredEffects: EffectSet = {};
+    const desiredEffects: EffectSet = new Map();
     const allEffects = this.getEffects();
 
     let request = null;
@@ -362,7 +370,7 @@ export default class BoosterRunnable {
       const lab = this.getLabByResource(compound);
       const currentAmount = lab.store.getUsedCapacity(compound);
       if (currentAmount < MIN_COMPOUND) {
-        trace.log('not enough of compound', {compound, effectName, currentAmount})
+        trace.log('not enough of compound', {compound, effectName, currentAmount});
         return false;
       }
 
@@ -373,7 +381,7 @@ export default class BoosterRunnable {
     const couldUnload = _.difference(loadedNames, preparedNames);
     const emptyLabs = this.getEmptyLabs();
 
-    return [needToLoad, couldUnload, emptyLabs]
+    return [needToLoad, couldUnload, emptyLabs];
   }
 
   sendHaulRequests(kernel: Kernel, base: Base, loadedEffects, needToLoad, emptyLabs, couldUnload, trace: Tracer) {
@@ -404,7 +412,7 @@ export default class BoosterRunnable {
       let amount = 0;
       if (currentAmount < MIN_COMPOUND) {
         trace.log('lab is below min: unload it', {labId: lab.id, resource: lab.mineralType});
-        amount = currentAmount
+        amount = currentAmount;
       } else if (currentAmount > MAX_COMPOUND) {
         trace.log('lab is above min: return some', {labId: lab.id, resource: lab.mineralType});
         amount = currentAmount - MAX_COMPOUND;
@@ -483,7 +491,7 @@ export default class BoosterRunnable {
     const storedResources = getStoredResources(base);
 
     needToLoad.forEach((toLoad) => {
-      trace.log('need to load', {toLoad})
+      trace.log('need to load', {toLoad});
       const effect = this.allEffects[toLoad];
       if (!effect) {
         trace.log('not able to find desired effect', {toLoad});

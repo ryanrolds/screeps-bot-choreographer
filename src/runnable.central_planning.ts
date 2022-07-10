@@ -1,19 +1,19 @@
-import {AlertLevel, Base, BaseMap} from "./base";
-import {ShardConfig} from "./config";
-import {WORKER_EXPLORER} from "./constants.creeps";
-import {MEMORY_ASSIGN_ROOM, MEMORY_BASE} from "./constants.memory";
-import {EXPLORER} from "./constants.priorities";
-import {Kernel} from "./kernel";
-import {pickExpansion} from "./lib.expand";
-import {ENTIRE_ROOM_BOUNDS, getCutTiles} from "./lib.min_cut";
-import {desiredRemotes, findNextRemoteRoom} from "./lib.remote_room";
-import {Tracer} from "./lib.tracing";
-import {Process, sleeping} from "./os.process";
-import {RunnableResult} from "./os.runnable";
-import {Priorities, Scheduler} from "./os.scheduler";
-import {thread, ThreadFunc} from "./os.thread";
-import BaseRunnable from "./runnable.base";
-import {createSpawnRequest, getBaseSpawnTopic} from "./runnable.base_spawning";
+import {AlertLevel, Base, BaseMap} from './base';
+import {ShardConfig} from './config';
+import {WORKER_EXPLORER} from './constants.creeps';
+import {MEMORY_ASSIGN_ROOM, MEMORY_BASE} from './constants.memory';
+import {EXPLORER} from './constants.priorities';
+import {Kernel} from './kernel';
+import {pickExpansion} from './lib.expand';
+import {ENTIRE_ROOM_BOUNDS, getCutTiles} from './lib.min_cut';
+import {desiredRemotes, findNextRemoteRoom} from './lib.remote_room';
+import {Tracer} from './lib.tracing';
+import {Process, sleeping} from './os.process';
+import {RunnableResult} from './os.runnable';
+import {Priorities, Scheduler} from './os.scheduler';
+import {thread, ThreadFunc} from './os.thread';
+import BaseRunnable from './runnable.base';
+import {createSpawnRequest, getBaseSpawnTopic} from './runnable.base_spawning';
 
 const RUN_TTL = 10;
 const BASE_PROCESSES_TTL = 50;
@@ -27,8 +27,8 @@ export class CentralPlanning {
   private scheduler: Scheduler;
   private username: string;
   private shards: string[];
-  private bases: Record<string, Base>;
-  private roomByBaseId: Record<string, string>;
+  private bases: Map<string, Base>;
+  private roomByBaseId: Map<string, string>;
 
   private threadBaseProcesses: ThreadFunc;
   private remoteMiningIterator: Generator<any, void, {kernel: Kernel, trace: Tracer}>;
@@ -45,8 +45,8 @@ export class CentralPlanning {
     this.config = config;
     this.scheduler = scheduler;
     this.shards = [];
-    this.bases = {};
-    this.roomByBaseId = {};
+    this.bases = new Map();
+    this.roomByBaseId = new Map();
 
     this.shards.push(Game.shard.name);
 
@@ -135,7 +135,7 @@ export class CentralPlanning {
     return _.values(this.bases);
   }
 
-  getBaseMap(): Record<string, Base> {
+  getBaseMap(): Map<string, Base> {
     return this.bases;
   }
 
@@ -165,17 +165,17 @@ export class CentralPlanning {
     return this.username;
   }
 
-  getClosestBaseInRange(roomName: string, range: Number = 5): Base {
+  getClosestBaseInRange(roomName: string, range = 5): Base {
     let selectedBase = null;
     let selectedBaseDistance = 99999;
 
     Object.values(this.getBases()).forEach((base) => {
-      const distance = Game.map.getRoomLinearDistance(base.primary, roomName)
+      const distance = Game.map.getRoomLinearDistance(base.primary, roomName);
       if (distance <= range && selectedBaseDistance > distance) {
         selectedBase = base;
         selectedBaseDistance = distance;
       }
-    })
+    });
 
     return selectedBase;
   }
@@ -208,7 +208,7 @@ export class CentralPlanning {
 
     // Add any additional rooms, primary is expected to be first
     rooms.forEach((roomName) => {
-      this.addRoom(primaryRoom, roomName, trace)
+      this.addRoom(primaryRoom, roomName, trace);
     });
 
     return this.bases[primaryRoom];
@@ -285,8 +285,8 @@ export class CentralPlanning {
     });
   }
 
-  private * remoteMiningGenerator(): Generator<any, void, {kernel: Kernel, trace: Tracer}> {
-    let bases: Base[] = []
+  private* remoteMiningGenerator(): Generator<any, void, {kernel: Kernel, trace: Tracer}> {
+    let bases: Base[] = [];
     while (true) {
       const details: {kernel: Kernel, trace: Tracer} = yield;
       const kernel = details.kernel;
@@ -295,8 +295,8 @@ export class CentralPlanning {
       trace.log('remote mining', {bases});
 
       if (!bases.length) {
-        trace.log('updating bases')
-        bases = this.getBases()
+        trace.log('updating bases');
+        bases = this.getBases();
       }
 
       const base = bases.shift();
@@ -318,7 +318,7 @@ export class CentralPlanning {
     }
 
     const level = primaryRoom?.controller?.level || 0;
-    let numDesired = desiredRemotes(base, level);
+    const numDesired = desiredRemotes(base, level);
 
     trace.log('current rooms', {current: base.rooms.length - 1, numDesired});
 
@@ -432,8 +432,8 @@ export class CentralPlanning {
     trace.log('no expansion selected');
   }
 
-  private * baseWallsGenerator(): Generator<any, void, {kernel: Kernel, trace: Tracer}> {
-    let bases: Base[] = []
+  private* baseWallsGenerator(): Generator<any, void, {kernel: Kernel, trace: Tracer}> {
+    const bases: Base[] = [];
     while (true) {
       const details: {kernel: Kernel, trace: Tracer} = yield;
       const kernel = details.kernel;
@@ -461,8 +461,8 @@ export class CentralPlanning {
     trace.info('created walls', {base: base});
   }
 
-  private * neighborhoodsGenerator(): Generator<any, void, {kernel: Kernel, trace: Tracer}> {
-    let bases: Base[] = []
+  private* neighborhoodsGenerator(): Generator<any, void, {kernel: Kernel, trace: Tracer}> {
+    let bases: Base[] = [];
     while (true) {
       const details: {kernel: Kernel, trace: Tracer} = yield;
       const kernel = details.kernel;
@@ -484,7 +484,7 @@ export class CentralPlanning {
     // Narrow bases to ones that are nearby
     let nearbyBases = _.filter(this.getBases(), (base) => {
       if (base.id === base.id) {
-        return false
+        return false;
       }
 
       const distance = Game.map.getRoomLinearDistance(base.primary, base.primary);
@@ -506,7 +506,7 @@ export class CentralPlanning {
     nearbyBases = _.take(nearbyBases, 3);
 
     // Set bases neighbors
-    base.neighbors = nearbyBases.map(base => base.id);
+    base.neighbors = nearbyBases.map((base) => base.id);
 
     trace.info('updated neighbors', {base: base});
   }

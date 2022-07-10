@@ -1,13 +1,13 @@
-import {AttackRequest, AttackStatus, ATTACK_ROOM_TTL} from "./constants.attack";
-import {ATTACK_ROOM} from "./constants.topics";
-import {Kernel} from "./kernel";
-import {AllowedCostMatrixTypes} from "./lib.costmatrix_cache";
-import {FindColonyPathPolicy} from "./lib.pathing";
+import {AttackRequest, AttackStatus, ATTACK_ROOM_TTL} from './constants.attack';
+import {ATTACK_ROOM} from './constants.topics';
+import {Kernel} from './kernel';
+import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
+import {FindColonyPathPolicy} from './lib.pathing';
 import {Tracer} from './lib.tracing';
-import {sleeping} from "./os.process";
-import {RunnableResult} from "./os.runnable";
-import {Scheduler} from "./os.scheduler";
-import {RoomEntry} from "./runnable.scribe";
+import {sleeping} from './os.process';
+import {RunnableResult} from './os.runnable';
+import {Scheduler} from './os.scheduler';
+import {RoomEntry} from './runnable.scribe';
 
 const RUN_TTL = 50;
 const MAX_BASE_LEVEL = 2;
@@ -55,12 +55,12 @@ export default class InvaderManager {
     const rooms = getRoomEntriesWithInvaderBases(kernel, trace);
     trace.notice('found defeatable invader bases', {
       rooms: rooms.map((roomEntry) => {
-        return {id: roomEntry.id, pos: roomEntry.invaderCorePos}
+        return {id: roomEntry.id, pos: roomEntry.invaderCorePos};
       }),
     });
 
     rooms.forEach((roomEntry) => {
-      trace.log("requesting attack", {roomId: roomEntry.id})
+      trace.log('requesting attack', {roomId: roomEntry.id});
 
       const attackRequest: AttackRequest = {
         status: AttackStatus.REQUESTED,
@@ -95,7 +95,7 @@ const getRoomEntriesWithInvaderBases = (kernel: Kernel, trace: Tracer): RoomEntr
 
     // TODO remove when we dont have any room entries without the pos
     if (!roomEntry.invaderCorePos) {
-      trace.error('no position for invader base', {id: roomEntry.id})
+      trace.error('no position for invader base', {id: roomEntry.id});
       return false;
     }
 
@@ -105,4 +105,4 @@ const getRoomEntriesWithInvaderBases = (kernel: Kernel, trace: Tracer): RoomEntr
   end();
 
   return weakRooms;
-}
+};

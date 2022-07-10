@@ -1,4 +1,4 @@
-import {Tracer} from "./lib.tracing";
+import {Tracer} from './lib.tracing';
 
 const QUAD_SIZE = 4;
 
@@ -15,13 +15,13 @@ export function newMultipliers(): AttackerBoostMultipliers {
     'attack': 1,
     'move': 1,
     'tough': 1,
-  }
+  };
 }
 
 export function getStorageBoostMultipliers(storage: StructureStorage): AttackerBoostMultipliers {
   const multipliers = newMultipliers();
 
-  return multipliers
+  return multipliers;
 }
 
 export function buildAttacker(
@@ -35,7 +35,7 @@ export function buildAttacker(
   let attackParts = 0;
   let toughParts = 0;
 
-  let healAmount = 0;
+  const healAmount = 0;
   let neededEnergy = 0;
 
   const healingTick = Math.floor(12 * multipliers.heal);
@@ -64,7 +64,7 @@ export function buildAttacker(
     let ΔHealParts = 0;
     let ΔMoveParts = 0;
     let ΔAttackParts = 0;
-    let ΔToughParts = 0;
+    const ΔToughParts = 0;
     let ΔEnergy = 0;
 
     if (moveParts * movingTick <= numNonMoveParts) {
@@ -132,7 +132,7 @@ export function buildAttacker(
     if (moveParts && partsCount % movingTick === 0) {
       body.unshift(MOVE);
       moveParts--;
-      //partsCount++;
+      // partsCount++;
     }
 
     body.unshift(HEAL);
@@ -145,7 +145,7 @@ export function buildAttacker(
     if (moveParts && partsCount % movingTick === 0) {
       body.unshift(MOVE);
       moveParts--;
-      //partsCount++;
+      // partsCount++;
     }
 
     body.unshift(ATTACK);
@@ -157,7 +157,7 @@ export function buildAttacker(
   while (moveParts) {
     body.unshift(MOVE);
     moveParts--;
-    //partsCount++;
+    // partsCount++;
   }
 
   // Add tough parts to front

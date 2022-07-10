@@ -1,9 +1,9 @@
 import 'mocha';
-import * as _ from "lodash";
+import * as _ from 'lodash';
 import {expect} from 'chai';
 import {EventBroker, Stream, Consumer, NotAttachedError, Event} from './lib.event_broker';
 
-describe('Event Broker', function () {
+describe('Event Broker', function() {
   context('broker', () => {
     let broker: EventBroker = null;
 
@@ -12,14 +12,14 @@ describe('Event Broker', function () {
     });
 
     it('should be able to get a stream', () => {
-      const test = broker.getStream('test')
+      const test = broker.getStream('test');
       expect(test).to.be.an.instanceOf(Stream);
 
-      const test2 = broker.getStream('test2')
+      const test2 = broker.getStream('test2');
       expect(test2).to.be.an.instanceOf(Stream);
       expect(test).to.not.equal(test2);
 
-      const dupe = broker.getStream('test')
+      const dupe = broker.getStream('test');
       expect(dupe).to.equal(test);
     });
   });
@@ -37,7 +37,7 @@ describe('Event Broker', function () {
       const test = broker.getStream('test');
       const consumer = test.addConsumer('test');
 
-      const events = consumer.getEvents()
+      const events = consumer.getEvents();
       expect(events).to.be.an.instanceOf(Array);
       expect(events.length).to.equal(0);
 
@@ -60,7 +60,7 @@ describe('Event Broker', function () {
       expect(stream.getLength()).to.equal(1);
       expect(consumer.getOffset()).to.equal(0);
 
-      const events = consumer.getEvents()
+      const events = consumer.getEvents();
       expect(events).to.be.an.instanceOf(Array);
       expect(events.length).to.equal(1);
 
@@ -82,13 +82,13 @@ describe('Event Broker', function () {
 
       test.publish(new Event('test', 1, 'test', {}));
 
-      const events = consumer.getEvents()
+      const events = consumer.getEvents();
       expect(events).to.be.an.instanceOf(Array);
       expect(events.length).to.equal(1);
 
-      const moreEvents = consumer.getEvents()
+      const moreEvents = consumer.getEvents();
       expect(moreEvents).to.be.an.instanceOf(Array);
       expect(moreEvents.length).to.equal(0);
-    })
+    });
   });
 });

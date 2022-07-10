@@ -307,4 +307,4 @@ const behavior = behaviorTree.sequenceNode(
 
 export const roleDistributor = {
   run: behaviorTree.rootNode('distributor', behaviorBoosts(roadWorker(behavior))),
-}
+};

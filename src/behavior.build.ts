@@ -11,7 +11,7 @@ import {Tracer} from './lib.tracing';
 export const selectInfrastructureSites = behaviorTree.leafNode(
   'selectSite',
   (creep: Creep, trace: Tracer, kernel: Kernel) => {
-    let sites = getInfrastructureSites(creep.room);
+    const sites = getInfrastructureSites(creep.room);
     if (sites.length === 0) {
       return FAILURE;
     }
@@ -36,7 +36,7 @@ export const selectInfrastructureSites = behaviorTree.leafNode(
 export const selectSite = behaviorTree.leafNode(
   'selectSite',
   (creep: Creep, trace: Tracer, kernel: Kernel) => {
-    let sites = getPrioritizedSites(creep.room);
+    const sites = getPrioritizedSites(creep.room);
     if (sites.length === 0) {
       return FAILURE;
     }

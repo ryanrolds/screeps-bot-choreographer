@@ -5,7 +5,7 @@ import {Kernel} from './kernel';
 import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
 import {FindColonyPathPolicy, getClosestColonyByPath} from './lib.pathing';
 import {Tracer} from './lib.tracing';
-import {sleeping} from "./os.process";
+import {sleeping} from './os.process';
 import {RunnableResult} from './os.runnable';
 import {TargetRoom} from './runnable.scribe';
 
@@ -48,9 +48,9 @@ export default class BufferManager {
     trace = trace.begin('buffer_manager_run');
 
     const hostileRoomsByColony = getHostileRoomsByColony(kernel, trace);
-    _.forEach(hostileRoomsByColony, (rooms, baseId) => {
+    hostileRoomsByColony.forEach((rooms, baseId) => {
       if (rooms.length < 1) {
-        trace.log("no hostiles rooms", {baseId, rooms});
+        trace.log('no hostiles rooms', {baseId, rooms});
         return;
       }
 
@@ -83,10 +83,10 @@ export default class BufferManager {
   }
 }
 
-type HostileRoomsByColony = Record<string, TargetRoom[]>;
+type HostileRoomsByColony = Map<string, TargetRoom[]>;
 
 function getHostileRoomsByColony(kernel: Kernel, trace: Tracer): HostileRoomsByColony {
-  const hostileRooms = kernel.getScribe().getHostileRooms(kernel)
+  const hostileRooms = kernel.getScribe().getHostileRooms(kernel);
   trace.info('hostile rooms', {hostileRooms});
 
   const config = kernel.getConfig();
@@ -96,13 +96,13 @@ function getHostileRoomsByColony(kernel: Kernel, trace: Tracer): HostileRoomsByC
   });
   trace.info('candidate rooms', {config, dontAttack, candidateRooms});
 
-  const hostileRoomsByColony: Record<string, TargetRoom[]> = {};
+  const hostileRoomsByColony: Map<string, TargetRoom[]> = new Map();
 
   // TODO fix this
   BufferPathPolicy.colony.maxLinearDistance = config.buffer;
 
   candidateRooms.forEach((room) => {
-    const colony = getClosestColonyByPath(kernel, room.controllerPos, BufferPathPolicy, trace)
+    const colony = getClosestColonyByPath(kernel, room.controllerPos, BufferPathPolicy, trace);
     if (!colony) {
       trace.info('no colony', {room});
       return;

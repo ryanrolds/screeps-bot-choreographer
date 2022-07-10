@@ -1,7 +1,7 @@
 import 'mocha';
-import {mockGlobal} from "screeps-test-helper";
+import {mockGlobal} from 'screeps-test-helper';
 
-describe('Pathing', function () {
+describe('Pathing', function() {
   beforeEach(() => {
     mockGlobal<Game>('Game', {});
   });

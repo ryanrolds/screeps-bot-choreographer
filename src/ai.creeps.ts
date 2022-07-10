@@ -2,10 +2,10 @@ import * as CREEPS from './constants.creeps';
 import {DEFINITIONS} from './constants.creeps';
 import {MEMORY_BASE, MEMORY_ROLE, MEMORY_START_TICK} from './constants.memory';
 import {Kernel} from './kernel';
-import {Tracer} from './lib.tracing';
-import {Process, running, terminate} from "./os.process";
+import {Tracer, TracerFields} from './lib.tracing';
+import {Process, running, terminate} from './os.process';
 import {Runnable, RunnableResult} from './os.runnable';
-import {Scheduler} from "./os.scheduler";
+import {Scheduler} from './os.scheduler';
 import {roleAttacker} from './role.attacker';
 import {roleBuilder} from './role.builder';
 import {roleDefender} from './role.defender';
@@ -26,27 +26,28 @@ export class CreepManager implements Runnable {
 
   private scheduler: Scheduler;
   private creeps: Creep[];
-  private creepsByBase: Record<string, Creep[]>;
-  private creepCountsByBaseAndRole: Record<string, Record<string, Creep[]>>;
+  private creepsByBase: Map<string, Creep[]>;
+  private creepCountsByBaseAndRole: Map<string, Map<string, Creep[]>>;
 
   constructor(scheduler: Scheduler) {
     this.id = 'creep_manager';
     this.scheduler = scheduler;
+    this.creepsByBase = new Map();
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('creep_manager_run');
 
     this.creeps = Object.values(Game.creeps);
-    this.creepsByBase = _.groupBy(this.creeps, (creep) => {
+    this.creepsByBase = _.reduce(this.creeps, (acc, creep) => {
       if (!creep.memory[MEMORY_BASE]) {
         trace.warn(`Creep ${creep.name} has no base assigned`);
       }
       return creep.memory[MEMORY_BASE];
-    });
+    }, new Map());
 
     this.creepCountsByBaseAndRole = _.reduce(this.creeps, (bases, creep) => {
-      const base = creep.memory[MEMORY_BASE]
+      const base = creep.memory[MEMORY_BASE];
       if (!base) {
         return bases;
       }
@@ -66,7 +67,7 @@ export class CreepManager implements Runnable {
 
       bases[base][role].push(creep);
       return bases;
-    }, {} as Record<string, Record<string, Creep[]>>)
+    }, {} as Map<string, Map<string, Creep[]>>);
 
     trace.info(`Found ${this.creeps.length} creeps`);
 
@@ -86,17 +87,17 @@ export class CreepManager implements Runnable {
         creep.pos.findInRange<StructurePortal>(FIND_STRUCTURES, 10, {
           filter: (structure) => {
             return structure.structureType === STRUCTURE_PORTAL;
-          }
+          },
         }).forEach((portal) => {
-          const destination: any = portal.destination
+          const destination: any = portal.destination;
 
           if (destination.shard) {
-            const backup = kernel.getScribe().getCreepBackup(destination.shard, creep.name)
+            const backup = kernel.getScribe().getCreepBackup(destination.shard, creep.name);
             if (backup) {
               creep.memory = backup.memory;
             }
           }
-        })
+        });
       }
 
       // Create processes for any creeps that do not have a process
@@ -105,9 +106,9 @@ export class CreepManager implements Runnable {
       if (!process) {
         trace.error('creep has no process', {creep: creep.name, memory: creep.memory});
 
-        let result = creep.suicide();
+        const result = creep.suicide();
         if (result !== OK) {
-          trace.error('suicide failed', {result, creep: creep.name, memory: creep.memory})
+          trace.error('suicide failed', {result, creep: creep.name, memory: creep.memory});
         }
 
         return;
@@ -152,17 +153,17 @@ export class CreepManager implements Runnable {
 
     const roleDefinition = DEFINITIONS[role];
     if (!roleDefinition) {
-      throw new Error(`Creep ${name} has ${role} which does not have role definition`)
+      throw new Error(`Creep ${name} has ${role} which does not have role definition`);
     }
 
-    const behavior = this.getCreepBehavior(name, role)
+    const behavior = this.getCreepBehavior(name, role);
     if (!behavior) {
       throw new Error(`Creep ${name} has ${role} which does not have behavior defined`);
     }
 
     // add 1 to the priority because creeps need to be lower priority than their manager
     const priority = roleDefinition.processPriority + 1;
-    const process = new Process(name, role, priority, behavior)
+    const process = new Process(name, role, priority, behavior);
     process.setSkippable(roleDefinition.skippable);
 
     return process;
@@ -175,13 +176,13 @@ export class CreepManager implements Runnable {
       run: (kernel: Kernel, trace: Tracer): RunnableResult => {
         const creep = Game.creeps[name];
         if (!creep) {
-          trace.error("creep not found; terminating process", {name})
+          trace.error('creep not found; terminating process', {name});
           return terminate();
         }
 
-        trace = trace.withFields({
-          creepPos: [creep.pos.x, creep.pos.y, creep.pos.roomName].join(','),
-        })
+        const fields: TracerFields = new Map();
+        fields.set('creepPos', [creep.pos.x, creep.pos.y, creep.pos.roomName].join(','));
+        trace = trace.withFields(fields);
 
         if (creep.spawning) {
           // TODO sleep for whoever mich longer it will take to spawn
@@ -194,10 +195,10 @@ export class CreepManager implements Runnable {
           creep.memory[MEMORY_START_TICK] = Game.time;
         }
 
-        behavior.run(creep, trace, kernel)
+        behavior.run(creep, trace, kernel);
 
         return running();
-      }
+      },
     };
   }
 
@@ -220,11 +221,11 @@ export class CreepManager implements Runnable {
   }
 
   private getBehaviorByRole(role: string): any {
-    const behavior = this.roleToCreepLogic[role]
+    const behavior = this.roleToCreepLogic[role];
     if (!behavior) {
-      throw new Error(`Unable to get behavior for ${role}`)
+      throw new Error(`Unable to get behavior for ${role}`);
     }
 
-    return behavior
+    return behavior;
   }
 }

@@ -1,8 +1,8 @@
-import {Kernel} from "./kernel";
-import {Tracer} from "./lib.tracing";
-import {sleeping} from "./os.process";
-import {Runnable, RunnableResult} from "./os.runnable";
-import {ThreadFunc} from "./os.thread";
+import {Kernel} from './kernel';
+import {Tracer} from './lib.tracing';
+import {sleeping} from './os.process';
+import {Runnable, RunnableResult} from './os.runnable';
+import {ThreadFunc} from './os.thread';
 
 const MEMORY_CLEANUP_TTL = 1000;
 const MEMORY_OBJECT_TTL = 5000;
@@ -41,12 +41,12 @@ export class PersistentMemory {
     return memoryObject.value;
   }
 
-  setMemory(value: any, stales: boolean = true): void {
+  setMemory(value: any, stales = true): void {
     (Memory as any).proc[this.memoryId] = {
       id: this.memoryId,
       time: Game.time,
       stales: stales,
-      value: value
+      value: value,
     } as MemoryObject;
   }
 }
@@ -78,6 +78,6 @@ export class MemoryManager implements Runnable {
       }
     }
 
-    return sleeping(MEMORY_CLEANUP_TTL)
+    return sleeping(MEMORY_CLEANUP_TTL);
   }
 }

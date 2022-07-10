@@ -1,13 +1,13 @@
-import {AlertLevel, Base, getStructuresWithResource} from "./base";
-import * as MEMORY from "./constants.memory";
-import * as PRIORITIES from "./constants.priorities";
-import * as TASKS from "./constants.tasks";
-import {Kernel} from "./kernel";
+import {AlertLevel, Base, getStructuresWithResource} from './base';
+import * as MEMORY from './constants.memory';
+import * as PRIORITIES from './constants.priorities';
+import * as TASKS from './constants.tasks';
+import {Kernel} from './kernel';
 import {Tracer} from './lib.tracing';
-import {running, sleeping, terminate} from "./os.process";
-import {RunnableResult} from "./os.runnable";
-import {getBaseDistributorTopic} from "./role.distributor";
-import {getBasePriorityTargetsTopic} from "./runnable.manager.defense";
+import {running, sleeping, terminate} from './os.process';
+import {RunnableResult} from './os.runnable';
+import {getBaseDistributorTopic} from './role.distributor';
+import {getBasePriorityTargetsTopic} from './runnable.manager.defense';
 
 const REQUEST_ENERGY_TTL = 10;
 const REQUEST_ENERGY_THRESHOLD = 500;
@@ -46,20 +46,20 @@ export default class TowerRunnable {
 
     const base = kernel.getPlanner().getBaseById(this.baseId);
     if (!base) {
-      trace.error("no base config, terminating", {id: this.baseId})
+      trace.error('no base config, terminating', {id: this.baseId});
       trace.end();
       return terminate();
     }
 
     const tower = Game.getObjectById(this.towerId);
     if (!tower) {
-      trace.error("no tower, terminating", {id: this.towerId})
+      trace.error('no tower, terminating', {id: this.towerId});
       trace.end();
       return terminate();
     }
 
     if (!tower.isActive()) {
-      trace.error("tower is inactive, sleeping", {id: this.towerId})
+      trace.error('tower is inactive, sleeping', {id: this.towerId});
       trace.end();
       return sleeping(100);
     }
@@ -68,7 +68,7 @@ export default class TowerRunnable {
     const numPoweredTowers = tower.room.find(FIND_MY_STRUCTURES, {
       filter: (s: AnyStoreStructure) => {
         return s.structureType === STRUCTURE_TOWER && s.store.getUsedCapacity(RESOURCE_ENERGY) > 10;
-      }
+      },
     }).length;
 
     this.haulTTL -= ticks;
@@ -76,7 +76,7 @@ export default class TowerRunnable {
 
     const towerUsed = tower.store.getUsedCapacity(RESOURCE_ENERGY);
 
-    trace.info("tower runnable", {
+    trace.info('tower runnable', {
       room: tower.room.name,
       id: this.towerId,
       haulTTL: this.haulTTL,
@@ -99,7 +99,7 @@ export default class TowerRunnable {
       (target) => {
         trace.info('finding target', {target, roomId: roomName});
         return target.details.roomName === roomName;
-      }
+      },
     );
 
     // Remove targets that can heal too much
@@ -111,15 +111,15 @@ export default class TowerRunnable {
       targets: targets.map((t) => {
         return {
           id: t.details.id,
-          healing: t.details.healingPower
-        }
+          healing: t.details.healingPower,
+        };
       }),
     });
 
     if (targets.length) {
-      const target = Game.getObjectById<Id<Creep>>(targets[0].details.id)
+      const target = Game.getObjectById<Id<Creep>>(targets[0].details.id);
       const result = tower.attack(target);
-      trace.info('attacking', {target: targets[0].details.id, result})
+      trace.info('attacking', {target: targets[0].details.id, result});
       trace.end();
       return running();
     }
@@ -136,7 +136,7 @@ export default class TowerRunnable {
         this.damagedCreep = null;
       } else {
         const result = tower.heal(creep);
-        trace.log('healing', {target: creep.id, result})
+        trace.log('healing', {target: creep.id, result});
         trace.end();
         return running();
       }

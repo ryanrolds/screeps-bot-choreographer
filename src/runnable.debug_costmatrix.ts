@@ -1,11 +1,11 @@
-import {Kernel} from "./kernel";
+import {Kernel} from './kernel';
 import {
-  createCommonCostMatrix, createDefenderCostMatrix, createOpenSpaceMatrix, createPartyCostMatrix, createSourceRoadMatrix, visualizeCostMatrix
-} from "./lib.costmatrix";
-import {AllowedCostMatrixTypes} from "./lib.costmatrix_cache";
+  createCommonCostMatrix, createDefenderCostMatrix, createOpenSpaceMatrix, createPartyCostMatrix, createSourceRoadMatrix, visualizeCostMatrix,
+} from './lib.costmatrix';
+import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
 import {Tracer} from './lib.tracing';
-import {running} from "./os.process";
-import {RunnableResult} from "./os.runnable";
+import {running} from './os.process';
+import {RunnableResult} from './os.runnable';
 
 export default class CostMatrixDebugger {
   id: string;
@@ -19,7 +19,7 @@ export default class CostMatrixDebugger {
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
-    trace.log("costmatrix debugger", {path: this.costMatrix})
+    trace.log('costmatrix debugger', {path: this.costMatrix});
 
     if (this.costMatrix) {
       // Display on the map
@@ -31,8 +31,8 @@ export default class CostMatrixDebugger {
 
   debug(roomId: string, costMatrixType: AllowedCostMatrixTypes) {
     const kernel = global.AI;
-    const trace = new Tracer('costmatrix_debugger_debug', {}, 0)
-    trace.log('debug matrix', {roomId, costMatrixType})
+    const trace = new Tracer('costmatrix_debugger_debug', new Map(), 0);
+    trace.log('debug matrix', {roomId, costMatrixType});
 
     let costMatrix: CostMatrix | boolean = new PathFinder.CostMatrix();
 
@@ -53,10 +53,10 @@ export default class CostMatrixDebugger {
         [costMatrix] = createOpenSpaceMatrix(roomId, trace);
         break;
       default:
-        trace.error('unexpected matrix type', {matrixType: costMatrixType})
+        trace.error('unexpected matrix type', {matrixType: costMatrixType});
     }
 
-    if (typeof (costMatrix) !== "boolean") {
+    if (typeof (costMatrix) !== 'boolean') {
       this.costMatrix = costMatrix;
     } else {
       this.costMatrix = null;

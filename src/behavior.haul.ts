@@ -31,7 +31,7 @@ export const getHaulTaskFromBaseTopic = behaviorTree.leafNode(
   },
 );
 
-export const getNearbyHaulTaskFromTopic = function (topic) {
+export const getNearbyHaulTaskFromTopic = function(topic) {
   return behaviorTree.leafNode(
     'pick_nearby_haul_task',
     (creep, trace, kernel) => {

@@ -1,17 +1,17 @@
-import {Base, getStoredResourceAmount, getStructureForResource, getStructureWithResource} from "./base";
-import {PRICES} from "./constants.market";
-import * as MEMORY from "./constants.memory";
-import * as PRIORITIES from "./constants.priorities";
-import * as TASKS from "./constants.tasks";
-import * as TOPICS from "./constants.topics";
-import {Kernel} from "./kernel";
+import {Base, getStoredResourceAmount, getStructureForResource, getStructureWithResource} from './base';
+import {PRICES} from './constants.market';
+import * as MEMORY from './constants.memory';
+import * as PRIORITIES from './constants.priorities';
+import * as TASKS from './constants.tasks';
+import * as TOPICS from './constants.topics';
+import {Kernel} from './kernel';
 import {ResourcePricer, SigmoidPricing} from './lib.sigmoid_pricing';
 import {Tracer} from './lib.tracing';
-import {PersistentMemory} from "./os.memory";
-import {running, sleeping, terminate} from "./os.process";
-import {RunnableResult} from "./os.runnable";
-import {thread, ThreadFunc} from "./os.thread";
-import {getBaseDistributorTopic} from "./role.distributor";
+import {PersistentMemory} from './os.memory';
+import {running, sleeping, terminate} from './os.process';
+import {RunnableResult} from './os.runnable';
+import {thread, ThreadFunc} from './os.thread';
+import {getBaseDistributorTopic} from './role.distributor';
 
 const TASK_PHASE_HAUL_RESOURCE = 'phase_transfer_resource';
 const TASK_PHASE_TRANSACT = 'phase_transact';
@@ -74,7 +74,7 @@ export default class TerminalRunnable extends PersistentMemory {
     const terminal = Game.getObjectById(this.terminalId);
     // If terminal no longer exists, terminate
     if (!terminal) {
-      trace.log('terminal not found - terminating', {})
+      trace.log('terminal not found - terminating', {});
       trace.end();
       return terminate();
     }
@@ -102,7 +102,7 @@ export default class TerminalRunnable extends PersistentMemory {
       returnEnergyTTL: this.returnEnergyTTL,
       updateOrdersTTL: this.updateOrdersTTL,
       task,
-    })
+    });
 
     if (task && this.processTaskTTL < 0) {
       this.processTaskTTL = PROCESS_TASK_TTL;
@@ -112,7 +112,7 @@ export default class TerminalRunnable extends PersistentMemory {
       if (terminalAmount > MAX_TERMINAL_ENERGY && this.returnEnergyTTL < 0) {
         this.returnEnergyTTL = REQUEST_RETURN_ENERGY_TTL;
         const amountToTransfer = terminalAmount - MAX_TERMINAL_ENERGY;
-        trace.log('send energy to storage', {amountToTransfer})
+        trace.log('send energy to storage', {amountToTransfer});
         this.sendEnergyToStorage(kernel, base, terminal, amountToTransfer, REQUEST_RETURN_ENERGY_TTL, trace);
       }
     }
@@ -126,17 +126,21 @@ export default class TerminalRunnable extends PersistentMemory {
     return running();
   }
 
-  // @REFACTOR implement persistent memory
+  isIdle(trace: Tracer) {
+    const memory = this.getMemory(trace);
+    return !!memory[MEMORY.TERMINAL_TASK];
+  }
 
-  isIdle() {
-    return !!this.orgRoom.getRoomObject()?.memory[MEMORY.TERMINAL_TASK];
+  getTask(trace: Tracer) {
+    const memory = this.getMemory(trace);
+    return memory[MEMORY.TERMINAL_TASK] || null;
   }
-  getTask() {
-    return this.orgRoom.getRoomObject()?.memory[MEMORY.TERMINAL_TASK] || null;
-  }
-  clearTask(trace) {
-    trace.log('clearing task');
-    delete this.orgRoom.getRoomObject()?.memory[MEMORY.TERMINAL_TASK];
+
+  clearTask(trace: Tracer) {
+    trace.info('clearing task');
+    const memory = this.getMemory(trace);
+    delete memory[MEMORY.TERMINAL_TASK];
+    this.setMemory(memory);
   }
 
   processTask(kernel: Kernel, base: Base, terminal: StructureTerminal, task, ticks: number, trace: Tracer) {
@@ -156,7 +160,7 @@ export default class TerminalRunnable extends PersistentMemory {
       terminal.room.memory[MEMORY.TERMINAL_TASK].details[MEMORY.TASK_TTL] = ttl - ticks;
     }
 
-    trace.log('processTask', {task})
+    trace.log('processTask', {task});
 
     switch (taskType) {
       case TASKS.TASK_TRANSFER:
@@ -182,7 +186,7 @@ export default class TerminalRunnable extends PersistentMemory {
 
   transferResource(kernel: Kernel, base: Base, terminal: StructureTerminal, task, trace: Tracer) {
     const resource = task[MEMORY.TRANSFER_RESOURCE];
-    let amount = task[MEMORY.TRANSFER_AMOUNT];
+    const amount = task[MEMORY.TRANSFER_AMOUNT];
     const roomName = task[MEMORY.TRANSFER_ROOM];
     const phase = task[MEMORY.TASK_PHASE] || TASK_PHASE_HAUL_RESOURCE;
 
@@ -296,10 +300,10 @@ export default class TerminalRunnable extends PersistentMemory {
       return;
     }
 
-    let dealAmount = Math.min(missingAmount, sellOrder.remainingAmount);
+    const dealAmount = Math.min(missingAmount, sellOrder.remainingAmount);
     const energyReady = this.prepareTransferEnergy(kernel, base, terminal, sellOrder, dealAmount, trace);
     if (!energyReady) {
-      trace.log('deal energy not ready', {dealAmount})
+      trace.log('deal energy not ready', {dealAmount});
       return;
     }
 
@@ -309,7 +313,7 @@ export default class TerminalRunnable extends PersistentMemory {
       dealAmount,
       price: sellOrder.price,
       destRoom: terminal.room.name,
-      result
+      result,
     });
   }
 
@@ -330,7 +334,6 @@ export default class TerminalRunnable extends PersistentMemory {
         const pickup = getStructureWithResource(base, resource);
         if (!pickup) {
           if (!terminalAmount) {
-
             this.clearTask(trace);
             break;
           }
@@ -370,7 +373,7 @@ export default class TerminalRunnable extends PersistentMemory {
 
         // If no buy orders or price is too low, create a sell order
         if (!buyOrder || buyOrder.price < minSellPrice) {
-          trace.log('no orders or sell prices too low, creating sell order')
+          trace.log('no orders or sell prices too low, creating sell order');
           this.createSellOrder(terminal, resource, amount, trace);
           this.clearTask(trace);
           return;
@@ -380,7 +383,7 @@ export default class TerminalRunnable extends PersistentMemory {
         const dealAmount = _.min([amount, buyOrder.remainingAmount]);
         const energyReady = this.prepareTransferEnergy(kernel, base, terminal, buyOrder, dealAmount, trace);
         if (!energyReady) {
-          trace.log('deal energy not ready', {dealAmount})
+          trace.log('deal energy not ready', {dealAmount});
           return;
         }
 
@@ -397,7 +400,7 @@ export default class TerminalRunnable extends PersistentMemory {
             dealAmount,
             price: buyOrder.price,
             destRoom: terminal.room.name,
-            result
+            result,
           });
 
           // deduct amount transacted from total amount we want to buy
@@ -448,7 +451,7 @@ export default class TerminalRunnable extends PersistentMemory {
       roomName: terminal.room.name,
     };
     const result = Game.market.createOrder(buyOrder);
-    trace.log('create buy order result', {result, buyOrder})
+    trace.log('create buy order result', {result, buyOrder});
   }
 
   createSellOrder(terminal: StructureTerminal, resource: ResourceConstant, amount: number, trace: Tracer) {
@@ -513,7 +516,7 @@ export default class TerminalRunnable extends PersistentMemory {
         order.remainingAmount - order.amount > 0;
     });
 
-    trace.log('incomplete orders', {ordersWithMissingResources})
+    trace.log('incomplete orders', {ordersWithMissingResources});
 
     ordersWithMissingResources.forEach((order) => {
       const resourceType = order.resourceType;
@@ -613,7 +616,7 @@ export default class TerminalRunnable extends PersistentMemory {
   }
 
   updateEnergyValue(trace: Tracer) {
-    const energyHistory = Game.market.getHistory(RESOURCE_ENERGY)
+    const energyHistory = Game.market.getHistory(RESOURCE_ENERGY);
     trace.log('updating energy value', {energyHistory});
 
     // private servers can return energyHistory as an empty object
@@ -622,7 +625,7 @@ export default class TerminalRunnable extends PersistentMemory {
       return;
     }
 
-    const dailyAvgs = energyHistory.map(order => order.avgPrice);
+    const dailyAvgs = energyHistory.map((order) => order.avgPrice);
     if (!dailyAvgs.length) {
       this.energyValue = 1;
       return;

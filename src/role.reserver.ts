@@ -1,10 +1,10 @@
 
-import {getCreepBase} from "./base";
-import {behaviorBoosts} from "./behavior.boosts";
-import * as behaviorCommute from "./behavior.commute";
-import * as behaviorMovement from "./behavior.movement";
-import {updateSign} from "./behavior.room";
-import * as MEMORY from "./constants.memory";
+import {getCreepBase} from './base';
+import {behaviorBoosts} from './behavior.boosts';
+import * as behaviorCommute from './behavior.commute';
+import * as behaviorMovement from './behavior.movement';
+import {updateSign} from './behavior.room';
+import * as MEMORY from './constants.memory';
 import {commonPolicy} from './constants.pathing_policies';
 import * as behaviorTree from './lib.behaviortree';
 import {FAILURE} from './lib.behaviortree';
@@ -26,7 +26,7 @@ const behavior = behaviorTree.sequenceNode(
 
       creep.memory[MEMORY.MEMORY_ASSIGN_ROOM_POS] = posStr;
 
-      return behaviorTree.SUCCESS
+      return behaviorTree.SUCCESS;
     }),
     behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_ASSIGN_ROOM_POS, 1, commonPolicy),
     behaviorTree.repeatUntilSuccess(

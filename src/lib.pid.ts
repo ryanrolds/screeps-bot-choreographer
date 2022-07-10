@@ -5,7 +5,7 @@ import {Tracer} from './lib.tracing';
 const globalAny: any = global;
 globalAny.RESET_PIDS = false;
 
-export const setup = (memory: Record<string, number>, setPoint: number, p: number,
+export const setup = (memory: Map<string, number>, setPoint: number, p: number,
   i: number, d: number) => {
   if (!p) {
     throw new Error('missing p');
@@ -15,9 +15,9 @@ export const setup = (memory: Record<string, number>, setPoint: number, p: numbe
   memory[`${MEMORY.PID_SUFFIX_P}`] = p;
   memory[`${MEMORY.PID_SUFFIX_I}`] = i || 0;
   memory[`${MEMORY.PID_SUFFIX_D}`] = d || 0;
-}
+};
 
-export const update = (memory: Record<string, number>, value: number,
+export const update = (memory: Map<string, number>, value: number,
   time: number, trace: Tracer) => {
   if (globalAny.RESET_PIDS) {
     memory[`${MEMORY.PID_SUFFIX_ERROR}`] = 0;
@@ -58,12 +58,12 @@ export const update = (memory: Record<string, number>, value: number,
   memory[`${MEMORY.PID_SUFFIX_TIME}`] = time;
   memory[`${MEMORY.PID_SUFFIX_INTEGRAL}`] = integral;
 
-  const result = p * err + integral + d * det
+  const result = p * err + integral + d * det;
 
   // TODO move to HUD
-  //const roomVisual = new RoomVisual(roomId);
-  //roomVisual.text(`PID: ${result} = ${p} * ${err} + ${integral} + ${d} * ${det}`, 0, 1,
+  // const roomVisual = new RoomVisual(roomId);
+  // roomVisual.text(`PID: ${result} = ${p} * ${err} + ${integral} + ${d} * ${det}`, 0, 1,
   //  {align: 'left'});
 
   return result;
-}
+};

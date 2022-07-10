@@ -1,4 +1,4 @@
-import {Metric, Tracer} from "./lib.tracing";
+import {Metric, Tracer} from './lib.tracing';
 
 interface MetricRollup {
   key: string;
@@ -7,7 +7,7 @@ interface MetricRollup {
   max: number;
 }
 
-let accMetricsActive: boolean = false;
+let accMetricsActive = false;
 let accMetrics: Metric[] = [];
 
 export const setActive = () => {
@@ -32,7 +32,7 @@ export const reportMetrics = () => {
     return;
   }
 
-  let summary = _.reduce(accMetrics, (acc, timing) => {
+  const summary = _.reduce(accMetrics, (acc, timing) => {
     const rollup = acc[timing.key] || {
       key: timing.key,
       total: 0,
@@ -48,9 +48,10 @@ export const reportMetrics = () => {
 
     acc[timing.key] = rollup;
     return acc;
-  }, {} as Record<string, MetricRollup>);
+  }, {} as Map<string, MetricRollup>);
 
-  let summaryArray = _.reduce(summary, (result, metric) => {
+  const rollups = _.values<MetricRollup>(summary);
+  let summaryArray = _.reduce(rollups, (result, metric) => {
     result.push(metric);
     return result;
   }, []);

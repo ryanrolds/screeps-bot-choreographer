@@ -1,11 +1,11 @@
-import {commonPolicy} from "./constants.pathing_policies";
-import {Kernel} from "./kernel";
-import {FindPathPolicy, getPath, PathSearchDetails, visualizePath} from "./lib.pathing";
+import {commonPolicy} from './constants.pathing_policies';
+import {Kernel} from './kernel';
+import {FindPathPolicy, getPath, PathSearchDetails, visualizePath} from './lib.pathing';
 import {Tracer} from './lib.tracing';
-import {running} from "./os.process";
-import {RunnableResult} from "./os.runnable";
-import {BufferPathPolicy} from "./runnable.manager.buffer";
-import {warPartyQuadPolicy, warPartySingleFilePolicy} from "./runnable.warparty";
+import {running} from './os.process';
+import {RunnableResult} from './os.runnable';
+import {BufferPathPolicy} from './runnable.manager.buffer';
+import {warPartyQuadPolicy, warPartySingleFilePolicy} from './runnable.warparty';
 
 export default class PathDebugger {
   id: string;
@@ -21,7 +21,7 @@ export default class PathDebugger {
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
-    trace.log("path debugger", {path: this.results})
+    trace.log('path debugger', {path: this.results});
 
     if (this.results) {
       visualizePath(this.results.path, trace);
@@ -36,7 +36,7 @@ export default class PathDebugger {
       });
 
       _.each(this.resultsDebug.incompletePaths, (path) => {
-        displayRoomPaths(path.path, {stroke: '#ff0000'})
+        displayRoomPaths(path.path, {stroke: '#ff0000'});
         Game.map.visual.poly(path.path, {stroke: '#ff0000'});
       });
     }
@@ -45,7 +45,7 @@ export default class PathDebugger {
   }
 
   debug(origin: RoomPosition, goal: RoomPosition, range: number, policyName: string) {
-    const trace = new Tracer('path_debugger_debug', {pid: 'path_debugger'}, 0);
+    const trace = new Tracer('path_debugger_debug', new Map([['pid', 'path_debugger']]), 0);
     trace.setLogFilter(global.LOG_WHEN_PID);
 
     let policy: FindPathPolicy = null;
@@ -60,7 +60,7 @@ export default class PathDebugger {
         policy = BufferPathPolicy;
         break;
       case 'common':
-        policy = commonPolicy
+        policy = commonPolicy;
         break;
       default:
         trace.error('policy not supported', {policyName});
@@ -88,10 +88,10 @@ export const displayRoomPaths = (path: RoomPosition[], style: PolyStyle) => {
     acc[pos.roomName].push(pos);
 
     return acc;
-  }, {} as Record<string, RoomPosition[]>);
+  }, {} as Map<string, RoomPosition[]>);
 
   // Display in the rooms
   Object.entries(pathByRooms).forEach(([key, value]) => {
     new RoomVisual(key).poly(value, style);
   });
-}
+};

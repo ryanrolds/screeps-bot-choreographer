@@ -5,12 +5,12 @@ import {MEMORY_DESTINATION, MEMORY_HAUL_DROPOFF, MEMORY_ROLE} from './constants.
 import * as behaviorTree from './lib.behaviortree';
 import {FAILURE, RUNNING, SUCCESS} from './lib.behaviortree';
 
-const spawnContainerCache: Record<string, (StructureContainer | StructureStorage)[]> = {};
+const spawnContainerCache: Map<string, (StructureContainer | StructureStorage)[]> = new Map();
 
 export const selectEnergyForWithdraw = behaviorTree.leafNode(
   'selectEnergyForWithdraw',
   (creep, trace, kernel) => {
-    const spawnContainers = spawnContainerCache[creep.room.name];
+    const spawnContainers = spawnContainerCache.get(creep.room.name);
     if (!spawnContainers?.length || Game.time % 20 === 0) {
       const spawns = creep.room.find<StructureContainer>(FIND_STRUCTURES, {
         filter: (structure) => {
@@ -187,7 +187,7 @@ export const selectRoomDropoff = behaviorTree.selectorNode(
 
         const room = getBasePrimaryRoom(base);
         if (!room) {
-          trace.error("could not find primary room", {baseId: base.id, roomName: base.primary});
+          trace.error('could not find primary room', {baseId: base.id, roomName: base.primary});
           creep.suicide();
           return FAILURE;
         }
@@ -223,7 +223,7 @@ export const selectRoomDropoff = behaviorTree.selectorNode(
 
         const room = getBasePrimaryRoom(base);
         if (!room) {
-          trace.error("could not find primary room", {baseId: base.id, roomName: base.primary});
+          trace.error('could not find primary room', {baseId: base.id, roomName: base.primary});
           creep.suicide();
           return FAILURE;
         }

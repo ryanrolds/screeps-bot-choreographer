@@ -1,15 +1,15 @@
-import {MEMORY_BASE} from "./constants.memory";
-import {Kernel} from "./kernel";
-import {LabsByAction, ResourceCounts} from "./runnable.base_booster";
-import {BaseLayout} from "./runnable.base_construction";
+import {MEMORY_BASE} from './constants.memory';
+import {Kernel} from './kernel';
+import {LabsByAction} from './runnable.base_booster';
+import {BaseLayout} from './runnable.base_construction';
 
 const PER_LEVEL_ENERGY = 100000;
 
 export enum AlertLevel {
-  GREEN = "green",
-  YELLOW = "yellow",
-  RED = "red",
-};
+  GREEN = 'green',
+  YELLOW = 'yellow',
+  RED = 'red',
+}
 
 export interface BaseMap {
   [id: string]: Base;
@@ -28,8 +28,10 @@ export interface Base {
   alertLevel: NonNullable<AlertLevel>;
 
   boostPosition: RoomPosition; // TODO refactor lab arrangement to be more flexible and efficient
-  boosts: NonNullable<{[action: string]: StructureLab[]}>;
+  boosts: NonNullable<Map<string, StructureLab[]>>;
 }
+
+export type ResourceCounts = Map<ResourceConstant, number>;
 
 export function getBasePrimaryRoom(base: Base): Room {
   return Game.rooms[base.primary];
@@ -91,7 +93,7 @@ export function getStoredResourceAmount(base: Base, resource: ResourceConstant):
 }
 
 export function getEnergyFullness(base: Base): number {
-  const structures = getStorageStructures(base)
+  const structures = getStorageStructures(base);
   if (!structures.length) {
     return 0;
   }
@@ -210,7 +212,7 @@ export function getBaseLevel(base: Base): number {
 
   const room = getBasePrimaryRoom(base);
   if (!room) {
-    return level
+    return level;
   }
 
   if (room.controller?.level) {
@@ -223,7 +225,7 @@ export function getBaseLevel(base: Base): number {
 export function getBaseLevelCompleted(base: Base) {
   const room = getBasePrimaryRoom(base);
   if (!room) {
-    return 0
+    return 0;
   }
 
   if (!room.controller?.my) {

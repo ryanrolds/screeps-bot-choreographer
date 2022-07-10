@@ -11,15 +11,15 @@ export const STATUS_TERMINATED = 'terminated';
 
 export const running = (): RunnableResult => {
   return {status: STATUS_RUNNING};
-}
+};
 
 export const sleeping = (sleepFor: number): RunnableResult => {
   return {status: STATUS_SLEEPING, sleepFor};
-}
+};
 
 export const terminate = (): RunnableResult => {
   return {status: STATUS_TERMINATED};
-}
+};
 
 export class Process {
   id: string;
@@ -104,7 +104,7 @@ export class Process {
         this.setSleeping(result.sleepFor);
         break;
       case STATUS_TERMINATED:
-        this.setTerminated()
+        this.setTerminated();
         break;
     }
 

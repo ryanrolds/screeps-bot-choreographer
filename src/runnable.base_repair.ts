@@ -1,9 +1,9 @@
-import {Base, getBasePrimaryRoom, getEnergyFullness, getReserveBuffer, getStoredResourceAmount} from "./base";
-import {Kernel} from "./kernel";
-import {Tracer} from "./lib.tracing";
-import {running, sleeping, terminate} from "./os.process";
-import {Runnable, RunnableResult} from "./os.runnable";
-import {thread, ThreadFunc} from "./os.thread";
+import {Base, getBasePrimaryRoom, getEnergyFullness, getReserveBuffer, getStoredResourceAmount} from './base';
+import {Kernel} from './kernel';
+import {Tracer} from './lib.tracing';
+import {running, sleeping, terminate} from './os.process';
+import {Runnable, RunnableResult} from './os.runnable';
+import {thread, ThreadFunc} from './os.thread';
 
 const UPDATE_DAMAGED_STRUCTURES_TTL = 40;
 const UPDATE_DAMAGED_SECONDARY_TTL = 15;
@@ -104,10 +104,11 @@ export default class RepairRunnable implements Runnable {
     });
 
     this.damagedSecondaryStructures = _.map(damagedSecondaryStructures, 'id');
+
     trace.info('damaged secondary structures', {
       room: this.baseId,
       defenseHitsLimit: this.defenseHitsLimit,
-      damagedSecondaryStructures: this.damagedSecondaryStructures
+      damagedSecondaryStructures: this.damagedSecondaryStructures,
     });
   }
 }

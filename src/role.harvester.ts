@@ -4,16 +4,16 @@
  *
  * Harvests mineral nodes.
  */
-import {behaviorBoosts} from "./behavior.boosts";
-import * as behaviorCommute from "./behavior.commute";
-import * as behaviorHarvest from "./behavior.harvest";
-import {roadWorker} from "./behavior.logistics";
-import * as behaviorMovement from "./behavior.movement";
-import * as behaviorStorage from "./behavior.storage";
-import * as MEMORY from "./constants.memory";
-import {commonPolicy} from "./constants.pathing_policies";
-import * as behaviorTree from "./lib.behaviortree";
-import {FAILURE, RUNNING, SUCCESS} from "./lib.behaviortree";
+import {behaviorBoosts} from './behavior.boosts';
+import * as behaviorCommute from './behavior.commute';
+import * as behaviorHarvest from './behavior.harvest';
+import {roadWorker} from './behavior.logistics';
+import * as behaviorMovement from './behavior.movement';
+import * as behaviorStorage from './behavior.storage';
+import * as MEMORY from './constants.memory';
+import {commonPolicy} from './constants.pathing_policies';
+import * as behaviorTree from './lib.behaviortree';
+import {FAILURE, RUNNING, SUCCESS} from './lib.behaviortree';
 
 const behavior = behaviorTree.sequenceNode(
   'haul_energy',

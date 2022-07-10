@@ -12,20 +12,20 @@
  * - If no drop offs with capacity, then build structures or upgrade controller
  *
  */
-import {getBasePrimaryRoom, getCreepBase} from "./base";
-import {behaviorBoosts} from "./behavior.boosts";
-import {build, selectInfrastructureSites} from "./behavior.build";
-import * as behaviorCommute from "./behavior.commute";
-import * as behaviorHaul from "./behavior.haul";
-import {roadWorker} from "./behavior.logistics";
-import * as behaviorMovement from "./behavior.movement";
-import {parkingLot} from "./behavior.room";
-import {WORKER_DISTRIBUTOR} from "./constants.creeps";
-import * as MEMORY from "./constants.memory";
-import {Kernel} from "./kernel";
-import * as behaviorTree from "./lib.behaviortree";
-import {FAILURE, SUCCESS} from "./lib.behaviortree";
-import {haulerPolicy} from "./role.hauler";
+import {getBasePrimaryRoom, getCreepBase} from './base';
+import {behaviorBoosts} from './behavior.boosts';
+import {build, selectInfrastructureSites} from './behavior.build';
+import * as behaviorCommute from './behavior.commute';
+import * as behaviorHaul from './behavior.haul';
+import {roadWorker} from './behavior.logistics';
+import * as behaviorMovement from './behavior.movement';
+import {parkingLot} from './behavior.room';
+import {WORKER_DISTRIBUTOR} from './constants.creeps';
+import * as MEMORY from './constants.memory';
+import {Kernel} from './kernel';
+import * as behaviorTree from './lib.behaviortree';
+import {FAILURE, SUCCESS} from './lib.behaviortree';
+import {haulerPolicy} from './role.hauler';
 
 const selectDropoff = module.exports.selectRoomDropoff = behaviorTree.selectorNode(
   'selectRoomDropoff',
@@ -52,9 +52,9 @@ const selectDropoff = module.exports.selectRoomDropoff = behaviorTree.selectorNo
           return FAILURE;
         }
 
-        const room = getBasePrimaryRoom(base)
+        const room = getBasePrimaryRoom(base);
         if (!room) {
-          trace.error("could not find base primary room", {base})
+          trace.error('could not find base primary room', {base});
           return FAILURE;
         }
 
@@ -69,7 +69,7 @@ const selectDropoff = module.exports.selectRoomDropoff = behaviorTree.selectorNo
         const distributors = _.filter(kernel.getCreepsManager().getCreepsByBase(base.id),
           (creep) => {
             return creep.memory[MEMORY.MEMORY_ROLE] === WORKER_DISTRIBUTOR;
-          }
+          },
         );
 
         if (!distributors.length) {
@@ -163,7 +163,7 @@ const behavior = behaviorTree.sequenceNode(
                   }
 
                   return FAILURE;
-                }
+                },
               ),
               selectDropoff,
               behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 1, haulerPolicy),
@@ -179,7 +179,7 @@ const behavior = behaviorTree.sequenceNode(
             }
 
             return FAILURE;
-          }
+          },
         ),
         behaviorTree.sequenceNode(
           'build_construction_site',
@@ -197,7 +197,7 @@ const behavior = behaviorTree.sequenceNode(
             }
 
             return FAILURE;
-          }
+          },
         ),
         behaviorTree.sequenceNode(
           'upgrade_controller',
@@ -231,7 +231,7 @@ const behavior = behaviorTree.sequenceNode(
                 'upgrade_controller',
                 (creep, trace, kernel) => {
                   const result = creep.upgradeController(creep.room.controller);
-                  trace.log("upgrade result", {result})
+                  trace.log('upgrade result', {result});
 
                   if (result == ERR_NOT_ENOUGH_RESOURCES) {
                     return behaviorTree.SUCCESS;

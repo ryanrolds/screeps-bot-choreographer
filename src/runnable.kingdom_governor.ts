@@ -3,11 +3,11 @@ import * as MEMORY from './constants.memory';
 import * as PRIORITIES from './constants.priorities';
 import {Kernel} from './kernel';
 import {Tracer} from './lib.tracing';
-import {sleeping} from "./os.process";
-import {RunnableResult} from "./os.runnable";
-import {thread, ThreadFunc} from "./os.thread";
+import {sleeping} from './os.process';
+import {RunnableResult} from './os.runnable';
+import {thread, ThreadFunc} from './os.thread';
 import {createSpawnRequest, getShardSpawnTopic} from './runnable.base_spawning';
-import {CreepRequest, ShardMemory} from "./runnable.scribe";
+import {CreepRequest, ShardMemory} from './runnable.scribe';
 
 const SHARD_MEMORY_TTL = 50;
 
@@ -21,7 +21,7 @@ export default class KingdomGovernor {
   run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('kernel_governor');
 
-    trace.log('kernel governor run', {})
+    trace.log('kernel governor run', {});
 
     this.threadUpdateShardMemory(trace, kernel);
 
@@ -51,11 +51,11 @@ export default class KingdomGovernor {
         return;
       }
 
-      let shardMemory = kernel.getScribe().getRemoteShardMemory(shardName);
+      const shardMemory = kernel.getScribe().getRemoteShardMemory(shardName);
       trace.log('shard memory', {shardName, shardMemory});
 
-      this.handleClaimerRequests(kernel, shardMemory.request_claimer || {}, trace);
-      this.handleBuilderRequests(kernel, shardMemory.request_builder || {}, trace);
+      this.handleClaimerRequests(kernel, shardMemory.request_claimer || new Map(), trace);
+      this.handleBuilderRequests(kernel, shardMemory.request_builder || new Map(), trace);
 
       /* TODO remove if not used Jan 2022
       const shardConfig: ShardConfig = kernel.getPlanner().getShardConfig(shardName);
@@ -80,7 +80,7 @@ export default class KingdomGovernor {
       */
     });
 
-    trace.log('setting local memory', {shardMemory})
+    trace.log('setting local memory', {shardMemory});
 
     scribe.setLocalShardMemory(shardMemory);
   }
@@ -90,14 +90,14 @@ export default class KingdomGovernor {
   }
 
   requestClaimersFromOtherShards(kernel: Kernel, localMemory: ShardMemory, trace: Tracer): ShardMemory {
-    localMemory.request_claimer = {};
+    localMemory.request_claimer = new Map();
 
     // Check if we need to request reservers
     const claimedRooms = Object.values(Game.rooms).filter((room: Room) => {
       return room.controller?.my;
     });
 
-    const bases = kernel.getPlanner().getBases()
+    const bases = kernel.getPlanner().getBases();
     if (!bases.length) {
       return localMemory;
     }
@@ -117,7 +117,7 @@ export default class KingdomGovernor {
           [MEMORY.MEMORY_ASSIGN_SHARD]: request.shard,
           [MEMORY.MEMORY_ASSIGN_ROOM]: request.room,
           [MEMORY.MEMORY_BASE]: request.baseId,
-        }
+        },
       });
       if (!enroute.length) {
         localMemory.request_claimer[bases[0].primary] = request;
@@ -128,7 +128,7 @@ export default class KingdomGovernor {
     return localMemory;
   }
 
-  handleClaimerRequests(kernel: Kernel, requests: Record<string, CreepRequest>, trace: Tracer) {
+  handleClaimerRequests(kernel: Kernel, requests: Map<string, CreepRequest>, trace: Tracer) {
     Object.values(requests).forEach((creepRequest: CreepRequest) => {
       const memory = {
         [MEMORY.MEMORY_ASSIGN_SHARD]: creepRequest.shard,
@@ -143,7 +143,7 @@ export default class KingdomGovernor {
 
       trace.log('checking if claimer in-flight', {
         shardName: creepRequest.shard,
-        enroute: enroute.map(creep => creep.id),
+        enroute: enroute.map((creep) => creep.id),
       });
 
       if (enroute.length) {
@@ -155,7 +155,7 @@ export default class KingdomGovernor {
       const role = WORKERS.WORKER_RESERVER;
 
       const request = createSpawnRequest(priorities, ttl, role, memory, 0);
-      trace.log('relaying claimer request from remote shard', {request})
+      trace.log('relaying claimer request from remote shard', {request});
       kernel.getTopics().addRequestV2(getShardSpawnTopic(), request);
     });
   }
@@ -168,18 +168,18 @@ export default class KingdomGovernor {
     } as CreepRequest;
 
     if (!memory.request_claimer) {
-      memory.request_claimer = {};
+      memory.request_claimer = new Map();
     }
 
-    memory.request_claimer[roomName] = request
+    memory.request_claimer[roomName] = request;
 
-    trace.log('adding request for claimer', {request})
+    trace.log('adding request for claimer', {request});
 
     return memory;
   }
 
   requestBuildersFromOtherShards(kernel: Kernel, localMemory: ShardMemory, trace: Tracer): ShardMemory {
-    localMemory.request_builder = {};
+    localMemory.request_builder = new Map();
 
     // Check if we need to request builders
     const claimedRooms = Object.values(Game.rooms).filter((room: Room) => {
@@ -187,7 +187,7 @@ export default class KingdomGovernor {
     });
 
 
-    const bases = kernel.getPlanner().getBases()
+    const bases = kernel.getPlanner().getBases();
     if (!bases.length) {
       return localMemory;
     }
@@ -207,7 +207,7 @@ export default class KingdomGovernor {
           [MEMORY.MEMORY_ASSIGN_SHARD]: request.shard,
           [MEMORY.MEMORY_ASSIGN_ROOM]: request.room,
           [MEMORY.MEMORY_BASE]: request.baseId,
-        }
+        },
       });
       if (enroute.length < 6) {
         localMemory.request_builder[bases[0].primary] = request;
@@ -218,20 +218,20 @@ export default class KingdomGovernor {
     return localMemory;
   }
 
-  handleBuilderRequests(kernel: Kernel, requests: Record<string, CreepRequest>, trace: Tracer) {
+  handleBuilderRequests(kernel: Kernel, requests: Map<string, CreepRequest>, trace: Tracer) {
     Object.values(requests).forEach((creepRequest: CreepRequest) => {
       const memory = {
         [MEMORY.MEMORY_ASSIGN_SHARD]: creepRequest.shard,
         [MEMORY.MEMORY_ASSIGN_ROOM]: creepRequest.room,
         [MEMORY.MEMORY_BASE]: creepRequest.baseId,
-      }
+      };
 
       const enroute = this.findCreeps({
         [MEMORY.MEMORY_ROLE]: WORKERS.WORKER_BUILDER,
         memory,
       });
 
-      trace.log('checking if builder in-flight', {shardName: creepRequest.shard, enroute: enroute.map(creep => creep.id)})
+      trace.log('checking if builder in-flight', {shardName: creepRequest.shard, enroute: enroute.map((creep) => creep.id)});
 
       if (enroute.length) {
         return;

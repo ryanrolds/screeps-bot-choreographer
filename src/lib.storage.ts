@@ -1,9 +1,9 @@
-import {Base} from "./base";
+import {Base} from './base';
 
 export function getReserveStructures(
   game: Game,
   base: Base,
-  includeTerminal: boolean
+  includeTerminal: boolean,
 ): AnyStoreStructure[] {
   const reserveStructures = [];
 
@@ -26,7 +26,7 @@ export function getReserveStructures(
 export function getReserveStructureWithRoomForResource(
   game: Game,
   base: Base,
-  resource: ResourceConstant
+  resource: ResourceConstant,
 ): AnyStoreStructure | undefined {
   let structures = getReserveStructures(game, base, false);
   if (!structures.length) {

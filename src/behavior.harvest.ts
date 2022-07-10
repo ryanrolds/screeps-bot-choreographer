@@ -1,12 +1,12 @@
 
-import {Kernel} from "./kernel";
-import {getCreepBase} from "./base";
-import * as behaviorMovement from "./behavior.movement";
-import {MEMORY_ASSIGN_ROOM, MEMORY_SOURCE} from "./constants.memory";
-import {numEnemeiesNearby, numOfSourceSpots} from "./helpers.proximity";
-import * as behaviorTree from "./lib.behaviortree";
-import {FAILURE, RUNNING, SUCCESS} from "./lib.behaviortree";
-import {Tracer} from "./lib.tracing";
+import {getCreepBase} from './base';
+import * as behaviorMovement from './behavior.movement';
+import {MEMORY_ASSIGN_ROOM, MEMORY_SOURCE} from './constants.memory';
+import {Kernel} from './kernel';
+import * as behaviorTree from './lib.behaviortree';
+import {FAILURE, RUNNING, SUCCESS} from './lib.behaviortree';
+import {numEnemeiesNearby, numOfSourceSpots} from './lib.proximity';
+import {Tracer} from './lib.tracing';
 
 export const selectHarvestSource = behaviorTree.leafNode(
   'bt.harvest.selectHarvestSource',
@@ -34,7 +34,7 @@ export const selectHarvestSource = behaviorTree.leafNode(
         return 0;
       }
 
-      const baseCreeps = kernel.getCreepsManager().getCreepsByBase(creep.room.name)
+      const baseCreeps = kernel.getCreepsManager().getCreepsByBase(creep.room.name);
       const numAssigned = _.filter(baseCreeps, (creep) => {
         return creep.memory[MEMORY_SOURCE] === source.id;
       }).length;

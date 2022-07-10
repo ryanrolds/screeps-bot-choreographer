@@ -1,8 +1,8 @@
-export const numEnemeiesNearby = (pos: RoomPosition, distance: number = 5) => {
+export const numEnemeiesNearby = (pos: RoomPosition, distance = 5) => {
   return numXNearby(pos, FIND_HOSTILE_CREEPS, distance);
 };
 
-export const numMyCreepsNearby = (pos: RoomPosition, distance: number = 5) => {
+export const numMyCreepsNearby = (pos: RoomPosition, distance = 5) => {
   return numXNearby(pos, FIND_MY_CREEPS, distance);
 };
 
@@ -12,7 +12,7 @@ export const numOfSourceSpots = (source: Source) => {
     .filter((o) => o.terrain !== 'wall').length;
 };
 
-const numXNearby = (pos: RoomPosition, find: FindConstant, distance: number = 5) => {
+const numXNearby = (pos: RoomPosition, find: FindConstant, distance = 5) => {
   const found = pos.findInRange(find, distance);
   if (!found) {
     return 0;

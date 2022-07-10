@@ -1,8 +1,8 @@
-import {Kernel} from "./kernel";
+import {Kernel} from './kernel';
 import {
-  createCommonCostMatrix, createDefenderCostMatrix, createOpenSpaceMatrix, createPartyCostMatrix, createSourceRoadMatrix, haulerCostMatrixMatrix, singleRoomCommonMatrix
-} from "./lib.costmatrix";
-import {Tracer} from "./lib.tracing";
+  createCommonCostMatrix, createDefenderCostMatrix, createOpenSpaceMatrix, createPartyCostMatrix, createSourceRoadMatrix, haulerCostMatrixMatrix, singleRoomCommonMatrix,
+} from './lib.costmatrix';
+import {Tracer} from './lib.tracing';
 
 const COST_MATRIX_TTL = 1000;
 
@@ -15,7 +15,7 @@ export enum AllowedCostMatrixTypes {
   OPEN_SPACE = 'open_space',
   SOURCE_ROAD = 'source_road',
   CONTROLLER_ROAD = 'controller_road',
-};
+}
 
 export class CostMatrixCacheItem {
   roomId: string;
@@ -58,7 +58,7 @@ export class CostMatrixCacheItem {
         [costMatrix] = createOpenSpaceMatrix(this.roomId, trace);
         break;
       default:
-        trace.error('unknown cost matrix type', {type: this.costMatrixType})
+        trace.error('unknown cost matrix type', {type: this.costMatrixType});
     }
 
     this.costMatrix = costMatrix;
@@ -70,7 +70,7 @@ export class CostMatrixCacheItem {
       trace.log('cache miss/expired', {
         room: this.roomId,
         type: this.costMatrixType,
-        expired: this.isExpired(Game.time)
+        expired: this.isExpired(Game.time),
       });
       this.update(kernel, trace);
     }
@@ -84,16 +84,16 @@ export class CostMatrixCacheItem {
 }
 
 export class CostMatrixCache {
-  rooms: Record<string, Record<Partial<AllowedCostMatrixTypes>, CostMatrixCacheItem>>;
+  rooms: Map<string, Partial<Map<AllowedCostMatrixTypes, CostMatrixCacheItem>>>;
 
   constructor() {
-    this.rooms = {};
+    this.rooms = new Map();
   }
 
   getCostMatrix(kernel: Kernel, roomId: string, costMatrixType: AllowedCostMatrixTypes, trace: Tracer): CostMatrix {
     if (!this.rooms[roomId]) {
       trace.log('room not in cache', {roomId});
-      this.rooms[roomId] = {} as Record<Partial<AllowedCostMatrixTypes>, CostMatrixCacheItem>;
+      this.rooms[roomId] = {} as Map<Partial<AllowedCostMatrixTypes>, CostMatrixCacheItem>;
     }
 
     let roomMatrix = this.rooms[roomId][costMatrixType];

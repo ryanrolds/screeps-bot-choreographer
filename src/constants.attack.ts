@@ -2,7 +2,7 @@ export const ATTACK_ROOM_TTL = 500;
 export enum AttackStatus {
   REQUESTED = 'requested',
   COMPLETED = 'completed',
-};
+}
 
 export type AttackRequest = {
   status: AttackStatus;
@@ -13,4 +13,4 @@ export enum Phase {
   PHASE_MARSHAL = 'marshal',
   PHASE_EN_ROUTE = 'en_route',
   PHASE_ATTACK = 'attack',
-};
+}

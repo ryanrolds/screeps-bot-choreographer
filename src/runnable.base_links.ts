@@ -1,13 +1,13 @@
-import {Base, getBasePrimaryRoom, getStructureForResource, getStructureWithResource} from "./base";
-import * as MEMORY from "./constants.memory";
-import * as PRIORITIES from "./constants.priorities";
-import * as TASKS from "./constants.tasks";
-import {Kernel} from "./kernel";
+import {Base, getBasePrimaryRoom, getStructureForResource, getStructureWithResource} from './base';
+import * as MEMORY from './constants.memory';
+import * as PRIORITIES from './constants.priorities';
+import * as TASKS from './constants.tasks';
+import {Kernel} from './kernel';
 import {Tracer} from './lib.tracing';
-import {sleeping, terminate} from "./os.process";
-import {RunnableResult} from "./os.runnable";
-import {thread, ThreadFunc} from "./os.thread";
-import {getBaseDistributorTopic} from "./role.distributor";
+import {sleeping, terminate} from './os.process';
+import {RunnableResult} from './os.runnable';
+import {thread, ThreadFunc} from './os.thread';
+import {getBaseDistributorTopic} from './role.distributor';
 
 const TICK_STEP = 2;
 const PROCESS_TTL = 250;
@@ -72,17 +72,17 @@ export default class LinkManager {
       sinkLinks: this.sinkLinks,
       haulTTL: this.haulTTL,
       ttl: this.ttl,
-    })
+    });
 
     if (!this.storageLink) {
-      trace.info("sleeping due to not having a storage link", {});
+      trace.info('sleeping due to not having a storage link', {});
       trace.end();
       return sleeping(PROCESS_TTL);
     }
 
     const storageLink = Game.getObjectById<Id<StructureLink>>(this.storageLink);
     if (!this.storageId || !storageLink) {
-      trace.log("sleeping due to missing storage or storage link", {});
+      trace.log('sleeping due to missing storage or storage link', {});
       trace.end();
 
       return sleeping(PROCESS_TTL); // Removed +1 from this 4/25/22
@@ -101,14 +101,14 @@ export default class LinkManager {
     const hasEnergy = this.sourceLinks.map((linkId) => {
       const link = Game.getObjectById<StructureLink>(linkId);
       if (!link) {
-        trace.info("should terminate due to missing source link", {linkId});
+        trace.info('should terminate due to missing source link', {linkId});
         shouldTerminate = true;
         trace.end();
         return null;
       }
 
       return link;
-    }).filter(link => canTransfer(link));
+    }).filter((link) => canTransfer(link));
 
     // Include storage link if it has energy and it isn't being hauled
     if (notEmpty(storageLink) && this.haulTTL <= 0) {
@@ -119,7 +119,7 @@ export default class LinkManager {
     this.sinkLinks.map((linkId) => {
       const link = Game.getObjectById<Id<StructureLink>>(linkId);
       if (!link) {
-        trace.log("should terminate due to missing sink link", {linkId});
+        trace.log('should terminate due to missing sink link', {linkId});
         shouldTerminate = true;
         return null;
       }
@@ -154,7 +154,7 @@ export default class LinkManager {
       }
     }
 
-    trace.info('has energy', {hasEnergy, haulTTL: this.haulTTL, performedTransfer})
+    trace.info('has energy', {hasEnergy, haulTTL: this.haulTTL, performedTransfer});
 
     if (!performedTransfer && this.haulTTL < 0) {
       // If we have no source ready with energy for sinks, then load energey into storage
@@ -201,7 +201,7 @@ export default class LinkManager {
       this.storageLink = room.storage.pos.findInRange<StructureLink>(FIND_STRUCTURES, 3, {
         filter: (structure) => {
           return structure.structureType === STRUCTURE_LINK && structure.isActive();
-        }
+        },
       })[0]?.id;
     }
 
@@ -210,16 +210,16 @@ export default class LinkManager {
       return source.pos.findInRange<StructureLink>(FIND_STRUCTURES, 2, {
         filter: (structure) => {
           return structure.structureType === STRUCTURE_LINK && structure.isActive();
-        }
+        },
       })[0]?.id;
-    }).filter(value => value);
+    }).filter((value) => value);
 
-    const controller = room.controller
+    const controller = room.controller;
     if (controller) {
       this.sinkLinks = controller.pos.findInRange<StructureLink>(FIND_STRUCTURES, 4, {
         filter: (structure) => {
           return structure.structureType === STRUCTURE_LINK && structure.isActive();
-        }
+        },
       }).map((link) => {
         return link.id;
       });
@@ -256,14 +256,13 @@ export default class LinkManager {
 
     trace.log('haul energy to storage link', {request: details});
     kernel.getTopics().addRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.LOAD_LINK, details, HAUL_TTL);
-
   }
 }
 
 const transferEnergy = (source: StructureLink, sink: StructureLink, trace: Tracer) => {
   const amount = _.min([
     source.store.getUsedCapacity(RESOURCE_ENERGY),
-    sink.store.getFreeCapacity(RESOURCE_ENERGY)
+    sink.store.getFreeCapacity(RESOURCE_ENERGY),
   ]);
 
   const result = source.transferEnergy(sink, amount);
@@ -272,10 +271,10 @@ const transferEnergy = (source: StructureLink, sink: StructureLink, trace: Trace
     sink: sink.id,
     result,
   });
-}
+};
 
 const canTransfer = (link: StructureLink): boolean => {
-  return link?.store.getUsedCapacity(RESOURCE_ENERGY) >= ENERGY_READY_AMOUNT && link.cooldown < 1
+  return link?.store.getUsedCapacity(RESOURCE_ENERGY) >= ENERGY_READY_AMOUNT && link.cooldown < 1;
 };
 
 const canReceive = (link: StructureLink): boolean => {
@@ -284,4 +283,4 @@ const canReceive = (link: StructureLink): boolean => {
 
 const notEmpty = (link: StructureLink): boolean => {
   return link?.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
-}
+};

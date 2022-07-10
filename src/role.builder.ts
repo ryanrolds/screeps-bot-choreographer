@@ -1,12 +1,12 @@
-import * as behaviorTree from "./lib.behaviortree";
-import * as behaviorCommute from "./behavior.commute";
-import * as behaviorMovement from "./behavior.movement";
-import {build, selectSite} from "./behavior.build";
-import {getEnergy, parkingLot} from "./behavior.room";
-import {behaviorBoosts} from "./behavior.boosts";
+import * as behaviorTree from './lib.behaviortree';
+import * as behaviorCommute from './behavior.commute';
+import * as behaviorMovement from './behavior.movement';
+import {build, selectSite} from './behavior.build';
+import {getEnergy, parkingLot} from './behavior.room';
+import {behaviorBoosts} from './behavior.boosts';
 
-import * as MEMORY from "./constants.memory";
-import {commonPolicy, singleRoomPolicy} from "./constants.pathing_policies";
+import * as MEMORY from './constants.memory';
+import {commonPolicy, singleRoomPolicy} from './constants.pathing_policies';
 
 const behavior = behaviorTree.sequenceNode(
   'builder_root',
@@ -47,7 +47,7 @@ const behavior = behaviorTree.sequenceNode(
             return behaviorTree.SUCCESS;
           }),
           behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_ASSIGN_ROOM_POS, 3, commonPolicy),
-        ]
+        ],
       ),
     ),
     behaviorCommute.setCommuteDuration,
@@ -71,7 +71,7 @@ const behavior = behaviorTree.sequenceNode(
           build,
         ],
       ),
-    )
+    ),
   ],
 );
 

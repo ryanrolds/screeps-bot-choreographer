@@ -1,10 +1,10 @@
-import {Base, getBaseLevel, getBasePrimaryRoom, setParking} from "./base";
-import {Kernel} from "./kernel";
-import {PossibleSite, prioritizeBySitesType} from "./lib.construction";
-import {ANY, buildingCodes, EMPTY, getConstructionPosition} from "./lib.layouts";
+import {Base, getBaseLevel, getBasePrimaryRoom, setParking} from './base';
+import {Kernel} from './kernel';
+import {PossibleSite, prioritizeBySitesType} from './lib.construction';
+import {ANY, buildingCodes, EMPTY, getConstructionPosition} from './lib.layouts';
 import {Tracer} from './lib.tracing';
-import {sleeping, terminate} from "./os.process";
-import {RunnableResult} from "./os.runnable";
+import {sleeping, terminate} from './os.process';
+import {RunnableResult} from './os.runnable';
 
 const CONSTRUCTION_INTERVAL = 100;
 const MAX_WALL_SITES = 5;
@@ -20,7 +20,7 @@ export const baseLayouts: BaseLayout[] = [
   { // RCL0
     origin: {x: 0, y: 0},
     parking: {x: 0, y: 0},
-    buildings: []
+    buildings: [],
   },
   { // RCL1
     origin: {x: 0, y: 4},
@@ -31,7 +31,7 @@ export const baseLayouts: BaseLayout[] = [
       ['.'],
       ['.'],
       ['.'],
-    ]
+    ],
   },
   { // RCL2
     origin: {x: 2, y: 5},
@@ -44,7 +44,7 @@ export const baseLayouts: BaseLayout[] = [
       ['.', 'X', 'R', 'E', '.'],
       ['.', 'R', 'X', 'R', '.'],
       ['.', 'X', 'R', 'X', '.'],
-    ]
+    ],
   },
   { // RCL3
     origin: {x: 2, y: 5},
@@ -57,7 +57,7 @@ export const baseLayouts: BaseLayout[] = [
       ['.', 'T', 'R', 'E', '.'],
       ['.', 'R', 'X', 'R', '.'],
       ['.', '.', 'R', 'E', '.'],
-    ]
+    ],
   },
   { // RCL4
     origin: {x: 3, y: 6},
@@ -76,7 +76,7 @@ export const baseLayouts: BaseLayout[] = [
       ['.', 'E', 'R', 'X', 'R', 'R', 'R', 'R'],
       ['.', 'R', 'E', 'R', 'E', 'R', 'R', 'R'],
       ['.', '.', 'R', 'E', 'R', 'E', '.', '.'],
-    ]
+    ],
   },
   { // RCL5
     origin: {x: 3, y: 6},
@@ -95,7 +95,7 @@ export const baseLayouts: BaseLayout[] = [
       ['E', 'E', 'R', 'X', 'R', 'R', 'R', 'R'],
       ['R', 'R', 'E', 'R', 'E', 'R', 'R', 'R'],
       ['E', 'E', 'R', 'E', 'R', 'E', 'E', '.'],
-    ]
+    ],
   },
   { // RCL6
     origin: {x: 6, y: 7},
@@ -116,7 +116,7 @@ export const baseLayouts: BaseLayout[] = [
       ['.', '.', 'E', 'R', 'R', 'E', 'R', 'E', 'R', 'R', 'R', '.', '.'],
       ['.', '.', '.', 'E', 'E', 'R', 'E', 'R', 'E', 'E', '.', '.', '.'],
       ['.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.'],
-    ]
+    ],
   },
   { // RCL7
     origin: {x: 6, y: 7},
@@ -137,7 +137,7 @@ export const baseLayouts: BaseLayout[] = [
       ['.', '.', 'E', 'R', 'R', 'E', 'R', 'E', 'R', 'R', 'R', 'E', '.'],
       ['.', '.', '.', 'E', 'E', 'R', 'E', 'R', 'E', 'E', 'E', '.', '.'],
       ['.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.'],
-    ]
+    ],
   },
   { // RCL8
     origin: {x: 6, y: 7},
@@ -158,15 +158,15 @@ export const baseLayouts: BaseLayout[] = [
       ['.', 'E', 'E', 'R', 'R', 'E', 'R', 'E', 'R', 'R', 'R', 'E', '.'],
       ['.', '.', '.', 'E', 'E', 'R', 'E', 'R', 'E', 'E', 'E', '.', '.'],
       ['.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.'],
-    ]
+    ],
   },
-]
+];
 
 export default class BaseConstructionRunnable {
   id: string;
   baseId: string;
 
-  constructor(id: string, baseId: string) {
+  constructor(baseId: string, id: string) {
     this.id = id;
     this.baseId = baseId;
   }
@@ -217,13 +217,13 @@ export default class BaseConstructionRunnable {
   }
 
   selectLayout(roomLevel: number, origin: RoomPosition, trace: Tracer): BaseLayout {
-    //for (let i = 0; i <= roomLevel; i++) {
+    // for (let i = 0; i <= roomLevel; i++) {
     //  const layout = baseLayouts[i];
     const layout = baseLayouts[roomLevel];
     if (!this.layoutComplete(layout, origin, trace)) {
       return layout;
     }
-    //}
+    // }
 
     return null;
   }
@@ -337,18 +337,18 @@ export default class BaseConstructionRunnable {
 
     let numWallSites = 0;
 
-    base.walls.forEach(wall => {
+    base.walls.forEach((wall) => {
       if (numWallSites >= MAX_WALL_SITES) {
         return;
       }
 
-      const position = new RoomPosition(wall.x, wall.y, room.name)
+      const position = new RoomPosition(wall.x, wall.y, room.name);
 
-      const road = position.lookFor(LOOK_STRUCTURES).find(structure => {
+      const road = position.lookFor(LOOK_STRUCTURES).find((structure) => {
         return structure.structureType === STRUCTURE_ROAD;
       });
 
-      const roadSite = position.lookFor(LOOK_CONSTRUCTION_SITES).find(site => {
+      const roadSite = position.lookFor(LOOK_CONSTRUCTION_SITES).find((site) => {
         return site.structureType === STRUCTURE_ROAD;
       });
 
@@ -359,7 +359,7 @@ export default class BaseConstructionRunnable {
         expectedStructure = STRUCTURE_RAMPART;
       }
 
-      const structure = position.lookFor(LOOK_STRUCTURES).find(structure => {
+      const structure = position.lookFor(LOOK_STRUCTURES).find((structure) => {
         return structure.structureType === expectedStructure;
       });
       if (structure) {
@@ -369,9 +369,9 @@ export default class BaseConstructionRunnable {
 
       let foundSite = false;
 
-      const sites = position.lookFor(LOOK_CONSTRUCTION_SITES)
+      const sites = position.lookFor(LOOK_CONSTRUCTION_SITES);
       if (sites) {
-        const expectedSite = sites.find(site => {
+        const expectedSite = sites.find((site) => {
           return site.structureType === expectedStructure;
         });
 
@@ -380,7 +380,7 @@ export default class BaseConstructionRunnable {
           numWallSites++;
           foundSite = true;
         } else {
-          sites.forEach(site => {
+          sites.forEach((site) => {
             // dont remove road site
             if (site.structureType === STRUCTURE_ROAD) {
               return;
@@ -433,7 +433,7 @@ export default class BaseConstructionRunnable {
         }
 
         if (structures.length && structures[0].structureType !== buildingCodes[code]) {
-          trace.log('incorrect structure present', {pos, structures: structures.map(s => s.structureType)});
+          trace.log('incorrect structure present', {pos, structures: structures.map((s) => s.structureType)});
           return false;
         }
       }

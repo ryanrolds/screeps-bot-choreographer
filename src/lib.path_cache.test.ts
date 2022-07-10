@@ -1,6 +1,6 @@
 import {expect} from 'chai';
 import 'mocha';
-import {mockGlobal} from "screeps-test-helper";
+import {mockGlobal} from 'screeps-test-helper';
 import Sinon, * as sinon from 'sinon';
 import {AI} from './ai';
 import {CreepManager} from './ai.creeps';
@@ -15,7 +15,7 @@ import {Scheduler} from './os.scheduler';
 import {CentralPlanning} from './runnable.central_planning';
 import {Scribe} from './runnable.scribe';
 
-describe('Path Cache', function () {
+describe('Path Cache', function() {
   let sandbox: Sinon.SinonSandbox = null;
   let trace: Tracer = null;
   let kernel: Kernel = null;
@@ -42,13 +42,13 @@ describe('Path Cache', function () {
         bucket: 10000,
         getUsed: () => {
           return 0;
-        }
+        },
       },
     });
 
     mockGlobal<Memory>('Memory', {}, true);
 
-    trace = new Tracer('test', {}, 0);
+    trace = new Tracer('test', new Map(), 0);
 
     const config: ShardConfig = {
       buffer: 0,
@@ -67,7 +67,7 @@ describe('Path Cache', function () {
     const broker = new EventBroker();
     const topics = new Topics();
     const planner = new CentralPlanning(config, scheduler, trace);
-    const creepsManager = new CreepManager(scheduler)
+    const creepsManager = new CreepManager(scheduler);
 
     kernel = new AI(config, scheduler, trace);
 
@@ -76,7 +76,7 @@ describe('Path Cache', function () {
 
   afterEach(() => {
     sandbox.reset();
-  })
+  });
 
   it('should create empty path cache', () => {
     const cache = new PathCache(10, pathProvider);
@@ -96,7 +96,7 @@ describe('Path Cache', function () {
       expect(result).to.equal(path);
       expect(cache.getSize(trace)).to.equal(1);
 
-      const pathProviderStub = (pathProvider as Sinon.SinonStub)
+      const pathProviderStub = (pathProvider as Sinon.SinonStub);
       expect(pathProviderStub.callCount).to.equal(1);
       const call = pathProviderStub.getCall(0);
       expect(call.args[0]).to.equal(kernel);
@@ -117,7 +117,7 @@ describe('Path Cache', function () {
 
       expect(cache.getSize(trace)).to.equal(1);
 
-      const pathProviderStub = (pathProvider as Sinon.SinonStub)
+      const pathProviderStub = (pathProvider as Sinon.SinonStub);
       expect(pathProviderStub.callCount).to.equal(1);
     });
   });
@@ -230,7 +230,7 @@ describe('Path Cache', function () {
   });
 
   describe('detailed linked list tests', () => {
-    it("should correctly update the linked list", () => {
+    it('should correctly update the linked list', () => {
       const head = new PathCacheItem(null, null, null, Game.time);
       const tail = new PathCacheItem(null, null, null, Game.time);
       head.add(tail);

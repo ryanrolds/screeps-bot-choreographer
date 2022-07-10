@@ -7,9 +7,9 @@ import * as PRIORITIES from './constants.priorities';
 import * as TOPICS from './constants.topics';
 import {Kernel} from './kernel';
 import {Tracer} from './lib.tracing';
-import {Process, sleeping} from "./os.process";
+import {Process, sleeping} from './os.process';
 import {RunnableResult} from './os.runnable';
-import {Priorities, Scheduler} from "./os.scheduler";
+import {Priorities, Scheduler} from './os.scheduler';
 import {thread, ThreadFunc} from './os.thread';
 import {scoreHealing} from './role.harasser';
 import {createSpawnRequest, getBaseSpawnTopic} from './runnable.base_spawning';
@@ -81,20 +81,19 @@ export default class DefenseManager {
 
     this.defenseParties = this.memory.parties.map((party) => {
       if (!party.id || !party.position || !party.flagId) {
-        trace.error("invalid defense party", {party});
+        trace.error('invalid defense party', {party});
         return null;
       }
 
       party.position = new RoomPosition(party.position.x, party.position.y, party.position.roomName);
       return this.createAndScheduleDefenseParty(kernel, party.id, party.flagId, party.position, trace);
     }).filter((party) => {
-      return !!party
+      return !!party;
     });
   }
 
   createAndScheduleDefenseParty(kernel: Kernel, id: string, flagId: string, position: RoomPosition,
     trace: Tracer): DefensePartyRunnable {
-
     const flag = Game.flags[flagId] || null;
     if (!flag) {
       trace.error('flag not found, not creating defense party', {flagId});
@@ -108,13 +107,13 @@ export default class DefenseManager {
       return;
     }
 
-    trace.notice("creating defense party", {id, position, flagId, colonyId: base.id});
+    trace.notice('creating defense party', {id, position, flagId, colonyId: base.id});
 
-    const party = new DefensePartyRunnable(id, base, flagId, position, trace)
+    const party = new DefensePartyRunnable(id, base, flagId, position, trace);
     const process = new Process(id, 'defense_party', Priorities.DEFENCE, {
       run(kernel: Kernel, trace: Tracer): RunnableResult {
         return party.run(kernel, trace);
-      }
+      },
     });
     this.scheduler.registerProcess(process);
 
@@ -123,18 +122,18 @@ export default class DefenseManager {
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('defense_manager_run');
-    trace.log("defense manager run");
+    trace.log('defense manager run');
 
-    const hostilesTrace = trace.begin('getHostilesByColony')
-    const hostilesByColony = getHostilesByColony(kernel, Object.values(Game.rooms), hostilesTrace)
+    const hostilesTrace = trace.begin('getHostilesByColony');
+    const hostilesByColony = getHostilesByColony(kernel, Object.values(Game.rooms), hostilesTrace);
     hostilesTrace.log('hostiles by colony', {hostilesByColony});
     hostilesTrace.end();
 
-    const targetTopicTrace = trace.begin('addHostilesToColonyTargetTopic')
+    const targetTopicTrace = trace.begin('addHostilesToColonyTargetTopic');
     addHostilesToColonyTargetTopic(kernel, hostilesByColony, targetTopicTrace);
     targetTopicTrace.end();
 
-    const defenseStatusTrace = trace.begin('updateDefenseStatus')
+    const defenseStatusTrace = trace.begin('updateDefenseStatus');
     publishDefenseStatuses(kernel, hostilesByColony, defenseStatusTrace);
     defenseStatusTrace.end();
 
@@ -157,7 +156,7 @@ export default class DefenseManager {
     Object.values(Game.flags).forEach((flag) => {
       if (flag.name.startsWith('defend_')) {
         const flagDefensePartyId = `${flag.name}_party`;
-        trace.log('defend flag', {flagDefensePartyId})
+        trace.log('defend flag', {flagDefensePartyId});
         if (!this.scheduler.hasProcess(flagDefensePartyId)) {
           const party = this.createAndScheduleDefenseParty(kernel, flagDefensePartyId, flag.name, flag.pos, trace);
           this.defenseParties.push(party);
@@ -169,7 +168,7 @@ export default class DefenseManager {
     (Memory as any).defense = {
       parties: this.defenseParties.map((party): StoredDefenseParty => {
         if (!Game.flags[party.flagId]) {
-          trace.error("missing flag", {flagId: party.flagId});
+          trace.error('missing flag', {flagId: party.flagId});
           return null;
         }
 
@@ -178,10 +177,10 @@ export default class DefenseManager {
           flagId: party.flagId,
           position: party.getPosition(),
         };
-      }).filter(party => !!party)
+      }).filter((party) => !!party),
     };
 
-    trace.log("defense memory", {memory: (Memory as any).defense});
+    trace.log('defense memory', {memory: (Memory as any).defense});
   }
 
   private requestDefenders(trace, kernel: Kernel, hostilesByColony: HostilesByBase) {
@@ -189,7 +188,7 @@ export default class DefenseManager {
     _.forEach(hostilesByColony, (hostiles, baseId) => {
       const base = kernel.getPlanner().getBaseById(baseId);
       if (!base) {
-        trace.error("cannot find base config", {baseId});
+        trace.error('cannot find base config', {baseId});
         return;
       }
 
@@ -204,7 +203,7 @@ export default class DefenseManager {
   private handleDefenderRequest(kernel: Kernel, base: Base, request, trace) {
     const room = getBasePrimaryRoom(base);
     if (!room) {
-      trace.error("cannot find primary room", {base});
+      trace.error('cannot find primary room', {base});
       return;
     }
 
@@ -215,7 +214,7 @@ export default class DefenseManager {
 
     if (request.details.spawn) {
       const spawnRequest = createSpawnRequest(request.priority, request.ttl, request.details.role,
-        request.details.memory, 0)
+        request.details.memory, 0);
       trace.log('requesting spawning of defenders', {request});
       kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), spawnRequest);
       // @CONFIRM that defenders spawn
@@ -232,7 +231,7 @@ export default class DefenseManager {
   }
 }
 
-type HostilesByBase = Record<string, Target[]>;
+type HostilesByBase = Map<string, Target[]>;
 
 function getHostilesByColony(kernel: Kernel, rooms: Room[], trace: Tracer): HostilesByBase {
   return rooms.reduce<HostilesByBase>((bases, room: Room) => {
@@ -256,7 +255,7 @@ function getHostilesByColony(kernel: Kernel, rooms: Room[], trace: Tracer): Host
             filter: (structure) => {
               return structure.structureType === STRUCTURE_RAMPART ||
                 structure.structureType === STRUCTURE_WALL;
-            }
+            },
           }).length > 0) {
             return true;
           }
@@ -292,7 +291,7 @@ function getHostilesByColony(kernel: Kernel, rooms: Room[], trace: Tracer): Host
   }, {} as HostilesByBase);
 }
 
-type DefendersByBase = Record<string, (Creep)[]>
+type DefendersByBase = Map<string, (Creep)[]>
 
 function getDefendersByColony(kernel: Kernel, rooms: Room[], trace: Tracer): DefendersByBase {
   return rooms.reduce<DefendersByBase>((bases, room: Room) => {
@@ -306,12 +305,12 @@ function getDefendersByColony(kernel: Kernel, rooms: Room[], trace: Tracer): Def
     }
 
     // Add any defenders
-    let defenders = room.find(FIND_MY_CREEPS, {
+    const defenders = room.find(FIND_MY_CREEPS, {
       filter: (creep) => {
         const role = creep.memory[MEMORY.MEMORY_ROLE];
         return role === CREEPS.WORKER_DEFENDER || role === CREEPS.WORKER_DEFENDER_DRONE ||
           role === CREEPS.WORKER_DEFENDER_BOOSTED;
-      }
+      },
     });
     if (defenders.length) {
       bases[base.id] = bases[base.id].concat(...defenders);
@@ -380,12 +379,12 @@ function publishDefenseStatuses(kernel: Kernel, hostilesByColony: HostilesByBase
 
     trace.log('defense status update', details);
 
-    kernel.getTopics().addRequest(TOPICS.DEFENSE_STATUSES, 0, details, DEFENSE_STATUS_TTL)
+    kernel.getTopics().addRequest(TOPICS.DEFENSE_STATUSES, 0, details, DEFENSE_STATUS_TTL);
   });
 }
 
 // TODO move into base defense runnable
-function checkColonyDefenses(trace: Tracer, kernel: Kernel, hostilesByColony: Record<string, Creep[]>) {
+function checkColonyDefenses(trace: Tracer, kernel: Kernel, hostilesByColony: Map<string, Creep[]>) {
   // Check for defenders
   _.forEach(hostilesByColony, (hostiles, baseId) => {
     const base = kernel.getPlanner().getBaseById(baseId);
@@ -472,14 +471,14 @@ function requestAdditionalDefenders(kernel: Kernel, base: Base, needed: number,
         [MEMORY.MEMORY_ASSIGN_ROOM]: position.roomName,
         [MEMORY.MEMORY_ASSIGN_ROOM_POS]: positionStr,
         [MEMORY.MEMORY_BASE]: base.id,
-      }
+      },
     }, REQUEST_DEFENDERS_TTL);
   }
 }
 
-function returnDefendersToStation(trace: Tracer, kernel: Kernel, hostilesByColony: Record<string, Creep[]>) {
+function returnDefendersToStation(trace: Tracer, kernel: Kernel, hostilesByColony: Map<string, Creep[]>) {
   const flags = Object.values(Game.flags).filter((flag) => {
-    trace.log('flag', {flag})
+    trace.log('flag', {flag});
     if (!flag.name.startsWith('station') && !flag.name.startsWith('defenders')) {
       return false;
     }
@@ -529,7 +528,7 @@ export function scoreHostile(hostile: Creep): number {
       acc += 2;
     }
     return acc;
-  }, 0)
+  }, 0);
 }
 
 // Deprecated use scoreHealing
@@ -547,5 +546,5 @@ export function scoreDefender(defender: Creep): number {
       acc += 2;
     }
     return acc;
-  }, 0)
-};
+  }, 0);
+}

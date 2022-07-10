@@ -19,7 +19,7 @@ export interface TreeNode {
 }
 
 export const rootNode = (id: string, behavior: TreeNode) => {
-  return function (creep: Creep, trace: Tracer, kernel: Kernel): void {
+  return function(creep: Creep, trace: Tracer, kernel: Kernel): void {
     const rootTrace = trace.begin(id);
 
     const result = behavior.tick(creep, rootTrace, kernel);
@@ -37,7 +37,7 @@ export const selectorNode = (id: string, children: TreeNode[]): TreeNode => {
   return {
     id,
     children,
-    tickChildren: function (creep, trace, kernel) {
+    tickChildren: function(creep, trace, kernel) {
       let i = getState(creep, this.id, trace);
       setState(creep, this.id, 0, trace);
 
@@ -57,7 +57,7 @@ export const selectorNode = (id: string, children: TreeNode[]): TreeNode => {
 
       return FAILURE;
     },
-    tick: function (creep, trace, kernel): NodeTickResult {
+    tick: function(creep, trace, kernel): NodeTickResult {
       trace = trace.begin(this.id);
       trace.log('tick', {id: this.id});
       const result = this.tickChildren(creep, trace, kernel);
@@ -65,7 +65,7 @@ export const selectorNode = (id: string, children: TreeNode[]): TreeNode => {
       trace.end();
       return result;
     },
-    clear: function (creep, trace) {
+    clear: function(creep, trace) {
       clearState(creep, this.id, trace);
       this.children.forEach((child) => {
         child.clear(creep, trace);
@@ -78,7 +78,7 @@ export const sequenceNode = (id: string, children: TreeNode[]): TreeNode => {
   return {
     id, // used track state in memory
     children,
-    tickChildren: function (creep, trace, kernel) {
+    tickChildren: function(creep, trace, kernel) {
       let i = getState(creep, this.id, trace);
       for (; i < this.children.length; i++) {
         const result = this.children[i].tick(creep, trace, kernel);
@@ -95,14 +95,14 @@ export const sequenceNode = (id: string, children: TreeNode[]): TreeNode => {
 
       return SUCCESS;
     },
-    tick: function (creep, trace, kernel) {
+    tick: function(creep, trace, kernel) {
       trace = trace.begin(this.id);
       const result = this.tickChildren(creep, trace, kernel);
       trace.log('result', result);
       trace.end();
       return result;
     },
-    clear: function (creep, trace) {
+    clear: function(creep, trace) {
       clearState(creep, this.id, trace);
       this.children.forEach((child) => {
         child.clear(creep, trace);
@@ -115,25 +115,25 @@ export const alwaysNode = (id: string, node: TreeNode): TreeNode => {
   return {
     id, // used track state in memory
     node,
-    tick: function (creep, trace, kernel) {
+    tick: function(creep, trace, kernel) {
       trace = trace.begin(this.id);
       const result = this.node.tick(creep, trace, kernel);
       trace.log('result', result);
       trace.end();
       return result;
     },
-    clear: function (creep, trace) {
+    clear: function(creep, trace) {
       clearState(creep, this.id, trace);
       this.node.clear(creep, trace);
     },
   } as TreeNode;
-}
+};
 
 export const sequenceAlwaysNode = (id: string, children: TreeNode[]): TreeNode => {
   return {
     id, // used track state in memory
     children,
-    tickChildren: function (creep, trace, kernel) {
+    tickChildren: function(creep, trace, kernel) {
       for (let i = 0; i < this.children.length; i++) {
         const result = this.children[i].tick(creep, trace, kernel);
         switch (result) {
@@ -148,14 +148,14 @@ export const sequenceAlwaysNode = (id: string, children: TreeNode[]): TreeNode =
 
       return SUCCESS;
     },
-    tick: function (creep, trace, kernel) {
+    tick: function(creep, trace, kernel) {
       trace = trace.begin(this.id);
       const result = this.tickChildren(creep, trace, kernel);
       trace.log('result', result);
       trace.end();
       return result;
     },
-    clear: function (creep, trace) {
+    clear: function(creep, trace) {
       clearState(creep, this.id, trace);
       this.children.forEach((child) => {
         child.clear(creep, trace);
@@ -168,7 +168,7 @@ export const repeatUntilFailure = (id: string, node: TreeNode): TreeNode => {
   return {
     id,
     node,
-    tick: function (creep, trace, kernel) {
+    tick: function(creep, trace, kernel) {
       trace = trace.begin(this.id);
       const result = this.node.tick(creep, trace, kernel);
       trace.log('result', result);
@@ -180,7 +180,7 @@ export const repeatUntilFailure = (id: string, node: TreeNode): TreeNode => {
 
       return RUNNING;
     },
-    clear: function (creep, trace) {
+    clear: function(creep, trace) {
       clearState(creep, this.id, trace);
       this.node.clear(creep, trace);
     },
@@ -191,7 +191,7 @@ export const repeatUntilSuccess = (id: string, node: TreeNode): TreeNode => {
   return {
     id,
     node,
-    tick: function (creep, trace, kernel) {
+    tick: function(creep, trace, kernel) {
       trace = trace.begin(this.id);
       const result = this.node.tick(creep, trace, kernel);
       trace.log('result', result);
@@ -203,7 +203,7 @@ export const repeatUntilSuccess = (id: string, node: TreeNode): TreeNode => {
 
       return RUNNING;
     },
-    clear: function (creep, trace) {
+    clear: function(creep, trace) {
       clearState(creep, this.id, trace);
       this.node.clear(creep, trace);
     },
@@ -220,7 +220,7 @@ export const runUntilConditionMet = (id: string, condition: ConditionFunc,
     id,
     node,
     condition,
-    tick: function (creep, trace, kernel) {
+    tick: function(creep, trace, kernel) {
       trace = trace.begin(this.id);
 
       // if previous tick set that it was running, then skip condition check
@@ -264,7 +264,7 @@ export const runUntilConditionMet = (id: string, condition: ConditionFunc,
       // if the condition is not met and it didnt fail, we return running
       return RUNNING;
     },
-    clear: function (creep, trace) {
+    clear: function(creep, trace) {
       clearState(creep, this.id, trace);
       this.node.clear(creep, trace);
     },
@@ -277,7 +277,7 @@ export const repeatUntilConditionMet = (id: string, condition: ConditionFunc,
     id,
     node,
     condition,
-    tick: function (creep, trace, kernel) {
+    tick: function(creep, trace, kernel) {
       trace = trace.begin(this.id);
 
       trace.log('checking condition', {id: this.id});
@@ -305,7 +305,7 @@ export const repeatUntilConditionMet = (id: string, condition: ConditionFunc,
 
       return SUCCESS;
     },
-    clear: function (creep, trace) {
+    clear: function(creep, trace) {
       clearState(creep, this.id, trace);
       this.node.clear(creep, trace);
     },
@@ -318,48 +318,48 @@ export const tripIfCalledXTimes = (id: string, limit: number, regular: TreeNode,
     limit,
     regular,
     tripped,
-    tick: function (creep, trace, kernel): NodeTickResult {
-      let i = getState(creep, this.id, trace);
+    tick: function(creep, trace, kernel): NodeTickResult {
+      const i = getState(creep, this.id, trace);
       setState(creep, this.id, i + 1, trace);
 
-      trace.log("trip", {i, limit: this.limit});
+      trace.log('trip', {i, limit: this.limit});
 
       if (i > this.limit) {
-        trace.log("tripped")
+        trace.log('tripped');
         return this.tripped.tick(creep, trace, kernel);
       }
 
       return this.regular.tick(creep, trace, kernel);
     },
-    clear: function (creep, trace): void {
+    clear: function(creep, trace): void {
       clearState(creep, this.id, trace);
       this.node.clear(creep, trace);
     },
   } as TreeNode;
-}
+};
 
 export const resetTripCounter = (id: string, counterId: string): TreeNode => {
   return {
     id,
     counterId,
-    tick: function (creep, trace, kernel): NodeTickResult {
+    tick: function(creep, trace, kernel): NodeTickResult {
       // Clear the counter
-      trace.log("clear trip counter", {counter: creep.memory[this.counterId]});
+      trace.log('clear trip counter', {counter: creep.memory[this.counterId]});
       clearState(creep, this.counterId, trace);
 
       return SUCCESS;
     },
-    clear: function (creep, trace) {
+    clear: function(creep, trace) {
       clearState(creep, this.id, trace);
     },
   } as TreeNode;
-}
+};
 
 export const invert = (id: string, node: TreeNode): TreeNode => {
   return {
     id,
     node,
-    tick: function (creep, trace, kernel) {
+    tick: function(creep, trace, kernel) {
       trace = trace.begin(this.id);
 
       let result = this.node.tick(creep, trace, kernel);
@@ -376,7 +376,7 @@ export const invert = (id: string, node: TreeNode): TreeNode => {
 
       return result;
     },
-    clear: function (creep, trace) {
+    clear: function(creep, trace) {
       clearState(creep, this.id, trace);
       this.node.clear(creep, trace);
     },
@@ -387,7 +387,7 @@ export const returnSuccess = (id: string, node: TreeNode): TreeNode => {
   return {
     id,
     node,
-    tick: function (creep, trace, kernel) {
+    tick: function(creep, trace, kernel) {
       trace = trace.begin(this.id);
 
       const result = this.node.tick(creep, trace, kernel);
@@ -397,7 +397,7 @@ export const returnSuccess = (id: string, node: TreeNode): TreeNode => {
 
       return SUCCESS;
     },
-    clear: function (creep, trace) {
+    clear: function(creep, trace) {
       clearState(creep, this.id, trace);
       this.node.clear(creep, trace);
     },
@@ -408,14 +408,14 @@ export const leafNode = (id: string, behavior: TickFunc): TreeNode => {
   return {
     id,
     behavior,
-    tick: function (creep, trace, kernel) {
+    tick: function(creep, trace, kernel) {
       trace = trace.begin(this.id);
       const result = this.behavior(creep, trace, kernel);
       trace.log('result', result);
       trace.end();
       return result;
     },
-    clear: function (creep, trace) {
+    clear: function(creep, trace) {
       clearState(creep, this.id, trace);
     },
   } as TreeNode;
@@ -428,7 +428,7 @@ export const featureFlagBool = (id: string, flag: string, defaultNode: TreeNode,
     flag,
     defaultNode,
     enabledNode,
-    tick: function (creep: Creep, trace: Tracer, kernel: Kernel) {
+    tick: function(creep: Creep, trace: Tracer, kernel: Kernel) {
       trace = trace.begin(this.id);
 
       let result = null;
@@ -443,7 +443,7 @@ export const featureFlagBool = (id: string, flag: string, defaultNode: TreeNode,
 
       return result;
     },
-    clear: function (creep, trace) {
+    clear: function(creep, trace) {
       clearState(creep, this.id, trace);
       this.defaultNode.clear(creep, trace);
       this.enabledNode.clear(creep, trace);

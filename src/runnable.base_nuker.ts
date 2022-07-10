@@ -1,13 +1,13 @@
-import {Base, getBasePrimaryRoom, getStructureWithResource} from "./base";
-import * as MEMORY from "./constants.memory";
-import * as PRIORITIES from "./constants.priorities";
-import * as TASKS from "./constants.tasks";
-import * as TOPICS from "./constants.topics";
-import {Kernel} from "./kernel";
+import {Base, getBasePrimaryRoom, getStructureWithResource} from './base';
+import * as MEMORY from './constants.memory';
+import * as PRIORITIES from './constants.priorities';
+import * as TASKS from './constants.tasks';
+import * as TOPICS from './constants.topics';
+import {Kernel} from './kernel';
 import {Tracer} from './lib.tracing';
-import {sleeping, terminate} from "./os.process";
-import {RunnableResult} from "./os.runnable";
-import {getBaseDistributorTopic} from "./role.distributor";
+import {sleeping, terminate} from './os.process';
+import {RunnableResult} from './os.runnable';
+import {getBaseDistributorTopic} from './role.distributor';
 
 const REQUEST_RESOURCES_TTL = 25;
 
@@ -20,8 +20,8 @@ export default class NukerRunnable {
   haulTTL: number;
   prevTime: number;
 
-  constructor(id: Id<StructureNuker>, baseId: string) {
-    this.id = id;
+  constructor(baseId: string, nuker: StructureNuker) {
+    this.id = nuker.id;
     this.baseId = baseId;
 
     this.haulTTL = 0;

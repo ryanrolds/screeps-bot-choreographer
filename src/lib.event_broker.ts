@@ -54,11 +54,11 @@ export class Consumer {
 type StreamId = string;
 
 export class Stream {
-  consumers: Record<ConsumerId, Consumer>;
+  consumers: Map<ConsumerId, Consumer>;
   events: Event[];
 
   constructor() {
-    this.consumers = {};
+    this.consumers = new Map();
     this.events = [];
   }
 
@@ -69,7 +69,7 @@ export class Stream {
   removeConsumed() {
     const minOffset = Object.values(this.consumers).reduce((min, consumer) => {
       if (min === -1) {
-        return consumer.getOffset()
+        return consumer.getOffset();
       }
 
       return Math.min(min, consumer.getOffset());
@@ -77,7 +77,7 @@ export class Stream {
 
     if (minOffset > 0) {
       this.events = this.events.slice(minOffset);
-      Object.values(this.consumers).forEach(consumer => {
+      Object.values(this.consumers).forEach((consumer) => {
         consumer.shiftOffet(minOffset);
       });
     }
@@ -106,10 +106,10 @@ export class Stream {
 }
 
 export class EventBroker {
-  streams: Record<StreamId, Stream>
+  streams: Map<StreamId, Stream>
 
   constructor() {
-    this.streams = {};
+    this.streams = new Map();
   }
 
   getStream(streamId: StreamId): Stream {
@@ -121,23 +121,8 @@ export class EventBroker {
   }
 
   removeConsumed() {
-    Object.values(this.streams).forEach(stream => {
+    Object.values(this.streams).forEach((stream) => {
       stream.removeConsumed();
     });
-  }
-
-  getStats() {
-    const stats = {};
-    _.each(this.streams, (stream, id) => {
-      stats[id] = {
-        length: stream.getLength(),
-        consumers: Object.keys(stream.consumers).length,
-        offsets: Object.values(stream.consumers).reduce((acc, consumer) => {
-          return acc + consumer.getOffset();
-        }, 0),
-      };
-    });
-
-    return stats;
   }
 }

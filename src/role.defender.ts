@@ -19,7 +19,7 @@ const behavior = behaviorTree.sequenceNode(
       (creep: Creep, trace: Tracer, kernel: Kernel) => {
         const base = getCreepBase(kernel, creep);
         if (!base) {
-          trace.error("creep has no base", creep.memory)
+          trace.error('creep has no base', creep.memory);
         }
 
         // Heal self or adjacent creep if one has lower HP
@@ -88,7 +88,7 @@ const behavior = behaviorTree.sequenceNode(
 
         // If we are less then 2/3 health, move back and heal
         if (creep.hits < creep.hitsMax * 0.666) {
-          trace.info("too damaged, flee");
+          trace.info('too damaged, flee');
           const base = getCreepBase(kernel, creep);
           if (base) {
             const result = creep.moveTo(base.origin);

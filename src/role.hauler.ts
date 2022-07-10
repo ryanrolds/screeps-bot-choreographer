@@ -1,13 +1,13 @@
-import {behaviorBoosts} from "./behavior.boosts";
-import * as behaviorHaul from "./behavior.haul";
-import {roadWorker} from "./behavior.logistics";
-import * as behaviorMovement from "./behavior.movement";
-import * as behaviorRoom from "./behavior.room";
-import * as behaviorTree from "./lib.behaviortree";
+import {behaviorBoosts} from './behavior.boosts';
+import * as behaviorHaul from './behavior.haul';
+import {roadWorker} from './behavior.logistics';
+import * as behaviorMovement from './behavior.movement';
+import * as behaviorRoom from './behavior.room';
+import * as behaviorTree from './lib.behaviortree';
 
-import * as MEMORY from "./constants.memory";
-import {AllowedCostMatrixTypes} from "./lib.costmatrix_cache";
-import {FindPathPolicy} from "./lib.pathing";
+import * as MEMORY from './constants.memory';
+import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
+import {FindPathPolicy} from './lib.pathing';
 
 export const haulerPolicy: FindPathPolicy = {
   room: {

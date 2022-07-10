@@ -12,11 +12,11 @@ export type TopicKey = string;
 type Topic = Array<Request>;
 
 export class Topics {
-  topics: Record<TopicKey, Topic>;
+  topics: Map<TopicKey, Topic>;
   lastCleanup: number;
 
   constructor() {
-    this.topics = {};
+    this.topics = new Map();
     this.lastCleanup = 0;
   }
 
@@ -40,7 +40,7 @@ export class Topics {
     this.topics[key] = value;
   }
   reset() {
-    this.topics = {};
+    this.topics = new Map();
   }
   removeStale() {
     Object.keys(this.topics).forEach((topicId) => {
@@ -144,7 +144,7 @@ export class Topics {
     return choice;
   }
   getLength(key: TopicKey) {
-    const topic = this.topics[key];
+    const topic = this.topics.get(key);
     if (!topic) {
       return 0;
     }
@@ -152,8 +152,8 @@ export class Topics {
     return topic.length;
   }
   getCounts() {
-    return _.reduce(this.topics, (acc, topic, key) => {
-      acc[key] = topic.length;
+    return _.reduce(_.pairs(this.topics), (acc, pair: [string, Topic]) => {
+      acc[pair[0]] = pair[1].length;
 
       return acc;
     }, {});

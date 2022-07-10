@@ -1,9 +1,9 @@
-import {Base} from "./base";
-import {Kernel} from "./kernel";
-import {AllowedCostMatrixTypes} from "./lib.costmatrix_cache";
-import {getNearbyPositions} from "./lib.position";
-import {Tracer} from "./lib.tracing";
-import {RoomEntry} from "./runnable.scribe";
+import {Base} from './base';
+import {Kernel} from './kernel';
+import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
+import {getNearbyPositions} from './lib.position';
+import {Tracer} from './lib.tracing';
+import {RoomEntry} from './runnable.scribe';
 
 type ColonyPolicy = {
   start: string;
@@ -56,9 +56,9 @@ export type FindPathPolicy = {
 export type PathSearchDetails = {
   tries: number;
   passes: number;
-  searchedRooms: Record<string, boolean>;
-  rejectedRooms: Record<string, string>;
-  blockedRooms: Record<string, boolean>;
+  searchedRooms: Map<string, boolean>;
+  rejectedRooms: Map<string, string>;
+  blockedRooms: Map<string, boolean>;
   incompletePaths: PathFinderPath[];
 };
 
@@ -70,21 +70,27 @@ interface RoomCallbackFunc {
   (roomName: string): (boolean | CostMatrix);
 }
 
+type FindRouteRoom = {
+  exit: ExitConstant;
+  room: string;
+};
+
+type FindRouteResult = FindRouteRoom[] | -2;
+
 export const getPath = (kernel: Kernel, origin: RoomPosition, destination: RoomPosition,
   policy: FindPathPolicy, trace: Tracer): [PathFinderPath, PathSearchDetails] => {
-
   const pathDetails: PathSearchDetails = {
     tries: 1,
     passes: 0,
-    searchedRooms: {},
-    rejectedRooms: {},
-    blockedRooms: {},
+    searchedRooms: new Map(),
+    rejectedRooms: new Map(),
+    blockedRooms: new Map(),
     incompletePaths: [],
-  }
+  };
 
   for (; pathDetails.passes < pathDetails.tries; pathDetails.passes++) {
     // Get list of rooms on the way to destination
-    const roomRoute = Game.map.findRoute(origin.roomName, destination.roomName, {
+    const roomRoute: FindRouteResult = Game.map.findRoute(origin.roomName, destination.roomName, {
       routeCallback: getRoomRouteCallback(kernel, origin.roomName, destination.roomName,
         policy.room, pathDetails, trace),
     });
@@ -96,17 +102,18 @@ export const getPath = (kernel: Kernel, origin: RoomPosition, destination: RoomP
     }
 
     // Map findRoute results to map of names for fast lookup
-    const allowedRooms: Record<string, boolean> = _.reduce(roomRoute, (acc, room) => {
-      acc[room.room] = true;
+    const rooms = _.values<FindRouteRoom>(roomRoute);
+    const allowedRooms: Map<string, boolean> = _.reduce(rooms, (acc, entry) => {
+      acc[entry.room] = true;
       return acc;
-    }, {});
+    }, new Map<string, boolean>());
 
     // Add origin room to list of allowed room
     allowedRooms[origin.roomName] = true;
 
     const goal = {
       pos: destination,
-      range: policy.destination.range
+      range: policy.destination.range,
     };
 
     const opts: PathFinderOpts = {
@@ -150,7 +157,7 @@ export const getPath = (kernel: Kernel, origin: RoomPosition, destination: RoomP
 
   trace.info('passes exhausted', {origin});
   return [null, pathDetails];
-}
+};
 
 export const getClosestColonyByPath = (kernel: Kernel, destination: RoomPosition,
   policy: FindColonyPathPolicy, trace: Tracer): Base => {
@@ -197,11 +204,10 @@ export const getClosestColonyByPath = (kernel: Kernel, destination: RoomPosition
   });
 
   return selectedColony;
-}
+};
 
 const applyAllowedColonyPolicy = (bases: Base[], destRoomEntry: RoomEntry,
   policy: ColonyPolicy, trace: Tracer): Base[] => {
-
   // Do not search colonies below the minimum level
   if (policy.minRoomLevel) {
     bases = bases.filter((config) => {
@@ -224,18 +230,17 @@ const applyAllowedColonyPolicy = (bases: Base[], destRoomEntry: RoomEntry,
 
   trace.log('filtered colonies', {colonies: bases.map((colony) => colony.id)});
 
-  return bases
-}
+  return bases;
+};
 
 const getOriginPosition = (kernel: Kernel, base: Base, policy: ColonyPolicy,
   trace: Tracer): RoomPosition => {
-
-  if (policy.start === "spawn") {
+  if (policy.start === 'spawn') {
     return base.origin;
   }
 
   return null;
-}
+};
 
 const getRoomRouteCallback = (
   kernel: Kernel,
@@ -243,7 +248,7 @@ const getRoomRouteCallback = (
   destRoom: string,
   policy: RoomPolicy,
   searchDetails: PathSearchDetails,
-  trace: Tracer
+  trace: Tracer,
 ): RouteCallback => {
   return (toRoom: string, fromRoom: string): number => {
     searchDetails.searchedRooms[toRoom] = true;
@@ -278,8 +283,8 @@ const getRoomRouteCallback = (
     }
 
     return 1;
-  }
-}
+  };
+};
 
 const getRoomCallback = (
   kernel: Kernel,
@@ -287,9 +292,9 @@ const getRoomCallback = (
   destRoom: string,
   pathPolicy: PathPolicy,
   roomPolicy: RoomPolicy,
-  allowedRooms: Record<string, boolean>,
+  allowedRooms: Map<string, boolean>,
   pathDetails: PathSearchDetails,
-  trace: Tracer
+  trace: Tracer,
 ): RoomCallbackFunc => {
   return (roomName: string): (boolean | CostMatrix) => {
     // If this room is not destination, check if we should avoid it
@@ -345,7 +350,7 @@ const getRoomCallback = (
       room.find(FIND_HOSTILE_CREEPS, {
         filter: (creep) => {
           return creep.owner.username === 'Source Keeper';
-        }
+        },
       }).forEach((sourceKeeper) => {
         getNearbyPositions(sourceKeeper.pos, pathPolicy.sourceKeeperBuffer).forEach((pos) => {
           costMatrix.set(pos.x, pos.y, 10);
@@ -364,18 +369,18 @@ const getRoomCallback = (
     }
 
     return costMatrix;
-  }
-}
+  };
+};
 
 const applyRoomCallbackPolicy = (
   kernel: Kernel,
   roomEntry: RoomEntry,
   policy: RoomPolicy,
-  trace: Tracer
+  trace: Tracer,
 ): [boolean, string] => {
   const owner = roomEntry.controller?.owner;
   const ownerIsNotMe = owner !== kernel.getPlanner().getUsername();
-  const isFriendly = kernel.getFriends().includes(owner)
+  const isFriendly = kernel.getFriends().includes(owner);
 
   if (owner && ownerIsNotMe && policy.avoidFriendlyRooms && isFriendly) {
     return [false, 'friendly'];
@@ -403,10 +408,10 @@ const applyRoomCallbackPolicy = (
     */
   }
 
-  //trace.log('room allowed', {roomName: roomEntry.id});
+  // trace.log('room allowed', {roomName: roomEntry.id});
 
   return [true, 'good'];
-}
+};
 
 
 export const visualizePath = (path: RoomPosition[], trace: Tracer) => {
@@ -418,10 +423,10 @@ export const visualizePath = (path: RoomPosition[], trace: Tracer) => {
     acc[pos.roomName].push(pos);
 
     return acc;
-  }, {} as Record<string, RoomPosition[]>);
+  }, {} as Map<string, RoomPosition[]>);
 
   // Display in the rooms
   Object.entries(pathByRooms).forEach(([key, value]) => {
     new RoomVisual(key).poly(value);
   });
-}
+};

@@ -1,18 +1,16 @@
-import 'mocha';
 import {expect} from 'chai';
-import * as _ from "lodash";
-import Sinon, * as sinon from 'sinon';
-import {stubObject, StubbedInstance} from "ts-sinon";
-import {setup, mockGlobal, mockInstanceOf} from "screeps-test-helper";
+import * as _ from 'lodash';
+import 'mocha';
+import {mockGlobal, mockInstanceOf} from 'screeps-test-helper';
 
 import {SigmoidPricing} from './lib.sigmoid_pricing';
 
-describe('Sigmoid Pricing', function () {
+describe('Sigmoid Pricing', function() {
   const prices = {
     [RESOURCE_HYDROXIDE]: {max: 5, min: 0.5},
-  }
+  };
   const pricer = new SigmoidPricing(prices as any);
-  let orders: Record<string, Order> = mockInstanceOf<Record<string, Order>>({
+  const orders: Map<string, Order> = mockInstanceOf<Map<string, Order>>({
     '01': {
       id: '01',
       type: ORDER_SELL,
@@ -46,11 +44,11 @@ describe('Sigmoid Pricing', function () {
         getAllOrders: (filter) => {
           return [];
         },
-      }
+      },
     });
-  })
+  });
 
-  describe('getMarketPrice', function () {
+  describe('getMarketPrice', function() {
     beforeEach(() => {
       mockGlobal<Game>('Game', {
         market: {
@@ -78,10 +76,10 @@ describe('Sigmoid Pricing', function () {
     });
   });
 
-  describe('getPrice', function () {
+  describe('getPrice', function() {
     it('should throw error if invalid resource', () => {
       expect(() => {
-        pricer.getPrice(ORDER_BUY, 'not a real resource' as any, 100000)
+        pricer.getPrice(ORDER_BUY, 'not a real resource' as any, 100000);
       }).to.throw('invalid resource: not a real resource');
     });
 

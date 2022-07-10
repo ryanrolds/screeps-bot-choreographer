@@ -1,6 +1,6 @@
-import {Base, getBasePrimaryRoom} from "./base";
-import {Kernel} from "./kernel";
-import {Tracer} from "./lib.tracing";
+import {Base, getBasePrimaryRoom} from './base';
+import {Kernel} from './kernel';
+import {Tracer} from './lib.tracing';
 
 
 type RoomDetails = {
@@ -11,7 +11,7 @@ type RoomDetails = {
 
 type DebugDetails = {
   adjacentRooms: string[];
-  details: Record<string, RoomDetails>;
+  details: Map<string, RoomDetails>;
 };
 
 export const findNextRemoteRoom = (
@@ -21,12 +21,12 @@ export const findNextRemoteRoom = (
 ): [string, DebugDetails] => {
   trace.notice('checking remote mining', {base});
 
-  let debug: DebugDetails = {
+  const debug: DebugDetails = {
     adjacentRooms: [],
-    details: {},
+    details: new Map(),
   };
 
-  let exits = base.rooms.reduce((acc, roomName) => {
+  const exits = base.rooms.reduce((acc, roomName) => {
     const exits = Game.map.describeExits(roomName);
     return acc.concat(Object.values(exits));
   }, [] as string[]);
@@ -54,7 +54,7 @@ export const findNextRemoteRoom = (
     if (!roomEntry) {
       debug.details[roomName].rejected = 'not seen';
       trace.info('no room entry found', {roomName});
-      return false
+      return false;
     }
 
     // filter out rooms that do not have a source
@@ -101,7 +101,7 @@ export const findNextRemoteRoom = (
 
         debug.details[roomName].distance = route.length;
         return route.length;
-      }
+      },
     ],
     ['desc', 'asc'],
   );
@@ -116,14 +116,14 @@ export const findNextRemoteRoom = (
   const nextRoom = adjacentRooms[0];
   trace.info('next remote mining room', {nextRoom, debug});
   return [nextRoom, debug];
-}
+};
 
 // Calculate the max number of remotes based on level and number of spawns
 // TODO collect spawner saturation metrics and use that to calculate max remotes
 export function desiredRemotes(base: Base, level: number): number {
   const room = getBasePrimaryRoom(base);
   const spawns = room.find(FIND_STRUCTURES, {
-    filter: s => s.structureType === STRUCTURE_SPAWN && s.isActive()
+    filter: (s) => s.structureType === STRUCTURE_SPAWN && s.isActive(),
   });
 
   // No spawns, no remotes

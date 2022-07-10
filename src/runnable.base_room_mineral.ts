@@ -1,18 +1,18 @@
 import {AlertLevel, Base, getStructureForResource} from './base';
 import {creepIsFresh} from './behavior.commute';
-import {WORKER_HARVESTER} from "./constants.creeps";
-import * as MEMORY from "./constants.memory";
-import {roadPolicy} from "./constants.pathing_policies";
-import {PRIORITY_MINER} from "./constants.priorities";
+import {WORKER_HARVESTER} from './constants.creeps';
+import * as MEMORY from './constants.memory';
+import {roadPolicy} from './constants.pathing_policies';
+import {PRIORITY_MINER} from './constants.priorities';
 import {Kernel} from './kernel';
-import {Event} from "./lib.event_broker";
-import {getPath} from "./lib.pathing";
+import {Event} from './lib.event_broker';
+import {getPath} from './lib.pathing';
 import {Tracer} from './lib.tracing';
-import {PersistentMemory} from "./os.memory";
-import {sleeping, terminate} from "./os.process";
-import {Runnable, RunnableResult} from "./os.runnable";
-import {thread, ThreadFunc} from "./os.thread";
-import {getLogisticsTopic, LogisticsEventData, LogisticsEventType} from "./runnable.base_logistics";
+import {PersistentMemory} from './os.memory';
+import {sleeping, terminate} from './os.process';
+import {Runnable, RunnableResult} from './os.runnable';
+import {thread, ThreadFunc} from './os.thread';
+import {getLogisticsTopic, LogisticsEventData, LogisticsEventType} from './runnable.base_logistics';
 import {createSpawnRequest, getBaseSpawnTopic} from './runnable.base_spawning';
 import {getLinesStream, HudEventSet, HudLine} from './runnable.debug_hud';
 
@@ -55,7 +55,7 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
-    trace = trace.begin('mineral_run')
+    trace = trace.begin('mineral_run');
 
     trace.log('mineral run', {
       mineralId: this.id,
@@ -100,7 +100,7 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
       sleepFor = mineral.ticksToRegeneration;
     }
 
-    return sleeping(sleepFor)
+    return sleeping(sleepFor);
   }
 
   produceEvents(trace: Tracer, kernel: Kernel, base: Base, mineral: Mineral) {
@@ -168,7 +168,7 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
 
   requestHarvesters(trace: Tracer, kernel: Kernel, base: Base, mineral: Mineral) {
     if (mineral.mineralAmount === 0) {
-      trace.log('no minerals to harvest')
+      trace.log('no minerals to harvest');
       return;
     }
 
@@ -182,7 +182,7 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
       return;
     }
 
-    const room = mineral.room
+    const room = mineral.room;
 
     const username = kernel.getPlanner().getUsername();
     if (room?.controller?.owner && room.controller.owner.username !== username) {
@@ -201,14 +201,14 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
     trace.log('num harvesters', {numHarvesters});
 
     if (numHarvesters < 1) {
-      let positionStr = [this.creepPosition.x, this.creepPosition.y, this.creepPosition.roomName].join(',');
+      const positionStr = [this.creepPosition.x, this.creepPosition.y, this.creepPosition.roomName].join(',');
 
       const memory = {
         [MEMORY.MEMORY_SOURCE]: this.id,
         [MEMORY.MEMORY_SOURCE_POSITION]: positionStr,
         [MEMORY.MEMORY_ASSIGN_ROOM]: mineral.room.name,
         [MEMORY.MEMORY_BASE]: base.id,
-      }
+      };
 
       trace.log('requesting harvester', {mineralId: this.id, memory});
 

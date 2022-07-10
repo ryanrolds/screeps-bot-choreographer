@@ -1,22 +1,22 @@
-import {AlertLevel, Base} from "./base";
-import {ROLE_WORKER, WORKER_HAULER} from "./constants.creeps";
-import {MEMORY_BASE, MEMORY_HAUL_AMOUNT, MEMORY_HAUL_DROPOFF, MEMORY_HAUL_PICKUP, MEMORY_HAUL_RESOURCE, MEMORY_TASK_TYPE, TASK_ID} from "./constants.memory";
-import {roadPolicy} from "./constants.pathing_policies";
-import {DUMP_NEXT_TO_STORAGE, HAUL_BASE_ROOM, HAUL_DROPPED, LOAD_FACTOR, PRIORITY_HAULER} from "./constants.priorities";
-import {TASK_HAUL} from "./constants.tasks";
-import {Kernel} from "./kernel";
-import {Consumer, Event} from "./lib.event_broker";
-import {getPath, visualizePath} from "./lib.pathing";
-import * as PID from "./lib.pid";
-import {getReserveStructureWithRoomForResource} from "./lib.storage";
-import {TopicKey} from "./lib.topics";
-import {Tracer} from "./lib.tracing";
-import {PersistentMemory} from "./os.memory";
-import {sleeping} from "./os.process";
-import {RunnableResult} from "./os.runnable";
-import {thread, ThreadFunc} from "./os.thread";
-import {createSpawnRequest, getBaseSpawnTopic} from "./runnable.base_spawning";
-import {getLinesStream, HudEventSet, HudLine} from "./runnable.debug_hud";
+import {AlertLevel, Base} from './base';
+import {ROLE_WORKER, WORKER_HAULER} from './constants.creeps';
+import {MEMORY_BASE, MEMORY_HAUL_AMOUNT, MEMORY_HAUL_DROPOFF, MEMORY_HAUL_PICKUP, MEMORY_HAUL_RESOURCE, MEMORY_TASK_TYPE, TASK_ID} from './constants.memory';
+import {roadPolicy} from './constants.pathing_policies';
+import {DUMP_NEXT_TO_STORAGE, HAUL_BASE_ROOM, HAUL_DROPPED, LOAD_FACTOR, PRIORITY_HAULER} from './constants.priorities';
+import {TASK_HAUL} from './constants.tasks';
+import {Kernel} from './kernel';
+import {Consumer, Event} from './lib.event_broker';
+import {getPath, visualizePath} from './lib.pathing';
+import * as PID from './lib.pid';
+import {getReserveStructureWithRoomForResource} from './lib.storage';
+import {TopicKey} from './lib.topics';
+import {Tracer} from './lib.tracing';
+import {PersistentMemory} from './os.memory';
+import {sleeping} from './os.process';
+import {RunnableResult} from './os.runnable';
+import {thread, ThreadFunc} from './os.thread';
+import {createSpawnRequest, getBaseSpawnTopic} from './runnable.base_spawning';
+import {getLinesStream, HudEventSet, HudLine} from './runnable.debug_hud';
 
 const CALCULATE_LEG_TTL = 20;
 const BUILD_SHORTEST_LEG_TTL = 40;
@@ -37,7 +37,7 @@ export function getBaseHaulerTopic(baseId: string): TopicKey {
 }
 
 export enum LogisticsEventType {
-  RequestRoad = "request_road",
+  RequestRoad = 'request_road',
 }
 
 export type LogisticsEventData = {
@@ -60,21 +60,21 @@ export default class LogisticsRunnable extends PersistentMemory {
   private storage: AnyStoreStructure;
   private threadUpdateStorage: ThreadFunc;
 
-  private legs: Record<string, Leg>;
+  private legs: Map<string, Leg>;
   private selectedLeg: Leg | null;
   private passes: number;
 
   private haulers: Creep[];
-  private numHaulers: number = 0;
-  private numActiveHaulers: number = 0;
-  private numIdleHaulers: number = 0;
-  private avgHaulerCapacity: number = 1000;
+  private numHaulers = 0;
+  private numActiveHaulers = 0;
+  private numIdleHaulers = 0;
+  private avgHaulerCapacity = 1000;
 
   private threadConsumeEvents: ThreadFunc;
   private threadProduceEvents: ThreadFunc;
 
   private desiredHaulers: number;
-  private pidHaulersMemory: Record<string, number>;
+  private pidHaulersMemory: Map<string, number>;
 
   private threadHaulerPID: ThreadFunc;
   private threadRequestHaulers: ThreadFunc;
@@ -83,7 +83,7 @@ export default class LogisticsRunnable extends PersistentMemory {
   private threadRequestHaulDroppedResources: ThreadFunc;
   private threadRequestHaulTombstones: ThreadFunc;
 
-  //threadBuildRoads: ThreadFunc;
+  // threadBuildRoads: ThreadFunc;
   private calculateLegIterator: Generator<any, void, {kernel: Kernel, trace: Tracer}>;
   private threadCalculateLeg: ThreadFunc;
   private threadBuildShortestLeg: ThreadFunc;
@@ -94,12 +94,12 @@ export default class LogisticsRunnable extends PersistentMemory {
     super(baseId);
 
     this.baseId = baseId;
-    this.legs = {};
+    this.legs = new Map();
     this.selectedLeg = null;
     this.passes = 0;
 
     this.desiredHaulers = 0;
-    this.pidHaulersMemory = {};
+    this.pidHaulersMemory = new Map();
     // TODO refactor PID into a class
     PID.setup(this.pidHaulersMemory, 0, 0.2, 0.0005, 0);
 
@@ -144,7 +144,7 @@ export default class LogisticsRunnable extends PersistentMemory {
     }
 
     this.threadConsumeEvents(trace, kernel);
-    this.threadUpdateStorage(trace, kernel, base)
+    this.threadUpdateStorage(trace, kernel, base);
 
     // If red alert, don't do anything
     if (base.alertLevel === AlertLevel.GREEN) {
@@ -169,7 +169,7 @@ export default class LogisticsRunnable extends PersistentMemory {
 
     visualizeLegs(Object.values(this.legs), trace);
 
-    return sleeping(1)
+    return sleeping(1);
   }
 
   private consumeEvents(trace: Tracer, kernel: Kernel) {
@@ -188,7 +188,7 @@ export default class LogisticsRunnable extends PersistentMemory {
 
   private updateHaulers(trace: Tracer, kernel: Kernel) {
     // Get list of haulers and workers
-    this.haulers = kernel.getCreepsManager().getCreepsByBaseAndRole(this.baseId, ROLE_WORKER)
+    this.haulers = kernel.getCreepsManager().getCreepsByBaseAndRole(this.baseId, ROLE_WORKER);
     this.numHaulers = this.haulers.length;
 
     this.numActiveHaulers = this.haulers.filter((creep) => {
@@ -255,7 +255,7 @@ export default class LogisticsRunnable extends PersistentMemory {
       role = ROLE_WORKER;
     }
 
-    trace.notice('request haulers', {numHaulers: this.numHaulers, desiredHaulers: this.desiredHaulers})
+    trace.notice('request haulers', {numHaulers: this.numHaulers, desiredHaulers: this.desiredHaulers});
 
     // PID approach
     if (this.numHaulers < this.desiredHaulers) {
@@ -266,7 +266,7 @@ export default class LogisticsRunnable extends PersistentMemory {
         priority += 10;
       }
 
-      priority -= this.numHaulers * 0.2
+      priority -= this.numHaulers * 0.2;
 
       const ttl = REQUEST_HAULER_TTL;
       const memory = {
@@ -309,7 +309,7 @@ export default class LogisticsRunnable extends PersistentMemory {
       }
 
       // Get resources to haul
-      let droppedResourcesToHaul = room.find(FIND_DROPPED_RESOURCES);
+      const droppedResourcesToHaul = room.find(FIND_DROPPED_RESOURCES);
 
       // No resources to haul, we are done
       if (!droppedResourcesToHaul.length) {
@@ -349,7 +349,7 @@ export default class LogisticsRunnable extends PersistentMemory {
 
         trace.info('loads', {
           avgHaulerCapacity: this.avgHaulerCapacity, haulerCapacity,
-          untaskedUsedCapacity, loadsToHaul
+          untaskedUsedCapacity, loadsToHaul,
         });
 
         for (let i = 0; i < loadsToHaul; i++) {
@@ -397,7 +397,7 @@ export default class LogisticsRunnable extends PersistentMemory {
 
       tombstones.forEach((tombstone) => {
         Object.keys(tombstone.store).forEach((resourceType: ResourceConstant) => {
-          trace.log("tombstone", {id: tombstone.id, resource: resourceType, amount: tombstone.store[resourceType]});
+          trace.log('tombstone', {id: tombstone.id, resource: resourceType, amount: tombstone.store[resourceType]});
           const dropoff = getReserveStructureWithRoomForResource(Game, base, resourceType);
           if (!dropoff) {
             trace.warn('no reserve structure for resource dropoff', {baseId: base.id, resourceType});
@@ -413,8 +413,8 @@ export default class LogisticsRunnable extends PersistentMemory {
             [MEMORY_HAUL_AMOUNT]: tombstone.store[resourceType],
           };
 
-          let topic = getBaseHaulerTopic(base.id);
-          let priority = HAUL_DROPPED;
+          const topic = getBaseHaulerTopic(base.id);
+          const priority = HAUL_DROPPED;
 
           trace.info('haul tombstone', {topic, priority, details});
           kernel.getTopics().addRequest(topic, priority, details, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
@@ -441,7 +441,7 @@ export default class LogisticsRunnable extends PersistentMemory {
     }
   }
 
-  private * calculateLegGenerator(): Generator<any, void, {kernel: Kernel, trace: Tracer}> {
+  private* calculateLegGenerator(): Generator<any, void, {kernel: Kernel, trace: Tracer}> {
     let legs: Leg[] = [];
     while (true) {
       const details: {kernel: Kernel, trace: Tracer} = yield;
@@ -460,8 +460,8 @@ export default class LogisticsRunnable extends PersistentMemory {
 
       trace.log('legs to update', {
         legs: legs.map((l) => {
-          return {id: l.id, updatedAt: l.updatedAt, remaining: l.remaining.length}
-        })
+          return {id: l.id, updatedAt: l.updatedAt, remaining: l.remaining.length};
+        }),
       });
 
       const leg = legs.shift();
@@ -598,7 +598,7 @@ export default class LogisticsRunnable extends PersistentMemory {
       },
       (leg) => {
         return leg.remaining.length;
-      }
+      },
     );
 
     const leg = sortedLegs.shift();
@@ -607,7 +607,7 @@ export default class LogisticsRunnable extends PersistentMemory {
       return;
     }
 
-    trace.log('shortest leg', {leg})
+    trace.log('shortest leg', {leg});
 
     this.selectedLeg = leg;
 
@@ -677,4 +677,4 @@ const visualizeLegs = (legs: Leg[], trace: Tracer) => {
     const leg = legs[i];
     new RoomVisual(leg.destination.roomName).text('X', leg.destination.x, leg.destination.y);
   }
-}
+};

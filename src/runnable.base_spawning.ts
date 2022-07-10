@@ -5,19 +5,19 @@
  *
  * TODO - Move to topic with base id in the name - IN PROGRESS
  */
-import {Base, getBasePrimaryRoom} from "./base";
-import * as CREEPS from "./constants.creeps";
+import {Base, getBasePrimaryRoom} from './base';
+import * as CREEPS from './constants.creeps';
 import {DEFINITIONS} from './constants.creeps';
-import * as MEMORY from "./constants.memory";
-import * as TOPICS from "./constants.topics";
-import {Kernel} from "./kernel";
-import {Event} from "./lib.event_broker";
-import {Request, RequestDetails, TopicKey} from "./lib.topics";
+import * as MEMORY from './constants.memory';
+import * as TOPICS from './constants.topics';
+import {Kernel} from './kernel';
+import {Event} from './lib.event_broker';
+import {Request, RequestDetails, TopicKey} from './lib.topics';
 import {Tracer} from './lib.tracing';
-import {running, terminate} from "./os.process";
-import {RunnableResult} from "./os.runnable";
-import {thread, ThreadFunc} from "./os.thread";
-import {getDashboardStream, getLinesStream, HudEventSet, HudIndicator, HudIndicatorStatus, HudLine} from "./runnable.debug_hud";
+import {running, terminate} from './os.process';
+import {RunnableResult} from './os.runnable';
+import {thread, ThreadFunc} from './os.thread';
+import {getDashboardStream, getLinesStream, HudEventSet, HudIndicator, HudIndicatorStatus, HudLine} from './runnable.debug_hud';
 
 const SPAWN_TTL = 5;
 const REQUEST_BOOSTS_TTL = 5;
@@ -28,9 +28,9 @@ const INITIAL_TOPIC_LENGTH = 9999;
 const RED_TOPIC_LENGTH = 10;
 const YELLOW_TOPIC_LENGTH = 5;
 
-export const SPAWN_REQUEST_ROLE = "role";
-export const SPAWN_REQUEST_SPAWN_MIN_ENERGY = "spawn_min_energy";
-export const SPAWN_REQUEST_PARTS = "parts";
+export const SPAWN_REQUEST_ROLE = 'role';
+export const SPAWN_REQUEST_SPAWN_MIN_ENERGY = 'spawn_min_energy';
+export const SPAWN_REQUEST_PARTS = 'parts';
 
 type SpawnRequestDetails = {
   role: string;
@@ -56,7 +56,7 @@ export function createSpawnRequest(priority: number, ttl: number, role: string,
       role,
       memory,
       energyLimit,
-    }
+    },
   };
 }
 
@@ -71,7 +71,7 @@ export function getBaseSpawnTopic(baseId: string): TopicKey {
 export default class SpawnManager {
   id: string;
   baseId: string;
-  checkCount: number = 0;
+  checkCount = 0;
 
   consumeEventsThread: ThreadFunc;
   threadSpawn: ThreadFunc
@@ -83,7 +83,7 @@ export default class SpawnManager {
     this.threadSpawn = thread('spawn_thread', SPAWN_TTL)(this.spawning.bind(this));
     this.consumeEventsThread = thread('produce_events_thread',
       PRODUCE_EVENTS_TTL)((trace, kernel, base) => {
-        this.consumeEvents(trace, kernel, base)
+        this.consumeEvents(trace, kernel, base);
       });
   }
 
@@ -121,7 +121,7 @@ export default class SpawnManager {
     }
 
     const spawns = room.find<StructureSpawn>(FIND_MY_STRUCTURES, {
-      filter: (s) => s.structureType === STRUCTURE_SPAWN
+      filter: (s) => s.structureType === STRUCTURE_SPAWN,
     });
 
     // If there are no spawns then we should request another base in the kernel produce the creep
@@ -150,7 +150,7 @@ export default class SpawnManager {
         isIdle,
         spawnEnergy,
         energyCapacity,
-        energyPercentage
+        energyPercentage,
       });
 
       if (!isIdle) {
@@ -194,11 +194,11 @@ export default class SpawnManager {
       const next = kernel.getTopics().peekNextRequest(getBaseSpawnTopic(base.id));
       trace.info('spawn idle', {
         spawnTopicSize, numCreeps, spawnEnergy, minEnergy,
-        spawnTopicBackPressure, next
+        spawnTopicBackPressure, next,
       });
 
       if (spawnEnergy < minEnergy) {
-        trace.info("low energy, not spawning", {id: this.id, spawnEnergy, minEnergy})
+        trace.info('low energy, not spawning', {id: this.id, spawnEnergy, minEnergy});
         return;
       }
 
@@ -229,13 +229,13 @@ export default class SpawnManager {
 
       // No request, so we are done
       if (!request) {
-        trace.info("no request");
-        return
+        trace.info('no request');
+        return;
       }
 
       // If local priority w/ bonus is less than neighbor priority, select neighbor request
       if ((request.priority + 1) < neighborRequest?.priority) {
-        trace.warn("neighbor request has higher priority", {neighborRequest, request});
+        trace.warn('neighbor request has higher priority', {neighborRequest, request});
         request = neighborRequest;
       }
 
@@ -257,7 +257,7 @@ export default class SpawnManager {
         return;
       }
 
-      trace.info("spawning", {id: this.id, role, spawnEnergy, energyLimit, request});
+      trace.info('spawning', {id: this.id, role, spawnEnergy, energyLimit, request});
 
       const parts = request.details[SPAWN_REQUEST_PARTS] || null;
       const memory = request.details.memory || {};
@@ -281,7 +281,7 @@ export default class SpawnManager {
         const assignedShard = message.details.memory[MEMORY.MEMORY_ASSIGN_SHARD] || null;
         if (assignedShard && assignedShard != Game.shard.name) {
           trace.warn('request in another shard', {assignedShard, shard: Game.shard.name});
-          let portals: any[] = kernel.getScribe()
+          const portals: any[] = kernel.getScribe()
             .getPortals(assignedShard).filter((portal) => {
               const distance = Game.map.getRoomLinearDistance(baseRoom.name,
                 portal.pos.roomName);
@@ -299,7 +299,7 @@ export default class SpawnManager {
         let destinationRoom = null;
         const baseRoom = message.details.memory[MEMORY.MEMORY_BASE];
         if (baseRoom) {
-          destinationRoom = baseRoom
+          destinationRoom = baseRoom;
         }
         const assignedRoom = message.details.memory[MEMORY.MEMORY_ASSIGN_ROOM];
         if (assignedRoom) {
@@ -368,7 +368,7 @@ export default class SpawnManager {
     };
     const event = new Event(this.id, Game.time, HudEventSet, line);
     trace.log('produce_events', event);
-    kernel.getBroker().getStream(getLinesStream()).publish(event)
+    kernel.getBroker().getStream(getLinesStream()).publish(event);
 
     const indicatorStream = kernel.getBroker().getStream(getDashboardStream());
 
@@ -386,7 +386,7 @@ export default class SpawnManager {
       room: roomName,
       key: 'spawn_length',
       display: 'S',
-      status: processStatus
+      status: processStatus,
     };
     indicatorStream.publish(new Event(this.id, Game.time, HudEventSet, spawnLengthIndicator));
   }
@@ -421,7 +421,7 @@ function createCreep(base: Base, room: string, spawn: StructureSpawn, role: stri
   // if parts not provided, work them out from the definition
   if (!parts) {
     parts = getBodyParts(definition, energy);
-  };
+  }
 
   const name = [role, Game.shard.name, Game.time].join('_');
 
@@ -441,7 +441,7 @@ function createCreep(base: Base, room: string, spawn: StructureSpawn, role: stri
 
   const result = spawn.spawnCreep(parts, name, {memory});
   return result;
-};
+}
 
 function getBodyParts(definition, maxEnergy) {
   let base = definition.base.slice(0);

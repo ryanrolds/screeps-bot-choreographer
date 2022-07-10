@@ -7,12 +7,12 @@ import * as TOPICS from './constants.topics';
 import {Kernel} from './kernel';
 import {Event} from './lib.event_broker';
 import {Tracer} from './lib.tracing';
-import {Process, sleeping, terminate} from "./os.process";
-import {Runnable, RunnableResult} from "./os.runnable";
-import {Priorities, Scheduler} from "./os.scheduler";
+import {Process, sleeping, terminate} from './os.process';
+import {Runnable, RunnableResult} from './os.runnable';
+import {Priorities, Scheduler} from './os.scheduler';
 import {thread, ThreadFunc} from './os.thread';
 import MineralRunnable from './runnable.base_room_mineral';
-import SourceRunnable from "./runnable.base_room_source";
+import SourceRunnable from './runnable.base_room_source';
 import {createSpawnRequest, getBaseSpawnTopic, getShardSpawnTopic} from './runnable.base_spawning';
 import {getLinesStream, HudEventSet, HudLine} from './runnable.debug_hud';
 
@@ -51,7 +51,7 @@ export default class RoomRunnable implements Runnable {
 
     const base = kernel.getPlanner().getBaseByRoom(this.id);
     if (!base) {
-      trace.error("no base config, terminating", {id: this.id})
+      trace.error('no base config, terminating', {id: this.id});
       trace.end();
       return terminate();
     }
@@ -77,9 +77,9 @@ export default class RoomRunnable implements Runnable {
     if (room.controller?.my || !room.controller?.owner?.username) {
       // Sources
       room.find(FIND_SOURCES).forEach((source) => {
-        const sourceId = `${source.id}`
+        const sourceId = `${source.id}`;
         if (!this.scheduler.hasProcess(sourceId)) {
-          trace.log("found source without process, starting", {sourceId: source.id, room: this.id});
+          trace.log('found source without process, starting', {sourceId: source.id, room: this.id});
           this.scheduler.registerProcess(new Process(sourceId, 'sources', Priorities.RESOURCES,
             new SourceRunnable(source)));
         }
@@ -88,7 +88,7 @@ export default class RoomRunnable implements Runnable {
       if (base.primary === room.name && room.controller?.level >= 6) {
         // Mineral
         room.find(FIND_MINERALS).forEach((mineral) => {
-          const mineralId = `${mineral.id}`
+          const mineralId = `${mineral.id}`;
           if (!this.scheduler.hasProcess(mineralId)) {
             this.scheduler.registerProcess(new Process(mineralId, 'mineral', Priorities.RESOURCES,
               new MineralRunnable(mineral)));
@@ -155,9 +155,9 @@ export default class RoomRunnable implements Runnable {
     const memory = {
       [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
       [MEMORY.MEMORY_BASE]: base.id,
-    }
+    };
 
-    let topic = getShardSpawnTopic()
+    let topic = getShardSpawnTopic();
     if (baseEnergyStorageCapacity(base) >= 800) {
       topic = getBaseSpawnTopic(base.id);
     }

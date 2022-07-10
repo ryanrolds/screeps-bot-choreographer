@@ -3,9 +3,9 @@ import * as _ from 'lodash';
 import {Base, getBasePrimaryRoom} from './base';
 import {Kernel} from './kernel';
 import {Tracer} from './lib.tracing';
-import {Process, sleeping, terminate} from "./os.process";
+import {Process, sleeping, terminate} from './os.process';
 import {RunnableResult} from './os.runnable';
-import {Priorities, Scheduler} from "./os.scheduler";
+import {Priorities, Scheduler} from './os.scheduler';
 import {thread, ThreadFunc} from './os.thread';
 import BoosterRunnable from './runnable.base_booster';
 import ReactorRunnable from './runnable.base_reactor';
@@ -32,7 +32,7 @@ export class LabsManager {
 
   threadAssignLabs: ThreadFunc;
 
-  constructor(id: string, baseId: string, scheduler: Scheduler, trace: Tracer) {
+  constructor(baseId: string, id: string, scheduler: Scheduler, trace: Tracer) {
     this.id = id;
     this.baseId = baseId;
     this.scheduler = scheduler;
@@ -40,7 +40,7 @@ export class LabsManager {
     this.reactorsIds = [];
     this.boosterIds = [];
 
-    this.threadAssignLabs = thread('assign_labs', ASSIGN_LABS_TTL)(this.assignLabs.bind(this))
+    this.threadAssignLabs = thread('assign_labs', ASSIGN_LABS_TTL)(this.assignLabs.bind(this));
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
@@ -110,9 +110,9 @@ export class LabsManager {
     reactorPositions.forEach((offsets) => {
       let reactorIds = offsets.map(([x, y]): Id<StructureLab> => {
         return room.lookForAt(LOOK_STRUCTURES, origin.x + x, origin.y + y).
-          find(s => s.structureType === STRUCTURE_LAB)?.id as Id<StructureLab>;
-      })
-      reactorIds = reactorIds.filter(id => id);
+          find((s) => s.structureType === STRUCTURE_LAB)?.id as Id<StructureLab>;
+      });
+      reactorIds = reactorIds.filter((id) => id);
       reactorIds = _.sortBy(reactorIds, 'id');
 
       if (reactorIds.length === 3) {
@@ -122,9 +122,9 @@ export class LabsManager {
 
     let boosterIds = boosterPositions.map(([x, y]): Id<StructureLab> => {
       return room.lookForAt(LOOK_STRUCTURES, origin.x + x, origin.y + y).
-        find(s => s.structureType === STRUCTURE_LAB)?.id as Id<StructureLab>;
-    })
-    boosterIds = boosterIds.filter(id => id);
+        find((s) => s.structureType === STRUCTURE_LAB)?.id as Id<StructureLab>;
+    });
+    boosterIds = boosterIds.filter((id) => id);
     boosterIds = _.sortBy(boosterIds, 'id');
     if (boosterIds.length === 3) {
       this.boosterIds = boosterIds;

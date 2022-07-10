@@ -1,17 +1,18 @@
-import {getBasePrimaryRoom} from "./base";
-import {PRICES} from "./constants.market";
-import {MEMORY_ORDER_AMOUNT, MEMORY_ORDER_RESOURCE, MEMORY_ORDER_TYPE, REACTION_STATUS_PHASE, REACTION_STATUS_RESOURCE, REACTOR_AMOUNT, REACTOR_INPUT_A, REACTOR_INPUT_B, REACTOR_OUTPUT, REACTOR_TASK_TYPE, ROOM_STATUS_ENERGY, ROOM_STATUS_LEVEL, ROOM_STATUS_LEVEL_COMPLETED, ROOM_STATUS_NAME, ROOM_STATUS_TERMINAL, TERMINAL_TASK_TYPE, TRANSFER_AMOUNT, TRANSFER_RESOURCE, TRANSFER_ROOM} from "./constants.memory";
-import {REACTION_PRIORITIES, TERMINAL_BUY, TERMINAL_ENERGY_BALANCE, TERMINAL_SELL, TERMINAL_TRANSFER} from "./constants.priorities";
-import {REACTION, TASK_MARKET_ORDER, TASK_TRANSFER} from "./constants.tasks";
-import {ACTIVE_REACTIONS, ROOM_STATUES, TASK_REACTION, TOPIC_TERMINAL_TASK} from "./constants.topics";
-import {Kernel} from "./kernel";
-import {Consumer} from "./lib.event_broker";
-import {SigmoidPricing} from "./lib.sigmoid_pricing";
-import {Tracer} from "./lib.tracing";
-import {running} from "./os.process";
-import {Runnable, RunnableResult} from "./os.runnable";
-import {thread, ThreadFunc} from "./os.thread";
-import {REACTION_STATUS_START, REACTION_STATUS_STOP, REACTION_STATUS_STREAM, REACTION_STATUS_UPDATE, TASK_PHASE_REACT} from "./runnable.base_reactor";
+import {Base, getBasePrimaryRoom, getStoredResourceAmount, getStoredResources, ResourceCounts} from './base';
+import {PRICES} from './constants.market';
+import {MEMORY_ORDER_AMOUNT, MEMORY_ORDER_RESOURCE, MEMORY_ORDER_TYPE, REACTOR_AMOUNT, REACTOR_INPUT_A, REACTOR_INPUT_B, REACTOR_OUTPUT, REACTOR_TASK_TYPE, TERMINAL_TASK_TYPE, TRANSFER_AMOUNT, TRANSFER_RESOURCE, TRANSFER_ROOM} from './constants.memory';
+import {REACTION_PRIORITIES, TERMINAL_BUY, TERMINAL_SELL, TERMINAL_TRANSFER} from './constants.priorities';
+import {REACTION, TASK_MARKET_ORDER, TASK_TRANSFER} from './constants.tasks';
+import {TASK_REACTION, TOPIC_TERMINAL_TASK} from './constants.topics';
+import {Kernel} from './kernel';
+import {Consumer} from './lib.event_broker';
+import {SigmoidPricing} from './lib.sigmoid_pricing';
+import {Tracer} from './lib.tracing';
+import {running} from './os.process';
+import {Runnable, RunnableResult} from './os.runnable';
+import {thread, ThreadFunc} from './os.thread';
+import {Reaction, ReactionMap} from './runnable.base_booster';
+import {REACTION_STATUS_STREAM} from './runnable.base_reactor';
 
 const RESERVE_LIMIT = 20000;
 const REACTION_BATCH_SIZE = 1000;
@@ -44,23 +45,24 @@ const CRITICAL_EFFECTS = {
 };
 
 export class ResourceManager implements Runnable {
-  pricer: SigmoidPricing;
-  resources = {};
-  sharedResources = {};
-  availableReactions = {};
-  reactorStatuses = [];
-  roomStatuses = [];
-  reactionStats = {};
-  reactionStatuses = {};
-  reactionStatusStreamConsumer: Consumer;
-  threadUpdateResources: ThreadFunc;
-  threadRequestReactions: ThreadFunc;
-  threadRequestSellExtraResources: ThreadFunc;
-  threadDistributeBoosts: ThreadFunc;
-  threadConsumeStatuses: ThreadFunc;
-  threadConsumeReactionStatusStream: ThreadFunc;
-  threadBalanceEnergy: ThreadFunc;
+  private pricer: SigmoidPricing;
+  private resources: ResourceCounts;
+  private sharedResources: ResourceCounts;
 
+  private availableReactions = {};
+  private reactorStatuses = [];
+  private roomStatuses = [];
+  private reactionStats = {};
+  private reactionStatuses = {};
+  private reactionStatusStreamConsumer: Consumer;
+
+  private threadUpdateResources: ThreadFunc;
+  private threadRequestReactions: ThreadFunc;
+  private threadRequestSellExtraResources: ThreadFunc;
+  private threadDistributeBoosts: ThreadFunc;
+  private threadConsumeStatuses: ThreadFunc;
+  private threadConsumeReactionStatusStream: ThreadFunc;
+  private threadBalanceEnergy: ThreadFunc;
 
   constructor(kernel: Kernel) {
     this.pricer = new SigmoidPricing(PRICES);
@@ -71,16 +73,17 @@ export class ResourceManager implements Runnable {
     this.roomStatuses = [];
     this.reactionStats = {};
     this.reactionStatuses = {};
+
     this.reactionStatusStreamConsumer = kernel.getBroker().
       getStream(REACTION_STATUS_STREAM).addConsumer('resource_governor');
 
     this.threadUpdateResources = thread('update_resources_thread', UPDATE_RESOURCES_TTL)((trace: Tracer, kernel: Kernel) => {
-      this.resources = this.getReserveResources(kernel);
+      this.resources = this.getBaseResources(kernel);
       this.sharedResources = this.getSharedResources(kernel);
     });
 
     this.threadRequestReactions = thread('request_reactions_thread', REQUEST_REACTION_TTL)((trace: Tracer, kernel: Kernel) => {
-      this.availableReactions = this.getReactions(trace, kernel);
+      this.availableReactions = this.getReactions(kernel, trace);
       this.requestReactions(trace, kernel);
     });
 
@@ -111,7 +114,7 @@ export class ResourceManager implements Runnable {
     return running();
   }
 
-  getRoomWithTerminalWithResource(kernel: Kernel, resource, notRoomName = null) {
+  getRoomWithTerminalWithResource(kernel: Kernel, resource: ResourceConstant, notRoomName: Id<Room> = null) {
     const terminals = kernel.getPlanner().getBases().reduce((acc, base) => {
       const room = getBasePrimaryRoom(base);
       if (!room) {
@@ -140,7 +143,7 @@ export class ResourceManager implements Runnable {
         return false;
       }, false);
 
-      let amount = base.getAmountInReserve(resource, true);
+      let amount = getStoredResourceAmount(base, resource);
 
       if (isCritical) {
         amount -= MIN_CRITICAL_COMPOUND;
@@ -160,9 +163,9 @@ export class ResourceManager implements Runnable {
     return _.sortBy(terminals, 'amount').reverse().shift();
   }
 
-  getTerminals(kernel: Kernel) {
-    return kernel.getPlanner().getBases().reduce((acc, colony) => {
-      const room = colony.getPrimaryRoom();
+  getTerminals(kernel: Kernel): StructureTerminal[] {
+    return kernel.getPlanner().getBases().reduce((acc, base) => {
+      const room = getBasePrimaryRoom(base);
       if (!room) {
         return acc;
       }
@@ -173,91 +176,85 @@ export class ResourceManager implements Runnable {
       }
 
       return acc.concat(room.terminal);
-    }, []);
+    }, [] as StructureTerminal[]);
   }
 
-  getSharedResources(kernel: Kernel) {
-    const sharedResources = {};
-
-    kernel.getPlanner().getBases().forEach((colony) => {
-      const room = colony.getPrimaryRoom();
-      if (!room) {
-        return;
+  getSharedResources(kernel: Kernel): ResourceCounts {
+    return kernel.getPlanner().getBases().reduce((acc, base) => {
+      const primaryRoom = getBasePrimaryRoom(base);
+      if (!primaryRoom) {
+        return acc;
       }
 
-      // If colony doesn't have a terminal don't include it
-      if (!room.hasTerminal()) {
-        return;
+      if (!primaryRoom.terminal) {
+        return acc;
       }
 
-      const roomResources = room.getReserveResources();
-      Object.keys(roomResources).forEach((resource) => {
-        const isCritical = Object.values(CRITICAL_EFFECTS).reduce((isCritical, compounds) => {
-          if (isCritical) {
-            return isCritical;
-          }
-
+      const baseResources = getStoredResources(base);
+      Object.keys(baseResources).forEach((resource) => {
+        // Find first effect for that resource
+        const isCritical = Object.values(CRITICAL_EFFECTS).find((compounds) => {
           if (compounds.indexOf(resource) != -1) {
             return true;
           }
+          return false;
         }, false);
 
-        let amount = roomResources[resource];
-
+        // If critical, subtract min compound amount
+        let amount = baseResources[resource];
         if (isCritical) {
           amount -= MIN_CRITICAL_COMPOUND;
         }
-
         if (amount < 0) {
           amount = 0;
         }
 
-        roomResources[resource] = amount;
-
-        if (!sharedResources[resource]) {
-          sharedResources[resource] = 0;
-        }
-
-        sharedResources[resource] += amount;
-      });
-    });
-
-    return sharedResources;
-  }
-
-  getReserveResources(kernel: Kernel) {
-    return kernel.getPlanner().getBases().reduce((acc, colony) => {
-      // If colony doesn't have a terminal don't include it
-      if (!colony.getPrimaryRoom() || !colony.getPrimaryRoom().hasTerminal()) {
-        return acc;
-      }
-
-      const colonyResources = colony.getReserveResources();
-      Object.keys(colonyResources).forEach((resource) => {
+        // Update the resource counts
         const current = acc[resource] || 0;
-        acc[resource] = colonyResources[resource] + current;
+        acc[resource] = amount + current;
       });
 
       return acc;
-    }, {});
+    }, {} as ResourceCounts);
   }
 
-  getAmountInReserve(kernel: Kernel, resource) {
-    return kernel.getPlanner().getBases().reduce((acc, colony) => {
-      return acc + colony.getAmountInReserve(resource);
+  getBaseResources(kernel: Kernel): ResourceCounts {
+    return kernel.getPlanner().getBases().reduce((acc, base) => {
+      const primaryRoom = getBasePrimaryRoom(base);
+      if (!primaryRoom) {
+        return acc;
+      }
+
+      if (!primaryRoom.terminal) {
+        return acc;
+      }
+
+      const baseResources = getStoredResources(base);
+      Object.keys(baseResources).forEach((resource) => {
+        const current = acc[resource] || 0;
+        acc[resource] = baseResources[resource] + current;
+      });
+
+      return acc;
+    }, {} as ResourceCounts);
+  }
+
+  getAmountInReserve(kernel: Kernel, resource): number {
+    return kernel.getPlanner().getBases().reduce((acc, base) => {
+      return acc + getStoredResourceAmount(base, resource);
     }, 0);
   }
 
-  getReactions(trace: Tracer, kernel: Kernel) {
-    let availableReactions = {};
-    let missingOneInput = {};
-    const overReserve = {};
+  getReactions(kernel: Kernel, trace: Tracer): Reaction[] {
+    const availableReactions: ReactionMap = {};
+    const missingOneInput: ReactionMap = {};
+    const overReserve: ReactionMap = {};
 
     const firstInputs = Object.keys(REACTIONS);
     firstInputs.forEach((inputA) => {
       // If we don't have a full batch, move onto next
       if (!this.resources[inputA] || this.resources[inputA] < REACTION_BATCH_SIZE) {
-        trace.log('dont have enough of first resource', {
+        trace.info('dont have enough of first resource', {
           inputA,
           amountA: this.resources[inputA] || 0,
           REACTION_BATCH_SIZE,
@@ -296,7 +293,7 @@ export class ResourceManager implements Runnable {
 
         // If reaction isn't already present add it
         if (!availableReactions[output]) {
-          trace.log('adding available reaction', {
+          trace.info('adding available reaction', {
             inputA,
             inputB,
             amountA: this.resources[inputA] || 0,
@@ -309,22 +306,22 @@ export class ResourceManager implements Runnable {
       });
     });
 
-    availableReactions = this.prioritizeReactions(availableReactions, 0);
-    missingOneInput = this.prioritizeReactions(missingOneInput, 5);
+    const sortedAvailableReactions = this.prioritizeReactions(availableReactions, 0);
+    const sortedMissingOneInput = this.prioritizeReactions(missingOneInput, 5);
     // overReserve = this.prioritizeReactions(overReserve, 10);
 
-    let nextReactions = [].concat(availableReactions);
-    if (missingOneInput.length && Game.market.credits > MIN_CREDITS) {
-      nextReactions = nextReactions.concat(missingOneInput);
+    let nextReactions: Reaction[] = [].concat(sortedAvailableReactions);
+    if (Object.keys(missingOneInput).length && Game.market.credits > MIN_CREDITS) {
+      nextReactions = nextReactions.concat(sortedMissingOneInput);
     }
     // nextReactions = nextReactions.concat(overReserve.reverse());
 
-    trace.log('available reactions', {nextReactions, availableReactions, missingOneInput, overReserve});
+    trace.info('available reactions', {nextReactions, availableReactions, missingOneInput, overReserve});
 
     return nextReactions;
   }
 
-  prioritizeReactions(reactions, penalty) {
+  prioritizeReactions(reactions: ReactionMap, penalty: number): Reaction[] {
     return _.sortBy(Object.values(reactions), (reaction) => {
       let priority = REACTION_PRIORITIES[reaction['output']];
 
@@ -339,39 +336,18 @@ export class ResourceManager implements Runnable {
     });
   }
 
-  getDesiredCompound(effect, reserve) {
-    // Returns fist compound (assumes sorted by priority) that has more
-    // than minimum, or the compound with the most available
-    return effect.compounds.reduce((acc, compound) => {
-      const amountAvailable = reserve[compound.name] || 0;
+  buyResource(kernel: Kernel, base: Base, resource: ResourceCounts, amount: number, ttl: number, trace: Tracer) {
+    trace.info('requesting resource purchase', {baseId: base.id, resource, amount, ttl});
 
-      if (!acc) {
-        return {
-          resource: compound.name,
-          amount: amountAvailable,
-        };
-      }
-
-      if (acc.amount > MIN_CRITICAL_COMPOUND) {
-        return acc;
-      }
-
-      if (acc.amount < amountAvailable) {
-        return {
-          resource: compound.name,
-          amount: amountAvailable,
-        };
-      }
-
-      return acc;
-    }, null);
-  }
-  buyResource(room, resource, amount, ttl, trace) {
-    trace.log('requesting resource purchase', {room: room.id, resource, amount, ttl});
+    const primaryRoom = getBasePrimaryRoom(base);
+    if (!primaryRoom) {
+      trace.info('no primary room', {baseId: base.id});
+      return;
+    }
 
     // We can't request a transfer if room lacks a terminal
-    if (!room.hasTerminal()) {
-      trace.log('room does not have a terminal', {room: room.id});
+    if (!primaryRoom.terminal) {
+      trace.info('room does not have a terminal', {baseId: base.id});
       return false;
     }
 
@@ -383,22 +359,22 @@ export class ResourceManager implements Runnable {
     };
 
     if (Game.market.credits < MIN_CREDITS) {
-      trace.log('below min credits, not purchasing resource', {resource, amount});
+      trace.info('below min credits, not purchasing resource', {resource, amount});
       return false;
     }
 
-    trace.log('purchase resource', {room: room.id, resource, amount});
-    room.sendRequest(TOPIC_TERMINAL_TASK, TERMINAL_BUY,
-      details, ttl);
+    trace.info('purchase resource', {baseId: base.id, resource, amount});
+    kernel.getTopics().addRequest(TOPIC_TERMINAL_TASK, TERMINAL_BUY, details, ttl);
 
     return true;
   }
-  requestResource(kernel: Kernel, room, resource, amount, ttl, trace) {
-    trace.log('requesting resource transfer', {room: room.id, resource, amount, ttl});
+
+  requestResource(kernel: Kernel, base: Base, room, resource, amount, ttl, trace) {
+    trace.log('requesting resource transfer', {baseId: base.id, resource, amount, ttl});
 
     // We can't request a transfer if room lacks a terminal
     if (!room.hasTerminal()) {
-      trace.log('room does not have a terminal', {room: room.id});
+      trace.log('room does not have a terminal', {baseId: base.id});
       return false;
     }
 
@@ -469,7 +445,7 @@ export class ResourceManager implements Runnable {
   }
 
   requestReactions(trace: Tracer, kernel: Kernel) {
-    this.availableReactions.forEach((reaction) => {
+    Object.values(this.availableReactions).forEach((reaction) => {
       const details = {
         [REACTOR_TASK_TYPE]: REACTION,
         [REACTOR_INPUT_A]: reaction['inputA'],
@@ -498,7 +474,9 @@ export class ResourceManager implements Runnable {
   }
 
   requestSellResource(trace: Tracer, kernel: Kernel) {
-    Object.entries(this.sharedResources).forEach(([resource, amount]) => {
+    const entries = Object.entries(this.sharedResources);
+
+    this.sharedResources.forEach((amount, resource) => {
       if (resource === RESOURCE_ENERGY) {
         return;
       }
@@ -516,7 +494,7 @@ export class ResourceManager implements Runnable {
         return;
       }
 
-      const result = this.getRoomWithTerminalWithResource(resource);
+      const result = this.getRoomWithTerminalWithResource(kernel, resource);
       if (!result) {
         return;
       }
@@ -538,25 +516,25 @@ export class ResourceManager implements Runnable {
   distributeBoosts(trace: Tracer, kernel: Kernel) {
     trace.log('balancing boosts');
 
-    kernel.getPlanner().getBases().forEach((colony) => {
-      const colonyTrace = trace.withFields({colony: colony.id});
-      const colonyEnd = colonyTrace.startTimer('colony');
+    kernel.getPlanner().getBases().forEach((base) => {
+      const baseTrace = trace.withFields({base: base.id});
+      const baseEnd = baseTrace.startTimer('colony');
 
-      const primaryRoom = colony.getPrimaryRoom();
+      const primaryRoom = getBasePrimaryRoom(base);
       if (!primaryRoom) {
-        colonyEnd();
+        baseEnd();
         return;
       }
 
       const room = primaryRoom.getRoomObject();
       if (!room || !room.terminal || !room.storage) {
-        colonyEnd();
+        baseEnd();
         return;
       }
 
       const boosterPos = primaryRoom.getBoosterPosition();
       if (!boosterPos) {
-        colonyEnd();
+        baseEnd();
         return;
       }
 
@@ -569,7 +547,7 @@ export class ResourceManager implements Runnable {
       const rallyFlagRoom = Game.flags['rally']?.pos.roomName;
 
       Object.entries(CRITICAL_EFFECTS).forEach(([effectName, compounds]) => {
-        const effectTrace = colonyTrace.withFields({
+        const effectTrace = baseTrace.withFields({
           'effect': effectName,
           'compounds': compounds.length,
         });
@@ -589,7 +567,7 @@ export class ResourceManager implements Runnable {
         const availableEffect = availableEffects[effectName];
         if (!availableEffect || currentAmount < MIN_CRITICAL_COMPOUND) {
           effectTrace.log('maybe request/buy best compound', {
-            colonyId: colony.id,
+            colonyId: base.id,
             bestCompound,
             currentAmount,
             credits: Game.market.credits,
@@ -601,7 +579,7 @@ export class ResourceManager implements Runnable {
             minimumCritical = MIN_CRITICAL_COMPOUND_RALLY;
           }
 
-          const requested = this.requestResource(kernel, primaryRoom, bestCompound, minimumCritical - currentAmount,
+          const requested = this.requestResource(kernel, base, primaryRoom, bestCompound, minimumCritical - currentAmount,
             REQUEST_DISTRIBUTE_BOOSTS, effectTrace);
 
           // If we couldnt request resource, try buying
@@ -610,13 +588,13 @@ export class ResourceManager implements Runnable {
               REQUEST_DISTRIBUTE_BOOSTS, effectTrace);
           }
         } else {
-          effectTrace.log('have booster', {colonyId: colony.id, effectName, bestCompound, currentAmount});
+          effectTrace.log('have booster', {colonyId: base.id, effectName, bestCompound, currentAmount});
         }
 
         effectsEnd();
       });
 
-      colonyEnd();
+      baseEnd();
     });
   }
 
@@ -672,7 +650,7 @@ export class ResourceManager implements Runnable {
       return;
     }
 
-    const hasTerminals = _.filter(this.roomStatuses, {details: {[ROOM_STATUS_TERMINAL]: true}});
+    const hasTerminals: RoomStatus[] = _.filter(this.roomStatuses, {details: {[ROOM_STATUS_TERMINAL]: true}});
     if (hasTerminals.length < 2) {
       trace.log('not enough terminals to balance');
       return;
@@ -683,7 +661,7 @@ export class ResourceManager implements Runnable {
     ]);
     const levelAndEnergySorted = _.sortByAll(hasTerminals, [
       ['details', ROOM_STATUS_LEVEL].join('.'),
-      ['details', 1 - ROOM_STATUS_LEVEL_COMPLETED].join('.'),
+      ['details', ROOM_STATUS_LEVEL_COMPLETED].join('.'),
       ['details', ROOM_STATUS_ENERGY].join('.'),
     ]);
 

@@ -1,6 +1,6 @@
 
-import * as behaviorTree from "./lib.behaviortree";
-import {SUCCESS} from "./lib.behaviortree";
+import * as behaviorTree from './lib.behaviortree';
+import {SUCCESS} from './lib.behaviortree';
 
 export const roadWorker = (behaviorNode) => {
   return behaviorTree.sequenceAlwaysNode(
@@ -28,7 +28,7 @@ export const roadWorker = (behaviorNode) => {
             if (result !== OK) {
               trace.error('repair error', {
                 result,
-                roadPosition: [road.pos.x, road.pos.y, road.pos.roomName].join(',')
+                roadPosition: [road.pos.x, road.pos.y, road.pos.roomName].join(','),
               });
             }
             return SUCCESS;
@@ -47,9 +47,9 @@ export const roadWorker = (behaviorNode) => {
           }
 
           return SUCCESS;
-        }
+        },
       ),
       behaviorNode,
-    ]
+    ],
   );
 };

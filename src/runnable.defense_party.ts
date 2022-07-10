@@ -1,10 +1,10 @@
 import * as _ from 'lodash';
 import {Base} from './base';
 import {WORKER_DEFENDER_DRONE} from './constants.creeps';
-import {PRIORITY_BUFFER_PATROL} from "./constants.priorities";
+import {PRIORITY_BUFFER_PATROL} from './constants.priorities';
 import {Kernel} from './kernel';
 import {Tracer} from './lib.tracing';
-import {running, STATUS_TERMINATED, terminate} from "./os.process";
+import {running, STATUS_TERMINATED, terminate} from './os.process';
 import {RunnableResult} from './os.runnable';
 import PartyRunnable from './runnable.party';
 
@@ -30,15 +30,15 @@ export default class DefensePartyRunnable {
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
-    trace = trace.begin('defense_party_run')
+    trace = trace.begin('defense_party_run');
 
-    trace.log("defense party run top", {id: this.id})
+    trace.log('defense party run top', {id: this.id});
 
-    const prep = trace.begin('run_prep')
+    const prep = trace.begin('run_prep');
     // Check existence of flag
-    let flag = this.getFlag();
+    const flag = this.getFlag();
     if (!flag) {
-      trace.error("no flag with that id, terminating", {flagId: this.flagId});
+      trace.error('no flag with that id, terminating', {flagId: this.flagId});
       prep.end();
       trace.end();
       return terminate();
@@ -49,7 +49,7 @@ export default class DefensePartyRunnable {
 
     trace.log('defense party run', {
       id: this.id,
-      creeps: creeps.map(creep => creep.name),
+      creeps: creeps.map((creep) => creep.name),
       flagId: this.flagId,
       noTargetTTL: this.noTargetTTL,
       position,
@@ -77,7 +77,7 @@ export default class DefensePartyRunnable {
         targetStructures = flag.room.find(FIND_STRUCTURES, {
           filter: (structure) => {
             return structure.structureType === STRUCTURE_CONTAINER;
-          }
+          },
         });
       }
     }
@@ -85,7 +85,7 @@ export default class DefensePartyRunnable {
     let targets: (Creep | Structure)[] = [];
     targets = targets.concat(targetCreeps, targetStructures);
 
-    trace.log('target requests', {targets: targets.map(target => target.id)});
+    trace.log('target requests', {targets: targets.map((target) => target.id)});
 
     targetTrace.end();
 
@@ -95,7 +95,7 @@ export default class DefensePartyRunnable {
     let destination = this.getPosition();
     if (targets.length) {
       this.noTargetTTL = NO_TARGET_TTL;
-      destination = targets[0].pos
+      destination = targets[0].pos;
     } else {
       this.noTargetTTL -= 1;
       if (this.noTargetTTL < 0 && flag) {

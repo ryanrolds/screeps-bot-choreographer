@@ -8,26 +8,26 @@
  * TODO add tests
  */
 
-import {Base} from "./base";
-import {Kernel} from "./kernel";
-import {getRegion} from "./lib.flood_fill";
-import {buildingCodes, Layout} from "./lib.layouts";
-import {getNearbyPositions} from "./lib.position";
-import {Tracer} from "./lib.tracing";
-import {baseLayouts} from "./runnable.base_construction";
+import {Base} from './base';
+import {Kernel} from './kernel';
+import {getRegion} from './lib.flood_fill';
+import {buildingCodes, Layout} from './lib.layouts';
+import {getNearbyPositions} from './lib.position';
+import {Tracer} from './lib.tracing';
+import {baseLayouts} from './runnable.base_construction';
 
 let costMatrix255 = null;
 
 export const createDefenderCostMatrix = (roomId: string, trace: Tracer): CostMatrix => {
-  let costMatrix = new PathFinder.CostMatrix();
+  const costMatrix = new PathFinder.CostMatrix();
 
-  const room = Game.rooms[roomId]
+  const room = Game.rooms[roomId];
   if (!room) {
     return costMatrix;
   }
 
   const spawn = room.find(FIND_STRUCTURES, {
-    filter: structure => structure.structureType === STRUCTURE_SPAWN
+    filter: (structure) => structure.structureType === STRUCTURE_SPAWN,
   })[0];
 
 
@@ -45,12 +45,12 @@ export const createDefenderCostMatrix = (roomId: string, trace: Tracer): CostMat
   });
 
   return costs;
-}
+};
 
 export const createCommonCostMatrix = (kernel: Kernel, roomName: string, trace: Tracer): CostMatrix => {
-  let costMatrix = new PathFinder.CostMatrix();
+  const costMatrix = new PathFinder.CostMatrix();
 
-  const room = Game.rooms[roomName]
+  const room = Game.rooms[roomName];
   if (!room) {
     trace.log('room not visible', {roomName: roomName});
     return costMatrix;
@@ -61,7 +61,7 @@ export const createCommonCostMatrix = (kernel: Kernel, roomName: string, trace: 
   const structures = room.find(FIND_STRUCTURES);
   trace.log('found structures', {numStructures: structures.length});
   // Favor roads and avoid blocking structures
-  structures.forEach(function (struct) {
+  structures.forEach(function(struct) {
     if (struct.structureType === STRUCTURE_ROAD) {
       // Favor roads over plain tiles
       costMatrix.set(struct.pos.x, struct.pos.y, 1);
@@ -100,7 +100,7 @@ export const createCommonCostMatrix = (kernel: Kernel, roomName: string, trace: 
   });
 
   // Avoid controllers
-  structures.filter(structure => structure.structureType === STRUCTURE_CONTROLLER).forEach(structure => {
+  structures.filter((structure) => structure.structureType === STRUCTURE_CONTROLLER).forEach((structure) => {
     getNearbyPositions(structure.pos, 3).forEach((pos) => {
       if (terrain.get(pos.x, pos.y) !== TERRAIN_MASK_WALL && costMatrix.get(pos.x, pos.y) < 3) {
         costMatrix.set(pos.x, pos.y, 3);
@@ -118,7 +118,7 @@ export const createCommonCostMatrix = (kernel: Kernel, roomName: string, trace: 
   }
 
   return costMatrix;
-}
+};
 
 export const singleRoomCommonMatrix = (kernel: Kernel, roomName: string, trace: Tracer): CostMatrix => {
   const costMatrix = createCommonCostMatrix(kernel, roomName, trace);
@@ -134,7 +134,7 @@ export const singleRoomCommonMatrix = (kernel: Kernel, roomName: string, trace: 
   }
 
   return costMatrix;
-}
+};
 
 export const haulerCostMatrixMatrix = (kernel: Kernel, roomName: string, trace: Tracer): CostMatrix => {
   const costMatrix = createCommonCostMatrix(kernel, roomName, trace);
@@ -151,10 +151,10 @@ export const haulerCostMatrixMatrix = (kernel: Kernel, roomName: string, trace: 
   }
 
   return costMatrix;
-}
+};
 
 export const createSourceRoadMatrix = (kernel: Kernel, roomName: string, trace: Tracer): CostMatrix => {
-  let costMatrix = new PathFinder.CostMatrix();
+  const costMatrix = new PathFinder.CostMatrix();
 
   // If room is not visible then use empty matrix
   const room = Game.rooms[roomName];
@@ -168,10 +168,9 @@ export const createSourceRoadMatrix = (kernel: Kernel, roomName: string, trace: 
   const structures = room.find(FIND_STRUCTURES);
   const nonRoadStructures = structures.filter((s) => s.structureType !== STRUCTURE_ROAD);
 
-  nonRoadStructures.forEach(function (struct) {
+  nonRoadStructures.forEach(function(struct) {
     if (struct.structureType !== STRUCTURE_CONTAINER &&
       (struct.structureType !== STRUCTURE_RAMPART || !struct.my)) {
-
       // Controller links dont count as obstacle, otherwise controller pad will shift around
       if (struct.structureType === STRUCTURE_LINK && room.controller.pos.inRangeTo(struct.pos, 3)) {
         return;
@@ -202,7 +201,7 @@ export const createSourceRoadMatrix = (kernel: Kernel, roomName: string, trace: 
   }
 
   return costMatrix;
-}
+};
 
 export const createPartyCostMatrix = (roomName: string, trace: Tracer): CostMatrix => {
   const costMatrix = new PathFinder.CostMatrix();
@@ -264,7 +263,7 @@ export const createOpenSpaceMatrix = (roomName: string, trace: Tracer): [CostMat
   trace = trace.begin('createOpenSpaceMatrix');
 
   const costMatrix = new PathFinder.CostMatrix();
-  const seen: Record<string, boolean> = {};
+  const seen: Map<string, boolean> = new Map();
 
   let pass = 0;
   const passes: RoomPosition[][] = [];
@@ -323,15 +322,15 @@ const get255CostMatrix = (): CostMatrix => {
   costMatrix255 = costs;
 
   return costs.clone();
-}
+};
 
 export const visualizeCostMatrix = (roomName: string, costMatrix: CostMatrix, trace: Tracer) => {
-  if (typeof (costMatrix) === "boolean") {
-    trace.log('costmatrix is boolean', {roomName})
+  if (typeof (costMatrix) === 'boolean') {
+    trace.log('costmatrix is boolean', {roomName});
     return;
   }
 
-  trace.log('show matrix', {roomName})
+  trace.log('show matrix', {roomName});
 
   const visual = new RoomVisual(roomName);
 
@@ -341,12 +340,12 @@ export const visualizeCostMatrix = (roomName: string, costMatrix: CostMatrix, tr
       visual.text((cost).toString(), x, y);
     }
   }
-}
+};
 
 const applyTerrain = (costMatrix: CostMatrix, terrain: RoomTerrain, trace: Tracer) => {
   for (let x = 0; x < 50; x++) {
     for (let y = 0; y < 50; y++) {
-      const mask = terrain.get(x, y)
+      const mask = terrain.get(x, y);
 
       if (mask === TERRAIN_MASK_WALL) {
         costMatrix.set(x, y, 255);
@@ -361,7 +360,7 @@ const applyTerrain = (costMatrix: CostMatrix, terrain: RoomTerrain, trace: Trace
       costMatrix.set(x, y, 2);
     }
   }
-}
+};
 
 const applyControllerBuffer = (costMatrix: CostMatrix, terrain: RoomTerrain,
   controller: StructureController, cost: number, trace: Tracer) => {
@@ -384,14 +383,13 @@ const applyControllerBuffer = (costMatrix: CostMatrix, terrain: RoomTerrain,
 
 const applySourceMineralBuffer = (room: Room, costMatrix: CostMatrix, terrain: RoomTerrain,
   cost: number, trace: Tracer) => {
-
   let sources: (Source | Mineral)[] = room.find(FIND_SOURCES);
   const minerals = room.find(FIND_MINERALS);
   sources = sources.concat(minerals);
 
   trace.log('found sources and minerals', {numStructures: sources.length});
 
-  sources.forEach(function (source) {
+  sources.forEach(function(source) {
     const pos = source.pos;
     for (let x = pos.x - 2; x < pos.x + 3; x++) {
       for (let y = pos.y - 2; y < pos.y + 3; y++) {
@@ -412,10 +410,10 @@ const applySourceMineralBuffer = (room: Room, costMatrix: CostMatrix, terrain: R
 
 const applyRoads = (room: Room, costMatrix: CostMatrix, cost: number, trace: Tracer) => {
   const structures = room.find(FIND_STRUCTURES);
-  const roads = structures.filter((s) => s.structureType === STRUCTURE_ROAD)
+  const roads = structures.filter((s) => s.structureType === STRUCTURE_ROAD);
 
   // Add existing roads
-  roads.forEach(function (struct) {
+  roads.forEach(function(struct) {
     const currentCost = costMatrix.get(struct.pos.x, struct.pos.y);
     if (currentCost >= 5 && currentCost != 255) {
       costMatrix.set(struct.pos.x, struct.pos.y, currentCost - 2);
@@ -424,7 +422,7 @@ const applyRoads = (room: Room, costMatrix: CostMatrix, cost: number, trace: Tra
 
     costMatrix.set(struct.pos.x, struct.pos.y, cost);
   });
-}
+};
 
 const applyRoadSites = (room: Room, costMatrix: CostMatrix, cost: number, trace: Tracer) => {
   // add road construction sites
@@ -439,7 +437,7 @@ const applyRoadSites = (room: Room, costMatrix: CostMatrix, cost: number, trace:
       costMatrix.set(site.pos.x, site.pos.y, cost);
     }
   });
-}
+};
 
 const applyBaseRoads = (base: Base, costMatrix: CostMatrix, terrain: RoomTerrain,
   cost: number, trace: Tracer) => {
@@ -449,7 +447,6 @@ const applyBaseRoads = (base: Base, costMatrix: CostMatrix, terrain: RoomTerrain
   for (let i = 0; i < buildings.length; i++) {
     for (let j = 0; j < buildings[i].length; j++) {
       if (buildingCodes[buildings[i][j]] === STRUCTURE_ROAD) {
-
         const y = base.origin.y - layout.origin.y + i;
         const x = base.origin.x - layout.origin.x + j;
 
@@ -457,7 +454,7 @@ const applyBaseRoads = (base: Base, costMatrix: CostMatrix, terrain: RoomTerrain
       }
     }
   }
-}
+};
 
 const applyParkingLotBuffer = (base: Base, costMatrix: CostMatrix, terrain: RoomTerrain,
   cost: number, trace: Tracer) => {

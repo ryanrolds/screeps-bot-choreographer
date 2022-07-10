@@ -1,9 +1,9 @@
-import {Kernel} from "./kernel";
-import {getBoostPosition, getCreepBase, getLabsForAction} from "./base";
-import * as behaviorMovement from "./behavior.movement";
-import * as MEMORY from "./constants.memory";
-import * as behaviorTree from "./lib.behaviortree";
-import {RUNNING, SUCCESS} from "./lib.behaviortree";
+import {Kernel} from './kernel';
+import {getBoostPosition, getCreepBase, getLabsForAction} from './base';
+import * as behaviorMovement from './behavior.movement';
+import * as MEMORY from './constants.memory';
+import * as behaviorTree from './lib.behaviortree';
+import {RUNNING, SUCCESS} from './lib.behaviortree';
 
 const BOOST_PHASE = 'boost_phase';
 const BOOST_PHASE_START = 'boosting_start';
@@ -39,7 +39,7 @@ export const behaviorBoosts = (behaviorNode) => {
             return SUCCESS;
           }
 
-          const boosterPos = getBoostPosition(base)
+          const boosterPos = getBoostPosition(base);
           if (!boosterPos) {
             trace.info('no booster position');
             creep.memory[BOOST_PHASE] = BOOST_PHASE_DONE;
@@ -60,7 +60,7 @@ export const behaviorBoosts = (behaviorNode) => {
               return result;
             case BOOST_PHASE_READY:
               desiredActions.forEach((desiredAction) => {
-                const labs = getLabsForAction(base, desiredAction)
+                const labs = getLabsForAction(base, desiredAction);
                 if (!labs.length) {
                   trace.info('no labs for action', {action: desiredAction});
                   return;

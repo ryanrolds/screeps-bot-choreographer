@@ -1,17 +1,17 @@
-import {Kernel} from "./kernel";
+import {Kernel} from './kernel';
 import {
   DismissedReasonAdjacentClaimed, DismissedReasonDifferentRoomStatus, DismissedReasonNoController, DismissedReasonNoRoomEntry,
-  DismissedReasonOwned, ExpandResults, pickExpansion
-} from "./lib.expand";
+  DismissedReasonOwned, ExpandResults, pickExpansion,
+} from './lib.expand';
 import {Tracer} from './lib.tracing';
-import {running} from "./os.process";
-import {RunnableResult} from "./os.runnable";
+import {running} from './os.process';
+import {RunnableResult} from './os.runnable';
 
 
 export default class PlannerDebugger {
   id: string;
   results: ExpandResults = null;
-  display: boolean = false;
+  display = false;
   kernel: Kernel;
 
   constructor(id: string, kernel: Kernel) {
@@ -20,14 +20,14 @@ export default class PlannerDebugger {
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
-    trace.log("expand debugger run", {results: this.results});
+    trace.log('expand debugger run', {results: this.results});
 
     if (this.display) {
       if (!this.results || Game.time % 50 === 0) {
         this.results = pickExpansion(this.kernel, trace);
       }
 
-      trace.notice("expand debugger", {results: this.results});
+      trace.notice('expand debugger', {results: this.results});
 
       const selected = this.results.selected;
       if (selected) {

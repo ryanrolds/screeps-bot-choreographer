@@ -1,7 +1,7 @@
-import {Kernel} from "./kernel";
-import {Tracer} from "./lib.tracing";
-import {sleeping} from "./os.process";
-import {Runnable} from "./os.runnable";
+import {Kernel} from './kernel';
+import {Tracer} from './lib.tracing';
+import {sleeping} from './os.process';
+import {Runnable} from './os.runnable';
 
 const CLEANUP_INTERVAL = 100;
 const SITE_TTL = 1000;
@@ -13,10 +13,10 @@ type SiteEntry = {
 };
 
 export class SiteJanitor implements Runnable {
-  sites: Record<string, SiteEntry>;
+  sites: Map<string, SiteEntry>;
 
   constructor() {
-    this.sites = {};
+    this.sites = new Map<string, SiteEntry>();
   }
 
   run(kernel: Kernel, trace: Tracer) {
@@ -33,7 +33,7 @@ export class SiteJanitor implements Runnable {
         purged++;
         delete this.sites[entry.id];
       }
-    })
+    });
 
     _.each(Game.constructionSites, (site) => {
       // if we have not seen the site, add an entry
@@ -46,7 +46,7 @@ export class SiteJanitor implements Runnable {
 
         created++;
         return;
-      };
+      }
 
       // if we have seen the site and the progress is different, update the observed time
       if (this.sites[site.id].completeness !== site.progress) {

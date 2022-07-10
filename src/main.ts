@@ -19,7 +19,7 @@ const neutral = [
 const avoid = [];
 const kos = [];
 
-let shards: ShardMap = {
+const shards: ShardMap = {
   'default': {
     buffer: 3,
     friends: friends,
@@ -62,7 +62,7 @@ const DEFAULT_LOG_WHEN_PID = null;
 const DEFAULT_METRIC_REPORT = false;
 const DEFAULT_METRIC_CONSOLE = false;
 const DEFAULT_METRIC_FILTER = null;
-const DEFAULT_METRIC_MIN = 0.1
+const DEFAULT_METRIC_MIN = 0.1;
 const DEFAULT_CPU_THROTTLE = 300;
 const DEFAULT_SLOW_PROCESS = 10;
 
@@ -76,13 +76,13 @@ global.CPU_THROTTLE = (Memory as any).CPU_THROTTLE || DEFAULT_CPU_THROTTLE;
 global.SLOW_PROCESS = (Memory as any).SLOW_PROCESS || DEFAULT_SLOW_PROCESS;
 
 // Memory hack variables
-let lastMemoryTick: number = 0;
+let lastMemoryTick = 0;
 let lastMemory: Memory = null;
 
 // AI CPU usage tracking
 let previousTick = 0; // Track previous tick time for display
 let previousBucket = 0;
-let previousSkipped = 0;
+const previousSkipped = 0;
 
 console.log('***** STARTING AI *****');
 
@@ -101,13 +101,13 @@ const scheduler = new Scheduler();
 scheduler.setCPUThrottle(global.CPU_THROTTLE);
 scheduler.setSlowProcessThreshold(global.SLOW_PROCESS);
 
-const trace = new Tracer('tick', {shard: Game.shard.name}, 0);
+const trace = new Tracer('tick', new Map([['shard', Game.shard.name]]), 0);
 
 const ai: AI = new AI(shardConfig, scheduler, trace);
 global.AI = ai; // So we can access it from the console
 
-export const loop = function () {
-  const fields = {shard: Game.shard.name};
+export const loop = function() {
+  const fields = new Map([['shard', Game.shard.name]]);
   const trace = new Tracer('tick', fields, 0);
 
   // Set process id filter
@@ -116,14 +116,14 @@ export const loop = function () {
   const end = trace.startTimer('memory_hack');
   // memory hack from Dissi
   if (lastMemoryTick && lastMemory && Game.time === (lastMemoryTick + 1)) {
-    delete global.Memory
+    delete global.Memory;
     global.Memory = lastMemory;
-    (RawMemory as any)._parsed = lastMemory
+    (RawMemory as any)._parsed = lastMemory;
   } else {
     Memory;
-    lastMemory = (RawMemory as any)._parsed
+    lastMemory = (RawMemory as any)._parsed;
   }
-  lastMemoryTick = Game.time
+  lastMemoryTick = Game.time;
   end();
 
   // Update memory for debugging controls control flags

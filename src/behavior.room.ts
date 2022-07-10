@@ -1,9 +1,9 @@
-import {getBasePrimaryRoom, getBaseSpawns, getCreepBase, getStructuresWithResource, getStructureWithResource} from "./base";
-import * as behaviorMovement from "./behavior.movement";
-import {MEMORY_DESTINATION, MEMORY_IDLE} from "./constants.memory";
-import {commonPolicy} from "./constants.pathing_policies";
-import * as behaviorTree from "./lib.behaviortree";
-import {FAILURE, RUNNING, SUCCESS} from "./lib.behaviortree";
+import {getBasePrimaryRoom, getBaseSpawns, getCreepBase, getStructuresWithResource, getStructureWithResource} from './base';
+import * as behaviorMovement from './behavior.movement';
+import {MEMORY_DESTINATION, MEMORY_IDLE} from './constants.memory';
+import {commonPolicy} from './constants.pathing_policies';
+import * as behaviorTree from './lib.behaviortree';
+import {FAILURE, RUNNING, SUCCESS} from './lib.behaviortree';
 
 const selectNearbyLink = behaviorTree.leafNode(
   'select_nearby_link',
@@ -45,7 +45,7 @@ const selectStorageForDeposit = behaviorTree.leafNode(
       return FAILURE;
     }
 
-    const energyReserve = getStructureWithResource(base, RESOURCE_ENERGY)
+    const energyReserve = getStructureWithResource(base, RESOURCE_ENERGY);
     if (energyReserve) {
       trace.info('selecting reserve', {id: energyReserve.id});
       behaviorMovement.setDestination(creep, energyReserve.id);
@@ -233,9 +233,9 @@ export const recycleCreep = behaviorTree.leafNode(
       return FAILURE;
     }
 
-    const spawns = getBaseSpawns(base)
+    const spawns = getBaseSpawns(base);
     if (!spawns.length) {
-      trace.warn("no spawns, suicide", {baseId: base.id})
+      trace.warn('no spawns, suicide', {baseId: base.id});
       creep.suicide();
       return FAILURE;
     }

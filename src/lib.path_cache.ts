@@ -1,6 +1,6 @@
-import {Kernel} from "./kernel";
-import {FindPathPolicy, PathSearchDetails} from "./lib.pathing";
-import {Tracer} from "./lib.tracing";
+import {Kernel} from './kernel';
+import {FindPathPolicy, PathSearchDetails} from './lib.pathing';
+import {Tracer} from './lib.tracing';
 
 
 export const CACHE_ITEM_TTL = 1000;
@@ -30,11 +30,11 @@ export class PathCacheItem {
   }
 
   add(item: PathCacheItem) {
-    item.next = this
+    item.next = this;
 
     if (this.prev) {
-      item.prev = this.prev
-      this.prev.next = item
+      item.prev = this.prev;
+      this.prev.next = item;
     }
 
     this.prev = item;
@@ -92,7 +92,7 @@ export class PathCache {
 
     // If no item, calculate path; otherwise, move item to top of LRU cache
     if (!item) {
-      //trace.log('cache miss: calculating path', {origin, goal});
+      // trace.log('cache miss: calculating path', {origin, goal});
 
       const getPolicy = _.cloneDeep(policy);
       getPolicy.destination.range = range;
@@ -131,7 +131,7 @@ export class PathCache {
         count: this.listCount,
         max: this.maxSize,
         originKey: toRemove.originId,
-        destKey: toRemove.goalId
+        destKey: toRemove.goalId,
       });
 
       // TODO use remove logic
@@ -197,17 +197,17 @@ export class PathCache {
     let node = this.head;
     while (node.prev) {
       if (node.prev === node) {
-        trace.error('aborting, hit self referencing node')
+        trace.error('aborting, hit self referencing node');
         break;
       }
 
       if (node.prev.prev === node) {
-        trace.error('aborting, hit cyclical (3) referencing node')
+        trace.error('aborting, hit cyclical (3) referencing node');
         break;
       }
 
       if (count > this.maxSize * 1.1) {
-        trace.error('aborting count, too large')
+        trace.error('aborting count, too large');
         break;
       }
 

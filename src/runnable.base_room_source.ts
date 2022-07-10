@@ -1,19 +1,19 @@
 import {AlertLevel, Base, getStructureForResource} from './base';
-import {ROLE_WORKER, WORKER_HAULER, WORKER_MINER} from "./constants.creeps";
-import * as MEMORY from "./constants.memory";
-import {roadPolicy} from "./constants.pathing_policies";
-import {HAUL_BASE_ROOM, HAUL_CONTAINER, LOAD_FACTOR, PRIORITY_MINER} from "./constants.priorities";
-import * as TASKS from "./constants.tasks";
+import {ROLE_WORKER, WORKER_HAULER, WORKER_MINER} from './constants.creeps';
+import * as MEMORY from './constants.memory';
+import {roadPolicy} from './constants.pathing_policies';
+import {HAUL_BASE_ROOM, HAUL_CONTAINER, LOAD_FACTOR, PRIORITY_MINER} from './constants.priorities';
+import * as TASKS from './constants.tasks';
 import {Kernel} from './kernel';
-import {Event} from "./lib.event_broker";
-import {getPath} from "./lib.pathing";
+import {Event} from './lib.event_broker';
+import {getPath} from './lib.pathing';
 import {getNearbyPositions} from './lib.position';
 import {Tracer} from './lib.tracing';
-import {PersistentMemory} from "./os.memory";
-import {sleeping, terminate} from "./os.process";
-import {Runnable, RunnableResult} from "./os.runnable";
-import {thread, ThreadFunc} from "./os.thread";
-import {getBaseHaulerTopic, getLogisticsTopic, LogisticsEventData, LogisticsEventType} from "./runnable.base_logistics";
+import {PersistentMemory} from './os.memory';
+import {sleeping, terminate} from './os.process';
+import {Runnable, RunnableResult} from './os.runnable';
+import {thread, ThreadFunc} from './os.thread';
+import {getBaseHaulerTopic, getLogisticsTopic, LogisticsEventData, LogisticsEventType} from './runnable.base_logistics';
 import {createSpawnRequest, getBaseSpawnTopic} from './runnable.base_spawning';
 import {getLinesStream, HudEventSet, HudLine} from './runnable.debug_hud';
 
@@ -61,7 +61,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
-    trace = trace.begin('source_run')
+    trace = trace.begin('source_run');
 
     trace.log('source run', {
       sourceId: this.id,
@@ -214,7 +214,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     trace.warn('creep and link position was not set: setting', {
       sourceId: this.id,
       creepPosition: this.creepPosition,
-      linkPosition: this.linkPosition
+      linkPosition: this.linkPosition,
     });
 
     // Update memory
@@ -248,7 +248,6 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
   }
 
   requestMiners(trace: Tracer, kernel: Kernel, base: Base, source: Source) {
-
     if (!this.creepPosition) {
       trace.error('creep position not set', {creepPosition: this.creepPosition});
       return;
@@ -274,7 +273,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     }
 
     const numMiners = kernel.getCreepsManager().getCreepsByBaseAndRole(base.id, WORKER_MINER).filter((creep) => {
-      return creep.memory[MEMORY.MEMORY_SOURCE] === this.id
+      return creep.memory[MEMORY.MEMORY_SOURCE] === this.id;
     }).length;
 
     trace.info('num miners', {numMiners});
@@ -290,13 +289,13 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
 
       if (nearbyMiners.length > 1) {
         trace.info('more than one nearby miner, suiciding first', {nearbyMiners});
-        nearbyMiners[0].suicide()
+        nearbyMiners[0].suicide();
         return;
       }
     }
 
     if (numMiners < 1) {
-      let positionStr = [this.creepPosition.x, this.creepPosition.y, this.creepPosition.roomName].join(',');
+      const positionStr = [this.creepPosition.x, this.creepPosition.y, this.creepPosition.roomName].join(',');
 
       const priority = PRIORITY_MINER;
       const ttl = RUN_TTL;
@@ -320,7 +319,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
   requestHauling(trace: Tracer, kernel: Kernel, base: Base, source: Source) {
     const container = Game.getObjectById(this.containerId);
     if (!container) {
-      trace.info('no container')
+      trace.info('no container');
       return;
     }
 
@@ -402,7 +401,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
 
     const result = this.creepPosition.createConstructionSite(STRUCTURE_CONTAINER);
     if (result !== OK) {
-      trace.error('failed to build container', {result})
+      trace.error('failed to build container', {result});
       return;
     }
 
@@ -431,7 +430,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
 
     const linkSites = this.linkPosition.lookFor(LOOK_CONSTRUCTION_SITES).find((s) => {
       return s.structureType === STRUCTURE_LINK;
-    })
+    });
     if (linkSites) {
       trace.log('link sites found', {linkSites});
       return;
@@ -440,13 +439,13 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     const linksInRoom = room.find(FIND_STRUCTURES, {
       filter: (s) => {
         return s.structureType === STRUCTURE_LINK;
-      }
+      },
     });
 
     const linkSitesInRoom = room.find(FIND_CONSTRUCTION_SITES, {
       filter: (s) => {
         return s.structureType === STRUCTURE_LINK;
-      }
+      },
     });
 
     const maxLinks = CONTROLLER_STRUCTURES['link'][roomLevel];

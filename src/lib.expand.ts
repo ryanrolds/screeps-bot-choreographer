@@ -1,6 +1,6 @@
-import {Kernel} from "./kernel";
-import {createOpenSpaceMatrix} from "./lib.costmatrix";
-import {Tracer} from "./lib.tracing";
+import {Kernel} from './kernel';
+import {createOpenSpaceMatrix} from './lib.costmatrix';
+import {Tracer} from './lib.tracing';
 
 const PASSES = 5;
 const MIN_DISTANCE_FOR_ORIGIN = 8;
@@ -16,17 +16,17 @@ export type ExpandResults = {
   selected: string;
   distance: number;
   origin: RoomPosition
-  candidates: Record<string, boolean>;
-  claimed: Record<string, boolean>;
-  dismissed: Record<string, DismissedReason>;
-  seen: Record<string, boolean>;
+  candidates: Map<string, boolean>;
+  claimed: Map<string, boolean>;
+  dismissed: Map<string, DismissedReason>;
+  seen: Map<string, boolean>;
 }
 
 export const pickExpansion = (kernel: Kernel, trace: Tracer): ExpandResults => {
-  let candidates: Record<string, boolean> = {};
-  let claimed: Record<string, boolean> = {};
-  let dismissed: Record<string, DismissedReason> = {};
-  let seen: Record<string, boolean> = {};
+  const candidates: Map<string, boolean> = new Map();
+  const claimed: Map<string, boolean> = new Map();
+  const dismissed: Map<string, DismissedReason> = new Map();
+  let seen: Map<string, boolean> = new Map();
 
   const bases = kernel.getPlanner().getBases();
 
@@ -144,7 +144,7 @@ export const pickExpansion = (kernel: Kernel, trace: Tracer): ExpandResults => {
       trace.info('room source', {roomName, numSources: roomEntry.numSources, roomEntry});
       return roomEntry.numSources;
     },
-    ['desc']
+    ['desc'],
   );
 
   trace.info('sorted candidates', {candidateList});
@@ -165,4 +165,4 @@ export const pickExpansion = (kernel: Kernel, trace: Tracer): ExpandResults => {
   }
 
   return {selected: null, distance: null, origin: null, candidates, claimed, dismissed, seen};
-}
+};

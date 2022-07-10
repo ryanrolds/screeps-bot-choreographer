@@ -1,17 +1,17 @@
 import {expect} from 'chai';
 import 'mocha';
-import {mockGlobal, mockInstanceOf, setup} from "screeps-test-helper";
+import {mockGlobal, mockInstanceOf, setup} from 'screeps-test-helper';
 import * as sinon from 'sinon';
 import {CreepManager} from './ai.creeps';
-import {Kernel} from './kernel';
 import * as CREEPS from './constants.creeps';
 import * as MEMORY from './constants.memory';
+import {Kernel} from './kernel';
 import {Tracer} from './lib.tracing';
 import {Process} from './os.process';
 import {Scheduler} from './os.scheduler';
 
 describe('Creeps Manager', () => {
-  let kernel: Kernel = null;
+  const kernel: Kernel = null;
   let scheduler = null;
   let tracer: Tracer = null;
 
@@ -65,31 +65,31 @@ describe('Creeps Manager', () => {
         // Needed for tracer
         getUsed: () => {
           return 0;
-        }
+        },
       },
       creeps: {
         creepA,
         creepB,
         creepC,
-      }
+      },
     });
 
-    scheduler = sinon.spy(new Scheduler() as any)
-    tracer = new Tracer('creep_manager_test', {}, 0);
+    scheduler = sinon.spy(new Scheduler() as any);
+    tracer = new Tracer('creep_manager_test', new Map(), 0);
   });
 
-  it("should create a process for each creep", () => {
+  it('should create a process for each creep', () => {
     const creepManager = new CreepManager(scheduler);
     creepManager.run(kernel, tracer);
 
     expect(scheduler.registerProcess.callCount).to.equal(3);
   });
 
-  it("should allow adding new creeps in later ticks", () => {
+  it('should allow adding new creeps in later ticks', () => {
     const creepManager = new CreepManager(scheduler);
     creepManager.run(kernel, tracer);
 
-    expect(scheduler.registerProcess.callCount).to.equal(3)
+    expect(scheduler.registerProcess.callCount).to.equal(3);
 
     Game.creeps['creepD'] = mockInstanceOf<Creep>({
       id: 'creepD' as Id<Creep>,
@@ -107,7 +107,7 @@ describe('Creeps Manager', () => {
     expect(scheduler.registerProcess.callCount).to.equal(4);
   });
 
-  it("should terminate process when creep is no longer around", () => {
+  it('should terminate process when creep is no longer around', () => {
     const creepManager = new CreepManager(scheduler);
     creepManager.run(kernel, tracer);
 
@@ -119,4 +119,4 @@ describe('Creeps Manager', () => {
     (process as Process).run(kernel, tracer);
     expect(process.isTerminated()).to.be.true;
   });
-})
+});

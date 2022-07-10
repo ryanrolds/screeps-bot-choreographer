@@ -1,8 +1,8 @@
-import {Tracer} from "./lib.tracing";
+import {Tracer} from './lib.tracing';
 
 interface ActionFunc {
   (trace: Tracer, ...args: any[]): void;
-};
+}
 
 export interface ThreadFunc {
   (trace: Tracer, ...args: any[]): void;
@@ -12,7 +12,7 @@ export interface ThreadFunc {
 export const thread = (name: string, ttl: number) => (action: ActionFunc): ThreadFunc => {
   let lastCall = 0;
 
-  const tick = function (trace: Tracer, ...args) {
+  const tick = function(trace: Tracer, ...args) {
     if (lastCall + ttl <= Game.time) {
       lastCall = Game.time;
 
@@ -22,7 +22,7 @@ export const thread = (name: string, ttl: number) => (action: ActionFunc): Threa
 
       return result;
     } else {
-      trace.log(`thread ${name} sleeping for ${lastCall + ttl - Game.time}`)
+      trace.log(`thread ${name} sleeping for ${lastCall + ttl - Game.time}`);
     }
 
     return null;

@@ -1,8 +1,8 @@
-import {Kernel} from "./kernel";
-import {ENTIRE_ROOM_BOUNDS, getCutTiles, Graph, NORMAL, NO_BUILD, PROTECTED, RoomMatrix, TO_EXIT, UNWALKABLE} from "./lib.min_cut";
+import {Kernel} from './kernel';
+import {ENTIRE_ROOM_BOUNDS, getCutTiles, Graph, NORMAL, NO_BUILD, PROTECTED, RoomMatrix, TO_EXIT, UNWALKABLE} from './lib.min_cut';
 import {Tracer} from './lib.tracing';
-import {running} from "./os.process";
-import {RunnableResult} from "./os.runnable";
+import {running} from './os.process';
+import {RunnableResult} from './os.runnable';
 
 export default class MinCutDebugger {
   id: string;
@@ -18,14 +18,14 @@ export default class MinCutDebugger {
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
-    trace.log("mincut debugger", {});
+    trace.log('mincut debugger', {});
 
     if (this.graph && Game.time % 1 === 0) {
 
     }
 
     if (this.matrix && Game.time % 2 === 0) {
-      let visual = new RoomVisual(this.matrix.roomName);
+      const visual = new RoomVisual(this.matrix.roomName);
 
       // Visualize the room
       for (let x = 0; x < 50; x++) {
@@ -75,7 +75,7 @@ export default class MinCutDebugger {
   }
 
   debug(kernel: Kernel, roomName: string) {
-    const trace = new Tracer('mincut_deugger', {pid: 'mincut_debugger'}, 0);
+    const trace = new Tracer('mincut_deugger', new Map([['pid', 'mincut_debugger']]), 0);
 
     const base = kernel.getPlanner().getBaseById(roomName);
     trace.notice('base', {origin: base?.origin});
@@ -123,7 +123,7 @@ export default class MinCutDebugger {
     */
 
     let cpu = Game.cpu.getUsed();
-    const [cut, matrix, graph] = getCutTiles(roomName, protect, ENTIRE_ROOM_BOUNDS)
+    const [cut, matrix, graph] = getCutTiles(roomName, protect, ENTIRE_ROOM_BOUNDS);
     this.cut = cut;
     this.matrix = matrix;
     this.graph = graph;

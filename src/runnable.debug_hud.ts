@@ -1,9 +1,9 @@
-import {Kernel} from "./kernel";
-import {Consumer} from "./lib.event_broker";
-import {Tracer} from "./lib.tracing";
-import {running} from "./os.process";
-import {RunnableResult} from "./os.runnable";
-import {thread, ThreadFunc} from "./os.thread";
+import {Kernel} from './kernel';
+import {Consumer} from './lib.event_broker';
+import {Tracer} from './lib.tracing';
+import {running} from './os.process';
+import {RunnableResult} from './os.runnable';
+import {thread, ThreadFunc} from './os.thread';
 
 const CONSUME_EVENTS_TTL = 1;
 const DASHBOARD_EVENTS_TTL = 1;
@@ -18,17 +18,17 @@ export type HudLine = {
   time: number;
 }
 
-type HudLines = Record<string, HudLine>;
+type HudLines = Map<string, HudLine>;
 
 export function getLinesStream(): string {
   return `hud_lines`;
 }
 
 export enum HudIndicatorStatus {
-  Green = "green",
-  Yellow = "yellow",
-  Red = "red",
-  Stale = "stale"
+  Green = 'green',
+  Yellow = 'yellow',
+  Red = 'red',
+  Stale = 'stale'
 }
 
 export type HudIndicator = {
@@ -42,29 +42,29 @@ export function getDashboardStream(): string {
   return `hud_dashboard`;
 }
 
-export const HudEventSet = 'set'
+export const HudEventSet = 'set';
 
 export class Dashboard {
   key: string;
-  indicators: Record<string, HudIndicator>;
+  indicators: Map<string, HudIndicator>;
 
   constructor(key: string) {
     this.key = key;
-    this.indicators = {};
+    this.indicators = new Map();
   }
 
   setIndicator(indicator: HudIndicator) {
     this.indicators[indicator.key] = indicator;
   }
 
-  getIndicators(): Record<string, HudIndicator> {
+  getIndicators(): Map<string, HudIndicator> {
     return this.indicators;
   }
 }
 
 export class HUDRunnable {
-  private dashboards: Record<string, Dashboard> = {};
-  private lines: HudLines = {};
+  private dashboards: Map<string, Dashboard> = new Map();
+  private lines: HudLines = new Map();
 
   private dashboardConsumer: Consumer;
   private threadDashboardEvents: ThreadFunc;
@@ -96,7 +96,7 @@ export class HUDRunnable {
     this.threadLinesEvents(trace);
     this.threadDashboardEvents(trace);
 
-    _.forEach(_.groupBy(this.lines, 'room'), (lines, room) => {
+    _.forEach(_.groupBy(_.values<HudLine>(this.lines), 'room'), (lines, room) => {
       let lineNum = 0;
       const roomVisual = new RoomVisual(room);
 

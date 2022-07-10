@@ -1,16 +1,16 @@
-import * as behaviorTree from "./lib.behaviortree";
-import {FAILURE, RUNNING, SUCCESS} from "./lib.behaviortree";
+import * as behaviorTree from './lib.behaviortree';
+import {FAILURE, RUNNING, SUCCESS} from './lib.behaviortree';
 
-import * as behaviorAssign from "./behavior.assign";
-import {behaviorBoosts} from "./behavior.boosts";
-import * as behaviorCommute from "./behavior.commute";
-import * as behaviorMovement from "./behavior.movement";
+import * as behaviorAssign from './behavior.assign';
+import {behaviorBoosts} from './behavior.boosts';
+import * as behaviorCommute from './behavior.commute';
+import * as behaviorMovement from './behavior.movement';
 
-import {getCreepBase, getNextDamagedStructure} from "./base";
-import {getEnergy} from "./behavior.room";
-import {MEMORY_DESTINATION} from "./constants.memory";
-import {Kernel} from "./kernel";
-import {Tracer} from "./lib.tracing";
+import {getCreepBase, getNextDamagedStructure} from './base';
+import {getEnergy} from './behavior.room';
+import {MEMORY_DESTINATION} from './constants.memory';
+import {Kernel} from './kernel';
+import {Tracer} from './lib.tracing';
 
 const selectStructureToRepair = behaviorTree.leafNode(
   'selectStructureToRepair',
@@ -27,7 +27,7 @@ const selectStructureToRepair = behaviorTree.leafNode(
       return FAILURE;
     }
 
-    trace.log("selected target", {target: target.id, pos: target.pos});
+    trace.log('selected target', {target: target.id, pos: target.pos});
 
     behaviorMovement.setDestination(creep, target.id);
 

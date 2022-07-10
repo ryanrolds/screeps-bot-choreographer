@@ -19,8 +19,8 @@ const YELLOW_JOURNAL_AGE = 100;
 const RED_JOURNAL_AGE = 250;
 
 type Journal = {
-  rooms: Record<Id<Room>, RoomEntry>;
-  creeps: Record<Id<Creep>, Creep>;
+  rooms: Map<Id<Room>, RoomEntry>;
+  creeps: Map<Id<Creep>, Creep>;
 };
 
 type PortalEntry = {
@@ -83,9 +83,9 @@ export type TargetRoom = {
 export type ShardMemory = {
   time: number;
   status: RemoteStatus;
-  creep_backups: Record<string, CreepBackup>;
-  request_claimer: Record<string, CreepRequest>,
-  request_builder: Record<string, CreepRequest>,
+  creep_backups: Map<string, CreepBackup>;
+  request_claimer: Map<string, CreepRequest>,
+  request_builder: Map<string, CreepRequest>,
 };
 
 export type RemoteStatus = {
@@ -128,7 +128,6 @@ export class Scribe implements Runnable {
     this.threadWriteMemory = thread('write_memory', WRITE_MEMORY_INTERVAL)(this.writeMemory.bind(this));
     this.threadUpdateBaseCount = thread('update_base_count', UPDATE_COLONY_COUNT)(this.updateBaseCount.bind(this));
     this.threadProduceEvents = thread('produce_events', PRODUCE_EVENTS_INTERVAL)(this.produceEvents.bind(this));
-
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
@@ -191,7 +190,7 @@ export class Scribe implements Runnable {
     if (Game.cpu.bucket < 1000) {
       trace.log('clearing journal from memory to reduce CPU load');
       (Memory as any).scribe = null;
-      return
+      return;
     }
 
     (Memory as any).scribe = this.journal;
@@ -259,7 +258,7 @@ export class Scribe implements Runnable {
     }
 
     return this.globalColonyCount;
-  };
+  }
 
   removeStaleJournalEntries(trace) {
     const numBefore = Object.keys(this.journal.rooms).length;
@@ -374,7 +373,7 @@ export class Scribe implements Runnable {
     rooms = _.sortByOrder(rooms, 'myConstructionSites', 'desc');
 
     return rooms.map((room) => {
-      return {id: room.id, sites: room.myConstructionSites}
+      return {id: room.id, sites: room.myConstructionSites};
     });
   }
 
@@ -411,7 +410,7 @@ export class Scribe implements Runnable {
 
   updateRoom(kernel: Kernel, roomObject: Room, trace: Tracer) {
     trace = trace.begin('update_room');
-    trace = trace.withFields({room: roomObject.name});
+    trace = trace.withFields(new Map([['room', roomObject.name]]));
     const end = trace.startTimer('update_room');
 
     const room: RoomEntry = {
@@ -465,7 +464,7 @@ export class Scribe implements Runnable {
         },
       });
       room.hasSpawns = spawns.length > 0;
-      room.spawnLocation = spawns[0]?.pos
+      room.spawnLocation = spawns[0]?.pos;
     }
 
     controllerEnd();
@@ -480,7 +479,7 @@ export class Scribe implements Runnable {
     }
 
     room.status = status?.status || 'normal';
-    room.specialRoom = room.status !== 'normal'
+    room.specialRoom = room.status !== 'normal';
 
     roomStatusEnd();
 
@@ -492,7 +491,7 @@ export class Scribe implements Runnable {
 
     const hostilesEnd = trace.startTimer('hostiles');
 
-    let hostiles = roomObject.find(FIND_HOSTILE_CREEPS);
+    const hostiles = roomObject.find(FIND_HOSTILE_CREEPS);
     // Filter friendly creeps
     const friends = kernel.getFriends();
     const hostileCreeps = hostiles.filter((creep) => {
@@ -514,20 +513,20 @@ export class Scribe implements Runnable {
       room.hostilesHealing = 0;
     }
 
-    let keepers = hostiles.filter((creep) => {
+    const keepers = hostiles.filter((creep) => {
       const owner = creep.owner.username;
       return owner === 'Source Keeper';
     });
     room.hasKeepers = keepers.length > 0;
 
-    let invaderCores: StructureInvaderCore[] = roomObject.find(FIND_HOSTILE_STRUCTURES, {
+    const invaderCores: StructureInvaderCore[] = roomObject.find(FIND_HOSTILE_STRUCTURES, {
       filter: (structure) => {
         return structure.structureType === STRUCTURE_INVADER_CORE && structure.isActive();
-      }
+      },
     });
     if (invaderCores.length) {
       room.invaderCorePos = invaderCores[0].pos;
-      room.invaderCoreLevel = invaderCores[0].level
+      room.invaderCoreLevel = invaderCores[0].level;
       room.invaderCoreTime = invaderCores[0].effects[EFFECT_COLLAPSE_TIMER]?.ticksRemaining;
     }
 
@@ -665,7 +664,7 @@ export class Scribe implements Runnable {
   setCreepBackup(creep: Creep) {
     const localMemory = this.getLocalShardMemory();
     if (!localMemory.creep_backups) {
-      localMemory.creep_backups = {};
+      localMemory.creep_backups = new Map();
     }
 
     localMemory.creep_backups[creep.name] = {

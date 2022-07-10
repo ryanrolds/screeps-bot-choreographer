@@ -1,11 +1,11 @@
-type ResourcePrices = Record<ResourceConstant, ResourcePriceRange>;
+type ResourcePrices = Map<ResourceConstant, ResourcePriceRange>;
 
 type ResourcePriceRange = {
   min: number;
   max: number;
 };
 
-const OUTBID = 0.001
+const OUTBID = 0.001;
 const MIDPOINT = 10000;
 const SLOPE = 1 / 10000;
 
@@ -35,9 +35,9 @@ export class SigmoidPricing {
     let price = null;
 
     if (orderType === ORDER_BUY) {
-      price = _.max(orders.map(order => order.price));
+      price = _.max(orders.map((order) => order.price));
     } else {
-      price = _.min(orders.map(order => order.price));
+      price = _.min(orders.map((order) => order.price));
     }
 
     return price;

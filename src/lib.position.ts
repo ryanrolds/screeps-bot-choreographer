@@ -10,11 +10,11 @@ export const getNearbyPositions = (pos: RoomPosition, range: number): RoomPositi
       try {
         positions.push(new RoomPosition(x, y, pos.roomName));
       } catch (e) {
-        console.log(x, y, pos.roomName)
-        throw e
+        console.log(x, y, pos.roomName);
+        throw e;
       }
     }
   }
 
-  return positions
-}
+  return positions;
+};

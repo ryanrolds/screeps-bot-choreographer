@@ -1,26 +1,19 @@
 import {Kernel} from './kernel';
 import {Tracer} from './lib.tracing';
-import {running, terminate} from "./os.process";
-import {Runnable, RunnableResult} from "./os.runnable";
+import {running, terminate} from './os.process';
+import {Runnable, RunnableResult} from './os.runnable';
 
-export default class ObserverRunnable {
+export class ObserverRunnable implements Runnable {
   id: Id<StructureObserver>;
-  observer: Observer;
+  baseId: string;
 
-  constructor(id: Id<StructureObserver>) {
-    this.id = id;
-  }
-
-
-}
-
-export class Observer implements Runnable {
-  id: Id<StructureObserver>;
   inRangeRooms: Id<Room>[];
   justObserved: Id<Room>;
 
-  constructor(id: Id<StructureObserver>) {
-    this.id = id;
+
+  constructor(baseId: string, observer: StructureObserver) {
+    this.id = observer.id;
+    this.baseId = baseId;
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
@@ -63,7 +56,6 @@ export class Observer implements Runnable {
     trace.end();
     return running();
   }
-
 }
 
 const inRangeRoomNames = (centerRoomName: string): Id<Room>[] => {

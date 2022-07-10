@@ -1,5 +1,5 @@
 import {behaviorBoosts} from './behavior.boosts';
-import * as behaviorMovement from "./behavior.movement";
+import * as behaviorMovement from './behavior.movement';
 import {Kernel} from './kernel';
 import * as behaviorTree from './lib.behaviortree';
 import {RUNNING, SUCCESS} from './lib.behaviortree';
@@ -55,7 +55,7 @@ const behavior = behaviorTree.sequenceNode(
     behaviorTree.leafNode(
       'pick_next_room',
       (creep: Creep, trace: Tracer, kernel: Kernel) => {
-        let targetRooms = creep.memory[MEMORY_HARASS_ROOMS]
+        let targetRooms = creep.memory[MEMORY_HARASS_ROOMS];
         if (!targetRooms) {
           const targetBase = creep.memory[MEMORY_HARASS_BASE];
           targetRooms = _.values(Game.map.describeExits(targetBase));
@@ -83,7 +83,7 @@ const behavior = behaviorTree.sequenceNode(
           filter: (hostile: Creep) => {
             return hostile.owner.username !== 'Source Keeper' &&
               scoreAttacking(hostile) < creepHeal;
-          }
+          },
         });
 
         trace.info(`Harasser ${creep.name} has ${hostiles.length} hostiles`);
@@ -108,8 +108,8 @@ const behavior = behaviorTree.sequenceNode(
 
         let hostiles = creep.room.find(FIND_HOSTILE_CREEPS, {
           filter: (c: Creep) => {
-            return c.owner.username !== 'Source Keeper'
-          }
+            return c.owner.username !== 'Source Keeper';
+          },
         });
 
         // filter out friendlies and neutrals
@@ -174,7 +174,7 @@ const behavior = behaviorTree.sequenceNode(
           const containers = creep.room.find(FIND_STRUCTURES, {
             filter: (s: Structure) => {
               return s.structureType === STRUCTURE_CONTAINER;
-            }
+            },
           });
           if (containers.length > 0) {
             const container = creep.pos.findClosestByRange(containers);
@@ -208,8 +208,8 @@ const behavior = behaviorTree.sequenceNode(
         const roomCount = creep.memory[MEMORY_HARASS_VISITED] || 0;
         creep.memory[MEMORY_HARASS_VISITED] = roomCount + 1;
         return SUCCESS;
-      }
-    )
+      },
+    ),
   ],
 );
 

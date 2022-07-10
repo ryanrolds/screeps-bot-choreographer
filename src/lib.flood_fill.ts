@@ -2,16 +2,16 @@ const topEdge = 1;
 const bottomEdge = 48;
 const leftEdge = 1;
 const rightEdge = 48;
-const blockingObjects: Record<string, boolean> = {
-  [STRUCTURE_WALL]: true,
-  [STRUCTURE_RAMPART]: true,
-};
+const blockingObjects: Map<string, boolean> = new Map([
+  [STRUCTURE_WALL, true],
+  [STRUCTURE_RAMPART, true],
+]);
 
-export type RegionMap = Record<string, Position>;
+export type RegionMap = Map<string, Position>;
 export type Position = {x: number, y: number};
 
 export function getRegion(room: Room, starting: RoomPosition): RegionMap {
-  const regionMap: RegionMap = {};
+  const regionMap: RegionMap = new Map();
 
   if (isWallOrInRegion(room, regionMap, starting)) {
     return regionMap;
@@ -19,7 +19,7 @@ export function getRegion(room: Room, starting: RoomPosition): RegionMap {
 
   const stack: Position[] = [{x: starting.x, y: starting.y}];
   while (stack.length) {
-    let pos = stack.pop();
+    const pos = stack.pop();
     // Move position to top/edge
     while (pos.y - 1 >= topEdge && !isWallOrInRegion(room, regionMap, {x: pos.x, y: pos.y - 1})) {
       pos.y--;
@@ -59,7 +59,7 @@ export function getRegion(room: Room, starting: RoomPosition): RegionMap {
 
   // Get ramparts and add to region map
   room.find<StructureRampart>(FIND_STRUCTURES, {
-    filter: structure => structure.structureType === STRUCTURE_RAMPART
+    filter: (structure) => structure.structureType === STRUCTURE_RAMPART,
   }).forEach((rampart: StructureRampart) => {
     regionMap[[rampart.pos.x, rampart.pos.y].join(',')] = {x: rampart.pos.x, y: rampart.pos.y};
   });

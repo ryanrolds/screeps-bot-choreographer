@@ -1,4 +1,4 @@
-import * as _ from "lodash"
+import * as _ from 'lodash';
 
 export interface Metric {
   start: number;
@@ -7,7 +7,7 @@ export interface Metric {
   fields: TracerFields;
 }
 
-type TracerFields = Record<string, string>;
+export type TracerFields = Map<string, string>;
 type TimerEndFunc = () => number;
 
 export class Tracer {
@@ -46,8 +46,8 @@ export class Tracer {
   }
 
   withFields(fields: TracerFields): Tracer {
-    let child = this.clone()
-    child.kv = _.assign(child.kv, fields)
+    const child = this.clone();
+    child.kv = _.assign(child.kv, fields);
     return child;
   }
 
@@ -97,7 +97,7 @@ export class Tracer {
       }
 
       return cpuTime;
-    }
+    };
   }
 
   setLogFilter(filter: string) {
@@ -117,7 +117,7 @@ export class Tracer {
   }
 
   outputMetrics() {
-    _.sortBy(this.getMetrics(), 'start').forEach(metric => {
+    _.sortBy(this.getMetrics(), 'start').forEach((metric) => {
       console.log(`${metric.value.toFixed(2).padStart(5, ' ')}ms: ${metric.key} at ${metric.start}`,
         JSON.stringify(metric.fields));
     });
@@ -126,7 +126,7 @@ export class Tracer {
   getMetrics(): Metric[] {
     let metrics = [].concat(this.metrics);
 
-    this.children.forEach(child => {
+    this.children.forEach((child) => {
       metrics = metrics.concat(child.getMetrics());
     });
 
@@ -135,7 +135,7 @@ export class Tracer {
 
   private clone() {
     const child = new Tracer(this.name, this.kv, this.start);
-    child.kv = _.assign({}, this.kv)
+    child.kv = _.assign({}, this.kv);
 
     child.logFilter = this.logFilter;
     child.collect = this.collect;
@@ -156,7 +156,7 @@ export class Tracer {
   }
 
   private pushMetric(cpuTime: number) {
-    const item = {start: this.start, key: this.name, value: cpuTime, fields: this.kv}
+    const item = {start: this.start, key: this.name, value: cpuTime, fields: this.kv};
     this.metrics.push(item);
   }
 
@@ -180,7 +180,7 @@ export class Tracer {
   end(): number {
     // If tracing not active minimize the overhead of the tracer
     if (!this.start) {
-      return 0
+      return 0;
     }
 
     const stop = Game.cpu.getUsed();

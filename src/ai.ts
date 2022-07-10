@@ -56,7 +56,7 @@ export class AI implements Kernel {
 
     // Memory manager process, prepare memory cache and cleans old caches
     // Things that extend PersistentMemory must be after this
-    const memoryManager = new MemoryManager()
+    const memoryManager = new MemoryManager();
     scheduler.registerProcess(new Process('memory_manager', 'memory_manager',
       Priorities.CRITICAL, memoryManager));
 
@@ -71,7 +71,7 @@ export class AI implements Kernel {
       Priorities.CRITICAL, this.planning));
 
     // Creep manager
-    this.creeps = new CreepManager(scheduler)
+    this.creeps = new CreepManager(scheduler);
     scheduler.registerProcess(new Process(this.creeps.id, 'creeps_manager',
       Priorities.CRITICAL, this.creeps));
 
@@ -233,7 +233,7 @@ export class AI implements Kernel {
   }
 
   getNewTracer(): Tracer {
-    return new Tracer('tracer', {}, Game.time);
+    return new Tracer('tracer', new Map(), Game.time);
   }
 
   debugGetNextRemote(baseId: string) {

@@ -1,4 +1,4 @@
-import {RoomEntry} from "./runnable.scribe";
+import {RoomEntry} from './runnable.scribe';
 
 const MIN_HEALING_BOOST_AMOUNT = 2000;
 
@@ -7,9 +7,9 @@ export function scoreRoomDamage(room: RoomEntry): number {
 }
 
 export function scoreStorageHealing(storage: StructureStorage): number {
-  let healing2x = storage.store.getUsedCapacity(RESOURCE_LEMERGIUM_OXIDE) > MIN_HEALING_BOOST_AMOUNT;
-  let healing3x = storage.store.getUsedCapacity(RESOURCE_LEMERGIUM_ALKALIDE) > MIN_HEALING_BOOST_AMOUNT;
-  let healing4x = storage.store.getUsedCapacity(RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE) > MIN_HEALING_BOOST_AMOUNT;
+  const healing2x = storage.store.getUsedCapacity(RESOURCE_LEMERGIUM_OXIDE) > MIN_HEALING_BOOST_AMOUNT;
+  const healing3x = storage.store.getUsedCapacity(RESOURCE_LEMERGIUM_ALKALIDE) > MIN_HEALING_BOOST_AMOUNT;
+  const healing4x = storage.store.getUsedCapacity(RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE) > MIN_HEALING_BOOST_AMOUNT;
 
   if (healing4x) {
     return 4;

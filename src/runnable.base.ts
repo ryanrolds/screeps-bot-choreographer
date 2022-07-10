@@ -1,4 +1,4 @@
-import {AlertLevel, Base, getBasePrimaryRoom, setBoostPosition, setLabsByAction} from './base';
+import {AlertLevel, Base, getBaseLevel, getBaseLevelCompleted, getBasePrimaryRoom, getReserveBuffer, getStoredResourceAmount, getStoredResources, getStructureWithResource, setBoostPosition, setLabsByAction} from './base';
 import * as CREEPS from './constants.creeps';
 import {DEFENSE_STATUS} from './constants.defense';
 import * as MEMORY from './constants.memory';
@@ -8,23 +8,24 @@ import * as TOPICS from './constants.topics';
 import {Kernel} from './kernel';
 import {Event} from './lib.event_broker';
 import {Tracer} from './lib.tracing';
-import {Process, sleeping, terminate} from "./os.process";
-import {RunnableResult} from "./os.runnable";
-import {Priorities, Scheduler} from "./os.scheduler";
+import {Process, sleeping, terminate} from './os.process';
+import {RunnableResult} from './os.runnable';
+import {Priorities, Scheduler} from './os.scheduler';
 import {thread, ThreadFunc} from './os.thread';
+import {getBaseDistributorTopic} from './role.distributor';
 import {scoreAttacking} from './role.harasser';
 import {BoosterDetails, TOPIC_ROOM_BOOSTS} from './runnable.base_booster';
-import BaseConstructionRunnable from "./runnable.base_construction";
+import BaseConstructionRunnable from './runnable.base_construction';
 import ControllerRunnable from './runnable.base_controller';
-import {LabsManager} from "./runnable.base_labs";
-import LinkManager from "./runnable.base_links";
+import {LabsManager} from './runnable.base_labs';
+import LinkManager from './runnable.base_links';
 import LogisticsRunnable from './runnable.base_logistics';
-import NukerRunnable from "./runnable.base_nuker";
-import ObserverRunnable from './runnable.base_observer';
+import NukerRunnable from './runnable.base_nuker';
+import {ObserverRunnable} from './runnable.base_observer';
 import RoomRunnable from './runnable.base_room';
-import SpawnManager, {createSpawnRequest, getBaseSpawnTopic, getShardSpawnTopic} from "./runnable.base_spawning";
-import TerminalRunnable from "./runnable.base_terminal";
-import TowerRunnable from "./runnable.base_tower";
+import SpawnManager, {createSpawnRequest, getBaseSpawnTopic, getShardSpawnTopic} from './runnable.base_spawning';
+import TerminalRunnable from './runnable.base_terminal';
+import TowerRunnable from './runnable.base_tower';
 import {getDashboardStream, getLinesStream, HudEventSet, HudIndicator, HudIndicatorStatus, HudLine} from './runnable.debug_hud';
 import {RoomEntry} from './runnable.scribe';
 
@@ -63,7 +64,7 @@ enum DEFENSE_POSTURE {
   OPEN = 'open',
   CLOSED = 'closed',
   UNKNOWN = 'unknown',
-};
+}
 
 const importantStructures = [
   STRUCTURE_SPAWN,
@@ -91,7 +92,7 @@ export default class BaseRunnable {
   threadUpdateBoosters: ThreadFunc;
   threadCheckSafeMode: ThreadFunc;
   threadRequestExtensionFilling: ThreadFunc;
-  //threadUpdateRampartAccess: ThreadFunc;
+  // threadUpdateRampartAccess: ThreadFunc;
   threadRequestEnergy: ThreadFunc;
   threadProduceStatus: ThreadFunc;
   threadAbandonBase: ThreadFunc;
@@ -113,11 +114,11 @@ export default class BaseRunnable {
     this.threadRequestBuilder = thread('request_builder_thead', REQUEST_BUILDER_TTL)(this.requestBuilder.bind(this));
     this.threadRequestDistributor = thread('request_distributer_thread', REQUEST_DISTRIBUTOR_TTL)(this.requestDistributor.bind(this));
     this.threadRequestUpgrader = thread('request_upgrader_thread', REQUEST_UPGRADER_TTL)(this.requestUpgrader.bind(this));
-    this.threadRequestExplorer = thread('request_explorers_thread', REQUEST_EXPLORER_TTL)(this.requestExplorer.bind(this))
+    this.threadRequestExplorer = thread('request_explorers_thread', REQUEST_EXPLORER_TTL)(this.requestExplorer.bind(this));
 
     this.threadCheckSafeMode = thread('check_safe_mode_thread', CHECK_SAFE_MODE_TTL)(this.checkSafeMode.bind(this));
     this.threadRequestExtensionFilling = thread('request_extension_filling_thread', HAUL_EXTENSION_TTL)(this.requestExtensionFilling.bind(this));
-    //this.threadUpdateRampartAccess = thread('update_rampart_access_thread', RAMPART_ACCESS_TTL)(this.updateRampartAccess.bind(this));
+    // this.threadUpdateRampartAccess = thread('update_rampart_access_thread', RAMPART_ACCESS_TTL)(this.updateRampartAccess.bind(this));
     this.threadRequestEnergy = thread('request_energy_thread', ENERGY_REQUEST_TTL)(this.requestEnergy.bind(this));
     this.threadProduceStatus = thread('produce_status_thread', PRODUCE_STATUS_TTL)(this.produceStatus.bind(this));
     this.threadAbandonBase = thread('abandon_base_check', ABANDON_BASE_TTL)(this.abandonBase.bind(this));
@@ -133,7 +134,7 @@ export default class BaseRunnable {
 
     const base = kernel.getPlanner().getBaseByRoom(this.id);
     if (!base) {
-      trace.error("no colony config, terminating", {id: this.id})
+      trace.error('no colony config, terminating', {id: this.id});
       trace.end();
       return terminate();
     }
@@ -150,7 +151,7 @@ export default class BaseRunnable {
     // TODO try to remove dependency on OrgRoom
     const orgRoom = getBasePrimaryRoom(base);
     if (!orgRoom) {
-      trace.error("no org room, terminating", {id: this.id})
+      trace.error('no org room, terminating', {id: this.id});
       trace.end();
       return sleeping(NO_VISION_TTL);
     }
@@ -182,7 +183,7 @@ export default class BaseRunnable {
 
     // Logistics
     this.threadRequestEnergy(trace, orgRoom, room);
-    this.threadRequestExtensionFilling(trace, kernel, orgRoom, room);
+    this.threadRequestExtensionFilling(trace, kernel, base, orgRoom, room);
 
     // Creeps
     this.threadRequestUpgrader(trace, kernel, base, orgRoom, room);
@@ -200,8 +201,8 @@ export default class BaseRunnable {
     this.threadUpdateAlertLevel(trace, base, kernel);
 
     const roomVisual = new RoomVisual(this.id);
-    roomVisual.text("O", base.origin.x, base.origin.y, {color: '#FFFFFF'});
-    roomVisual.text("P", base.parking.x, base.parking.y, {color: '#FFFFFF'});
+    roomVisual.text('O', base.origin.x, base.origin.y, {color: '#FFFFFF'});
+    roomVisual.text('P', base.parking.x, base.parking.y, {color: '#FFFFFF'});
 
     trace.end();
     return sleeping(MIN_TTL);
@@ -254,7 +255,7 @@ export default class BaseRunnable {
       id: this.id,
     });
 
-    //kernel.getPlanner().removeBase(base.id, trace);
+    // kernel.getPlanner().removeBase(base.id, trace);
 
     trace.end();
   }
@@ -266,7 +267,7 @@ export default class BaseRunnable {
         [MEMORY.MEMORY_ASSIGN_SHARD]: Game.shard.name,
         [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
         [MEMORY.MEMORY_BASE]: this.id,
-      }
+      },
     });
 
     if (enroute) {
@@ -290,7 +291,7 @@ export default class BaseRunnable {
       detail, REQUEST_CLAIMER_TTL);
   }
 
-  handleProcessSpawning(trace: Tracer, base: Base, room: Room) {
+  handleProcessSpawning(trace: Tracer, base: Base, primaryRoom: Room) {
     let missingProcesses = 0;
 
     // Spawn Manager
@@ -304,56 +305,56 @@ export default class BaseRunnable {
     }
 
     // Towers
-    room.find<StructureTower>(FIND_MY_STRUCTURES, {
+    primaryRoom.find<StructureTower>(FIND_MY_STRUCTURES, {
       filter: (structure) => {
         return structure.structureType === STRUCTURE_TOWER && structure.isActive();
       },
     }).forEach((tower) => {
-      const towerId = `${tower.id}`
+      const towerId = `${tower.id}`;
       if (!this.scheduler.hasProcess(towerId)) {
         trace.log('starting tower', {id: tower.id});
         missingProcesses++;
 
         const process = new Process(towerId, 'towers', Priorities.DEFENCE,
-          new TowerRunnable(this.id, orgRoom, tower))
+          new TowerRunnable(this.id, tower));
         process.setSkippable(false);
         this.scheduler.registerProcess(process);
       }
     });
 
-    room.find<StructureNuker>(FIND_MY_STRUCTURES, {
-      filter: structure => structure.structureType === STRUCTURE_NUKER && structure.isActive(),
+    primaryRoom.find<StructureNuker>(FIND_MY_STRUCTURES, {
+      filter: (structure) => structure.structureType === STRUCTURE_NUKER && structure.isActive(),
     }).forEach((nuker) => {
-      const nukeId = `${nuker.id}`
+      const nukeId = `${nuker.id}`;
       if (!this.scheduler.hasProcess(nukeId)) {
         trace.log('starting nuke', {id: nukeId});
         missingProcesses++;
 
         this.scheduler.registerProcess(new Process(nukeId, 'nukes', Priorities.OFFENSE,
-          new NukerRunnable(this.id, orgRoom, nuker)));
+          new NukerRunnable(this.id, nuker)));
       }
     });
 
-    if (room.terminal?.isActive()) {
+    if (primaryRoom.terminal?.isActive()) {
       // Terminal runnable
-      const terminalId = room.terminal.id;
+      const terminalId = primaryRoom.terminal.id;
       if (!this.scheduler.hasProcess(terminalId)) {
         trace.log('starting terminal', {id: terminalId});
         missingProcesses++;
 
         this.scheduler.registerProcess(new Process(terminalId, 'terminals', Priorities.DEFENCE,
-          new TerminalRunnable(this.id, orgRoom, room.terminal)));
+          new TerminalRunnable(this.id, primaryRoom.terminal)));
       }
     }
 
     // Link Manager
-    const linkManagerId = `links_${this.id}`
-    if (!this.scheduler.hasProcess(linkManagerId) && orgRoom.room.storage) {
+    const linkManagerId = `links_${this.id}`;
+    if (!this.scheduler.hasProcess(linkManagerId) && primaryRoom.storage) {
       trace.log('starting link manager', {id: linkManagerId});
       missingProcesses++;
 
       this.scheduler.registerProcess(new Process(linkManagerId, 'links', Priorities.RESOURCES,
-        new LinkManager(linkManagerId, this.id, orgRoom)));
+        new LinkManager(linkManagerId, this.id)));
     }
 
     // Labs Manager
@@ -363,7 +364,7 @@ export default class BaseRunnable {
       missingProcesses++;
 
       this.scheduler.registerProcess(new Process(labsManagerId, 'labs', Priorities.LOGISTICS,
-        new LabsManager(labsManagerId, orgRoom, this.scheduler, trace)));
+        new LabsManager(base.id, labsManagerId, this.scheduler, trace)));
       missingProcesses++;
     }
 
@@ -374,12 +375,12 @@ export default class BaseRunnable {
       missingProcesses++;
 
       this.scheduler.registerProcess(new Process(constructionId, 'construction', Priorities.CORE_LOGISTICS,
-        new BaseConstructionRunnable(constructionId, orgRoom)));
+        new BaseConstructionRunnable(base.id, constructionId)));
       missingProcesses++;
     }
 
     // Observer runnable
-    const observerStructures = room.find<StructureObserver>(FIND_MY_STRUCTURES, {
+    const observerStructures = primaryRoom.find<StructureObserver>(FIND_MY_STRUCTURES, {
       filter: (structure) => {
         return structure.structureType === STRUCTURE_OBSERVER;
       },
@@ -393,7 +394,7 @@ export default class BaseRunnable {
         missingProcesses++;
 
         this.scheduler.registerProcess(new Process(observerId, 'observer', Priorities.EXPLORATION,
-          new ObserverRunnable(observerId)));
+          new ObserverRunnable(base.id, observerStructures[0])));
       }
     }
 
@@ -409,12 +410,12 @@ export default class BaseRunnable {
     }
 
     // Controller
-    const controllerProcessId = room.controller.id
+    const controllerProcessId = primaryRoom.controller.id;
     if (!this.scheduler.hasProcess(controllerProcessId)) {
       trace.log('starting controller', {id: logisticsIds});
       missingProcesses++;
 
-      const controllerRunnable = new ControllerRunnable(room.controller.id);
+      const controllerRunnable = new ControllerRunnable(primaryRoom.controller.id);
       this.scheduler.registerProcess(new Process(controllerProcessId, 'controller',
         Priorities.CRITICAL, controllerRunnable));
     }
@@ -435,12 +436,7 @@ export default class BaseRunnable {
     this.missingProcesses = missingProcesses;
   }
 
-  requestRepairer(trace: Tracer, kernel: Kernel, base: Base, orgRoom: OrgRoom, room: Room) {
-    if (!orgRoom.isPrimary) {
-      trace.log('not primary room, skipping');
-      return;
-    }
-
+  requestRepairer(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
     let maxHits = 0;
     let hits = 0;
 
@@ -461,7 +457,7 @@ export default class BaseRunnable {
       hitsPercentage = hits / maxHits;
     }
 
-    const numRepairers = kernel.creepManager.getCreepsByBaseAndRole(this.id,
+    const numRepairers = kernel.getCreepsManager().getCreepsByBaseAndRole(this.id,
       CREEPS.WORKER_REPAIRER).length;
 
     trace.log('need repairers?', {id: this.id, hitsPercentage, numRepairers});
@@ -498,12 +494,12 @@ export default class BaseRunnable {
     };
 
     const request = createSpawnRequest(repairerPriority, REQUEST_REPAIRER_TTL, CREEPS.WORKER_REPAIRER,
-      memory, 0)
-    requestSpawn(kernel, getBaseSpawnTopic(base.id), request)
+      memory, 0);
+    kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
     // @CONFIRM that repairers are spawning
   }
 
-  requestBuilder(trace: Tracer, kernel: Kernel, base: Base, orgRoom: OrgRoom, room: Room) {
+  requestBuilder(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
     if (!Object.values(Game.spawns).length) {
       trace.log('no spawns, dont spawn builders');
       return;
@@ -514,11 +510,11 @@ export default class BaseRunnable {
       return;
     }
 
-    const builders = kernel.creepManager.getCreepsByBaseAndRole(this.id,
+    const builders = kernel.getCreepsManager().getCreepsByBaseAndRole(this.id,
       CREEPS.WORKER_BUILDER);
 
     const numConstructionSites = room.find(FIND_MY_CONSTRUCTION_SITES).length;
-    trace.log('num constructions sites', {numConstructionSites})
+    trace.log('num constructions sites', {numConstructionSites});
 
     let desiredBuilders = 0;
     if (numConstructionSites) {
@@ -541,17 +537,15 @@ export default class BaseRunnable {
     const memory = {
       [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
       [MEMORY.MEMORY_ASSIGN_SHARD]: Game.shard.name,
-      [MEMORY.MEMORY_BASE]: (orgRoom as any).getColony().id,
+      [MEMORY.MEMORY_BASE]: base.id,
     };
     const request = createSpawnRequest(priority, ttl, CREEPS.WORKER_BUILDER, memory, 0);
-    requestSpawn(kernel, getBaseSpawnTopic(base.id), request);
+    kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
     // @CONFIRM builders are being spawned
   }
 
-  requestDistributor(trace: Tracer, kernel: Kernel, base: Base, orgRoom: OrgRoom,
-    room: Room) {
-
-    const numDistributors = kernel.creepManager.getCreepsByBaseAndRole(this.id,
+  requestDistributor(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
+    const numDistributors = kernel.getCreepsManager().getCreepsByBaseAndRole(this.id,
       CREEPS.WORKER_DISTRIBUTOR).length;
 
     // If low on bucket base not under threat
@@ -560,9 +554,9 @@ export default class BaseRunnable {
       return;
     }
 
-    let distributorRequests: number[] = [];
+    const distributorRequests: number[] = [];
 
-    let desiredDistributors = MIN_DISTRIBUTORS;
+    const desiredDistributors = MIN_DISTRIBUTORS;
     if (room.controller.level < 3) {
       distributorRequests.push(1);
     }
@@ -572,7 +566,7 @@ export default class BaseRunnable {
       distributorRequests.push(3);
     }
 
-    const numCoreHaulTasks = kernel.getTopicLength(getBaseDistributorTopic(this.id));
+    const numCoreHaulTasks = kernel.getTopics().getLength(getBaseDistributorTopic(this.id));
     if (numCoreHaulTasks > 30) {
       distributorRequests.push(2);
     }
@@ -584,32 +578,31 @@ export default class BaseRunnable {
       distributorRequests.push(3);
     }
 
-    if (orgRoom.numHostiles) {
+    if (base.alertLevel !== AlertLevel.GREEN) {
       const numTowers = room.find(FIND_MY_STRUCTURES, {
         filter: (structure) => {
           return structure.structureType === STRUCTURE_TOWER;
-        }
+        },
       }).length;
 
       trace.log('hostiles in room and we need more distributors', {numTowers, desiredDistributors});
       distributorRequests.push((numTowers / 2) + desiredDistributors);
     }
 
-    if (!orgRoom.hasStorage || numDistributors >= _.max(distributorRequests)) {
+    if (!room.storage || numDistributors >= _.max(distributorRequests)) {
       trace.log('do not request distributors', {
-        hasStorage: orgRoom.hasStorage,
+        hasStorage: !!room.storage,
         numDistributors,
         desiredDistributors,
         roomLevel: room.controller.level,
         fullness,
         numCoreHaulTasks,
-        numHostiles: orgRoom.numHostiles,
       });
       return;
     }
 
     let distributorPriority = PRIORITIES.PRIORITY_DISTRIBUTOR;
-    if (orgRoom.getAmountInReserve(RESOURCE_ENERGY) === 0) {
+    if (getStoredResourceAmount(base, RESOURCE_ENERGY) === 0) {
       distributorPriority = PRIORITIES.DISTRIBUTOR_NO_RESERVE;
     }
 
@@ -627,33 +620,28 @@ export default class BaseRunnable {
 
     const request = createSpawnRequest(priority, ttl, role, memory, 0);
     trace.log('request distributor', {desiredDistributors, fullness, request});
-    requestSpawn(kernel, getBaseSpawnTopic(base.id), request);
+    kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
     // @CHECK that distributors are being spawned
   }
 
-  requestUpgrader(trace: Tracer, kernel: Kernel, base: Base, orgRoom: OrgRoom, room: Room) {
-    if (!orgRoom.isPrimary) {
-      trace.error('not primary room', {id: this.id, orgRoomid: orgRoom.id});
-      return;
-    }
-
+  requestUpgrader(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
     if (!room.storage) {
       trace.log('no storage, dont spawn upgraders');
       return;
     }
 
-    const numUpgraders = kernel.creepManager.getCreepsByBaseAndRole(this.id,
+    const numUpgraders = kernel.getCreepsManager().getCreepsByBaseAndRole(this.id,
       CREEPS.WORKER_UPGRADER).length;
 
     let parts = 1;
     let desiredUpgraders = MIN_UPGRADERS;
     let maxParts = 15;
 
-    const reserveEnergy = orgRoom.getAmountInReserve(RESOURCE_ENERGY);
-    const reserveBuffer = orgRoom.getReserveBuffer();
+    const reserveEnergy = getStoredResourceAmount(base, RESOURCE_ENERGY);
+    const reserveBuffer = getReserveBuffer(base);
 
     if (!room.controller?.my) {
-      trace.error('not my room')
+      trace.error('not my room');
       desiredUpgraders = 0;
     } else if (room.controller.level === 8) {
       parts = (reserveEnergy - reserveBuffer) / 1500;
@@ -668,9 +656,9 @@ export default class BaseRunnable {
 
       trace.log('max level room', {
         parts, desiredUpgraders, ticksToDowngrade: room.controller.ticksToDowngrade,
-        reserveEnergy, reserveBuffer
+        reserveEnergy, reserveBuffer,
       });
-    } else if (orgRoom.hasStorage) { // @ORG-REFACTOR replace has storage with base phase
+    } else if (room.storage) { // @ORG-REFACTOR replace has storage with base phase
       const roomCapacity = room.energyCapacityAvailable;
       maxParts = Math.floor(roomCapacity / 200);
       if (maxParts > 15) {
@@ -713,19 +701,19 @@ export default class BaseRunnable {
 
       const request = createSpawnRequest(upgraderPriority, REQUEST_UPGRADER_TTL,
         CREEPS.WORKER_UPGRADER, memory, energyLimit);
-      requestSpawn(kernel, getBaseSpawnTopic(base.id), request);
+      kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
       // @CONFIRM that upgraders are being created
     }
   }
 
   requestExplorer(trace: Tracer, kernel: Kernel, base: Base) {
-    const shardConfig = kernel.config;
+    const shardConfig = kernel.getConfig();
     if (!shardConfig.explorers) {
       trace.log('shard does not allow explorers');
       return;
     }
 
-    const explorers = kernel.creepManager.getCreepsByBaseAndRole(this.id,
+    const explorers = kernel.getCreepsManager().getCreepsByBaseAndRole(this.id,
       CREEPS.WORKER_EXPLORER);
 
     if (explorers.length < MAX_EXPLORERS) {
@@ -738,15 +726,15 @@ export default class BaseRunnable {
         [MEMORY.MEMORY_BASE]: base.id,
       };
       const request = createSpawnRequest(priority, ttl, role, memory, 0);
-      requestSpawn(kernel, getBaseSpawnTopic(base.id), request);
+      kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
       // @CONFIRM that explorers spawns
     } else {
       trace.log('not requesting explorer', {numExplorers: explorers.length});
     }
   }
 
-  requestExtensionFilling(trace: Tracer, kernel: Kernel, orgRoom: OrgRoom, room: Room) {
-    const pickup = orgRoom.getReserveStructureWithMostOfAResource(RESOURCE_ENERGY, true);
+  requestExtensionFilling(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
+    const pickup = getStructureWithResource(base, RESOURCE_ENERGY);
     if (!pickup) {
       trace.log('no energy available for extensions', {resource: RESOURCE_ENERGY});
       return;
@@ -758,7 +746,7 @@ export default class BaseRunnable {
           structure.structureType === STRUCTURE_SPAWN) &&
           structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0 &&
           structure.isActive();
-      }
+      },
     });
 
     nonFullExtensions.forEach((extension) => {
@@ -771,21 +759,15 @@ export default class BaseRunnable {
         [MEMORY.MEMORY_HAUL_AMOUNT]: extension.store.getFreeCapacity(RESOURCE_ENERGY),
       };
 
-      kernel.sendRequest(getBaseDistributorTopic(this.id), PRIORITIES.HAUL_EXTENSION,
+      kernel.getTopics().addRequest(getBaseDistributorTopic(this.id), PRIORITIES.HAUL_EXTENSION,
         details, HAUL_EXTENSION_TTL);
     });
 
     trace.log('haul extensions', {numHaulTasks: nonFullExtensions.length});
   }
 
-  updateRampartAccess(trace: Tracer, orgRoom: OrgRoom, room: Room) {
-    const colony = (orgRoom as any).getColony()
-    if (!colony) {
-      trace.log('could not find colony')
-      return;
-    }
-
-    const message = colony.peekNextRequest(TOPICS.DEFENSE_STATUSES);
+  updateRampartAccess(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
+    const message = kernel.getTopics().peekNextRequest(TOPICS.DEFENSE_STATUSES);
     if (!message) {
       trace.log('did not find a defense status, fail closed');
       this.setRamparts(room, DEFENSE_POSTURE.CLOSED, trace);
@@ -793,9 +775,9 @@ export default class BaseRunnable {
     }
 
     const status = message.details.status;
-    const isPublic = colony.isPublic;
+    const isPublic = base.isPublic;
 
-    trace.log('rampart access', {status, isPublic, posture: this.defensePosture})
+    trace.log('rampart access', {status, isPublic, posture: this.defensePosture});
 
     if ((!isPublic || status !== DEFENSE_STATUS.GREEN) && this.defensePosture !== DEFENSE_POSTURE.CLOSED) {
       trace.notice('setting ramparts closed');
@@ -814,7 +796,7 @@ export default class BaseRunnable {
     room.find<StructureRampart>(FIND_STRUCTURES, {
       filter: (structure) => {
         return structure.structureType === STRUCTURE_RAMPART;
-      }
+      },
     }).forEach((rampart) => {
       rampart.setPublic(isPublic);
     });
@@ -839,14 +821,14 @@ export default class BaseRunnable {
     });
 
     // Filter friendly creeps
-    const friends = kernel.config.friends;
-    hostiles = hostiles.filter(creep => friends.indexOf(creep.owner.username) === -1);
+    const friends = kernel.getFriends();
+    hostiles = hostiles.filter((creep) => friends.indexOf(creep.owner.username) === -1);
 
     if (hostiles) {
       const infrastructure = room.find(FIND_MY_STRUCTURES, {
         filter: (structure) => {
           return _.find(importantStructures, structure.structureType);
-        }
+        },
       });
 
       // Iterate through critical infrastructure and check if any are under attack
@@ -876,15 +858,15 @@ export default class BaseRunnable {
     }
   }
 
-  requestEnergy(trace: Tracer, orgRoom: OrgRoom, room: Room) {
+  requestEnergy(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
     const terminalEnergy = room.terminal?.store.getUsedCapacity(RESOURCE_ENERGY) || 0;
     const storageEnergy = room.storage?.store.getUsedCapacity(RESOURCE_ENERGY) || 0;
 
     trace.log('room energy', {
       terminalEnergy,
       storageEnergy,
-      roomLevel: orgRoom.getRoomLevel(),
-      desiredBuffer: orgRoom.getReserveBuffer(),
+      roomLevel: getBaseLevel(base),
+      desiredBuffer: getReserveBuffer(base),
       UPGRADER_ENERGY,
       MIN_ENERGY,
     });
@@ -908,6 +890,8 @@ export default class BaseRunnable {
       const amount = 5000;
       trace.log('requesting energy from governor', {amount, resource: RESOURCE_ENERGY});
 
+      // @REFACTOR resource governor
+
       const resourceGovernor = (orgRoom as any).getKingdom().getResourceGovernor();
       const requested = resourceGovernor.requestResource(orgRoom, RESOURCE_ENERGY, amount, ENERGY_REQUEST_TTL, trace);
       if (!requested) {
@@ -916,58 +900,52 @@ export default class BaseRunnable {
     }
   }
 
-  produceStatus(trace: Tracer, kernel: Kernel, orgRoom: OrgRoom, base: Base) {
-    const resources = orgRoom.getReserveResources();
+  produceStatus(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
+    const resources = getStoredResources(base);
 
     const status = {
       details: {
-        [MEMORY.ROOM_STATUS_NAME]: orgRoom.id,
-        [MEMORY.ROOM_STATUS_LEVEL]: orgRoom.getRoomLevel(),
-        [MEMORY.ROOM_STATUS_LEVEL_COMPLETED]: orgRoom.getRoomLevelCompleted(),
-        [MEMORY.ROOM_STATUS_TERMINAL]: orgRoom.hasTerminal(),
+        [MEMORY.ROOM_STATUS_NAME]: room.name,
+        [MEMORY.ROOM_STATUS_LEVEL]: getBaseLevel(base),
+        [MEMORY.ROOM_STATUS_LEVEL_COMPLETED]: getBaseLevelCompleted(base),
+        [MEMORY.ROOM_STATUS_TERMINAL]: !!room.terminal,
         [MEMORY.ROOM_STATUS_ENERGY]: resources[RESOURCE_ENERGY] || 0,
         [MEMORY.ROOM_STATUS_ALERT_LEVEL]: base.alertLevel,
       },
-    }
+    };
 
     trace.log('producing room status', {status});
 
-    orgRoom.getKingdom().sendRequest(TOPICS.ROOM_STATUES, 1, status, PRODUCE_STATUS_TTL);
+    kernel.getTopics().addRequest(TOPICS.ROOM_STATUES, 1, status, PRODUCE_STATUS_TTL);
 
     const line: HudLine = {
-      key: `base_${orgRoom.id}`,
-      room: orgRoom.id,
+      key: `base_${base.id}`,
+      room: room.name,
       order: 0,
-      text: `Base: ${orgRoom.id} - status: ${base.alertLevel}, level: ${orgRoom.getRoomLevel()}, ` +
+      text: `Base: ${base.id} - status: ${base.alertLevel}, level: ${getBaseLevel(base)}, ` +
         `Rooms: ${base.rooms.join(',')}  `,
       time: Game.time,
     };
-    const event = new Event(orgRoom.id, Game.time, HudEventSet, line);
-    orgRoom.getKingdom().getBroker().getStream(getLinesStream()).publish(event);
+    const event = new Event(room.name, Game.time, HudEventSet, line);
+    kernel.getBroker().getStream(getLinesStream()).publish(event);
 
-    const reserveEnergy = orgRoom.getAmountInReserve(RESOURCE_ENERGY);
-    const reserveBuffer = orgRoom.getReserveBuffer();
+    const reserveEnergy = getStoredResourceAmount(base, RESOURCE_ENERGY);
+    const reserveBuffer = getReserveBuffer(base);
     const parts = (reserveEnergy - reserveBuffer) / 1500;
 
     const upgraderLine: HudLine = {
-      key: `base_${orgRoom.id}_upgrader`,
-      room: orgRoom.id,
+      key: `base_${base.id}_upgrader`,
+      room: room.name,
       order: 1,
       text: `Energy: ${reserveEnergy}, Buffer: ${reserveBuffer}, Parts: ${parts}`,
       time: Game.time,
     };
-    const upgraderEvent = new Event(orgRoom.id, Game.time, HudEventSet, upgraderLine);
-    orgRoom.getKingdom().getBroker().getStream(getLinesStream()).publish(upgraderEvent);
+    const upgraderEvent = new Event(room.name, Game.time, HudEventSet, upgraderLine);
+    kernel.getBroker().getStream(getLinesStream()).publish(upgraderEvent);
 
-    const indicatorStream = orgRoom.getKingdom().getBroker().getStream(getDashboardStream())
+    const indicatorStream = kernel.getBroker().getStream(getDashboardStream());
 
     base.rooms.forEach((roomName) => {
-      const orgRoom = kernel.getRoomByName(roomName);
-      if (!orgRoom) {
-        trace.warn('room not found', {roomName});
-        return;
-      }
-
       // Alert indicator
       let alertLevelStatus = HudIndicatorStatus.Green;
       if (base.alertLevel === AlertLevel.RED) {
@@ -977,7 +955,7 @@ export default class BaseRunnable {
       }
       const alertLevelIndicator: HudIndicator = {
         room: roomName, key: 'alert', display: 'A',
-        status: alertLevelStatus
+        status: alertLevelStatus,
       };
       indicatorStream.publish(new Event(roomName, Game.time, HudEventSet, alertLevelIndicator));
     });
@@ -991,8 +969,8 @@ export default class BaseRunnable {
     }
 
     const keyProcessesIndicator: HudIndicator = {
-      room: orgRoom.id, key: 'processes', display: 'P',
-      status: processStatus
+      room: room.name, key: 'processes', display: 'P',
+      status: processStatus,
     };
     indicatorStream.publish(new Event(base.id, Game.time, HudEventSet, keyProcessesIndicator));
   }
@@ -1018,7 +996,7 @@ export default class BaseRunnable {
 
     // check if strong enemies are present in rooms
     const rooms = base.rooms;
-    let hostileRoom = rooms.find((roomName) => {
+    const hostileRoom = rooms.find((roomName) => {
       const roomEntry = kernel.getScribe().getRoomById(roomName);
       if (!roomEntry) {
         trace.info('room not found', {room: roomName});
