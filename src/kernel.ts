@@ -22,6 +22,7 @@ export interface Kernel {
   getResourceManager(): ResourceManager;
 
   getFriends(): string[];
+  getDontAttack(): string[];
   getAvoid(): string[];
   getKOS(): string[];
 }

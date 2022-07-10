@@ -1,5 +1,6 @@
 import {behaviorBoosts} from './behavior.boosts';
 import * as behaviorMovement from "./behavior.movement";
+import {Kernel} from './kernel';
 import * as behaviorTree from './lib.behaviortree';
 import {RUNNING, SUCCESS} from './lib.behaviortree';
 import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
@@ -103,7 +104,7 @@ const behavior = behaviorTree.sequenceNode(
         }
 
         const creepHeal = scoreHealing(creep, true);
-        const dontAttack = kingdom.config.friends.concat(kingdom.config.neutral);
+        const dontAttack = kernel.getDontAttack();
 
         let hostiles = creep.room.find(FIND_HOSTILE_CREEPS, {
           filter: (c: Creep) => {
@@ -167,7 +168,7 @@ const behavior = behaviorTree.sequenceNode(
         }
 
         // attack containers if not one of my bases
-        const baseRoom = kingdom.getPlanner().getBaseByRoom(creep.room.name);
+        const baseRoom = kernel.getPlanner().getBaseByRoom(creep.room.name);
         if (!baseRoom) {
           // if there are containers, destroy them
           const containers = creep.room.find(FIND_STRUCTURES, {

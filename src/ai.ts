@@ -216,6 +216,14 @@ export class AI implements Kernel {
     return this.config.friends;
   }
 
+  getNeutrals(): string[] {
+    return this.config.neutral;
+  }
+
+  getDontAttack(): string[] {
+    return this.getFriends().concat(this.getNeutrals());
+  }
+
   getAvoid(): string[] {
     return this.config.avoid;
   }

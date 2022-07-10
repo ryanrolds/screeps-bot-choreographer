@@ -200,6 +200,8 @@ export function getStructuresForResource(base: Base, resource: ResourceConstant)
 export function getBaseSpawns(base: Base): StructureSpawn[] {
   const spawns: StructureSpawn[] = [];
 
+  // @REFACTOR not done
+
   return spawns;
 }
 

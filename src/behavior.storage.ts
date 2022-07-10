@@ -1,9 +1,9 @@
-import * as behaviorTree from './lib.behaviortree';
-import * as behaviorMovement from './behavior.movement';
-import {FAILURE, RUNNING, SUCCESS} from './lib.behaviortree';
-import {MEMORY_DESTINATION, MEMORY_ROLE} from './constants.memory';
-import {WORKER_DISTRIBUTOR, WORKER_HAULER} from './constants.creeps';
 import {getBasePrimaryRoom, getCreepBase, getStructuresWithResource} from './base';
+import * as behaviorMovement from './behavior.movement';
+import {WORKER_DISTRIBUTOR, WORKER_HAULER} from './constants.creeps';
+import {MEMORY_DESTINATION, MEMORY_HAUL_DROPOFF, MEMORY_ROLE} from './constants.memory';
+import * as behaviorTree from './lib.behaviortree';
+import {FAILURE, RUNNING, SUCCESS} from './lib.behaviortree';
 
 const spawnContainerCache: Record<string, (StructureContainer | StructureStorage)[]> = {};
 
@@ -49,7 +49,7 @@ export const selectRoomDropoff = behaviorTree.selectorNode(
     behaviorTree.leafNode(
       'use_memory_dropoff',
       (creep) => {
-        const dropoff = creep.memory[MEMORY.MEMORY_HAUL_DROPOFF];
+        const dropoff = creep.memory[MEMORY_HAUL_DROPOFF];
         if (dropoff) {
           behaviorMovement.setDestination(creep, dropoff);
           return SUCCESS;
@@ -135,7 +135,7 @@ export const selectRoomDropoff = behaviorTree.selectorNode(
 
         const baseCreeps = kernel.getCreepsManager().getCreepsByBase(base.id);
         const distributors = _.filter(baseCreeps, (creep) => {
-          return creep.memory[MEMORY.MEMORY_ROLE] === WORKER_DISTRIBUTOR;
+          return creep.memory[MEMORY_ROLE] === WORKER_DISTRIBUTOR;
         });
 
         if (!distributors.length) {

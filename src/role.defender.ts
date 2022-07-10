@@ -1,5 +1,7 @@
+import {getCreepBase} from './base';
 import * as behaviorAssign from './behavior.assign';
 import {behaviorBoosts} from './behavior.boosts';
+import {Kernel} from './kernel';
 import * as behaviorTree from './lib.behaviortree';
 import {FAILURE, RUNNING, SUCCESS} from './lib.behaviortree';
 import {Tracer} from './lib.tracing';
@@ -15,14 +17,7 @@ const behavior = behaviorTree.sequenceNode(
     behaviorTree.leafNode(
       'attack_hostiles',
       (creep: Creep, trace: Tracer, kernel: Kernel) => {
-        const room = kingdom.getCreepRoom(creep);
-        if (!room) {
-          trace.error('creep has no room', creep.memory);
-          creep.suicide();
-          return FAILURE;
-        }
-
-        const base = kingdom.getCreepBase(creep);
+        const base = getCreepBase(kernel, creep);
         if (!base) {
           trace.error("creep has no base", creep.memory)
         }
@@ -53,8 +48,8 @@ const behavior = behaviorTree.sequenceNode(
         }
 
         // Get targets in the room
-        const roomId = room.id;
-        const targets = kingdom.getFilteredRequests(getBasePriorityTargetsTopic(base.id),
+        const roomId = creep.room.name;
+        const targets = kernel.getTopics().getFilteredRequests(getBasePriorityTargetsTopic(base.id),
           (target) => {
             return target.details.roomName === roomId;
           },
@@ -88,13 +83,13 @@ const behavior = behaviorTree.sequenceNode(
 
         // If not in rampart, move to target
         if (!moveTarget) {
-          return moveToAssignedPosition(creep, trace, kingdom);
+          return moveToAssignedPosition(creep, trace, kernel);
         }
 
         // If we are less then 2/3 health, move back and heal
         if (creep.hits < creep.hitsMax * 0.666) {
           trace.info("too damaged, flee");
-          const base = kingdom.getCreepBase(creep);
+          const base = getCreepBase(kernel, creep);
           if (base) {
             const result = creep.moveTo(base.origin);
             trace.log('moving to base origin to heal', {result});
@@ -134,7 +129,7 @@ const moveToAssignedPosition = (creep: Creep, trace: Tracer, kernel: Kernel) => 
 
   // If don't have a last known position, go to parking lot
   if (!position) {
-    const base = kingdom.getCreepBase(creep);
+    const base = getCreepBase(kernel, creep);
     if (base) {
       position = base.parking;
     } else {
