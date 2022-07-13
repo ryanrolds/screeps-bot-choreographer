@@ -270,7 +270,7 @@ export class ResourceManager implements Runnable {
 
   getReactions(kernel: Kernel, trace: Tracer): Reaction[] {
     const availableReactions: ReactionMap = new Map();
-    const missingOneInput: ReactionMap = new Map();;
+    const missingOneInput: ReactionMap = new Map();
     const overReserve: ReactionMap = new Map();
 
     const firstInputs = Object.keys(REACTIONS);

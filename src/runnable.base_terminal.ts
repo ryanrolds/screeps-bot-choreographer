@@ -96,7 +96,7 @@ export default class TerminalRunnable {
     this.threadHaulOldSellOrders(trace, kernel, base, terminal);
     this.threadUpdateEnergyValue(trace, kernel, base, terminal);
 
-    let task = base.terminalTask || null;
+    const task = base.terminalTask || null;
     if (!task) {
       this.processTaskTTL = -1;
       const task = kernel.getTopics().getNextRequest(getBaseTerminalTopic(base));
