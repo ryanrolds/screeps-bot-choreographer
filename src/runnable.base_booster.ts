@@ -21,7 +21,9 @@ const REQUEST_ENERGY_TTL = 5;
 const REQUEST_REBALANCE_TTL = 10;
 const UPDATE_ROOM_BOOSTER_INTERVAL = 5;
 
-export const TOPIC_ROOM_BOOSTS = 'room_boosts';
+export function getBaseBoostTopic(base: Base): string {
+  return `base_${base.id}_room_boosts`;
+}
 
 export type BoosterDetails = {
   baseId: string;
@@ -175,7 +177,7 @@ export default class BoosterRunnable {
       availableEffects: storedEffects,
     });
 
-    kernel.getTopics().addRequest(TOPIC_ROOM_BOOSTS, 1, details, UPDATE_ROOM_BOOSTER_INTERVAL);
+    kernel.getTopics().addRequest(getBaseBoostTopic(base), 1, details, UPDATE_ROOM_BOOSTER_INTERVAL);
   }
 
   getBoostPosition() {

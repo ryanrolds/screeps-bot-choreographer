@@ -29,22 +29,18 @@ export interface Base {
   passages: NonNullable<{x: number, y: number}[]>;
   neighbors: NonNullable<string[]>;
   alertLevel: NonNullable<AlertLevel>;
-
   isPublic: NonNullable<boolean>;
 
-  // @REFACTOR double check these are being set
   boostPosition: RoomPosition; // TODO refactor lab arrangement to be more flexible and efficient
-  boosts: NonNullable<Map<string, StructureLab[]>>;
+  boosts: NonNullable<LabsByAction>;
   storedEffects: EffectSet;
-  loadedEffects: LabsByAction;
+  labsByAction: LabsByAction;
 
-  // @REFACTOR set this
   terminalTask: TerminalTask;
 
-  // @REFACTOR set these
   damagedStructures: Id<AnyStructure>[];
+  defenseHitsLimit: number;
   damagedSecondaryStructures: Id<AnyStructure>[];
-
 }
 
 export type ResourceCounts = Map<ResourceConstant, number>;
@@ -216,9 +212,18 @@ export function getStructuresForResource(base: Base, resource: ResourceConstant)
 }
 
 export function getBaseSpawns(base: Base): StructureSpawn[] {
-  const spawns: StructureSpawn[] = [];
+  let spawns: StructureSpawn[] = [];
 
-  // @REFACTOR not done
+  const primaryRoom = getBasePrimaryRoom(base);
+  if (!primaryRoom) {
+    return spawns;
+  }
+
+  spawns = primaryRoom.find(FIND_MY_STRUCTURES, {
+    filter: (structure: AnyStructure) => {
+      return structure.structureType === STRUCTURE_SPAWN;
+    }
+  });
 
   return spawns;
 }
@@ -252,11 +257,9 @@ export function getBaseLevelCompleted(base: Base) {
 }
 
 export function getDamagedStructures(base: Base): Structure[] {
-  const structures: Structure[] = [];
-
-  // @REFACTOR decide how to share damaged structures
-
-  return structures;
+  return base.damagedStructures.map((structureId) => {
+    return Game.getObjectById(structureId);
+  });
 }
 
 export function getNextDamagedStructure(base: Base): Structure | null {
@@ -282,5 +285,5 @@ export function getStoredEffects(base: Base): EffectSet {
 }
 
 export function getLoadedEffects(base: Base): LabsByAction {
-  return base.loadedEffects;
+  return base.labsByAction;
 }

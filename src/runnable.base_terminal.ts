@@ -7,7 +7,6 @@ import * as TOPICS from './constants.topics';
 import {Kernel} from './kernel';
 import {ResourcePricer, SigmoidPricing} from './lib.sigmoid_pricing';
 import {Tracer} from './lib.tracing';
-import {PersistentMemory} from './os.memory';
 import {running, sleeping, terminate} from './os.process';
 import {RunnableResult} from './os.runnable';
 import {thread, ThreadFunc} from './os.thread';
@@ -38,7 +37,7 @@ export function getBaseTerminalTopic(base: Base): string {
   return `base_${base.id}_${TOPICS.TOPIC_TERMINAL_TASK}`;
 }
 
-export default class TerminalRunnable extends PersistentMemory {
+export default class TerminalRunnable {
   baseId: string;
   terminalId: Id<StructureTerminal>;
   prevTime: number;
@@ -52,8 +51,6 @@ export default class TerminalRunnable extends PersistentMemory {
   threadUpdateEnergyValue: ThreadFunc;
 
   constructor(baseId: string, terminal: StructureTerminal) {
-    super(terminal.id);
-
     this.baseId = baseId;
     this.terminalId = terminal.id;
 
@@ -99,12 +96,12 @@ export default class TerminalRunnable extends PersistentMemory {
     this.threadHaulOldSellOrders(trace, kernel, base, terminal);
     this.threadUpdateEnergyValue(trace, kernel, base, terminal);
 
-    let task = terminal.room.memory[MEMORY.TERMINAL_TASK] || null;
+    let task = base.terminalTask || null;
     if (!task) {
       this.processTaskTTL = -1;
-      task = kernel.getTopics().getNextRequest(getBaseTerminalTopic(base));
+      const task = kernel.getTopics().getNextRequest(getBaseTerminalTopic(base));
       if (task) {
-        terminal.room.memory[MEMORY.TERMINAL_TASK] = task;
+        base.terminalTask = task;
       }
     }
 
@@ -138,21 +135,20 @@ export default class TerminalRunnable extends PersistentMemory {
     return running();
   }
 
-  isIdle(trace: Tracer) {
-    const memory = this.getMemory(trace);
-    return !!memory[MEMORY.TERMINAL_TASK];
+  isIdle(base: Base) {
+    return !!base.terminalTask;
   }
 
-  getTask(trace: Tracer) {
-    const memory = this.getMemory(trace);
-    return memory[MEMORY.TERMINAL_TASK] || null;
+  setTask(base: Base, task: TerminalTask) {
+    base.terminalTask = task;
   }
 
-  clearTask(trace: Tracer) {
-    trace.info('clearing task');
-    const memory = this.getMemory(trace);
-    delete memory[MEMORY.TERMINAL_TASK];
-    this.setMemory(memory);
+  getTask(base: Base): TerminalTask {
+    return base.terminalTask;
+  }
+
+  clearTask(base: Base) {
+    base.terminalTask = null;
   }
 
   processTask(kernel: Kernel, base: Base, terminal: StructureTerminal, task, ticks: number, trace: Tracer) {
@@ -166,7 +162,7 @@ export default class TerminalRunnable extends PersistentMemory {
     }
 
     if (ttl < 0) {
-      this.clearTask(trace);
+      this.clearTask(base);
       return;
     } else {
       terminal.room.memory[MEMORY.TERMINAL_TASK].details[MEMORY.TASK_TTL] = ttl - ticks;
@@ -186,12 +182,12 @@ export default class TerminalRunnable extends PersistentMemory {
         } else if (orderType === ORDER_BUY) {
           this.buy(kernel, base, terminal, details, trace);
         } else {
-          this.clearTask(trace);
+          this.clearTask(base);
         }
 
         break;
       default:
-        this.clearTask(trace);
+        this.clearTask(base);
     }
     return;
   }
@@ -219,7 +215,7 @@ export default class TerminalRunnable extends PersistentMemory {
           if (!terminalAmount) {
             trace.log('no pickup and no resources in terminal', {});
 
-            this.clearTask(trace);
+            this.clearTask(base);
             break;
           }
 
@@ -256,12 +252,12 @@ export default class TerminalRunnable extends PersistentMemory {
 
         }
 
-        this.clearTask(trace);
+        this.clearTask(base);
 
         break;
       default:
 
-        this.clearTask(trace);
+        this.clearTask(base);
     }
   }
 
@@ -283,7 +279,7 @@ export default class TerminalRunnable extends PersistentMemory {
 
     if (currentAmount >= amount) {
       trace.log('buy order satisfied');
-      this.clearTask(trace);
+      this.clearTask(base);
       return;
     }
 
@@ -305,8 +301,8 @@ export default class TerminalRunnable extends PersistentMemory {
     const maxBuyPrice = this.pricer.getPrice(ORDER_BUY, resource, reserveAmount);
     if (!sellOrder || sellOrder.price > maxBuyPrice) {
       trace.log('sell orders too expensive: creating buy order', {resource, orderPrice: sellOrder?.price, maxBuyPrice});
-      this.createBuyOrder(terminal, resource, amount, trace);
-      this.clearTask(trace);
+      this.createBuyOrder(base, terminal, resource, amount, trace);
+      this.clearTask(base);
       return;
     }
 
@@ -344,7 +340,7 @@ export default class TerminalRunnable extends PersistentMemory {
         const pickup = getStructureWithResource(base, resource);
         if (!pickup) {
           if (!terminalAmount) {
-            this.clearTask(trace);
+            this.clearTask(base);
             break;
           }
 
@@ -359,7 +355,7 @@ export default class TerminalRunnable extends PersistentMemory {
       case TASK_PHASE_TRANSACT:
         // Check if we are done selling
         if (terminal.store.getUsedCapacity(resource) === 0 || amount < 1) {
-          this.clearTask(trace);
+          this.clearTask(base);
           break;
         }
 
@@ -382,8 +378,8 @@ export default class TerminalRunnable extends PersistentMemory {
         // If no buy orders or price is too low, create a sell order
         if (!buyOrder || buyOrder.price < minSellPrice) {
           trace.log('no orders or sell prices too low, creating sell order');
-          this.createSellOrder(terminal, resource, amount, trace);
-          this.clearTask(trace);
+          this.createSellOrder(base, terminal, resource, amount, trace);
+          this.clearTask(base);
           return;
         }
 
@@ -418,7 +414,7 @@ export default class TerminalRunnable extends PersistentMemory {
         break;
       default:
         trace.error('BROKEN MARKET LOGIC', phase);
-        this.clearTask(trace);
+        this.clearTask(base);
     }
   }
 
@@ -436,7 +432,7 @@ export default class TerminalRunnable extends PersistentMemory {
       haulAmount, order.roomName, trace);
   }
 
-  createBuyOrder(terminal: StructureTerminal, resource: ResourceConstant, amount: number, trace: Tracer) {
+  createBuyOrder(base: Base, terminal: StructureTerminal, resource: ResourceConstant, amount: number, trace: Tracer) {
     // Check if we already have a sell order for the room and resource
     const duplicateBuyOrders = Object.values(Game.market.orders).filter((order) => {
       return order.type === ORDER_BUY && order.resourceType === resource &&
@@ -444,7 +440,7 @@ export default class TerminalRunnable extends PersistentMemory {
     });
     if (duplicateBuyOrders.length) {
       trace.log('duplicate buy orders found', {duplicateBuyOrders});
-      this.clearTask(trace);
+      this.clearTask(base);
       return;
     }
 
@@ -462,7 +458,7 @@ export default class TerminalRunnable extends PersistentMemory {
     trace.log('create buy order result', {result, buyOrder});
   }
 
-  createSellOrder(terminal: StructureTerminal, resource: ResourceConstant, amount: number, trace: Tracer) {
+  createSellOrder(base: Base, terminal: StructureTerminal, resource: ResourceConstant, amount: number, trace: Tracer) {
     // Check if we already have a sell order for the room and resource
     const duplicateSellOrders = Object.values(Game.market.orders).filter((order) => {
       return order.type === ORDER_SELL && order.resourceType === resource &&
@@ -470,7 +466,7 @@ export default class TerminalRunnable extends PersistentMemory {
     });
     if (duplicateSellOrders.length) {
       trace.log('duplicate sell orders found', {duplicateSellOrders});
-      this.clearTask(trace);
+      this.clearTask(base);
       return;
     }
 

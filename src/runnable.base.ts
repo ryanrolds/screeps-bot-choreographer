@@ -14,7 +14,7 @@ import {Priorities, Scheduler} from './os.scheduler';
 import {thread, ThreadFunc} from './os.thread';
 import {getBaseDistributorTopic} from './role.distributor';
 import {scoreAttacking} from './role.harasser';
-import {BoosterDetails, TOPIC_ROOM_BOOSTS} from './runnable.base_booster';
+import {BoosterDetails, getBaseBoostTopic} from './runnable.base_booster';
 import BaseConstructionRunnable from './runnable.base_construction';
 import ControllerRunnable from './runnable.base_controller';
 import {LabsManager} from './runnable.base_labs';
@@ -169,7 +169,7 @@ export default class BaseRunnable {
 
     // Pump events from booster runnable and set booster state on the Base
     this.threadUpdateBoosters = thread('update_booster_thread', UPDATE_BOOSTER_TTL)((trace, room, kernel) => {
-      const topic = kernel.getTopics().getTopic(TOPIC_ROOM_BOOSTS);
+      const topic = kernel.getTopics().getTopic(getBaseBoostTopic(base));
       if (!topic) {
         trace.log('no topic', {room: this.id});
         return;
@@ -180,6 +180,8 @@ export default class BaseRunnable {
         trace.log('booster position', {room: this.id, details});
         setBoostPosition(base, details.position);
         setLabsByAction(base, details.labsByAction);
+        base.storedEffects = details.storedEffects;
+        base.labsByAction = details.labsByAction;
       });
     });
 
@@ -898,8 +900,6 @@ export default class BaseRunnable {
     if (requestEnergy) {
       const amount = 5000;
       trace.log('requesting energy from governor', {amount, resource: RESOURCE_ENERGY});
-
-      // @REFACTOR resource governor
 
       const resourceGovernor = kernel.getResourceManager();
       const requested = resourceGovernor.requestResource(base, RESOURCE_ENERGY, amount, ENERGY_REQUEST_TTL, trace);

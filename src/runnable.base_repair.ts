@@ -17,17 +17,12 @@ const MAX_WALL_HITS = 11000000;
 
 export default class RepairRunnable implements Runnable {
   baseId: string;
-  defenseHitsLimit: number;
-  damagedStructures: Structure[];
-  damagedSecondaryStructures: Structure[];
 
   threadUpdateDamagedStructure: ThreadFunc;
   threadUpdateDamagedSecondaryStructures: ThreadFunc;
 
   constructor(baseId: string) {
     this.baseId = baseId;
-    this.damagedStructures = [];
-    this.damagedSecondaryStructures = [];
 
     this.threadUpdateDamagedStructure = thread('damaged_structures_thread',
       UPDATE_DAMAGED_STRUCTURES_TTL)(this.updateDamagedStructures.bind(this));
@@ -52,7 +47,7 @@ export default class RepairRunnable implements Runnable {
       return sleeping(10);
     }
 
-    this.threadUpdateDamagedStructure(trace, kernel, room);
+    this.threadUpdateDamagedStructure(trace, kernel, base, room);
     this.threadUpdateDamagedSecondaryStructures(trace, kernel, base, room);
 
     trace.end();
@@ -60,7 +55,7 @@ export default class RepairRunnable implements Runnable {
     return running();
   }
 
-  updateDamagedStructures(trace: Tracer, kernel: Kernel, room: Room) {
+  updateDamagedStructures(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
     const damagedStructures = room.find(FIND_STRUCTURES, {
       filter: (s) => {
         return s.hits < s.hitsMax && (
@@ -69,7 +64,12 @@ export default class RepairRunnable implements Runnable {
       },
     });
 
-    this.damagedStructures = _.map(damagedStructures, 'id');
+    base.damagedStructures = _.map(damagedStructures, 'id');
+
+    trace.info('damaged structures', {
+      room: this.baseId,
+      damagedStructures: base.damagedStructures,
+    });
   }
 
   updateDamagedSecondaryStructures(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
@@ -77,10 +77,10 @@ export default class RepairRunnable implements Runnable {
     const rcLevelHitsMax = RAMPART_HITS_MAX[rcLevel] || 10000;
 
     const energyFullness = getEnergyFullness(base) * 10;
-    this.defenseHitsLimit = rcLevelHitsMax * Math.pow(0.45, (10 - energyFullness));
+    base.defenseHitsLimit = rcLevelHitsMax * Math.pow(0.45, (10 - energyFullness));
 
     if (room.storage && room.storage.store.getUsedCapacity(RESOURCE_ENERGY) < 50000) {
-      this.defenseHitsLimit = 10000;
+      base.defenseHitsLimit = 10000;
     }
 
     // If energy in reserve is less then we need to sustain a max ugprader,
@@ -88,7 +88,7 @@ export default class RepairRunnable implements Runnable {
     const reserveEnergy = getStoredResourceAmount(base, RESOURCE_ENERGY);
     const reserveBuffer = getReserveBuffer(base);
     if (reserveEnergy < reserveBuffer + UPGRADER_BUFFER) {
-      this.defenseHitsLimit = _.min([this.defenseHitsLimit, MAX_WALL_HITS]);
+      base.defenseHitsLimit = _.min([base.defenseHitsLimit, MAX_WALL_HITS]);
     }
 
     let damagedSecondaryStructures = room.find(FIND_STRUCTURES, {
@@ -96,19 +96,19 @@ export default class RepairRunnable implements Runnable {
         return s.hits < s.hitsMax && (
           s.structureType == STRUCTURE_RAMPART ||
           s.structureType == STRUCTURE_WALL) &&
-          s.hits < this.defenseHitsLimit;
+          s.hits < base.defenseHitsLimit;
       },
     });
     damagedSecondaryStructures = _.sortBy(damagedSecondaryStructures, (structure) => {
       return structure.hits;
     });
 
-    this.damagedSecondaryStructures = _.map(damagedSecondaryStructures, 'id');
+    base.damagedSecondaryStructures = _.map(damagedSecondaryStructures, 'id');
 
     trace.info('damaged secondary structures', {
       room: this.baseId,
-      defenseHitsLimit: this.defenseHitsLimit,
-      damagedSecondaryStructures: this.damagedSecondaryStructures,
+      defenseHitsLimit: base.defenseHitsLimit,
+      damagedSecondaryStructures: base.damagedSecondaryStructures,
     });
   }
 }

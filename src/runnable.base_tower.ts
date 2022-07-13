@@ -173,8 +173,6 @@ export default class TowerRunnable {
       }
     }
 
-    // @REFACTOR damaged structure event streams
-
     // Repair damaged structure
     if (!this.repairTarget && base.damagedStructures.length) {
       this.repairTarget = base.damagedStructures.shift();

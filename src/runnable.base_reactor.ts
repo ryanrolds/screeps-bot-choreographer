@@ -250,7 +250,6 @@ export default class ReactorRunnable extends PersistentMemory {
     // TODO this really should use topics/IPC
     trace.log('requesting resource from governor', {resource, amount});
 
-    // @REFACTOR resource governor
     const resourceManager = kernel.getResourceManager();
     const requested = resourceManager.requestResource(base, resource, amount, REQUEST_LOAD_TTL, trace);
     if (!requested) {
