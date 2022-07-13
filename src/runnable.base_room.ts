@@ -1,11 +1,9 @@
-import {AlertLevel, Base, baseEnergyStorageCapacity, getBaseLevel, getBaseLevelCompleted, getStoredResources} from './base';
+import {AlertLevel, Base, baseEnergyStorageCapacity} from './base';
 import {creepIsFresh} from './behavior.commute';
 import * as CREEPS from './constants.creeps';
 import * as MEMORY from './constants.memory';
 import * as PRIORITIES from './constants.priorities';
-import * as TOPICS from './constants.topics';
 import {Kernel} from './kernel';
-import {Event} from './lib.event_broker';
 import {Tracer} from './lib.tracing';
 import {Process, sleeping, terminate} from './os.process';
 import {Runnable, RunnableResult} from './os.runnable';
@@ -14,7 +12,6 @@ import {thread, ThreadFunc} from './os.thread';
 import MineralRunnable from './runnable.base_room_mineral';
 import SourceRunnable from './runnable.base_room_source';
 import {createSpawnRequest, getBaseSpawnTopic, getShardSpawnTopic} from './runnable.base_spawning';
-import {getLinesStream, HudEventSet, HudLine} from './runnable.debug_hud';
 
 const MIN_RESERVATION_TICKS = 4000;
 const NO_VISION_TTL = 20;
@@ -39,7 +36,6 @@ export default class RoomRunnable implements Runnable {
     // Threads
     this.threadUpdateProcessSpawning = thread('spawn_room_processes_thread', UPDATE_PROCESSES_TTL)(this.handleProcessSpawning.bind(this));
     this.threadRequestReserver = thread('request_reserver_thread', REQUEST_RESERVER_TTL)(this.requestReserver.bind(this));
-    this.threadProduceStatus = thread('produce_status_thread', PRODUCE_STATUS_TTL)(this.produceStatus.bind(this));
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
@@ -164,33 +160,5 @@ export default class RoomRunnable implements Runnable {
 
     const request = createSpawnRequest(priority, ttl, role, memory, 0);
     kernel.getTopics().addRequestV2(topic, request);
-  }
-
-  produceStatus(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
-    const baseLevel = getBaseLevel(base);
-    const baseLevelCompleted = getBaseLevelCompleted(base);
-    const resources = getStoredResources(base);
-    const status = {
-      [MEMORY.ROOM_STATUS_NAME]: room.name,
-      [MEMORY.ROOM_STATUS_LEVEL]: baseLevel,
-      [MEMORY.ROOM_STATUS_LEVEL_COMPLETED]: baseLevelCompleted,
-      [MEMORY.ROOM_STATUS_TERMINAL]: !!room.terminal,
-      [MEMORY.ROOM_STATUS_ENERGY]: resources[RESOURCE_ENERGY] || 0,
-      [MEMORY.ROOM_STATUS_ALERT_LEVEL]: base.alertLevel,
-    };
-
-    trace.info('producing room status', {status});
-
-    kernel.getTopics().addRequest(TOPICS.ROOM_STATUES, 1, status, PRODUCE_STATUS_TTL);
-
-    const line: HudLine = {
-      key: `room_${room.name}`,
-      room: room.name,
-      order: 1,
-      text: `Room: ${room.name} - status: ${base.alertLevel}, level: ${baseLevel}`,
-      time: Game.time,
-    };
-    const event = new Event(room.name, Game.time, HudEventSet, line);
-    kernel.getBroker().getStream(getLinesStream()).publish(event);
   }
 }

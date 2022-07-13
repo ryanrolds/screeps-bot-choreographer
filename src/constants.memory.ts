@@ -62,6 +62,7 @@ export const MEMORY_ORDER_RESOURCE = 'order_resource';
 export const MEMORY_ORDER_AMOUNT = 'order_amount';
 
 // transfer task
+export const TRANSFER_BASE = 'transfer_base';
 export const TRANSFER_ROOM = 'transfer_room';
 export const TRANSFER_DESTINATION = 'transfer_destination';
 export const TRANSFER_RESOURCE = 'transfer_resource';
@@ -86,12 +87,12 @@ export const REACTION_STATUS_RESOURCE_AMOUNT = 'reaction_resource_amount';
 export const REACTION_STATUS_PHASE = 'reaction_status_phase';
 
 // Room status
-export const ROOM_STATUS_NAME = 'room_status_name';
-export const ROOM_STATUS_LEVEL = 'room_status_level';
-export const ROOM_STATUS_LEVEL_COMPLETED = 'room_status_level_completed';
-export const ROOM_STATUS_ENERGY = 'room_status_energy';
-export const ROOM_STATUS_ALERT_LEVEL = 'room_status_alert_level';
-export const ROOM_STATUS_TERMINAL = 'room_status_terminal';
+export const BASE_STATUS_NAME = 'room_status_name';
+export const BASE_STATUS_LEVEL = 'room_status_level';
+export const BASE_STATUS_LEVEL_COMPLETED = 'room_status_level_completed';
+export const BASE_STATUS_ENERGY = 'room_status_energy';
+export const BASE_STATUS_ALERT_LEVEL = 'room_status_alert_level';
+export const BASE_STATUS_TERMINAL = 'room_status_terminal';
 
 // PID Controller prefixes
 export const PID_PREFIX_HAULERS = 'haulers_';

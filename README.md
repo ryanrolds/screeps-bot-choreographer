@@ -67,6 +67,7 @@ An AI for [Screeps](screeps.com).
     - [ ] Move path cache, cost matrix cache, and resource gov. to AI
   - [ ] Refactor Resource Governor into a Process\
     - [ ] Move to TypeScript
+- [ ] Double buffer topics when TTLing messages
 - [ ] All of project on TypeScript
 - [ ] Refactor PID controller
 - [ ] Influence map library

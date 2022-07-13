@@ -1,7 +1,8 @@
 import {MEMORY_BASE} from './constants.memory';
 import {Kernel} from './kernel';
-import {LabsByAction} from './runnable.base_booster';
+import {EffectSet, LabsByAction} from './runnable.base_booster';
 import {BaseLayout} from './runnable.base_construction';
+import {TerminalTask} from './runnable.base_terminal';
 
 const PER_LEVEL_ENERGY = 100000;
 
@@ -17,18 +18,33 @@ export interface BaseMap {
 
 export interface Base {
   id: NonNullable<string>;
+
   primary: NonNullable<string>;
   rooms: NonNullable<string[]>;
+
   origin: NonNullable<RoomPosition>;
   parking: RoomPosition;
-  isPublic: NonNullable<boolean>;
+
   walls: NonNullable<{x: number, y: number}[]>;
   passages: NonNullable<{x: number, y: number}[]>;
   neighbors: NonNullable<string[]>;
   alertLevel: NonNullable<AlertLevel>;
 
+  isPublic: NonNullable<boolean>;
+
+  // @REFACTOR double check these are being set
   boostPosition: RoomPosition; // TODO refactor lab arrangement to be more flexible and efficient
   boosts: NonNullable<Map<string, StructureLab[]>>;
+  storedEffects: EffectSet;
+  loadedEffects: LabsByAction;
+
+  // @REFACTOR set this
+  terminalTask: TerminalTask;
+
+  // @REFACTOR set these
+  damagedStructures: Id<AnyStructure>[];
+  damagedSecondaryStructures: Id<AnyStructure>[];
+
 }
 
 export type ResourceCounts = Map<ResourceConstant, number>;
@@ -259,4 +275,12 @@ export function baseEnergyStorageCapacity(base: Base): number {
   }
 
   return room.energyCapacityAvailable || 0;
+}
+
+export function getStoredEffects(base: Base): EffectSet {
+  return base.storedEffects;
+}
+
+export function getLoadedEffects(base: Base): LabsByAction {
+  return base.loadedEffects;
 }

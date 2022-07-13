@@ -235,7 +235,7 @@ export default class ReactorRunnable extends PersistentMemory {
       const missingAmount = desiredAmount - currentAmount;
 
       if (!pickup) {
-        this.requestResource(resource, missingAmount, trace);
+        this.requestResource(kernel, base, resource, missingAmount, trace);
       } else {
         this.loadLab(kernel, lab, pickup, resource, missingAmount, trace);
       }
@@ -252,9 +252,9 @@ export default class ReactorRunnable extends PersistentMemory {
 
     // @REFACTOR resource governor
     const resourceManager = kernel.getResourceManager();
-    const requested = resourceManager.requestResource(kernel, base, resource, amount, REQUEST_LOAD_TTL, trace);
+    const requested = resourceManager.requestResource(base, resource, amount, REQUEST_LOAD_TTL, trace);
     if (!requested) {
-      resourceManager.buyResource(base.primary, resource, amount, REQUEST_LOAD_TTL, trace);
+      resourceManager.buyResource(base, resource, amount, REQUEST_LOAD_TTL, trace);
     }
   }
 

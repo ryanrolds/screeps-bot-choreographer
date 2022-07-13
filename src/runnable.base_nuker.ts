@@ -106,15 +106,11 @@ export default class NukerRunnable {
   requestResource(kernel: Kernel, base: Base, resource: ResourceConstant, amount: number, trace: Tracer) {
     const pickup = getStructureWithResource(base, resource);
     if (!pickup) {
-      trace.log('unable to get resource from reserve', {resource, amount});
-
       trace.log('requesting resource from governor', {resource, amount});
       const resourceGovernor = kernel.getResourceManager();
-
-      // @REFACTOR resource governor
-      const requested = resourceGovernor.requestResource(kernel, resource, amount, REQUEST_RESOURCES_TTL, trace);
+      const requested = resourceGovernor.requestResource(base, resource, amount, REQUEST_RESOURCES_TTL, trace);
       if (!requested) {
-        resourceGovernor.buyResource(this.orgRoom, resource, amount, REQUEST_RESOURCES_TTL, trace);
+        resourceGovernor.buyResource(base, resource, amount, REQUEST_RESOURCES_TTL, trace);
       }
 
       return;
@@ -128,13 +124,16 @@ export default class NukerRunnable {
       ttl: REQUEST_RESOURCES_TTL,
     });
 
-    kernel.getTopics().addRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.HAUL_NUKER, {
+    const request = {
       [MEMORY.TASK_ID]: `load-${this.id}-${Game.time}`,
       [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
       [MEMORY.MEMORY_HAUL_PICKUP]: pickup.id,
       [MEMORY.MEMORY_HAUL_RESOURCE]: resource,
       [MEMORY.MEMORY_HAUL_AMOUNT]: amount,
       [MEMORY.MEMORY_HAUL_DROPOFF]: this.id,
-    }, REQUEST_RESOURCES_TTL);
+    }
+
+    kernel.getTopics().addRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.HAUL_NUKER,
+      request, REQUEST_RESOURCES_TTL);
   }
 }

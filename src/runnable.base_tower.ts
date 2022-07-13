@@ -1,4 +1,4 @@
-import {AlertLevel, Base, getStructuresWithResource} from './base';
+import {AlertLevel, Base, getStoredResourceAmount, getStructuresWithResource} from './base';
 import * as MEMORY from './constants.memory';
 import * as PRIORITIES from './constants.priorities';
 import * as TASKS from './constants.tasks';
@@ -176,14 +176,15 @@ export default class TowerRunnable {
     // @REFACTOR damaged structure event streams
 
     // Repair damaged structure
-    if (!this.repairTarget && this.orgRoom.damagedStructures.length) {
-      this.repairTarget = this.orgRoom.damagedStructures.shift();
+    if (!this.repairTarget && base.damagedStructures.length) {
+      this.repairTarget = base.damagedStructures.shift();
       this.repairTTL = 10;
     }
 
     // Do not repair secondary structures or roads if room is low on energy
-    if (room.storage && this.orgRoom.getAmountInReserve(RESOURCE_ENERGY) < 10000) {
-      trace.log('skipping repairs low energy', {energy: this.orgRoom.getAmountInReserve(RESOURCE_ENERGY)});
+    const baseEnergy = getStoredResourceAmount(base, RESOURCE_ENERGY);
+    if (baseEnergy < 10000) {
+      trace.log('skipping repairs low energy', {energy: baseEnergy});
       this.repairTarget = null;
       this.repairTTL = 0;
       trace.end();
@@ -191,13 +192,16 @@ export default class TowerRunnable {
     }
 
     // Repair damaged secondary structures
-    if (!this.repairTarget && this.orgRoom.damagedSecondaryStructures.length) {
+    if (!this.repairTarget && base.damagedSecondaryStructures.length) {
       let nextRepairTarget = null;
       let nextReapirTargetId = null;
-      for (let i = 0; i < this.orgRoom.damagedSecondaryStructures.length; i++) {
-        nextReapirTargetId = this.orgRoom.damagedSecondaryStructures[0];
+      for (let i = 0; i < base.damagedSecondaryStructures.length; i++) {
+        nextReapirTargetId = base.damagedSecondaryStructures[0];
 
-        trace.log('damaged secondary structure', {nextReapirTargetId, length: this.orgRoom.damagedSecondaryStructures.length});
+        trace.log('damaged secondary structure', {
+          nextReapirTargetId,
+          length: base.damagedSecondaryStructures.length
+        });
 
         nextRepairTarget = Game.getObjectById(nextReapirTargetId);
         if (!nextRepairTarget) {
@@ -210,8 +214,9 @@ export default class TowerRunnable {
       }
 
       if (nextRepairTarget) {
-        if (nextRepairTarget.hitsMax - nextRepairTarget.hits < 100000 && this.orgRoom.damagedSecondaryStructures.length) {
-          this.repairTarget = this.orgRoom.damagedSecondaryStructures.shift();
+        if (nextRepairTarget.hitsMax - nextRepairTarget.hits < 100000 &&
+          base.damagedSecondaryStructures.length) {
+          this.repairTarget = base.damagedSecondaryStructures.shift();
         } else {
           this.repairTarget = nextReapirTargetId;
         }

@@ -73,6 +73,15 @@ const importantStructures = [
   STRUCTURE_TOWER,
 ];
 
+export type BaseStatus = {
+  [MEMORY.BASE_STATUS_NAME]: string;
+  [MEMORY.BASE_STATUS_LEVEL]: number;
+  [MEMORY.BASE_STATUS_LEVEL_COMPLETED]: number;
+  [MEMORY.BASE_STATUS_TERMINAL]: boolean,
+  [MEMORY.BASE_STATUS_ENERGY]: number,
+  [MEMORY.BASE_STATUS_ALERT_LEVEL]: AlertLevel,
+}
+
 export default class BaseRunnable {
   id: string;
   scheduler: Scheduler;
@@ -892,10 +901,10 @@ export default class BaseRunnable {
 
       // @REFACTOR resource governor
 
-      const resourceGovernor = (orgRoom as any).getKingdom().getResourceGovernor();
-      const requested = resourceGovernor.requestResource(orgRoom, RESOURCE_ENERGY, amount, ENERGY_REQUEST_TTL, trace);
+      const resourceGovernor = kernel.getResourceManager();
+      const requested = resourceGovernor.requestResource(base, RESOURCE_ENERGY, amount, ENERGY_REQUEST_TTL, trace);
       if (!requested) {
-        resourceGovernor.buyResource(orgRoom, RESOURCE_ENERGY, amount, ENERGY_REQUEST_TTL, trace);
+        resourceGovernor.buyResource(base, RESOURCE_ENERGY, amount, ENERGY_REQUEST_TTL, trace);
       }
     }
   }
@@ -903,15 +912,17 @@ export default class BaseRunnable {
   produceStatus(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
     const resources = getStoredResources(base);
 
+    const roomStatus: BaseStatus = {
+      [MEMORY.BASE_STATUS_NAME]: room.name,
+      [MEMORY.BASE_STATUS_LEVEL]: getBaseLevel(base),
+      [MEMORY.BASE_STATUS_LEVEL_COMPLETED]: getBaseLevelCompleted(base),
+      [MEMORY.BASE_STATUS_TERMINAL]: !!room.terminal,
+      [MEMORY.BASE_STATUS_ENERGY]: resources[RESOURCE_ENERGY] || 0,
+      [MEMORY.BASE_STATUS_ALERT_LEVEL]: base.alertLevel,
+    };
+
     const status = {
-      details: {
-        [MEMORY.ROOM_STATUS_NAME]: room.name,
-        [MEMORY.ROOM_STATUS_LEVEL]: getBaseLevel(base),
-        [MEMORY.ROOM_STATUS_LEVEL_COMPLETED]: getBaseLevelCompleted(base),
-        [MEMORY.ROOM_STATUS_TERMINAL]: !!room.terminal,
-        [MEMORY.ROOM_STATUS_ENERGY]: resources[RESOURCE_ENERGY] || 0,
-        [MEMORY.ROOM_STATUS_ALERT_LEVEL]: base.alertLevel,
-      },
+      details: roomStatus,
     };
 
     trace.log('producing room status', {status});

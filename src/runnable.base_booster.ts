@@ -27,7 +27,7 @@ export type BoosterDetails = {
   baseId: string;
   position: RoomPosition;
   allEffects: EffectSet;
-  availableEffects: EffectSet;
+  storedEffects: EffectSet;
   labsByResource: LabsByResource;
   labsByAction: LabsByAction;
 }
@@ -39,7 +39,7 @@ export type Reaction = {
   priority: number,
 };
 
-export type ReactionMap = Partial<Map<ResourceConstant, Reaction>>;
+export type ReactionMap = Map<ResourceConstant, Reaction>;
 
 export class Compound {
   name: ResourceConstant;
@@ -77,7 +77,7 @@ export default class BoosterRunnable {
   boostPosition: RoomPosition;
   allEffects: EffectSet;
 
-  threadUpdateRoomBooster: ThreadFunc;
+  threadUpdateBoosters: ThreadFunc;
 
   constructor(id: string, baseId: string, labIds: Id<StructureLab>[]) {
     this.id = id;
@@ -86,7 +86,7 @@ export default class BoosterRunnable {
     this.allEffects = null;
 
     this.boostPosition = this.getCreepBoostPosition();
-    this.threadUpdateRoomBooster = thread('update_room_booster', UPDATE_ROOM_BOOSTER_INTERVAL)(this.updateRoomBooster.bind(this));
+    this.threadUpdateBoosters = thread('update_room_booster', UPDATE_ROOM_BOOSTER_INTERVAL)(this.updateBoosters.bind(this));
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
@@ -129,7 +129,7 @@ export default class BoosterRunnable {
 
     let sleepFor = REQUEST_ENERGY_TTL;
     this.requestEnergyForLabs(kernel, base, trace);
-    this.threadUpdateRoomBooster(trace, kernel, base);
+    this.threadUpdateBoosters(trace, kernel, base);
 
     if (Object.keys(desiredEffects).length) {
       sleepFor = REQUEST_LOAD_TTL;
@@ -148,10 +148,10 @@ export default class BoosterRunnable {
     return this.labIds.map((labId) => Game.getObjectById(labId)).filter(((lab) => lab));
   }
 
-  updateRoomBooster(trace: Tracer, kernel: Kernel, base: Base) {
+  updateBoosters(trace: Tracer, kernel: Kernel, base: Base) {
     const resourceEnd = trace.startTimer('resources');
-    const allEffects = this.getEffects();
-    const availableEffects = this.getAvailableEffects(kernel, base);
+    const allEffects = this.getCompoundByEffects();
+    const storedEffects = this.getAvailableEffects(kernel, base);
     const labsByResource = this.getLabsByResource();
     const labsByAction = this.getLabsByAction();
     resourceEnd();
@@ -160,7 +160,7 @@ export default class BoosterRunnable {
       baseId: this.baseId,
       position: this.boostPosition,
       allEffects,
-      availableEffects,
+      storedEffects,
       labsByResource,
       labsByAction: labsByAction,
     };
@@ -172,7 +172,7 @@ export default class BoosterRunnable {
         labs[lab.id] = lab.mineralType;
         return labs;
       }, {} as ResourceByLabs),
-      availableEffects,
+      availableEffects: storedEffects,
     });
 
     kernel.getTopics().addRequest(TOPIC_ROOM_BOOSTS, 1, details, UPDATE_ROOM_BOOSTER_INTERVAL);
@@ -291,7 +291,8 @@ export default class BoosterRunnable {
     });
   }
 
-  getEffects(availableResources = null): EffectSet {
+  // Get compounds by effects
+  getCompoundByEffects(availableResources: ResourceCounts = null): EffectSet {
     // If we are after all events and they are already cached, then return the cache
     if (!availableResources && this.allEffects) {
       return this.allEffects;
@@ -330,7 +331,7 @@ export default class BoosterRunnable {
 
   getLoadedEffects(): EffectSet {
     const resources = this.getLabResources();
-    return this.getEffects(resources);
+    return this.getCompoundByEffects(resources);
   }
 
   getAvailableEffects(kernel: Kernel, base: Base): EffectSet {
@@ -338,12 +339,12 @@ export default class BoosterRunnable {
     const loadedResource = this.getLabResources();
 
     // TODO the merge does not sum values
-    return this.getEffects(_.assign(availableResources, loadedResource));
+    return this.getCompoundByEffects(_.assign(availableResources, loadedResource));
   }
 
   getDesiredEffects(kernel: Kernel): EffectSet {
     const desiredEffects: EffectSet = new Map();
-    const allEffects = this.getEffects();
+    const allEffects = this.getCompoundByEffects();
 
     let request = null;
     while (request = kernel.getTopics().getNextRequest(TOPICS.BOOST_PREP)) {
@@ -488,11 +489,12 @@ export default class BoosterRunnable {
   }
 
   requestMaterialsForLabs(kernel: Kernel, base: Base, needToLoad, trace: Tracer) {
+    const allEffects = this.getCompoundByEffects();
     const storedResources = getStoredResources(base);
 
     needToLoad.forEach((toLoad) => {
       trace.log('need to load', {toLoad});
-      const effect = this.allEffects[toLoad];
+      const effect = allEffects[toLoad];
       if (!effect) {
         trace.log('not able to find desired effect', {toLoad});
         return;

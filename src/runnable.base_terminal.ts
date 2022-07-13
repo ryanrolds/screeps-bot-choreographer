@@ -26,6 +26,18 @@ const ORDER_MGMT_TTL = 1000;
 const HAUL_OLD_SELL_ORDER_TTL = 20;
 const UPDATE_ENERGY_VALUE_TTL = 2500;
 
+
+export type TerminalTask = {
+  [MEMORY.TERMINAL_TASK_TYPE]: string,
+  [MEMORY.TRANSFER_RESOURCE]: ResourceConstant,
+  [MEMORY.TRANSFER_AMOUNT]: number,
+  [MEMORY.TRANSFER_BASE]: string,
+}
+
+export function getBaseTerminalTopic(base: Base): string {
+  return `base_${base.id}_${TOPICS.TOPIC_TERMINAL_TASK}`;
+}
+
 export default class TerminalRunnable extends PersistentMemory {
   baseId: string;
   terminalId: Id<StructureTerminal>;
@@ -90,7 +102,7 @@ export default class TerminalRunnable extends PersistentMemory {
     let task = terminal.room.memory[MEMORY.TERMINAL_TASK] || null;
     if (!task) {
       this.processTaskTTL = -1;
-      task = kernel.getTopics().getNextRequest(TOPICS.TOPIC_TERMINAL_TASK);
+      task = kernel.getTopics().getNextRequest(getBaseTerminalTopic(base));
       if (task) {
         terminal.room.memory[MEMORY.TERMINAL_TASK] = task;
       }
@@ -119,7 +131,7 @@ export default class TerminalRunnable extends PersistentMemory {
 
     if (this.updateOrdersTTL < 0) {
       this.updateOrdersTTL = ORDER_MGMT_TTL;
-      this.updateOrders(terminal, trace);
+      this.updateOrders(kernel, terminal, trace);
     }
 
     trace.end();
@@ -287,9 +299,7 @@ export default class TerminalRunnable extends PersistentMemory {
       return order.price + (transferEnergy * this.energyValue);
     })[0];
 
-    // @REFACTOR resource governor
-
-    const resources = this.orgRoom.getKingdom().getResourceGovernor().getSharedResources();
+    const resources = kernel.getResourceManager().getSharedResources();
     const reserveAmount = resources[resource] || 0;
 
     const maxBuyPrice = this.pricer.getPrice(ORDER_BUY, resource, reserveAmount);
@@ -364,10 +374,8 @@ export default class TerminalRunnable extends PersistentMemory {
           return order.price + (transferEnergy * this.energyValue);
         }).reverse()[0];
 
-        // @REFACTOR resource governor
-
         // Get desired purchase price based on current stockpile
-        const resources = this.orgRoom.getKingdom().getResourceGovernor().getSharedResources();
+        const resources = kernel.getResourceManager().getSharedResources();
         const currentAmount = resources[resource] || 0;
         const minSellPrice = this.pricer.getPrice(ORDER_SELL, resource, currentAmount);
 
@@ -480,7 +488,7 @@ export default class TerminalRunnable extends PersistentMemory {
     trace.log('create sell order result', {result, order});
   }
 
-  updateOrders(terminal: StructureTerminal, trace: Tracer) {
+  updateOrders(kernel: Kernel, terminal: StructureTerminal, trace: Tracer) {
     trace.log('updating prices on buy/sell orders');
 
     Object.values(Game.market.orders).filter((order) => {
@@ -492,9 +500,7 @@ export default class TerminalRunnable extends PersistentMemory {
         return;
       }
 
-      // @REFACTOR resource governor
-
-      const resources = this.orgRoom.getKingdom().getResourceGovernor().getSharedResources();
+      const resources = kernel.getResourceManager().getSharedResources();
       const currentAmount = resources[order.resourceType] || 0;
       const price = this.pricer.getPrice(order.type as (ORDER_BUY | ORDER_SELL),
         order.resourceType as ResourceConstant, currentAmount);
