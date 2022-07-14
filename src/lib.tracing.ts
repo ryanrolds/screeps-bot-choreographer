@@ -47,7 +47,9 @@ export class Tracer {
 
   withFields(fields: TracerFields): Tracer {
     const child = this.clone();
-    child.kv = _.assign(child.kv, fields);
+    for (const [key, value] of fields.entries()) {
+      child.kv.set(key, value);
+    }
     return child;
   }
 
@@ -135,7 +137,7 @@ export class Tracer {
 
   private clone() {
     const child = new Tracer(this.name, this.kv, this.start);
-    child.kv = _.assign({}, this.kv);
+    child.kv = new Map(this.kv);
 
     child.logFilter = this.logFilter;
     child.collect = this.collect;
@@ -152,7 +154,7 @@ export class Tracer {
   }
 
   private shouldLog(): boolean {
-    return this.logFilter === this.kv['pid'];
+    return this.logFilter === this.kv.get('pid');
   }
 
   private pushMetric(cpuTime: number) {

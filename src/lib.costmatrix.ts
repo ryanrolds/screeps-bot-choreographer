@@ -61,7 +61,7 @@ export const createCommonCostMatrix = (kernel: Kernel, roomName: string, trace: 
   const structures = room.find(FIND_STRUCTURES);
   trace.log('found structures', {numStructures: structures.length});
   // Favor roads and avoid blocking structures
-  structures.forEach(function(struct) {
+  structures.forEach(function (struct) {
     if (struct.structureType === STRUCTURE_ROAD) {
       // Favor roads over plain tiles
       costMatrix.set(struct.pos.x, struct.pos.y, 1);
@@ -168,7 +168,7 @@ export const createSourceRoadMatrix = (kernel: Kernel, roomName: string, trace: 
   const structures = room.find(FIND_STRUCTURES);
   const nonRoadStructures = structures.filter((s) => s.structureType !== STRUCTURE_ROAD);
 
-  nonRoadStructures.forEach(function(struct) {
+  nonRoadStructures.forEach(function (struct) {
     if (struct.structureType !== STRUCTURE_CONTAINER &&
       (struct.structureType !== STRUCTURE_RAMPART || !struct.my)) {
       // Controller links dont count as obstacle, otherwise controller pad will shift around
@@ -263,7 +263,7 @@ export const createOpenSpaceMatrix = (roomName: string, trace: Tracer): [CostMat
   trace = trace.begin('createOpenSpaceMatrix');
 
   const costMatrix = new PathFinder.CostMatrix();
-  const seen: Map<string, boolean> = new Map();
+  const seen: Set<string> = new Set();
 
   let pass = 0;
   const passes: RoomPosition[][] = [];
@@ -276,7 +276,7 @@ export const createOpenSpaceMatrix = (roomName: string, trace: Tracer): [CostMat
     for (let y = 0; y <= 49; y++) {
       if (x < 3 || y < 3 || x > 46 || y > 46 || terrain.get(x, y) === TERRAIN_MASK_WALL) {
         passes[pass].push(new RoomPosition(x, y, roomName));
-        seen[x + ',' + y] = true;
+        seen.add(`${x},${y}`);
         costMatrix.set(x, y, pass);
       }
     }
@@ -289,12 +289,12 @@ export const createOpenSpaceMatrix = (roomName: string, trace: Tracer): [CostMat
 
     currentPass.forEach((centerPos: RoomPosition) => {
       getNearbyPositions(centerPos, 1).forEach((pos) => {
-        if (seen[pos.x + ',' + pos.y]) {
+        if (seen.has(`${pos.x},${pos.y}`)) {
           return;
         }
 
         passes[pass].push(pos);
-        seen[pos.x + ',' + pos.y] = true;
+        seen.add(`${pos.x},${pos.y}`);
         costMatrix.set(pos.x, pos.y, pass);
       });
     });
@@ -389,7 +389,7 @@ const applySourceMineralBuffer = (room: Room, costMatrix: CostMatrix, terrain: R
 
   trace.log('found sources and minerals', {numStructures: sources.length});
 
-  sources.forEach(function(source) {
+  sources.forEach(function (source) {
     const pos = source.pos;
     for (let x = pos.x - 2; x < pos.x + 3; x++) {
       for (let y = pos.y - 2; y < pos.y + 3; y++) {
@@ -413,7 +413,7 @@ const applyRoads = (room: Room, costMatrix: CostMatrix, cost: number, trace: Tra
   const roads = structures.filter((s) => s.structureType === STRUCTURE_ROAD);
 
   // Add existing roads
-  roads.forEach(function(struct) {
+  roads.forEach(function (struct) {
     const currentCost = costMatrix.get(struct.pos.x, struct.pos.y);
     if (currentCost >= 5 && currentCost != 255) {
       costMatrix.set(struct.pos.x, struct.pos.y, currentCost - 2);

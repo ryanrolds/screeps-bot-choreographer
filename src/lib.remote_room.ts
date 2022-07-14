@@ -38,12 +38,12 @@ export const findNextRemoteRoom = (
 
   const scribe = kernel.getScribe();
   adjacentRooms = _.filter(adjacentRooms, (roomName) => {
-    debug.details[roomName] = {};
+    debug.details.set(roomName, {});
 
     // filter rooms already belonging to a colony
     const roomBase = kernel.getPlanner().getBaseByRoom(roomName);
     if (roomBase && base.id !== roomBase.id) {
-      debug.details[roomName].rejected = 'already assigned';
+      debug.details.get(roomName).rejected = 'already assigned';
       trace.info('room already assigned to colony', {roomName});
       return false;
     }
@@ -52,26 +52,26 @@ export const findNextRemoteRoom = (
 
     // filter out rooms we have not seen
     if (!roomEntry) {
-      debug.details[roomName].rejected = 'not seen';
+      debug.details.get(roomName).rejected = 'not seen';
       trace.info('no room entry found', {roomName});
       return false;
     }
 
     // filter out rooms that do not have a source
     if (roomEntry.numSources === 0) {
-      debug.details[roomName].rejected = 'no source';
+      debug.details.get(roomName).rejected = 'no source';
       trace.info('room has no sources', {roomName});
       return false;
     }
 
     if (!roomEntry.controller?.pos) {
-      debug.details[roomName].rejected = 'no controller';
+      debug.details.get(roomName).rejected = 'no controller';
       trace.info('has no controller pos', {roomName});
       return false;
     }
 
     if (roomEntry.controller.owner) {
-      debug.details[roomName].rejected = 'has owner';
+      debug.details.get(roomName).rejected = 'has owner';
       trace.info('has controller owner', {roomName});
       return false;
     }
@@ -89,17 +89,17 @@ export const findNextRemoteRoom = (
       (roomName) => { // Sort by number of sources
         const roomEntry = scribe.getRoomById(roomName);
 
-        debug.details[roomName].sources = roomEntry.numSources;
+        debug.details.get(roomName).sources = roomEntry.numSources;
         return roomEntry.numSources;
       },
       (roomName) => { // Sort by distance from primary room
         const route = Game.map.findRoute(base.primary, roomName);
         if (route === ERR_NO_PATH) {
-          debug.details[roomName].distance = 9999;
+          debug.details.get(roomName).distance = 9999;
           return 9999;
         }
 
-        debug.details[roomName].distance = route.length;
+        debug.details.get(roomName).distance = route.length;
         return route.length;
       },
     ],

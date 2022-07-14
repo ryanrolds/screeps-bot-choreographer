@@ -56,9 +56,9 @@ export type FindPathPolicy = {
 export type PathSearchDetails = {
   tries: number;
   passes: number;
-  searchedRooms: Map<string, boolean>;
+  searchedRooms: Set<string>;
   rejectedRooms: Map<string, string>;
-  blockedRooms: Map<string, boolean>;
+  blockedRooms: Set<string>;
   incompletePaths: PathFinderPath[];
 };
 
@@ -82,9 +82,9 @@ export const getPath = (kernel: Kernel, origin: RoomPosition, destination: RoomP
   const pathDetails: PathSearchDetails = {
     tries: 1,
     passes: 0,
-    searchedRooms: new Map(),
+    searchedRooms: new Set(),
     rejectedRooms: new Map(),
-    blockedRooms: new Map(),
+    blockedRooms: new Set(),
     incompletePaths: [],
   };
 
@@ -150,7 +150,7 @@ export const getPath = (kernel: Kernel, origin: RoomPosition, destination: RoomP
     // Add last room to blocked and try again if allowed
     if (lastRoom != destination.roomName) {
       trace.info('last room not destination', {origin, goal, opts});
-      pathDetails.blockedRooms[lastRoom] = true;
+      pathDetails.blockedRooms.add(lastRoom);
       pathDetails.incompletePaths.push(result);
     }
   }
@@ -251,7 +251,7 @@ const getRoomRouteCallback = (
   trace: Tracer,
 ): RouteCallback => {
   return (toRoom: string, fromRoom: string): number => {
-    searchDetails.searchedRooms[toRoom] = true;
+    searchDetails.searchedRooms.add(toRoom);
 
     // Always allow entry to destination room
     if (destRoom === toRoom) {
@@ -263,7 +263,7 @@ const getRoomRouteCallback = (
       return 1;
     }
 
-    if (searchDetails.blockedRooms[toRoom]) {
+    if (searchDetails.blockedRooms.has(toRoom)) {
       return Infinity;
     }
 
@@ -277,7 +277,7 @@ const getRoomRouteCallback = (
     if (roomEntry) {
       const [allow, reason] = applyRoomCallbackPolicy(kernel, roomEntry, policy, trace);
       if (!allow) {
-        searchDetails.rejectedRooms[toRoom] = reason;
+        searchDetails.rejectedRooms.set(toRoom, reason);
         return Infinity;
       }
     }
@@ -300,7 +300,7 @@ const getRoomCallback = (
     // If this room is not destination, check if we should avoid it
     if (originRoom != roomName && destRoom !== roomName) {
       if (!allowedRooms[roomName]) {
-        pathDetails.rejectedRooms[roomName] = 'not in allowed rooms';
+        pathDetails.rejectedRooms.set(roomName, 'not in allowed rooms');
         return false;
       }
 
@@ -308,14 +308,14 @@ const getRoomCallback = (
 
       // If we have not scanned the room, dont enter it
       if (!roomEntry && roomPolicy.avoidUnloggedRooms) {
-        pathDetails.rejectedRooms[roomName] = 'unlogged';
+        pathDetails.rejectedRooms.set(roomName, 'unlogged');
         return false;
       }
 
       if (roomEntry) {
         const [allow, reason] = applyRoomCallbackPolicy(kernel, roomEntry, roomPolicy, trace);
         if (!allow) {
-          pathDetails.rejectedRooms[roomName] = reason;
+          pathDetails.rejectedRooms.set(roomName, reason);
           return false;
         }
       }

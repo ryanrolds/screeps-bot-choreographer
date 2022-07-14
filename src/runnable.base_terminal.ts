@@ -101,7 +101,7 @@ export default class TerminalRunnable {
       this.processTaskTTL = -1;
       const task = kernel.getTopics().getNextRequest(getBaseTerminalTopic(base));
       if (task) {
-        base.terminalTask = task;
+        base.terminalTask = task.details as TerminalTask;
       }
     }
 

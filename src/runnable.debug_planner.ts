@@ -1,7 +1,7 @@
 import {Kernel} from './kernel';
 import {
   DismissedReasonAdjacentClaimed, DismissedReasonDifferentRoomStatus, DismissedReasonNoController, DismissedReasonNoRoomEntry,
-  DismissedReasonOwned, ExpandResults, pickExpansion,
+  DismissedReasonOwned, ExpandResults, pickExpansion
 } from './lib.expand';
 import {Tracer} from './lib.tracing';
 import {running} from './os.process';
@@ -35,17 +35,17 @@ export default class PlannerDebugger {
         new RoomVisual(selected).text('x', this.results.origin, {color: '#00ff00'});
       }
 
-      _.forEach(this.results.candidates, (selected, roomName) => {
+      for (const roomName of this.results.candidates.keys()) {
         Game.map.visual.text('0', new RoomPosition(25, 25, roomName), {color: '#0000ff', fontSize: 20});
-      });
+      }
 
-      _.forEach(this.results.claimed, (selected, roomName) => {
+      for (const roomName of this.results.claimed.keys()) {
         Game.map.visual.text('X', new RoomPosition(25, 25, roomName), {color: '#0000ff', fontSize: 20});
-      });
+      }
 
-      _.forEach(this.results.dismissed, (resaon, roomName) => {
+      for (const [roomName, reason] of this.results.dismissed) {
         let text = 'X';
-        switch (resaon) {
+        switch (reason) {
           case DismissedReasonNoController:
             text = 'NC';
             break;
@@ -66,7 +66,7 @@ export default class PlannerDebugger {
         }
 
         Game.map.visual.text(text, new RoomPosition(25, 25, roomName), {color: '#ff0000', fontSize: 20});
-      });
+      }
     }
 
     return running();

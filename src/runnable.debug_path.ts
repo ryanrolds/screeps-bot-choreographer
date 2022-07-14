@@ -26,14 +26,14 @@ export default class PathDebugger {
     if (this.results) {
       visualizePath(this.results.path, trace);
 
-      _.each(this.resultsDebug.searchedRooms, (searched, roomName) => {
-        if (this.resultsDebug.blockedRooms[roomName]) {
+      for (const roomName of this.resultsDebug.searchedRooms) {
+        if (this.resultsDebug.blockedRooms.has(roomName)) {
           Game.map.visual.text('X', new RoomPosition(25, 25, roomName), {color: '#ff0000'});
           return;
         }
 
         Game.map.visual.text('0', new RoomPosition(25, 25, roomName), {color: '#ff0000'});
-      });
+      }
 
       _.each(this.resultsDebug.incompletePaths, (path) => {
         displayRoomPaths(path.path, {stroke: '#ff0000'});

@@ -30,7 +30,7 @@ export const selectEnergyForWithdraw = behaviorTree.leafNode(
         return acc.concat(containers);
       }, [] as (StructureContainer | StructureStorage)[]);
 
-      spawnContainerCache[creep.room.name] = spawnContainers;
+      spawnContainerCache.set(creep.room.name, spawnContainers);
     }
 
     const target = creep.pos.findClosestByRange(spawnContainers);

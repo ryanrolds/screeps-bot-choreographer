@@ -29,7 +29,7 @@ export function getRegion(room: Room, starting: RoomPosition): RegionMap {
     let reachRight = false;
 
     while (pos.y <= bottomEdge && !isWallOrInRegion(room, regionMap, pos)) {
-      regionMap[[pos.x, pos.y].join(',')] = {x: pos.x, y: pos.y};
+      regionMap.set([pos.x, pos.y].join(','), {x: pos.x, y: pos.y});
 
       if (pos.x >= leftEdge) {
         if (!isWallOrInRegion(room, regionMap, {x: pos.x - 1, y: pos.y})) {
@@ -61,21 +61,21 @@ export function getRegion(room: Room, starting: RoomPosition): RegionMap {
   room.find<StructureRampart>(FIND_STRUCTURES, {
     filter: (structure) => structure.structureType === STRUCTURE_RAMPART,
   }).forEach((rampart: StructureRampart) => {
-    regionMap[[rampart.pos.x, rampart.pos.y].join(',')] = {x: rampart.pos.x, y: rampart.pos.y};
+    regionMap.set([rampart.pos.x, rampart.pos.y].join(','), {x: rampart.pos.x, y: rampart.pos.y});
   });
 
   return regionMap;
 }
 
 function isWallOrInRegion(room: Room, regionMap: RegionMap, pos: Position): boolean {
-  if (regionMap[[pos.x, pos.y].join(',')]) {
+  if (regionMap.has([pos.x, pos.y].join(','))) {
     return true;
   }
 
   const objects = room.lookAt(pos.x, pos.y);
   return !!_.find(objects, (object) => {
     if (object.type === LOOK_STRUCTURES) {
-      return blockingObjects[object.structure.structureType];
+      return blockingObjects.has(object.structure.structureType);
     }
 
     if (object.type === LOOK_TERRAIN && object.terrain === 'wall') {

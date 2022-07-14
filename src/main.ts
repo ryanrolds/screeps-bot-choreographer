@@ -106,9 +106,8 @@ const trace = new Tracer('tick', new Map([['shard', Game.shard.name]]), 0);
 const ai: AI = new AI(shardConfig, scheduler, trace);
 global.AI = ai; // So we can access it from the console
 
-export const loop = function() {
-  const fields = new Map([['shard', Game.shard.name]]);
-  const trace = new Tracer('tick', fields, 0);
+export const loop = function () {
+  const trace = new Tracer('tick', new Map([['shard', Game.shard.name]]), 0);
 
   // Set process id filter
   trace.setLogFilter(global.LOG_WHEN_PID);

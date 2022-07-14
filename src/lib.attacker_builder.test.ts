@@ -7,7 +7,7 @@ import {Tracer} from './lib.tracing';
 // The number of tests in here is stupid. I mostly did it so that I could see the numbers
 // and understand the maximum room it could attack and where the line was in the boosts
 
-describe('Attacker Builder', function() {
+describe('Attacker Builder', function () {
   const towerDmg = 600;
   const quadSize = 4;
   const tower1 = Math.ceil(1 * towerDmg / quadSize);
@@ -16,7 +16,6 @@ describe('Attacker Builder', function() {
   const tower6 = Math.ceil(6 * towerDmg / quadSize);
 
   context('buildattacker', () => {
-    const fields = new Map();
     const trace = new Tracer('test', new Map([['pid', 'test']]), 0);
 
     it('should build effective attacker for RCL 1 by a RCL 1', () => {

@@ -25,34 +25,38 @@ export class Topics {
       this.removeStale();
     }
 
-    if (!this.topics[key]) {
+    if (!this.topics.has(key)) {
       return null;
     }
 
-    return this.topics[key];
+    return this.topics.get(key);
   }
 
   setTopic(key: TopicKey, value) {
-    if (!this.topics[key]) {
+    if (!this.topics.has(key)) {
       return null;
     }
 
-    this.topics[key] = value;
+    this.topics.set(key, value);
   }
+
   reset() {
     this.topics = new Map();
   }
+
   removeStale() {
-    Object.keys(this.topics).forEach((topicId) => {
-      this.topics[topicId] = this.topics[topicId].filter((request) => {
+    for (const [key, topic] of this.topics) {
+      this.topics.set(key, this.topics.get(key).filter((request) => {
         return request.ttl >= Game.time;
-      });
-    });
+      }));
+    }
+
     this.lastCleanup = Game.time;
   }
-  createTopic(key: TopicKey) {
-    this.topics[key] = [];
-    return this.topics[key];
+
+  createTopic(key: TopicKey): Topic {
+    this.topics.set(key, []);
+    return this.topics.get(key);
   }
 
   /**
@@ -71,7 +75,7 @@ export class Topics {
     };
 
     topic.push(request);
-    this.topics[key] = _.sortBy(topic, 'priority');
+    this.topics.set(key, _.sortBy(topic, 'priority'));
   }
 
   addRequestV2(key: TopicKey, request: Request) {
@@ -86,10 +90,10 @@ export class Topics {
     topic.push(request);
 
     // TODO doing this each message we push is a bit slow
-    this.topics[key] = _.sortBy(topic, 'priority');
+    this.topics.set(key, _.sortBy(topic, 'priority'));
   }
 
-  peekNextRequest(key: TopicKey) {
+  peekNextRequest(key: TopicKey): Request {
     const topic = this.getTopic(key);
     if (!topic) {
       return null;
@@ -101,7 +105,8 @@ export class Topics {
 
     return topic[topic.length - 1];
   }
-  getNextRequest(key: TopicKey) {
+
+  getNextRequest(key: TopicKey): Request {
     const topic = this.getTopic(key);
     if (!topic) {
       return null;
@@ -120,6 +125,7 @@ export class Topics {
 
     return request;
   }
+
   getFilteredRequests(key: TopicKey, filter) {
     const requests = this.getTopic(key);
     if (!requests) {
@@ -150,12 +156,5 @@ export class Topics {
     }
 
     return topic.length;
-  }
-  getCounts() {
-    return _.reduce(_.pairs(this.topics), (acc, pair: [string, Topic]) => {
-      acc[pair[0]] = pair[1].length;
-
-      return acc;
-    }, {});
   }
 }

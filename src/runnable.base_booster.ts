@@ -313,11 +313,11 @@ export default class BoosterRunnable {
         Object.keys(effects).forEach((effect) => {
           const bonus = effects[effect];
 
-          if (!allEffects[effect]) {
-            allEffects[effect] = new Effect(effect, part);
+          if (!allEffects.has(effect)) {
+            allEffects.set(effect, new Effect(effect, part));
           }
 
-          allEffects[effect].compounds.push(new Compound(resource, effect, bonus));
+          allEffects.get(effect).compounds.push(new Compound(resource, effect, bonus));
         });
       });
     });
@@ -356,19 +356,19 @@ export default class BoosterRunnable {
       }
 
       requestedEffects.forEach((requested) => {
-        desiredEffects[requested] = allEffects[requested];
+        desiredEffects.set(requested, allEffects.get(requested));
       });
     }
 
     return desiredEffects;
   }
-  getNeeds(loadedEffects, desiredEffects, trace: Tracer) {
-    const loadedNames = Object.keys(loadedEffects);
-    const desiredNames = Object.keys(desiredEffects);
+  getNeeds(loadedEffects: EffectSet, desiredEffects: EffectSet, trace: Tracer): [string[], string[], StructureLab[]] {
+    const loadedNames = [...loadedEffects.keys()];
+    const desiredNames = [...desiredEffects.keys()];
     let preparedNames = _.intersection(loadedNames, desiredNames);
 
     preparedNames = preparedNames.filter((effectName) => {
-      const effect = loadedEffects[effectName];
+      const effect = loadedEffects.get(effectName);
       const compound = effect.compounds[0].name;
       const lab = this.getLabByResource(compound);
       const currentAmount = lab.store.getUsedCapacity(compound);
@@ -387,7 +387,8 @@ export default class BoosterRunnable {
     return [needToLoad, couldUnload, emptyLabs];
   }
 
-  sendHaulRequests(kernel: Kernel, base: Base, loadedEffects, needToLoad, emptyLabs, couldUnload, trace: Tracer) {
+  sendHaulRequests(kernel: Kernel, base: Base, loadedEffects: EffectSet, needToLoad: string[],
+    emptyLabs: StructureLab[], couldUnload: string[], trace: Tracer) {
     const numToLoad = needToLoad.length;
     const numEmpty = emptyLabs.length;
 
@@ -403,6 +404,7 @@ export default class BoosterRunnable {
       this.requestUnloadOfLabs(kernel, base, loadedEffects, unload, trace);
     }
   }
+
   rebalanceLabs(kernel: Kernel, base: Base, trace: Tracer) {
     const labs = this.getLabs();
     labs.forEach((lab) => {
@@ -445,9 +447,10 @@ export default class BoosterRunnable {
     });
   }
 
-  requestUnloadOfLabs(kernel: Kernel, base: Base, loadedEffects, couldUnload, trace: Tracer) {
+  requestUnloadOfLabs(kernel: Kernel, base: Base, loadedEffects: EffectSet, couldUnload: string[],
+    trace: Tracer) {
     couldUnload.forEach((toUnload) => {
-      const effect = loadedEffects[toUnload];
+      const effect = loadedEffects.get(toUnload);
       const compound = effect.compounds[0];
 
       const pickup = this.getLabByResource(compound.name);
@@ -496,7 +499,7 @@ export default class BoosterRunnable {
 
     needToLoad.forEach((toLoad) => {
       trace.log('need to load', {toLoad});
-      const effect = allEffects[toLoad];
+      const effect = allEffects.get(toLoad);
       if (!effect) {
         trace.log('not able to find desired effect', {toLoad});
         return;

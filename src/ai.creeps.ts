@@ -40,11 +40,15 @@ export class CreepManager implements Runnable {
 
     this.creeps = Object.values(Game.creeps);
     this.creepsByBase = _.reduce(this.creeps, (acc, creep) => {
-      if (!creep.memory[MEMORY_BASE]) {
+      const base = creep.memory[MEMORY_BASE];
+      if (!base) {
         trace.warn(`Creep ${creep.name} has no base assigned`);
       }
-      return creep.memory[MEMORY_BASE];
-    }, new Map());
+
+      const creeps = acc.get(base) || [];
+      acc.set(base, creeps.concat(creep));
+      return acc;
+    }, new Map<string, Creep[]>());
 
     this.creepCountsByBaseAndRole = _.reduce(this.creeps, (bases, creep) => {
       const base = creep.memory[MEMORY_BASE];
@@ -138,7 +142,7 @@ export class CreepManager implements Runnable {
   }
 
   getCreepsByBase(baseName: string): Creep[] {
-    return this.creepsByBase[baseName] || [];
+    return this.creepsByBase.get(baseName) || [];
   }
 
   getCreepsByBaseAndRole(base: string, role: string): Creep[] {
@@ -151,7 +155,7 @@ export class CreepManager implements Runnable {
       throw new Error(`Creep ${creep.name} has no role`);
     }
 
-    const roleDefinition = DEFINITIONS[role];
+    const roleDefinition = DEFINITIONS.get(role);
     if (!roleDefinition) {
       throw new Error(`Creep ${name} has ${role} which does not have role definition`);
     }

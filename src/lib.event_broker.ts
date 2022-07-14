@@ -67,19 +67,19 @@ export class Stream {
   }
 
   removeConsumed() {
-    const minOffset = Object.values(this.consumers).reduce((min, consumer) => {
-      if (min === -1) {
-        return consumer.getOffset();
+    let minOffset = -1;
+    for (const consumer of this.consumers.values()) {
+      if (minOffset === -1) {
+        minOffset = consumer.getOffset();
       }
-
-      return Math.min(min, consumer.getOffset());
-    }, -1);
+      minOffset = Math.min(minOffset, consumer.getOffset());
+    }
 
     if (minOffset > 0) {
       this.events = this.events.slice(minOffset);
-      Object.values(this.consumers).forEach((consumer) => {
+      for (const consumer of this.consumers.values()) {
         consumer.shiftOffet(minOffset);
-      });
+      }
     }
   }
 
@@ -94,13 +94,13 @@ export class Stream {
 
   addConsumer(consumerId: ConsumerId): Consumer {
     const consumer = new Consumer(consumerId, this);
-    this.consumers[consumerId] = consumer;
+    this.consumers.set(consumerId, consumer);
 
     return consumer;
   }
 
   removeConsumer(consumer: Consumer) {
-    delete this.consumers[consumer.id];
+    this.consumers.delete(consumer.id);
     consumer.detach();
   }
 }
@@ -113,16 +113,16 @@ export class EventBroker {
   }
 
   getStream(streamId: StreamId): Stream {
-    if (!this.streams[streamId]) {
-      this.streams[streamId] = new Stream();
+    if (!this.streams.get(streamId)) {
+      this.streams.set(streamId, new Stream());
     }
 
-    return this.streams[streamId];
+    return this.streams.get(streamId);
   }
 
   removeConsumed() {
-    Object.values(this.streams).forEach((stream) => {
+    for (const stream of this.streams.values()) {
       stream.removeConsumed();
-    });
+    }
   }
 }

@@ -1,6 +1,6 @@
 import {Kernel} from './kernel';
 import {
-  createCommonCostMatrix, createDefenderCostMatrix, createOpenSpaceMatrix, createPartyCostMatrix, createSourceRoadMatrix, haulerCostMatrixMatrix, singleRoomCommonMatrix,
+  createCommonCostMatrix, createDefenderCostMatrix, createOpenSpaceMatrix, createPartyCostMatrix, createSourceRoadMatrix, haulerCostMatrixMatrix, singleRoomCommonMatrix
 } from './lib.costmatrix';
 import {Tracer} from './lib.tracing';
 
@@ -84,23 +84,24 @@ export class CostMatrixCacheItem {
 }
 
 export class CostMatrixCache {
-  rooms: Map<string, Partial<Map<AllowedCostMatrixTypes, CostMatrixCacheItem>>>;
+  rooms: Map<string, Map<AllowedCostMatrixTypes, CostMatrixCacheItem>>;
 
   constructor() {
     this.rooms = new Map();
   }
 
   getCostMatrix(kernel: Kernel, roomId: string, costMatrixType: AllowedCostMatrixTypes, trace: Tracer): CostMatrix {
-    if (!this.rooms[roomId]) {
-      trace.log('room not in cache', {roomId});
-      this.rooms[roomId] = {} as Map<Partial<AllowedCostMatrixTypes>, CostMatrixCacheItem>;
+    if (!this.rooms.get(roomId)) {
+      trace.info('room not in cache', {roomId});
+      this.rooms.set(roomId, new Map());
     }
 
-    let roomMatrix = this.rooms[roomId][costMatrixType];
+    const room = this.rooms.get(roomId);
+    let roomMatrix = room.get(costMatrixType);
     if (!roomMatrix) {
-      trace.log('matrix type not in room cache', {roomId, costMatrixType});
+      trace.info('matrix type not in room cache', {roomId, costMatrixType});
       roomMatrix = new CostMatrixCacheItem(roomId, costMatrixType);
-      this.rooms[roomId][costMatrixType] = roomMatrix;
+      room.set(costMatrixType, roomMatrix);
     }
 
     return roomMatrix.getCostMatrix(kernel, trace);
@@ -108,7 +109,7 @@ export class CostMatrixCache {
 
   getStats() {
     return {
-      roomCacheSize: Object.keys(this.rooms).length,
+      roomCacheSize: this.rooms.size,
     };
   }
 }

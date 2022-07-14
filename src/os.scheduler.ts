@@ -83,11 +83,11 @@ export class Scheduler {
   }
 
   hasProcess(id: string): boolean {
-    return !!this.processMap[id];
+    return this.processMap.has(id);
   }
 
   getProcess(id: string): Process {
-    return this.processMap[id];
+    return this.processMap.get(id);
   }
 
   getProcesses(): Process[] {
@@ -109,8 +109,6 @@ export class Scheduler {
 
     // Time limit change between ticks
     this.updateTimeLimit();
-
-    const startCpu = Game.cpu.getUsed();
 
     // Sort process table priority
     // -1 should maintain the same order

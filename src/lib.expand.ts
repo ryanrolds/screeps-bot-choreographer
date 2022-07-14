@@ -14,19 +14,21 @@ export type DismissedReason = 'no_room_entry' | 'no_controller' | 'adjacent_clai
 
 export type ExpandResults = {
   selected: string;
+
   distance: number;
   origin: RoomPosition
-  candidates: Map<string, boolean>;
-  claimed: Map<string, boolean>;
+
+  candidates: Set<string>;
+  claimed: Set<string>;
   dismissed: Map<string, DismissedReason>;
-  seen: Map<string, boolean>;
+  seen: Set<string>;
 }
 
 export const pickExpansion = (kernel: Kernel, trace: Tracer): ExpandResults => {
-  const candidates: Map<string, boolean> = new Map();
-  const claimed: Map<string, boolean> = new Map();
+  const candidates: Set<string> = new Set();
+  const claimed: Set<string> = new Set();
   const dismissed: Map<string, DismissedReason> = new Map();
-  let seen: Map<string, boolean> = new Map();
+  let seen: Set<string> = new Set();
 
   const bases = kernel.getPlanner().getBases();
 
@@ -39,15 +41,15 @@ export const pickExpansion = (kernel: Kernel, trace: Tracer): ExpandResults => {
 
   // First pass through bases, find all the rooms that are assigned to a base already
   bases.forEach((base) => {
-    claimed[base.primary] = true;
+    claimed.add(base.primary);
     // Build map of claimed rooms
     base.rooms.forEach((roomName) => {
-      claimed[roomName] = true;
+      claimed.add(roomName);
     });
   });
 
   let nextPass: string[] = Object.keys(claimed);
-  seen = _.clone(claimed);
+  seen = new Set(claimed);
 
   for (let i = 0; i < PASSES; i++) {
     const found = [];
@@ -55,17 +57,17 @@ export const pickExpansion = (kernel: Kernel, trace: Tracer): ExpandResults => {
     nextPass.forEach((parentRoom) => {
       _.forEach(Game.map.describeExits(parentRoom), (roomName, key) => {
         // Check room in next pass
-        if (!seen[roomName]) {
+        if (!seen.has(roomName)) {
           found.push(roomName);
         }
 
-        seen[roomName] = true;
+        seen.add(roomName);
 
-        if (dismissed[roomName]) {
+        if (dismissed.has(roomName)) {
           return;
         }
 
-        if (claimed[roomName]) {
+        if (claimed.has(roomName)) {
           return;
         }
 
@@ -73,7 +75,7 @@ export const pickExpansion = (kernel: Kernel, trace: Tracer): ExpandResults => {
           const roomStatus = Game.map.getRoomStatus(roomName).status;
           if (roomStatus !== baseRoomStatus) {
             trace.info('different room status', {roomName, roomStatus, baseRoomStatus});
-            dismissed[roomName] = DismissedReasonDifferentRoomStatus;
+            dismissed.set(roomName, DismissedReasonDifferentRoomStatus);
             return;
           }
         }
@@ -81,7 +83,7 @@ export const pickExpansion = (kernel: Kernel, trace: Tracer): ExpandResults => {
         const roomEntry = kernel.getScribe().getRoomById(roomName);
         if (!roomEntry) {
           trace.info('no room entry', {roomName});
-          dismissed[roomName] = DismissedReasonNoRoomEntry;
+          dismissed.set(roomName, DismissedReasonNoRoomEntry);
           return;
         }
 
@@ -89,7 +91,7 @@ export const pickExpansion = (kernel: Kernel, trace: Tracer): ExpandResults => {
 
         if (!roomEntry.controller || !roomEntry.controller.pos) {
           trace.info('dismiss candidate, no controller', {parentRoom, roomEntry});
-          dismissed[roomName] = DismissedReasonNoController;
+          dismissed.set(roomName, DismissedReasonNoController);
           return;
         }
 
@@ -97,43 +99,39 @@ export const pickExpansion = (kernel: Kernel, trace: Tracer): ExpandResults => {
         // Also add to claims room list to we don't pick adjacent rooms
         if (roomEntry.controller.owner) {
           trace.info('dismissed room owned', {parentRoom, roomEntry});
-          dismissed[roomName] = DismissedReasonOwned;
-          claimed[roomName] = true;
+          dismissed.set(roomName, DismissedReasonOwned);
+          claimed.add(roomName)
           return;
         }
 
         // If previous room was claimed, do not build as this room is too close to another colony
-        if (claimed[parentRoom]) {
-          dismissed[roomName] = DismissedReasonAdjacentClaimed;
+        if (claimed.has(parentRoom)) {
+          dismissed.set(roomName, DismissedReasonAdjacentClaimed);
           trace.info('dismissing room, parent claimed', {parentRoom, roomName});
           return;
         }
 
         trace.info('adding room to candidates', {roomName});
-        candidates[roomName] = true;
+        candidates.add(roomName);
       });
     });
 
     nextPass = found;
   }
 
-  let candidateList = _.keys(candidates);
-  candidateList = _.filter(candidateList, (roomName) => {
-    if (claimed[roomName]) {
-      return false;
+  const filterCandidates: Set<string> = new Set();
+  for (const candidate of candidates.keys()) {
+    if (!claimed.has(candidate) || !dismissed.has(candidate)) {
+      continue;
     }
 
-    if (dismissed[roomName]) {
-      return false;
-    }
+    filterCandidates.add(candidate);
+  }
 
-    return true;
-  });
-
-  trace.info('pre-filter candidates', {candidateList});
+  trace.info('pre-filter candidates', {filterCandidates});
 
   // TODO factor in available remotes
-  candidateList = _.sortByOrder(candidateList,
+  const sortedCandidates = _.sortByOrder([...filterCandidates.keys()],
     (roomName) => {
       const roomEntry = kernel.getScribe().getRoomById(roomName);
       if (!roomEntry) {
@@ -147,15 +145,15 @@ export const pickExpansion = (kernel: Kernel, trace: Tracer): ExpandResults => {
     ['desc'],
   );
 
-  trace.info('sorted candidates', {candidateList});
+  trace.info('sorted candidates', {sortedCandidates});
 
-  if (candidateList.length < 3) {
-    trace.notice('not enough candidates', {candidateList});
+  if (sortedCandidates.length < 3) {
+    trace.notice('not enough candidates', {sortedCandidates});
     return {selected: null, distance: null, origin: null, candidates, claimed, dismissed, seen};
   }
 
-  for (let i = 0; i < candidateList.length; i++) {
-    const roomName = candidateList[i];
+  for (let i = 0; i < sortedCandidates.length; i++) {
+    const roomName = sortedCandidates[i];
     const [costMatrix, distance, origin] = createOpenSpaceMatrix(roomName, trace);
     trace.info('open space matrix', {roomName, distance, origin});
 
