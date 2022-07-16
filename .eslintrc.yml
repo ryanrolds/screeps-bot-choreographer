@@ -3,19 +3,23 @@ env:
   node: true
   screeps/screeps: true
 extends:
-# - google
-# - eslint:recommended
- - plugin:@typescript-eslint/recommended
+  - eslint:recommended
+  - plugin:@typescript-eslint/recommended
+parser: '@typescript-eslint/parser'
 parserOptions:
-  ecmaVersion: 12
-  sourceType: module
+  project:
+    - './tsconfig.json'
+    - './packages/*/tsconfig.json'
+  sourceTYpe: module
 rules:
   require-jsdoc: 0
   max-len:
     - warn
     - code: 120
   indent: off
+  "bad-map-access/bad-map-access": warn
 plugins:
   - screeps
   - '@typescript-eslint'
+  - 'bad-map-access'
 root: true
