@@ -124,7 +124,7 @@ export default class WarPartyRunnable {
     this.role = role;
     this.parts = null;
     this.roomDamage = null;
-    this.minEnergy = DEFINITIONS[this.role].energyMinimum || 0;
+    this.minEnergy = DEFINITIONS.get(this.role)?.energyMinimum || 0;
     this.phase = phase || Phase.PHASE_MARSHAL;
     this.position = position;
     this.destination = new RoomPosition(25, 25, targetRoom);

@@ -224,7 +224,7 @@ export class ResourceManager implements Runnable {
         }, false);
 
         // If critical, subtract min compound amount
-        let amount = baseResources[resource];
+        let amount = baseResources.get(resource);
         if (isCritical) {
           amount -= MIN_CRITICAL_COMPOUND;
         }
@@ -255,7 +255,7 @@ export class ResourceManager implements Runnable {
       const baseResources = getStoredResources(base);
       Object.keys(baseResources).forEach((resource) => {
         const current = acc[resource] || 0;
-        acc[resource] = baseResources[resource] + current;
+        acc.set(resource, baseResources.get(resource) + current);
       });
 
       return acc;
@@ -273,58 +273,58 @@ export class ResourceManager implements Runnable {
     const missingOneInput: ReactionMap = new Map();
     const overReserve: ReactionMap = new Map();
 
-    const firstInputs = Object.keys(REACTIONS);
+    const firstInputs = Object.keys(REACTIONS) as ResourceConstant[];
     firstInputs.forEach((inputA) => {
       // If we don't have a full batch, move onto next
-      if (!this.resources[inputA] || this.resources[inputA] < REACTION_BATCH_SIZE) {
+      if (!this.resources.has(inputA) || this.resources.get(inputA) < REACTION_BATCH_SIZE) {
         trace.info('dont have enough of first resource', {
           inputA,
-          amountA: this.resources[inputA] || 0,
+          amountA: this.resources.get(inputA) || 0,
           REACTION_BATCH_SIZE,
         });
 
         return;
       }
 
-      const secondInputs = Object.keys(REACTIONS[inputA]);
+      const secondInputs = Object.keys(REACTIONS[inputA]) as ResourceConstant[];
       secondInputs.forEach((inputB) => {
         const output = REACTIONS[inputA][inputB];
 
         // If we don't have a full batch if input mark missing one and go to next
-        if (!this.resources[inputB] || this.resources[inputB] < REACTION_BATCH_SIZE) {
-          if (!missingOneInput[output]) {
+        if (!this.resources.has(inputB) || this.resources.get(inputB) < REACTION_BATCH_SIZE) {
+          if (!missingOneInput.has(output)) {
             trace.log('dont have enough of second resource', {
               inputA,
               inputB,
-              amountA: this.resources[inputA] || 0,
-              amountB: this.resources[inputB] || 0,
+              amountA: this.resources.get(inputA) || 0,
+              amountB: this.resources.get(inputB) || 0,
               output,
               REACTION_BATCH_SIZE,
             });
 
-            missingOneInput[output] = {inputA, inputB, output};
+            missingOneInput.set(output, {inputA, inputB, output});
           }
 
           return;
         }
 
         // Check if we need more of the output
-        if (this.resources[output] > RESERVE_LIMIT && !overReserve[output]) {
-          // overReserve[output] = {inputA, inputB, output};
+        if (this.resources.get(output) > RESERVE_LIMIT && !overReserve.has(output)) {
+          overReserve.set(output, {inputA, inputB, output});
           return;
         }
 
         // If reaction isn't already present add it
-        if (!availableReactions[output]) {
+        if (!availableReactions.has(output)) {
           trace.info('adding available reaction', {
             inputA,
             inputB,
-            amountA: this.resources[inputA] || 0,
-            amountB: this.resources[inputB] || 0,
+            amountA: this.resources.get(inputA) || 0,
+            amountB: this.resources.get(inputB) || 0,
             output,
           });
 
-          availableReactions[output] = {inputA, inputB, output};
+          availableReactions.set(output as ResourceConstant, {inputA, inputB, output});
         }
       });
     });
@@ -349,7 +349,7 @@ export class ResourceManager implements Runnable {
       let priority = REACTION_PRIORITIES[reaction['output']];
 
       // Reduce priority linearly based on amount of resource (more = lower priority)
-      const amount = this.resources[reaction['output']] || 0;
+      const amount = this.resources.get(reaction.get('output')) || 0;
       priority = priority * _.max([0, 1 - (amount / RESERVE_LIMIT)]);
       priority -= penalty;
 
@@ -458,7 +458,7 @@ export class ResourceManager implements Runnable {
       return;
     }
 
-    const currentAmount = this.resources[resource] || 0;
+    const currentAmount = this.resources.get(resource) || 0;
     const price = this.pricer.getPrice(ORDER_BUY, resource, currentAmount);
 
     // Create buy order
@@ -582,9 +582,9 @@ export class ResourceManager implements Runnable {
 
         const bestCompound = compounds[0];
         const baseResources = getStoredResources(base);
-        const currentAmount = baseResources[bestCompound] || 0;
+        const currentAmount = baseResources.get(bestCompound) || 0;
 
-        const availableEffect = availableEffects[effectName];
+        const availableEffect = availableEffects.get(effectName);
         if (!availableEffect || currentAmount < MIN_CRITICAL_COMPOUND) {
           effectTrace.log('maybe request/buy best compound', {
             colonyId: base.id,

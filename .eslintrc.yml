@@ -9,7 +9,6 @@ parser: '@typescript-eslint/parser'
 parserOptions:
   project:
     - './tsconfig.json'
-    - './packages/*/tsconfig.json'
   sourceTYpe: module
 rules:
   require-jsdoc: 0
@@ -17,7 +16,8 @@ rules:
     - warn
     - code: 120
   indent: off
-  "bad-map-access/bad-map-access": warn
+  no-cond-assign: off
+  bad-map-access/bad-map-access: error
 plugins:
   - screeps
   - '@typescript-eslint'

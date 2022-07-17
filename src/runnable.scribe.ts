@@ -271,7 +271,7 @@ export class Scribe implements Runnable {
   }
 
   getRoomById(roomId): RoomEntry {
-    return this.journal.rooms[roomId] || null;
+    return this.journal.rooms.get(roomId) || null;
   }
 
   getRooms(): RoomEntry[] {
@@ -328,11 +328,13 @@ export class Scribe implements Runnable {
   }
 
   getRoomsWithInvaderBases(): [Id<Room>, number][] {
-    return Object.values(this.journal.rooms).filter((room) => {
-      return false;
-    }).map((room) => {
-      return [room.id, Game.time - room.lastUpdated];
-    });
+    const found: [Id<Room>, number][] = [];
+    for (const [key, room] of this.journal.rooms) {
+      if (room.invaderCoreLevel > 0) {
+        found.push([room.id, Game.time - room.lastUpdated]);
+      }
+    }
+    return found;
   }
 
   getRoomsWithHostileTowers(kernel): [Id<Room>, number, string][] {
@@ -620,15 +622,15 @@ export class Scribe implements Runnable {
 
     depositsEnd();
 
-    this.journal.rooms[room.id] = room;
+    this.journal.rooms.set(room.id, room);
 
     const duration = end();
     trace.log('updated room', {duration, room: room.id});
     trace.end();
   }
 
-  clearRoom(roomId: string) {
-    delete this.journal.rooms[roomId];
+  clearRoom(roomId: Id<Room>) {
+    this.journal.rooms.delete(roomId);
   }
 
   getLocalShardMemory(): ShardMemory {
@@ -667,11 +669,11 @@ export class Scribe implements Runnable {
       localMemory.creep_backups = new Map();
     }
 
-    localMemory.creep_backups[creep.name] = {
+    localMemory.creep_backups.set(creep.name, {
       name: creep.name,
       memory: creep.memory,
       ttl: Game.time,
-    };
+    });
 
     localMemory.creep_backups = _.pick(localMemory.creep_backups, (backup) => {
       return Game.time - backup.ttl < 1500;
@@ -683,7 +685,7 @@ export class Scribe implements Runnable {
   getCreepBackup(shardName: string, creepName: string) {
     const remoteMemory = this.getRemoteShardMemory(shardName);
     if (remoteMemory.creep_backups) {
-      return remoteMemory.creep_backups[creepName] || null;
+      return remoteMemory.creep_backups.get(creepName) || null;
     }
 
     return null;

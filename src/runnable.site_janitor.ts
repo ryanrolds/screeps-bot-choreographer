@@ -31,36 +31,36 @@ export class SiteJanitor implements Runnable {
       // remove entry if site does not exist in game
       if (!Game.constructionSites[entry.id]) {
         purged++;
-        delete this.sites[entry.id];
+        this.sites.delete(entry.id);
       }
     });
 
     _.each(Game.constructionSites, (site) => {
       // if we have not seen the site, add an entry
-      if (!this.sites[site.id]) {
-        this.sites[site.id] = {
+      if (!this.sites.has(site.id)) {
+        this.sites.set(site.id, {
           id: site.id,
           completeness: site.progress,
           observed: Game.time,
-        };
+        });
 
         created++;
         return;
       }
 
       // if we have seen the site and the progress is different, update the observed time
-      if (this.sites[site.id].completeness !== site.progress) {
-        this.sites[site.id].completeness = site.progress;
-        this.sites[site.id].observed = Game.time;
+      if (this.sites.get(site.id).completeness !== site.progress) {
+        this.sites.get(site.id).completeness = site.progress;
+        this.sites.get(site.id).observed = Game.time;
 
         updated++;
         return;
       }
 
       // if the site has been observed for too long, remove it
-      if (Game.time - this.sites[site.id].observed > SITE_TTL) {
+      if (Game.time - this.sites.get(site.id).observed > SITE_TTL) {
         site.remove();
-        delete this.sites[site.id];
+        this.sites.delete(site.id);
 
         removed++;
         return;

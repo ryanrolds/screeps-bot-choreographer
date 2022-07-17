@@ -38,7 +38,7 @@ export type Reaction = {
   inputA: ResourceConstant,
   inputB: ResourceConstant,
   output: ResourceConstant,
-  priority: number,
+  priority?: number,
 };
 
 export type ReactionMap = Map<ResourceConstant, Reaction>;
