@@ -485,7 +485,7 @@ export default class WarPartyRunnable {
 
   alignWithTarget(target: (Creep | Structure), position: RoomPosition, trace: Tracer) {
     let inCorner: DirectionConstant = null;
-    _.each<Map<DirectionConstant, {x: number, y: number}>>(CORNERS, (corner, direction) => {
+    for (const [direction, corner] of CORNERS) {
       if (!corner) {
         return;
       }
@@ -498,9 +498,9 @@ export default class WarPartyRunnable {
 
       trace.info('cornerPosition', {cornerPosition});
       if (target.pos.isEqualTo(cornerPosition)) {
-        inCorner = parseInt(direction, 10) as DirectionConstant;
+        inCorner = direction;
       }
-    });
+    }
 
     if (inCorner) {
       trace.info('in corner', {inCorner});

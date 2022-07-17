@@ -261,13 +261,13 @@ export class Scribe implements Runnable {
   }
 
   removeStaleJournalEntries(trace) {
-    const numBefore = Object.keys(this.journal.rooms).length;
-
-    this.journal.rooms = _.pick(this.journal.rooms, (room) => {
+    const numBefore = this.journal.rooms.size;
+    this.journal.rooms = _.pick(Array.from(this.journal.rooms.values()), (room) => {
       return Game.time - room.lastUpdated < MAX_JOURNAL_TTL;
     });
+    const numAfter = this.journal.rooms.size;
 
-    trace.info('remove_stale', {numBefore, numAfter: Object.keys(this.journal.rooms).length});
+    trace.info('remove_stale', {numBefore, numAfter});
   }
 
   getRoomById(roomId): RoomEntry {
@@ -275,11 +275,11 @@ export class Scribe implements Runnable {
   }
 
   getRooms(): RoomEntry[] {
-    return Object.values(this.journal.rooms);
+    return Array.from(this.journal.rooms.values());
   }
 
   getStats() {
-    const rooms = Object.keys(this.journal.rooms) as Id<Room>[];
+    const rooms = Array.from(this.journal.rooms.keys());
     const oldestId = this.getOldestRoomInList(rooms);
     const oldestRoom = this.getRoomById(oldestId);
     const oldestAge = oldestRoom ? Game.time - oldestRoom.lastUpdated : 0;
@@ -292,13 +292,18 @@ export class Scribe implements Runnable {
   }
 
   getOldestRoomInList(rooms: Id<Room>[]): Id<Room> {
-    const knownRooms = _.keys(this.journal.rooms) as Id<Room>[];
+    const knownRooms = Array.from(this.journal.rooms.keys());
     const missingRooms = _.difference<Id<Room>>(rooms, knownRooms);
     if (missingRooms.length) {
       return _.shuffle(missingRooms)[0];
     }
 
-    const inRangeRooms: RoomEntry[] = Object.values(_.pick(this.journal.rooms, rooms));
+    // Create array and narrow to only rooms in the provided list
+    const inRangeRooms: RoomEntry[] = _.pick(Array.from(this.journal.rooms.values()), (room) => {
+      return rooms.indexOf(room.id) > -1;
+    });
+
+    // Sort in ascending order so we pull the oldest room first
     const sortedRooms = _.sortBy(inRangeRooms, 'lastUpdated');
     if (!sortedRooms.length) {
       return null;
@@ -308,7 +313,7 @@ export class Scribe implements Runnable {
   }
 
   getRoomsUpdatedRecently() {
-    return Object.values(this.journal.rooms).filter((room) => {
+    return Array.from(this.journal.rooms.values()).filter((room) => {
       return Game.time - room.lastUpdated < 500;
     }).map((room) => {
       return room.id;
@@ -316,7 +321,7 @@ export class Scribe implements Runnable {
   }
 
   getRoomsWithPowerBanks(): [Id<Room>, number, number][] {
-    return Object.values(this.journal.rooms).filter((room) => {
+    return Array.from(this.journal.rooms.values()).filter((room) => {
       if (!room.powerBanks) {
         return false;
       }
@@ -338,7 +343,7 @@ export class Scribe implements Runnable {
   }
 
   getRoomsWithHostileTowers(kernel): [Id<Room>, number, string][] {
-    return Object.values(this.journal.rooms).filter((room) => {
+    return Array.from(this.journal.rooms.values()).filter((room) => {
       if (!room.controller || room.controller.owner === kernel.getPlanner().getUsername()) {
         return false;
       }
@@ -354,7 +359,7 @@ export class Scribe implements Runnable {
   }
 
   getRoomsWithPortals(): [Id<Room>, number, string[]][] {
-    return Object.values(this.journal.rooms).filter((room) => {
+    return Array.from(this.journal.rooms.values()).filter((room) => {
       if (!room.portals) {
         return false;
       }
@@ -368,7 +373,7 @@ export class Scribe implements Runnable {
   }
 
   getRoomsWithMyConstructionSites(): {id: Id<Room>, sites: number}[] {
-    let rooms = Object.values(this.journal.rooms).filter((room) => {
+    let rooms = Array.from(this.journal.rooms.values()).filter((room) => {
       return room.myConstructionSites > 0;
     });
 
@@ -380,7 +385,7 @@ export class Scribe implements Runnable {
   }
 
   getHostileRooms(kernel): TargetRoom[] {
-    return Object.values(this.journal.rooms).filter((room) => {
+    return Array.from(this.journal.rooms.values()).filter((room) => {
       if (!room.controller || room.controller.owner === kernel.getPlanner().getUsername()) {
         return false;
       }
@@ -658,9 +663,15 @@ export class Scribe implements Runnable {
   }
 
   getPortals(shardName: string): PortalEntry[] {
-    return Object.values(this.journal.rooms).reduce((portals, room) => {
-      return portals.concat(_.filter(room.portals, _.matchesProperty('destinationShard', shardName)));
-    }, [] as PortalEntry[]);
+    const roomsWithPortals = [];
+    for (const [id, entry] of this.journal.rooms) {
+      if (entry.portals) {
+        const shardPortals = entry.portals.filter(portal => portal.destinationShard === shardName)
+        roomsWithPortals.push(...shardPortals);
+      }
+    }
+
+    return roomsWithPortals;
   }
 
   setCreepBackup(creep: Creep) {
@@ -675,20 +686,12 @@ export class Scribe implements Runnable {
       ttl: Game.time,
     });
 
-    localMemory.creep_backups = _.pick(localMemory.creep_backups, (backup) => {
-      return Game.time - backup.ttl < 1500;
-    });
-
     this.setLocalShardMemory(localMemory);
   }
 
   getCreepBackup(shardName: string, creepName: string) {
     const remoteMemory = this.getRemoteShardMemory(shardName);
-    if (remoteMemory.creep_backups) {
-      return remoteMemory.creep_backups.get(creepName) || null;
-    }
-
-    return null;
+    return remoteMemory.creep_backups?.get(creepName) || null;
   }
 }
 
