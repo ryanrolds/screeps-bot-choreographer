@@ -8,6 +8,7 @@
     "esModuleInterop": true,
     "moduleResolution": "node",
     "module": "commonjs",
+    //"strict": true, // @TODO turn this on and fix the errors
     "types": [
       "node",
       "screeps",

@@ -36,7 +36,7 @@
     "chai": "^4.3.4",
     "eslint": "^7.32.0",
     "eslint-config-google": "^0.14.0",
-    "eslint-plugin-no-bad-map-access": "^0.0.2",
+    "eslint-plugin-no-bad-map-access": "^0.0.3",
     "eslint-plugin-screeps": "^2.1.0",
     "grunt": "^1.0.1",
     "grunt-cli": "^1.4.3",

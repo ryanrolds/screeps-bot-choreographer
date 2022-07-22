@@ -214,7 +214,7 @@ export class ResourceManager implements Runnable {
       }
 
       const baseResources = getStoredResources(base);
-      Object.keys(baseResources).forEach((resource: ResourceConstant) => {
+      Array.from(baseResources.keys()).forEach((resource: ResourceConstant) => {
         // Find first effect for that resource
         const isCritical = Object.values(CRITICAL_EFFECTS).find((compounds) => {
           if (compounds.indexOf(resource as MineralBoostConstant) != -1) {
@@ -233,8 +233,8 @@ export class ResourceManager implements Runnable {
         }
 
         // Update the resource counts
-        const current = acc[resource] || 0;
-        acc[resource] = amount + current;
+        const current = acc.get(resource) || 0;
+        acc.set(resource, amount + current);
       });
 
       return acc;
@@ -253,8 +253,9 @@ export class ResourceManager implements Runnable {
       }
 
       const baseResources = getStoredResources(base);
-      Object.keys(baseResources).forEach((resource) => {
-        const current = acc[resource] || 0;
+
+      Array.from(baseResources.keys()).forEach((resource) => {
+        const current = acc.get(resource) || 0;
         acc.set(resource, baseResources.get(resource) + current);
       });
 
@@ -334,7 +335,7 @@ export class ResourceManager implements Runnable {
     // overReserve = this.prioritizeReactions(overReserve, 10);
 
     let nextReactions: Reaction[] = [].concat(sortedAvailableReactions);
-    if (Object.keys(missingOneInput).length && Game.market.credits > MIN_CREDITS) {
+    if (missingOneInput.size && Game.market.credits > MIN_CREDITS) {
       nextReactions = nextReactions.concat(sortedMissingOneInput);
     }
     // nextReactions = nextReactions.concat(overReserve.reverse());
@@ -345,11 +346,11 @@ export class ResourceManager implements Runnable {
   }
 
   prioritizeReactions(reactions: ReactionMap, penalty: number): Reaction[] {
-    return _.sortBy(Object.values(reactions), (reaction) => {
+    return _.sortBy(Array.from(reactions.values()), (reaction) => {
       let priority = REACTION_PRIORITIES[reaction['output']];
 
       // Reduce priority linearly based on amount of resource (more = lower priority)
-      const amount = this.resources.get(reaction.get('output')) || 0;
+      const amount = this.resources.get(reaction['output']) || 0;
       priority = priority * _.max([0, 1 - (amount / RESERVE_LIMIT)]);
       priority -= penalty;
 
@@ -503,8 +504,6 @@ export class ResourceManager implements Runnable {
   }
 
   requestSellResource(trace: Tracer, kernel: Kernel) {
-    const entries = Object.entries(this.sharedResources);
-
     this.sharedResources.forEach((amount, resource) => {
       if (resource === RESOURCE_ENERGY) {
         return;
