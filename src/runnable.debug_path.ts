@@ -81,17 +81,16 @@ export default class PathDebugger {
 
 export const displayRoomPaths = (path: RoomPosition[], style: PolyStyle) => {
   const pathByRooms = path.reduce((acc, pos) => {
-    if (!acc[pos.roomName]) {
-      acc[pos.roomName] = [];
+    if (!acc.has(pos.roomName)) {
+      acc.set(pos.roomName, []);
     }
 
-    acc[pos.roomName].push(pos);
-
+    acc.get(pos.roomName).push(pos)
     return acc;
   }, {} as Map<string, RoomPosition[]>);
 
   // Display in the rooms
-  Object.entries(pathByRooms).forEach(([key, value]) => {
+  Array.from(pathByRooms.entries()).forEach(([key, value]) => {
     new RoomVisual(key).poly(value, style);
   });
 };

@@ -54,7 +54,7 @@ export class Dashboard {
   }
 
   setIndicator(indicator: HudIndicator) {
-    this.indicators[indicator.key] = indicator;
+    this.indicators.set(indicator.key, indicator);
   }
 
   getIndicators(): Map<string, HudIndicator> {
@@ -96,7 +96,9 @@ export class HUDRunnable {
     this.threadLinesEvents(trace);
     this.threadDashboardEvents(trace);
 
-    _.forEach(_.groupBy(_.values<HudLine>(this.lines), 'room'), (lines, room) => {
+    const lines = Array.from(this.lines.values())
+
+    _.forEach(_.groupBy(lines, 'room'), (lines, room) => {
       let lineNum = 0;
       const roomVisual = new RoomVisual(room);
 
@@ -108,12 +110,12 @@ export class HUDRunnable {
 
     trace.log('dashboards', {dashboards: this.dashboards});
 
-    _.forEach(this.dashboards, (dashboard) => {
+    Array.from(this.dashboards.values()).forEach((dashboard) => {
       const indicators = dashboard.getIndicators();
-      trace.log('indicators', indicators);
+      trace.log('indicators', {indicators});
 
       let indicatorNum = 0;
-      _.forEach(indicators, (indicator) => {
+      Array.from(indicators.values()).forEach((indicator) => {
         let fill = '#00ff00';
         if (indicator.status === HudIndicatorStatus.Red) {
           fill = '#ff0000';
@@ -135,7 +137,7 @@ export class HUDRunnable {
   consumeLinesEvents(trace: Tracer) {
     this.hudLinesConsumer.getEvents().forEach((event) => {
       const line: HudLine = event.data;
-      this.lines[line.key] = line;
+      this.lines.set(line.key, line);
     });
   }
 
@@ -146,11 +148,11 @@ export class HUDRunnable {
       const indicator: HudIndicator = event.data;
 
       const room = indicator.room;
-      if (!this.dashboards[room]) {
-        this.dashboards[room] = new Dashboard(room);
+      if (!this.dashboards.has(room)) {
+        this.dashboards.set(room, new Dashboard(room));
       }
 
-      this.dashboards[room].setIndicator(indicator);
+      this.dashboards.get(room).setIndicator(indicator);
     });
   }
 }

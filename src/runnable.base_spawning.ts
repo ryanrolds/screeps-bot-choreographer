@@ -163,15 +163,15 @@ export default class SpawnManager {
           {align: 'right', opacity: 0.8},
         );
 
-        const role = creep.memory[MEMORY.MEMORY_ROLE];
-
-        if (!CREEPS.DEFINITIONS[role]) {
+        const role: string = creep.memory[MEMORY.MEMORY_ROLE];
+        const definition = CREEPS.DEFINITIONS.get(role);
+        if (!definition) {
           trace.error('unknown role', {creepName: creep.name, role});
           return;
         }
 
-        const boosts = CREEPS.DEFINITIONS[role].boosts;
-        const priority = CREEPS.DEFINITIONS[role].processPriority;
+        const boosts = definition.boosts;
+        const priority = definition.processPriority;
 
         trace.log('spawning', {creepName: creep.name, role, boosts, priority});
 
@@ -239,8 +239,13 @@ export default class SpawnManager {
         request = neighborRequest;
       }
 
-      const role = request.details[SPAWN_REQUEST_ROLE];
-      const definition = DEFINITIONS[role];
+      const role: string = request.details[SPAWN_REQUEST_ROLE];
+      const definition = DEFINITIONS.get(role);
+      if (!definition) {
+        trace.error('unknown role', {role});
+        return;
+      }
+
       if (definition.energyMinimum && spawnEnergy < definition.energyMinimum) {
         trace.warn('not enough energy', {spawnEnergy, request, definition});
         return;
@@ -406,7 +411,11 @@ export default class SpawnManager {
 
 function createCreep(base: Base, room: string, spawn: StructureSpawn, role: string,
   parts: BodyPartConstant[], memory: any, energy: number, energyLimit: number) {
-  const definition = DEFINITIONS[role];
+  const definition = DEFINITIONS.get(role);
+  if (!definition) {
+    console.error('no definition for role', {role});
+    return;
+  }
 
   const ignoreSpawnEnergyLimit = definition.ignoreSpawnEnergyLimit || false;
   if (energy > energyLimit && !ignoreSpawnEnergyLimit) {
@@ -447,7 +456,7 @@ function getBodyParts(definition, maxEnergy) {
   let base = definition.base.slice(0);
   let i = 0;
 
-  while (true) {
+  while (true) { // eslint-disable-line no-constant-condition
     const nextPart = definition.parts[i % definition.parts.length];
     const estimate = base.concat([nextPart]).reduce((acc, part) => {
       return acc + BODYPART_COST[part];

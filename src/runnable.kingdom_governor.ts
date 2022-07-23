@@ -120,7 +120,7 @@ export default class KingdomGovernor {
         },
       });
       if (!enroute.length) {
-        localMemory.request_claimer[bases[0].primary] = request;
+        localMemory.request_claimer.set(bases[0].primary, request);
         trace.log('requesting claimer from another shard', {request});
       }
     }
@@ -129,7 +129,7 @@ export default class KingdomGovernor {
   }
 
   handleClaimerRequests(kernel: Kernel, requests: Map<string, CreepRequest>, trace: Tracer) {
-    Object.values(requests).forEach((creepRequest: CreepRequest) => {
+    Array.from(requests.values()).forEach((creepRequest) => {
       const memory = {
         [MEMORY.MEMORY_ASSIGN_SHARD]: creepRequest.shard,
         [MEMORY.MEMORY_ASSIGN_ROOM]: creepRequest.room,
@@ -171,7 +171,7 @@ export default class KingdomGovernor {
       memory.request_claimer = new Map();
     }
 
-    memory.request_claimer[roomName] = request;
+    memory.request_claimer.set(roomName, request);
 
     trace.log('adding request for claimer', {request});
 
@@ -210,7 +210,7 @@ export default class KingdomGovernor {
         },
       });
       if (enroute.length < 6) {
-        localMemory.request_builder[bases[0].primary] = request;
+        localMemory.request_builder.set(bases[0].primary, request);
         trace.log('requesting builder from another shard', {request});
       }
     }
@@ -219,7 +219,7 @@ export default class KingdomGovernor {
   }
 
   handleBuilderRequests(kernel: Kernel, requests: Map<string, CreepRequest>, trace: Tracer) {
-    Object.values(requests).forEach((creepRequest: CreepRequest) => {
+    Array.from(requests.values()).forEach((creepRequest: CreepRequest) => {
       const memory = {
         [MEMORY.MEMORY_ASSIGN_SHARD]: creepRequest.shard,
         [MEMORY.MEMORY_ASSIGN_ROOM]: creepRequest.room,

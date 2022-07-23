@@ -354,7 +354,7 @@ function addHostilesToColonyTargetTopic(kernel: Kernel, hostilesByBases: Hostile
 }
 
 function publishDefenseStatuses(kernel: Kernel, hostilesByColony: HostilesByBase, trace) {
-  kernel.getPlanner().getBaseList().forEach((base) => {
+  kernel.getPlanner().getBases().forEach((base) => {
     const numHostiles = (hostilesByColony.get(base.id) || []).length;
     const numDefenders = Object.values<Creep>(kernel.getCreepsManager().
       getCreepsByBase(base.id)).filter((creep) => {

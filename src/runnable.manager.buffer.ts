@@ -108,12 +108,12 @@ function getHostileRoomsByColony(kernel: Kernel, trace: Tracer): HostileRoomsByC
       return;
     }
 
-    if (!hostileRoomsByColony[colony.id]) {
-      hostileRoomsByColony[colony.id] = [];
+    if (!hostileRoomsByColony.has(colony.id)) {
+      hostileRoomsByColony.set(colony.id, []);
     }
 
     trace.info('attack room from', {colony, room});
-    hostileRoomsByColony[colony.id].push(room);
+    hostileRoomsByColony.set(colony.id, hostileRoomsByColony.get(colony.id).concat(room));
   });
 
   trace.info('hostile rooms by colony', {hostileRoomsByColony});

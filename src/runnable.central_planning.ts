@@ -76,7 +76,7 @@ export class CentralPlanning {
       const origin = new RoomPosition(spawn.pos.x, spawn.pos.y + 4, spawn.pos.roomName);
       trace.log('checking spawn', {roomName, origin});
       const parking = new RoomPosition(origin.x + 5, origin.y, origin.roomName);
-      if (!this.bases[roomName]) {
+      if (!this.bases.has(roomName)) {
         trace.warn('found unknown base', {roomName});
         this.addBase(roomName, false, origin, parking, [roomName], [],
           [], [], AlertLevel.GREEN, trace);
@@ -123,28 +123,24 @@ export class CentralPlanning {
     return this.shards;
   }
 
-  getBase(colonyId: string): Base {
-    return this.bases[colonyId];
+  getBase(baseId: string): Base {
+    return this.bases.get(baseId);
   }
 
   getBases(): Base[] {
-    return _.values(this.bases);
-  }
-
-  getBaseList(): Base[] {
-    return _.values(this.bases);
+    return Array.from(this.bases.values());
   }
 
   getBaseMap(): Map<string, Base> {
     return this.bases;
   }
 
-  getBaseById(colonyId: string): Base {
-    return this.bases[colonyId];
+  getBaseById(baseId: string): Base {
+    return this.bases.get(baseId);
   }
 
   getBaseByRoom(roomName: string): Base {
-    const baseId = this.roomByBaseId[roomName];
+    const baseId = this.roomByBaseId.get(roomName);
     if (!baseId) {
       return null;
     }
@@ -184,12 +180,12 @@ export class CentralPlanning {
     rooms: string[], walls: {x: number, y: number}[],
     passages: {x: number, y: number}[], neighbors: string[], alertLevel: AlertLevel,
     trace: Tracer): Base {
-    if (this.bases[primaryRoom]) {
-      trace.error('colony already exists', {primaryRoom});
+    if (this.bases.has(primaryRoom)) {
+      trace.error('base already exists', {primaryRoom});
       return;
     }
 
-    this.bases[primaryRoom] = {
+    this.bases.set(primaryRoom, {
       id: primaryRoom,
       isPublic: isPublic,
       primary: primaryRoom,
@@ -201,38 +197,46 @@ export class CentralPlanning {
       neighbors: neighbors,
       alertLevel: alertLevel,
       boostPosition: null,
-      boosts: {},
-    };
+      boosts: new Map(),
 
-    this.roomByBaseId[primaryRoom] = primaryRoom;
+      // @REFACTOR check these defaults
+      storedEffects: new Map(),
+      labsByAction: new Map(),
+      terminalTask: null,
+      defenseHitsLimit: 0,
+      damagedStructures: [],
+      damagedSecondaryStructures: [],
+    });
+
+    this.roomByBaseId.set(primaryRoom, primaryRoom);
 
     // Add any additional rooms, primary is expected to be first
     rooms.forEach((roomName) => {
       this.addRoom(primaryRoom, roomName, trace);
     });
 
-    return this.bases[primaryRoom];
+    return this.bases.get(primaryRoom);
   }
 
-  removeBase(colonyId: string, trace: Tracer) {
-    const base = this.getBase(colonyId);
+  removeBase(baseId: string, trace: Tracer) {
+    const base = this.getBase(baseId);
     const rooms = base.rooms;
     rooms.forEach((roomName) => {
       this.removeRoom(roomName, trace);
     });
 
-    delete this.bases[colonyId];
+    this.bases.delete(baseId);
   }
 
-  addRoom(colonyId: string, roomName: string, trace: Tracer) {
-    trace.notice('adding room', {colonyId, roomName});
+  addRoom(baseId: string, roomName: string, trace: Tracer) {
+    trace.notice('adding room', {baseId, roomName});
 
-    const base = this.getBase(colonyId);
+    const base = this.getBase(baseId);
     if (!base) {
       trace.error('no colony found', {roomName});
       return;
     }
-    this.roomByBaseId[roomName] = colonyId;
+    this.roomByBaseId.set(roomName, baseId);
 
     if (base.rooms.indexOf(roomName) !== -1) {
       trace.error('room already exists', {roomName});
@@ -251,7 +255,7 @@ export class CentralPlanning {
     }
 
     base.rooms = _.without(base.rooms, roomName);
-    delete this.roomByBaseId[roomName];
+    this.roomByBaseId.delete(roomName);
 
     // remove constructions sites for room
     const sites = _.values<ConstructionSite>(Game.constructionSites);
@@ -285,7 +289,7 @@ export class CentralPlanning {
     });
   }
 
-  private* remoteMiningGenerator(): Generator<any, void, {kernel: Kernel, trace: Tracer}> {
+  private * remoteMiningGenerator(): Generator<any, void, {kernel: Kernel, trace: Tracer}> {
     let bases: Base[] = [];
     while (true) {
       const details: {kernel: Kernel, trace: Tracer} = yield;
@@ -432,7 +436,7 @@ export class CentralPlanning {
     trace.log('no expansion selected');
   }
 
-  private* baseWallsGenerator(): Generator<any, void, {kernel: Kernel, trace: Tracer}> {
+  private * baseWallsGenerator(): Generator<any, void, {kernel: Kernel, trace: Tracer}> {
     const bases: Base[] = [];
     while (true) {
       const details: {kernel: Kernel, trace: Tracer} = yield;
@@ -461,7 +465,7 @@ export class CentralPlanning {
     trace.info('created walls', {base: base});
   }
 
-  private* neighborhoodsGenerator(): Generator<any, void, {kernel: Kernel, trace: Tracer}> {
+  private * neighborhoodsGenerator(): Generator<any, void, {kernel: Kernel, trace: Tracer}> {
     let bases: Base[] = [];
     while (true) {
       const details: {kernel: Kernel, trace: Tracer} = yield;

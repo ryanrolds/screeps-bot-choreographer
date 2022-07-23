@@ -174,7 +174,7 @@ export default class TerminalRunnable {
       case TASKS.TASK_TRANSFER:
         this.transferResource(kernel, base, terminal, details, trace);
         break;
-      case TASKS.TASK_MARKET_ORDER:
+      case TASKS.TASK_MARKET_ORDER: {
         // Perform market order
         const orderType = details[MEMORY.MEMORY_ORDER_TYPE];
         if (orderType === ORDER_SELL) {
@@ -186,6 +186,7 @@ export default class TerminalRunnable {
         }
 
         break;
+      }
       default:
         this.clearTask(base);
     }
@@ -201,7 +202,7 @@ export default class TerminalRunnable {
     trace.log('transfer resource', {resource, amount, roomName, phase});
 
     switch (phase) {
-      case TASK_PHASE_HAUL_RESOURCE:
+      case TASK_PHASE_HAUL_RESOURCE: {
         // Check if we should move to next phase
         const terminalAmount = terminal.store.getUsedCapacity(resource);
         if (terminalAmount >= amount) {
@@ -230,7 +231,8 @@ export default class TerminalRunnable {
 
         this.haulResourceToTerminal(kernel, base, terminal, pickup, resource, amount);
         break;
-      case TASK_PHASE_TRANSFER:
+      }
+      case TASK_PHASE_TRANSFER: {
         let haulAmount = amount;
 
         const energyRequired = Game.market.calcTransactionCost(amount, terminal.room.name, roomName);
@@ -249,14 +251,14 @@ export default class TerminalRunnable {
         const result = terminal.send(resource, amount, roomName);
         trace.log('send resource', {resource, amount, roomName, result});
         if (result !== OK) {
-
+          trace.log('send resource failed', {result});
+          break;
         }
 
         this.clearTask(base);
-
         break;
+      }
       default:
-
         this.clearTask(base);
     }
   }
@@ -296,7 +298,7 @@ export default class TerminalRunnable {
     })[0];
 
     const resources = kernel.getResourceManager().getSharedResources();
-    const reserveAmount = resources[resource] || 0;
+    const reserveAmount = resources.get(resource) || 0;
 
     const maxBuyPrice = this.pricer.getPrice(ORDER_BUY, resource, reserveAmount);
     if (!sellOrder || sellOrder.price > maxBuyPrice) {
@@ -329,7 +331,7 @@ export default class TerminalRunnable {
     const phase = task[MEMORY.TASK_PHASE] || TASK_PHASE_HAUL_RESOURCE;
 
     switch (phase) {
-      case TASK_PHASE_HAUL_RESOURCE:
+      case TASK_PHASE_HAUL_RESOURCE: {
         // Check if we should move to next phase
         const terminalAmount = terminal.store.getUsedCapacity(resource);
         if (terminalAmount >= amount) {
@@ -352,7 +354,8 @@ export default class TerminalRunnable {
 
         this.haulResourceToTerminal(kernel, base, terminal, pickup, resource, amount);
         break;
-      case TASK_PHASE_TRANSACT:
+      }
+      case TASK_PHASE_TRANSACT: {
         // Check if we are done selling
         if (terminal.store.getUsedCapacity(resource) === 0 || amount < 1) {
           this.clearTask(base);
@@ -372,7 +375,7 @@ export default class TerminalRunnable {
 
         // Get desired purchase price based on current stockpile
         const resources = kernel.getResourceManager().getSharedResources();
-        const currentAmount = resources[resource] || 0;
+        const currentAmount = resources.get(resource) || 0;
         const minSellPrice = this.pricer.getPrice(ORDER_SELL, resource, currentAmount);
 
         // If no buy orders or price is too low, create a sell order
@@ -412,6 +415,7 @@ export default class TerminalRunnable {
         }
 
         break;
+      }
       default:
         trace.error('BROKEN MARKET LOGIC', phase);
         this.clearTask(base);
@@ -497,7 +501,7 @@ export default class TerminalRunnable {
       }
 
       const resources = kernel.getResourceManager().getSharedResources();
-      const currentAmount = resources[order.resourceType] || 0;
+      const currentAmount = resources.get(order.resourceType as ResourceConstant) || 0;
       const price = this.pricer.getPrice(order.type as (ORDER_BUY | ORDER_SELL),
         order.resourceType as ResourceConstant, currentAmount);
       if (order.price !== price) {
