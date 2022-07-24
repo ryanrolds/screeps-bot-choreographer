@@ -51,39 +51,39 @@ An AI for [Screeps](screeps.com).
 - [X] Auto-construction of roads to remote sources
 - [X] Automatic layout and expansion
 - [X] System for a Room and Map(beta) HUD
-- [ ] Scale creep parts and remote mining based on spawner saturation
-- [ ] Remove "org" model
+- [x] Remove "org" model
   - [ ] Room
-    - [x] Move hostile tracking (deleted logic)
+    - [ ] Move hostile tracking (deleted logic)
     - [ ] Move defense
     - [ ] Move tracking of damaged creeps
     - [ ] Move structure repairing
     - [ ] Move sharing of boost details
     - [ ] Move resource tracking
-  - [ ] Observer (move into Base Observer)
-  - [ ] Colony
-  - [ ] Kingdom
-    - [ ] Use AI for accessing topics, planner, scheduler, etc...
-    - [ ] Move path cache, cost matrix cache, and resource gov. to AI
-  - [ ] Refactor Resource Governor into a Process\
-    - [ ] Move to TypeScript
+  - [x] Observer (move into Base Observer)
+  - [x] Colony
+  - [x] Kingdom
+    - [x] Use AI for accessing topics, planner, scheduler, etc...
+    - [x] Move path cache, cost matrix cache, and resource gov. to AI
+  - [x] Refactor Resource Governor into a Process
+    - [x] Move to TypeScript
+- [ ] Replace references to 'colony' with 'base'
 - [ ] Refactor thread API
   - [ ] Strongly typed thread API
   - [ ] Automatically run threads and sleep main process correct amount of time
 - [ ] Double buffer topics when TTLing messages
-- [ ] All of project on TypeScript
+- [x] All of project on TypeScript
 - [ ] Refactor PID controller
 - [ ] Influence map library
 - [ ] Move creep definitions into individual creep files
 - [ ] TD: Room process and sources processes no longer require room visibility
 - [ ] TD: Replace spawn topics (TTL) with event streams (manages own queue)
 - [ ] TD: Cleanup old construction sites automatically
+- [ ] Scale creep parts and remote mining based on spawner saturation
 - [ ] Harvest commodities & factory
 - [ ] Process stats and scheduler report
 - [ ] Factor room resources when selecting new base
 - [ ] Sieging of RCL>=7 rooms
 - [ ] Quads moving coherently 100% of time
-- [ ] Replace references to 'colony' with 'base'
 - [ ] Buff ramparts and walls to withstand nuke
 - [ ] Move all data sharing between processes to topics/IPC (remove direct access)
 - [ ] Improved defenders that hide in ramparts
