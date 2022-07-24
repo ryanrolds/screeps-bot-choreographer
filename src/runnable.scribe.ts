@@ -117,9 +117,8 @@ export class Scribe implements Runnable {
 
   constructor() {
     this.journal = (Memory as any).scribe || {
-      rooms: {},
-      defenderCostMatrices: {},
-      baseCostMatrices: {},
+      rooms: new Map(),
+      creeps: new Map(),
     };
 
     this.globalColonyCount = -2;

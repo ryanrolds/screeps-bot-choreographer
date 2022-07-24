@@ -133,7 +133,7 @@ export default class BoosterRunnable {
     this.requestEnergyForLabs(kernel, base, trace);
     this.threadUpdateBoosters(trace, kernel, base);
 
-    if (Object.keys(desiredEffects).length) {
+    if (desiredEffects.size) {
       sleepFor = REQUEST_LOAD_TTL;
       this.sendHaulRequests(kernel, base, loadedEffects, needToLoad, emptyLabs, couldUnload, trace);
     } else {
@@ -170,10 +170,10 @@ export default class BoosterRunnable {
     trace.log('publishing room boosts', {
       baseId: this.baseId,
       position: this.boostPosition,
-      labsByResource: _.reduce(Object.values(labsByResource), (labs, lab: StructureLab) => {
-        labs[lab.id] = lab.mineralType;
+      labsByResource: _.reduce(Array.from(labsByResource.values()), (labs, lab: StructureLab) => {
+        labs.set(lab.id, lab.mineralType);
         return labs;
-      }, {} as ResourceByLabs),
+      }, {} as Map<Id<StructureLab>, MineralConstant | MineralCompoundConstant>),
       availableEffects: storedEffects,
     });
 
@@ -239,12 +239,12 @@ export default class BoosterRunnable {
   getLabsByAction(): LabsByAction {
     return this.getLabs().reduce((acc, lab) => {
       if (lab.mineralType) {
-        const action = this.allEffects[lab.mineralType];
-        if (!acc[action.name]) {
-          acc[action.name] = [];
+        const action = this.allEffects.get(lab.mineralType);
+        if (!acc.has(action.name)) {
+          acc.set(action.name, []);
         }
 
-        acc[action.name].push(lab);
+        acc.get(action.name).push(lab);
       }
 
       return acc;
@@ -256,7 +256,7 @@ export default class BoosterRunnable {
     const labs = this.getLabs();
     return labs.reduce((acc, lab) => {
       if (lab.mineralType) {
-        acc[lab.mineralType] = lab;
+        acc.set(lab.mineralType, lab);
       }
 
       return acc;
@@ -279,7 +279,7 @@ export default class BoosterRunnable {
     const labs = this.getLabs();
     return labs.reduce((acc, lab) => {
       if (lab.mineralType) {
-        acc[lab.mineralType] = lab.store.getUsedCapacity(lab.mineralType);
+        acc.set(lab.mineralType, lab.store.getUsedCapacity(lab.mineralType));
       }
 
       return acc;
@@ -304,8 +304,8 @@ export default class BoosterRunnable {
 
     Object.keys(BOOSTS).forEach((part) => {
       const resources = BOOSTS[part];
-      Object.keys(resources).forEach((resource) => {
-        if (availableResources && !availableResources[resource]) {
+      Object.keys(resources).forEach((resource: ResourceConstant) => {
+        if (!availableResources.get(resource)) {
           return;
         }
 
@@ -341,7 +341,9 @@ export default class BoosterRunnable {
     const loadedResource = this.getLabResources();
 
     // TODO the merge does not sum values
-    return this.getCompoundByEffects(_.assign(availableResources, loadedResource));
+    // @REACTOR double check this
+    const combined = new Map(Array.from(availableResources.entries()).concat(Array.from(loadedResource.entries())));
+    return this.getCompoundByEffects(combined);
   }
 
   getDesiredEffects(kernel: Kernel): EffectSet {
@@ -527,7 +529,7 @@ export default class BoosterRunnable {
 
       // Refactor this to a a function that further filters a set of effects
       const compound = effect.compounds.reduce((selected, compound) => {
-        if (storedResources[compound.name] >= MIN_COMPOUND) {
+        if (storedResources.get(compound.name) >= MIN_COMPOUND) {
           if (!selected) {
             selected = compound;
           }

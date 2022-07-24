@@ -150,7 +150,8 @@ export default class ReactorRunnable extends PersistentMemory {
       case TASK_PHASE_START:
         trace.log('starting task', {task});
         room.memory[this.getTaskMemoryId()][MEMORY.TASK_PHASE] = TASK_PHASE_LOAD;
-      case TASK_PHASE_LOAD:
+      // eslint-disable-next-line no-fallthrough
+      case TASK_PHASE_LOAD: {
         // Maintain task TTL. We want to abort hard to perform tasks
         let ttl = task[MEMORY.REACTOR_TTL];
         // Check if we have lowered the TTL and use the new one
@@ -177,7 +178,8 @@ export default class ReactorRunnable extends PersistentMemory {
         }
 
         return REQUEST_LOAD_TTL;
-      case TASK_PHASE_REACT:
+      }
+      case TASK_PHASE_REACT: {
         if (labs[0].cooldown) {
           trace.log('reacting cooldown', {cooldown: labs[0].cooldown});
           return labs[0].cooldown;
@@ -191,7 +193,8 @@ export default class ReactorRunnable extends PersistentMemory {
         }
 
         return REACTION_TTL;
-      case TASK_PHASE_UNLOAD:
+      }
+      case TASK_PHASE_UNLOAD: {
         const lab = labs[0];
         if (!lab.mineralType || lab.store.getUsedCapacity(lab.mineralType) === 0) {
           trace.log('unloaded, task complete', {});
@@ -202,6 +205,7 @@ export default class ReactorRunnable extends PersistentMemory {
         this.unloadLab(kernel, base, labs[0], trace);
 
         return REQUEST_UNLOAD_TTL;
+      }
       default:
         trace.error('BROKEN REACTION LOGIC', phase);
         this.clearTask(trace);

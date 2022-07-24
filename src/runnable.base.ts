@@ -917,7 +917,7 @@ export default class BaseRunnable {
       [MEMORY.BASE_STATUS_LEVEL]: getBaseLevel(base),
       [MEMORY.BASE_STATUS_LEVEL_COMPLETED]: getBaseLevelCompleted(base),
       [MEMORY.BASE_STATUS_TERMINAL]: !!room.terminal,
-      [MEMORY.BASE_STATUS_ENERGY]: resources[RESOURCE_ENERGY] || 0,
+      [MEMORY.BASE_STATUS_ENERGY]: resources.get(RESOURCE_ENERGY) || 0,
       [MEMORY.BASE_STATUS_ALERT_LEVEL]: base.alertLevel,
     };
 

@@ -155,10 +155,11 @@ export class Scheduler {
         }
 
         // Track time spent on each process by type
-        if (!processCpu[process.type]) {
-          processCpu[process.type] = 0;
+        if (!processCpu.has(process.type)) {
+          processCpu.set(process.type, 0);
         }
-        processCpu[process.type] += processTime;
+
+        processCpu.set(process.type, processCpu.get(process.type) + processTime);
       } else if (process.isSleeping()) {
         if (process.shouldWake()) {
           process.setRunning();

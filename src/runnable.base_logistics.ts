@@ -165,7 +165,7 @@ export default class LogisticsRunnable extends PersistentMemory {
       visualizePath(this.selectedLeg.path, trace);
     }
 
-    visualizeLegs(Object.values(this.legs), trace);
+    visualizeLegs(Array.from(this.legs.values()), trace);
 
     return sleeping(1);
   }
@@ -278,7 +278,7 @@ export default class LogisticsRunnable extends PersistentMemory {
     const hudLine: HudLine = {
       key: `${this.baseId}`,
       room: base.primary,
-      text: `Logistics - passes: ${this.passes}, legs: ${Object.keys(this.legs).length}, ` +
+      text: `Logistics - passes: ${this.passes}, legs: ${this.legs.size}, ` +
         `selected: ${this.selectedLeg?.id}, numRemaining: ${this.selectedLeg?.remaining.length}, ` +
         `end: ${this.selectedLeg?.remaining?.slice(-3, 0)}`,
       time: Game.time,
@@ -418,8 +418,8 @@ export default class LogisticsRunnable extends PersistentMemory {
   }
 
   private requestRoad(kernel: Kernel, id: string, destination: RoomPosition, time: number, trace: Tracer) {
-    if (this.legs[id]) {
-      const leg = this.legs[id];
+    if (this.legs.has(id)) {
+      const leg = this.legs.get(id);
       leg.destination = destination;
       leg.requestedAt = time;
     } else {
@@ -431,7 +431,7 @@ export default class LogisticsRunnable extends PersistentMemory {
         requestedAt: time,
         updatedAt: null,
       };
-      this.legs[id] = leg;
+      this.legs.set(id, leg);
     }
   }
 
@@ -474,7 +474,7 @@ export default class LogisticsRunnable extends PersistentMemory {
   }
 
   private getLegsToCalculate(trace: Tracer): Leg[] {
-    return Object.values(this.legs);
+    return Array.from(this.legs.values());
   }
 
   private calculateLeg(kernel: Kernel, leg: Leg, trace: Tracer): [path: RoomPosition[], remaining: RoomPosition[]] {
@@ -525,7 +525,7 @@ export default class LogisticsRunnable extends PersistentMemory {
   }
 
   private ensureWallPassage(trace: Tracer, base: Base) {
-    const legs: Leg[] = _.values(this.legs);
+    const legs = Array.from(this.legs.values());
 
     const unfinishedLegs: Leg[] = legs.filter((leg: Leg) => {
       return leg.remaining.length > 0;
@@ -577,7 +577,7 @@ export default class LogisticsRunnable extends PersistentMemory {
     trace.log('legs', {legs: this.legs});
 
     // Find shortest unfinished leg
-    const legs: Leg[] = _.values(this.legs);
+    const legs = Array.from(this.legs.values());
     const unfinishedLegs: Leg[] = legs.filter((leg: Leg) => {
       return leg.remaining.length > 0;
     });

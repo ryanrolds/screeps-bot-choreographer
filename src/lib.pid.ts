@@ -11,24 +11,24 @@ export const setup = (memory: Map<string, number>, setPoint: number, p: number,
     throw new Error('missing p');
   }
 
-  memory[`${MEMORY.PID_SUFFIX_SETPOINT}`] = setPoint;
-  memory[`${MEMORY.PID_SUFFIX_P}`] = p;
-  memory[`${MEMORY.PID_SUFFIX_I}`] = i || 0;
-  memory[`${MEMORY.PID_SUFFIX_D}`] = d || 0;
+  memory.set(MEMORY.PID_SUFFIX_SETPOINT, setPoint);
+  memory.set(MEMORY.PID_SUFFIX_P, p);
+  memory.set(MEMORY.PID_SUFFIX_I, i || 0);
+  memory.set(MEMORY.PID_SUFFIX_D, d || 0);
 };
 
 export const update = (memory: Map<string, number>, value: number,
   time: number, trace: Tracer) => {
   if (globalAny.RESET_PIDS) {
-    memory[`${MEMORY.PID_SUFFIX_ERROR}`] = 0;
-    memory[`${MEMORY.PID_SUFFIX_TIME}`] = time;
-    memory[`${MEMORY.PID_SUFFIX_INTEGRAL}`] = 0;
+    memory.set(MEMORY.PID_SUFFIX_ERROR, 0);
+    memory.set(MEMORY.PID_SUFFIX_TIME, time);
+    memory.set(MEMORY.PID_SUFFIX_INTEGRAL, 0);
   }
 
-  const setPoint = memory[`${MEMORY.PID_SUFFIX_SETPOINT}`];
-  const p = memory[`${MEMORY.PID_SUFFIX_P}`] || 0.4;
-  const i = memory[`${MEMORY.PID_SUFFIX_I}`] || 0.001;
-  const d = memory[`${MEMORY.PID_SUFFIX_D}`] || 0;
+  const setPoint = memory.get(MEMORY.PID_SUFFIX_SETPOINT);
+  const p = memory.get(MEMORY.PID_SUFFIX_P) || 0.4;
+  const i = memory.get(MEMORY.PID_SUFFIX_I) || 0.001;
+  const d = memory.get(MEMORY.PID_SUFFIX_D) || 0;
 
   if (!p) {
     throw new Error('update: missing p');
@@ -36,10 +36,10 @@ export const update = (memory: Map<string, number>, value: number,
 
   const err = value - setPoint;
 
-  const prevTime = memory[`${MEMORY.PID_SUFFIX_TIME}`] || time;
+  const prevTime = memory.get(MEMORY.PID_SUFFIX_TIME) || time;
   const dt = time - prevTime;
 
-  const prevIntegral = memory[`${MEMORY.PID_SUFFIX_INTEGRAL}`] || 0;
+  const prevIntegral = memory.get(MEMORY.PID_SUFFIX_INTEGRAL) || 0;
   let integral = prevIntegral + (err * dt * i);
 
   // Bootstrapping can require a lot of workers/haulers. 10 was too few (Jan 2022)
@@ -47,16 +47,16 @@ export const update = (memory: Map<string, number>, value: number,
     integral = 50;
   }
 
-  const prevErr = memory[`${MEMORY.PID_SUFFIX_ERROR}`] || err;
+  const prevErr = memory.get(MEMORY.PID_SUFFIX_ERROR) || err;
 
   let det = 0;
   if (dt > 0) {
     det = -((err - prevErr) / dt);
   }
 
-  memory[`${MEMORY.PID_SUFFIX_ERROR}`] = err;
-  memory[`${MEMORY.PID_SUFFIX_TIME}`] = time;
-  memory[`${MEMORY.PID_SUFFIX_INTEGRAL}`] = integral;
+  memory.set(MEMORY.PID_SUFFIX_ERROR, err);
+  memory.set(MEMORY.PID_SUFFIX_TIME, time);
+  memory.set(MEMORY.PID_SUFFIX_INTEGRAL, integral);
 
   const result = p * err + integral + d * det;
 

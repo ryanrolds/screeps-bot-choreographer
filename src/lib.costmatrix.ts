@@ -39,7 +39,7 @@ export const createDefenderCostMatrix = (roomId: string, trace: Tracer): CostMat
   const costs = get255CostMatrix();
 
   // Set every position in base to 0
-  const regionValues = Object.values(getRegion(room, spawn.pos));
+  const regionValues = Array.from(getRegion(room, spawn.pos).values());
   regionValues.forEach((pos: RoomPosition) => {
     costs.set(pos.x, pos.y, 0);
   });

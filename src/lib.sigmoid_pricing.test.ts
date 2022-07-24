@@ -5,7 +5,7 @@ import {mockGlobal, mockInstanceOf} from 'screeps-test-helper';
 
 import {SigmoidPricing} from './lib.sigmoid_pricing';
 
-describe('Sigmoid Pricing', function() {
+describe('Sigmoid Pricing', function () {
   const prices = {
     [RESOURCE_HYDROXIDE]: {max: 5, min: 0.5},
   };
@@ -48,13 +48,13 @@ describe('Sigmoid Pricing', function() {
     });
   });
 
-  describe('getMarketPrice', function() {
+  describe('getMarketPrice', function () {
     beforeEach(() => {
       mockGlobal<Game>('Game', {
         market: {
           orders: {},
           getAllOrders: (filter) => {
-            return _.filter(Object.values(orders), filter);
+            return _.filter(Array.from(orders.values()), filter);
           },
         },
       });
@@ -76,7 +76,7 @@ describe('Sigmoid Pricing', function() {
     });
   });
 
-  describe('getPrice', function() {
+  describe('getPrice', function () {
     it('should throw error if invalid resource', () => {
       expect(() => {
         pricer.getPrice(ORDER_BUY, 'not a real resource' as any, 100000);
@@ -116,7 +116,7 @@ describe('Sigmoid Pricing', function() {
           market: {
             orders: {},
             getAllOrders: (filter) => {
-              return _.filter(Object.values(orders), filter);
+              return _.filter(Array.from(orders.values()), filter);
             },
           },
         });
@@ -172,7 +172,7 @@ describe('Sigmoid Pricing', function() {
               },
             },
             getAllOrders: (filter) => {
-              return _.filter(Object.values(orders), filter);
+              return _.filter(Array.from(orders.values()), filter);
             },
           },
         });

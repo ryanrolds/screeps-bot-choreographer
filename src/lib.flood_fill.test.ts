@@ -1,13 +1,10 @@
-import 'mocha';
 import {expect} from 'chai';
-import * as sinon from 'sinon';
-import {stubObject, StubbedInstance} from 'ts-sinon';
-import {setup, mockGlobal, mockInstanceOf, mockStructure} from 'screeps-test-helper';
-import * as _ from 'lodash';
+import 'mocha';
+import {mockInstanceOf, mockStructure} from 'screeps-test-helper';
 
 import {getRegion} from './lib.flood_fill';
 
-describe('Flood Fill', function() {
+describe('Flood Fill', function () {
   this.slow(5);
 
   describe('getRegion', () => {
@@ -22,7 +19,7 @@ describe('Flood Fill', function() {
         },
       });
       const region = getRegion(room, new RoomPosition(25, 25, room.name));
-      expect(Object.values(region).length).to.equal(2400);
+      expect(region.size).to.equal(2400);
     });
 
     it('should return single position region for center circle room', () => {
@@ -43,9 +40,9 @@ describe('Flood Fill', function() {
         },
       });
       const region = getRegion(room, new RoomPosition(25, 25, roomName));
-      expect(Object.values(region).length).to.equal(1);
-      expect(Object.values(region)[0].x).to.equal(25);
-      expect(Object.values(region)[0].y).to.equal(25);
+      expect(region.size).to.equal(1);
+      expect(Array.from(region.values())[0].x).to.equal(25);
+      expect(Array.from(region.values())[0].y).to.equal(25);
     });
 
     it('should return nothing if start position is a wall', () => {
@@ -64,7 +61,7 @@ describe('Flood Fill', function() {
         },
       });
       const region = getRegion(room, new RoomPosition(25, 25, roomName));
-      expect(Object.values(region).length).to.equal(0);
+      expect(region.size).to.equal(0);
     });
 
     it('should region for larger circle of indestructible walls', () => {
@@ -85,7 +82,7 @@ describe('Flood Fill', function() {
         },
       });
       const region = getRegion(room, new RoomPosition(25, 25, roomName));
-      expect(Object.values(region).length).to.equal(9);
+      expect(region.size).to.equal(9);
     });
 
     it('should region for larger circle of walls', () => {
@@ -106,7 +103,7 @@ describe('Flood Fill', function() {
         },
       });
       const region = getRegion(room, new RoomPosition(25, 25, roomName));
-      expect(Object.values(region).length).to.equal(9);
+      expect(region.size).to.equal(9);
     });
 
     it('should region for larger circle of ramparts and include ramparts', () => {
@@ -178,7 +175,7 @@ describe('Flood Fill', function() {
       });
 
       const region = getRegion(room, new RoomPosition(25, 25, roomName));
-      expect(Object.values(region).length).to.equal(25);
+      expect(region.size).to.equal(25);
     });
   });
 });

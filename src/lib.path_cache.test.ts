@@ -3,19 +3,14 @@ import 'mocha';
 import {mockGlobal} from 'screeps-test-helper';
 import Sinon, * as sinon from 'sinon';
 import {AI} from './ai';
-import {CreepManager} from './ai.creeps';
 import {ShardConfig} from './config';
 import {commonPolicy} from './constants.pathing_policies';
 import {Kernel} from './kernel';
-import {EventBroker} from './lib.event_broker';
 import {CACHE_ITEM_TTL, PathCache, PathCacheItem, PathProvider} from './lib.path_cache';
-import {Topics} from './lib.topics';
 import {Tracer} from './lib.tracing';
 import {Scheduler} from './os.scheduler';
-import {CentralPlanning} from './runnable.central_planning';
-import {Scribe} from './runnable.scribe';
 
-describe('Path Cache', function() {
+describe('Path Cache', function () {
   let sandbox: Sinon.SinonSandbox = null;
   let trace: Tracer = null;
   let kernel: Kernel = null;
@@ -63,12 +58,6 @@ describe('Path Cache', function() {
       explorers: true,
     };
     const scheduler = new Scheduler();
-    const scribe = new Scribe();
-    const broker = new EventBroker();
-    const topics = new Topics();
-    const planner = new CentralPlanning(config, scheduler, trace);
-    const creepsManager = new CreepManager(scheduler);
-
     kernel = new AI(config, scheduler, trace);
 
     pathProvider = sandbox.stub().callsFake(() => [path, {}]);

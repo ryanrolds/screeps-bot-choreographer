@@ -44,7 +44,7 @@ export class SigmoidPricing {
   }
 
   getPrice(orderType: ORDER_BUY | ORDER_SELL, resource: ResourceConstant, amount: number): number {
-    const range = this.prices[resource];
+    const range = this.prices.get(resource);
     if (!range) {
       throw new Error(`invalid resource: ${resource}`);
     }

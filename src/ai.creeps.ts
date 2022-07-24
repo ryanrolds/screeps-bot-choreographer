@@ -40,13 +40,13 @@ export class CreepManager implements Runnable {
 
     this.creeps = Object.values(Game.creeps);
     this.creepsByBase = _.reduce(this.creeps, (acc, creep) => {
-      const base = creep.memory[MEMORY_BASE];
+      const base: string = creep.memory[MEMORY_BASE];
       if (!base) {
         trace.warn(`Creep ${creep.name} has no base assigned`);
       }
 
       const creeps = acc.get(base) || [];
-      acc.set(base, creeps.concat(creep));
+      acc.set(base, creeps.concat([creep]));
       return acc;
     }, new Map<string, Creep[]>());
 
@@ -56,8 +56,8 @@ export class CreepManager implements Runnable {
         return bases;
       }
 
-      if (!bases[base]) {
-        bases[base] = {};
+      if (!bases.has(base)) {
+        bases.set(base, new Map<string, Creep[]>());
       }
 
       const role = creep.memory[MEMORY_ROLE];
@@ -65,13 +65,13 @@ export class CreepManager implements Runnable {
         return bases;
       }
 
-      if (!bases[base][role]) {
-        bases[base][role] = [];
+      if (!bases.get(base).get(role)) {
+        bases.get(base).set(role, []);
       }
 
-      bases[base][role].push(creep);
+      bases.get(base).get(role).push(creep);
       return bases;
-    }, {} as Map<string, Map<string, Creep[]>>);
+    }, new Map<string, Map<string, Creep[]>>);
 
     trace.info(`Found ${this.creeps.length} creeps`);
 
@@ -146,7 +146,7 @@ export class CreepManager implements Runnable {
   }
 
   getCreepsByBaseAndRole(base: string, role: string): Creep[] {
-    return _.get(this.creepCountsByBaseAndRole, [base, role], []);
+    return this.creepCountsByBaseAndRole.get(base)?.get(role) || [];
   }
 
   private getCreepProcess(name: string, creep: Creep): Process {

@@ -224,7 +224,7 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
       return;
     }
 
-    const layout = padLayout[this.nodeDirection];
+    const layout = padLayout.get(this.nodeDirection);
     const terrain = room.getTerrain();
 
     trace.log('building structures', {layout});

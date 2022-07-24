@@ -85,22 +85,22 @@ describe('Creeps Manager', () => {
     expect(scheduler.registerProcess.callCount).to.equal(3);
   });
 
-  it.only('should allow adding new creeps in later ticks', () => {
+  it('should allow adding new creeps in later ticks', () => {
     const creepManager = new CreepManager(scheduler);
-    //creepManager.run(kernel, tracer);
+    creepManager.run(kernel, tracer);
 
     expect(scheduler.registerProcess.callCount).to.equal(3);
 
-    // Game.creeps['creepD'] = mockInstanceOf<Creep>({
-    //   id: 'creepD' as Id<Creep>,
-    //   name: 'creepD',
-    //   spawning: false,
-    //   memory: {
-    //     [MEMORY.MEMORY_ASSIGN_ROOM]: 'W1N1',
-    //     [MEMORY.MEMORY_BASE]: 'W1N1',
-    //     [MEMORY.MEMORY_ROLE]: CREEPS.WORKER_MINER,
-    //   },
-    // });
+    Game.creeps['creepD'] = mockInstanceOf<Creep>({
+      id: 'creepD' as Id<Creep>,
+      name: 'creepD',
+      spawning: false,
+      memory: {
+        [MEMORY.MEMORY_ASSIGN_ROOM]: 'W1N1',
+        [MEMORY.MEMORY_BASE]: 'W1N1',
+        [MEMORY.MEMORY_ROLE]: CREEPS.WORKER_MINER,
+      },
+    });
 
     creepManager.run(kernel, tracer);
 

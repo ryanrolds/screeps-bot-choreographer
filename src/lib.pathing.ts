@@ -104,12 +104,12 @@ export const getPath = (kernel: Kernel, origin: RoomPosition, destination: RoomP
     // Map findRoute results to map of names for fast lookup
     const rooms = _.values<FindRouteRoom>(roomRoute);
     const allowedRooms: Map<string, boolean> = _.reduce(rooms, (acc, entry) => {
-      acc[entry.room] = true;
+      acc.set(entry.room, true);
       return acc;
     }, new Map<string, boolean>());
 
     // Add origin room to list of allowed room
-    allowedRooms[origin.roomName] = true;
+    allowedRooms.set(origin.roomName, true);
 
     const goal = {
       pos: destination,
@@ -299,7 +299,7 @@ const getRoomCallback = (
   return (roomName: string): (boolean | CostMatrix) => {
     // If this room is not destination, check if we should avoid it
     if (originRoom != roomName && destRoom !== roomName) {
-      if (!allowedRooms[roomName]) {
+      if (!allowedRooms.has(roomName)) {
         pathDetails.rejectedRooms.set(roomName, 'not in allowed rooms');
         return false;
       }
@@ -416,17 +416,17 @@ const applyRoomCallbackPolicy = (
 
 export const visualizePath = (path: RoomPosition[], trace: Tracer) => {
   const pathByRooms = path.reduce((acc, pos) => {
-    if (!acc[pos.roomName]) {
-      acc[pos.roomName] = [];
+    if (!acc.has(pos.roomName)) {
+      acc.set(pos.roomName, []);
     }
 
-    acc[pos.roomName].push(pos);
+    acc.get(pos.roomName).push(pos);
 
     return acc;
   }, {} as Map<string, RoomPosition[]>);
 
   // Display in the rooms
-  Object.entries(pathByRooms).forEach(([key, value]) => {
+  Array.from(pathByRooms.entries()).forEach(([key, value]) => {
     new RoomVisual(key).poly(value);
   });
 };

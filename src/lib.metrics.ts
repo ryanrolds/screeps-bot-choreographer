@@ -33,7 +33,7 @@ export const reportMetrics = () => {
   }
 
   const summary = _.reduce(accMetrics, (acc, timing) => {
-    const rollup = acc[timing.key] || {
+    const rollup = acc.get(timing.key) || {
       key: timing.key,
       total: 0,
       count: 0,
@@ -46,11 +46,11 @@ export const reportMetrics = () => {
       rollup.max = timing.value;
     }
 
-    acc[timing.key] = rollup;
+    acc.set(timing.key, rollup);
     return acc;
   }, {} as Map<string, MetricRollup>);
 
-  const rollups = _.values<MetricRollup>(summary);
+  const rollups = Array.from(summary.values());
   let summaryArray = _.reduce(rollups, (result, metric) => {
     result.push(metric);
     return result;

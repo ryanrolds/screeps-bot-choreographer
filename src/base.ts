@@ -77,11 +77,11 @@ export function setBoostPosition(base: Base, pos: RoomPosition) {
 }
 
 export function getLabsForAction(base: Base, action: string): StructureLab[] {
-  if (!base.boosts[action]) {
+  if (!base.boosts.has(action)) {
     return [];
   }
 
-  return base.boosts[action];
+  return base.boosts.get(action);
 }
 
 export function setLabsByAction(base: Base, labsByAction: LabsByAction) {
@@ -91,8 +91,8 @@ export function setLabsByAction(base: Base, labsByAction: LabsByAction) {
 export function getStoredResources(base: Base): ResourceCounts {
   return getStorageStructures(base).reduce((acc, structure) => {
     Object.keys(structure.store).forEach((resource: ResourceConstant) => {
-      const current = acc[resource] || 0;
-      acc[resource] = structure.store.getUsedCapacity(resource) + current;
+      const current = acc.get(resource) || 0;
+      acc.set(resource, structure.store.getUsedCapacity(resource) + current);
     });
 
     return acc;
@@ -101,7 +101,7 @@ export function getStoredResources(base: Base): ResourceCounts {
 
 export function getStoredResourceAmount(base: Base, resource: ResourceConstant): number {
   const resources = getStoredResources(base);
-  return resources[resource] || 0;
+  return resources.get(resource) || 0;
 }
 
 export function getEnergyFullness(base: Base): number {
