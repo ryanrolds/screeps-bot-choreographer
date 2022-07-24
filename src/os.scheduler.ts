@@ -1,9 +1,7 @@
+import * as _ from 'lodash';
+import {Kernel} from './kernel';
 import {Tracer} from './lib.tracing';
 import {Process} from './os.process';
-import {Kingdom} from './org.kingdom';
-import * as _ from 'lodash';
-import {prepareMemory, removeOldMemoryObjects} from './os.memory';
-import {thread, ThreadFunc} from './os.thread';
 
 export const Priorities = {
   CRITICAL: 0,
@@ -16,42 +14,34 @@ export const Priorities = {
   MAINTENANCE: 7,
   EXPLORATION: 8,
   DEBUG: 9,
-}
+};
 
 const LOW_BUCKET_MIN_PRIORITY = Priorities.RESOURCES;
-const MEMORY_CLEANUP_TTL = 1000;
 
 export class Scheduler {
-  processTable: Process[];
-  processMap: Record<string, Process>;
-  ranOutOfTime: number;
+  private processTable: Process[];
+  private processMap: Map<string, Process>;
+  private ranOutOfTime: number;
 
-  timeLimit: number;
-  cpuThrottle: number;
-  slowProcessThreshold: number;
+  private timeLimit: number;
+  private cpuThrottle: number;
+  private slowProcessThreshold: number;
 
-  created: number;
-  terminated: number;
-
-  threadMemoryCleanup: ThreadFunc;
+  private created: number;
+  private terminated: number;
 
   constructor() {
     this.processTable = [];
-    this.processMap = {};
+    this.processMap = new Map();
     this.ranOutOfTime = 0;
 
     this.cpuThrottle = 0;
-    this.slowProcessThreshold = 10;
+    this.slowProcessThreshold = 7.5;
 
     this.created = 0;
     this.terminated = 0;
 
     this.updateTimeLimit();
-
-    // Prepare memory for runnables
-    prepareMemory()
-
-    this.threadMemoryCleanup = thread('cleanup_memory', MEMORY_CLEANUP_TTL)(removeOldMemoryObjects);
   }
 
   setCPUThrottle(throttle: number) {
@@ -65,13 +55,13 @@ export class Scheduler {
   registerProcess(process) {
     this.created++;
     this.processTable.push(process);
-    this.updateProcessMap();
-  };
+    this.processMap.set(process.id, process);
+  }
 
   unregisterProcess(process) {
     this.terminated++;
     this.processTable = _.pull(this.processTable, process);
-    this.updateProcessMap();
+    this.processMap.delete(process.id);
   }
 
   outOfTime(process: Process) {
@@ -88,20 +78,20 @@ export class Scheduler {
     return false;
   }
 
-  updateProcessMap() {
-    this.processMap = _.indexBy(this.processTable, 'id');
+  getOutOfTimeCount(): number {
+    return this.ranOutOfTime;
   }
 
   hasProcess(id: string): boolean {
-    return !!this.processMap[id]
+    return this.processMap.has(id);
   }
 
   getProcess(id: string): Process {
-    return this.processMap[id];
+    return this.processMap.get(id);
   }
 
-  listProcesses(filter: string) {
-
+  getProcesses(): Process[] {
+    return this.processTable;
   }
 
   private updateTimeLimit() {
@@ -114,28 +104,26 @@ export class Scheduler {
     }
   }
 
-  tick(kingdom: Kingdom, trace: Tracer) {
+  tick(kernel: Kernel, trace: Tracer) {
     trace = trace.begin('scheduler_tick');
 
     // Time limit change between ticks
     this.updateTimeLimit();
-
-    const startCpu = Game.cpu.getUsed();
 
     // Sort process table priority
     // -1 should maintain the same order
     this.processTable = _.sortByAll(this.processTable, ['adjustedPriority', 'skippable', 'lastRun']);
 
     const toRemove = [];
-    const processCpu: Record<string, number> = {};
+    const processCpu: Map<string, number> = new Map();
 
     if (Game.cpu.bucket < 1000) {
-      trace.notice('low bucket, running only critical processes', {bucket: Game.cpu.bucket})
+      trace.notice('low bucket, running only critical processes', {bucket: Game.cpu.bucket});
     }
 
     // Iterate processes and act on their status
     this.processTable.forEach((process) => {
-      const processTrace = trace.as(process.type).withFields({pid: process.id});
+      const processTrace = trace.as(process.type).withFields(new Map([['pid', process.id]]));
 
       // If bucket is low only run the most critical processes, should keep the bucket away from 0
       if (Game.cpu.bucket < 1000 && process.priority >= LOW_BUCKET_MIN_PRIORITY) {
@@ -153,7 +141,7 @@ export class Scheduler {
         const startProcessCpu = Game.cpu.getUsed();
 
         try {
-          process.run(kingdom, processTrace);
+          process.run(kernel, processTrace);
         } catch (e) {
           processTrace.error('process error', {id: process.id, error: e.stack});
         }
@@ -162,14 +150,16 @@ export class Scheduler {
 
         // We want to report slow processes
         if (processTime > this.slowProcessThreshold) {
-          processTrace.warn(`slow process - ${processTrace.name}`, {id: process.id, type: process.type, time: processTime})
+          processTrace.warn(`slow process - ${processTrace.name}`,
+            {id: process.id, type: process.type, time: processTime});
         }
 
         // Track time spent on each process by type
-        if (!processCpu[process.type]) {
-          processCpu[process.type] = 0;
+        if (!processCpu.has(process.type)) {
+          processCpu.set(process.type, 0);
         }
-        processCpu[process.type] += processTime;
+
+        processCpu.set(process.type, processCpu.get(process.type) + processTime);
       } else if (process.isSleeping()) {
         if (process.shouldWake()) {
           process.setRunning();
@@ -181,27 +171,9 @@ export class Scheduler {
 
     toRemove.forEach((remove) => {
       this.unregisterProcess(remove);
-    })
-
-    this.threadMemoryCleanup(trace);
-
-    const schedulerCpu = Game.cpu.getUsed() - startCpu;
-
-    // TODO move stats to tracing/telemetry
-    const stats = kingdom.getStats();
-    stats.scheduler = {
-      tickLimit: Game.cpu.tickLimit,
-      cpuLimit: Game.cpu.limit,
-      ranOutOfTime: this.ranOutOfTime,
-      timeLimit: this.timeLimit,
-      numProcesses: this.processTable.length,
-      schedulerCpu: schedulerCpu,
-      processCpu: processCpu,
-      created: this.created,
-      terminated: this.terminated
-    };
+    });
 
     trace.end();
-  };
+  }
 }
 

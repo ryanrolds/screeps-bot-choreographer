@@ -1,12 +1,14 @@
-import {BaseConfig} from "./config";
-import {ANY, buildingCodes, EMPTY, getConstructionPosition} from "./lib.layouts";
+import {Base, getBaseLevel, getBasePrimaryRoom, setParking} from './base';
+import {Kernel} from './kernel';
+import {PossibleSite, prioritizeBySitesType} from './lib.construction';
+import {ANY, buildingCodes, EMPTY, getConstructionPosition} from './lib.layouts';
 import {Tracer} from './lib.tracing';
-import {Kingdom} from "./org.kingdom";
-import OrgRoom from "./org.room";
-import {sleeping} from "./os.process";
-import {RunnableResult} from "./os.runnable";
+import {sleeping, terminate} from './os.process';
+import {RunnableResult} from './os.runnable';
 
 const CONSTRUCTION_INTERVAL = 100;
+const MAX_WALL_SITES = 5;
+const MAX_STRUCTURE_SITES = 5;
 
 export type BaseLayout = {
   origin: {x: number, y: number};
@@ -18,7 +20,7 @@ export const baseLayouts: BaseLayout[] = [
   { // RCL0
     origin: {x: 0, y: 0},
     parking: {x: 0, y: 0},
-    buildings: []
+    buildings: [],
   },
   { // RCL1
     origin: {x: 0, y: 4},
@@ -29,7 +31,7 @@ export const baseLayouts: BaseLayout[] = [
       ['.'],
       ['.'],
       ['.'],
-    ]
+    ],
   },
   { // RCL2
     origin: {x: 2, y: 5},
@@ -42,7 +44,7 @@ export const baseLayouts: BaseLayout[] = [
       ['.', 'X', 'R', 'E', '.'],
       ['.', 'R', 'X', 'R', '.'],
       ['.', 'X', 'R', 'X', '.'],
-    ]
+    ],
   },
   { // RCL3
     origin: {x: 2, y: 5},
@@ -55,7 +57,7 @@ export const baseLayouts: BaseLayout[] = [
       ['.', 'T', 'R', 'E', '.'],
       ['.', 'R', 'X', 'R', '.'],
       ['.', '.', 'R', 'E', '.'],
-    ]
+    ],
   },
   { // RCL4
     origin: {x: 3, y: 6},
@@ -74,7 +76,7 @@ export const baseLayouts: BaseLayout[] = [
       ['.', 'E', 'R', 'X', 'R', 'R', 'R', 'R'],
       ['.', 'R', 'E', 'R', 'E', 'R', 'R', 'R'],
       ['.', '.', 'R', 'E', 'R', 'E', '.', '.'],
-    ]
+    ],
   },
   { // RCL5
     origin: {x: 3, y: 6},
@@ -93,7 +95,7 @@ export const baseLayouts: BaseLayout[] = [
       ['E', 'E', 'R', 'X', 'R', 'R', 'R', 'R'],
       ['R', 'R', 'E', 'R', 'E', 'R', 'R', 'R'],
       ['E', 'E', 'R', 'E', 'R', 'E', 'E', '.'],
-    ]
+    ],
   },
   { // RCL6
     origin: {x: 6, y: 7},
@@ -114,7 +116,7 @@ export const baseLayouts: BaseLayout[] = [
       ['.', '.', 'E', 'R', 'R', 'E', 'R', 'E', 'R', 'R', 'R', '.', '.'],
       ['.', '.', '.', 'E', 'E', 'R', 'E', 'R', 'E', 'E', '.', '.', '.'],
       ['.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.'],
-    ]
+    ],
   },
   { // RCL7
     origin: {x: 6, y: 7},
@@ -135,7 +137,7 @@ export const baseLayouts: BaseLayout[] = [
       ['.', '.', 'E', 'R', 'R', 'E', 'R', 'E', 'R', 'R', 'R', 'E', '.'],
       ['.', '.', '.', 'E', 'E', 'R', 'E', 'R', 'E', 'E', 'E', '.', '.'],
       ['.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.'],
-    ]
+    ],
   },
   { // RCL8
     origin: {x: 6, y: 7},
@@ -156,96 +158,87 @@ export const baseLayouts: BaseLayout[] = [
       ['.', 'E', 'E', 'R', 'R', 'E', 'R', 'E', 'R', 'R', 'R', 'E', '.'],
       ['.', '.', '.', 'E', 'E', 'R', 'E', 'R', 'E', 'E', 'E', '.', '.'],
       ['.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.'],
-    ]
+    ],
   },
-]
+];
 
 export default class BaseConstructionRunnable {
   id: string;
-  orgRoom: OrgRoom;
+  baseId: string;
 
-  constructor(id: string, orgRoom: OrgRoom) {
+  constructor(baseId: string, id: string) {
     this.id = id;
-    this.orgRoom = orgRoom;
+    this.baseId = baseId;
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('base_construction_run');
 
-    trace.log('base construction run', {id: this.id, orgRoomId: this.orgRoom.id});
+    trace.log('base construction run', {id: this.id, baseId: this.baseId});
 
-    const baseConfig = kingdom.getPlanner().getBaseConfigById(this.orgRoom.id);
-    if (!baseConfig) {
+    const base = kernel.getPlanner().getBaseById(this.baseId);
+    if (!base) {
       trace.error('no base config');
       trace.end();
-      return sleeping(CONSTRUCTION_INTERVAL);
+      return terminate();
     }
 
-    if (!baseConfig.automated) {
-      trace.log('not automated');
-      trace.end();
-      return sleeping(CONSTRUCTION_INTERVAL);
-    }
-
-    const origin = baseConfig.origin;
+    const origin = base.origin;
     if (!origin) {
       trace.error('no origin');
       trace.end();
       return sleeping(CONSTRUCTION_INTERVAL);
     }
 
-    const room = this.orgRoom.getRoomObject();
-    if (!room) {
-      trace.error('no room object')
-      trace.end();
-      return sleeping(CONSTRUCTION_INTERVAL);
-    }
-
-    const roomLevel = this.orgRoom.getRoomLevel();
-    if (roomLevel < 1) {
-      trace.log('room level low', {roomLevel});
-      trace.end();
-      return sleeping(CONSTRUCTION_INTERVAL);
-    }
+    const baseLevel = getBaseLevel(base);
 
     // Update parking lot for room level
-    const levelLayout = baseLayouts[roomLevel];
+    const levelLayout = baseLayouts[baseLevel];
     if (levelLayout) {
-      this.setParking(kingdom, levelLayout, origin, room, trace);
+      setParking(base, levelLayout, origin);
     } else {
-      trace.error('no level layout', {roomLevel});
+      trace.error('no level layout', {roomLevel: baseLevel});
     }
 
     // We have check all the things, now it's time to work out what we are building and build it
-    const unfinished = this.selectLayout(roomLevel, room, origin, trace);
+    const unfinished = this.selectLayout(baseLevel, origin, trace);
     if (unfinished) {
-      this.buildLayout(kingdom, unfinished, room, origin, trace);
+      this.buildLayout(base, unfinished, origin, trace);
     } else {
-      trace.log('no unfinished layout', {roomLevel});
+      trace.log('no unfinished layout', {roomLevel: baseLevel});
     }
 
-    if (roomLevel >= 3) {
-      this.buildWalls(kingdom, room, baseConfig, trace);
+    if (baseLevel >= 3) {
+      this.buildWalls(kernel, base, trace);
     }
 
     trace.end();
     return sleeping(CONSTRUCTION_INTERVAL);
   }
 
-  selectLayout(roomLevel: number, room: Room, origin: RoomPosition, trace: Tracer): BaseLayout {
-    //for (let i = 0; i <= roomLevel; i++) {
+  selectLayout(roomLevel: number, origin: RoomPosition, trace: Tracer): BaseLayout {
+    // for (let i = 0; i <= roomLevel; i++) {
     //  const layout = baseLayouts[i];
     const layout = baseLayouts[roomLevel];
-    if (!this.layoutComplete(layout, room, origin, trace)) {
+    if (!this.layoutComplete(layout, origin, trace)) {
       return layout;
     }
-    //}
+    // }
 
     return null;
   }
 
-  buildLayout(kingdom: Kingdom, layout: BaseLayout, room: Room, origin: RoomPosition, trace: Tracer): void {
-    trace.log('building layout', {roomId: room.name, layout});
+  buildLayout(base: Base, layout: BaseLayout, origin: RoomPosition, trace: Tracer): void {
+    trace.log('building layout', {layout});
+
+    let toBuild: PossibleSite[] = [];
+    let numSites = 0;
+
+    const room = getBasePrimaryRoom(base);
+    if (!room) {
+      trace.error('no primary room');
+      return;
+    }
 
     // const roomVisual = new RoomVisual(room.name);
     for (let y = 0; y < layout.buildings.length; y++) {
@@ -272,6 +265,8 @@ export default class BaseConstructionRunnable {
 
         const site = pos.lookFor(LOOK_CONSTRUCTION_SITES)[0];
         if (site) {
+          numSites++;
+
           if (site.structureType !== buildingCodes[code]) {
             trace.warn('wrong site, remove', {existing: site.structureType, expected: buildingCodes[code]});
             site.remove();
@@ -285,69 +280,113 @@ export default class BaseConstructionRunnable {
           continue;
         }
 
-        // roomVisual.text(code, pos.x, pos.y);
-
-        const result = room.createConstructionSite(pos, structureType);
-        if (result !== OK && result !== ERR_FULL) {
-          trace.error('failed to build structure', {structureType, pos, result});
-          return;
-        }
-
-        trace.notice('building', {structureType, pos});
+        toBuild.push({x: pos.x, y: pos.y, structureType});
       }
     }
-  }
 
-  buildWalls(kingdom: Kingdom, room: Room, baseConfig: BaseConfig, trace: Tracer): void {
-    if (!baseConfig.walls) {
+    if (numSites > MAX_STRUCTURE_SITES) {
+      trace.info('too many sites', {numSites});
       return;
     }
 
-    trace.log('building walls', {roomId: room.name});
+    // Sort by type priority
+    toBuild = prioritizeBySitesType(toBuild);
 
-    baseConfig.walls.forEach(wall => {
-      const position = new RoomPosition(wall.x, wall.y, room.name)
+    // Build sites until we hit max sites
+    while (toBuild.length > 0) {
+      if (numSites >= MAX_STRUCTURE_SITES) {
+        return;
+      }
 
-      const road = position.lookFor(LOOK_STRUCTURES).find(structure => {
+      const site = toBuild.pop();
+      if (!site) {
+        continue;
+      }
+
+      // roomVisual.text(code, pos.x, pos.y);
+
+      const pos = new RoomPosition(site.x, site.y, room.name);
+      const result = room.createConstructionSite(pos, site.structureType);
+      if (result !== OK && result !== ERR_FULL) {
+        trace.error('failed to build structure', {structureType: site.structureType, pos, result});
+        return;
+      }
+
+      numSites++;
+      trace.notice('building', {structureType: site.structureType, pos, result});
+    }
+  }
+
+  buildWalls(kernel: Kernel, base: Base, trace: Tracer): void {
+    if (!base.walls) {
+      return;
+    }
+
+    const room = getBasePrimaryRoom(base);
+    if (!room) {
+      trace.error('no primary room');
+      return;
+    }
+
+    if (!room.storage) {
+      trace.info('no storage');
+      return;
+    }
+
+    trace.info('building walls', {roomId: room.name});
+
+    let numWallSites = 0;
+
+    base.walls.forEach((wall) => {
+      if (numWallSites >= MAX_WALL_SITES) {
+        return;
+      }
+
+      const position = new RoomPosition(wall.x, wall.y, room.name);
+
+      const road = position.lookFor(LOOK_STRUCTURES).find((structure) => {
         return structure.structureType === STRUCTURE_ROAD;
       });
 
-      const roadSite = position.lookFor(LOOK_CONSTRUCTION_SITES).find(site => {
+      const roadSite = position.lookFor(LOOK_CONSTRUCTION_SITES).find((site) => {
         return site.structureType === STRUCTURE_ROAD;
       });
 
+      const passage = _.find(base.passages, {x: position.x, y: position.y});
+
       let expectedStructure: (STRUCTURE_WALL | STRUCTURE_RAMPART) = STRUCTURE_WALL;
-      if (road || roadSite) {
+      if (road || roadSite || passage) {
         expectedStructure = STRUCTURE_RAMPART;
       }
 
-      const structure = position.lookFor(LOOK_STRUCTURES).find(structure => {
+      const structure = position.lookFor(LOOK_STRUCTURES).find((structure) => {
         return structure.structureType === expectedStructure;
       });
       if (structure) {
-        trace.log('structure present', {structure: structure.structureType});
+        trace.info('structure present', {structure: structure.structureType});
         return;
       }
 
       let foundSite = false;
 
-      const sites = position.lookFor(LOOK_CONSTRUCTION_SITES)
+      const sites = position.lookFor(LOOK_CONSTRUCTION_SITES);
       if (sites) {
-        const expectedSite = sites.find(site => {
+        const expectedSite = sites.find((site) => {
           return site.structureType === expectedStructure;
         });
 
         if (expectedSite) {
-          trace.log('site present', {site: expectedSite.structureType});
+          trace.info('site present', {site: expectedSite.structureType});
+          numWallSites++;
           foundSite = true;
         } else {
-          sites.forEach(site => {
+          sites.forEach((site) => {
             // dont remove road site
             if (site.structureType === STRUCTURE_ROAD) {
               return;
             }
 
-            trace.log('wrong site, remove', {existing: site.structureType, expected: expectedStructure});
+            trace.info('wrong site, remove', {existing: site.structureType, expected: expectedStructure});
             site.remove();
           });
         }
@@ -365,17 +404,7 @@ export default class BaseConstructionRunnable {
     });
   }
 
-  setParking(kingdom: Kingdom, layout: BaseLayout, origin: RoomPosition, room: Room, trace: Tracer): void {
-    const baseConfig = kingdom.getPlanner().getBaseConfigByRoom(room.name);
-    if (!baseConfig) {
-      trace.error('no base config when setting parking', {roomId: room.name});
-      return null;
-    }
-
-    baseConfig.parking = new RoomPosition(layout.parking.x + origin.x, layout.parking.y + origin.y, origin.roomName);
-  }
-
-  layoutComplete(layout: BaseLayout, room: Room, origin: RoomPosition, trace: Tracer): boolean {
+  layoutComplete(layout: BaseLayout, origin: RoomPosition, trace: Tracer): boolean {
     if (layout.buildings.length === 0) {
       return true;
     }
@@ -404,7 +433,7 @@ export default class BaseConstructionRunnable {
         }
 
         if (structures.length && structures[0].structureType !== buildingCodes[code]) {
-          trace.log('incorrect structure present', {pos, structures: structures.map(s => s.structureType)});
+          trace.log('incorrect structure present', {pos, structures: structures.map((s) => s.structureType)});
           return false;
         }
       }

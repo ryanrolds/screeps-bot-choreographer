@@ -1,12 +1,12 @@
-export const ATTACK_ROOM_TTL = 100;
+export const ATTACK_ROOM_TTL = 500;
 export enum AttackStatus {
   REQUESTED = 'requested',
   COMPLETED = 'completed',
 }
+
 export type AttackRequest = {
   status: AttackStatus;
   roomId: string;
-  baseId: string;
 };
 
 export enum Phase {

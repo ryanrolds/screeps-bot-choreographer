@@ -1,14 +1,12 @@
-import * as behaviorTree from "./lib.behaviortree";
-import * as behaviorAssign from "./behavior.assign";
-import * as behaviorMovement from "./behavior.movement";
-import * as behaviorCommute from "./behavior.commute";
-import {behaviorBoosts} from "./behavior.boosts";
-import behaviorRoom from "./behavior.room";
-import * as MEMORY from "./constants.memory";
-import {commonPolicy} from "./lib.pathing_policies";
-import {roadWorker} from "./behavior.logistics";
-import {FindPathPolicy} from "./lib.pathing";
-import {AllowedCostMatrixTypes} from "./lib.costmatrix_cache";
+import {behaviorBoosts} from './behavior.boosts';
+import * as behaviorCommute from './behavior.commute';
+import {roadWorker} from './behavior.logistics';
+import * as behaviorMovement from './behavior.movement';
+import * as behaviorRoom from './behavior.room';
+import * as MEMORY from './constants.memory';
+import * as behaviorTree from './lib.behaviortree';
+import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
+import {FindPathPolicy} from './lib.pathing';
 
 export const controllerDumpPolicy: FindPathPolicy = {
   room: {
@@ -61,7 +59,7 @@ const behavior = behaviorTree.sequenceNode(
         'upgrade_controller',
         (creep, trace, kingdom) => {
           const result = creep.upgradeController(creep.room.controller);
-          trace.log("upgrade result", {result})
+          trace.log('upgrade result', {result});
           if (result == ERR_NOT_ENOUGH_RESOURCES) {
             return behaviorTree.SUCCESS;
           }

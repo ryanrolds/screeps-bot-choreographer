@@ -1,29 +1,35 @@
-import {Priorities, Scheduler} from "./os.scheduler";
-import {Process, running, sleeping} from "./os.process";
-import {Tracer} from './lib.tracing';
-import {Kingdom} from './org.kingdom';
-import WarPartyRunnable from './runnable.warparty';
-import * as TOPICS from './constants.topics';
-import {AttackStatus, Phase} from './constants.attack';
-import * as MEMORY from './constants.memory';
-import * as CREEPS from './constants.creeps';
-import * as PRIORITIES from './constants.priorities';
+import {Base} from './base';
 import {creepIsFresh} from './behavior.commute';
-import {thread, ThreadFunc} from './os.thread';
+import {AttackStatus, Phase} from './constants.attack';
+import * as CREEPS from './constants.creeps';
+import * as MEMORY from './constants.memory';
+import * as PRIORITIES from './constants.priorities';
+import * as TOPICS from './constants.topics';
+import {Kernel, KernelThreadFunc, threadKernel} from './kernel';
+import {buildAttacker, newMultipliers} from './lib.attacker_builder';
+import {scoreRoomDamage, scoreStorageHealing} from './lib.scoring';
+import {Tracer} from './lib.tracing';
+import {Process, sleeping} from './os.process';
+import {RunnableResult} from './os.runnable';
+import {Priorities, Scheduler} from './os.scheduler';
+import {MEMORY_HARASS_BASE, ROLE_HARASSER} from './role.harasser';
+import {createSpawnRequest, getBaseSpawnTopic, getShardSpawnTopic} from './runnable.base_spawning';
 import {RoomEntry} from './runnable.scribe';
-import {BaseConfig} from './config';
-import {RunnableResult} from "./os.runnable";
-import {getKingdomSpawnTopic} from "./topics.kingdom";
+import WarPartyRunnable from './runnable.warparty';
 
-const WAR_PARTY_RUN_TTL = 20;
-const COLONY_ATTACK_RANGE = 5;
-const MAX_WAR_PARTIES_PER_COLONY = 1;
+const WAR_PARTY_RUN_TTL = 100;
+const BASE_ATTACK_RANGE = 3;
+const MAX_BASES_PER_TARGET = 3;
+const MAX_WAR_PARTIES_PER_BASE = 1;
+const MAX_HARASSERS_PER_BASE = 1;
+const HARASS_COOLDOWN = 700;
+
 interface StoredWarParty {
   id: string;
   target: string;
   flagId: string;
   position: RoomPosition;
-  colony: string;
+  baseId: string;
   phase: Phase;
   role: string;
 }
@@ -39,7 +45,7 @@ enum HostileStrength {
   Weak = 'weak',
   Medium = 'medium',
   Strong = 'strong',
-};
+}
 
 export default class WarManager {
   id: string;
@@ -47,107 +53,78 @@ export default class WarManager {
   memory: WarMemory;
   warParties: WarPartyRunnable[];
 
-  targetRoom: string;
-  targetTime: number;
-  hostileStrength: HostileStrength;
+  // TODO make a target struct
   targets: string[] = [];
 
-  updateWarPartiesThread: ThreadFunc;
-  processEventsThread: ThreadFunc;
-  mapUpdateThread: ThreadFunc;
+  updateWarPartiesThread: KernelThreadFunc;
+  consumeEventsThread: KernelThreadFunc;
+  mapUpdateThread: KernelThreadFunc;
 
-  constructor(kingdom: Kingdom, id: string, scheduler: Scheduler, trace: Tracer) {
+  constructor(kernel: Kernel, id: string, scheduler: Scheduler, trace: Tracer) {
     this.id = id;
     this.scheduler = scheduler;
     this.warParties = null;
-
-    this.targetRoom = null;
-    this.targetTime = null;
-    this.hostileStrength = HostileStrength.None;
     this.targets = [];
 
-    this.processEventsThread = thread('events_thread', WAR_PARTY_RUN_TTL)(this.processEvents.bind(this));
-    this.updateWarPartiesThread = thread('update_warparties', WAR_PARTY_RUN_TTL)(this.updateWarParties.bind(this));
-    this.mapUpdateThread = thread('map_thread', 1)(this.mapUpdate.bind(this));
+    this.consumeEventsThread = threadKernel('events_thread', WAR_PARTY_RUN_TTL)(this.consumeEvents.bind(this));
+    this.updateWarPartiesThread = threadKernel('update_warparties', WAR_PARTY_RUN_TTL)(this.updateWarParties.bind(this));
+    this.mapUpdateThread = threadKernel('map_thread', 1)(this.mapUpdate.bind(this));
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('war_manager_run');
 
-    this.updateWarPartiesThread(trace, kingdom);
-    this.processEventsThread(trace, kingdom);
-    this.mapUpdateThread(trace);
+    if (this.warParties === null) {
+      trace.info('restoring war parites');
+      this.restoreFromMemory(kernel, trace);
+    }
 
-    trace.end();
+    this.updateWarPartiesThread(trace, kernel);
+    this.consumeEventsThread(trace, kernel);
+    this.mapUpdateThread(trace, kernel);
 
     // Write post event status
-    trace.info("war manager state", {
-      targetRoom: this.targetRoom,
-      targetTime: Game.time - this.targetTime,
-      hostileStrength: this.hostileStrength,
+    trace.info('war manager state', {
       targets: this.targets,
-      warPartyIds: this.warParties.map(warParty => warParty.id)
+      warPartyIds: this.warParties.map((warParty) => warParty.id),
+      autoAttack: kernel.getConfig().autoAttack,
     });
 
-    if (this.targetTime && Game.time - this.targetTime > 5000) {
-      this.targetTime = Game.time;
-
-      switch (this.hostileStrength) {
-        case HostileStrength.None:
-          this.hostileStrength = HostileStrength.Weak;
-          break;
-        case HostileStrength.Weak:
-          this.hostileStrength = HostileStrength.Medium;
-          break;
-        case HostileStrength.Medium:
-          this.hostileStrength = HostileStrength.Strong;
-          break;
-        case HostileStrength.Strong:
-          break;
-        default:
-          throw new Error('Unknown hostile strength');
-      }
-    }
+    trace.end();
 
     return sleeping(WAR_PARTY_RUN_TTL);
   }
 
-  processEvents(trace: Tracer, kingdom: Kingdom) {
+  consumeEvents(trace: Tracer, kernel: Kernel) {
     // Process events
     let targets = this.targets;
 
-    const topic = kingdom.getTopics().getTopic(TOPICS.ATTACK_ROOM);
+    const topic = kernel.getTopics().getTopic(TOPICS.ATTACK_ROOM);
     if (!topic) {
-      trace.log("no attack room topic");
+      trace.warn('no attack room topic');
       return;
     }
 
-    trace.log("processing events", {length: topic.length});
+    trace.info('consuming events', {length: topic.length});
     let event = null;
     while (event = topic.shift()) {
       switch (event.details.status) {
         case AttackStatus.REQUESTED:
-          trace.log("requested", {target: event.details.target});
+          trace.info('requested attack', {target: event.details.roomId});
 
-          if (targets.indexOf(event.details.target) === -1) {
+          if (targets.indexOf(event.details.roomId) === -1) {
             targets.push(event.details.roomId);
           }
 
           break;
         case AttackStatus.COMPLETED:
-          trace.log('attack completed', {roomId: event.details.roomId});
+          trace.info('attack completed', {roomId: event.details.roomId});
 
           // clear target room so we don't try to pick it before it's journal entry is updated
-          kingdom.getScribe().clearRoom(this.targetRoom);
+          kernel.getScribe().clearRoom(event.details.roomId);
 
           // remove room from targets when completed
-          targets = targets.filter(target => target !== this.targetRoom);
-
-          // if current target, we are done - pick new target
-          if (this.targetRoom === event.details.roomId) {
-            this.targetRoom = null;
-            this.targetTime = null;
-          }
+          targets = targets.filter((target) => target !== event.details.roomId);
           break;
         default:
           throw new Error(`invalid status ${event.details.status}`);
@@ -157,192 +134,277 @@ export default class WarManager {
     // address bug with duplicate entries
     targets = _.uniq(targets);
 
+    let bases = kernel.getPlanner().getBases();
+    bases = _.filter(bases, (base) => Game.rooms[base.primary]?.controller.level >= 5);
+
+    trace.log('allowed bases', {bases: bases.map((base) => base.primary)});
+
+    // Sort targets so closest to other bases is prioritized
+    targets = _.sortBy(targets, (target) => {
+      bases = _.sortBy(bases, (base: Base) => {
+        return Game.map.getRoomLinearDistance(base.primary, target);
+      });
+
+      return Game.map.getRoomLinearDistance(bases[0].primary, target);
+    });
+
     trace.notice('targets', {targets});
-
-    // TODO spread targets across colonies
     this.targets = targets;
-
-    if (this.targetRoom) {
-      trace.info('already have a target room', {roomId: this.targetRoom});
-
-      // If time is not set and we have target room set to game time
-      if (!this.targetTime) {
-        this.targetTime = Game.time;
-      }
-    } else if (this.targets.length) {
-      trace.notice("setting target room", {target: this.targets[0]});
-      this.targetRoom = this.targets[0];
-      this.targetTime = Game.time;
-    }
   }
 
-  updateWarParties(trace: Tracer, kingdom: Kingdom) {
-    if (this.warParties === null) {
-      trace.info('restoring war parites');
-      this.restoreFromMemory(kingdom, trace);
-    }
-
+  updateWarParties(trace: Tracer, kernel: Kernel) {
     // Update list of war parties
     this.warParties = this.warParties.filter((party) => {
       return this.scheduler.hasProcess(party.id);
     });
 
-
-    if (!this.targetRoom) {
-      trace.info("no target room");
+    if (!kernel.getConfig().autoAttack) {
+      trace.info('auto attack disabled');
       return;
     }
 
-    // Send reserver to block controller if room is clear
-    const roomEntry = kingdom.getScribe().getRoomById(this.targetRoom);
-    if (!roomEntry) {
-      trace.error("no room entry");
+    if (!this.targets || this.targets.length === 0) {
+      trace.info('no target rooms');
       return;
     }
 
-    if (!roomEntry.controller) {
-      trace.notice('room is not claimed, attack complete or not needed', {roomId: this.targetRoom});
-      this.targetRoom = null;
-    } else if (roomEntry.controller.safeMode > 150) {
-      trace.info('controller is in safe mode', {roomId: this.targetRoom});
-    } else {
-      // Determine if we need to send defenders
-      if (roomEntry && (roomEntry.numKeyStructures > 0 || this.hostileStrength !== HostileStrength.None)) {
+    const bases = kernel.getPlanner().getBases();
+    const targetNumBasesAssigned = {};
+    const baseAssignments = {};
+
+    this.targets.forEach((target) => {
+      const roomEntry = kernel.getScribe().getRoomById(target);
+      if (!roomEntry) {
+        trace.error('no room entry', {target});
+        return;
+      }
+
+      if (targetNumBasesAssigned[target] === undefined) {
+        targetNumBasesAssigned[target] = 0;
+      }
+
+      if (roomEntry.controller) {
+        if (roomEntry.controller.safeMode > 150) {
+          trace.info('controller is in safe mode', {target});
+          return;
+        }
+
+        // Send reservers to block if no towers and not in safe mode
+        if (roomEntry.numTowers === 0 && roomEntry.controller?.level > 0) {
+          trace.info('no towers and still claimed, send reserver', {target});
+          this.sendReserver(kernel, target, trace);
+        }
+      }
+
+      // Determine if we need to send attackers
+      if (roomEntry.numTowers > 0 || roomEntry.numKeyStructures > 0) {
         // Locate nearby colonies and spawn war parties
-        kingdom.getPlanner().getBaseConfigs().forEach((baseConfig) => {
-          // TODO check for path to target
-          const linearDistance = Game.map.getRoomLinearDistance(baseConfig.primary, this.targetRoom)
-          trace.info("linear distance", {linearDistance});
-
-          if (linearDistance > COLONY_ATTACK_RANGE) {
+        bases.forEach((base) => {
+          // If we have assigned enough rooms, move on
+          if (targetNumBasesAssigned[target] >= MAX_BASES_PER_TARGET) {
             return;
           }
 
-          const numColonyWarParties = this.warParties.filter((party) => {
-            return party.baseConfig.id === baseConfig.id;
-          }).length;
-
-          trace.info("colony parties", {
-            colonyId: baseConfig.id,
-            numColonyWarParties,
-            max: MAX_WAR_PARTIES_PER_COLONY
-          });
-
-          if (numColonyWarParties < MAX_WAR_PARTIES_PER_COLONY) {
-            this.createNewWarParty(kingdom, baseConfig, roomEntry, trace);
+          // Check if base already assigned
+          if (baseAssignments[base.id]) {
+            return;
           }
+
+          const baseTrace = trace.withFields(new Map([['base', base.primary]]));
+          // TODO check for path to target
+          const linearDistance = Game.map.getRoomLinearDistance(base.primary, target);
+          if (linearDistance > BASE_ATTACK_RANGE) {
+            baseTrace.info('linear distance too far', {
+              base: base.primary, target, linearDistance, BASE_ATTACK_RANGE,
+            });
+            return;
+          }
+
+          const baseRoom = Game.rooms[base.primary];
+          if (!baseRoom) {
+            baseTrace.warn('no base room', {target, base});
+            return;
+          }
+
+          trace.info('assigning base', {base: base.primary, target});
+          targetNumBasesAssigned[target]++;
+          baseAssignments[base.id] = target;
+
+          this.attack(kernel, base, baseRoom, roomEntry, trace);
+
+          return;
         });
       }
-
-      // Send reservers to block if no towers
-      if (roomEntry.numTowers === 0 && roomEntry.controller?.level > 0) {
-        trace.info('no towers and still claimed, send reserver')
-
-        const numReservers = _.filter(Game.creeps, (creep) => {
-          const role = creep.memory[MEMORY.MEMORY_ROLE];
-          return (role === CREEPS.WORKER_RESERVER) &&
-            creep.memory[MEMORY.MEMORY_ASSIGN_ROOM] === this.targetRoom && creepIsFresh(creep);
-        }).length;
-
-        if (numReservers < 1) {
-          const details = {
-            role: CREEPS.WORKER_RESERVER,
-            memory: {
-              [MEMORY.MEMORY_ASSIGN_ROOM]: this.targetRoom,
-            },
-          }
-
-          trace.info("requesting reserver", {details});
-
-          kingdom.sendRequest(getKingdomSpawnTopic(), PRIORITIES.PRIORITY_RESERVER,
-            details, WAR_PARTY_RUN_TTL);
-        } else {
-          trace.info("reserver already exists", {numReservers});
-        }
-      }
-    }
+    });
 
     // Update memory
     (Memory as any).war = {
-      targetRoom: this.targetRoom,
-      targetTime: this.targetTime,
-      hostileStrength: this.hostileStrength,
-      parties: this.warParties.map((party) => {
+      targetRooms: this.targets,
+      parties: this.warParties.map((party): StoredWarParty => {
         return {
           id: party.id,
           target: party.targetRoom,
           phase: party.phase,
           role: party.role,
           flagId: party.flagId,
-          colony: party.baseConfig.id,
+          baseId: party.baseId,
           position: party.getPosition(),
         };
-      })
+      }),
     };
   }
 
-  mapUpdate(trace: Tracer): void {
-    this.warParties.forEach((party) => {
-      Game.map.visual.line(new RoomPosition(25, 25, party.baseConfig.primary), new RoomPosition(25, 25, party.targetRoom), {})
-    });
+  mapUpdate(trace: Tracer, kernel: Kernel): void {
+    if (this.warParties) {
+      this.warParties.forEach((party) => {
+        const base = kernel.getPlanner().getBaseById(party.baseId);
+        if (!base) {
+          trace.error('no base', {baseId: party.baseId});
+          return;
+        }
 
-    if (this.getTargetRoom()) {
-      Game.map.visual.text('❌', new RoomPosition(25, 25, this.targetRoom), {
+        Game.map.visual.line(new RoomPosition(25, 25, base.primary), new RoomPosition(25, 25, party.targetRoom), {});
+      });
+    }
+
+    this.targets.forEach((target) => {
+      Game.map.visual.text('❌', new RoomPosition(25, 25, target), {
         align: 'center',
         fontSize: 20,
+      });
+    });
+  }
+
+  attack(kernel: Kernel, base: Base, baseRoom: Room, targetRoomEntry: RoomEntry, trace: Tracer) {
+    const boosts = newMultipliers();
+
+    const baseStorage = baseRoom.storage;
+    if (baseStorage) {
+      const availableHealingBoost = scoreStorageHealing(baseStorage);
+      boosts[HEAL] = availableHealingBoost;
+    }
+
+    const availableEnergyCapacity = baseRoom.energyCapacityAvailable;
+    const roomDamage = scoreRoomDamage(targetRoomEntry) / 3;
+    const [parts, ok] = buildAttacker(roomDamage, availableEnergyCapacity, boosts, trace);
+    if (ok) {
+      this.sendWarParty(kernel, base, targetRoomEntry, parts, trace);
+    } else if (targetRoomEntry.invaderCoreLevel < 1) { // don't harass invaders bases
+      trace.warn('could not build attacker, harass', {
+        base: base.primary,
+        targetRoom: targetRoomEntry.id,
+        roomDamage, availableEnergyCapacity, boosts,
+      });
+      this.sendHarassers(kernel, base, targetRoomEntry, trace);
+    } else {
+      trace.warn('could not build attacker, do nothing', {
+        base: base.primary,
+        targetRoom: targetRoomEntry.id,
+        roomDamage, availableEnergyCapacity, boosts,
       });
     }
   }
 
-  getTargetRoom(): string {
-    return this.targetRoom || null;
+  sendReserver(kernel: Kernel, target: string, trace: Tracer) {
+    const numReservers = _.filter(Game.creeps, (creep) => {
+      const role = creep.memory[MEMORY.MEMORY_ROLE];
+      return (role === CREEPS.WORKER_RESERVER) &&
+        creep.memory[MEMORY.MEMORY_ASSIGN_ROOM] === target && creepIsFresh(creep);
+    }).length;
+
+    if (numReservers < 1) {
+      const priority = PRIORITIES.PRIORITY_RESERVER;
+      const ttl = WAR_PARTY_RUN_TTL;
+      const role = CREEPS.WORKER_RESERVER;
+      const memory = {
+        [MEMORY.MEMORY_ASSIGN_ROOM]: target,
+      };
+
+      const request = createSpawnRequest(priority, ttl, role, memory, 0);
+      trace.notice('requesting reserver', {request});
+      kernel.getTopics().addRequestV2(getShardSpawnTopic(), request);
+    } else {
+      trace.info('reserver already exists', {numReservers});
+    }
   }
 
-  createNewWarParty(kingdom: Kingdom, baseConfig: BaseConfig, targetRoom: RoomEntry, trace: Tracer) {
-    const flagId = `rally_${baseConfig.primary}`;
+  sendHarassers(kernel: Kernel, base: Base, targetRoom: RoomEntry, trace: Tracer) {
+    // get number of harassers
+    const numHarassers = _.filter(Game.creeps, (creep) => {
+      return creep.memory[MEMORY.MEMORY_ROLE] === ROLE_HARASSER &&
+        creep.memory[MEMORY.MEMORY_BASE] === base.id &&
+        creep.memory[MEMORY_HARASS_BASE] === targetRoom.id &&
+        creepIsFresh(creep);
+    });
+
+
+    // if we have too many, don't bother
+    if (numHarassers.length >= MAX_HARASSERS_PER_BASE) {
+      trace.info('too many harassers', {numHarassers});
+      return;
+    }
+
+    /*
+    if (this.lastHarassTime + HARASS_COOLDOWN < Game.time) {
+      trace.info('delaying next harasser', {
+        lastHarassTime: this.lastHarassTime,
+        cooldown: this.lastHarassTime + HARASS_COOLDOWN - Game.time
+      });
+      return;
+    }
+    */
+
+    // request more
+    const priorities = PRIORITIES.PRIORITY_HARASSER;
+    const ttl = WAR_PARTY_RUN_TTL;
+    const role = ROLE_HARASSER;
+    const memory = {
+      [MEMORY.MEMORY_BASE]: base.id,
+      [MEMORY_HARASS_BASE]: targetRoom.id,
+    };
+
+    const request = createSpawnRequest(priorities, ttl, role, memory, 0);
+    trace.info('requesting harasser', {request});
+    kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
+  }
+
+  sendWarParty(kernel: Kernel, base: Base, targetRoom: RoomEntry, parts: BodyPartConstant[],
+    trace: Tracer) {
+    const numBaseWarParties = this.warParties.filter((party) => {
+      return party.baseId === base.id;
+    }).length;
+    if (numBaseWarParties >= MAX_WAR_PARTIES_PER_BASE) {
+      trace.info('too many war parties', {numBaseWarParties});
+      return;
+    }
+
+    trace.info('base parties', {
+      baseId: base.id,
+      numBaseWarParties,
+      max: MAX_WAR_PARTIES_PER_BASE,
+    });
+
+    const flagId = `rally_${base.primary}`;
     const flag = Game.flags[flagId];
     if (!flag) {
-      trace.log(`not creating war party, no rally flag(${flagId})`);
+      trace.warn(`not creating war party, no rally flag(${flagId})`);
       return null;
     }
 
-    let role = CREEPS.WORKER_ATTACKER;
-    switch (targetRoom.numTowers) {
-      case 0:
-        role = CREEPS.WORKER_ATTACKER;
-        break;
-      case 1:
-        role = CREEPS.WORKER_ATTACKER_1TOWER;
-        break;
-      case 2:
-        role = CREEPS.WORKER_ATTACKER_2TOWER;
-        break;
-      case 3:
-        role = CREEPS.WORKER_ATTACKER_3TOWER;
-        break;
-      case 4:
-      case 5:
-      case 6:
-        role = CREEPS.WORKER_ATTACKER_6TOWER;
-        break;
-      default:
-        throw new Error(`invalid number of towers ${targetRoom.numTowers}`);
-    }
+    const partyId = `war_party_${targetRoom.id}_${base.primary}_${Game.time}`;
+    trace.log('creating war party', {target: targetRoom.id, partyId, flagId});
 
-    const partyId = `war_party_${this.targetRoom}_${baseConfig.primary}_${Game.time}`;
-    trace.log("creating war party", {target: this.targetRoom, partyId, flagId});
-
-    const warParty = this.createAndScheduleWarParty(baseConfig, partyId, this.targetRoom,
-      Phase.PHASE_MARSHAL, flag.pos, flag.name, role, trace);
+    const warParty = this.createAndScheduleWarParty(base, partyId, targetRoom.id,
+      Phase.PHASE_MARSHAL, flag.pos, flag.name, CREEPS.WORKER_ATTACKER, trace);
 
     if (warParty) {
       this.warParties.push(warParty);
     }
   }
 
-  createAndScheduleWarParty(baseConfig: BaseConfig, id: string, target: string, phase: Phase,
+  createAndScheduleWarParty(base: Base, id: string, target: string, phase: Phase,
     position: RoomPosition, flagId: string, role: string, trace: Tracer): WarPartyRunnable {
-    const party = new WarPartyRunnable(id, baseConfig, flagId, position, target, role, phase);
+    const party = new WarPartyRunnable(id, base.id, flagId, position, target, role, phase);
     const process = new Process(id, 'war_party', Priorities.OFFENSE, party);
     process.setSkippable(false);
     this.scheduler.registerProcess(process);
@@ -350,10 +412,10 @@ export default class WarManager {
     return party;
   }
 
-  private restoreFromMemory(kingdom: Kingdom, trace: Tracer) {
+  private restoreFromMemory(kernel: Kernel, trace: Tracer) {
     const memory = (Memory as any);
 
-    trace.log("restore memory", {war: memory.war || null});
+    trace.info('restore memory', {war: memory.war || null});
 
     if (!memory.war) {
       memory.war = {
@@ -363,35 +425,33 @@ export default class WarManager {
 
     this.memory = memory.war;
 
-    this.targetRoom = (Memory as any).war?.targetRoom || null;
-    this.targetTime = (Memory as any).war?.targetTime || null;
-    this.hostileStrength = (Memory as any).war?.hostileStrength || HostileStrength.Weak;
+    this.targets = (Memory as any).war?.targets || [];
 
     this.warParties = this.memory.parties.map((party) => {
-      trace.log("restoring party", {party});
-      if (!party.id || !party.target || !party.position || !party.colony || !party.flagId
-        || !party.role) {
+      trace.info('restoring party', {party});
+
+      if (!party.id || !party.target || !party.position || !party.baseId || !party.flagId ||
+        !party.role) {
+        trace.error('invalid party', {party});
         return null;
       }
 
       const position = new RoomPosition(party.position.x, party.position.y, party.position.roomName);
-      const baseConfig = kingdom.getPlanner().getBaseConfigById(party.colony);
-      if (!baseConfig) {
-        trace.log('not create war party, cannot find colony config', {colonyId: party.colony});
+      const base = kernel.getPlanner().getBaseById(party.baseId);
+      if (!base) {
+        trace.warn('not create war party, cannot find base config', {baseId: party.baseId});
         return null;
       }
 
-      return this.createAndScheduleWarParty(baseConfig, party.id, party.target, party.phase,
+      return this.createAndScheduleWarParty(base, party.id, party.target, party.phase,
         position, party.flagId, party.role, trace);
     }).filter((party) => {
       return party;
     });
 
-    trace.log("restore complete", {
-      targetRoom: this.targetRoom,
-      targetTime: this.targetTime,
-      hostileStrength: this.hostileStrength,
-      warParties: this.warParties.map(warParty => warParty.id),
+    trace.info('restore complete', {
+      targets: this.targets,
+      warParties: this.warParties.map((warParty) => warParty.id),
     });
   }
 }

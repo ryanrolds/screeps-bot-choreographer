@@ -1,29 +1,30 @@
-import * as behaviorTree from './lib.behaviortree';
-import {FAILURE, SUCCESS, RUNNING} from './lib.behaviortree';
+import {Kernel} from './kernel';
+import {getCreepBase} from './base';
 import * as behaviorMovement from './behavior.movement';
 import {MEMORY_DESTINATION, MEMORY_FLAG} from './constants.memory';
+import * as behaviorTree from './lib.behaviortree';
+import {FAILURE, RUNNING, SUCCESS} from './lib.behaviortree';
 import {getInfrastructureSites, getPrioritizedSites} from './lib.construction';
 import {Tracer} from './lib.tracing';
-import {Kingdom} from './org.kingdom';
 
 
 export const selectInfrastructureSites = behaviorTree.leafNode(
   'selectSite',
-  (creep: Creep, trace: Tracer, kingdom: Kingdom) => {
-    let sites = getInfrastructureSites(creep.room);
+  (creep: Creep, trace: Tracer, kernel: Kernel) => {
+    const sites = getInfrastructureSites(creep.room);
     if (sites.length === 0) {
       return FAILURE;
     }
 
-    const baseConfig = kingdom.getCreepBaseConfig(creep);
-    if (!baseConfig) {
+    const base = getCreepBase(kernel, creep);
+    if (!base) {
       trace.error('No base config for creep');
       return FAILURE;
     }
 
     // Sort sites by distance from base origin, this ensures the base is built first
     _.sortBy(sites, (site) => {
-      return site.pos.getRangeTo(baseConfig.origin);
+      return site.pos.getRangeTo(base.origin);
     });
 
     const site = sites[0];
@@ -34,21 +35,21 @@ export const selectInfrastructureSites = behaviorTree.leafNode(
 
 export const selectSite = behaviorTree.leafNode(
   'selectSite',
-  (creep: Creep, trace: Tracer, kingdom: Kingdom) => {
-    let sites = getPrioritizedSites(creep.room);
+  (creep: Creep, trace: Tracer, kernel: Kernel) => {
+    const sites = getPrioritizedSites(creep.room);
     if (sites.length === 0) {
       return FAILURE;
     }
 
-    const baseConfig = kingdom.getCreepBaseConfig(creep);
-    if (!baseConfig) {
+    const base = getCreepBase(kernel, creep);
+    if (!base) {
       trace.error('No base config for creep');
       return FAILURE;
     }
 
     // Sort sites by distance from base origin, this ensures the base is built first
     _.sortBy(sites, (site) => {
-      return site.pos.getRangeTo(baseConfig.origin);
+      return site.pos.getRangeTo(base.origin);
     });
 
     const site = sites[0];

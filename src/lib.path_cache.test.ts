@@ -1,23 +1,14 @@
-import 'mocha';
 import {expect} from 'chai';
-import * as _ from "lodash";
+import 'mocha';
+import {mockGlobal} from 'screeps-test-helper';
 import Sinon, * as sinon from 'sinon';
-import {stubObject, StubbedInstance} from "ts-sinon";
-import {setup, mockGlobal, mockInstanceOf} from "screeps-test-helper";
+import {commonPolicy} from './constants.pathing_policies';
 import {CACHE_ITEM_TTL, PathCache, PathCacheItem, PathProvider} from './lib.path_cache';
-import {Kingdom} from './org.kingdom';
-import {Scheduler} from './os.scheduler';
-import {BaseConfig, ShardConfig} from './config';
 import {Tracer} from './lib.tracing';
-import {commonPolicy} from './lib.pathing_policies';
-import {EventBroker} from './lib.event_broker';
-import {CentralPlanning} from './runnable.central_planning';
-import {Scribe} from './runnable.scribe';
 
 describe('Path Cache', function () {
   let sandbox: Sinon.SinonSandbox = null;
   let trace: Tracer = null;
-  let kingdom: Kingdom = null;
   let pathProvider: PathProvider = null;
 
   const originKey = 'source';
@@ -41,37 +32,18 @@ describe('Path Cache', function () {
         bucket: 10000,
         getUsed: () => {
           return 0;
-        }
+        },
       },
     });
 
     mockGlobal<Memory>('Memory', {}, true);
-
-    trace = new Tracer('test', {}, 0);
-
-    const config: ShardConfig = {
-      buffer: 0,
-      friends: [],
-      neutral: [],
-      avoid: [],
-      kos: [],
-      maxColonies: 1,
-      autoExpand: false,
-      explorers: true,
-    };
-    const scheduler = new Scheduler();
-    const scribe = new Scribe();
-    const broker = new EventBroker();
-    const planner = new CentralPlanning(config, scheduler, trace);
-
-    kingdom = new Kingdom(config, scheduler, scribe, broker, planner, trace);
-
+    trace = new Tracer('test', new Map(), 0);
     pathProvider = sandbox.stub().callsFake(() => [path, {}]);
   });
 
   afterEach(() => {
     sandbox.reset();
-  })
+  });
 
   it('should create empty path cache', () => {
     const cache = new PathCache(10, pathProvider);
@@ -86,15 +58,14 @@ describe('Path Cache', function () {
 
     it('should calculate path and cache', () => {
       const cache = new PathCache(10, pathProvider);
-
-      const result = cache.getPath(kingdom, origin, dest, range, policy, trace);
+      const result = cache.getPath(null, origin, dest, range, policy, trace);
       expect(result).to.equal(path);
       expect(cache.getSize(trace)).to.equal(1);
 
-      const pathProviderStub = (pathProvider as Sinon.SinonStub)
+      const pathProviderStub = (pathProvider as Sinon.SinonStub);
       expect(pathProviderStub.callCount).to.equal(1);
       const call = pathProviderStub.getCall(0);
-      expect(call.args[0]).to.equal(kingdom);
+      expect(call.args[0]).to.equal(null);
       expect(call.args[1]).to.equal(origin);
       expect(call.args[2]).to.equal(dest);
       expect(call.args[3].destination.range).to.equal(range);
@@ -104,15 +75,15 @@ describe('Path Cache', function () {
     it('should only calculate the path once', () => {
       const cache = new PathCache(10, pathProvider);
 
-      let result = cache.getPath(kingdom, origin, dest, range, policy, trace);
+      let result = cache.getPath(null, origin, dest, range, policy, trace);
       expect(result).to.equal(path);
 
-      result = cache.getPath(kingdom, origin, dest, range, policy, trace);
+      result = cache.getPath(null, origin, dest, range, policy, trace);
       expect(result).to.equal(path);
 
       expect(cache.getSize(trace)).to.equal(1);
 
-      const pathProviderStub = (pathProvider as Sinon.SinonStub)
+      const pathProviderStub = (pathProvider as Sinon.SinonStub);
       expect(pathProviderStub.callCount).to.equal(1);
     });
   });
@@ -225,7 +196,7 @@ describe('Path Cache', function () {
   });
 
   describe('detailed linked list tests', () => {
-    it("should correctly update the linked list", () => {
+    it('should correctly update the linked list', () => {
       const head = new PathCacheItem(null, null, null, Game.time);
       const tail = new PathCacheItem(null, null, null, Game.time);
       head.add(tail);

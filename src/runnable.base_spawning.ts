@@ -5,25 +5,18 @@
  *
  * TODO - Move to topic with base id in the name - IN PROGRESS
  */
-import {title} from "process";
-import {getBaseSpawnTopic} from "./topics.base";
-import {BaseConfig} from "./config";
-import * as CREEPS from "./constants.creeps";
+import {Base, BaseThreadFunc, getBasePrimaryRoom, threadBase} from './base';
+import * as CREEPS from './constants.creeps';
 import {DEFINITIONS} from './constants.creeps';
-import * as MEMORY from "./constants.memory";
-import * as TOPICS from "./constants.topics";
-import {createCreep} from "./helpers.creeps";
-import {getKingdomSpawnTopic} from "./topics.kingdom";
-import {Event} from "./lib.event_broker";
-import {Request} from "./lib.topics";
+import * as MEMORY from './constants.memory';
+import * as TOPICS from './constants.topics';
+import {Kernel} from './kernel';
+import {Event} from './lib.event_broker';
+import {Request, RequestDetails, TopicKey} from './lib.topics';
 import {Tracer} from './lib.tracing';
-import {Kingdom} from "./org.kingdom";
-import OrgRoom from "./org.room";
-import {running, terminate} from "./os.process";
-import {RunnableResult} from "./os.runnable";
-import {thread, ThreadFunc} from "./os.thread";
-import {getLinesStream, HudLine, HudEventSet, HudIndicatorStatus, HudIndicator, getDashboardStream} from "./runnable.debug_hud";
-import {request} from "http";
+import {running, terminate} from './os.process';
+import {RunnableResult} from './os.runnable';
+import {getDashboardStream, getLinesStream, HudEventSet, HudIndicator, HudIndicatorStatus, HudLine} from './runnable.debug_hud';
 
 const SPAWN_TTL = 5;
 const REQUEST_BOOSTS_TTL = 5;
@@ -34,94 +27,110 @@ const INITIAL_TOPIC_LENGTH = 9999;
 const RED_TOPIC_LENGTH = 10;
 const YELLOW_TOPIC_LENGTH = 5;
 
+export const SPAWN_REQUEST_ROLE = 'role';
+export const SPAWN_REQUEST_SPAWN_MIN_ENERGY = 'spawn_min_energy';
+export const SPAWN_REQUEST_PARTS = 'parts';
+
 type SpawnRequestDetails = {
   role: string;
   memory: any;
-};
+  energyLimit: number;
+}
 
 type SpawnRequest = Request & {
   details: SpawnRequestDetails;
 };
 
-export function createSpawnRequest(role: string, memory: any, priority: number,
-  ttl: number): SpawnRequest {
+type TopicProvider = {
+  sendRequest(topic: TopicKey, priority: number, details: RequestDetails, ttl: number)
+  sendRequestV2(topic: TopicKey, request: Request)
+}
+
+export function createSpawnRequest(priority: number, ttl: number, role: string,
+  memory: any, energyLimit: number): SpawnRequest {
   return {
     priority,
-    details: {
-      role: role,
-      memory: memory,
-    },
     ttl,
+    details: {
+      role,
+      memory,
+      energyLimit,
+    },
   };
 }
 
+export function getShardSpawnTopic(): TopicKey {
+  return 'shard_spawn';
+}
+
+export function getBaseSpawnTopic(baseId: string): TopicKey {
+  return `base_${baseId}_spawn`;
+}
+
 export default class SpawnManager {
-  orgRoom: OrgRoom;
   id: string;
-  spawnIds: Id<StructureSpawn>[];
-  checkCount: number = 0;
+  baseId: string;
+  checkCount = 0;
 
-  threadProduceEvents: ThreadFunc;
-  threadSpawn: ThreadFunc
+  consumeEventsThread: BaseThreadFunc;
+  threadSpawn: BaseThreadFunc
 
-  constructor(id: string, room: OrgRoom) {
+  constructor(id: string, baseId: string) {
     this.id = id;
-    this.orgRoom = room;
+    this.baseId = baseId;
 
-    const roomObject: Room = this.orgRoom.getRoomObject()
-    if (!roomObject) {
-      throw new Error('cannot create a spawn manager when room does not exist');
-    }
-
-    this.threadSpawn = thread('spawn_thread', SPAWN_TTL)((trace, kingdom, baseConfig) => {
-      this.spawnIds = roomObject.find<StructureSpawn>(FIND_MY_STRUCTURES, {
-        filter: structure => structure.structureType === STRUCTURE_SPAWN && structure.isActive(),
-      }).map(spawn => spawn.id);
-
-      this.spawning(trace, kingdom, baseConfig);
-    });
-
-    this.threadProduceEvents = thread('produce_events_thread',
-      PRODUCE_EVENTS_TTL)((trace, kingdom, baseConfig) => {
-        this.processEvents(trace, kingdom, baseConfig)
+    this.threadSpawn = threadBase('spawn_thread', SPAWN_TTL)(this.spawning.bind(this));
+    this.consumeEventsThread = threadBase('produce_events_thread',
+      PRODUCE_EVENTS_TTL)((trace, kernel, base) => {
+        this.consumeEvents(trace, kernel, base);
       });
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('spawn_manager_run');
 
-    const roomObject: Room = this.orgRoom.getRoomObject()
-    if (!roomObject) {
-      trace.error('no room object', {room: this.orgRoom.id});
+    const base = kernel.getPlanner().getBaseById(this.baseId);
+    if (!base) {
+      trace.error('no base, terminating', {baseId: this.baseId});
       trace.end();
       return terminate();
     }
 
-    const baseConfig = kingdom.getPlanner().getBaseConfigByRoom(this.orgRoom.id);
-    if (!baseConfig) {
-      trace.error('no base config for room', {room: this.orgRoom.id});
+    const room = getBasePrimaryRoom(base);
+    if (!room) {
+      trace.error('no room object,', {base});
       trace.end();
-      return terminate();
+      return;
     }
 
-    trace.log('Spawn manager run', {id: this.id, spawnIds: this.spawnIds});
+    trace.log('Spawn manager run', {id: this.id, baseId: this.baseId});
 
-    this.threadSpawn(trace, kingdom, baseConfig);
-    this.threadProduceEvents(trace, kingdom, baseConfig);
+    this.threadSpawn(trace, kernel, base);
+    this.consumeEventsThread(trace, kernel, base);
 
     trace.end();
     return running();
   }
 
-  spawning(trace: Tracer, kingdom: Kingdom, base: BaseConfig) {
-    // If there are no spawns then we should request another base in the kingdom produce the creep
-    if (this.spawnIds.length === 0) {
-      trace.warn('base has no spawns', {id: this.id, spawnIds: this.spawnIds});
+  spawning(trace: Tracer, kernel: Kernel, base: Base) {
+    const room = getBasePrimaryRoom(base);
+    if (!room) {
+      trace.error('no primary room for base', {base: base.id});
+      return;
+    }
+
+    const spawns = room.find<StructureSpawn>(FIND_MY_STRUCTURES, {
+      filter: (s) => s.structureType === STRUCTURE_SPAWN,
+    });
+
+    // If there are no spawns then we should request another base in the kernel produce the creep
+    if (spawns.length === 0) {
+      trace.warn('base has no spawns', {id: this.id});
 
       let request: SpawnRequest = null;
-      while (request = kingdom.getNextRequest(getBaseSpawnTopic(base.id))) {
-        trace.notice('sending kingdom spawn request', {request: request});
-        kingdom.sendRequest(getKingdomSpawnTopic(), request.priority, request.details,
+      while (request = kernel.getTopics().getNextRequest(getBaseSpawnTopic(base.id))) {
+        trace.notice('sending kernel spawn request', {request: request});
+        kernel.getTopics().addRequest(getShardSpawnTopic(), request.priority, request.details,
           request.ttl);
       }
 
@@ -129,18 +138,19 @@ export default class SpawnManager {
     }
 
     // iterate spawns and fetch next request if idle
-    this.spawnIds.forEach((id) => {
-      const spawn = Game.getObjectById(id);
-      if (!spawn) {
-        return;
-      }
-
+    spawns.forEach((spawn: StructureSpawn) => {
       const isIdle = !spawn.spawning;
       const spawnEnergy = spawn.room.energyAvailable;
       const energyCapacity = spawn.room.energyCapacityAvailable;
       const energyPercentage = spawnEnergy / energyCapacity;
 
-      trace.info('spawn status', {id, isIdle, spawnEnergy, energyCapacity, energyPercentage})
+      trace.info('spawn status', {
+        id: spawn.id,
+        isIdle,
+        spawnEnergy,
+        energyCapacity,
+        energyPercentage,
+      });
 
       if (!isIdle) {
         const creep = Game.creeps[spawn.spawning.name];
@@ -152,54 +162,57 @@ export default class SpawnManager {
           {align: 'right', opacity: 0.8},
         );
 
-        const role = creep.memory[MEMORY.MEMORY_ROLE];
-
-        if (!CREEPS.DEFINITIONS[role]) {
+        const role: string = creep.memory[MEMORY.MEMORY_ROLE];
+        const definition = CREEPS.DEFINITIONS.get(role);
+        if (!definition) {
           trace.error('unknown role', {creepName: creep.name, role});
           return;
         }
 
-        const boosts = CREEPS.DEFINITIONS[role].boosts;
-        const priority = CREEPS.DEFINITIONS[role].processPriority;
+        const boosts = definition.boosts;
+        const priority = definition.processPriority;
 
         trace.log('spawning', {creepName: creep.name, role, boosts, priority});
 
         if (boosts) {
-          this.requestBoosts(spawn, boosts, priority);
+          this.requestBoosts(kernel, base, spawn, boosts, priority);
         }
+
         return;
       }
 
-      const spawnTopicSize = kingdom.getTopicLength(getBaseSpawnTopic(base.id));
+      const spawnTopicSize = kernel.getTopics().getLength(getBaseSpawnTopic(base.id));
       const spawnTopicBackPressure = Math.floor(energyCapacity * (1 - (0.09 * spawnTopicSize)));
       let energyLimit = _.max([300, spawnTopicBackPressure]);
 
       let minEnergy = 300;
-      const numCreeps = (this.orgRoom as any).getColony().numCreeps;
+      const numCreeps = kernel.getCreepsManager().getCreepsByBase(base.id).length;
 
       minEnergy = _.max([300, minEnergy]);
 
-      const next = kingdom.peekNextRequest(getBaseSpawnTopic(base.id));
+      const next = kernel.getTopics().peekNextRequest(getBaseSpawnTopic(base.id));
       trace.info('spawn idle', {
         spawnTopicSize, numCreeps, spawnEnergy, minEnergy,
-        spawnTopicBackPressure, next
+        spawnTopicBackPressure, next,
       });
 
       if (spawnEnergy < minEnergy) {
-        trace.info("low energy, not spawning", {id: this.id, spawnEnergy, minEnergy})
+        trace.info('low energy, not spawning', {id: this.id, spawnEnergy, minEnergy});
         return;
       }
 
       let request = null;
-      const localRequest = kingdom.getNextRequest(getBaseSpawnTopic(base.id));
+      const localRequest = kernel.getTopics().getNextRequest(getBaseSpawnTopic(base.id));
 
       let neighborRequest = null;
       const storageEnergy = spawn.room.storage?.store.getUsedCapacity(RESOURCE_ENERGY) || 0;
       if (storageEnergy < 100000) {
-        trace.warn('reserve energy too low, dont handle requests from other neighbors', {storageEnergy});
+        trace.warn('reserve energy too low, dont handle requests from other neighbors', {storageEnergy, baseId: base.id});
       } else {
-        neighborRequest = this.getNeighborRequest(kingdom, base, trace);
+        neighborRequest = this.getNeighborRequest(kernel, base, trace);
       }
+
+      trace.info('spawn request', {localRequest, neighborRequest});
 
       // Select local request if available
       if (localRequest) {
@@ -209,24 +222,29 @@ export default class SpawnManager {
 
       // If no request selected and neighbor request available, select neighbor request
       if (!request && neighborRequest) {
-        trace.info('found neighbor request', {neighborRequest});
+        trace.warn('found neighbor request', {neighborRequest});
         request = neighborRequest;
       }
 
       // No request, so we are done
       if (!request) {
-        trace.info("no request");
-        return
+        trace.info('no request');
+        return;
       }
 
       // If local priority w/ bonus is less than neighbor priority, select neighbor request
-      if ((request.priority + 5) < neighborRequest?.priority) {
-        trace.info("neighbor request has higher priority", {neighborRequest, request});
+      if ((request.priority + 1) < neighborRequest?.priority) {
+        trace.warn('neighbor request has higher priority', {neighborRequest, request});
         request = neighborRequest;
       }
 
-      const role = request.details.role;
-      const definition = DEFINITIONS[role];
+      const role: string = request.details[SPAWN_REQUEST_ROLE];
+      const definition = DEFINITIONS.get(role);
+      if (!definition) {
+        trace.error('unknown role', {role});
+        return;
+      }
+
       if (definition.energyMinimum && spawnEnergy < definition.energyMinimum) {
         trace.warn('not enough energy', {spawnEnergy, request, definition});
         return;
@@ -237,21 +255,29 @@ export default class SpawnManager {
         energyLimit = request.details.energyLimit;
       }
 
-      const requestMinEnergy = request.details[MEMORY.SPAWN_MIN_ENERGY] || 0;
+      const requestMinEnergy = request.details[SPAWN_REQUEST_SPAWN_MIN_ENERGY] || 0;
       if (spawnEnergy < requestMinEnergy) {
         trace.warn('colony does not have energy', {requestMinEnergy, spawnEnergy, request});
         return;
       }
 
-      trace.info("spawning", {id: this.id, role, spawnEnergy, energyLimit, request});
+      trace.info('spawning', {id: this.id, role, spawnEnergy, energyLimit, request});
 
-      this.createCreep(spawn, request.details.role, request.details.memory, spawnEnergy, energyLimit);
+      const parts = request.details[SPAWN_REQUEST_PARTS] || null;
+      const memory = request.details.memory || {};
+      this.createCreep(base, spawn, role, parts, memory, spawnEnergy, energyLimit);
     });
   }
 
-  getNeighborRequest(kingdom: Kingdom, base: BaseConfig, trace: Tracer) {
-    const topic = this.orgRoom.getKingdom().getTopics()
-    const request = topic.getMessageOfMyChoice(getKingdomSpawnTopic(), (messages) => {
+  getNeighborRequest(kernel: Kernel, base: Base, trace: Tracer) {
+    const baseRoom = getBasePrimaryRoom(base);
+    if (!baseRoom) {
+      trace.error('no primary room for base', {base: base.id});
+      return;
+    }
+
+    const topic = kernel.getTopics();
+    const request = topic.getMessageOfMyChoice(getShardSpawnTopic(), (messages) => {
       // Reverse message so we get higher priority first
       const selected = _.find(messages.reverse(), (message: any) => {
         // Select message if portal nearby
@@ -259,9 +285,9 @@ export default class SpawnManager {
         const assignedShard = message.details.memory[MEMORY.MEMORY_ASSIGN_SHARD] || null;
         if (assignedShard && assignedShard != Game.shard.name) {
           trace.warn('request in another shard', {assignedShard, shard: Game.shard.name});
-          let portals: any[] = this.orgRoom.getKingdom().getScribe()
+          const portals: any[] = kernel.getScribe()
             .getPortals(assignedShard).filter((portal) => {
-              const distance = Game.map.getRoomLinearDistance(this.orgRoom.id,
+              const distance = Game.map.getRoomLinearDistance(baseRoom.name,
                 portal.pos.roomName);
               return distance < 2;
             });
@@ -277,7 +303,7 @@ export default class SpawnManager {
         let destinationRoom = null;
         const baseRoom = message.details.memory[MEMORY.MEMORY_BASE];
         if (baseRoom) {
-          destinationRoom = baseRoom
+          destinationRoom = baseRoom;
         }
         const assignedRoom = message.details.memory[MEMORY.MEMORY_ASSIGN_ROOM];
         if (assignedRoom) {
@@ -295,7 +321,7 @@ export default class SpawnManager {
         }
 
         // If the room is part of a colony, check if the colony is a neighbor
-        const destinationBase = kingdom.getPlanner().getBaseConfigByRoom(destinationRoom);
+        const destinationBase = kernel.getPlanner().getBaseByRoom(destinationRoom);
         if (destinationBase) {
           const isNeighbor = base.neighbors.some((neighborId) => {
             return neighborId == destinationBase.id;
@@ -318,30 +344,37 @@ export default class SpawnManager {
     return request;
   }
 
-  processEvents(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig) {
-    const baseTopic = kingdom.getTopics().getTopic(getBaseSpawnTopic(baseConfig.id));
+  consumeEvents(trace: Tracer, kernel: Kernel, base: Base) {
+    const baseRoom = getBasePrimaryRoom(base);
+    if (!baseRoom) {
+      trace.error('no primary room for base', {base: base.id});
+      return;
+    }
+    const roomName = baseRoom.name;
+
+    const baseTopic = kernel.getTopics().getTopic(getBaseSpawnTopic(base.id));
 
     let creeps = [];
     let topicLength = 9999;
     if (baseTopic) {
       topicLength = baseTopic.length;
       creeps = baseTopic.map((message) => {
-        return `${message.details[MEMORY.MEMORY_ROLE]}(${message.priority},${message.ttl - Game.time})`;
+        return `${message.details[SPAWN_REQUEST_ROLE]}(${message.priority},${message.ttl - Game.time})`;
       });
     }
 
     const line: HudLine = {
       key: `${this.id}`,
-      room: this.orgRoom.id,
+      room: baseRoom.name,
       order: 5,
       text: `Next spawn: ${creeps.join(',')}`,
       time: Game.time,
     };
     const event = new Event(this.id, Game.time, HudEventSet, line);
-    trace.log('produce_events', event);
-    kingdom.getBroker().getStream(getLinesStream()).publish(event)
+    trace.log('produce_events', {event});
+    kernel.getBroker().getStream(getLinesStream()).publish(event);
 
-    const indicatorStream = kingdom.getBroker().getStream(getDashboardStream());
+    const indicatorStream = kernel.getBroker().getStream(getDashboardStream());
 
     // Processes
     let processStatus = HudIndicatorStatus.Green;
@@ -353,20 +386,109 @@ export default class SpawnManager {
       processStatus = HudIndicatorStatus.Yellow;
     }
 
-    const roomName = this.orgRoom.id;
-    const spawnLengthIndicator: HudIndicator = {room: roomName, key: 'spawn_length', display: 'S', status: processStatus};
+    const spawnLengthIndicator: HudIndicator = {
+      room: roomName,
+      key: 'spawn_length',
+      display: 'S',
+      status: processStatus,
+    };
     indicatorStream.publish(new Event(this.id, Game.time, HudEventSet, spawnLengthIndicator));
   }
 
-  createCreep(spawner: StructureSpawn, role, memory, energy: number, energyLimit: number) {
-    return createCreep((this.orgRoom as any).getColony().id, (this.orgRoom as any).id, spawner,
-      role, memory, energy, energyLimit);
+  createCreep(base: Base, spawner: StructureSpawn, role, parts: BodyPartConstant[],
+    memory, energy: number, energyLimit: number) {
+    return createCreep(base, spawner.room?.name, spawner, role, parts, memory, energy, energyLimit);
   }
 
-  requestBoosts(spawn: StructureSpawn, boosts, priority: number) {
-    (this.orgRoom as any).sendRequest(TOPICS.BOOST_PREP, priority, {
+  requestBoosts(kernel: Kernel, base: Base, spawn: StructureSpawn, boosts, priority: number) {
+    kernel.getTopics().addRequest(TOPICS.BOOST_PREP, priority, {
       [MEMORY.TASK_ID]: `bp-${spawn.id}-${Game.time}`,
       [MEMORY.PREPARE_BOOSTS]: boosts,
     }, REQUEST_BOOSTS_TTL);
   }
+}
+
+function createCreep(base: Base, room: string, spawn: StructureSpawn, role: string,
+  parts: BodyPartConstant[], memory: any, energy: number, energyLimit: number) {
+  const definition = DEFINITIONS.get(role);
+  if (!definition) {
+    console.error('no definition for role', {role});
+    return;
+  }
+
+  const ignoreSpawnEnergyLimit = definition.ignoreSpawnEnergyLimit || false;
+  if (energy > energyLimit && !ignoreSpawnEnergyLimit) {
+    energy = energyLimit;
+  }
+
+  const roleEnergyLimit = definition.energyLimit;
+  if (roleEnergyLimit && energy > roleEnergyLimit) {
+    energy = roleEnergyLimit;
+  }
+
+  // if parts not provided, work them out from the definition
+  if (!parts) {
+    parts = getBodyParts(definition, energy);
+  }
+
+  const name = [role, Game.shard.name, Game.time].join('_');
+
+  // Requests to the kernel should include the destination colony, don't overwrite it
+  if (!memory[MEMORY.MEMORY_BASE]) {
+    memory[MEMORY.MEMORY_BASE] = base.id;
+  }
+
+  // Used for debugging, don't use for decision making, use MEMORY_BASE instead
+  memory[MEMORY.MEMORY_ORIGIN_SHARD] = Game.shard.name;
+  memory[MEMORY.MEMORY_ORIGIN] = room;
+
+  memory[MEMORY.MEMORY_ROLE] = role;
+  memory[MEMORY.DESIRED_BOOSTS] = definition.boosts;
+
+  //   `${parts}, ${JSON.stringify(memory)}`);
+
+  const result = spawn.spawnCreep(parts, name, {memory});
+  return result;
+}
+
+function getBodyParts(definition, maxEnergy) {
+  let base = definition.base.slice(0);
+  let i = 0;
+
+  while (true) { // eslint-disable-line no-constant-condition
+    const nextPart = definition.parts[i % definition.parts.length];
+    const estimate = base.concat([nextPart]).reduce((acc, part) => {
+      return acc + BODYPART_COST[part];
+    }, 0);
+
+    if (estimate <= maxEnergy && base.length < 50) {
+      base.push(nextPart);
+    } else {
+      break;
+    }
+
+    i++;
+  }
+
+  base = _.sortBy(base, (part) => {
+    switch (part) {
+      case TOUGH:
+        return 0;
+      case WORK:
+      case CARRY:
+        return 1;
+      case MOVE:
+        return 2;
+      case ATTACK:
+        return 8;
+      case RANGED_ATTACK:
+        return 9;
+      case HEAL:
+        return 10;
+      default:
+        return 1;
+    }
+  });
+
+  return base;
 }

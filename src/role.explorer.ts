@@ -1,25 +1,21 @@
-
-const behaviorTree = require('./lib.behaviortree');
-const {SUCCESS} = require('./lib.behaviortree');
-const behaviorAssign = require('./behavior.assign');
-const {MEMORY_ASSIGN_ROOM} = require('./constants.memory');
+import * as behaviorAssign from './behavior.assign';
+import {MEMORY_ASSIGN_ROOM} from './constants.memory';
+import * as behaviorTree from './lib.behaviortree';
 
 const behavior = behaviorTree.sequenceNode(
   'explorer_root',
   [
     behaviorTree.leafNode(
-      'update_room_with_scribe',
-      (creep, trace, kingdom) => {
-        kingdom.getScribe().updateRoom(kingdom, creep.room, trace);
-
-        return SUCCESS;
-      },
-    ),
-    behaviorTree.leafNode(
       'select_next_room',
       (creep, trace, kingdom) => {
         // Don't notify me when creep wonders into hostile room
         creep.notifyWhenAttacked(false);
+
+        // If creep is assigned room it is not in, then move to that room
+        if (creep.memory[MEMORY_ASSIGN_ROOM] && creep.pos.roomName !== creep.memory[MEMORY_ASSIGN_ROOM]) {
+          trace.info('creep is assigned room already, moving to it');
+          return behaviorTree.SUCCESS;
+        }
 
         const currentRoomStatus = Game.map.getRoomStatus(creep.room.name);
         let exits = Object.values(Game.map.describeExits(creep.room.name));
@@ -39,25 +35,27 @@ const behavior = behaviorTree.sequenceNode(
 
         entries = _.sortBy(entries, 'lastUpdated');
 
+        trace.info('next room', {next: entries[0].id});
         creep.memory[MEMORY_ASSIGN_ROOM] = entries[0].id;
-
-        trace.log('next room', {next: entries[0].id});
-
-        return SUCCESS;
+        return behaviorTree.SUCCESS;
       },
     ),
     behaviorAssign.moveToRoom,
     behaviorTree.leafNode(
       'move_into_room',
       (creep, trace, kingdom) => {
+        // Record room
+        kingdom.getScribe().updateRoom(kingdom, creep.room, trace);
+
+        // Move one step into the room
         creep.moveTo(new RoomPosition(25, 25, creep.room.name), {maxOps: 100});
 
-        return SUCCESS;
+        return behaviorTree.SUCCESS;
       },
     ),
   ],
 );
 
-module.exports = {
+export const roleExplorer = {
   run: behaviorTree.rootNode('explorer', behavior),
 };

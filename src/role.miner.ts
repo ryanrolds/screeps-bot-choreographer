@@ -1,10 +1,10 @@
-import * as behaviorTree from "./lib.behaviortree";
-import {FAILURE, SUCCESS, RUNNING} from "./lib.behaviortree";
-import {behaviorBoosts} from "./behavior.boosts";
-import * as behaviorMovement from "./behavior.movement";
-import * as behaviorCommute from "./behavior.commute";
-import * as MEMORY from "./constants.memory";
-import {commonPolicy} from "./lib.pathing_policies";
+import * as behaviorTree from './lib.behaviortree';
+import {FAILURE, SUCCESS, RUNNING} from './lib.behaviortree';
+import {behaviorBoosts} from './behavior.boosts';
+import * as behaviorMovement from './behavior.movement';
+import * as behaviorCommute from './behavior.commute';
+import * as MEMORY from './constants.memory';
+import {commonPolicy} from './constants.pathing_policies';
 
 const selectSource = behaviorTree.leafNode(
   'selectSource',
@@ -101,7 +101,7 @@ const buildNearbySites = behaviorTree.leafNode(
       return FAILURE;
     }
 
-    const sites = creep.pos.findInRange(FIND_CONSTRUCTION_SITES, 1)
+    const sites = creep.pos.findInRange(FIND_CONSTRUCTION_SITES, 1);
     if (!sites.length) {
       trace.log('no construction site', {});
       return FAILURE;
@@ -111,7 +111,7 @@ const buildNearbySites = behaviorTree.leafNode(
     trace.log('build result', {result});
 
     return RUNNING;
-  }
+  },
 );
 
 const repairContainer = behaviorTree.leafNode(
@@ -140,8 +140,8 @@ const repairContainer = behaviorTree.leafNode(
     trace.log('repair result', {result});
 
     return RUNNING;
-  }
-)
+  },
+);
 
 const moveEnergyToLink = behaviorTree.leafNode(
   'move_energy_to_link',

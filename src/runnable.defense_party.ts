@@ -1,10 +1,10 @@
 import * as _ from 'lodash';
-import {BaseConfig} from './config';
+import {Base} from './base';
 import {WORKER_DEFENDER_DRONE} from './constants.creeps';
-import {PRIORITY_BUFFER_PATROL} from "./constants.priorities";
+import {PRIORITY_BUFFER_PATROL} from './constants.priorities';
+import {Kernel} from './kernel';
 import {Tracer} from './lib.tracing';
-import {Kingdom} from './org.kingdom';
-import {running, STATUS_TERMINATED, terminate} from "./os.process";
+import {running, STATUS_TERMINATED, terminate} from './os.process';
 import {RunnableResult} from './os.runnable';
 import PartyRunnable from './runnable.party';
 
@@ -13,33 +13,32 @@ const NO_TARGET_TTL = 20;
 
 export default class DefensePartyRunnable {
   id: string;
-  baseConfig: BaseConfig;
+  base: Base;
   flagId: string;
   party: PartyRunnable;
   noTargetTTL: number;
   minEnergy: number;
 
-  constructor(id: string, baseConfig: BaseConfig, flagId: string, position: RoomPosition,
-    trace: Tracer) {
+  constructor(id: string, base: Base, flagId: string, position: RoomPosition, trace: Tracer) {
     this.id = id;
-    this.baseConfig = baseConfig;
+    this.base = base;
     this.flagId = flagId;
     this.noTargetTTL = 0;
     this.minEnergy = 0;
-    this.party = new PartyRunnable(id, baseConfig, position, WORKER_DEFENDER_DRONE,
-      this.minEnergy, PRIORITY_BUFFER_PATROL, REQUEST_PARTY_MEMBER_TTL);
+    this.party = new PartyRunnable(id, base.id, position, WORKER_DEFENDER_DRONE,
+      null, this.minEnergy, PRIORITY_BUFFER_PATROL, REQUEST_PARTY_MEMBER_TTL);
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    trace = trace.begin('defense_party_run')
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
+    trace = trace.begin('defense_party_run');
 
-    trace.log("defense party run top", {id: this.id})
+    trace.log('defense party run top', {id: this.id});
 
-    const prep = trace.begin('run_prep')
+    const prep = trace.begin('run_prep');
     // Check existence of flag
-    let flag = this.getFlag();
+    const flag = this.getFlag();
     if (!flag) {
-      trace.error("no flag with that id, terminating", {flagId: this.flagId});
+      trace.error('no flag with that id, terminating', {flagId: this.flagId});
       prep.end();
       trace.end();
       return terminate();
@@ -50,7 +49,7 @@ export default class DefensePartyRunnable {
 
     trace.log('defense party run', {
       id: this.id,
-      creeps: creeps.map(creep => creep.name),
+      creeps: creeps.map((creep) => creep.name),
       flagId: this.flagId,
       noTargetTTL: this.noTargetTTL,
       position,
@@ -64,7 +63,7 @@ export default class DefensePartyRunnable {
     let targetStructures: Structure[] = [];
     // Get target requests and map to creeps
     if (flag.room) {
-      const friends = kingdom.config.friends;
+      const friends = kernel.getConfig().friends;
       targetCreeps = flag.room.find(FIND_HOSTILE_CREEPS).filter((creep) => {
         return friends.indexOf(creep.owner.username) === -1;
       });
@@ -73,12 +72,12 @@ export default class DefensePartyRunnable {
         return 50 - creep.getActiveBodyparts(ATTACK);
       });
 
-      const username = kingdom.getPlanner().getUsername();
+      const username = kernel.getPlanner().getUsername();
       if (!flag.room.controller?.my && flag.room.controller?.reservation?.username !== username) {
         targetStructures = flag.room.find(FIND_STRUCTURES, {
           filter: (structure) => {
             return structure.structureType === STRUCTURE_CONTAINER;
-          }
+          },
         });
       }
     }
@@ -86,7 +85,7 @@ export default class DefensePartyRunnable {
     let targets: (Creep | Structure)[] = [];
     targets = targets.concat(targetCreeps, targetStructures);
 
-    trace.log('target requests', {targets: targets.map(target => target.id)});
+    trace.log('target requests', {targets: targets.map((target) => target.id)});
 
     targetTrace.end();
 
@@ -96,7 +95,7 @@ export default class DefensePartyRunnable {
     let destination = this.getPosition();
     if (targets.length) {
       this.noTargetTTL = NO_TARGET_TTL;
-      destination = targets[0].pos
+      destination = targets[0].pos;
     } else {
       this.noTargetTTL -= 1;
       if (this.noTargetTTL < 0 && flag) {
@@ -114,7 +113,7 @@ export default class DefensePartyRunnable {
     this.setTarget(targets, trace);
     this.setHeal(trace);
 
-    const partyResult = this.party.run(kingdom, trace);
+    const partyResult = this.party.run(kernel, trace);
 
     partyTrace.end();
 

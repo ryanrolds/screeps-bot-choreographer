@@ -8,15 +8,15 @@ export type Request = {
   ttl: number,
 };
 
-type TopicKey = string;
+export type TopicKey = string;
 type Topic = Array<Request>;
 
 export class Topics {
-  topics: Record<TopicKey, Topic>;
+  topics: Map<TopicKey, Topic>;
   lastCleanup: number;
 
   constructor() {
-    this.topics = {};
+    this.topics = new Map();
     this.lastCleanup = 0;
   }
 
@@ -25,51 +25,75 @@ export class Topics {
       this.removeStale();
     }
 
-    if (!this.topics[key]) {
+    if (!this.topics.has(key)) {
       return null;
     }
 
-    return this.topics[key];
+    return this.topics.get(key);
   }
 
   setTopic(key: TopicKey, value) {
-    if (!this.topics[key]) {
+    if (!this.topics.has(key)) {
       return null;
     }
 
-    this.topics[key] = value;
+    this.topics.set(key, value);
   }
+
   reset() {
-    this.topics = {};
+    this.topics = new Map();
   }
+
   removeStale() {
-    Object.keys(this.topics).forEach((topicId) => {
-      this.topics[topicId] = this.topics[topicId].filter((request) => {
+    for (const [key, topic] of this.topics) {
+      this.topics.set(key, this.topics.get(key).filter((request) => {
         return request.ttl >= Game.time;
-      });
-    });
+      }));
+    }
+
     this.lastCleanup = Game.time;
   }
-  createTopic(key: TopicKey) {
-    this.topics[key] = [];
-    return this.topics[key];
+
+  createTopic(key: TopicKey): Topic {
+    this.topics.set(key, []);
+    return this.topics.get(key);
   }
-  addRequest(key: TopicKey, priority, details: RequestDetails, ttl = DEFAULT_TTL) {
+
+  /**
+   * @deprecated Use addRequestV2 instead.
+   */
+  addRequest(key: TopicKey, priority: number, details: RequestDetails, ttl = DEFAULT_TTL) {
     let topic = this.getTopic(key);
     if (!topic) {
       topic = this.createTopic(key);
     }
 
-    const request = {
+    const request: Request = {
       priority,
       details,
       ttl: Game.time + ttl,
     };
 
     topic.push(request);
-    this.topics[key] = _.sortBy(topic, 'priority');
+    this.topics.set(key, _.sortBy(topic, 'priority'));
   }
-  peekNextRequest(key: TopicKey) {
+
+  addRequestV2(key: TopicKey, request: Request) {
+    let topic = this.getTopic(key);
+    if (!topic) {
+      topic = this.createTopic(key);
+    }
+
+    // Add current game time to tll so we know when to expire the message
+    request.ttl = Game.time + request.ttl;
+
+    topic.push(request);
+
+    // TODO doing this each message we push is a bit slow
+    this.topics.set(key, _.sortBy(topic, 'priority'));
+  }
+
+  peekNextRequest(key: TopicKey): Request {
     const topic = this.getTopic(key);
     if (!topic) {
       return null;
@@ -81,7 +105,8 @@ export class Topics {
 
     return topic[topic.length - 1];
   }
-  getNextRequest(key: TopicKey) {
+
+  getNextRequest(key: TopicKey): Request {
     const topic = this.getTopic(key);
     if (!topic) {
       return null;
@@ -100,6 +125,7 @@ export class Topics {
 
     return request;
   }
+
   getFilteredRequests(key: TopicKey, filter) {
     const requests = this.getTopic(key);
     if (!requests) {
@@ -124,18 +150,11 @@ export class Topics {
     return choice;
   }
   getLength(key: TopicKey) {
-    const topic = this.topics[key];
+    const topic = this.topics.get(key);
     if (!topic) {
       return 0;
     }
 
     return topic.length;
-  }
-  getCounts() {
-    return _.reduce(this.topics, (acc, topic, key) => {
-      acc[key] = topic.length;
-
-      return acc;
-    }, {});
   }
 }

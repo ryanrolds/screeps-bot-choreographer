@@ -1,12 +1,10 @@
-import * as behaviorTree from "./lib.behaviortree";
-import {FAILURE, SUCCESS, RUNNING} from "./lib.behaviortree";
-import * as MEMORY from "./constants.memory";
+import * as MEMORY from './constants.memory';
+import {Kernel} from './kernel';
+import * as behaviorTree from './lib.behaviortree';
+import {RUNNING, SUCCESS} from './lib.behaviortree';
+import {Tracer} from './lib.tracing';
 
 const MEMORY_PREV_ROOM = 'previous_room';
-
-export const assignRoom = (creep: Creep, position: RoomPosition) => {
-
-}
 
 export const clearRoom = (creep: Creep) => {
   delete creep.memory[MEMORY.MEMORY_ASSIGN_ROOM];
@@ -17,7 +15,7 @@ export const moveToRoom = behaviorTree.repeatUntilSuccess(
   'moveToAssignedRoom',
   behaviorTree.leafNode(
     'move_to_exit',
-    (creep, trace, kingdom) => {
+    (creep: Creep, trace: Tracer, kernel: Kernel) => {
       const roomID = creep.memory[MEMORY.MEMORY_ASSIGN_ROOM];
       if (!roomID) {
         return SUCCESS;
@@ -52,7 +50,7 @@ export const moveToRoom = behaviorTree.repeatUntilSuccess(
 
       const result = creep.moveTo(position, {
         reusePath: 50,
-        maxOps: 5000,
+        maxOps: 10000,
       });
 
       trace.log('move to exit result', {

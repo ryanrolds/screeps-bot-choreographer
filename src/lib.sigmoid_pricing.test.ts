@@ -1,43 +1,41 @@
-import 'mocha';
 import {expect} from 'chai';
-import * as _ from "lodash";
-import Sinon, * as sinon from 'sinon';
-import {stubObject, StubbedInstance} from "ts-sinon";
-import {setup, mockGlobal, mockInstanceOf} from "screeps-test-helper";
+import * as _ from 'lodash';
+import 'mocha';
+import {mockGlobal} from 'screeps-test-helper';
 
 import {SigmoidPricing} from './lib.sigmoid_pricing';
 
 describe('Sigmoid Pricing', function () {
-  const prices = {
-    [RESOURCE_HYDROXIDE]: {max: 5, min: 0.5},
-  }
+  const prices = new Map([
+    [RESOURCE_HYDROXIDE, {max: 5, min: 0.5}],
+  ]);
   const pricer = new SigmoidPricing(prices as any);
-  let orders: Record<string, Order> = mockInstanceOf<Record<string, Order>>({
-    '01': {
+  const orders = new Map<string, Order>([
+    ['01', {
       id: '01',
       type: ORDER_SELL,
       price: 3.5,
       resourceType: RESOURCE_HYDROXIDE,
-    },
-    '02': {
+    } as Order],
+    ['02', {
       id: '02',
       type: ORDER_SELL,
       price: 1.5,
       resourceType: RESOURCE_HYDROXIDE,
-    },
-    '03': {
+    } as Order],
+    ['03', {
       id: '03',
       type: ORDER_BUY,
       price: 3.0,
       resourceType: RESOURCE_HYDROXIDE,
-    },
-    '04': {
+    } as Order],
+    ['04', {
       id: '04',
       type: ORDER_BUY,
       price: 1.0,
       resourceType: RESOURCE_HYDROXIDE,
-    },
-  });
+    } as Order],
+  ]);
 
   beforeEach(() => {
     mockGlobal<Game>('Game', {
@@ -46,17 +44,17 @@ describe('Sigmoid Pricing', function () {
         getAllOrders: (filter) => {
           return [];
         },
-      }
+      },
     });
-  })
+  });
 
   describe('getMarketPrice', function () {
     beforeEach(() => {
       mockGlobal<Game>('Game', {
         market: {
           orders: {},
-          getAllOrders: (filter) => {
-            return _.filter(Object.values(orders), filter);
+          getAllOrders: (filter): Order[] => {
+            return _.filter(Array.from(orders.values()), filter);
           },
         },
       });
@@ -81,7 +79,7 @@ describe('Sigmoid Pricing', function () {
   describe('getPrice', function () {
     it('should throw error if invalid resource', () => {
       expect(() => {
-        pricer.getPrice(ORDER_BUY, 'not a real resource' as any, 100000)
+        pricer.getPrice(ORDER_BUY, 'not a real resource' as any, 100000);
       }).to.throw('invalid resource: not a real resource');
     });
 
@@ -118,7 +116,7 @@ describe('Sigmoid Pricing', function () {
           market: {
             orders: {},
             getAllOrders: (filter) => {
-              return _.filter(Object.values(orders), filter);
+              return _.filter(Array.from(orders.values()), filter);
             },
           },
         });
@@ -174,7 +172,7 @@ describe('Sigmoid Pricing', function () {
               },
             },
             getAllOrders: (filter) => {
-              return _.filter(Object.values(orders), filter);
+              return _.filter(Array.from(orders.values()), filter);
             },
           },
         });

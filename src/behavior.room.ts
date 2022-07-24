@@ -1,12 +1,13 @@
-const behaviorTree = require('./lib.behaviortree');
-const {FAILURE, SUCCESS, RUNNING} = require('./lib.behaviortree');
-const behaviorMovement = require('./behavior.movement');
-const {MEMORY_DESTINATION, MEMORY_IDLE} = require('./constants.memory');
-const {commonPolicy} = require('./lib.pathing_policies');
+import {getBasePrimaryRoom, getBaseSpawns, getCreepBase, getStructuresWithResource, getStructureWithResource} from './base';
+import * as behaviorMovement from './behavior.movement';
+import {MEMORY_DESTINATION, MEMORY_IDLE} from './constants.memory';
+import {commonPolicy} from './constants.pathing_policies';
+import * as behaviorTree from './lib.behaviortree';
+import {FAILURE, RUNNING, SUCCESS} from './lib.behaviortree';
 
 const selectNearbyLink = behaviorTree.leafNode(
   'select_nearby_link',
-  (creep, trace, kingdom) => {
+  (creep, trace, kernal) => {
     // Favor near by stores
     let nearByLinks = creep.pos.findInRange(FIND_STRUCTURES, 8, {
       filter: (structure) => {
@@ -35,32 +36,32 @@ const selectNearbyLink = behaviorTree.leafNode(
   },
 );
 
-const selectStorage = behaviorTree.leafNode(
+const selectStorageForDeposit = behaviorTree.leafNode(
   'select_storage',
-  (creep, trace, kingdom) => {
-    const room = kingdom.getRoomByName(creep.room.name);
-    if (!room) {
-      trace.log('unable to get creep org room', {roomName: creep.room.name});
+  (creep, trace, kernel) => {
+    const base = getCreepBase(kernel, creep);
+    if (!base) {
+      trace.error('No base config for creep');
       return FAILURE;
     }
 
-    const energyReserve = room.getReserveStructureWithMostOfAResource(RESOURCE_ENERGY, false);
-    if (energyReserve && energyReserve.store.getUsedCapacity(RESOURCE_ENERGY) >= 0) {
-      trace.log('selecting reserve', {id: energyReserve.id});
+    const energyReserve = getStructureWithResource(base, RESOURCE_ENERGY);
+    if (energyReserve) {
+      trace.info('selecting reserve', {id: energyReserve.id});
       behaviorMovement.setDestination(creep, energyReserve.id);
       return SUCCESS;
     }
 
     behaviorMovement.setDestination(creep, null);
 
-    trace.log('did not find reserve with energy', {roomName: creep.room.name});
+    trace.info('did not find reserve with energy', {roomName: creep.room.name});
     return FAILURE;
   },
 );
 
 const selectContainer = behaviorTree.leafNode(
   'select_container',
-  (creep, trace, kingdom) => {
+  (creep, trace, kernel) => {
     // If no nearby stores or the room lacks storage, try to get energy from the nearest container
     const containerInRoom = creep.pos.findClosestByRange(FIND_STRUCTURES, {
       filter: (structure) => {
@@ -87,7 +88,7 @@ const selectContainer = behaviorTree.leafNode(
 
 const selectDroppedEnergy = behaviorTree.leafNode(
   'select_dropped_energy',
-  (creep, trace, kingdom) => {
+  (creep, trace, kernel) => {
     const droppedEnergy = creep.pos.findClosestByRange(FIND_DROPPED_RESOURCES, {
       filter: (resource) => {
         if (resource.resourceType !== RESOURCE_ENERGY) {
@@ -126,22 +127,10 @@ const selectMoveFill = (selector) => {
     ],
   );
 };
-module.exports.selectMoveFill = selectMoveFill;
 
-/* TODO remove Jan 2020
-const fillCreepFromSource = behaviorTree.sequenceNode(
-  'fill_from_source',
-  [
-    behaviorHarvest.selectHarvestSource,
-    behaviorMovement.cachedMoveToMemoryObjectId(MEMORY_SOURCE, 1, commonPolicy),
-    behaviorHarvest.harvest,
-  ],
-);
-*/
-
-module.exports.getSomeEnergy = behaviorTree.runUntilConditionMet(
+export const getSomeEnergy = behaviorTree.runUntilConditionMet(
   'get_some_energy_until_success',
-  (creep, trace, kingdom) => {
+  (creep, trace, kernel) => {
     const freeCapacity = creep.store.getFreeCapacity(RESOURCE_ENERGY);
     trace.log('creep free capacity', {freeCapacity});
     return creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
@@ -150,16 +139,16 @@ module.exports.getSomeEnergy = behaviorTree.runUntilConditionMet(
     'select_and_fill_with_energy',
     [
       selectMoveFill(selectNearbyLink),
-      selectMoveFill(selectStorage),
+      selectMoveFill(selectStorageForDeposit),
       selectMoveFill(selectContainer),
       selectMoveFill(selectDroppedEnergy),
     ],
   ),
 );
 
-module.exports.getEnergy = behaviorTree.repeatUntilConditionMet(
+export const getEnergy = behaviorTree.repeatUntilConditionMet(
   'get_energy_until_success',
-  (creep, trace, kingdom) => {
+  (creep, trace, kernel) => {
     const freeCapacity = creep.store.getFreeCapacity(RESOURCE_ENERGY);
     trace.log('creep free capacity', {freeCapacity});
     return creep.store.getFreeCapacity(RESOURCE_ENERGY) <= 0;
@@ -167,7 +156,7 @@ module.exports.getEnergy = behaviorTree.repeatUntilConditionMet(
   behaviorTree.selectorNode(
     'select_and_fill_with_energy',
     [
-      selectMoveFill(selectStorage),
+      selectMoveFill(selectStorageForDeposit),
       selectMoveFill(selectNearbyLink),
       selectMoveFill(selectContainer),
       selectMoveFill(selectDroppedEnergy),
@@ -175,16 +164,16 @@ module.exports.getEnergy = behaviorTree.repeatUntilConditionMet(
   ),
 );
 
-module.exports.parkingLot = behaviorTree.leafNode(
+export const parkingLot = behaviorTree.leafNode(
   'parking_lot',
-  (creep, trace, kingdom) => {
-    const baseConfig = kingdom.getCreepBaseConfig(creep);
-    if (!baseConfig?.parking) {
+  (creep, trace, kernel) => {
+    const base = getCreepBase(kernel, creep);
+    if (!base?.parking) {
       trace.error('no parking config for creep', {creepName: creep.name});
       return FAILURE;
     }
 
-    const idle = creep.memory[MEMORY_IDLE];
+    let idle = creep.memory[MEMORY_IDLE];
     if (!idle) {
       idle = 1;
     } else {
@@ -192,11 +181,11 @@ module.exports.parkingLot = behaviorTree.leafNode(
     }
     creep.memory[MEMORY_IDLE] = idle;
 
-    if (creep.pos.inRangeTo(baseConfig.parking, 1)) {
+    if (creep.pos.inRangeTo(base.parking, 1)) {
       trace.log('in range of parking lot');
 
       // TODO may move this to something cheaper
-      const hasNuker = baseConfig.parking.lookFor(LOOK_STRUCTURES).find((structure) => {
+      const hasNuker = base.parking.lookFor(LOOK_STRUCTURES).find((structure) => {
         return structure.structureType === STRUCTURE_NUKER;
       });
 
@@ -212,40 +201,42 @@ module.exports.parkingLot = behaviorTree.leafNode(
       return FAILURE;
     }
 
-    trace.log('moving to parking lot', {parkingLot: baseConfig.parking});
+    trace.log('moving to parking lot', {parkingLot: base.parking});
 
-    const result = creep.moveTo(baseConfig.parking, {
+    const result = creep.moveTo(base.parking, {
       reusePath: 50,
       maxOps: 1500,
       ignoreCreeps: false,
     });
     if (result !== OK && result !== ERR_TIRED) {
-      trace.error('could not move to parking lot', {result, parkingLot: baseConfig.parking});
+      trace.warn('could not move to parking lot', {result, parkingLot: base.parking});
     }
 
     return FAILURE;
   },
 );
 
-module.exports.recycleCreep = behaviorTree.leafNode(
+export const recycleCreep = behaviorTree.leafNode(
   'recycle_creep',
-  (creep, trace, kingdom) => {
-    const colony = kingdom.getCreepColony(creep);
-    if (!colony) {
-      trace.error('could not find creep colony', {name: creep.name, memory: creep.memory});
+  (creep, trace, kernel) => {
+    const base = getCreepBase(kernel, creep);
+    if (!base) {
+      trace.error('could not find creep base', {name: creep.name, memory: creep.memory});
       creep.suicide();
       return FAILURE;
     }
 
-    const room = colony.getPrimaryRoom();
+    const room = getBasePrimaryRoom(base);
     if (!room) {
-      trace.log('could not find colony primary room');
+      trace.info('could not find base primary room');
+      // it may be worth suiciding here, when do we have a base but can't see it?
       return FAILURE;
     }
 
-    const spawns = room.getSpawns();
+    const spawns = getBaseSpawns(base);
     if (!spawns.length) {
-      trace.log('could not find spawns');
+      trace.warn('no spawns, suicide', {baseId: base.id});
+      creep.suicide();
       return FAILURE;
     }
 
@@ -256,22 +247,21 @@ module.exports.recycleCreep = behaviorTree.leafNode(
       return RUNNING;
     }
 
-    trace.log('moving to spawn');
 
-    creep.moveTo(spawn, {
+    const result = creep.moveTo(spawn, {
       reusePath: 50,
       maxOps: 1500,
     });
-
+    trace.info('moving to spawn', {result});
     return RUNNING;
   },
 );
 
 const sign = `Not friendly. Recall your AI. Train your AI before it's off leash!`;
 
-module.exports.updateSign = behaviorTree.repeatUntilConditionMet(
+export const updateSign = behaviorTree.repeatUntilConditionMet(
   'check_sign',
-  (creep, trace, kingdom) => {
+  (creep, trace, kernel) => {
     if (!creep.room || !creep.room.controller || !creep.room.controller.sign) {
       return true;
     }
@@ -297,7 +287,7 @@ module.exports.updateSign = behaviorTree.repeatUntilConditionMet(
       behaviorMovement.moveToCreepMemory(MEMORY_DESTINATION, 1, false, 25, 1500),
       behaviorTree.leafNode(
         'set_sign',
-        (creep, trace, kingdom) => {
+        (creep, trace, kernel) => {
           const result = creep.signController(creep.room.controller, sign);
           trace.log('set sign', {result});
 
@@ -311,3 +301,4 @@ module.exports.updateSign = behaviorTree.repeatUntilConditionMet(
     ],
   ),
 );
+

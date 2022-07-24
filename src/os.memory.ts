@@ -1,6 +1,9 @@
-import {trace} from "console";
-import {Tracer} from "./lib.tracing";
+import {Kernel} from './kernel';
+import {Tracer} from './lib.tracing';
+import {sleeping} from './os.process';
+import {Runnable, RunnableResult} from './os.runnable';
 
+const MEMORY_CLEANUP_TTL = 1000;
 const MEMORY_OBJECT_TTL = 5000;
 
 type MemoryObject = {
@@ -8,31 +11,6 @@ type MemoryObject = {
   time: number;
   stales: boolean;
   value: any;
-}
-
-export const prepareMemory = () => {
-  // Ensure Memory storage is ready
-  if (!(Memory as any).proc) {
-    (Memory as any).proc = {};
-  }
-}
-
-export const removeOldMemoryObjects = () => {
-  const now = Game.time;
-  const memory = Memory as any;
-  const proc = memory.proc;
-
-  for (const key in proc) {
-    const obj: MemoryObject = proc[key];
-
-    if (typeof obj.stales === 'undefined') {
-      obj.stales = true;
-    }
-
-    if (obj.stales && obj.time < now - MEMORY_OBJECT_TTL) {
-      delete proc[key];
-    }
-  }
 }
 
 export class PersistentMemory {
@@ -62,12 +40,41 @@ export class PersistentMemory {
     return memoryObject.value;
   }
 
-  setMemory(value: any, stales: boolean = true): void {
+  setMemory(value: any, stales = true): void {
     (Memory as any).proc[this.memoryId] = {
       id: this.memoryId,
       time: Game.time,
       stales: stales,
-      value: value
+      value: value,
     } as MemoryObject;
+  }
+}
+
+export class MemoryManager implements Runnable {
+  constructor() {
+    // Ensure Memory storage is ready
+    if (!(Memory as any).proc) {
+      (Memory as any).proc = {};
+    }
+  }
+
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
+    const now = Game.time;
+    const memory = Memory as any;
+    const proc = memory.proc;
+
+    for (const key in proc) {
+      const obj: MemoryObject = proc[key];
+
+      if (typeof obj.stales === 'undefined') {
+        obj.stales = true;
+      }
+
+      if (obj.stales && obj.time < now - MEMORY_OBJECT_TTL) {
+        delete proc[key];
+      }
+    }
+
+    return sleeping(MEMORY_CLEANUP_TTL);
   }
 }

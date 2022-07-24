@@ -1,23 +1,26 @@
-import * as behaviorTree from './lib.behaviortree';
-import {FAILURE, SUCCESS, RUNNING} from './lib.behaviortree';
-import * as behaviorMovement from './behavior.movement';
-import * as behaviorHaul from './behavior.haul';
-import * as behaviorRoom from './behavior.room';
+import {getCreepBase, getStructureForResource} from './base';
 import {behaviorBoosts} from './behavior.boosts';
-
-import * as MEMORY from './constants.memory';
-import * as TOPICS from './constants.topics';
+import * as behaviorHaul from './behavior.haul';
 import {roadWorker} from './behavior.logistics';
-import {getBaseDistributorTopic} from './topics.base';
+import * as behaviorMovement from './behavior.movement';
+import {parkingLot} from './behavior.room';
+import * as MEMORY from './constants.memory';
+import * as behaviorTree from './lib.behaviortree';
+import {FAILURE, RUNNING, SUCCESS} from './lib.behaviortree';
+import {TopicKey} from './lib.topics';
+
+export function getBaseDistributorTopic(baseId: string): TopicKey {
+  return `base_${baseId}_distributor`;
+}
 
 const selectNextTaskOrPark = behaviorTree.selectorNode(
   'pick_something',
   [
     behaviorTree.leafNode(
       'pick_haul_task',
-      (creep, trace, kingdom) => {
-        // lookup base from kingdom
-        const base = kingdom.getCreepBaseConfig(creep);
+      (creep, trace, kernel) => {
+        // lookup base from kernel
+        const base = getCreepBase(kernel, creep);
         if (!base) {
           trace.error('could not find creep base', {name: creep.name, memory: creep.memory});
           creep.suicide();
@@ -25,7 +28,7 @@ const selectNextTaskOrPark = behaviorTree.selectorNode(
         }
 
         // get next haul task
-        const task = kingdom.getTopics().getMessageOfMyChoice(getBaseDistributorTopic(base.id), (messages) => {
+        const task = kernel.getTopics().getMessageOfMyChoice(getBaseDistributorTopic(base.id), (messages) => {
           const sorted = _.sortByOrder(messages, [
             'priority',
             (message: any) => {
@@ -57,13 +60,13 @@ const selectNextTaskOrPark = behaviorTree.selectorNode(
         return SUCCESS;
       },
     ),
-    behaviorRoom.parkingLot,
+    parkingLot,
   ],
 );
 
 const emptyCreep = behaviorTree.leafNode(
   'empty_creep',
-  (creep, trace, kingdom) => {
+  (creep, trace, kernel) => {
     if (creep.store.getUsedCapacity() === 0) {
       return SUCCESS;
     }
@@ -117,14 +120,14 @@ const unloadIfNeeded = behaviorTree.selectorNode(
   [
     behaviorTree.leafNode(
       'check_if_unload_needed',
-      (creep, trace, kingdom) => {
+      (creep, trace, kernel) => {
         const desiredResource = creep.memory[MEMORY.MEMORY_HAUL_RESOURCE];
         if (!desiredResource) {
           throw new Error('Hauler task missing desired resource');
         }
 
         const taskId = creep.memory[MEMORY.TASK_ID];
-        const loadedResources = Object.keys(creep.store);
+        const loadedResources = Object.keys(creep.store) as ResourceConstant[];
 
         let toUnload = loadedResources;
         if (!taskId.startsWith('lu-')) {
@@ -135,12 +138,12 @@ const unloadIfNeeded = behaviorTree.selectorNode(
         trace.log('to unload', {loadedResources, desiredResource, toUnload});
 
         if (toUnload.length) {
-          const room = kingdom.getCreepRoom(creep);
-          if (!room) {
+          const base = getCreepBase(kernel, creep);
+          if (!base) {
             throw new Error('Unable to get room for creep');
           }
 
-          const reserve = room.getReserveStructureWithRoomForResource(toUnload[0]);
+          const reserve = getStructureForResource(base, toUnload[0]);
           creep.memory[MEMORY.MEMORY_DESTINATION] = reserve.id;
 
           trace.log('unloading at', {
@@ -171,7 +174,7 @@ const loadIfNeeded = behaviorTree.selectorNode(
   [
     behaviorTree.leafNode(
       'has_resource',
-      (creep, trace, kingdom) => {
+      (creep, trace, kernel) => {
         const dropoffId = creep.memory[MEMORY.MEMORY_HAUL_DROPOFF];
         if (!dropoffId) {
           throw new Error('Hauler task missing dropoff');
@@ -241,7 +244,7 @@ const deliver = behaviorTree.sequenceNode(
   [
     behaviorTree.leafNode(
       'use_memory_dropoff',
-      (creep, trace, kingdom) => {
+      (creep, trace, kernel) => {
         const dropoff = creep.memory[MEMORY.MEMORY_HAUL_DROPOFF];
         if (dropoff) {
           behaviorMovement.setDestination(creep, dropoff);
@@ -254,7 +257,7 @@ const deliver = behaviorTree.sequenceNode(
     behaviorMovement.moveToCreepMemory(MEMORY.MEMORY_DESTINATION, 1, false, 25, 250),
     behaviorTree.leafNode(
       'empty_creep',
-      (creep, trace, kingdom) => {
+      (creep, trace, kernel) => {
         if (creep.store.getUsedCapacity() === 0) {
           return SUCCESS;
         }
@@ -304,4 +307,4 @@ const behavior = behaviorTree.sequenceNode(
 
 export const roleDistributor = {
   run: behaviorTree.rootNode('distributor', behaviorBoosts(roadWorker(behavior))),
-}
+};

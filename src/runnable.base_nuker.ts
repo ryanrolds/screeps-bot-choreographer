@@ -1,36 +1,34 @@
-import * as MEMORY from "./constants.memory";
-import * as PRIORITIES from "./constants.priorities";
-import * as TASKS from "./constants.tasks";
-import * as TOPICS from "./constants.topics";
+import {Base, getBasePrimaryRoom, getStructureWithResource} from './base';
+import * as MEMORY from './constants.memory';
+import * as PRIORITIES from './constants.priorities';
+import * as TASKS from './constants.tasks';
+import * as TOPICS from './constants.topics';
+import {Kernel} from './kernel';
 import {Tracer} from './lib.tracing';
-import {getBaseDistributorTopic} from "./topics.base";
-import {Kingdom} from "./org.kingdom";
-import OrgRoom from "./org.room";
-import {sleeping, terminate} from "./os.process";
-import {RunnableResult} from "./os.runnable";
+import {sleeping, terminate} from './os.process';
+import {RunnableResult} from './os.runnable';
+import {getBaseDistributorTopic} from './role.distributor';
 
 const REQUEST_RESOURCES_TTL = 25;
 
 export default class NukerRunnable {
-  baseId: string;
-  orgRoom: OrgRoom;
   id: Id<StructureNuker>;
+  baseId: string;
 
   damagedCreep: Id<Creep>;
 
   haulTTL: number;
   prevTime: number;
 
-  constructor(baseId: string, room: OrgRoom, tower: StructureNuker) {
+  constructor(baseId: string, nuker: StructureNuker) {
+    this.id = nuker.id;
     this.baseId = baseId;
-    this.orgRoom = room;
 
-    this.id = tower.id;
     this.haulTTL = 0;
     this.prevTime = Game.time;
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('nuker_run');
 
     const ticks = Game.time - this.prevTime;
@@ -38,7 +36,13 @@ export default class NukerRunnable {
 
     this.haulTTL -= ticks;
 
-    const room = this.orgRoom.getRoomObject()
+    const base = kernel.getPlanner().getBaseById(this.baseId);
+    if (!base) {
+      trace.error('no base config for room', {baseId: this.baseId});
+      return terminate();
+    }
+
+    const room = getBasePrimaryRoom(base);
     if (!room) {
       trace.end();
       return terminate();
@@ -60,21 +64,21 @@ export default class NukerRunnable {
     const neededEnergy = nuker.store.getFreeCapacity(RESOURCE_ENERGY);
     if (neededEnergy > 0) {
       trace.log('need energy', {neededEnergy});
-      this.requestResource(kingdom, RESOURCE_ENERGY, neededEnergy, trace);
+      this.requestResource(kernel, base, RESOURCE_ENERGY, neededEnergy, trace);
       readyToFire = false;
     }
 
     const neededGhodium = nuker.store.getFreeCapacity(RESOURCE_GHODIUM);
     if (neededGhodium > 0) {
       trace.log('need ghodium', {neededGhodium});
-      this.requestResource(kingdom, RESOURCE_GHODIUM, neededGhodium, trace);
+      this.requestResource(kernel, base, RESOURCE_GHODIUM, neededGhodium, trace);
       readyToFire = false;
     }
 
     if (readyToFire) {
       trace.log('lets play global thermonuclear war');
 
-      const request = (kingdom as any).getNextRequest(TOPICS.NUKER_TARGETS);
+      const request = (kernel as any).getNextRequest(TOPICS.NUKER_TARGETS);
       if (request) {
         const positionStr = request.details.position;
         const posArray = positionStr.split(',');
@@ -99,17 +103,14 @@ export default class NukerRunnable {
     return sleeping(REQUEST_RESOURCES_TTL);
   }
 
-  requestResource(kingdom: Kingdom, resource: ResourceConstant, amount: number, trace: Tracer) {
-    const pickup = this.orgRoom.getReserveStructureWithMostOfAResource(resource, true);
+  requestResource(kernel: Kernel, base: Base, resource: ResourceConstant, amount: number, trace: Tracer) {
+    const pickup = getStructureWithResource(base, resource);
     if (!pickup) {
-      trace.log('unable to get resource from reserve', {resource, amount});
-
       trace.log('requesting resource from governor', {resource, amount});
-      const resourceGovernor = (this.orgRoom as any).getKingdom().getResourceGovernor();
-
-      const requested = resourceGovernor.requestResource(this.orgRoom, resource, amount, REQUEST_RESOURCES_TTL, trace);
+      const resourceGovernor = kernel.getResourceManager();
+      const requested = resourceGovernor.requestResource(base, resource, amount, REQUEST_RESOURCES_TTL, trace);
       if (!requested) {
-        resourceGovernor.buyResource(this.orgRoom, resource, amount, REQUEST_RESOURCES_TTL, trace);
+        resourceGovernor.buyResource(base, resource, amount, REQUEST_RESOURCES_TTL, trace);
       }
 
       return;
@@ -123,13 +124,16 @@ export default class NukerRunnable {
       ttl: REQUEST_RESOURCES_TTL,
     });
 
-    kingdom.sendRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.HAUL_NUKER, {
+    const request = {
       [MEMORY.TASK_ID]: `load-${this.id}-${Game.time}`,
       [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
       [MEMORY.MEMORY_HAUL_PICKUP]: pickup.id,
       [MEMORY.MEMORY_HAUL_RESOURCE]: resource,
       [MEMORY.MEMORY_HAUL_AMOUNT]: amount,
       [MEMORY.MEMORY_HAUL_DROPOFF]: this.id,
-    }, REQUEST_RESOURCES_TTL);
+    }
+
+    kernel.getTopics().addRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.HAUL_NUKER,
+      request, REQUEST_RESOURCES_TTL);
   }
 }

@@ -1,85 +1,85 @@
-import {Event} from "./lib.event_broker";
-import {ANY, buildingCodes, EMPTY, getConstructionPosition, Layout} from "./lib.layouts";
-import {getPath} from "./lib.pathing";
-import {controllerRoadPolicy} from "./lib.pathing_policies";
+import {AlertLevel, Base, BaseThreadFunc, threadBase} from './base';
+import {controllerRoadPolicy} from './constants.pathing_policies';
+import {Kernel} from './kernel';
+import {Event} from './lib.event_broker';
+import {ANY, buildingCodes, EMPTY, getConstructionPosition, Layout} from './lib.layouts';
+import {getPath} from './lib.pathing';
 import {Tracer} from './lib.tracing';
-import {Kingdom} from "./org.kingdom";
-import {PersistentMemory} from "./os.memory";
-import {sleeping} from "./os.process";
-import {Runnable, RunnableResult} from "./os.runnable";
-import {thread, ThreadFunc} from "./os.thread";
-import {getLogisticsTopic, LogisticsEventData, LogisticsEventType} from "./runnable.base_logistics";
+import {PersistentMemory} from './os.memory';
+import {sleeping} from './os.process';
+import {Runnable, RunnableResult} from './os.runnable';
+import {getLogisticsTopic, LogisticsEventData, LogisticsEventType} from './runnable.base_logistics';
 
-const RUN_TTL = 100;
-const BUILD_STRUCTURES_TTL = 1000;
-const PRODUCE_EVENTS_TTL = 500;
+const RUN_TTL = 50;
+const BUILD_STRUCTURES_TTL = 200;
+const PRODUCE_EVENTS_TTL = 50;
 
-const padLayout: Record<DirectionConstant, Layout> = {
-  [TOP]: {
-    origin: {x: 1, y: 1},
-    buildings: [
-      ['R', 'R', 'R'],
-      ['.', 'L', '.'],
-      ['.', '.', '.'],
-    ]
-  },
-  [TOP_RIGHT]: {
-    origin: {x: 1, y: 1},
-    buildings: [
-      ['.', 'R', 'R'],
-      ['.', 'L', 'R'],
-      ['.', '.', '.'],
-    ]
-  },
-  [RIGHT]: {
-    origin: {x: 1, y: 1},
-    buildings: [
-      ['.', '.', 'R'],
-      ['.', 'L', 'R'],
-      ['.', '.', 'R'],
-    ]
-  },
-  [BOTTOM_RIGHT]: {
-    origin: {x: 1, y: 1},
-    buildings: [
-      ['.', '.', '.'],
-      ['.', 'L', 'R'],
-      ['.', 'R', 'R'],
-    ]
-  },
-  [BOTTOM]: {
-    origin: {x: 1, y: 1},
-    buildings: [
-      ['.', '.', '.'],
-      ['.', 'L', '.'],
-      ['R', 'R', 'R'],
-    ]
-  },
-  [BOTTOM_LEFT]: {
-    origin: {x: 1, y: 1},
-    buildings: [
-      ['.', '.', '.'],
-      ['R', 'L', '.'],
-      ['R', 'R', '.'],
-    ]
-  },
-  [LEFT]: {
-    origin: {x: 1, y: 1},
-    buildings: [
-      ['R', '.', '.'],
-      ['R', 'L', '.'],
-      ['R', '.', '.'],
-    ]
-  },
-  [TOP_LEFT]: {
-    origin: {x: 1, y: 1},
-    buildings: [
-      ['R', 'R', '.'],
-      ['R', 'L', '.'],
-      ['.', '.', '.'],
-    ]
-  },
-};
+const padLayout: Map<DirectionConstant, Layout> = new Map();
+padLayout.set(TOP, {
+  origin: {x: 1, y: 1},
+  buildings: [
+    ['R', 'R', 'R'],
+    ['.', 'L', '.'],
+    ['.', '.', '.'],
+  ],
+});
+padLayout.set(TOP_RIGHT, {
+  origin: {x: 1, y: 1},
+  buildings: [
+    ['.', 'R', 'R'],
+    ['.', 'L', 'R'],
+    ['.', '.', '.'],
+  ],
+});
+padLayout.set(RIGHT, {
+  origin: {x: 1, y: 1},
+  buildings: [
+    ['.', '.', 'R'],
+    ['.', 'L', 'R'],
+    ['.', '.', 'R'],
+  ],
+});
+padLayout.set(BOTTOM_RIGHT, {
+  origin: {x: 1, y: 1},
+  buildings: [
+    ['.', '.', '.'],
+    ['.', 'L', 'R'],
+    ['.', 'R', 'R'],
+  ],
+});
+padLayout.set(BOTTOM, {
+  origin: {x: 1, y: 1},
+  buildings: [
+    ['.', '.', '.'],
+    ['.', 'L', '.'],
+    ['R', 'R', 'R'],
+  ],
+});
+padLayout.set(BOTTOM_LEFT, {
+  origin: {x: 1, y: 1},
+  buildings: [
+    ['.', '.', '.'],
+    ['R', 'L', '.'],
+    ['R', 'R', '.'],
+  ],
+});
+padLayout.set(LEFT, {
+  origin: {x: 1, y: 1},
+  buildings: [
+    ['R', '.', '.'],
+    ['R', 'L', '.'],
+    ['R', '.', '.'],
+  ],
+});
+padLayout.set(TOP_LEFT, {
+  origin: {x: 1, y: 1},
+  buildings: [
+    ['R', 'R', '.'],
+    ['R', 'L', '.'],
+    ['.', '.', '.'],
+  ],
+});
+
 
 export default class ControllerRunnable extends PersistentMemory implements Runnable {
   controllerId: string;
@@ -88,19 +88,19 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
   nodeDirection: DirectionConstant;
   roadPosition: RoomPosition;
 
-  threadProduceEvents: ThreadFunc;
-  threadBuildStructures: ThreadFunc;
+  threadProduceEvents: BaseThreadFunc;
+  threadBuildStructures: BaseThreadFunc;
 
   constructor(controllerId: string) {
     super(controllerId);
 
     this.controllerId = controllerId;
 
-    this.threadBuildStructures = thread('check_structures', BUILD_STRUCTURES_TTL)(this.buildStructures.bind(this));
-    this.threadProduceEvents = thread('consume_events', PRODUCE_EVENTS_TTL)(this.produceEvents.bind(this));
+    this.threadBuildStructures = threadBase('check_structures', BUILD_STRUCTURES_TTL)(this.buildStructures.bind(this));
+    this.threadProduceEvents = threadBase('consume_events', PRODUCE_EVENTS_TTL)(this.produceEvents.bind(this));
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.as('controller_run');
     trace.log('run', {
       controller: this.controllerId,
@@ -115,28 +115,36 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
       return sleeping(RUN_TTL);
     }
 
-    if (!this.nodePosition || !this.nodeDirection) {
-      trace.log('node and road position not set, populating');
-      this.populateNodePosition(kingdom, controller, trace);
+    const base = kernel.getPlanner().getBaseByRoom(controller.room.name);
+    if (!base) {
+      trace.error('missing origin', {id: controller.room.name});
+      return sleeping(RUN_TTL);
     }
 
-    this.threadBuildStructures(trace, controller.room);
-    this.threadProduceEvents(trace, kingdom, controller);
+    if (!this.nodePosition || !this.nodeDirection) {
+      trace.log('node and road position not set, populating');
+      this.populateNodePosition(kernel, controller, trace);
+    }
+
+    if (base.alertLevel === AlertLevel.GREEN) {
+      this.threadBuildStructures(trace, kernel, base, controller.room);
+      this.threadProduceEvents(trace, kernel, base, controller);
+    }
 
     return sleeping(RUN_TTL);
   }
 
-  populateNodePosition(kingdom: Kingdom, controller: StructureController, trace: Tracer) {
+  populateNodePosition(kernel: Kernel, controller: StructureController, trace: Tracer) {
     const memory = this.getMemory(trace) || {};
 
     if (memory.nodePosition && memory.roadPosition) {
       this.nodePosition = new RoomPosition(memory.nodePosition.x, memory.nodePosition.y, memory.nodePosition.roomName);
       this.roadPosition = new RoomPosition(memory.roadPosition.x, memory.roadPosition.y, memory.roadPosition.roomName);
-      this.nodeDirection = controller.pos.getDirectionTo(this.roadPosition)
+      this.nodeDirection = controller.pos.getDirectionTo(this.roadPosition);
       trace.log('populated node position from memory', {
         nodePosition: this.nodePosition,
         roadPosition: this.roadPosition,
-        nodeDirection: this.nodeDirection
+        nodeDirection: this.nodeDirection,
       });
     }
 
@@ -145,17 +153,17 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
       return;
     }
 
-    const baseConfig = kingdom.getPlanner().getBaseConfigByRoom(controller.pos.roomName)
-    if (!baseConfig) {
+    const base = kernel.getPlanner().getBaseByRoom(controller.pos.roomName);
+    if (!base) {
       trace.error('missing colony config', {room: controller.pos.roomName});
       return;
     }
 
-    const [pathResult, details] = getPath(kingdom, baseConfig.origin, controller.pos, controllerRoadPolicy, trace);
-    trace.log('path result', {origin: baseConfig.origin, dest: controller.pos, pathResult});
+    const [pathResult, details] = getPath(kernel, base.origin, controller.pos, controllerRoadPolicy, trace);
+    trace.log('path result', {origin: base.origin, dest: controller.pos, pathResult});
 
     if (!pathResult || !pathResult.path.length) {
-      trace.error('no path found', {origin: baseConfig.origin, dest: controller.pos, pathResult});
+      trace.error('no path found', {origin: base.origin, dest: controller.pos, pathResult});
       return;
     }
 
@@ -168,7 +176,7 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
     trace.warn('node and road position was not set: setting', {
       id: this.controllerId,
       position: this.nodePosition,
-      direction: this.nodeDirection
+      direction: this.nodeDirection,
     });
 
     memory.nodePosition = this.nodePosition;
@@ -177,44 +185,42 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
     this.setMemory(memory, false);
   }
 
-  produceEvents(trace: Tracer, kingdom: Kingdom, controller: StructureController) {
+  produceEvents(trace: Tracer, kernel: Kernel, base: Base, controller: StructureController) {
     const position = this.roadPosition;
     if (!position) {
       trace.error('no road position', {room: controller.room.name});
       return;
     }
 
-    const baseConfig = kingdom.getPlanner().getBaseConfigByRoom(controller.room.name);
-    if (!baseConfig) {
-      trace.error('no colony config', {room: controller.room.name});
-      return;
+    // If there is not a link, build a road to the controller
+    const link = controller.pos.findInRange(FIND_MY_STRUCTURES, 1, {filter: (s) => s.structureType === STRUCTURE_LINK})[0];
+    if (!link) {
+      const data: LogisticsEventData = {
+        id: controller.id,
+        position: position,
+      };
+
+      kernel.getBroker().getStream(getLogisticsTopic(base.id)).
+        publish(new Event(this.controllerId, Game.time, LogisticsEventType.RequestRoad, data));
     }
-
-    const data: LogisticsEventData = {
-      id: controller.id,
-      position: position,
-    };
-
-    kingdom.getBroker().getStream(getLogisticsTopic(baseConfig.id)).
-      publish(new Event(this.controllerId, Game.time, LogisticsEventType.RequestRoad, data));
   }
 
-  buildStructures(trace: Tracer, room: Room) {
+  buildStructures(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
     trace.log('building structures for controller', {controllerId: this.controllerId});
 
     if (!this.nodePosition || !this.nodeDirection) {
       trace.error('missing node position or direction', {
         id: this.controllerId,
         nodePosition: this.nodePosition,
-        nodeDirection: this.nodeDirection
+        nodeDirection: this.nodeDirection,
       });
       return;
     }
 
-    const layout = padLayout[this.nodeDirection];
+    const layout = padLayout.get(this.nodeDirection);
     const terrain = room.getTerrain();
 
-    trace.log('building structures', {layout})
+    trace.log('building structures', {layout});
 
     const roomVisual = new RoomVisual(room.name);
     for (let y = 0; y < layout.buildings.length; y++) {

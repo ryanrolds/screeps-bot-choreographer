@@ -1,12 +1,12 @@
-import * as behaviorTree from "./lib.behaviortree";
-import * as behaviorCommute from "./behavior.commute";
-import * as behaviorMovement from "./behavior.movement";
-import {build, selectSite} from "./behavior.build";
-import behaviorRoom from "./behavior.room";
-import {behaviorBoosts} from "./behavior.boosts";
+import * as behaviorTree from './lib.behaviortree';
+import * as behaviorCommute from './behavior.commute';
+import * as behaviorMovement from './behavior.movement';
+import {build, selectSite} from './behavior.build';
+import {getEnergy, parkingLot} from './behavior.room';
+import {behaviorBoosts} from './behavior.boosts';
 
-import * as MEMORY from "./constants.memory";
-import {commonPolicy, singleRoomPolicy} from "./lib.pathing_policies";
+import * as MEMORY from './constants.memory';
+import {commonPolicy, singleRoomPolicy} from './constants.pathing_policies';
 
 const behavior = behaviorTree.sequenceNode(
   'builder_root',
@@ -47,11 +47,11 @@ const behavior = behaviorTree.sequenceNode(
             return behaviorTree.SUCCESS;
           }),
           behaviorMovement.cachedMoveToMemoryPos(MEMORY.MEMORY_ASSIGN_ROOM_POS, 3, commonPolicy),
-        ]
+        ],
       ),
     ),
     behaviorCommute.setCommuteDuration,
-    behaviorRoom.getEnergy,
+    getEnergy,
     behaviorTree.repeatUntilConditionMet(
       'build_sites',
       (creep, trace, kingdom) => {
@@ -64,14 +64,14 @@ const behavior = behaviorTree.sequenceNode(
             'pick_something',
             [
               selectSite,
-              behaviorRoom.parkingLot,
+              parkingLot,
             ],
           ),
           behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 3, singleRoomPolicy),
           build,
         ],
       ),
-    )
+    ),
   ],
 );
 

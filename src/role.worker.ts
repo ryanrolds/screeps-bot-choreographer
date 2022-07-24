@@ -12,21 +12,20 @@
  * - If no drop offs with capacity, then build structures or upgrade controller
  *
  */
-import * as behaviorTree from "./lib.behaviortree";
-import {FAILURE, SUCCESS, RUNNING} from "./lib.behaviortree";
-import * as behaviorCommute from "./behavior.commute";
-import behaviorStorage from "./behavior.storage";
-import * as behaviorMovement from "./behavior.movement";
-import {build, selectInfrastructureSites} from "./behavior.build";
-import * as behaviorHarvest from "./behavior.harvest";
-import {behaviorBoosts} from "./behavior.boosts";
-import * as MEMORY from "./constants.memory";
-import {commonPolicy} from "./lib.pathing_policies";
-import {roadWorker} from "./behavior.logistics";
-import * as behaviorHaul from "./behavior.haul";
-import * as TOPICS from "./constants.topics";
-import behaviorRoom from "./behavior.room";
-import {WORKER_DISTRIBUTOR} from "./constants.creeps";
+import {getBasePrimaryRoom, getCreepBase} from './base';
+import {behaviorBoosts} from './behavior.boosts';
+import {build, selectInfrastructureSites} from './behavior.build';
+import * as behaviorCommute from './behavior.commute';
+import * as behaviorHaul from './behavior.haul';
+import {roadWorker} from './behavior.logistics';
+import * as behaviorMovement from './behavior.movement';
+import {parkingLot} from './behavior.room';
+import {WORKER_DISTRIBUTOR} from './constants.creeps';
+import * as MEMORY from './constants.memory';
+import {Kernel} from './kernel';
+import * as behaviorTree from './lib.behaviortree';
+import {FAILURE, SUCCESS} from './lib.behaviortree';
+import {haulerPolicy} from './role.hauler';
 
 const selectDropoff = module.exports.selectRoomDropoff = behaviorTree.selectorNode(
   'selectRoomDropoff',
@@ -45,42 +44,45 @@ const selectDropoff = module.exports.selectRoomDropoff = behaviorTree.selectorNo
     ),
     behaviorTree.leafNode(
       'pick_storage',
-      (creep, trace, kingdom) => {
-        const colony = kingdom.getCreepColony(creep);
-        if (!colony) {
-          trace.error('could not find creep colony', {name: creep.name, memory: creep.memory});
-          creep.suicide();
+      (creep, trace, kernel: Kernel) => {
+        const base = getCreepBase(kernel, creep);
+        if (!base) {
+          trace.error('could not find creep base', {name: creep.name, memory: creep.memory});
+          // creep.suicide();
           return FAILURE;
         }
 
-        const room = colony.getPrimaryRoom();
+        const room = getBasePrimaryRoom(base);
         if (!room) {
+          trace.error('could not find base primary room', {base});
           return FAILURE;
         }
 
-        if (!room.hasStorage) {
+        if (!room.storage) {
           return FAILURE;
         }
 
-        if (!room.room.storage?.isActive()) {
+        if (!room.storage?.isActive()) {
           return FAILURE;
         }
 
-        const distributors = _.filter(room.getCreeps(), (creep) => {
-          return creep.memory[MEMORY.MEMORY_ROLE] === WORKER_DISTRIBUTOR;
-        });
+        const distributors = _.filter(kernel.getCreepsManager().getCreepsByBase(base.id),
+          (creep) => {
+            return creep.memory[MEMORY.MEMORY_ROLE] === WORKER_DISTRIBUTOR;
+          },
+        );
 
         if (!distributors.length) {
           return FAILURE;
         }
 
-        behaviorMovement.setDestination(creep, room.room.storage.id);
+        behaviorMovement.setDestination(creep, room.storage.id);
         return SUCCESS;
       },
     ),
     behaviorTree.leafNode(
       'pick_tower',
-      (creep, trace, kingdom) => {
+      (creep, trace, kernel) => {
         const targets = creep.room.find(FIND_STRUCTURES, {
           filter: (structure) => {
             return structure.structureType == STRUCTURE_TOWER &&
@@ -99,19 +101,20 @@ const selectDropoff = module.exports.selectRoomDropoff = behaviorTree.selectorNo
     ),
     behaviorTree.leafNode(
       'pick_spawner_extension',
-      (creep, trace, kingdom) => {
-        const colony = kingdom.getCreepColony(creep);
-        if (!colony) {
-          trace.error('could not find creep colony', {name: creep.name, memory: creep.memory});
+      (creep, trace, kernel) => {
+        const base = getCreepBase(kernel, creep);
+        if (!base) {
+          trace.error('could not find creep base', {name: creep.name, memory: creep.memory});
           creep.suicide();
           return FAILURE;
         }
 
-        if (!colony.primaryRoom) {
+        const room = getBasePrimaryRoom(base);
+        if (!room) {
           return FAILURE;
         }
 
-        const targets = colony.primaryRoom.find(FIND_STRUCTURES, {
+        const targets = room.find(FIND_STRUCTURES, {
           filter: (structure) => {
             return (structure.structureType == STRUCTURE_EXTENSION ||
               structure.structureType == STRUCTURE_SPAWN) &&
@@ -138,10 +141,10 @@ const behavior = behaviorTree.sequenceNode(
       'pick_something',
       [
         behaviorHaul.getHaulTaskFromBaseTopic,
-        behaviorRoom.parkingLot,
+        parkingLot,
       ],
     ),
-    behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_PICKUP, 1, commonPolicy),
+    behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_PICKUP, 1, haulerPolicy),
     behaviorHaul.loadCreep,
     behaviorHaul.clearTask,
     behaviorTree.selectorNode(
@@ -154,60 +157,60 @@ const behavior = behaviorTree.sequenceNode(
             [
               behaviorTree.leafNode(
                 'fail_when_empty',
-                (creep, trace, kingdom) => {
+                (creep, trace, kernel) => {
                   if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
                     return SUCCESS;
                   }
 
                   return FAILURE;
-                }
+                },
               ),
               selectDropoff,
-              behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 1, commonPolicy),
+              behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 1, haulerPolicy),
               behaviorHaul.emptyToDestination,
             ],
           ),
         ),
         behaviorTree.leafNode(
           'succeed_when_empty',
-          (creep, trace, kingdom) => {
+          (creep, trace, kernel) => {
             if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
               return SUCCESS;
             }
 
             return FAILURE;
-          }
+          },
         ),
         behaviorTree.sequenceNode(
           'build_construction_site',
           [
             selectInfrastructureSites,
-            behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 3, commonPolicy),
+            behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 3, haulerPolicy),
             build,
           ],
         ),
         behaviorTree.leafNode(
           'succeed_when_empty',
-          (creep, trace, kingdom) => {
+          (creep, trace, kernel) => {
             if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
               return SUCCESS;
             }
 
             return FAILURE;
-          }
+          },
         ),
         behaviorTree.sequenceNode(
           'upgrade_controller',
           [
             behaviorTree.leafNode(
               'pick_room_controller',
-              (creep, trace, kingdom) => {
-                const baseConfig = kingdom.getCreepBaseConfig(creep);
-                if (!baseConfig) {
+              (creep, trace, kernel) => {
+                const base = getCreepBase(kernel, creep);
+                if (!base) {
                   return FAILURE;
                 }
 
-                const room = Game.rooms[baseConfig.primary];
+                const room = Game.rooms[base.primary];
                 if (!room) {
                   return FAILURE;
                 }
@@ -220,15 +223,15 @@ const behavior = behaviorTree.sequenceNode(
                 return behaviorTree.SUCCESS;
               },
             ),
-            behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 3, commonPolicy),
+            behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 3, haulerPolicy),
             behaviorCommute.setCommuteDuration,
             behaviorTree.repeatUntilSuccess(
               'upgrade_until_empty',
               behaviorTree.leafNode(
                 'upgrade_controller',
-                (creep, trace, kingdom) => {
+                (creep, trace, kernel) => {
                   const result = creep.upgradeController(creep.room.controller);
-                  trace.log("upgrade result", {result})
+                  trace.log('upgrade result', {result});
 
                   if (result == ERR_NOT_ENOUGH_RESOURCES) {
                     return behaviorTree.SUCCESS;

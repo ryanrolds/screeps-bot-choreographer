@@ -1,9 +1,8 @@
+import {Kernel} from './kernel';
 import {
-  createCommonCostMatrix, createDefenderCostMatrix,
-  createPartyCostMatrix, createOpenSpaceMatrix, createSourceRoadMatrix, singleRoomCommonMatrix
-} from "./lib.costmatrix";
-import {Tracer} from "./lib.tracing";
-import {Kingdom} from "./org.kingdom";
+  createCommonCostMatrix, createDefenderCostMatrix, createOpenSpaceMatrix, createPartyCostMatrix, createSourceRoadMatrix, haulerCostMatrixMatrix, singleRoomCommonMatrix
+} from './lib.costmatrix';
+import {Tracer} from './lib.tracing';
 
 const COST_MATRIX_TTL = 1000;
 
@@ -11,11 +10,12 @@ export enum AllowedCostMatrixTypes {
   PARTY = 'party',
   COMMON = 'common',
   SINGLE_ROOM_COMMON = 'single_room_common',
+  HAULER = 'hauler',
   BASE_DEFENSE = 'base',
   OPEN_SPACE = 'open_space',
   SOURCE_ROAD = 'source_road',
   CONTROLLER_ROAD = 'controller_road',
-};
+}
 
 export class CostMatrixCacheItem {
   roomId: string;
@@ -30,7 +30,7 @@ export class CostMatrixCacheItem {
     this.time = 0;
   }
 
-  update(kingdom: Kingdom, trace: Tracer) {
+  update(kernel: Kernel, trace: Tracer) {
     let costMatrix: CostMatrix = new PathFinder.CostMatrix();
 
     trace.log('updating', {room: this.roomId, type: this.costMatrixType});
@@ -40,38 +40,39 @@ export class CostMatrixCacheItem {
         costMatrix = createPartyCostMatrix(this.roomId, trace);
         break;
       case AllowedCostMatrixTypes.COMMON:
-        costMatrix = createCommonCostMatrix(kingdom, this.roomId, trace);
+        costMatrix = createCommonCostMatrix(kernel, this.roomId, trace);
         break;
       case AllowedCostMatrixTypes.SINGLE_ROOM_COMMON:
-        costMatrix = singleRoomCommonMatrix(kingdom, this.roomId, trace);
+        costMatrix = singleRoomCommonMatrix(kernel, this.roomId, trace);
+        break;
+      case AllowedCostMatrixTypes.HAULER:
+        costMatrix = haulerCostMatrixMatrix(kernel, this.roomId, trace);
         break;
       case AllowedCostMatrixTypes.BASE_DEFENSE:
         costMatrix = createDefenderCostMatrix(this.roomId, trace);
         break;
       case AllowedCostMatrixTypes.SOURCE_ROAD:
-        costMatrix = createSourceRoadMatrix(kingdom, this.roomId, trace);
+        costMatrix = createSourceRoadMatrix(kernel, this.roomId, trace);
         break;
       case AllowedCostMatrixTypes.OPEN_SPACE:
         [costMatrix] = createOpenSpaceMatrix(this.roomId, trace);
         break;
       default:
-        trace.error('unknown cost matrix type', {type: this.costMatrixType})
+        trace.error('unknown cost matrix type', {type: this.costMatrixType});
     }
 
     this.costMatrix = costMatrix;
     this.time = Game.time;
   }
 
-  getCostMatrix(kingdom: Kingdom, trace: Tracer) {
+  getCostMatrix(kernel: Kernel, trace: Tracer) {
     if (!this.costMatrix || this.isExpired(Game.time)) {
       trace.log('cache miss/expired', {
         room: this.roomId,
         type: this.costMatrixType,
-        expired: this.isExpired(Game.time)
+        expired: this.isExpired(Game.time),
       });
-      this.update(kingdom, trace);
-    } else {
-      trace.log('cache hit', {room: this.roomId, type: this.costMatrixType})
+      this.update(kernel, trace);
     }
 
     return this.costMatrix;
@@ -83,33 +84,32 @@ export class CostMatrixCacheItem {
 }
 
 export class CostMatrixCache {
-  rooms: Record<string, Record<Partial<AllowedCostMatrixTypes>, CostMatrixCacheItem>>;
+  rooms: Map<string, Map<AllowedCostMatrixTypes, CostMatrixCacheItem>>;
 
   constructor() {
-    this.rooms = {};
+    this.rooms = new Map();
   }
 
-  getCostMatrix(kingdom: Kingdom, roomId: string, costMatrixType: AllowedCostMatrixTypes, trace: Tracer): CostMatrix {
-    trace.log('get cost matrix', {roomId, costMatrixType});
-
-    if (!this.rooms[roomId]) {
-      trace.log('room not in cache', {roomId});
-      this.rooms[roomId] = {} as Record<Partial<AllowedCostMatrixTypes>, CostMatrixCacheItem>;
+  getCostMatrix(kernel: Kernel, roomId: string, costMatrixType: AllowedCostMatrixTypes, trace: Tracer): CostMatrix {
+    if (!this.rooms.get(roomId)) {
+      trace.info('room not in cache', {roomId});
+      this.rooms.set(roomId, new Map());
     }
 
-    let roomMatrix = this.rooms[roomId][costMatrixType];
+    const room = this.rooms.get(roomId);
+    let roomMatrix = room.get(costMatrixType);
     if (!roomMatrix) {
-      trace.log('matrix type not in room cache', {roomId, costMatrixType});
+      trace.info('matrix type not in room cache', {roomId, costMatrixType});
       roomMatrix = new CostMatrixCacheItem(roomId, costMatrixType);
-      this.rooms[roomId][costMatrixType] = roomMatrix;
+      room.set(costMatrixType, roomMatrix);
     }
 
-    return roomMatrix.getCostMatrix(kingdom, trace);
+    return roomMatrix.getCostMatrix(kernel, trace);
   }
 
   getStats() {
     return {
-      roomCacheSize: Object.keys(this.rooms).length,
+      roomCacheSize: this.rooms.size,
     };
   }
 }

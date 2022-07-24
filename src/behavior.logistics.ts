@@ -1,6 +1,6 @@
 
-import * as behaviorTree from "./lib.behaviortree";
-import {FAILURE, SUCCESS, RUNNING} from "./lib.behaviortree";
+import * as behaviorTree from './lib.behaviortree';
+import {SUCCESS} from './lib.behaviortree';
 
 export const roadWorker = (behaviorNode) => {
   return behaviorTree.sequenceAlwaysNode(
@@ -8,9 +8,14 @@ export const roadWorker = (behaviorNode) => {
     [
       behaviorTree.leafNode(
         'build_repair_road',
-        (creep, trace, kingdom) => {
+        (creep, trace, kernel) => {
           // If energy too low, do not build/repair roads
-          if (creep.store.getUsedCapacity(RESOURCE_ENERGY) <= creep.store.getCapacity(RESOURCE_ENERGY) * 0.9) {
+          if (creep.store.getUsedCapacity(RESOURCE_ENERGY) <= creep.store.getCapacity(RESOURCE_ENERGY) * 0.8) {
+            return SUCCESS;
+          }
+
+          // If work parts, do not build/repair roads
+          if (creep.getActiveBodyparts(WORK) === 0) {
             return SUCCESS;
           }
 
@@ -23,7 +28,7 @@ export const roadWorker = (behaviorNode) => {
             if (result !== OK) {
               trace.error('repair error', {
                 result,
-                roadPosition: [road.pos.x, road.pos.y, road.pos.roomName].join(',')
+                roadPosition: [road.pos.x, road.pos.y, road.pos.roomName].join(','),
               });
             }
             return SUCCESS;
@@ -42,9 +47,9 @@ export const roadWorker = (behaviorNode) => {
           }
 
           return SUCCESS;
-        }
+        },
       ),
       behaviorNode,
-    ]
+    ],
   );
 };

@@ -1,18 +1,22 @@
-import {BaseConfig, BaseMap, ShardConfig} from "./config";
-import {pickExpansion} from "./lib.expand";
-import {ENTIRE_ROOM_BOUNDS, getCutTiles} from "./lib.min_cut";
-import {desiredRemotes, findNextRemoteRoom} from "./lib.remote_room";
-import {Tracer} from "./lib.tracing";
-import {Kingdom} from "./org.kingdom";
-import {Process, sleeping} from "./os.process";
-import {RunnableResult} from "./os.runnable";
-import {Priorities, Scheduler} from "./os.scheduler";
-import {thread, ThreadFunc} from "./os.thread";
-import BaseRunnable from "./runnable.base";
+import {AlertLevel, Base, BaseMap} from './base';
+import {ShardConfig} from './config';
+import {WORKER_EXPLORER} from './constants.creeps';
+import {MEMORY_ASSIGN_ROOM, MEMORY_BASE} from './constants.memory';
+import {EXPLORER} from './constants.priorities';
+import {Kernel, KernelThreadFunc, threadKernel} from './kernel';
+import {pickExpansion} from './lib.expand';
+import {ENTIRE_ROOM_BOUNDS, getCutTiles} from './lib.min_cut';
+import {desiredRemotes, findNextRemoteRoom} from './lib.remote_room';
+import {Tracer} from './lib.tracing';
+import {Process, sleeping} from './os.process';
+import {RunnableResult} from './os.runnable';
+import {Priorities, Scheduler} from './os.scheduler';
+import BaseRunnable from './runnable.base';
+import {createSpawnRequest, getBaseSpawnTopic} from './runnable.base_spawning';
 
 const RUN_TTL = 10;
 const BASE_PROCESSES_TTL = 50;
-const REMOTE_MINING_TTL = 10; // was 100
+const REMOTE_MINING_TTL = 100;
 const EXPAND_TTL = 250;
 const BASE_WALLS_TTL = 50;
 const NEIGHBORS_THREAD_INTERVAL = 10;
@@ -22,26 +26,26 @@ export class CentralPlanning {
   private scheduler: Scheduler;
   private username: string;
   private shards: string[];
-  private baseConfigs: Record<string, BaseConfig>;
-  private roomByBaseId: Record<string, string>;
+  private bases: Map<string, Base>;
+  private roomByBaseId: Map<string, string>;
 
-  private threadBaseProcesses: ThreadFunc;
-  private remoteMiningIterator: Generator<any, void, {kingdom: Kingdom, trace: Tracer}>;
-  private remoteMiningThread: ThreadFunc;
-  private expandColoniesThread: ThreadFunc;
+  private threadBaseProcesses: KernelThreadFunc;
+  private remoteMiningIterator: Generator<any, void, {kernel: Kernel, trace: Tracer}>;
+  private remoteMiningThread: KernelThreadFunc;
+  private expandColoniesThread: KernelThreadFunc;
 
-  private baseWallsIterator: Generator<any, void, {kingdom: Kingdom, trace: Tracer}>;
-  private baseWallsThread: ThreadFunc;
+  private baseWallsIterator: Generator<any, void, {kernel: Kernel, trace: Tracer}>;
+  private baseWallsThread: KernelThreadFunc;
 
-  private neighborsIterator: Generator<any, void, {kingdom: Kingdom, trace: Tracer}>;
-  private neighborsThread: ThreadFunc;
+  private neighborsIterator: Generator<any, void, {kernel: Kernel, trace: Tracer}>;
+  private neighborsThread: KernelThreadFunc;
 
   constructor(config: ShardConfig, scheduler: Scheduler, trace: Tracer) {
     this.config = config;
     this.scheduler = scheduler;
     this.shards = [];
-    this.baseConfigs = {};
-    this.roomByBaseId = {};
+    this.bases = new Map();
+    this.roomByBaseId = new Map();
 
     this.shards.push(Game.shard.name);
 
@@ -61,55 +65,55 @@ export class CentralPlanning {
       const parking = new RoomPosition(base.parking.x, base.parking.y, base.parking.roomName);
 
       this.addBase(base.id, base.isPublic, origin, parking,
-        base.automated, base.rooms, base.walls || [], base.neighbors || [], trace);
+        base.rooms, base.walls || [], base.passages || [], base.neighbors || [],
+        base.alertLevel || AlertLevel.GREEN, trace);
     });
 
     // Check for spawns without bases
     Object.values(Game.spawns).forEach((spawn) => {
-      const shard = Game.shard.name;
       const roomName = spawn.room.name;
       const origin = new RoomPosition(spawn.pos.x, spawn.pos.y + 4, spawn.pos.roomName);
       trace.log('checking spawn', {roomName, origin});
       const parking = new RoomPosition(origin.x + 5, origin.y, origin.roomName);
-      const automated = !shard.startsWith('shard') || shard === 'shardSeason';
-      if (!this.baseConfigs[roomName]) {
+      if (!this.bases.has(roomName)) {
         trace.warn('found unknown base', {roomName});
-        this.addBase(roomName, false, origin, parking, automated, [roomName], [], [], trace);
+        this.addBase(roomName, false, origin, parking, [roomName], [],
+          [], [], AlertLevel.GREEN, trace);
       }
     });
 
-    trace.notice('bases configs', {baseConfigs: this.baseConfigs});
+    trace.notice('bases configs', {bases: this.bases});
 
-    this.threadBaseProcesses = thread('base_processes', BASE_PROCESSES_TTL)(this.baseProcesses.bind(this));
+    this.threadBaseProcesses = threadKernel('base_processes', BASE_PROCESSES_TTL)(this.baseProcesses.bind(this));
 
     this.remoteMiningIterator = this.remoteMiningGenerator();
-    this.remoteMiningThread = thread('remote_mining', REMOTE_MINING_TTL)((trace: Tracer, kingdom: Kingdom) => {
-      this.remoteMiningIterator.next({kingdom, trace});
+    this.remoteMiningThread = threadKernel('remote_mining', REMOTE_MINING_TTL)((trace: Tracer, kernel: Kernel) => {
+      this.remoteMiningIterator.next({kernel, trace});
     });
 
     // TODO make this an iterator
-    this.expandColoniesThread = thread('expand', EXPAND_TTL)(this.expandColonies.bind(this));
+    this.expandColoniesThread = threadKernel('expand', EXPAND_TTL)(this.expandColonies.bind(this));
 
     // Calculate base walls
     this.baseWallsIterator = this.baseWallsGenerator();
-    this.baseWallsThread = thread('base_walls', BASE_WALLS_TTL)((trace: Tracer, kingdom: Kingdom) => {
-      this.baseWallsIterator.next({kingdom, trace});
+    this.baseWallsThread = threadKernel('base_walls', BASE_WALLS_TTL)((trace: Tracer, kernel: Kernel) => {
+      this.baseWallsIterator.next({kernel, trace});
     });
 
     this.neighborsIterator = this.neighborhoodsGenerator();
-    this.neighborsThread = thread('neighbors', NEIGHBORS_THREAD_INTERVAL)((trace: Tracer, kingdom: Kingdom) => {
-      this.neighborsIterator.next({kingdom, trace});
+    this.neighborsThread = threadKernel('neighbors', NEIGHBORS_THREAD_INTERVAL)((trace: Tracer, kernel: Kernel) => {
+      this.neighborsIterator.next({kernel, trace});
     });
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    this.threadBaseProcesses(trace, kingdom);
-    this.remoteMiningThread(trace, kingdom);
-    this.expandColoniesThread(trace, kingdom);
-    this.baseWallsThread(trace, kingdom);
-    this.neighborsThread(trace, kingdom);
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
+    this.threadBaseProcesses(trace, kernel);
+    this.remoteMiningThread(trace, kernel);
+    this.expandColoniesThread(trace, kernel);
+    this.baseWallsThread(trace, kernel);
+    this.neighborsThread(trace, kernel);
 
-    (Memory as any).bases = this.baseConfigs;
+    (Memory as any).bases = this.bases;
 
     return sleeping(RUN_TTL);
   }
@@ -118,37 +122,29 @@ export class CentralPlanning {
     return this.shards;
   }
 
-  getBaseConfig(colonyId: string): BaseConfig {
-    return this.baseConfigs[colonyId];
+  getBase(baseId: string): Base {
+    return this.bases.get(baseId);
   }
 
-  getBaseConfigs(): BaseConfig[] {
-    return _.values(this.baseConfigs);
+  getBases(): Base[] {
+    return Array.from(this.bases.values());
   }
 
-  getBaseConfigList(): BaseConfig[] {
-    return _.values(this.baseConfigs);
+  getBaseMap(): Map<string, Base> {
+    return this.bases;
   }
 
-  getBaseConfigMap(): Record<string, BaseConfig> {
-    return this.baseConfigs;
+  getBaseById(baseId: string): Base {
+    return this.bases.get(baseId);
   }
 
-  getBaseConfigById(colonyId: string): BaseConfig {
-    return this.baseConfigs[colonyId];
-  }
-
-  getBaseConfigByRoom(roomName: string): BaseConfig {
-    const baseId = this.roomByBaseId[roomName];
+  getBaseByRoom(roomName: string): Base {
+    const baseId = this.roomByBaseId.get(roomName);
     if (!baseId) {
       return null;
     }
 
-    return this.getBaseConfig(baseId);
-  }
-
-  setColonyAutomation(colonyId: string, automated: boolean) {
-    this.baseConfigs[colonyId].automated = automated;
+    return this.getBase(baseId);
   }
 
   getUsername() {
@@ -164,87 +160,101 @@ export class CentralPlanning {
     return this.username;
   }
 
-  // TODO move to planner
-  getFriends(): string[] {
-    return this.config.friends;
-  }
+  getClosestBaseInRange(roomName: string, range = 5): Base {
+    let selectedBase = null;
+    let selectedBaseDistance = 99999;
 
-  getAvoid(): string[] {
-    return this.config.avoid;
-  }
+    Object.values(this.getBases()).forEach((base) => {
+      const distance = Game.map.getRoomLinearDistance(base.primary, roomName);
+      if (distance <= range && selectedBaseDistance > distance) {
+        selectedBase = base;
+        selectedBaseDistance = distance;
+      }
+    });
 
-  getKOS(): string[] {
-    return this.config.kos;
+    return selectedBase;
   }
 
   addBase(primaryRoom: string, isPublic: boolean, origin: RoomPosition, parking: RoomPosition,
-    automated: boolean, rooms: string[], walls: {x: number, y: number}[], neighbors: string[],
-    trace: Tracer): BaseConfig {
-    if (this.baseConfigs[primaryRoom]) {
-      trace.error('colony already exists', {primaryRoom});
+    rooms: string[], walls: {x: number, y: number}[],
+    passages: {x: number, y: number}[], neighbors: string[], alertLevel: AlertLevel,
+    trace: Tracer): Base {
+    if (this.bases.has(primaryRoom)) {
+      trace.error('base already exists', {primaryRoom});
       return;
     }
 
-    this.baseConfigs[primaryRoom] = {
+    this.bases.set(primaryRoom, {
       id: primaryRoom,
       isPublic: isPublic,
       primary: primaryRoom,
       rooms: [],
-      automated: automated,
       origin: origin,
       parking: parking,
       walls: walls,
+      passages: passages,
       neighbors: neighbors,
-    };
+      alertLevel: alertLevel,
+      boostPosition: null,
+      boosts: new Map(),
 
-    this.roomByBaseId[primaryRoom] = primaryRoom;
+      // @REFACTOR check these defaults
+      storedEffects: new Map(),
+      labsByAction: new Map(),
+      terminalTask: null,
+      defenseHitsLimit: 0,
+      damagedStructures: [],
+      damagedSecondaryStructures: [],
+    });
+
+    this.roomByBaseId.set(primaryRoom, primaryRoom);
 
     // Add any additional rooms, primary is expected to be first
     rooms.forEach((roomName) => {
-      this.addRoom(primaryRoom, roomName, trace)
+      this.addRoom(primaryRoom, roomName, trace);
     });
 
-    return this.baseConfigs[primaryRoom];
+    return this.bases.get(primaryRoom);
   }
 
-  removeBase(colonyId: string, trace: Tracer) {
-    const baseConfig = this.getBaseConfig(colonyId);
-    const rooms = baseConfig.rooms;
+  removeBase(baseId: string, trace: Tracer) {
+    const base = this.getBase(baseId);
+    const rooms = base.rooms;
     rooms.forEach((roomName) => {
       this.removeRoom(roomName, trace);
     });
 
-    delete this.baseConfigs[colonyId];
+    this.bases.delete(baseId);
   }
 
-  addRoom(colonyId: string, roomName: string, trace: Tracer) {
-    trace.notice('adding room', {colonyId, roomName});
+  addRoom(baseId: string, roomName: string, trace: Tracer) {
+    trace.notice('adding room', {baseId, roomName});
 
-    const baseConfig = this.getBaseConfig(colonyId);
-    if (!baseConfig) {
+    const base = this.getBase(baseId);
+    if (!base) {
       trace.error('no colony found', {roomName});
       return;
     }
-    this.roomByBaseId[roomName] = colonyId;
+    this.roomByBaseId.set(roomName, baseId);
 
-    if (baseConfig.rooms.indexOf(roomName) !== -1) {
+    if (base.rooms.indexOf(roomName) !== -1) {
       trace.error('room already exists', {roomName});
       return;
     }
-    baseConfig.rooms.push(roomName);
+    base.rooms.push(roomName);
   }
 
   removeRoom(roomName: string, trace: Tracer) {
     trace.notice('removing room', {roomName});
 
-    const baseConfig = this.getBaseConfigByRoom(roomName);
-    if (!baseConfig) {
+    const base = this.getBaseByRoom(roomName);
+    if (!base) {
       trace.error('no colony found', {roomName});
       return;
     }
 
-    baseConfig.rooms = _.without(baseConfig.rooms, roomName);
-    delete this.roomByBaseId[roomName];
+    base.rooms = _.without(base.rooms, roomName);
+    this.roomByBaseId.delete(roomName);
 
     // remove constructions sites for room
     const sites = _.values<ConstructionSite>(Game.constructionSites);
@@ -258,12 +268,12 @@ export class CentralPlanning {
       }
     });
 
-    trace.log('room removed from colony', {colonyId: baseConfig.id, roomName});
+    trace.log('room removed from colony', {colonyId: base.id, roomName});
   }
 
-  private baseProcesses(trace: Tracer, kingdom: Kingdom) {
+  private baseProcesses(trace: Tracer, kernel: Kernel) {
     // If any defined colonies don't exist, run it
-    const bases = kingdom.getPlanner().getBaseConfigs();
+    const bases = kernel.getPlanner().getBases();
     bases.forEach((base) => {
       const baseProcessId = `base_${base.id}`;
       const hasProcess = this.scheduler.hasProcess(baseProcessId);
@@ -278,92 +288,117 @@ export class CentralPlanning {
     });
   }
 
-  private * remoteMiningGenerator(): Generator<any, void, {kingdom: Kingdom, trace: Tracer}> {
-    let bases: BaseConfig[] = []
+  private * remoteMiningGenerator(): Generator<any, void, {kernel: Kernel, trace: Tracer}> {
+    let bases: Base[] = [];
     while (true) {
-      const details: {kingdom: Kingdom, trace: Tracer} = yield;
-      const kingdom = details.kingdom;
+      const details: {kernel: Kernel, trace: Tracer} = yield;
+      const kernel = details.kernel;
       const trace = details.trace;
 
       trace.log('remote mining', {bases});
 
       if (!bases.length) {
-        trace.log('updating bases')
-        bases = this.getBaseConfigs()
+        trace.log('updating bases');
+        bases = this.getBases();
       }
 
       const base = bases.shift();
       trace.log('getting next base', {base});
       if (base) {
-        this.remoteMining(kingdom, base, trace);
+        this.remoteMining(kernel, base, trace);
       }
     }
   }
 
   // TODO move this to base runnable
-  private remoteMining(kingdom: Kingdom, baseConfig: BaseConfig, trace: Tracer) {
-    trace.log('remote mining', {baseConfig});
+  private remoteMining(kernel: Kernel, base: Base, trace: Tracer) {
+    trace.log('remote mining', {base});
 
-    if (!baseConfig.automated) {
-      trace.log('not automated', {baseConfig});
+    const primaryRoom = Game.rooms[base.primary];
+    if (!primaryRoom) {
+      trace.warn('primary room not found', {base});
       return null;
     }
 
-    const colony = kingdom.getColonyById(baseConfig.id);
-    if (!colony) {
-      trace.log('no colony', {baseConfig});
-      return null;
-    }
+    const level = primaryRoom?.controller?.level || 0;
+    const numDesired = desiredRemotes(base, level);
 
-    const room = Game.rooms[baseConfig.primary];
-    if (!room) {
-      trace.warn('primary room not found', {baseConfig});
-      return null;
-    }
+    trace.log('current rooms', {current: base.rooms.length - 1, numDesired});
 
-    const level = room?.controller?.level || 0;
-    let numDesired = desiredRemotes(colony, level);
-
-    trace.log('current rooms', {current: baseConfig.rooms.length - 1, numDesired});
-
-    baseConfig.rooms.forEach((roomName) => {
-      const roomEntry = kingdom.getScribe().getRoomById(roomName);
+    base.rooms.forEach((roomName) => {
+      const roomEntry = kernel.getScribe().getRoomById(roomName);
       if (!roomEntry) {
         trace.warn('room not found', {roomName});
         return;
       }
 
       // If room is controlled by someone else, don't claim it
-      if (roomEntry?.controller?.owner !== 'ENETDOWN' && roomEntry?.controller?.level > 0) {
+      if (roomEntry?.controller?.owner !== kernel.getPlanner().getUsername() &&
+        roomEntry?.controller?.level > 0) {
         trace.warn('room owned, removing remove', {roomName});
         this.removeRoom(roomName, trace);
       }
     });
 
-    while (baseConfig.rooms.length - 1 > numDesired) {
-      trace.notice('more rooms than desired, removing room', {baseConfig});
-      this.removeRoom(baseConfig.rooms[baseConfig.rooms.length - 1], trace);
+    while (base.rooms.length - 1 > numDesired) {
+      trace.notice('more rooms than desired, removing room', {base});
+      this.removeRoom(base.rooms[base.rooms.length - 1], trace);
     }
 
-    if (baseConfig.rooms.length - 1 < numDesired) {
-      const nextRemote = findNextRemoteRoom(kingdom, baseConfig, room, trace);
-      if (!nextRemote) {
-        trace.notice('no remote room found', {colonyId: baseConfig.id});
+    if (base.rooms.length - 1 < numDesired) {
+      // Check if adjacent rooms to the base have been explored
+      const exits: string[] = _.values(Game.map.describeExits(base.primary));
+      const unexploredClaimable = exits.filter((room) => {
+        // TODO dont wait on always or center rooms
+        const roomEntry = kernel.getScribe().getRoomById(room);
+        if (!roomEntry) {
+          return true;
+        }
+
+        return false;
+      });
+
+      // If adjacent rooms are unexplored, explore them
+      if (unexploredClaimable.length) {
+        trace.warn('room not explored, do not expand', {unexploredClaimable});
+
+        unexploredClaimable.forEach((roomName) => {
+          // request explorers
+          const priorities = EXPLORER;
+          const ttl = REMOTE_MINING_TTL;
+          const role = WORKER_EXPLORER;
+          const memory = {
+            [MEMORY_BASE]: base.id,
+            [MEMORY_ASSIGN_ROOM]: roomName,
+          };
+
+          const request = createSpawnRequest(priorities, ttl, role, memory, 0);
+          trace.notice('requesting explorer for adjacent room', {request});
+          kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
+        });
         return;
       }
 
-      trace.notice('adding remote', {room: nextRemote, baseConfig});
-      this.addRoom(baseConfig.id, nextRemote, trace);
+      // Pick next room to claim
+      const [nextRemote, debug] = findNextRemoteRoom(kernel, base, trace);
+      if (!nextRemote) {
+        trace.warn('no remote room found', {colonyId: base.id});
+        return;
+      }
+
+      // Add room to the base
+      trace.notice('adding remote', {room: nextRemote, base});
+      this.addRoom(base.id, nextRemote, trace);
     }
   }
 
-  private expandColonies(trace: Tracer, kingdom: Kingdom) {
+  private expandColonies(trace: Tracer, kernel: Kernel) {
     if (!this.config.autoExpand) {
       trace.warn('auto expand disabled');
       return;
     }
 
-    const scribe = kingdom.getScribe();
+    const scribe = kernel.getScribe();
     const globalColonyCount = scribe.getGlobalColonyCount();
     if (!globalColonyCount) {
       trace.log('do not know global colony count yet');
@@ -376,47 +411,48 @@ export class CentralPlanning {
       return;
     }
 
-    const baseConfigs = this.getBaseConfigs();
-    const numColonies = baseConfigs.length;
+    const bases = this.getBases();
+    const numColonies = bases.length;
     const shardColonyMax = (this.config.maxColonies || 9999);
     if (numColonies >= shardColonyMax) {
       trace.log('max config colonies reached', {numColonies, shardColonyMax});
       return;
     }
 
-    const results = pickExpansion(kingdom, trace);
+    const results = pickExpansion(kernel, trace);
     if (results.selected) {
       const roomName = results.selected;
       const distance = results.distance;
       const origin = results.origin;
       const parking = new RoomPosition(origin.x + 5, origin.y + 5, origin.roomName);
       trace.notice('selected room, adding colony', {roomName, distance, origin, parking});
-      const base = this.addBase(roomName, false, origin, parking, true, [roomName], [], [], trace);
-      this.updateNeighbors(kingdom, base, trace);
+      const base = this.addBase(roomName, false, origin, parking, [roomName],
+        [], [], [], AlertLevel.GREEN, trace);
+      this.updateNeighbors(kernel, base, trace);
       return;
     }
 
     trace.log('no expansion selected');
   }
 
-  private * baseWallsGenerator(): Generator<any, void, {kingdom: Kingdom, trace: Tracer}> {
-    let bases: BaseConfig[] = []
+  private * baseWallsGenerator(): Generator<any, void, {kernel: Kernel, trace: Tracer}> {
+    const bases: Base[] = [];
     while (true) {
-      const details: {kingdom: Kingdom, trace: Tracer} = yield;
-      const kingdom = details.kingdom;
+      const details: {kernel: Kernel, trace: Tracer} = yield;
+      const kernel = details.kernel;
       const trace = details.trace;
 
-      const needWalls = _.find(this.getBaseConfigs(), (baseConfig) => {
-        return baseConfig.automated && !baseConfig.walls.length;
+      const needWalls = _.find(this.getBases(), (base) => {
+        return !base.walls.length;
       });
       if (needWalls) {
-        trace.info('need walls', {baseConfig: needWalls});
-        this.updateBaseWalls(kingdom, needWalls, trace);
+        trace.info('need walls', {base: needWalls});
+        this.updateBaseWalls(kernel, needWalls, trace);
       }
     }
   }
 
-  private updateBaseWalls(kingdom: Kingdom, base: BaseConfig, trace: Tracer) {
+  private updateBaseWalls(kernel: Kernel, base: Base, trace: Tracer) {
     const baseBounds = {
       x1: base.origin.x - 9, y1: base.origin.y - 9,
       x2: base.origin.x + 9, y2: base.origin.y + 9,
@@ -425,36 +461,36 @@ export class CentralPlanning {
     const [walls] = getCutTiles(base.primary, [baseBounds], ENTIRE_ROOM_BOUNDS);
     base.walls = walls;
 
-    trace.info('created walls', {baseConfig: base});
+    trace.info('created walls', {base: base});
   }
 
-  private * neighborhoodsGenerator(): Generator<any, void, {kingdom: Kingdom, trace: Tracer}> {
-    let bases: BaseConfig[] = []
+  private * neighborhoodsGenerator(): Generator<any, void, {kernel: Kernel, trace: Tracer}> {
+    let bases: Base[] = [];
     while (true) {
-      const details: {kingdom: Kingdom, trace: Tracer} = yield;
-      const kingdom = details.kingdom;
+      const details: {kernel: Kernel, trace: Tracer} = yield;
+      const kernel = details.kernel;
       const trace = details.trace;
 
       if (!bases.length) {
-        bases = this.getBaseConfigs();
+        bases = this.getBases();
       }
 
       const base = bases.shift();
       trace.info('getting next base', {base});
       if (base) {
-        this.updateNeighbors(kingdom, base, trace);
+        this.updateNeighbors(kernel, base, trace);
       }
     }
   }
 
-  private updateNeighbors(kingdom: Kingdom, base: BaseConfig, trace: Tracer) {
+  private updateNeighbors(kernel: Kernel, base: Base, trace: Tracer) {
     // Narrow bases to ones that are nearby
-    let nearbyBases = _.filter(this.getBaseConfigs(), (baseConfig) => {
-      if (baseConfig.id === base.id) {
-        return false
+    let nearbyBases = _.filter(this.getBases(), (base) => {
+      if (base.id === base.id) {
+        return false;
       }
 
-      const distance = Game.map.getRoomLinearDistance(base.primary, baseConfig.primary);
+      const distance = Game.map.getRoomLinearDistance(base.primary, base.primary);
       if (distance > 5) {
         return false;
       }
@@ -465,17 +501,17 @@ export class CentralPlanning {
     });
 
     // Sort by distance
-    nearbyBases = _.sortBy(nearbyBases, (baseConfig) => {
-      return Game.map.getRoomLinearDistance(base.primary, baseConfig.primary);
+    nearbyBases = _.sortBy(nearbyBases, (base) => {
+      return Game.map.getRoomLinearDistance(base.primary, base.primary);
     });
 
     // Pick at most nearest 3
     nearbyBases = _.take(nearbyBases, 3);
 
     // Set bases neighbors
-    base.neighbors = nearbyBases.map(baseConfig => baseConfig.id);
+    base.neighbors = nearbyBases.map((base) => base.id);
 
-    trace.info('updated neighbors', {baseConfig: base});
+    trace.info('updated neighbors', {base: base});
   }
 }
 

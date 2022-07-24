@@ -1,15 +1,15 @@
 import * as _ from 'lodash';
 import {AttackRequest, AttackStatus, ATTACK_ROOM_TTL} from './constants.attack';
 import * as TOPICS from './constants.topics';
+import {Kernel} from './kernel';
 import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
 import {FindColonyPathPolicy, getClosestColonyByPath} from './lib.pathing';
 import {Tracer} from './lib.tracing';
-import {Kingdom} from './org.kingdom';
-import {TargetRoom} from './runnable.scribe';
-import {sleeping} from "./os.process";
+import {sleeping} from './os.process';
 import {RunnableResult} from './os.runnable';
+import {TargetRoom} from './runnable.scribe';
 
-const policy: FindColonyPathPolicy = {
+export const BufferPathPolicy: FindColonyPathPolicy = {
   colony: {
     start: 'spawn',
     maxLinearDistance: 5,
@@ -26,7 +26,7 @@ const policy: FindColonyPathPolicy = {
     costMatrixType: AllowedCostMatrixTypes.PARTY,
   },
   destination: {
-    range: 1,
+    range: 2,
   },
   path: {
     allowIncomplete: false,
@@ -44,17 +44,17 @@ export default class BufferManager {
     this.id = id;
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('buffer_manager_run');
 
-    const hostileRoomsByColony = getHostileRoomsByColony(kingdom, trace);
-    _.forEach(hostileRoomsByColony, (rooms, baseId) => {
+    const hostileRoomsByColony = getHostileRoomsByColony(kernel, trace);
+    hostileRoomsByColony.forEach((rooms, baseId) => {
       if (rooms.length < 1) {
-        trace.log("no hostiles rooms", {baseId, rooms});
+        trace.log('no hostiles rooms', {baseId, rooms});
         return;
       }
 
-      const base = kingdom.getPlanner().getBaseConfigById(baseId);
+      const base = kernel.getPlanner().getBaseById(baseId);
       if (!base) {
         trace.log('no base', {baseId});
         return;
@@ -69,11 +69,10 @@ export default class BufferManager {
 
       const attackRequest: AttackRequest = {
         status: AttackStatus.REQUESTED,
-        baseId,
         roomId: room.id,
       };
 
-      kingdom.sendRequest(TOPICS.ATTACK_ROOM, 1, attackRequest, ATTACK_ROOM_TTL);
+      kernel.getTopics().addRequest(TOPICS.ATTACK_ROOM, 1, attackRequest, ATTACK_ROOM_TTL);
     });
 
     // TODO add HUD line and attack lines on map
@@ -84,40 +83,40 @@ export default class BufferManager {
   }
 }
 
-type HostileRoomsByColony = Record<string, TargetRoom[]>;
+type HostileRoomsByColony = Map<string, TargetRoom[]>;
 
-function getHostileRoomsByColony(kingdom: Kingdom, trace: Tracer): HostileRoomsByColony {
-  const weakRooms = kingdom.getScribe().getWeakRooms()
-  trace.log('weak rooms', {weakRooms});
+function getHostileRoomsByColony(kernel: Kernel, trace: Tracer): HostileRoomsByColony {
+  const hostileRooms = kernel.getScribe().getHostileRooms(kernel);
+  trace.info('hostile rooms', {hostileRooms});
 
-  const config = kingdom.config;
+  const config = kernel.getConfig();
   const dontAttack = config.friends.concat(config.neutral);
-  const candidateRooms = weakRooms.filter((room) => {
-    return dontAttack.indexOf(room.owner) === -1;
+  const candidateRooms = hostileRooms.filter((room) => {
+    return dontAttack.indexOf(room.owner) === -1 && room.level <= 7;
   });
-  trace.log('candidate rooms', {config, dontAttack, candidateRooms});
+  trace.info('candidate rooms', {config, dontAttack, candidateRooms});
 
-  const hostileRoomsByColony: Record<string, TargetRoom[]> = {};
+  const hostileRoomsByColony: Map<string, TargetRoom[]> = new Map();
 
   // TODO fix this
-  policy.colony.maxLinearDistance = kingdom.config.buffer;
+  BufferPathPolicy.colony.maxLinearDistance = config.buffer;
 
   candidateRooms.forEach((room) => {
-    const colony = getClosestColonyByPath(kingdom, room.controllerPos, policy, trace)
+    const colony = getClosestColonyByPath(kernel, room.controllerPos, BufferPathPolicy, trace);
     if (!colony) {
-      trace.log('no colony', {room});
+      trace.info('no colony', {room});
       return;
     }
 
-    if (!hostileRoomsByColony[colony.id]) {
-      hostileRoomsByColony[colony.id] = [];
+    if (!hostileRoomsByColony.has(colony.id)) {
+      hostileRoomsByColony.set(colony.id, []);
     }
 
-    trace.log('attack room from', {colony, room});
-    hostileRoomsByColony[colony.id].push(room);
+    trace.info('attack room from', {colony, room});
+    hostileRoomsByColony.set(colony.id, hostileRoomsByColony.get(colony.id).concat(room));
   });
 
-  trace.log('hostile rooms by colony', {hostileRoomsByColony});
+  trace.info('hostile rooms by colony', {hostileRoomsByColony});
 
   return hostileRoomsByColony;
 }

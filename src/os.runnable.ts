@@ -1,9 +1,9 @@
-import {Tracer} from "./lib.tracing";
-import {Kingdom} from "./org.kingdom";
-import {ProcessStatus} from "./os.process";
+import {Kernel} from './kernel';
+import {Tracer} from './lib.tracing';
+import {ProcessStatus} from './os.process';
 
 export interface Runnable {
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult;
+  run(kernel: Kernel, trace: Tracer): RunnableResult;
 }
 
 export interface RunnableResult {

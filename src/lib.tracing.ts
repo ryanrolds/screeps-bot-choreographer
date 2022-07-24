@@ -1,4 +1,4 @@
-import * as _ from "lodash"
+import * as _ from 'lodash';
 
 export interface Metric {
   start: number;
@@ -7,7 +7,7 @@ export interface Metric {
   fields: TracerFields;
 }
 
-type TracerFields = Record<string, string>;
+export type TracerFields = Map<string, string>;
 type TimerEndFunc = () => number;
 
 export class Tracer {
@@ -46,19 +46,21 @@ export class Tracer {
   }
 
   withFields(fields: TracerFields): Tracer {
-    let child = this.clone()
-    child.kv = _.assign(child.kv, fields)
+    const child = this.clone();
+    for (const [key, value] of fields.entries()) {
+      child.kv.set(key, value);
+    }
     return child;
   }
 
   /**
    * @deprecated Use `info(...)` instead.
    */
-  log(message: string, details: Object = {}): void {
+  log(message: string, details: Record<string, unknown> = {}): void {
     this.info(message, details);
   }
 
-  info(message: string, details: Object = {}): void {
+  info(message: string, details: Record<string, unknown> = {}): void {
     if (!this.shouldLog()) {
       return;
     }
@@ -67,17 +69,17 @@ export class Tracer {
       JSON.stringify(this.kv), '</font>');
   }
 
-  notice(message: string, details: Object = {}): void {
+  notice(message: string, details: Record<string, unknown> = {}): void {
     console.log(`<font color="#2B7FD3">[NOTICE]`, this.name, '::', message, JSON.stringify(details),
       JSON.stringify(this.kv), '</font>');
   }
 
-  warn(message: string, details: Object = {}): void {
+  warn(message: string, details: Record<string, unknown> = {}): void {
     console.log(`<font color="#ffbb00">[WARN]`, this.name, '::', message, JSON.stringify(details),
       JSON.stringify(this.kv), '</font>');
   }
 
-  error(message: string, details: Object = {}): void {
+  error(message: string, details: Record<string, unknown> = {}): void {
     console.log(`<font color="#FF5555">[ERROR]`, this.name, '::', message, JSON.stringify(details),
       JSON.stringify(this.kv), '</font>');
   }
@@ -97,7 +99,7 @@ export class Tracer {
       }
 
       return cpuTime;
-    }
+    };
   }
 
   setLogFilter(filter: string) {
@@ -117,7 +119,7 @@ export class Tracer {
   }
 
   outputMetrics() {
-    _.sortBy(this.getMetrics(), 'start').forEach(metric => {
+    _.sortBy(this.getMetrics(), 'start').forEach((metric) => {
       console.log(`${metric.value.toFixed(2).padStart(5, ' ')}ms: ${metric.key} at ${metric.start}`,
         JSON.stringify(metric.fields));
     });
@@ -126,7 +128,7 @@ export class Tracer {
   getMetrics(): Metric[] {
     let metrics = [].concat(this.metrics);
 
-    this.children.forEach(child => {
+    this.children.forEach((child) => {
       metrics = metrics.concat(child.getMetrics());
     });
 
@@ -135,7 +137,7 @@ export class Tracer {
 
   private clone() {
     const child = new Tracer(this.name, this.kv, this.start);
-    child.kv = _.assign({}, this.kv)
+    child.kv = new Map(this.kv);
 
     child.logFilter = this.logFilter;
     child.collect = this.collect;
@@ -152,11 +154,11 @@ export class Tracer {
   }
 
   private shouldLog(): boolean {
-    return this.logFilter === this.kv['pid'];
+    return this.logFilter === this.kv.get('pid');
   }
 
   private pushMetric(cpuTime: number) {
-    const item = {start: this.start, key: this.name, value: cpuTime, fields: this.kv}
+    const item = {start: this.start, key: this.name, value: cpuTime, fields: this.kv};
     this.metrics.push(item);
   }
 
@@ -180,7 +182,7 @@ export class Tracer {
   end(): number {
     // If tracing not active minimize the overhead of the tracer
     if (!this.start) {
-      return 0
+      return 0;
     }
 
     const stop = Game.cpu.getUsed();

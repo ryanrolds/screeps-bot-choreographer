@@ -1,13 +1,12 @@
-import * as behaviorTree from './lib.behaviortree';
-import {FAILURE, SUCCESS, RUNNING} from './lib.behaviortree';
+import {getCreepBase} from './base';
 import * as behaviorAssign from './behavior.assign';
 import {behaviorBoosts} from './behavior.boosts';
-import {roadWorker} from './behavior.logistics';
+import {MEMORY_ASSIGN_ROOM_POS} from './constants.memory';
+import {Kernel} from './kernel';
+import * as behaviorTree from './lib.behaviortree';
+import {FAILURE, RUNNING, SUCCESS} from './lib.behaviortree';
 import {Tracer} from './lib.tracing';
-import {Kingdom} from './org.kingdom';
-
-const MEMORY = require('./constants.memory');
-const TOPICS = require('./constants.topics');
+import {getBasePriorityTargetsTopic} from './runnable.manager.defense';
 
 const behavior = behaviorTree.sequenceNode(
   'defender_root',
@@ -15,47 +14,44 @@ const behavior = behaviorTree.sequenceNode(
     behaviorAssign.moveToRoom,
     behaviorTree.leafNode(
       'attack_hostiles',
-      (creep: Creep, trace: Tracer, kingdom: Kingdom) => {
-        const room = kingdom.getCreepRoom(creep);
-        if (!room) {
-          trace.error('creep has no room', creep.memory);
-          creep.suicide();
-          return FAILURE;
+      (creep: Creep, trace: Tracer, kernel: Kernel) => {
+        const base = getCreepBase(kernel, creep);
+        if (!base) {
+          trace.error('creep has no base', {memory: creep.memory});
         }
 
+        // Heal self or adjacent creep if one has lower HP
+        let healTarget = null;
         if (creep.hits < creep.hitsMax) {
-          const result = creep.heal(creep);
+          healTarget = creep;
+        }
+
+        // heal adjacent creeps with lowest HP
+        let friendlyCreepsNearby = creep.pos.findInRange(FIND_MY_CREEPS, 1, {
+          filter: (c: Creep) => c.hits < c.hitsMax,
+        });
+        friendlyCreepsNearby = _.sortBy(friendlyCreepsNearby, (a, b) => {
+          return a.hits / a.hitsMax;
+        });
+
+        const first = friendlyCreepsNearby[0];
+        if (first && (!healTarget || first.hits < healTarget.hits)) {
+          healTarget = first;
+        }
+
+        // if we have a heal target, heal it
+        if (healTarget) {
+          const result = creep.heal(healTarget);
           trace.log('healing self', {result});
         }
 
         // Get targets in the room
-        const roomId = room.id;
-        const targets = room.getColony().getFilteredRequests(TOPICS.PRIORITY_TARGETS,
+        const roomId = creep.room.name;
+        const targets = kernel.getTopics().getFilteredRequests(getBasePriorityTargetsTopic(base.id),
           (target) => {
             return target.details.roomName === roomId;
           },
-        ).reverse();
-
-        /*
-        // If there are no priority targets, start destroying whatever is there
-        if (targets.length === 0) {
-          targets = creep.pos.findInRange(FIND_HOSTILE_CREEPS, 3);
-
-          targets = targets.concat(creep.room.find(FIND_HOSTILE_STRUCTURES, {
-            filter: (structure) => {
-              return structure.structureType === STRUCTURE_TOWER ||
-                structure.structureType === STRUCTURE_SPAWN;
-            },
-          }));
-
-          targets = targets.concat(creep.room.find(FIND_HOSTILE_STRUCTURES, {
-            filter: (structure) => {
-              return structure.structureType === STRUCTURE_RAMPART ||
-                structure.structureType === STRUCTURE_WALL;
-            },
-          }));
-        }
-        */
+        );
 
         trace.log('room targets', {targets});
 
@@ -83,56 +79,28 @@ const behavior = behaviorTree.sequenceNode(
           trace.log('ranged attack result', {result, targetId: attackTarget.id});
         }
 
-        // TODO defender should keep distance unless in rampart
-        // TODO defender should flee and heal if low on hits
-
+        // If not in rampart, move to target
         if (!moveTarget) {
-          return moveToAssignedPosition(creep, trace, kingdom);
+          return moveToAssignedPosition(creep, trace, kernel);
         }
 
-        // TODO should not check this often
-        const pathToTarget = creep.pos.findPathTo(moveTarget, {range: 3});
-
-        const lastRampart = pathToTarget.reduce((lastRampart, pos): RoomPosition => {
-          const roomPos = creep.room.getPositionAt(pos.x, pos.y);
-          const posStructures = roomPos.lookFor(LOOK_STRUCTURES);
-          const hasRampart = _.filter(posStructures, (structure) => {
-            return structure.structureType === STRUCTURE_RAMPART;
-          });
-
-          const hasCreep = roomPos.lookFor(LOOK_CREEPS).length > 0;
-
-          if (hasRampart && !hasCreep) {
-            lastRampart = roomPos;
+        // If we are less then 2/3 health, move back and heal
+        if (creep.hits < creep.hitsMax * 0.666) {
+          trace.info('too damaged, flee');
+          const base = getCreepBase(kernel, creep);
+          if (base) {
+            const result = creep.moveTo(base.origin);
+            trace.log('moving to base origin to heal', {result});
+            return RUNNING;
           }
-
-          return lastRampart;
-        }, null as RoomPosition);
-
-        trace.log('last rampart', {lastRampart});
-
-        if (lastRampart) {
-          const creepPosStructures = creep.pos.lookFor(LOOK_STRUCTURES);
-          const inLastRampart = _.filter(creepPosStructures, (structure) => {
-            return structure.id === structure.id;
-          }).length > 0;
-
-          if (inLastRampart) {
-            trace.log('in rampart');
-            // return RUNNING;
-          }
-
-          const result = creep.moveTo(lastRampart, {visualizePathStyle: {stroke: '#ffffff'}});
-          trace.log('moving to last rampart', {result});
-          // return RUNNING;
         }
 
-        if (creep.pos.getRangeTo(moveTarget) <= 2) {
+        if (creep.pos.getRangeTo(moveTarget) <= 3) {
           trace.log('target in range');
           return RUNNING;
         }
 
-        const result = move(creep, moveTarget, 2);
+        const result = move(creep, moveTarget, 3);
         trace.log('move to target', {result, moveTarget});
 
         return RUNNING;
@@ -141,11 +109,11 @@ const behavior = behaviorTree.sequenceNode(
   ],
 );
 
-const moveToAssignedPosition = (creep: Creep, trace: Tracer, kingdom: Kingdom) => {
+const moveToAssignedPosition = (creep: Creep, trace: Tracer, kernel: Kernel) => {
   let position: RoomPosition = null;
 
   // Check if creep knows last known position
-  const positionString = creep.memory[MEMORY.MEMORY_ASSIGN_ROOM_POS] || null;
+  const positionString = creep.memory[MEMORY_ASSIGN_ROOM_POS] || null;
   if (positionString) {
     const posArray = positionString.split(',');
     if (posArray && posArray.length === 3) {
@@ -159,9 +127,9 @@ const moveToAssignedPosition = (creep: Creep, trace: Tracer, kingdom: Kingdom) =
 
   // If don't have a last known position, go to parking lot
   if (!position) {
-    const baseConfig = kingdom.getCreepBaseConfig(creep);
-    if (baseConfig) {
-      position = baseConfig.parking;
+    const base = getCreepBase(kernel, creep);
+    if (base) {
+      position = base.parking;
     } else {
       trace.log('could not get creep base config');
     }
@@ -199,5 +167,5 @@ const move = (creep: Creep, target: RoomPosition, range = 3) => {
 };
 
 export const roleDefender = {
-  run: behaviorTree.rootNode('defender', behaviorBoosts(roadWorker(behavior))),
+  run: behaviorTree.rootNode('defender', behaviorBoosts(behavior)),
 };

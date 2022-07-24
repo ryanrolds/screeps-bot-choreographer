@@ -1,8 +1,8 @@
-import {ENTIRE_ROOM_BOUNDS, getCutTiles, Graph, NORMAL, NO_BUILD, PROTECTED, RoomMatrix, TO_EXIT, UNWALKABLE} from "./lib.min_cut";
+import {Kernel} from './kernel';
+import {ENTIRE_ROOM_BOUNDS, getCutTiles, Graph, NORMAL, NO_BUILD, PROTECTED, RoomMatrix, TO_EXIT, UNWALKABLE} from './lib.min_cut';
 import {Tracer} from './lib.tracing';
-import {Kingdom} from "./org.kingdom";
-import {running} from "./os.process";
-import {RunnableResult} from "./os.runnable";
+import {running} from './os.process';
+import {RunnableResult} from './os.runnable';
 
 export default class MinCutDebugger {
   id: string;
@@ -10,22 +10,18 @@ export default class MinCutDebugger {
   matrix: RoomMatrix;
   cut: RoomPosition[];
 
-  constructor(id: string, kingdom: Kingdom) {
+  constructor(id: string, kernel: Kernel) {
     this.id = id;
     this.graph = null;
     this.matrix = null;
     this.cut = null;
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    trace.log("mincut debugger", {});
-
-    if (this.graph && Game.time % 1 === 0) {
-
-    }
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
+    trace.log('mincut debugger', {});
 
     if (this.matrix && Game.time % 2 === 0) {
-      let visual = new RoomVisual(this.matrix.roomName);
+      const visual = new RoomVisual(this.matrix.roomName);
 
       // Visualize the room
       for (let x = 0; x < 50; x++) {
@@ -74,13 +70,13 @@ export default class MinCutDebugger {
     return running();
   }
 
-  debug(kingdom: Kingdom, roomName: string) {
-    const trace = new Tracer('mincut_deugger', {pid: 'mincut_debugger'}, 0);
+  debug(kernel: Kernel, roomName: string) {
+    const trace = new Tracer('mincut_deugger', new Map([['pid', 'mincut_debugger']]), 0);
 
-    const baseConfig = kingdom.getPlanner().getBaseConfigById(roomName);
-    trace.notice('baseConfig', {origin: baseConfig?.origin});
+    const base = kernel.getPlanner().getBaseById(roomName);
+    trace.notice('base', {origin: base?.origin});
 
-    const baseOrigin = baseConfig.origin;
+    const baseOrigin = base.origin;
     const baseBounds = {
       x1: baseOrigin.x - 9, y1: baseOrigin.y - 9,
       x2: baseOrigin.x + 9, y2: baseOrigin.y + 9,
@@ -123,7 +119,7 @@ export default class MinCutDebugger {
     */
 
     let cpu = Game.cpu.getUsed();
-    const [cut, matrix, graph] = getCutTiles(roomName, protect, ENTIRE_ROOM_BOUNDS)
+    const [cut, matrix, graph] = getCutTiles(roomName, protect, ENTIRE_ROOM_BOUNDS);
     this.cut = cut;
     this.matrix = matrix;
     this.graph = graph;

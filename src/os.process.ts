@@ -1,6 +1,5 @@
+import {Kernel} from './kernel';
 import {Tracer} from './lib.tracing';
-import {Kingdom} from './org.kingdom';
-import * as _ from 'lodash';
 import {Runnable, RunnableResult} from './os.runnable';
 
 
@@ -12,15 +11,15 @@ export const STATUS_TERMINATED = 'terminated';
 
 export const running = (): RunnableResult => {
   return {status: STATUS_RUNNING};
-}
+};
 
 export const sleeping = (sleepFor: number): RunnableResult => {
   return {status: STATUS_SLEEPING, sleepFor};
-}
+};
 
 export const terminate = (): RunnableResult => {
   return {status: STATUS_TERMINATED};
-}
+};
 
 export class Process {
   id: string;
@@ -93,10 +92,10 @@ export class Process {
     this.adjustedPriority -= 1;
   }
 
-  run(kingdom: Kingdom, trace: Tracer) {
+  run(kernel: Kernel, trace: Tracer) {
     this.lastRun = Game.time;
 
-    const result = this.runnable.run(kingdom, trace);
+    const result = this.runnable.run(kernel, trace);
     switch (result.status) {
       case STATUS_RUNNING:
         this.setRunning();
@@ -105,7 +104,7 @@ export class Process {
         this.setSleeping(result.sleepFor);
         break;
       case STATUS_TERMINATED:
-        this.setTerminated()
+        this.setTerminated();
         break;
     }
 

@@ -1,10 +1,8 @@
-import {trace} from "console";
-import {Consumer} from "./lib.event_broker";
-import {Tracer} from "./lib.tracing";
-import {Kingdom} from "./org.kingdom";
-import {running} from "./os.process";
-import {RunnableResult} from "./os.runnable";
-import {thread, ThreadFunc} from "./os.thread";
+import {Kernel, KernelThreadFunc, threadKernel} from './kernel';
+import {Consumer} from './lib.event_broker';
+import {Tracer} from './lib.tracing';
+import {running} from './os.process';
+import {RunnableResult} from './os.runnable';
 
 const CONSUME_EVENTS_TTL = 1;
 const DASHBOARD_EVENTS_TTL = 1;
@@ -19,17 +17,17 @@ export type HudLine = {
   time: number;
 }
 
-type HudLines = Record<string, HudLine>;
+type HudLines = Map<string, HudLine>;
 
 export function getLinesStream(): string {
   return `hud_lines`;
 }
 
 export enum HudIndicatorStatus {
-  Green = "green",
-  Yellow = "yellow",
-  Red = "red",
-  Stale = "stale"
+  Green = 'green',
+  Yellow = 'yellow',
+  Red = 'red',
+  Stale = 'stale'
 }
 
 export type HudIndicator = {
@@ -43,61 +41,63 @@ export function getDashboardStream(): string {
   return `hud_dashboard`;
 }
 
-export const HudEventSet = 'set'
+export const HudEventSet = 'set';
 
 export class Dashboard {
   key: string;
-  indicators: Record<string, HudIndicator>;
+  indicators: Map<string, HudIndicator>;
 
   constructor(key: string) {
     this.key = key;
-    this.indicators = {};
+    this.indicators = new Map();
   }
 
   setIndicator(indicator: HudIndicator) {
-    this.indicators[indicator.key] = indicator;
+    this.indicators.set(indicator.key, indicator);
   }
 
-  getIndicators(): Record<string, HudIndicator> {
+  getIndicators(): Map<string, HudIndicator> {
     return this.indicators;
   }
 }
 
 export class HUDRunnable {
-  private dashboards: Record<string, Dashboard> = {};
-  private lines: HudLines = {};
+  private dashboards: Map<string, Dashboard> = new Map();
+  private lines: HudLines = new Map();
 
   private dashboardConsumer: Consumer;
-  private threadDashboardEvents: ThreadFunc;
+  private threadDashboardEvents: KernelThreadFunc;
 
   private hudLinesConsumer: Consumer;
-  private threadLinesEvents: ThreadFunc;
+  private threadLinesEvents: KernelThreadFunc;
 
   constructor() {
     this.dashboardConsumer = null;
-    this.threadDashboardEvents = thread('dashboard_events', DASHBOARD_EVENTS_TTL)(this.consumeDashboardEvents.bind(this));
+    this.threadDashboardEvents = threadKernel('dashboard_events', DASHBOARD_EVENTS_TTL)(this.consumeDashboardEvents.bind(this));
 
     this.hudLinesConsumer = null;
-    this.threadLinesEvents = thread('consume_events', CONSUME_EVENTS_TTL)(this.consumeLinesEvents.bind(this));
+    this.threadLinesEvents = threadKernel('consume_events', CONSUME_EVENTS_TTL)(this.consumeLinesEvents.bind(this));
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     if (!this.hudLinesConsumer) {
       const linesStreamId = getLinesStream();
-      const consumer = kingdom.getBroker().getStream(linesStreamId).addConsumer('hud');
+      const consumer = kernel.getBroker().getStream(linesStreamId).addConsumer('hud');
       this.hudLinesConsumer = consumer;
     }
 
     if (!this.dashboardConsumer) {
       const dashboardStreamId = getDashboardStream();
-      const consumer = kingdom.getBroker().getStream(dashboardStreamId).addConsumer('hud');
+      const consumer = kernel.getBroker().getStream(dashboardStreamId).addConsumer('hud');
       this.dashboardConsumer = consumer;
     }
 
-    this.threadLinesEvents(trace);
-    this.threadDashboardEvents(trace);
+    this.threadLinesEvents(trace, kernel);
+    this.threadDashboardEvents(trace, kernel);
 
-    _.forEach(_.groupBy(this.lines, 'room'), (lines, room) => {
+    const lines = Array.from(this.lines.values())
+
+    _.forEach(_.groupBy(lines, 'room'), (lines, room) => {
       let lineNum = 0;
       const roomVisual = new RoomVisual(room);
 
@@ -107,14 +107,14 @@ export class HUDRunnable {
       });
     });
 
-    trace.log('dashboards', this.dashboards);
+    trace.log('dashboards', {dashboards: this.dashboards});
 
-    _.forEach(this.dashboards, (dashboard) => {
+    Array.from(this.dashboards.values()).forEach((dashboard) => {
       const indicators = dashboard.getIndicators();
-      trace.log('indicators', indicators);
+      trace.log('indicators', {indicators});
 
       let indicatorNum = 0;
-      _.forEach(indicators, (indicator) => {
+      Array.from(indicators.values()).forEach((indicator) => {
         let fill = '#00ff00';
         if (indicator.status === HudIndicatorStatus.Red) {
           fill = '#ff0000';
@@ -136,7 +136,7 @@ export class HUDRunnable {
   consumeLinesEvents(trace: Tracer) {
     this.hudLinesConsumer.getEvents().forEach((event) => {
       const line: HudLine = event.data;
-      this.lines[line.key] = line;
+      this.lines.set(line.key, line);
     });
   }
 
@@ -147,11 +147,11 @@ export class HUDRunnable {
       const indicator: HudIndicator = event.data;
 
       const room = indicator.room;
-      if (!this.dashboards[room]) {
-        this.dashboards[room] = new Dashboard(room);
+      if (!this.dashboards.has(room)) {
+        this.dashboards.set(room, new Dashboard(room));
       }
 
-      this.dashboards[room].setIndicator(indicator);
+      this.dashboards.get(room).setIndicator(indicator);
     });
   }
 }

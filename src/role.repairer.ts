@@ -1,31 +1,33 @@
-import * as behaviorTree from "./lib.behaviortree";
-import {FAILURE, SUCCESS, RUNNING} from "./lib.behaviortree";
+import * as behaviorTree from './lib.behaviortree';
+import {FAILURE, RUNNING, SUCCESS} from './lib.behaviortree';
 
-import * as behaviorMovement from "./behavior.movement";
-import * as behaviorCommute from "./behavior.commute";
-import * as behaviorAssign from "./behavior.assign";
-import behaviorRoom from "./behavior.room";
-import {behaviorBoosts} from "./behavior.boosts";
+import * as behaviorAssign from './behavior.assign';
+import {behaviorBoosts} from './behavior.boosts';
+import * as behaviorCommute from './behavior.commute';
+import * as behaviorMovement from './behavior.movement';
 
-import {MEMORY_DESTINATION} from "./constants.memory";
-import {trace} from "console";
+import {getCreepBase, getNextDamagedStructure} from './base';
+import {getEnergy} from './behavior.room';
+import {MEMORY_DESTINATION} from './constants.memory';
+import {Kernel} from './kernel';
+import {Tracer} from './lib.tracing';
 
 const selectStructureToRepair = behaviorTree.leafNode(
   'selectStructureToRepair',
-  (creep, trace, kingdom) => {
-    const room = kingdom.getCreepRoom(creep);
-    if (!room) {
+  (creep: Creep, trace: Tracer, kernel: Kernel) => {
+    const base = getCreepBase(kernel, creep);
+    if (!base) {
       trace.error('no room on creep', {name: creep.name, memory: creep.memory});
       creep.suicide();
       return FAILURE;
     }
 
-    const target = room.getNextDamagedStructure();
+    const target = getNextDamagedStructure(base);
     if (!target) {
       return FAILURE;
     }
 
-    trace.log("selected target", {target: target.id, pos: target.pos});
+    trace.log('selected target', {target: target.id, pos: target.pos});
 
     behaviorMovement.setDestination(creep, target.id);
 
@@ -61,7 +63,7 @@ const behavior = behaviorTree.sequenceNode(
   [
     behaviorAssign.moveToRoom,
     behaviorCommute.setCommuteDuration,
-    behaviorRoom.getEnergy,
+    getEnergy,
     behaviorTree.repeatUntilConditionMet(
       'repair_until_empty',
       (creep, trace, kingdom) => {

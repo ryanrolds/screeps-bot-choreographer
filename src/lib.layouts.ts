@@ -16,7 +16,7 @@ export const buildingCodes = {
   'B': STRUCTURE_LAB,
   'O': STRUCTURE_OBSERVER,
   'N': STRUCTURE_NUKER,
-}
+};
 
 export type Layout = {
   origin: {x: number, y: number};
@@ -27,4 +27,4 @@ export type Layout = {
 export const getConstructionPosition = (pos: {x: number, y: number}, origin: RoomPosition,
   layout: Layout): RoomPosition => {
   return new RoomPosition(pos.x + origin.x - layout.origin.x, pos.y + origin.y - layout.origin.y, origin.roomName);
-}
+};

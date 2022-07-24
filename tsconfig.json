@@ -2,12 +2,14 @@
   "compilerOptions": {
     "outDir": "./built",
     "allowJs": true,
-    "target": "es5",
+    "target": "es2017",
     "rootDir": "./src",
     "sourceMap": false,
     "esModuleInterop": true,
     "moduleResolution": "node",
     "module": "commonjs",
+    "strictBindCallApply": true,
+    //"strict": true, // @TODO turn this on and fix the errors
     "types": [
       "node",
       "screeps",

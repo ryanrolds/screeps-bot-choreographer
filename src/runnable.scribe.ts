@@ -1,15 +1,14 @@
+import {Kernel, KernelThreadFunc, threadKernel} from './kernel';
 import {Event} from './lib.event_broker';
 import {Tracer} from './lib.tracing';
-import {OrgBase} from './org.base';
-import {Kingdom} from './org.kingdom';
-import {running, sleeping} from './os.process';
+import {sleeping} from './os.process';
 import {Runnable, RunnableResult} from './os.runnable';
-import {thread, ThreadFunc} from './os.thread';
+import {scoreAttacking, scoreHealing} from './role.harasser';
 import {getDashboardStream, HudEventSet, HudIndicator, HudIndicatorStatus} from './runnable.debug_hud';
 
 const RUN_TTL = 10;
 const JOURNAL_ENTRY_TTL = 200;
-const MAX_JOURAL_TTL = 500;
+const MAX_JOURNAL_TTL = 1000;
 const WRITE_MEMORY_INTERVAL = 50;
 const REMOVE_STALE_ENTRIES_INTERVAL = 100;
 const UPDATE_COLONY_COUNT = 50;
@@ -19,8 +18,8 @@ const YELLOW_JOURNAL_AGE = 100;
 const RED_JOURNAL_AGE = 250;
 
 type Journal = {
-  rooms: Record<Id<Room>, RoomEntry>;
-  creeps: Record<Id<Creep>, Creep>;
+  rooms: Map<string, RoomEntry>;
+  creeps: Map<Id<Creep>, Creep>;
 };
 
 type PortalEntry = {
@@ -46,6 +45,8 @@ export type RoomEntry = {
   spawnLocation: RoomPosition;
   numSources: number;
   hasHostiles: boolean;
+  hostilesDmg: number;
+  hostilesHealing: number;
   hasKeepers: boolean;
   invaderCorePos: RoomPosition;
   invaderCoreLevel: number;
@@ -81,9 +82,9 @@ export type TargetRoom = {
 export type ShardMemory = {
   time: number;
   status: RemoteStatus;
-  creep_backups: Record<string, CreepBackup>;
-  request_claimer: Record<string, CreepRequest>,
-  request_builder: Record<string, CreepRequest>,
+  creep_backups: Map<string, CreepBackup>;
+  request_claimer: Map<string, CreepRequest>,
+  request_builder: Map<string, CreepRequest>,
 };
 
 export type RemoteStatus = {
@@ -98,7 +99,7 @@ export type CreepBackup = {
 
 export type CreepRequest = {
   shard: string;
-  colony: string;
+  baseId: string;
   room: string;
   ttl: number;
 }
@@ -108,45 +109,59 @@ export class Scribe implements Runnable {
   costMatrix255: CostMatrix;
   globalColonyCount: number;
 
-  threadWriteMemory: ThreadFunc;
-  threadRemoveStaleJournalEntries: ThreadFunc;
-  threadUpdateColonyCount: ThreadFunc;
-  threadProduceEvents: ThreadFunc;
+  private threadWriteMemory: KernelThreadFunc;
+  private threadRemoveStaleJournalEntries: KernelThreadFunc;
+  private threadUpdateBaseCount: KernelThreadFunc;
+  private threadProduceEvents: KernelThreadFunc;
 
-  constructor() {
-    this.journal = (Memory as any).scribe || {
-      rooms: {},
-      defenderCostMatrices: {},
-      colonyCostMatrices: {},
+  constructor(trace: Tracer) {
+    let journal: Journal = {
+      rooms: new Map(),
+      creeps: new Map(),
     };
 
+    if ((Memory as any).scribe) {
+      trace.info('Loading scribe journal', {memory: JSON.stringify((Memory as any).scribe)});
+      try {
+        journal.rooms = new Map((Memory as any).scribe.rooms);
+        journal.creeps = new Map((Memory as any).scribe.creeps);
+
+        trace.notice('Loaded scribe journal', {
+          rooms: journal.rooms.size,
+          creeps: journal.creeps.size,
+        });
+      } catch (e) {
+        trace.error('Error loading scribe journal', e);
+        delete (Memory as any).scribe;
+      }
+    }
+
+    this.journal = journal;
     this.globalColonyCount = -2;
 
-    this.threadRemoveStaleJournalEntries = thread('remove_stale', REMOVE_STALE_ENTRIES_INTERVAL)(this.removeStaleJournalEntries.bind(this));
-    this.threadWriteMemory = thread('write_memory', WRITE_MEMORY_INTERVAL)(this.writeMemory.bind(this));
-    this.threadUpdateColonyCount = thread('update_colony_count', UPDATE_COLONY_COUNT)(this.updateColonyCount.bind(this));
-    this.threadProduceEvents = thread('produce_events', PRODUCE_EVENTS_INTERVAL)(this.produceEvents.bind(this));
-
+    this.threadRemoveStaleJournalEntries = threadKernel('remove_stale', REMOVE_STALE_ENTRIES_INTERVAL)(this.removeStaleJournalEntries.bind(this));
+    this.threadWriteMemory = threadKernel('write_memory', WRITE_MEMORY_INTERVAL)(this.writeMemory.bind(this));
+    this.threadUpdateBaseCount = threadKernel('update_base_count', UPDATE_COLONY_COUNT)(this.updateBaseCount.bind(this));
+    this.threadProduceEvents = threadKernel('produce_events', PRODUCE_EVENTS_INTERVAL)(this.produceEvents.bind(this));
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('run');
-
 
     const updateRoomsTrace = trace.begin('update_rooms');
     // Iterate rooms and update if stale
     Object.values(Game.rooms).forEach((room) => {
-      const entry = this.getRoomById(room.name);
+      const entry = this.getRoomById(room.name as Id<Room>);
       if (!entry || Game.time - entry.lastUpdated > JOURNAL_ENTRY_TTL) {
-        this.updateRoom(kingdom, room, updateRoomsTrace);
+        this.updateRoom(kernel, room, updateRoomsTrace);
       }
     });
     updateRoomsTrace.end();
 
-    this.threadRemoveStaleJournalEntries(trace);
-    this.threadWriteMemory(trace);
-    this.threadUpdateColonyCount(trace, kingdom);
-    this.threadProduceEvents(trace, kingdom);
+    this.threadRemoveStaleJournalEntries(trace, kernel);
+    this.threadWriteMemory(trace, kernel);
+    this.threadUpdateBaseCount(trace, kernel);
+    this.threadProduceEvents(trace, kernel);
 
     /*
     const username = this.getKingdom().config.username;
@@ -184,49 +199,52 @@ export class Scribe implements Runnable {
     return sleeping(RUN_TTL);
   }
 
-  writeMemory(trace: Tracer) {
+  writeMemory(trace: Tracer, kernel: Kernel) {
     trace.log('write_memory', {cpu: Game.cpu});
 
     if (Game.cpu.bucket < 1000) {
       trace.log('clearing journal from memory to reduce CPU load');
       (Memory as any).scribe = null;
-      return
+      return;
     }
 
-    (Memory as any).scribe = this.journal;
+    (Memory as any).scribe = {
+      rooms: Array.from(this.journal.rooms.entries()),
+      creeps: Array.from(this.journal.creeps.entries()),
+    };
   }
 
-  updateColonyCount(trace: Tracer, kingdom: Kingdom) {
+  updateBaseCount(trace: Tracer, kernel: Kernel) {
     if (this.globalColonyCount === -2) {
       // skip the first time, we want to give shards time to update their remote memory
-      trace.log('skipping updateColonyCount');
+      trace.info('skipping updateColonyCount');
       this.globalColonyCount = -1;
       return;
     }
 
-    const baseConfigs = kingdom.getPlanner().getBaseConfigs();
-    let colonyCount = baseConfigs.length;
+    const bases = kernel.getPlanner().getBases();
+    let baseCount = bases.length;
 
-    // Iterate shards and get their colony counts
+    // Iterate shards and get their base counts
     this.getShardList().forEach((shard) => {
       if (shard === Game.shard.name) {
         return;
       }
 
       const shardMemory = this.getRemoteShardMemory(shard);
-      colonyCount += shardMemory?.status?.numColonies || 0;
+      baseCount += shardMemory?.status?.numColonies || 0;
     });
 
-    trace.log('update_colony_count', {colonyCount});
+    trace.info('update_base_count', {baseCount: baseCount});
 
-    this.globalColonyCount = colonyCount;
+    this.globalColonyCount = baseCount;
   }
 
-  produceEvents(trace: Tracer, kingdom: Kingdom) {
-    const indicatorStream = kingdom.getBroker().getStream(getDashboardStream());
+  produceEvents(trace: Tracer, kernel: Kernel) {
+    const indicatorStream = kernel.getBroker().getStream(getDashboardStream());
 
     const rooms = this.getRooms();
-    trace.log('produce_events', {rooms: rooms.length});
+    trace.info('produce_events', {rooms: rooms.length});
     rooms.forEach((roomEntry) => {
       const age = Game.time - roomEntry.lastUpdated;
 
@@ -258,24 +276,38 @@ export class Scribe implements Runnable {
     }
 
     return this.globalColonyCount;
-  };
-
-  removeStaleJournalEntries() {
-    this.journal.rooms = _.pick(this.journal.rooms, (room) => {
-      return Game.time - room.lastUpdated < MAX_JOURAL_TTL;
-    });
   }
 
-  getRoomById(roomId): RoomEntry {
-    return this.journal.rooms[roomId] || null;
+  removeStaleJournalEntries(trace) {
+    const numBefore = this.journal.rooms.size;
+
+    // Create new map of fresh rooms
+    const rooms = new Map<string, RoomEntry>();
+    for (const [id, entry] of this.journal.rooms) {
+      if (Game.time - entry.lastUpdated > JOURNAL_ENTRY_TTL) {
+        trace.info('removing stale journal entry', {id: id});
+        continue;
+      }
+
+      rooms.set(id, entry);
+    }
+
+    this.journal.rooms = rooms;
+
+    const numAfter = this.journal.rooms.size;
+    trace.info('remove_stale', {numBefore, numAfter});
+  }
+
+  getRoomById(roomId: string): RoomEntry {
+    return this.journal.rooms.get(roomId) || null;
   }
 
   getRooms(): RoomEntry[] {
-    return Object.values(this.journal.rooms);
+    return Array.from(this.journal.rooms.values());
   }
 
   getStats() {
-    const rooms = Object.keys(this.journal.rooms) as Id<Room>[];
+    const rooms = Array.from(this.journal.rooms.keys());
     const oldestId = this.getOldestRoomInList(rooms);
     const oldestRoom = this.getRoomById(oldestId);
     const oldestAge = oldestRoom ? Game.time - oldestRoom.lastUpdated : 0;
@@ -287,14 +319,19 @@ export class Scribe implements Runnable {
     };
   }
 
-  getOldestRoomInList(rooms: Id<Room>[]): Id<Room> {
-    const knownRooms = _.keys(this.journal.rooms) as Id<Room>[];
-    const missingRooms = _.difference<Id<Room>>(rooms, knownRooms);
+  getOldestRoomInList(rooms: string[]): string {
+    const knownRooms = Array.from(this.journal.rooms.keys());
+    const missingRooms = _.difference<string>(rooms, knownRooms);
     if (missingRooms.length) {
       return _.shuffle(missingRooms)[0];
     }
 
-    const inRangeRooms: RoomEntry[] = Object.values(_.pick(this.journal.rooms, rooms));
+    // Create array and narrow to only rooms in the provided list
+    const inRangeRooms: RoomEntry[] = _.pick(Array.from(this.journal.rooms.values()), (room) => {
+      return rooms.indexOf(room.id) > -1;
+    });
+
+    // Sort in ascending order so we pull the oldest room first
     const sortedRooms = _.sortBy(inRangeRooms, 'lastUpdated');
     if (!sortedRooms.length) {
       return null;
@@ -304,7 +341,7 @@ export class Scribe implements Runnable {
   }
 
   getRoomsUpdatedRecently() {
-    return Object.values(this.journal.rooms).filter((room) => {
+    return Array.from(this.journal.rooms.values()).filter((room) => {
       return Game.time - room.lastUpdated < 500;
     }).map((room) => {
       return room.id;
@@ -312,7 +349,7 @@ export class Scribe implements Runnable {
   }
 
   getRoomsWithPowerBanks(): [Id<Room>, number, number][] {
-    return Object.values(this.journal.rooms).filter((room) => {
+    return Array.from(this.journal.rooms.values()).filter((room) => {
       if (!room.powerBanks) {
         return false;
       }
@@ -324,16 +361,18 @@ export class Scribe implements Runnable {
   }
 
   getRoomsWithInvaderBases(): [Id<Room>, number][] {
-    return Object.values(this.journal.rooms).filter((room) => {
-      return false;
-    }).map((room) => {
-      return [room.id, Game.time - room.lastUpdated];
-    });
+    const found: [Id<Room>, number][] = [];
+    for (const [key, room] of this.journal.rooms) {
+      if (room.invaderCoreLevel > 0) {
+        found.push([room.id, Game.time - room.lastUpdated]);
+      }
+    }
+    return found;
   }
 
-  getRoomsWithHostileTowers(): [Id<Room>, number, string][] {
-    return Object.values(this.journal.rooms).filter((room) => {
-      if (!room.controller || room.controller.owner === 'ENETDOWN') {
+  getRoomsWithHostileTowers(kernel): [Id<Room>, number, string][] {
+    return Array.from(this.journal.rooms.values()).filter((room) => {
+      if (!room.controller || room.controller.owner === kernel.getPlanner().getUsername()) {
         return false;
       }
 
@@ -348,7 +387,7 @@ export class Scribe implements Runnable {
   }
 
   getRoomsWithPortals(): [Id<Room>, number, string[]][] {
-    return Object.values(this.journal.rooms).filter((room) => {
+    return Array.from(this.journal.rooms.values()).filter((room) => {
       if (!room.portals) {
         return false;
       }
@@ -362,28 +401,24 @@ export class Scribe implements Runnable {
   }
 
   getRoomsWithMyConstructionSites(): {id: Id<Room>, sites: number}[] {
-    let rooms = Object.values(this.journal.rooms).filter((room) => {
+    let rooms = Array.from(this.journal.rooms.values()).filter((room) => {
       return room.myConstructionSites > 0;
     });
 
     rooms = _.sortByOrder(rooms, 'myConstructionSites', 'desc');
 
     return rooms.map((room) => {
-      return {id: room.id, sites: room.myConstructionSites}
+      return {id: room.id, sites: room.myConstructionSites};
     });
   }
 
-  getWeakRooms(): TargetRoom[] {
-    return Object.values(this.journal.rooms).filter((room) => {
-      if (!room.controller || room.controller.owner === 'ENETDOWN') {
+  getHostileRooms(kernel): TargetRoom[] {
+    return Array.from(this.journal.rooms.values()).filter((room) => {
+      if (!room.controller || room.controller.owner === kernel.getPlanner().getUsername()) {
         return false;
       }
 
       if (room.specialRoom) {
-        return false;
-      }
-
-      if (room.controller.level >= 7) {
         return false;
       }
 
@@ -408,9 +443,9 @@ export class Scribe implements Runnable {
     });
   }
 
-  updateRoom(kingdom: Kingdom, roomObject: Room, trace: Tracer) {
+  updateRoom(kernel: Kernel, roomObject: Room, trace: Tracer) {
     trace = trace.begin('update_room');
-    trace = trace.withFields({room: roomObject.name});
+    trace = trace.withFields(new Map([['room', roomObject.name]]));
     const end = trace.startTimer('update_room');
 
     const room: RoomEntry = {
@@ -423,6 +458,8 @@ export class Scribe implements Runnable {
       spawnLocation: null,
       numSources: 0,
       hasHostiles: false,
+      hostilesDmg: 0,
+      hostilesHealing: 0,
       hasKeepers: false,
       invaderCorePos: null,
       invaderCoreLevel: null,
@@ -462,16 +499,22 @@ export class Scribe implements Runnable {
         },
       });
       room.hasSpawns = spawns.length > 0;
-      room.spawnLocation = spawns[0]?.pos
+      room.spawnLocation = spawns[0]?.pos;
     }
 
     controllerEnd();
 
     const roomStatusEnd = trace.startTimer('roomStatus');
 
-    const status = Game.map.getRoomStatus(roomObject.name);
-    room.specialRoom = status.status !== 'normal'
-    room.status = status.status
+    let status = null;
+    try {
+      status = Game.map.getRoomStatus(roomObject.name);
+    } catch (e) {
+      trace.warn('problem getting room status from game, assuming normal', e);
+    }
+
+    room.status = status?.status || 'normal';
+    room.specialRoom = room.status !== 'normal';
 
     roomStatusEnd();
 
@@ -483,29 +526,42 @@ export class Scribe implements Runnable {
 
     const hostilesEnd = trace.startTimer('hostiles');
 
-    let hostiles = roomObject.find(FIND_HOSTILE_CREEPS);
+    const hostiles = roomObject.find(FIND_HOSTILE_CREEPS);
     // Filter friendly creeps
-    const friends = kingdom.config.friends;
+    const friends = kernel.getFriends();
     const hostileCreeps = hostiles.filter((creep) => {
       const owner = creep.owner.username;
       return friends.indexOf(owner) === -1 && owner !== 'Source Keeper';
     });
     room.hasHostiles = hostileCreeps.length > 0;
 
-    let keepers = hostiles.filter((creep) => {
+    if (room.hasHostiles) {
+      room.hostilesDmg = _.sum(hostileCreeps, (creep) => {
+        return scoreAttacking(creep);
+      });
+
+      room.hostilesHealing = _.sum(hostileCreeps, (creep) => {
+        return scoreHealing(creep);
+      });
+    } else {
+      room.hostilesDmg = 0;
+      room.hostilesHealing = 0;
+    }
+
+    const keepers = hostiles.filter((creep) => {
       const owner = creep.owner.username;
       return owner === 'Source Keeper';
     });
     room.hasKeepers = keepers.length > 0;
 
-    let invaderCores: StructureInvaderCore[] = roomObject.find(FIND_HOSTILE_STRUCTURES, {
+    const invaderCores: StructureInvaderCore[] = roomObject.find(FIND_HOSTILE_STRUCTURES, {
       filter: (structure) => {
-        return structure.structureType === STRUCTURE_INVADER_CORE;
-      }
+        return structure.structureType === STRUCTURE_INVADER_CORE && structure.isActive();
+      },
     });
     if (invaderCores.length) {
       room.invaderCorePos = invaderCores[0].pos;
-      room.invaderCoreLevel = invaderCores[0].level
+      room.invaderCoreLevel = invaderCores[0].level;
       room.invaderCoreTime = invaderCores[0].effects[EFFECT_COLLAPSE_TIMER]?.ticksRemaining;
     }
 
@@ -513,9 +569,10 @@ export class Scribe implements Runnable {
 
     const towersEnd = trace.startTimer('towers');
 
-    room.numTowers = roomObject.find(FIND_HOSTILE_STRUCTURES, {
+    room.numTowers = roomObject.find(FIND_STRUCTURES, {
       filter: (structure) => {
-        return structure.structureType === STRUCTURE_TOWER;
+        return structure.structureType === STRUCTURE_TOWER &&
+          structure.owner?.username !== kernel.getPlanner().getUsername();
       },
     }).length;
 
@@ -525,10 +582,11 @@ export class Scribe implements Runnable {
 
     room.numKeyStructures = roomObject.find(FIND_HOSTILE_STRUCTURES, {
       filter: (structure) => {
-        return structure.structureType === STRUCTURE_TOWER ||
+        return structure.isActive() && (structure.structureType === STRUCTURE_TOWER ||
           structure.structureType === STRUCTURE_SPAWN ||
           structure.structureType === STRUCTURE_TERMINAL ||
-          structure.structureType === STRUCTURE_NUKER;
+          structure.structureType === STRUCTURE_NUKER ||
+          structure.structureType === STRUCTURE_INVADER_CORE);
       },
     }).length;
 
@@ -597,15 +655,15 @@ export class Scribe implements Runnable {
 
     depositsEnd();
 
-    this.journal.rooms[room.id] = room;
+    this.journal.rooms.set(room.id, room);
 
     const duration = end();
     trace.log('updated room', {duration, room: room.id});
     trace.end();
   }
 
-  clearRoom(roomId: string) {
-    delete this.journal.rooms[roomId];
+  clearRoom(roomId: Id<Room>) {
+    this.journal.rooms.delete(roomId);
   }
 
   getLocalShardMemory(): ShardMemory {
@@ -633,25 +691,27 @@ export class Scribe implements Runnable {
   }
 
   getPortals(shardName: string): PortalEntry[] {
-    return Object.values(this.journal.rooms).reduce((portals, room) => {
-      return portals.concat(_.filter(room.portals, _.matchesProperty('destinationShard', shardName)));
-    }, [] as PortalEntry[]);
+    const roomsWithPortals = [];
+    for (const [id, entry] of this.journal.rooms) {
+      if (entry.portals) {
+        const shardPortals = entry.portals.filter(portal => portal.destinationShard === shardName)
+        roomsWithPortals.push(...shardPortals);
+      }
+    }
+
+    return roomsWithPortals;
   }
 
   setCreepBackup(creep: Creep) {
     const localMemory = this.getLocalShardMemory();
     if (!localMemory.creep_backups) {
-      localMemory.creep_backups = {};
+      localMemory.creep_backups = new Map();
     }
 
-    localMemory.creep_backups[creep.name] = {
+    localMemory.creep_backups.set(creep.name, {
       name: creep.name,
       memory: creep.memory,
       ttl: Game.time,
-    };
-
-    localMemory.creep_backups = _.pick(localMemory.creep_backups, (backup) => {
-      return Game.time - backup.ttl < 1500;
     });
 
     this.setLocalShardMemory(localMemory);
@@ -659,11 +719,7 @@ export class Scribe implements Runnable {
 
   getCreepBackup(shardName: string, creepName: string) {
     const remoteMemory = this.getRemoteShardMemory(shardName);
-    if (remoteMemory.creep_backups) {
-      return remoteMemory.creep_backups[creepName] || null;
-    }
-
-    return null;
+    return remoteMemory.creep_backups?.get(creepName) || null;
   }
 }
 

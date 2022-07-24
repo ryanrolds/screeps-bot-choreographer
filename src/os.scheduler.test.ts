@@ -1,27 +1,25 @@
 import {expect} from 'chai';
 import 'mocha';
-import {mockGlobal} from "screeps-test-helper";
+import {mockGlobal} from 'screeps-test-helper';
 import * as sinon from 'sinon';
-import {ShardConfig} from './config';
 import {EventBroker} from './lib.event_broker';
+import {Topics} from './lib.topics';
 import {Tracer} from './lib.tracing';
-import {Kingdom} from './org.kingdom';
 import {Process, running} from './os.process';
 import {RunnableResult} from './os.runnable';
 import {Scheduler} from './os.scheduler';
-import {CentralPlanning} from './runnable.central_planning';
-import {Scribe} from './runnable.scribe';
 
 
 describe('Scheduler', () => {
   let trace = null;
   let broker = null;
-  let kingdom = null;
+  let topics = null;
   let sandbox = null;
   let runnable = null;
   let runSpy = null;
   let process = null;
   let processSpy = null;
+  let kernel = null;
 
   beforeEach(() => {
     sandbox = sinon.createSandbox();
@@ -38,8 +36,10 @@ describe('Scheduler', () => {
         bucket: 10000,
         getUsed: () => {
           return 0;
-        }
+        },
       },
+      rooms: {},
+      creeps: {},
     });
 
     mockGlobal<Memory>('Memory', {
@@ -47,14 +47,15 @@ describe('Scheduler', () => {
       shard: {},
     }, true);
 
-    trace = new Tracer('scheduler_test', {}, 0);
+    trace = new Tracer('scheduler_test', new Map(), 0);
 
     broker = new EventBroker();
+    topics = new Topics();
 
     runnable = {
       run: (trace: Tracer): RunnableResult => {
         return running();
-      }
+      },
     };
 
     runSpy = sandbox.spy(runnable, 'run');
@@ -64,29 +65,25 @@ describe('Scheduler', () => {
 
   afterEach(() => {
     sandbox.reset();
-  })
+  });
 
   it('should create empty scheduler', () => {
     const scheduler = new Scheduler();
-    expect(scheduler.processTable).to.be.an('array');
-    expect(scheduler.processTable).to.be.empty;
-  })
+    expect(scheduler.getProcesses()).to.be.an('array');
+    expect(scheduler.getProcesses()).to.be.empty;
+  });
 
   it('should be able to register a process', () => {
     const scheduler = new Scheduler();
     scheduler.registerProcess(process);
-    expect(scheduler.processTable).to.have.lengthOf(1)
-  })
+    expect(scheduler.getProcesses()).to.have.lengthOf(1);
+  });
 
   it('should run the process', () => {
-    const config = {} as ShardConfig;
     const scheduler = new Scheduler();
-    const scribe = new Scribe();
-    const planner = new CentralPlanning(config, scheduler, trace)
-    const kingdom = new Kingdom(config, scheduler, scribe, broker, planner, trace);
 
     scheduler.registerProcess(process);
-    scheduler.tick(kingdom, trace);
+    scheduler.tick(null, trace);
 
     expect(runSpy.calledOnce).to.be.true;
   });
@@ -97,40 +94,28 @@ describe('Scheduler', () => {
       return Game.cpu.limit * 1.1;
     };
 
-    const config = {} as ShardConfig;
     const scheduler = new Scheduler();
-    const scribe = new Scribe();
-    const planner = new CentralPlanning(config, scheduler, trace)
-    const kingdom = new Kingdom(config, scheduler, scribe, broker, planner, trace);
-
     scheduler.registerProcess(process);
-    scheduler.tick(kingdom, trace);
+    scheduler.tick(kernel, trace);
 
     expect(runSpy.calledOnce).to.be.false;
-    expect(scheduler.ranOutOfTime).to.equal(1);
-  })
+    expect(scheduler.getOutOfTimeCount()).to.equal(1);
+  });
 
   it('should execute skipped processes next tick', () => {
-    const tracer = new Tracer('scheduler', {}, 0);
-
-    const config = {} as ShardConfig;
     const scheduler = new Scheduler();
-    const scribe = new Scribe();
-    const planner = new CentralPlanning(config, scheduler, trace)
-    const kingdom = new Kingdom(config, scheduler, scribe, broker, planner, trace);
-
     scheduler.registerProcess(process);
 
-    const stub = sandbox.stub(scheduler, 'isOutOfTime')
+    const stub = sandbox.stub(scheduler, 'isOutOfTime');
     stub.onCall(0).returns(false);
     stub.onCall(1).returns(true);
 
-    const processTwo = new Process('processTwo', 'processType', 0, runnable)
+    const processTwo = new Process('processTwo', 'processType', 0, runnable);
     const processTwoSpy = sandbox.spy(processTwo, 'run');
 
     scheduler.registerProcess(processTwo);
 
-    scheduler.tick(kingdom, trace);
+    scheduler.tick(kernel, trace);
 
     expect(processSpy.calledOnce).to.be.true;
     expect(processTwoSpy.calledOnce).to.be.false;
@@ -143,7 +128,7 @@ describe('Scheduler', () => {
 
     // Increment game time
     Game.time += 1;
-    scheduler.tick(kingdom, trace);
+    scheduler.tick(kernel, trace);
 
     expect(processSpy.calledOnce).to.be.false;
     expect(processTwoSpy.calledOnce).to.be.true;
@@ -160,28 +145,23 @@ describe('Scheduler', () => {
     expect(scheduler.hasProcess('shouldnotexist')).to.be.false;
   });
 
-  it("should remove and not run terminated processes", () => {
-    const config = {} as ShardConfig;
+  it('should remove and not run terminated processes', () => {
     const scheduler = new Scheduler();
-    const scribe = new Scribe();
-    const planner = new CentralPlanning(config, scheduler, trace)
-    const kingdom = new Kingdom(config, scheduler, scribe, broker, planner, trace);
-
     scheduler.registerProcess(process);
 
     expect(scheduler.hasProcess('processId')).to.be.true;
     expect(processSpy.calledOnce).to.be.false;
 
-    scheduler.tick(kingdom, trace);
+    scheduler.tick(kernel, trace);
     expect(processSpy.calledOnce).to.be.true;
     expect(processSpy.calledTwice).to.be.false;
 
     process.setTerminated();
-    expect(scheduler.processTable.length).to.equal(1);
+    expect(scheduler.getProcesses().length).to.equal(1);
 
-    scheduler.tick(kingdom, trace);
+    scheduler.tick(kernel, trace);
     expect(processSpy.calledOnce).to.be.true;
     expect(processSpy.calledTwice).to.be.false;
-    expect(scheduler.processTable.length).to.equal(0);
+    expect(scheduler.getProcesses().length).to.equal(0);
   });
 });

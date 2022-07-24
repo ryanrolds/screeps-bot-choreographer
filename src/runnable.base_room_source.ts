@@ -1,36 +1,30 @@
-import {creepIsFresh} from './behavior.commute';
-import {BaseConfig} from './config';
-import {WORKER_MINER} from "./constants.creeps";
-import * as MEMORY from "./constants.memory";
-import {HAUL_BASE_ROOM, HAUL_CONTAINER, LOAD_FACTOR, PRIORITY_HARVESTER, PRIORITY_MINER} from "./constants.priorities";
-import * as TASKS from "./constants.tasks";
-import * as TOPICS from "./constants.topics";
-import {Event} from "./lib.event_broker";
-import {getPath} from "./lib.pathing";
-import {roadPolicy} from "./lib.pathing_policies";
-import {Tracer} from './lib.tracing';
-import {Colony} from './org.colony';
-import {Kingdom} from "./org.kingdom";
-import OrgRoom from "./org.room";
-import {PersistentMemory} from "./os.memory";
-import {running, sleeping, terminate} from "./os.process";
-import {Runnable, RunnableResult} from "./os.runnable";
-import {thread, ThreadFunc} from "./os.thread";
-import {getLinesStream, HudLine, HudEventSet} from './runnable.debug_hud';
-import {getLogisticsTopic, LogisticsEventData, LogisticsEventType} from "./runnable.base_logistics";
+import {AlertLevel, Base, BaseThreadFunc, getStructureForResource, threadBase} from './base';
+import {ROLE_WORKER, WORKER_HAULER, WORKER_MINER} from './constants.creeps';
+import * as MEMORY from './constants.memory';
+import {roadPolicy} from './constants.pathing_policies';
+import {HAUL_BASE_ROOM, HAUL_CONTAINER, LOAD_FACTOR, PRIORITY_MINER} from './constants.priorities';
+import * as TASKS from './constants.tasks';
+import {Kernel} from './kernel';
+import {Event} from './lib.event_broker';
+import {getPath} from './lib.pathing';
 import {getNearbyPositions} from './lib.position';
-import {getBaseHaulerTopic} from './topics.base';
+import {Tracer} from './lib.tracing';
+import {PersistentMemory} from './os.memory';
+import {sleeping, terminate} from './os.process';
+import {Runnable, RunnableResult} from './os.runnable';
+import {getBaseHaulerTopic, getLogisticsTopic, LogisticsEventData, LogisticsEventType} from './runnable.base_logistics';
+import {createSpawnRequest, getBaseSpawnTopic} from './runnable.base_spawning';
+import {getLinesStream, HudEventSet, HudLine} from './runnable.debug_hud';
 
 const RUN_TTL = 50;
 const STRUCTURE_TTL = 200;
 const DROPOFF_TTL = 200;
 const BUILD_LINK_TTL = 200;
 const CONTAINER_TTL = 250;
+const RED_ALERT_TTL = 200;
 
 export default class SourceRunnable extends PersistentMemory implements Runnable {
-  id: string;
-  orgRoom: OrgRoom;
-  sourceId: Id<Source>;
+  id: Id<Source>;
   position: RoomPosition;
   creepPosition: RoomPosition | null;
   linkPosition: RoomPosition | null;
@@ -39,107 +33,90 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
   linkId: Id<StructureLink>;
   dropoffId: Id<Structure>;
 
-  threadProduceEvents: ThreadFunc;
-  threadUpdateStructures: ThreadFunc;
-  threadUpdateDropoff: ThreadFunc;
-  threadRequestMiners: ThreadFunc;
-  threadRequestHauling: ThreadFunc;
-  threadBuildContainer: ThreadFunc;
-  threadBuildLink: ThreadFunc;
+  threadProduceEvents: BaseThreadFunc;
+  threadUpdateStructures: BaseThreadFunc;
+  threadUpdateDropoff: BaseThreadFunc;
+  threadRequestMiners: BaseThreadFunc;
+  threadRequestHauling: BaseThreadFunc;
+  threadBuildContainer: BaseThreadFunc;
+  threadBuildLink: BaseThreadFunc;
 
-  constructor(room: OrgRoom, source: Source) {
+  constructor(source: Source) {
     super(source.id);
 
     this.id = source.id;
-    this.orgRoom = room;
-    this.sourceId = source.id;
     this.position = source.pos;
     this.creepPosition = null;
     this.linkPosition = null;
 
-    this.threadProduceEvents = thread('consume_events', RUN_TTL)(this.produceEvents.bind(this));
-    this.threadUpdateStructures = thread('update_structures', STRUCTURE_TTL)(this.updateStructures.bind(this));
-    this.threadUpdateDropoff = thread('update_dropoff', DROPOFF_TTL)(this.updateDropoff.bind(this));
-    this.threadBuildContainer = thread('build_container', CONTAINER_TTL)(this.buildContainer.bind(this));
-    this.threadBuildLink = thread('build_link', BUILD_LINK_TTL)(this.buildLink.bind(this));
+    this.threadProduceEvents = threadBase('consume_events', RUN_TTL)(this.produceEvents.bind(this));
+    this.threadUpdateStructures = threadBase('update_structures', STRUCTURE_TTL)(this.updateStructures.bind(this));
+    this.threadUpdateDropoff = threadBase('update_dropoff', DROPOFF_TTL)(this.updateDropoff.bind(this));
+    this.threadBuildContainer = threadBase('build_container', CONTAINER_TTL)(this.buildContainer.bind(this));
+    this.threadBuildLink = threadBase('build_link', BUILD_LINK_TTL)(this.buildLink.bind(this));
 
-    this.threadRequestMiners = thread('request_miners', RUN_TTL)(this.requestMiners.bind(this));
-    this.threadRequestHauling = thread('reqeust_hauling', RUN_TTL)(this.requestHauling.bind(this));
+    this.threadRequestMiners = threadBase('request_miners', RUN_TTL)(this.requestMiners.bind(this));
+    this.threadRequestHauling = threadBase('reqeust_hauling', RUN_TTL)(this.requestHauling.bind(this));
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
-    trace = trace.begin('source_run')
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
+    trace = trace.begin('source_run');
 
     trace.log('source run', {
-      roomId: this.orgRoom.id,
-      sourceId: this.sourceId,
+      sourceId: this.id,
       containerId: this.containerId,
       linkId: this.linkId,
       creepPosition: this.creepPosition,
       linkPosition: this.linkPosition,
     });
 
-    const source: Source = Game.getObjectById(this.sourceId);
+    const source: Source = Game.getObjectById(this.id);
     if (!source) {
-      trace.error('source not found', {id: this.sourceId});
+      trace.error('source not found', {id: this.id});
       trace.end();
       return terminate();
     }
 
-    const baseConfig = kingdom.getPlanner().getBaseConfigByRoom(source.room.name);
-    if (!baseConfig) {
-      trace.error('no colony config', {room: source.room.name});
+    if (!source.room) {
+      trace.error('source room not visible', {id: this.id});
+      trace.end();
+      return terminate();
+    }
+
+    const base = kernel.getPlanner().getBaseByRoom(source.room.name);
+    if (!base) {
+      trace.error('no base config', {room: source.room.name});
       trace.end();
       return terminate();
     }
 
     if (!this.creepPosition || !this.linkPosition) {
       trace.info('creep or link position not set');
-      this.populatePositions(trace, kingdom, baseConfig, source);
+      this.populatePositions(trace, kernel, base, source);
     }
 
-    // TODO try to remove the need for this
-    const colony = this.orgRoom.getColony();
-    if (!colony) {
-      trace.error('no colony');
-      trace.end();
-      return terminate();
+    this.threadProduceEvents(trace, kernel, base, source);
+    this.threadUpdateStructures(trace, kernel, base, source);
+    this.threadUpdateDropoff(trace, kernel, base, source);
+
+    // If green, then build stuff
+    if (base.alertLevel === AlertLevel.GREEN) {
+      this.threadBuildContainer(trace, kernel, base, source);
+      this.threadBuildLink(trace, kernel, base, source);
     }
 
-    const room = this.orgRoom.getRoomObject();
-    if (!room) {
-      trace.error('terminate source: no room', {id: this.id, roomId: this.orgRoom.id});
-      trace.end();
-      return terminate();
-    }
-
-    this.threadProduceEvents(trace, kingdom, source);
-    this.threadUpdateStructures(trace, source);
-    this.threadUpdateDropoff(trace, colony);
-
-    this.threadBuildContainer(trace, kingdom, source);
-    this.threadBuildLink(trace, room, source);
-
-    this.threadRequestMiners(trace, kingdom, colony, room, source);
-    this.threadRequestHauling(trace, kingdom, baseConfig, colony);
-
-    this.updateStats(kingdom, trace);
+    this.threadRequestMiners(trace, kernel, base, source);
+    this.threadRequestHauling(trace, kernel, base, source);
 
     trace.end();
 
     return sleeping(RUN_TTL);
   }
 
-  produceEvents(trace: Tracer, kingdom: Kingdom, source: Source) {
+  produceEvents(trace: Tracer, kernel: Kernel, base: Base, source: Source) {
     const creepPosition = this.creepPosition;
     if (!creepPosition) {
       trace.error('no creep position', {room: source.room.name});
-      return;
-    }
-
-    const baseConfig = kingdom.getPlanner().getBaseConfigByRoom(source.room.name);
-    if (!baseConfig) {
-      trace.error('no colony config', {room: source.room.name});
       return;
     }
 
@@ -148,7 +125,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       position: creepPosition,
     };
 
-    kingdom.getBroker().getStream(getLogisticsTopic(baseConfig.id)).
+    kernel.getBroker().getStream(getLogisticsTopic(base.id)).
       publish(new Event(this.id, Game.time, LogisticsEventType.RequestRoad, data));
 
     const hudLine: HudLine = {
@@ -161,11 +138,11 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       order: 4,
     };
 
-    kingdom.getBroker().getStream(getLinesStream()).publish(new Event(this.id, Game.time,
+    kernel.getBroker().getStream(getLinesStream()).publish(new Event(this.id, Game.time,
       HudEventSet, hudLine));
   }
 
-  populatePositions(trace: Tracer, kingdom: Kingdom, baseConfig: BaseConfig, source: Source) {
+  populatePositions(trace: Tracer, kernel: Kernel, base: Base, source: Source) {
     const memory = this.getMemory(trace) || {};
 
     // Check memory for creep position
@@ -182,14 +159,14 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     }
 
     if (this.creepPosition && this.linkPosition) {
-      trace.notice('creep and link positions in memory', {room: source.room.name});
+      trace.info('creep and link positions in memory', {room: source.room.name});
       return;
     }
 
-    const colonyPos = new RoomPosition(baseConfig.origin.x, baseConfig.origin.y - 1,
-      baseConfig.origin.roomName);
+    const colonyPos = new RoomPosition(base.origin.x, base.origin.y - 1,
+      base.origin.roomName);
 
-    const [pathResult, details] = getPath(kingdom, source.pos, colonyPos, roadPolicy, trace);
+    const [pathResult, details] = getPath(kernel, source.pos, colonyPos, roadPolicy, trace);
     trace.log('path found', {origin: source.pos, dest: colonyPos, pathResult});
 
     if (!pathResult || !pathResult.path.length) {
@@ -240,9 +217,9 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     }
 
     trace.warn('creep and link position was not set: setting', {
-      sourceId: this.sourceId,
+      sourceId: this.id,
       creepPosition: this.creepPosition,
-      linkPosition: this.linkPosition
+      linkPosition: this.linkPosition,
     });
 
     // Update memory
@@ -252,7 +229,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     this.setMemory(memory, false);
   }
 
-  updateStructures(trace: Tracer) {
+  updateStructures(trace: Tracer, kernel: Kernel, base: Base, source: Source) {
     if (!this.creepPosition) {
       trace.error('creep position not set', {creepPosition: this.creepPosition});
       return;
@@ -271,92 +248,114 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     this.linkId = link?.id as Id<StructureLink>;
   }
 
-  updateDropoff(trace: Tracer, colony: Colony) {
-    const primaryRoom = colony.getPrimaryRoom();
-    this.dropoffId = primaryRoom.getReserveStructureWithRoomForResource(RESOURCE_ENERGY)?.id;
+  updateDropoff(trace: Tracer, kernel: Kernel, base: Base, source: Source) {
+    this.dropoffId = getStructureForResource(base, RESOURCE_ENERGY)?.id;
   }
 
-  requestMiners(trace: Tracer, kingdom: Kingdom, colony: Colony, room: Room, source: Source) {
+  requestMiners(trace: Tracer, kernel: Kernel, base: Base, source: Source) {
     if (!this.creepPosition) {
       trace.error('creep position not set', {creepPosition: this.creepPosition});
       return;
     }
 
-    const username = kingdom.getPlanner().getUsername();
+    const username = kernel.getPlanner().getUsername();
+
+    if (!source.room) {
+      trace.error('source room not set', {source: source});
+      return;
+    }
+
+    const room = source.room;
 
     if (room.controller?.owner && room.controller.owner.username !== username) {
-      trace.log('room owned by someone else', {roomId: room.name, owner: room.controller?.owner?.username});
+      trace.info('room owned by someone else', {roomId: room.name, owner: room.controller?.owner?.username});
       return;
     }
 
     if (room.controller?.reservation && room.controller.reservation.username !== username) {
-      trace.log('room reserved by someone else', {roomId: room.name, username: room.controller.reservation.username});
+      trace.info('room reserved by someone else', {roomId: room.name, username: room.controller.reservation.username});
       return;
     }
 
-    const numMiners = colony.getCreeps().filter((creep) => {
-      const role = creep.memory[MEMORY.MEMORY_ROLE];
-      return role === WORKER_MINER &&
-        creep.memory[MEMORY.MEMORY_SOURCE] === this.sourceId &&
-        creepIsFresh(creep);
+    const numMiners = kernel.getCreepsManager().getCreepsByBaseAndRole(base.id, WORKER_MINER).filter((creep) => {
+      return creep.memory[MEMORY.MEMORY_SOURCE] === this.id;
     }).length;
 
     trace.info('num miners', {numMiners});
 
-    if (!numMiners) {
-      trace.warn('no miners found, requesting', {sourceId: this.sourceId});
+    // If there are more than one miner at the source, suicide the oldest
+    if (numMiners >= 2) {
+      const nearbyMiners = _.sortBy(source.pos.findInRange(FIND_MY_CREEPS, 2).filter((creep) => {
+        return creep.memory[MEMORY.MEMORY_ROLE] === WORKER_MINER &&
+          creep.memory[MEMORY.MEMORY_SOURCE] === this.id;
+      }), (creep) => {
+        return creep.ticksToLive;
+      });
+
+      if (nearbyMiners.length > 1) {
+        trace.info('more than one nearby miner, suiciding first', {nearbyMiners});
+        nearbyMiners[0].suicide();
+        return;
+      }
     }
 
     if (numMiners < 1) {
-      let positionStr = [this.creepPosition.x, this.creepPosition.y, this.creepPosition.roomName].join(',');
+      const positionStr = [this.creepPosition.x, this.creepPosition.y, this.creepPosition.roomName].join(',');
 
-      const details = {
-        role: WORKER_MINER,
-        memory: {
-          [MEMORY.MEMORY_SOURCE]: this.sourceId,
-          [MEMORY.MEMORY_SOURCE_CONTAINER]: this.containerId,
-          [MEMORY.MEMORY_SOURCE_POSITION]: positionStr,
-          [MEMORY.MEMORY_ASSIGN_ROOM]: room.name,
-          [MEMORY.MEMORY_BASE]: colony.id,
-        },
-      }
+      const priority = PRIORITY_MINER;
+      const ttl = RUN_TTL;
+      const role = WORKER_MINER;
+      const memory = {
+        [MEMORY.MEMORY_SOURCE]: this.id,
+        [MEMORY.MEMORY_SOURCE_CONTAINER]: this.containerId,
+        [MEMORY.MEMORY_SOURCE_POSITION]: positionStr,
+        [MEMORY.MEMORY_ASSIGN_ROOM]: room.name,
+        [MEMORY.MEMORY_BASE]: base.id,
+      };
 
-      trace.info('requesting miner', {sourceId: this.sourceId, PRIORITY_MINER, details});
-      colony.getPrimaryRoom().requestSpawn(PRIORITY_MINER, details, RUN_TTL, trace);
+      trace.info('requesting miner', {sourceId: this.id, PRIORITY_MINER, memory});
+
+      const request = createSpawnRequest(priority, ttl, role, memory, 0);
+      kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
+      // @CONFIRM that miners are spawned
     }
   }
 
-  requestHauling(trace: Tracer, kingdom: Kingdom, base: BaseConfig, colony: Colony) {
+  requestHauling(trace: Tracer, kernel: Kernel, base: Base, source: Source) {
     const container = Game.getObjectById(this.containerId);
     if (!container) {
-      trace.log('no container')
+      trace.info('no container');
       return;
     }
 
-    // TODO move to Kingdom level map[base]map[role][]creep
-    const avgHaulerCapacity = colony.getAvgHaulerCapacity();
-    const haulers = colony.getHaulers();
+    const haulers = kernel.getCreepsManager().getCreepsByBaseAndRole(base.id, WORKER_HAULER);
+    const workers = kernel.getCreepsManager().getCreepsByBaseAndRole(base.id, ROLE_WORKER);
+    const creeps = haulers.concat(workers);
 
-    const haulersWithTask = haulers.filter((creep) => {
+    const avgHaulerCapacity = _.sum(creeps, (creep) => {
+      return creep.store.getCapacity(RESOURCE_ENERGY);
+    });
+
+    const creepsWithTask = creeps.filter((creep) => {
       const task = creep.memory[MEMORY.MEMORY_TASK_TYPE];
       const pickup = creep.memory[MEMORY.MEMORY_HAUL_PICKUP];
       return task === TASKS.TASK_HAUL && pickup === this.containerId;
     });
 
-    const haulerCapacity = haulersWithTask.reduce((total, hauler) => {
+    const creepWithTaskCapacity = creepsWithTask.reduce((total, hauler) => {
       return total += hauler.store.getFreeCapacity();
     }, 0);
 
     const averageLoad = avgHaulerCapacity;
     const loadSize = _.min([averageLoad, 2000]);
     const storeUsedCapacity = container.store.getUsedCapacity();
-    const untaskedUsedCapacity = storeUsedCapacity - haulerCapacity;
+    const untaskedUsedCapacity = storeUsedCapacity - creepWithTaskCapacity;
     const loadsToHaul = Math.floor(untaskedUsedCapacity / loadSize);
 
     let priority = HAUL_CONTAINER;
 
     // prioritize hauling primary room
-    if (base.primary === this.orgRoom.id) {
+    if (base.primary === source.room?.name) {
       priority += HAUL_BASE_ROOM;
     }
 
@@ -365,51 +364,27 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       const loadPriority = priority - LOAD_FACTOR * i;
 
       const details = {
-        [MEMORY.TASK_ID]: `sch-${this.sourceId}-${Game.time}`,
+        [MEMORY.TASK_ID]: `sch-${this.id}-${Game.time}`,
         [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
         [MEMORY.MEMORY_HAUL_PICKUP]: this.containerId,
         [MEMORY.MEMORY_HAUL_DROPOFF]: this.dropoffId,
         [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
       };
 
-      trace.log('requesting hauling', {sourceId: this.sourceId, i, loadPriority, details});
+      trace.info('requesting hauling', {sourceId: this.id, i, loadPriority, details});
 
-      kingdom.sendRequest(getBaseHaulerTopic(base.id), loadPriority, details, RUN_TTL);
+      kernel.getTopics().addRequest(getBaseHaulerTopic(base.id), loadPriority, details, RUN_TTL);
     }
   }
 
-  updateStats(kingdom: Kingdom, trace: Tracer) {
-    const source = Game.getObjectById(this.sourceId);
-    if (!source || !(source instanceof Source)) {
-      return;
-    }
-
-    const container = Game.getObjectById(this.containerId);
-
-    const stats = kingdom.getStats();
-    const sourceStats = {
-      energy: source.energy,
-      capacity: source.energyCapacity,
-      regen: source.ticksToRegeneration,
-      containerFree: (container != null) ? container.store.getFreeCapacity() : null,
-    };
-
-    const conlonyId = this.orgRoom.getColony().id;
-    const roomId = this.orgRoom.id;
-
-    if (stats.colonies[conlonyId]?.rooms[roomId]?.sources) {
-      stats.colonies[conlonyId].rooms[roomId].sources[this.sourceId] = sourceStats;
-    }
-  }
-
-  buildContainer(trace: Tracer, kingdom: Kingdom, source: (Source)) {
+  buildContainer(trace: Tracer, kernel: Kernel, base: Base, source: (Source)) {
     if (source.energy) {
-      trace.log('only build container if exhausting source', {id: this.sourceId});
+      trace.log('only build container if exhausting source', {id: this.id});
       return;
     }
 
     if (!this.creepPosition) {
-      trace.error('no creep position', {id: this.sourceId});
+      trace.error('no creep position', {id: this.id});
       return;
     }
 
@@ -431,16 +406,16 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
 
     const result = this.creepPosition.createConstructionSite(STRUCTURE_CONTAINER);
     if (result !== OK) {
-      trace.error('failed to build container', {result})
+      trace.error('failed to build container', {result});
       return;
     }
 
-    trace.log('container created', {id: this.sourceId});
+    trace.log('container created', {id: this.id});
   }
 
-  buildLink(trace: Tracer, room: Room, source: Source) {
+  buildLink(trace: Tracer, kernel: Kernel, base: Base, source: Source) {
     if (!this.linkPosition) {
-      trace.error('no link position', {room: room.name, id: this.sourceId});
+      trace.error('no link position', {room: source.room.name, id: this.id});
       return;
     }
 
@@ -452,7 +427,12 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       }
     }
 
-    const roomLevel = room.controller?.level || 0;
+    if (!source.room?.controller) {
+      trace.error('no visibility or controller', {baseId: base.id, roomName: source.room.name, id: this.id});
+      return;
+    }
+
+    const roomLevel = source.room.controller?.level || 0;
     if (roomLevel < 6) {
       trace.log('room level too low', {roomLevel});
       return;
@@ -460,22 +440,22 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
 
     const linkSites = this.linkPosition.lookFor(LOOK_CONSTRUCTION_SITES).find((s) => {
       return s.structureType === STRUCTURE_LINK;
-    })
+    });
     if (linkSites) {
       trace.log('link sites found', {linkSites});
       return;
     }
 
-    const linksInRoom = room.find(FIND_STRUCTURES, {
+    const linksInRoom = source.room.find(FIND_STRUCTURES, {
       filter: (s) => {
         return s.structureType === STRUCTURE_LINK;
-      }
+      },
     });
 
-    const linkSitesInRoom = room.find(FIND_CONSTRUCTION_SITES, {
+    const linkSitesInRoom = source.room.find(FIND_CONSTRUCTION_SITES, {
       filter: (s) => {
         return s.structureType === STRUCTURE_LINK;
-      }
+      },
     });
 
     const maxLinks = CONTROLLER_STRUCTURES['link'][roomLevel];
@@ -490,6 +470,6 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       return;
     }
 
-    trace.notice('link created', {id: this.sourceId});
+    trace.notice('link created', {id: this.id});
   }
 }

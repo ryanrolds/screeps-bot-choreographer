@@ -1,5 +1,5 @@
-import {FindPathPolicy} from "./lib.pathing";
-import {AllowedCostMatrixTypes} from "./lib.costmatrix_cache";
+import {FindPathPolicy} from './lib.pathing';
+import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
 
 export const commonPolicy: FindPathPolicy = {
   room: {
@@ -20,6 +20,7 @@ export const commonPolicy: FindPathPolicy = {
     maxOps: 5000,
     maxPathRooms: 6,
     ignoreCreeps: true,
+    sourceKeeperBuffer: 3,
   },
 };
 
@@ -64,6 +65,7 @@ export const roadPolicy: FindPathPolicy = {
     maxOps: 5000,
     maxPathRooms: 6,
     ignoreCreeps: true,
+    controllerBuffer: 3,
   },
 };
 

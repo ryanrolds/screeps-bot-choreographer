@@ -6,28 +6,74 @@
  * logic use this to abstract away creep handling.
  *
  */
-
-
 import * as _ from 'lodash';
-import {BaseConfig} from './config';
+import {Base, BaseThreadFunc, threadBase} from './base';
 import * as MEMORY from './constants.memory';
+import {Kernel} from './kernel';
 import {Tracer} from './lib.tracing';
-import {Kingdom} from "./org.kingdom";
-import {running, terminate} from "./os.process";
+import {running, terminate} from './os.process';
 import {RunnableResult} from './os.runnable';
-import {thread, ThreadFunc} from './os.thread';
-import {getBaseSpawnTopic} from './topics.base';
+import {createSpawnRequest, getBaseSpawnTopic} from './runnable.base_spawning';
 import {WarPartyTarget} from './runnable.warparty';
 
 const REQUEST_PARTY_MEMBER_TTL = 25;
 const MAX_PARTY_SIZE = 4;
+const MAX_PREVIOUS_POSITIONS = 6;
 
-const DEFAULT_FORMATION = [
-  {x: 0, y: 0},
-  {x: 1, y: 0},
-  {x: 0, y: -1},
-  {x: 1, y: -1},
-];
+export const FORMATION_QUAD = 'quad';
+export const FORMATION_SINGLE_FILE = 'single_file';
+export type FORMATION_TYPE = typeof FORMATION_QUAD | typeof FORMATION_SINGLE_FILE;
+
+const DIRECTION_2BY2_FORMATION = {
+  [TOP]: [
+    {x: 0, y: -1}, // TL
+    {x: 1, y: -1}, // TR
+    {x: 0, y: 0}, // BL
+    {x: 1, y: 0}, // BR
+  ],
+  [TOP_RIGHT]: [
+    {x: 1, y: -1}, // TR
+    {x: 0, y: -1}, // TL
+    {x: 1, y: 0}, // BR
+    {x: 0, y: 0}, // BL
+  ],
+  [RIGHT]: [
+    {x: 1, y: -1}, // TR
+    {x: 1, y: 0}, // BR
+    {x: 0, y: -1}, // TL
+    {x: 0, y: 0}, // BL
+  ],
+  [BOTTOM_RIGHT]: [
+    {x: 1, y: 0}, // BR
+    {x: 1, y: -1}, // TR
+    {x: 0, y: -1}, // TL
+    {x: 0, y: 0}, // BL
+  ],
+  [BOTTOM]: [
+    {x: 0, y: 0}, // BL
+    {x: 1, y: 0}, // BR
+    {x: 0, y: -1}, // TL
+    {x: 1, y: -1}, // TR
+  ],
+  [BOTTOM_LEFT]: [
+    {x: 0, y: 0}, // BL
+    {x: 1, y: 0}, // BR
+    {x: 0, y: -1}, // TL
+    {x: 1, y: -1}, // TR
+  ],
+  [LEFT]: [
+    {x: 0, y: -1}, // TL
+    {x: 0, y: 0}, // BL
+    {x: 1, y: -1}, // TR
+    {x: 1, y: 0}, // BR
+  ],
+  [TOP_LEFT]: [
+    {x: 0, y: -1}, // TL
+    {x: 1, y: -1}, // TR
+    {x: 0, y: 0}, // BL
+    {x: 1, y: 0}, // BR
+  ],
+};
 
 const DIRECTION_OFFSET = {
   [TOP]: {x: 0, y: -1},
@@ -38,47 +84,64 @@ const DIRECTION_OFFSET = {
   [BOTTOM_LEFT]: {x: -1, y: 1},
   [LEFT]: {x: -1, y: 0},
   [TOP_LEFT]: {x: -1, y: -1},
-}
+};
 
 export default class PartyRunnable {
   id: string;
-  baseConfig: BaseConfig;
-  formation: {x: number, y: number}[];
+  baseId: string;
+  formation: FORMATION_TYPE;
   position: RoomPosition;
   role: string;
+  parts: BodyPartConstant[]
   minEnergy: number;
   priority: number;
   requestCreepTTL: number;
   isDone: boolean;
   deployTicks: number;
+  direction: DirectionConstant;
 
-  threadRequestCreeps: ThreadFunc;
+  // when in single file formation, keep last 4 positions
+  previousPositions: RoomPosition[];
 
-  constructor(id: string, baseConfig: BaseConfig, position: RoomPosition, role: string,
-    minEnergy: number, priority: number, ttl: number) {
+  threadRequestCreeps: BaseThreadFunc;
+
+  constructor(id: string, baseId: string, position: RoomPosition, role: string,
+    parts: BodyPartConstant[], minEnergy: number, priority: number, ttl: number) {
     this.id = id;
-    this.baseConfig = baseConfig;
+    this.baseId = baseId;
     this.role = role;
+    this.parts = parts;
     this.minEnergy = minEnergy;
     this.priority = priority;
     this.requestCreepTTL = ttl;
     this.isDone = false;
     this.deployTicks = 0;
+    this.previousPositions = [];
 
-    this.formation = DEFAULT_FORMATION;
     this.setPosition(position);
+    this.setFormation(FORMATION_QUAD);
+    this.setDirection(TOP);
 
-    this.threadRequestCreeps = thread('request_creeps', REQUEST_PARTY_MEMBER_TTL)(this.requestCreeps.bind(this));
+    this.previousPositions = [this.position];
+
+    this.threadRequestCreeps = threadBase('request_creeps', REQUEST_PARTY_MEMBER_TTL)(this.requestCreeps.bind(this));
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('party_run');
+
+    const base = kernel.getPlanner().getBaseById(this.baseId);
+    if (!base) {
+      trace.error('base not found', {baseId: this.baseId});
+      trace.end();
+      return terminate();
+    }
 
     // TODO possible race condition with outer layer and this
     const creeps = this.getAssignedCreeps();
 
     if (this.isDone) {
-      trace.log("party done, cleaning up");
+      trace.log('party done, cleaning up');
 
       // TODO recycle
       creeps.forEach((creep) => {
@@ -86,7 +149,6 @@ export default class PartyRunnable {
       });
 
       trace.end();
-
       return terminate();
     }
 
@@ -94,32 +156,54 @@ export default class PartyRunnable {
       id: this.id,
       position: this.position,
       deployTicks: this.deployTicks,
-      creeps: creeps.map(creep => creep.name),
+      creeps: creeps.map((creep) => creep.name),
     });
 
     if (!Game.flags['debug']) {
-      this.threadRequestCreeps(trace, kingdom);
+      this.threadRequestCreeps(trace, kernel, base);
     } else {
       trace.log('in debug mode, not spawning');
     }
 
-    // TODO first four should be in formation, remaining should be behind
-    creeps.forEach((creep, idx) => {
-      idx = idx % 4;
-      const x = _.max([_.min([this.position.x + this.formation[idx].x, 49]), 0]);
-      const y = _.max([_.min([this.position.y + this.formation[idx].y, 49]), 0]);
-      const roomName = this.position.roomName;
-
-      trace.log('setting creep position', {name: creep.name, x, y, roomName});
-
-      creep.memory[MEMORY.MEMORY_POSITION_X] = x;
-      creep.memory[MEMORY.MEMORY_POSITION_Y] = y;
-      creep.memory[MEMORY.MEMORY_POSITION_ROOM] = roomName;
-    });
+    this.updateCreepPositions(creeps, trace);
 
     trace.end();
-
     return running();
+  }
+
+  updateCreepPositions(creeps: Creep[], trace: Tracer) {
+    if (this.formation === FORMATION_SINGLE_FILE) {
+      creeps.forEach((creep, idx) => {
+        let position = this.position;
+        if (this.previousPositions[idx]) {
+          position = this.previousPositions[idx];
+        }
+
+        trace.log('setting creep position in single file', {name: creep.name, idx, position});
+
+        creep.memory[MEMORY.MEMORY_POSITION_X] = position.x;
+        creep.memory[MEMORY.MEMORY_POSITION_Y] = position.y;
+        creep.memory[MEMORY.MEMORY_POSITION_ROOM] = position.roomName;
+      });
+    } else if (this.formation === FORMATION_QUAD) {
+      const quadPositions = this.getCreepOffsets();
+      // TODO first four should be in formation, remaining should be behind
+      // Can possibly use 3rd and grater previous positions
+      creeps.forEach((creep, idx) => {
+        idx = idx % 4;
+        const x = _.max([_.min([this.position.x + quadPositions[idx].x, 49]), 0]);
+        const y = _.max([_.min([this.position.y + quadPositions[idx].y, 49]), 0]);
+        const roomName = this.position.roomName;
+
+        trace.log('setting creep position in quad', {name: creep.name, x, y, roomName});
+
+        creep.memory[MEMORY.MEMORY_POSITION_X] = x;
+        creep.memory[MEMORY.MEMORY_POSITION_Y] = y;
+        creep.memory[MEMORY.MEMORY_POSITION_ROOM] = roomName;
+      });
+    } else {
+      trace.error('unknown formation', this.formation);
+    }
   }
 
   done() {
@@ -130,23 +214,63 @@ export default class PartyRunnable {
     return this.position;
   }
 
+  getCreepPosition(idx: number, trace: Tracer): RoomPosition {
+    // Set to current position
+    let x = this.position.x;
+    let y = this.position.y;
+    let roomName = this.position.roomName;
+
+    if (this.formation === FORMATION_SINGLE_FILE) {
+      // only update position if we have a previous position
+      if (this.previousPositions[idx]) {
+        x = this.previousPositions[idx].x;
+        y = this.previousPositions[idx].y;
+        roomName = this.previousPositions[idx].roomName;
+      }
+    } else if (this.formation === FORMATION_QUAD) {
+      const quadPositions = this.getCreepOffsets();
+      x = _.max([_.min([this.position.x + quadPositions[idx].x, 49]), 0]);
+      y = _.max([_.min([this.position.y + quadPositions[idx].y, 49]), 0]);
+      roomName = this.position.roomName;
+    } else {
+      trace.warn('unknown formation', this.formation);
+    }
+
+    return new RoomPosition(x, y, roomName);
+  }
+
+
   inPosition(position: RoomPosition, trace: Tracer) {
     let inPosition = true;
 
     const visual = new RoomVisual();
 
     const showVisuals = (global as any).LOG_WHEN_PID === this.id;
+
+
     if (showVisuals) {
-      visual.rect(position.x - 0.5, position.y - 1.5, 2, 2);
+      const positions = this.getCreepOffsets();
+      if (this.formation === FORMATION_QUAD) {
+        visual.rect(position.x - 0.5, position.y - 1.5, 2, 2);
+      }
+
+      if (this.formation === FORMATION_SINGLE_FILE) {
+        visual.rect(position.x - 0.5, position.y - 1.5, 2, 2);
+      }
     }
 
+    let positionBlocked = false;
+
     this.getAssignedCreeps().slice(0, 4).forEach((creep, idx) => {
-      if (creep.fatigue > 0) {
-        trace.log("not ready: fatigued", {creepName: creep.name, fatigue: creep.fatigue});
-        inPosition = false;
+      // if creep is on an edge, report it as ready
+      if (creep.pos.x === 49 || creep.pos.x === 0 || creep.pos.y === 49 || creep.pos.y === 0) {
+        trace.info('creep is at edge', {
+          name: creep.name,
+          pos: creep.pos,
+        });
 
         if (showVisuals) {
-          visual.text("F", creep.pos.x, creep.pos.y + 0.5, {
+          visual.text('E', creep.pos.x, creep.pos.y + 0.5, {
             color: (idx) ? '#0000FF' : '#FFFFFF',
           });
         }
@@ -154,15 +278,46 @@ export default class PartyRunnable {
         return;
       }
 
-      const x = _.max([_.min([this.position.x + this.formation[idx].x, 49]), 0]);
-      const y = _.max([_.min([this.position.y + this.formation[idx].y, 49]), 0]);
-      const roomName = this.position.roomName;
+      if (creep.fatigue > 0) {
+        trace.log('not ready: fatigued', {creepName: creep.name, fatigue: creep.fatigue});
+        inPosition = false;
 
-      if (creep.pos.x !== x || creep.pos.y !== y || creep.pos.roomName !== roomName) {
-        trace.log("not ready: out of position", {
+        if (showVisuals) {
+          visual.text('F', creep.pos.x, creep.pos.y + 0.5, {
+            color: (idx) ? '#0000FF' : '#FFFFFF',
+          });
+        }
+
+        return;
+      }
+
+      const position = this.getCreepPosition(idx, trace);
+
+      const terrain = position.lookFor(LOOK_TERRAIN);
+      if (terrain.length > 0 && terrain[0] === 'wall') {
+        if (showVisuals) {
+          visual.text('W', position.x, position.y + 0.5);
+        }
+
+        trace.log('not ready: terrain', {
+          name: creep.name,
+          terrain: terrain,
+          position: position,
+          idx,
+        });
+
+        positionBlocked = true;
+        return;
+      }
+
+      if (creep.pos.x !== position.x || creep.pos.y !== position.y ||
+        creep.pos.roomName !== position.roomName) {
+        trace.info('not ready: out of position', {
           creepName: creep.name,
           creepPos: creep.pos,
-          desired: {x, y, roomName},
+          desired: position,
+          formation: this.formation,
+          idx,
         });
         inPosition = false;
 
@@ -185,17 +340,25 @@ export default class PartyRunnable {
         */
 
         if (showVisuals) {
-          visual.text("O", creep.pos.x, creep.pos.y + 0.5);
+          visual.text('O', creep.pos.x, creep.pos.y + 0.5);
         }
         return;
       }
 
+      trace.info('in position', {
+        creepName: creep.name,
+        creepPos: creep.pos,
+        desired: position,
+        formation: this.formation,
+        idx,
+      });
+
       if (showVisuals) {
-        visual.text("R", creep.pos.x, creep.pos.y + 0.5);
+        visual.text('R', creep.pos.x, creep.pos.y + 0.5);
       }
     });
 
-    return inPosition;
+    return positionBlocked || inPosition;
   }
 
   onEdge(position: RoomPosition) {
@@ -210,12 +373,19 @@ export default class PartyRunnable {
 
   isBlocked(position: RoomPosition, trace: Tracer): boolean {
     let structures: (Terrain | Structure)[] = [];
+    let positions: RoomPosition[] = [];
 
-    let positions = this.formation.map((offset) => {
-      const x = _.min([_.max([position.x + offset.x, 0]), 49]);
-      const y = _.min([_.max([position.y + offset.y, 0]), 49]);
-      return new RoomPosition(x, y, position.roomName);
-    });
+    if (this.formation === FORMATION_SINGLE_FILE) {
+      positions = [
+        RoomPosition(position.x, position.y, position.roomName),
+      ];
+    } else {
+      positions = this.getCreepOffsets().map((offset) => {
+        const x = _.min([_.max([position.x + offset.x, 0]), 49]);
+        const y = _.min([_.max([position.y + offset.y, 0]), 49]);
+        return new RoomPosition(x, y, position.roomName);
+      });
+    }
 
     positions.forEach((position) => {
       structures = structures.concat(position.lookFor(LOOK_STRUCTURES))
@@ -225,24 +395,36 @@ export default class PartyRunnable {
 
       structures = structures.concat(position.lookFor(LOOK_TERRAIN))
         .filter((terrain: Terrain) => {
-          return terrain === "wall";
+          return terrain === 'wall';
         });
     });
 
-    trace.log("blocking structures", (structures));
+    trace.log('blocking structures', {structures});
 
     return structures.length > 0;
   }
 
-  getBlockingObjects(direction: DirectionConstant, position: RoomPosition, trace: Tracer): WarPartyTarget[] {
+  // Returns objects that are blocking the party
+  getBlockingObjects(position: RoomPosition, direction: DirectionConstant, trace: Tracer): WarPartyTarget[] {
     let objects: WarPartyTarget[] = [];
 
-    let positions = this.formation.map((offset) => {
-      const x = _.min([_.max([position.x + offset.x, 0]), 49]);
-      const y = _.min([_.max([position.y + offset.y, 0]), 49]);
-      trace.log("get blocking at position", {position, direction, offset, x, y});
-      return new RoomPosition(x, y, position.roomName);
-    });
+    let positions: RoomPosition[] = [];
+
+    if (this.formation === FORMATION_SINGLE_FILE) {
+      positions = [
+        new RoomPosition(
+          _.min([_.max([position.x, 0]), 49]),
+          _.min([_.max([position.y, 0]), 49]),
+          position.roomName,
+        ),
+      ];
+    } else if (this.formation === FORMATION_QUAD) {
+      positions = this.getCreepOffsets().map((offset) => {
+        const x = _.min([_.max([position.x + offset.x, 0]), 49]);
+        const y = _.min([_.max([position.y + offset.y, 0]), 49]);
+        return new RoomPosition(x, y, position.roomName);
+      });
+    }
 
     // We cannot lookFor in a room that is not loaded
     if (Game.rooms[position.roomName]) {
@@ -250,7 +432,10 @@ export default class PartyRunnable {
         // Structures can block
         objects = objects.concat(position.lookFor(LOOK_STRUCTURES))
           .filter((structure: Structure) => {
-            return structure.structureType !== STRUCTURE_ROAD;
+            return structure.structureType !== STRUCTURE_ROAD && !(
+              structure.structureType === STRUCTURE_RAMPART &&
+              structure.room?.controller?.my
+            );
           });
       });
     }
@@ -262,8 +447,39 @@ export default class PartyRunnable {
     this.role = role;
   }
 
-  setFormation(formation: {x: number, y: number}[]) {
+  setParts(parts: BodyPartConstant[]) {
+    this.parts = parts;
+  }
+
+  setFormation(formation: FORMATION_TYPE) {
     this.formation = formation;
+  }
+
+  getFormation(): FORMATION_TYPE {
+    return this.formation;
+  }
+
+  getCreepOffsets(): {x: number, y: number}[] {
+    if (this.formation === FORMATION_SINGLE_FILE) {
+      return this.previousPositions;
+    } else if (this.formation === FORMATION_QUAD) {
+      return DIRECTION_2BY2_FORMATION[this.direction];
+    } else {
+      throw new Error('Unknown formation');
+    }
+  }
+
+  getCreepPositions(): RoomPosition[] {
+    return this.getCreepOffsets().map((offset) => {
+      const x = _.max([_.min([this.position.x + offset.x, 49]), 0]);
+      const y = _.max([_.min([this.position.y + offset.y, 49]), 0]);
+      const roomName = this.position.roomName;
+      return new RoomPosition(x, y, roomName);
+    });
+  }
+
+  setDirection(direction: DirectionConstant) {
+    this.direction = direction;
   }
 
   setMinEnergy(minEnergy: number) {
@@ -272,6 +488,15 @@ export default class PartyRunnable {
 
   setPosition(position: RoomPosition) {
     this.position = position;
+
+    if (this.position !== this.previousPositions[0]) {
+      this.previousPositions.unshift(this.position);
+      this.previousPositions.splice(MAX_PREVIOUS_POSITIONS);
+    }
+  }
+
+  getPreviousPositions(): RoomPosition[] {
+    return this.previousPositions;
   }
 
   setTarget(targets: WarPartyTarget[], trace: Tracer): WarPartyTarget {
@@ -282,11 +507,11 @@ export default class PartyRunnable {
     if (target) {
       Game.map.visual.line(this.position, target.pos, {color: '#FF0000'});
     } else {
-      trace.log("no targets in range");
+      trace.log('no targets in range');
       return null;
     }
 
-    trace.log("setting targets", {target});
+    trace.log('setting targets', {target});
 
     const creeps = this.getAssignedCreeps();
     creeps.forEach((creep) => {
@@ -330,7 +555,7 @@ export default class PartyRunnable {
       return creep.memory[MEMORY.MEMORY_PARTY_ID] === this.id;
     });
 
-    let quad = _.sortBy(creeps, 'ttl').slice(0, 4);
+    const quad = _.sortBy(creeps, 'ttl').slice(0, 4);
     /*
     quad = quad.filter(creep => !creep.spawning);
     quad = _.sortBy(quad, (creep) => {
@@ -349,19 +574,19 @@ export default class PartyRunnable {
     return [].concat(quad, creeps.slice(4));
   }
 
-  requestCreeps(trace: Tracer, kingdom: Kingdom) {
-    const colonyRoom = this.baseConfig.primary;
-    const room = Game.rooms[colonyRoom];
-    if (!room) {
-      trace.log('colony room not visible', {colonyRoom});
+  requestCreeps(trace: Tracer, kernel: Kernel, base: Base) {
+    const baseRoomName = base.primary;
+    const baseRoom = Game.rooms[baseRoomName];
+    if (!baseRoom) {
+      trace.log('base room not visible', {baseRoomName});
       return;
     }
 
-    const spawns = room.find(FIND_MY_STRUCTURES, {
-      filter: structure => structure.structureType === STRUCTURE_SPAWN,
+    const spawns = baseRoom.find(FIND_MY_STRUCTURES, {
+      filter: (structure) => structure.structureType === STRUCTURE_SPAWN,
     });
     if (!spawns || !spawns.length) {
-      trace.log("no spawns found");
+      trace.log('no spawns found');
       return;
     }
 
@@ -372,66 +597,60 @@ export default class PartyRunnable {
     // TODO need to calculate plains cost
     const plainsCost = 2;
     // path length * move cost/ticks
-    const travelTime = path.path.length * plainsCost
+    const travelTime = path.path.length * plainsCost;
     // 150 for the 50 parts
     const buildTime = 150;
     this.deployTicks = travelTime + buildTime;
     if (path.incomplete) {
-      this.deployTicks += 200
+      this.deployTicks += 200;
     }
 
-    trace.log("deploy time", {
+    trace.log('deploy time', {
       pathLength: path.path.length,
       pathIncomplete: path.incomplete,
       plainsCost,
-    })
+    });
 
     const creeps = this.getAssignedCreeps();
     const freshCreeps = creeps.filter((creep) => {
       return creep.spawning || (creep.ticksToLive > this.deployTicks);
-    })
+    });
 
     if (freshCreeps.length >= MAX_PARTY_SIZE) {
-      trace.log("we have enough creeps", {
-        freshCreeps: freshCreeps.map(creep => creep.name),
+      trace.log('we have enough creeps', {
+        freshCreeps: freshCreeps.map((creep) => creep.name),
         deployTicks: this.deployTicks,
         lowestTTL: _.min(
-          creeps.filter(creep => creep.ticksToLive)
-            .map(creep => creep.ticksToLive)
+          creeps.filter((creep) => creep.ticksToLive)
+            .map((creep) => creep.ticksToLive),
         ),
       });
       return;
     }
 
-    // Determine creeps position at rally point
     const idx = _.max([creeps.length - 1, 0]) % 4;
-    const x = this.position.x + this.formation[idx].x;
-    const y = this.position.y + this.formation[idx].y;
-    const roomName = this.position.roomName;
+    const position = this.getCreepPosition(idx, trace);
 
-    const details = {
-      role: this.role,
-      [MEMORY.SPAWN_MIN_ENERGY]: 2000, // TODO add to constructor
-      memory: {
-        [MEMORY.MEMORY_PARTY_ID]: this.id,
-        // Tell creep to move to it's rally point position
-        [MEMORY.MEMORY_POSITION_X]: x,
-        [MEMORY.MEMORY_POSITION_Y]: y,
-        [MEMORY.MEMORY_POSITION_ROOM]: roomName,
-        [MEMORY.MEMORY_ASSIGN_ROOM]: roomName,
-        [MEMORY.MEMORY_BASE]: this.baseConfig.id,
-      },
+    const priority = this.priority;
+    const ttl = this.requestCreepTTL;
+    const role = this.role;
+    const memory = {
+      [MEMORY.MEMORY_PARTY_ID]: this.id,
+      // Tell creep to move to it's rally point position
+      [MEMORY.MEMORY_POSITION_X]: position.x,
+      [MEMORY.MEMORY_POSITION_Y]: position.y,
+      [MEMORY.MEMORY_POSITION_ROOM]: position.roomName,
+      [MEMORY.MEMORY_ASSIGN_ROOM]: position.roomName,
+      [MEMORY.MEMORY_BASE]: base.id,
     };
 
-    trace.log('requesting creep', {
-      colonyId: this.baseConfig.id,
-      role: this.role,
-      priority: this.priority,
+    const request = createSpawnRequest(priority, ttl, role, memory, 0);
+
+    trace.info('requesting creep', {
       deployTicks: this.deployTicks,
-      ttl: this.requestCreepTTL,
-      details,
+      request,
     });
 
-    kingdom.sendRequest(getBaseSpawnTopic(this.baseConfig.id), this.priority, details, this.requestCreepTTL);
+    kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
   }
 }

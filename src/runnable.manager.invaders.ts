@@ -1,16 +1,16 @@
-import {AttackRequest, AttackStatus, ATTACK_ROOM_TTL} from "./constants.attack";
-import {ATTACK_ROOM} from "./constants.topics";
-import {AllowedCostMatrixTypes} from "./lib.costmatrix_cache";
-import {FindColonyPathPolicy, getClosestColonyByPath} from "./lib.pathing";
+import {AttackRequest, AttackStatus, ATTACK_ROOM_TTL} from './constants.attack';
+import {ATTACK_ROOM} from './constants.topics';
+import {Kernel} from './kernel';
+import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
+import {FindColonyPathPolicy} from './lib.pathing';
 import {Tracer} from './lib.tracing';
-import {Kingdom} from "./org.kingdom";
-import {RoomEntry} from "./runnable.scribe";
-import {sleeping} from "./os.process";
-import {RunnableResult} from "./os.runnable";
-import {Scheduler} from "./os.scheduler";
+import {sleeping} from './os.process';
+import {RunnableResult} from './os.runnable';
+import {Scheduler} from './os.scheduler';
+import {RoomEntry} from './runnable.scribe';
 
 const RUN_TTL = 50;
-const MAX_BASE_LEVEL = 1;
+const MAX_BASE_LEVEL = 2;
 
 const colonyPathingPolicy: FindColonyPathPolicy = {
   colony: {
@@ -49,39 +49,25 @@ export default class InvaderManager {
     this.scheduler = scheduler;
   }
 
-  run(kingdom: Kingdom, trace: Tracer): RunnableResult {
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('invader_manager_run');
 
-    const rooms = getRoomEntriesWithInvaderBases(kingdom, trace);
-
+    const rooms = getRoomEntriesWithInvaderBases(kernel, trace);
     trace.notice('found defeatable invader bases', {
       rooms: rooms.map((roomEntry) => {
-        return {id: roomEntry.id, pos: roomEntry.invaderCorePos}
+        return {id: roomEntry.id, pos: roomEntry.invaderCorePos};
       }),
     });
 
     rooms.forEach((roomEntry) => {
-      const end = trace.startTimer('find_closest_colony');
-
-      const destination = roomEntry.invaderCorePos;
-      const colony = getClosestColonyByPath(kingdom, destination, colonyPathingPolicy, trace);
-
-      end();
-
-      if (!colony) {
-        trace.log("no colony to attack invader base", {room: roomEntry.id});
-        return;
-      }
-
-      trace.log("requesting attack", {roomId: roomEntry.id})
+      trace.log('requesting attack', {roomId: roomEntry.id});
 
       const attackRequest: AttackRequest = {
         status: AttackStatus.REQUESTED,
-        baseId: colony.id,
         roomId: roomEntry.id,
       };
 
-      kingdom.sendRequest(ATTACK_ROOM, 1, attackRequest, ATTACK_ROOM_TTL);
+      kernel.getTopics().addRequest(ATTACK_ROOM, 1, attackRequest, ATTACK_ROOM_TTL);
     });
 
     trace.end();
@@ -90,10 +76,10 @@ export default class InvaderManager {
   }
 }
 
-const getRoomEntriesWithInvaderBases = (kingdom: Kingdom, trace: Tracer): RoomEntry[] => {
+const getRoomEntriesWithInvaderBases = (kernel: Kernel, trace: Tracer): RoomEntry[] => {
   const end = trace.startTimer('getRoomEntriesWithInvaderBases');
 
-  const weakRooms = kingdom.getScribe().getRooms().filter((roomEntry) => {
+  const weakRooms = kernel.getScribe().getRooms().filter((roomEntry) => {
     if (!roomEntry.invaderCoreLevel) {
       return false;
     }
@@ -109,7 +95,7 @@ const getRoomEntriesWithInvaderBases = (kingdom: Kingdom, trace: Tracer): RoomEn
 
     // TODO remove when we dont have any room entries without the pos
     if (!roomEntry.invaderCorePos) {
-      trace.error('no position for invader base', {id: roomEntry.id})
+      trace.error('no position for invader base', {id: roomEntry.id});
       return false;
     }
 
@@ -119,4 +105,4 @@ const getRoomEntriesWithInvaderBases = (kingdom: Kingdom, trace: Tracer): RoomEn
   end();
 
   return weakRooms;
-}
+};
