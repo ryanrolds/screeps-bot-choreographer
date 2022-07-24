@@ -132,6 +132,9 @@ export default class BaseRunnable {
     this.threadProduceStatus = thread('produce_status_thread', PRODUCE_STATUS_TTL)(this.produceStatus.bind(this));
     this.threadAbandonBase = thread('abandon_base_check', ABANDON_BASE_TTL)(this.abandonBase.bind(this));
     this.threadUpdateAlertLevel = thread('update_alert_level_thread', UPDATE_PROCESSES_TTL)(this.updateAlertLevel.bind(this));
+
+    // Pump events from booster runnable and set booster state on the Base
+    this.threadUpdateBoosters = thread('update_booster_thread', UPDATE_BOOSTER_TTL)(this.updateBoosters.bind(this));
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
@@ -149,7 +152,7 @@ export default class BaseRunnable {
     }
 
     // if room not visible, request room be claimed
-    const room = Game.rooms[this.id];
+    const room = getBasePrimaryRoom(base);
     if (!room || room.controller?.level === 0) {
       trace.notice('cannot see room or level 0', {id: this.id});
       this.requestClaimer(kernel, trace);
@@ -165,51 +168,33 @@ export default class BaseRunnable {
       return sleeping(NO_VISION_TTL);
     }
 
-    this.threadUpdateProcessSpawning(trace, base, orgRoom, room);
-
-    // Pump events from booster runnable and set booster state on the Base
-    this.threadUpdateBoosters = thread('update_booster_thread', UPDATE_BOOSTER_TTL)((trace, room, kernel) => {
-      const topic = kernel.getTopics().getTopic(getBaseBoostTopic(base));
-      if (!topic) {
-        trace.log('no topic', {room: this.id});
-        return;
-      }
-
-      topic.forEach((event) => {
-        const details: BoosterDetails = event.details;
-        trace.log('booster position', {room: this.id, details});
-        setBoostPosition(base, details.position);
-        setLabsByAction(base, details.labsByAction);
-        base.storedEffects = details.storedEffects;
-        base.labsByAction = details.labsByAction;
-      });
-    });
+    this.threadUpdateProcessSpawning(trace, base, room);
 
     // Base life cycle
     this.threadAbandonBase(trace, kernel, base, room);
 
     // Defense
     // this.threadUpdateRampartAccess(trace, orgRoom, room);
-    this.threadCheckSafeMode(trace, kernel, room);
+    this.threadCheckSafeMode(trace, kernel, base, room);
 
     // Logistics
-    this.threadRequestEnergy(trace, orgRoom, room);
-    this.threadRequestExtensionFilling(trace, kernel, base, orgRoom, room);
+    this.threadRequestEnergy(trace, kernel, base, room);
+    this.threadRequestExtensionFilling(trace, kernel, base, room);
 
     // Creeps
-    this.threadRequestUpgrader(trace, kernel, base, orgRoom, room);
-    this.threadRequestDistributor(trace, kernel, base, orgRoom, room);
+    this.threadRequestUpgrader(trace, kernel, base, room);
+    this.threadRequestDistributor(trace, kernel, base, room);
     if (base.alertLevel === AlertLevel.GREEN) {
-      this.threadRequestBuilder(trace, kernel, base, orgRoom, room);
-      this.threadRequestRepairer(trace, kernel, base, orgRoom, room);
-      this.threadRequestExplorer(trace, kernel, base, orgRoom, room);
+      this.threadRequestBuilder(trace, kernel, base, room);
+      this.threadRequestRepairer(trace, kernel, base, room);
+      this.threadRequestExplorer(trace, kernel, base, room);
     }
 
     // Inform other processes of room status
-    this.threadProduceStatus(trace, kernel, orgRoom, base);
+    this.threadProduceStatus(trace, kernel, base, room);
 
     // Alert level
-    this.threadUpdateAlertLevel(trace, base, kernel);
+    this.threadUpdateAlertLevel(trace, kernel, base, room);
 
     const roomVisual = new RoomVisual(this.id);
     roomVisual.text('O', base.origin.x, base.origin.y, {color: '#FFFFFF'});
@@ -302,7 +287,7 @@ export default class BaseRunnable {
       detail, REQUEST_CLAIMER_TTL);
   }
 
-  handleProcessSpawning(trace: Tracer, base: Base, primaryRoom: Room) {
+  handleProcessSpawning(trace: Tracer, kernel: Kernel, base: Base, primaryRoom: Room) {
     let missingProcesses = 0;
 
     // Spawn Manager
@@ -814,7 +799,7 @@ export default class BaseRunnable {
     this.defensePosture = posture;
   }
 
-  checkSafeMode(trace: Tracer, kernel: Kernel, room: Room) {
+  checkSafeMode(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
     const controller = room.controller;
     if (!controller) {
       trace.log('controller not found');
@@ -986,7 +971,7 @@ export default class BaseRunnable {
     indicatorStream.publish(new Event(base.id, Game.time, HudEventSet, keyProcessesIndicator));
   }
 
-  updateAlertLevel(trace: Tracer, base: Base, kernel: Kernel) {
+  updateAlertLevel(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
     // check if strong enemies are present in base
     const roomEntry = kernel.getScribe().getRoomById(base.primary);
     if (!roomEntry) {
@@ -1055,6 +1040,23 @@ export default class BaseRunnable {
 
     trace.notice('no significant hostile presence', {level: base.alertLevel});
     base.alertLevel = AlertLevel.GREEN;
+  }
+
+  updateBoosters(trace: Tracer, base: Base, kernel: Kernel) {
+    const topic = kernel.getTopics().getTopic(getBaseBoostTopic(base));
+    if (!topic) {
+      trace.log('no topic', {room: this.id});
+      return;
+    }
+
+    topic.forEach((event) => {
+      const details: BoosterDetails = event.details;
+      trace.log('booster position', {room: this.id, details});
+      setBoostPosition(base, details.position);
+      setLabsByAction(base, details.labsByAction);
+      base.storedEffects = details.storedEffects;
+      base.labsByAction = details.labsByAction;
+    });
   }
 }
 

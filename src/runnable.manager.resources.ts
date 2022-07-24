@@ -11,11 +11,10 @@ import {
   TRANSFER_AMOUNT, TRANSFER_BASE, TRANSFER_RESOURCE
 } from './constants.memory';
 import {
-  REACTION_PRIORITIES, TERMINAL_BUY, TERMINAL_ENERGY_BALANCE, TERMINAL_SELL,
-  TERMINAL_TRANSFER
+  REACTION_PRIORITIES, TERMINAL_BUY, TERMINAL_ENERGY_BALANCE, TERMINAL_TRANSFER
 } from './constants.priorities';
 import {REACTION, TASK_MARKET_ORDER, TASK_TRANSFER} from './constants.tasks';
-import {ACTIVE_REACTIONS, ROOM_STATUES, TASK_REACTION, TOPIC_TERMINAL_TASK} from './constants.topics';
+import {ACTIVE_REACTIONS, ROOM_STATUES, TASK_REACTION} from './constants.topics';
 import {Kernel} from './kernel';
 import {Consumer} from './lib.event_broker';
 import {SigmoidPricing} from './lib.sigmoid_pricing';
@@ -137,8 +136,8 @@ export class ResourceManager implements Runnable {
     return running();
   }
 
-  getBaseWithTerminalWithResource(resource: ResourceConstant, destBase: Base = null) {
-    const terminals = this.kernel.getPlanner().getBases().reduce((acc, base) => {
+  getBaseWithTerminalWithResource(resource: ResourceConstant, destBase: Base = null): Base {
+    const basesWithTerminal = this.kernel.getPlanner().getBases().reduce((acc, base) => {
       const room = getBasePrimaryRoom(base);
       if (!room) {
         return acc;
@@ -183,7 +182,7 @@ export class ResourceManager implements Runnable {
       return acc.concat({room: room, amount});
     }, []);
 
-    return _.sortBy(terminals, 'amount').reverse().shift();
+    return _.sortBy(basesWithTerminal, 'amount').reverse().shift();
   }
 
   getTerminals(): StructureTerminal[] {
@@ -388,7 +387,7 @@ export class ResourceManager implements Runnable {
     }
 
     trace.info('purchase resource', {baseId: base.id, resource, amount});
-    this.kernel.getTopics().addRequest(TOPIC_TERMINAL_TASK, TERMINAL_BUY, details, ttl);
+    this.kernel.getTopics().addRequest(getBaseTerminalTopic(base), TERMINAL_BUY, details, ttl);
 
     return true;
   }
@@ -422,15 +421,16 @@ export class ResourceManager implements Runnable {
       return true;
     }
 
-    const result = this.getBaseWithTerminalWithResource(resource, base);
-    if (!result) {
+    const sourceBase = this.getBaseWithTerminalWithResource(resource, base);
+    if (!sourceBase) {
       trace.log('no rooms with resource', {resource});
       return false;
     }
 
-    amount = _.min([result.amount, amount]);
+    const sourceResources = getStoredResourceAmount(sourceBase, resource);
+    amount = _.min([sourceResources, amount]);
 
-    trace.log('requesting resource from other room', {room: result.room.id, resource, amount});
+    trace.log('requesting resource from other room', {source: sourceBase.id, resource, amount});
 
     const request: TerminalTask = {
       [TERMINAL_TASK_TYPE]: TASK_TRANSFER,
@@ -439,7 +439,7 @@ export class ResourceManager implements Runnable {
       [TRANSFER_BASE]: base.id,
     }
 
-    this.kernel.getTopics().addRequest(getBaseTerminalTopic(base), TERMINAL_TRANSFER, request, ttl);
+    this.kernel.getTopics().addRequest(getBaseTerminalTopic(sourceBase), TERMINAL_TRANSFER, request, ttl);
 
     return true;
   }
@@ -522,12 +522,13 @@ export class ResourceManager implements Runnable {
         return;
       }
 
-      const result = this.getBaseWithTerminalWithResource(resource);
-      if (!result) {
+      const sourceBase = this.getBaseWithTerminalWithResource(resource);
+      if (!sourceBase) {
         return;
       }
 
-      const sellAmount = _.min([result.amount, excess, MAX_SELL_AMOUNT]);
+      const sourceResources = getStoredResourceAmount(sourceBase, resource);
+      const sellAmount = _.min([sourceResources, excess, MAX_SELL_AMOUNT]);
 
       const details = {
         [TERMINAL_TASK_TYPE]: TASK_MARKET_ORDER,
@@ -536,8 +537,7 @@ export class ResourceManager implements Runnable {
         [MEMORY_ORDER_AMOUNT]: sellAmount,
       };
 
-      result.room.sendRequest(TOPIC_TERMINAL_TASK, TERMINAL_SELL,
-        details, REQUEST_SELL_TTL);
+      kernel.getTopics().addRequest(getBaseTerminalTopic(sourceBase), TERMINAL_BUY, details, REQUEST_SELL_TTL);
     });
   }
 
@@ -706,6 +706,12 @@ export class ResourceManager implements Runnable {
     }
 
     const sourceRoomName = baseStatus[BASE_STATUS_NAME];
+    const sourceBase = kernel.getPlanner().getBaseByRoom(sourceRoomName);
+    if (!sourceBase) {
+      trace.warn('source base not found', {sourceRoomName});
+      return;
+    }
+
     const sinkRoomName = sinkRoom[BASE_STATUS_NAME];
     const request = {
       [TERMINAL_TASK_TYPE]: TASK_TRANSFER,
@@ -716,7 +722,7 @@ export class ResourceManager implements Runnable {
 
     trace.notice('send energy request', {request});
 
-    kernel.getTopics().addRequest(TOPIC_TERMINAL_TASK, TERMINAL_ENERGY_BALANCE,
+    kernel.getTopics().addRequest(getBaseTerminalTopic(sourceBase), TERMINAL_ENERGY_BALANCE,
       request, BALANCE_ENERGY_TTL);
   }
 }
