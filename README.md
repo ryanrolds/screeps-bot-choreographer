@@ -67,6 +67,9 @@ An AI for [Screeps](screeps.com).
     - [ ] Move path cache, cost matrix cache, and resource gov. to AI
   - [ ] Refactor Resource Governor into a Process\
     - [ ] Move to TypeScript
+- [ ] Refactor thread API
+  - [ ] Strongly typed thread API
+  - [ ] Automatically run threads and sleep main process correct amount of time
 - [ ] Double buffer topics when TTLing messages
 - [ ] All of project on TypeScript
 - [ ] Refactor PID controller
@@ -76,7 +79,6 @@ An AI for [Screeps](screeps.com).
 - [ ] TD: Replace spawn topics (TTL) with event streams (manages own queue)
 - [ ] TD: Cleanup old construction sites automatically
 - [ ] Harvest commodities & factory
-- [ ] Process thread API (automatically run threads and sleep based on)
 - [ ] Process stats and scheduler report
 - [ ] Factor room resources when selecting new base
 - [ ] Sieging of RCL>=7 rooms

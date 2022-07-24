@@ -1,4 +1,5 @@
-import {AlertLevel, Base, getBaseLevel, getBaseLevelCompleted, getBasePrimaryRoom, getReserveBuffer, getStoredResourceAmount, getStoredResources, getStructureWithResource, setBoostPosition, setLabsByAction} from './base';
+import {AlertLevel, Base, BaseThreadFunc, getBaseLevel, getBaseLevelCompleted, getBasePrimaryRoom, getReserveBuffer, getStoredResourceAmount, getStoredResources, getStructureWithResource, setBoostPosition, setLabsByAction, threadBase} from './base';
+import {BaseRoomThreadFunc, threadBaseRoom} from './base_room';
 import * as CREEPS from './constants.creeps';
 import {DEFENSE_STATUS} from './constants.defense';
 import * as MEMORY from './constants.memory';
@@ -11,7 +12,6 @@ import {Tracer} from './lib.tracing';
 import {Process, sleeping, terminate} from './os.process';
 import {RunnableResult} from './os.runnable';
 import {Priorities, Scheduler} from './os.scheduler';
-import {thread, ThreadFunc} from './os.thread';
 import {getBaseDistributorTopic} from './role.distributor';
 import {scoreAttacking} from './role.harasser';
 import {BoosterDetails, getBaseBoostTopic} from './runnable.base_booster';
@@ -90,22 +90,22 @@ export default class BaseRunnable {
   // Metrics
   missingProcesses: number;
 
-  threadUpdateProcessSpawning: ThreadFunc;
+  threadUpdateProcessSpawning: BaseRoomThreadFunc;
 
-  threadRequestRepairer: ThreadFunc;
-  threadRequestBuilder: ThreadFunc;
-  threadRequestDistributor: ThreadFunc;
-  threadRequestUpgrader: ThreadFunc;
-  threadRequestExplorer: ThreadFunc;
+  threadRequestRepairer: BaseRoomThreadFunc;
+  threadRequestBuilder: BaseRoomThreadFunc;
+  threadRequestDistributor: BaseRoomThreadFunc;
+  threadRequestUpgrader: BaseRoomThreadFunc;
+  threadRequestExplorer: BaseRoomThreadFunc;
 
-  threadUpdateBoosters: ThreadFunc;
-  threadCheckSafeMode: ThreadFunc;
-  threadRequestExtensionFilling: ThreadFunc;
-  // threadUpdateRampartAccess: ThreadFunc;
-  threadRequestEnergy: ThreadFunc;
-  threadProduceStatus: ThreadFunc;
-  threadAbandonBase: ThreadFunc;
-  threadUpdateAlertLevel: ThreadFunc;
+  threadUpdateBoosters: BaseRoomThreadFunc;
+  threadCheckSafeMode: BaseRoomThreadFunc;
+  threadRequestExtensionFilling: BaseRoomThreadFunc;
+  // threadUpdateRampartAccess: BaseRoomThreadFunc;
+  threadRequestEnergy: BaseRoomThreadFunc;
+  threadProduceStatus: BaseRoomThreadFunc;
+  threadAbandonBase: BaseRoomThreadFunc;
+  threadUpdateAlertLevel: BaseThreadFunc;
 
 
   constructor(id: string, scheduler: Scheduler) {
@@ -117,24 +117,24 @@ export default class BaseRunnable {
     this.missingProcesses = 0;
 
     // Threads
-    this.threadUpdateProcessSpawning = thread('spawn_room_processes_thread', UPDATE_PROCESSES_TTL)(this.handleProcessSpawning.bind(this));
+    this.threadUpdateProcessSpawning = threadBaseRoom('spawn_room_processes_thread', UPDATE_PROCESSES_TTL)(this.handleProcessSpawning.bind(this));
 
-    this.threadRequestRepairer = thread('request_repairs_thread', REQUEST_REPAIRER_TTL)(this.requestRepairer.bind(this));
-    this.threadRequestBuilder = thread('request_builder_thead', REQUEST_BUILDER_TTL)(this.requestBuilder.bind(this));
-    this.threadRequestDistributor = thread('request_distributer_thread', REQUEST_DISTRIBUTOR_TTL)(this.requestDistributor.bind(this));
-    this.threadRequestUpgrader = thread('request_upgrader_thread', REQUEST_UPGRADER_TTL)(this.requestUpgrader.bind(this));
-    this.threadRequestExplorer = thread('request_explorers_thread', REQUEST_EXPLORER_TTL)(this.requestExplorer.bind(this));
+    this.threadRequestRepairer = threadBaseRoom('request_repairs_thread', REQUEST_REPAIRER_TTL)(this.requestRepairer.bind(this));
+    this.threadRequestBuilder = threadBaseRoom('request_builder_thead', REQUEST_BUILDER_TTL)(this.requestBuilder.bind(this));
+    this.threadRequestDistributor = threadBaseRoom('request_distributer_thread', REQUEST_DISTRIBUTOR_TTL)(this.requestDistributor.bind(this));
+    this.threadRequestUpgrader = threadBaseRoom('request_upgrader_thread', REQUEST_UPGRADER_TTL)(this.requestUpgrader.bind(this));
+    this.threadRequestExplorer = threadBaseRoom('request_explorers_thread', REQUEST_EXPLORER_TTL)(this.requestExplorer.bind(this));
 
-    this.threadCheckSafeMode = thread('check_safe_mode_thread', CHECK_SAFE_MODE_TTL)(this.checkSafeMode.bind(this));
-    this.threadRequestExtensionFilling = thread('request_extension_filling_thread', HAUL_EXTENSION_TTL)(this.requestExtensionFilling.bind(this));
-    // this.threadUpdateRampartAccess = thread('update_rampart_access_thread', RAMPART_ACCESS_TTL)(this.updateRampartAccess.bind(this));
-    this.threadRequestEnergy = thread('request_energy_thread', ENERGY_REQUEST_TTL)(this.requestEnergy.bind(this));
-    this.threadProduceStatus = thread('produce_status_thread', PRODUCE_STATUS_TTL)(this.produceStatus.bind(this));
-    this.threadAbandonBase = thread('abandon_base_check', ABANDON_BASE_TTL)(this.abandonBase.bind(this));
-    this.threadUpdateAlertLevel = thread('update_alert_level_thread', UPDATE_PROCESSES_TTL)(this.updateAlertLevel.bind(this));
+    this.threadCheckSafeMode = threadBaseRoom('check_safe_mode_thread', CHECK_SAFE_MODE_TTL)(this.checkSafeMode.bind(this));
+    this.threadRequestExtensionFilling = threadBaseRoom('request_extension_filling_thread', HAUL_EXTENSION_TTL)(this.requestExtensionFilling.bind(this));
+    // this.threadUpdateRampartAccess = threadBaseRoom('update_rampart_access_thread', RAMPART_ACCESS_TTL)(this.updateRampartAccess.bind(this));
+    this.threadRequestEnergy = threadBaseRoom('request_energy_thread', ENERGY_REQUEST_TTL)(this.requestEnergy.bind(this));
+    this.threadProduceStatus = threadBaseRoom('produce_status_thread', PRODUCE_STATUS_TTL)(this.produceStatus.bind(this));
+    this.threadAbandonBase = threadBaseRoom('abandon_base_check', ABANDON_BASE_TTL)(this.abandonBase.bind(this));
+    this.threadUpdateAlertLevel = threadBaseRoom('update_alert_level_thread', UPDATE_PROCESSES_TTL)(this.updateAlertLevel.bind(this));
 
     // Pump events from booster runnable and set booster state on the Base
-    this.threadUpdateBoosters = thread('update_booster_thread', UPDATE_BOOSTER_TTL)(this.updateBoosters.bind(this));
+    this.threadUpdateBoosters = threadBase('update_booster_thread', UPDATE_BOOSTER_TTL)(this.updateBoosters.bind(this));
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
@@ -168,7 +168,7 @@ export default class BaseRunnable {
       return sleeping(NO_VISION_TTL);
     }
 
-    this.threadUpdateProcessSpawning(trace, base, room);
+    this.threadUpdateProcessSpawning(trace, kernel, base, room);
 
     // Base life cycle
     this.threadAbandonBase(trace, kernel, base, room);
@@ -194,7 +194,7 @@ export default class BaseRunnable {
     this.threadProduceStatus(trace, kernel, base, room);
 
     // Alert level
-    this.threadUpdateAlertLevel(trace, kernel, base, room);
+    this.threadUpdateAlertLevel(trace, kernel, base);
 
     const roomVisual = new RoomVisual(this.id);
     roomVisual.text('O', base.origin.x, base.origin.y, {color: '#FFFFFF'});
@@ -291,7 +291,7 @@ export default class BaseRunnable {
     let missingProcesses = 0;
 
     // Spawn Manager
-    const spawnManagerId = `spawns_${this.id}`;
+    const spawnManagerId = `spawns_${base.id}`;
     if (!this.scheduler.hasProcess(spawnManagerId)) {
       trace.log('starting spawn manager', {id: this.id});
       missingProcesses++;
@@ -1038,7 +1038,7 @@ export default class BaseRunnable {
       return;
     }
 
-    trace.notice('no significant hostile presence', {level: base.alertLevel});
+    trace.notice('no significant hostile presence', {level: base.alertLevel, baseId: base.id});
     base.alertLevel = AlertLevel.GREEN;
   }
 

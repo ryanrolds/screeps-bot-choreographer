@@ -7,13 +7,12 @@
  *
  */
 import * as _ from 'lodash';
-import {Base} from './base';
+import {Base, BaseThreadFunc, threadBase} from './base';
 import * as MEMORY from './constants.memory';
 import {Kernel} from './kernel';
 import {Tracer} from './lib.tracing';
 import {running, terminate} from './os.process';
 import {RunnableResult} from './os.runnable';
-import {thread, ThreadFunc} from './os.thread';
 import {createSpawnRequest, getBaseSpawnTopic} from './runnable.base_spawning';
 import {WarPartyTarget} from './runnable.warparty';
 
@@ -89,7 +88,7 @@ const DIRECTION_OFFSET = {
 
 export default class PartyRunnable {
   id: string;
-  base: Base;
+  baseId: string;
   formation: FORMATION_TYPE;
   position: RoomPosition;
   role: string;
@@ -104,12 +103,12 @@ export default class PartyRunnable {
   // when in single file formation, keep last 4 positions
   previousPositions: RoomPosition[];
 
-  threadRequestCreeps: ThreadFunc;
+  threadRequestCreeps: BaseThreadFunc;
 
-  constructor(id: string, base: Base, position: RoomPosition, role: string,
+  constructor(id: string, baseId: string, position: RoomPosition, role: string,
     parts: BodyPartConstant[], minEnergy: number, priority: number, ttl: number) {
     this.id = id;
-    this.base = base;
+    this.baseId = baseId;
     this.role = role;
     this.parts = parts;
     this.minEnergy = minEnergy;
@@ -125,11 +124,18 @@ export default class PartyRunnable {
 
     this.previousPositions = [this.position];
 
-    this.threadRequestCreeps = thread('request_creeps', REQUEST_PARTY_MEMBER_TTL)(this.requestCreeps.bind(this));
+    this.threadRequestCreeps = threadBase('request_creeps', REQUEST_PARTY_MEMBER_TTL)(this.requestCreeps.bind(this));
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('party_run');
+
+    const base = kernel.getPlanner().getBaseById(this.baseId);
+    if (!base) {
+      trace.error('base not found', {baseId: this.baseId});
+      trace.end();
+      return terminate();
+    }
 
     // TODO possible race condition with outer layer and this
     const creeps = this.getAssignedCreeps();
@@ -143,7 +149,6 @@ export default class PartyRunnable {
       });
 
       trace.end();
-
       return terminate();
     }
 
@@ -155,7 +160,7 @@ export default class PartyRunnable {
     });
 
     if (!Game.flags['debug']) {
-      this.threadRequestCreeps(trace, kernel, this.base);
+      this.threadRequestCreeps(trace, kernel, base);
     } else {
       trace.log('in debug mode, not spawning');
     }
@@ -163,7 +168,6 @@ export default class PartyRunnable {
     this.updateCreepPositions(creeps, trace);
 
     trace.end();
-
     return running();
   }
 
@@ -571,7 +575,7 @@ export default class PartyRunnable {
   }
 
   requestCreeps(trace: Tracer, kernel: Kernel, base: Base) {
-    const baseRoomName = this.base.primary;
+    const baseRoomName = base.primary;
     const baseRoom = Game.rooms[baseRoomName];
     if (!baseRoom) {
       trace.log('base room not visible', {baseRoomName});
@@ -637,7 +641,7 @@ export default class PartyRunnable {
       [MEMORY.MEMORY_POSITION_Y]: position.y,
       [MEMORY.MEMORY_POSITION_ROOM]: position.roomName,
       [MEMORY.MEMORY_ASSIGN_ROOM]: position.roomName,
-      [MEMORY.MEMORY_BASE]: this.base.id,
+      [MEMORY.MEMORY_BASE]: base.id,
     };
 
     const request = createSpawnRequest(priority, ttl, role, memory, 0);

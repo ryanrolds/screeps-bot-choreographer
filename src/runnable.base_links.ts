@@ -1,4 +1,5 @@
 import {Base, getBasePrimaryRoom, getStructureForResource, getStructureWithResource} from './base';
+import {BaseRoomThreadFunc, threadBaseRoom} from './base_room';
 import * as MEMORY from './constants.memory';
 import * as PRIORITIES from './constants.priorities';
 import * as TASKS from './constants.tasks';
@@ -6,7 +7,6 @@ import {Kernel} from './kernel';
 import {Tracer} from './lib.tracing';
 import {sleeping, terminate} from './os.process';
 import {RunnableResult} from './os.runnable';
-import {thread, ThreadFunc} from './os.thread';
 import {getBaseDistributorTopic} from './role.distributor';
 
 const TICK_STEP = 2;
@@ -26,7 +26,7 @@ export default class LinkManager {
   haulTTL: number;
   prevTime: number;
 
-  threadUpdateStructures: ThreadFunc;
+  threadUpdateStructures: BaseRoomThreadFunc;
 
   constructor(id: string, baseId: string) {
     this.id = id;
@@ -39,7 +39,7 @@ export default class LinkManager {
     this.haulTTL = 0;
     this.prevTime = Game.time;
 
-    this.threadUpdateStructures = thread('update_structures', UPDATE_STRUCTURES_TTL)(this.updateStructures.bind(this));
+    this.threadUpdateStructures = threadBaseRoom('update_structures', UPDATE_STRUCTURES_TTL)(this.updateStructures.bind(this));
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
@@ -63,7 +63,7 @@ export default class LinkManager {
       return;
     }
 
-    this.threadUpdateStructures(trace, base, room);
+    this.threadUpdateStructures(trace, kernel, base, room);
 
     trace.info('running', {
       storageId: this.storageId,
@@ -190,7 +190,7 @@ export default class LinkManager {
     return sleeping(TICK_STEP);
   }
 
-  updateStructures(trace: Tracer, base: Base, room: Room) {
+  updateStructures(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
     this.storageId = room.storage?.id;
     if (!this.storageId) {
       throw new Error('cannot create a link manager when room does not have storage');

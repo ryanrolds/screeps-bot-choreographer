@@ -5,12 +5,11 @@ import {DEFENSE_STATUS} from './constants.defense';
 import * as MEMORY from './constants.memory';
 import * as PRIORITIES from './constants.priorities';
 import * as TOPICS from './constants.topics';
-import {Kernel} from './kernel';
+import {Kernel, KernelThreadFunc, threadKernel} from './kernel';
 import {Tracer} from './lib.tracing';
 import {Process, sleeping} from './os.process';
 import {RunnableResult} from './os.runnable';
 import {Priorities, Scheduler} from './os.scheduler';
-import {thread, ThreadFunc} from './os.thread';
 import {scoreHealing} from './role.harasser';
 import {createSpawnRequest, getBaseSpawnTopic} from './runnable.base_spawning';
 import DefensePartyRunnable from './runnable.defense_party';
@@ -55,18 +54,18 @@ export default class DefenseManager {
   memory: DefenseMemory;
 
   defenseParties: DefensePartyRunnable[];
-  threadCheckColonyDefenses: ThreadFunc;
-  threadReturnDefendersToStation: ThreadFunc;
-  threadHandleDefenderRequest: ThreadFunc;
+  threadCheckColonyDefenses: KernelThreadFunc;
+  threadReturnDefendersToStation: KernelThreadFunc;
+  threadHandleDefenderRequest: KernelThreadFunc;
 
   constructor(kernel: Kernel, id: string, scheduler: Scheduler, trace: Tracer) {
     this.id = id;
     this.scheduler = scheduler;
     this.restoreFromMemory(kernel, trace);
 
-    this.threadCheckColonyDefenses = thread('check_defense_thread', REQUEST_DEFENDERS_TTL)(checkColonyDefenses);
-    this.threadReturnDefendersToStation = thread('recall_defenders_thread', REQUEST_DEFENDERS_TTL)(returnDefendersToStation);
-    this.threadHandleDefenderRequest = thread('request_defenders_thread', REQUEST_DEFENDER_TTL)(this.requestDefenders.bind(this));
+    this.threadCheckColonyDefenses = threadKernel('check_defense_thread', REQUEST_DEFENDERS_TTL)(checkColonyDefenses);
+    this.threadReturnDefendersToStation = threadKernel('recall_defenders_thread', REQUEST_DEFENDERS_TTL)(returnDefendersToStation);
+    this.threadHandleDefenderRequest = threadKernel('request_defenders_thread', REQUEST_DEFENDER_TTL)(this.requestDefenders.bind(this));
   }
 
   private restoreFromMemory(kernel: Kernel, trace: Tracer) {

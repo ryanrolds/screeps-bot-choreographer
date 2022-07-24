@@ -1,5 +1,6 @@
 import {MEMORY_BASE} from './constants.memory';
 import {Kernel} from './kernel';
+import {Tracer} from './lib.tracing';
 import {EffectSet, LabsByAction} from './runnable.base_booster';
 import {BaseLayout} from './runnable.base_construction';
 import {TerminalTask} from './runnable.base_terminal';
@@ -292,3 +293,39 @@ export function getStoredEffects(base: Base): EffectSet {
 export function getLoadedEffects(base: Base): LabsByAction {
   return base.labsByAction;
 }
+
+// Base thread
+export interface BaseTheadActionFunc {
+  (trace: Tracer, kernel: Kernel, base: Base, ...args: any[]): void;
+}
+
+export interface BaseThreadFunc {
+  (trace: Tracer, kernel: Kernel, base: Base, ...args: any[]): void;
+  reset(): void;
+}
+
+export const threadBase = (name: string, ttl: number) => (action: BaseTheadActionFunc): BaseThreadFunc => {
+  let lastCall = 0;
+
+  const tick = function (trace: Tracer, kernel: Kernel, base: Base, ...args: any[]): void {
+    if (lastCall + ttl <= Game.time) {
+      lastCall = Game.time;
+
+      const actionTrace = trace.begin(name);
+      const result = action(actionTrace, kernel, base, ...args);
+      actionTrace.end();
+
+      return result;
+    } else {
+      trace.log(`thread ${name} sleeping for ${lastCall + ttl - Game.time}`);
+    }
+
+    return null;
+  };
+
+  tick.reset = () => {
+    lastCall = 0;
+  };
+
+  return tick;
+};

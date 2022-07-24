@@ -18,7 +18,7 @@ describe('Scribe', function () {
 
     it("should setup empty memory", function () {
       const scribe = new Scribe(trace);
-      scribe.writeMemory(new Tracer('test', new Map(), 0));
+      scribe.writeMemory(new Tracer('test', new Map(), 0), null);
 
       const scribeMemory = (Memory as any).scribe;
       expect(scribeMemory.rooms).to.be.an('array');

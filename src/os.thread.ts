@@ -1,18 +1,18 @@
 import {Tracer} from './lib.tracing';
 
-interface ActionFunc {
+interface AnyTheadActionFunc {
   (trace: Tracer, ...args: any[]): void;
 }
 
-export interface ThreadFunc {
+export interface AnyThreadFunc {
   (trace: Tracer, ...args: any[]): void;
   reset(): void;
 }
 
-export const thread = (name: string, ttl: number) => (action: ActionFunc): ThreadFunc => {
+export const threadAny = (name: string, ttl: number) => (action: AnyTheadActionFunc): AnyThreadFunc => {
   let lastCall = 0;
 
-  const tick = function(trace: Tracer, ...args) {
+  const tick = function (trace: Tracer, ...args: any[]): void {
     if (lastCall + ttl <= Game.time) {
       lastCall = Game.time;
 

@@ -1,4 +1,4 @@
-import {AlertLevel, Base, getStructureForResource} from './base';
+import {AlertLevel, Base, BaseThreadFunc, getStructureForResource, threadBase} from './base';
 import {ROLE_WORKER, WORKER_HAULER, WORKER_MINER} from './constants.creeps';
 import * as MEMORY from './constants.memory';
 import {roadPolicy} from './constants.pathing_policies';
@@ -12,7 +12,6 @@ import {Tracer} from './lib.tracing';
 import {PersistentMemory} from './os.memory';
 import {sleeping, terminate} from './os.process';
 import {Runnable, RunnableResult} from './os.runnable';
-import {thread, ThreadFunc} from './os.thread';
 import {getBaseHaulerTopic, getLogisticsTopic, LogisticsEventData, LogisticsEventType} from './runnable.base_logistics';
 import {createSpawnRequest, getBaseSpawnTopic} from './runnable.base_spawning';
 import {getLinesStream, HudEventSet, HudLine} from './runnable.debug_hud';
@@ -34,13 +33,13 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
   linkId: Id<StructureLink>;
   dropoffId: Id<Structure>;
 
-  threadProduceEvents: ThreadFunc;
-  threadUpdateStructures: ThreadFunc;
-  threadUpdateDropoff: ThreadFunc;
-  threadRequestMiners: ThreadFunc;
-  threadRequestHauling: ThreadFunc;
-  threadBuildContainer: ThreadFunc;
-  threadBuildLink: ThreadFunc;
+  threadProduceEvents: BaseThreadFunc;
+  threadUpdateStructures: BaseThreadFunc;
+  threadUpdateDropoff: BaseThreadFunc;
+  threadRequestMiners: BaseThreadFunc;
+  threadRequestHauling: BaseThreadFunc;
+  threadBuildContainer: BaseThreadFunc;
+  threadBuildLink: BaseThreadFunc;
 
   constructor(source: Source) {
     super(source.id);
@@ -50,14 +49,14 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     this.creepPosition = null;
     this.linkPosition = null;
 
-    this.threadProduceEvents = thread('consume_events', RUN_TTL)(this.produceEvents.bind(this));
-    this.threadUpdateStructures = thread('update_structures', STRUCTURE_TTL)(this.updateStructures.bind(this));
-    this.threadUpdateDropoff = thread('update_dropoff', DROPOFF_TTL)(this.updateDropoff.bind(this));
-    this.threadBuildContainer = thread('build_container', CONTAINER_TTL)(this.buildContainer.bind(this));
-    this.threadBuildLink = thread('build_link', BUILD_LINK_TTL)(this.buildLink.bind(this));
+    this.threadProduceEvents = threadBase('consume_events', RUN_TTL)(this.produceEvents.bind(this));
+    this.threadUpdateStructures = threadBase('update_structures', STRUCTURE_TTL)(this.updateStructures.bind(this));
+    this.threadUpdateDropoff = threadBase('update_dropoff', DROPOFF_TTL)(this.updateDropoff.bind(this));
+    this.threadBuildContainer = threadBase('build_container', CONTAINER_TTL)(this.buildContainer.bind(this));
+    this.threadBuildLink = threadBase('build_link', BUILD_LINK_TTL)(this.buildLink.bind(this));
 
-    this.threadRequestMiners = thread('request_miners', RUN_TTL)(this.requestMiners.bind(this));
-    this.threadRequestHauling = thread('reqeust_hauling', RUN_TTL)(this.requestHauling.bind(this));
+    this.threadRequestMiners = threadBase('request_miners', RUN_TTL)(this.requestMiners.bind(this));
+    this.threadRequestHauling = threadBase('reqeust_hauling', RUN_TTL)(this.requestHauling.bind(this));
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
@@ -372,7 +371,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     }
   }
 
-  buildContainer(trace: Tracer, kernel: Kernel, source: (Source)) {
+  buildContainer(trace: Tracer, kernel: Kernel, base: Base, source: (Source)) {
     if (source.energy) {
       trace.log('only build container if exhausting source', {id: this.id});
       return;
@@ -408,9 +407,9 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     trace.log('container created', {id: this.id});
   }
 
-  buildLink(trace: Tracer, room: Room, source: Source) {
+  buildLink(trace: Tracer, base: Base, source: Source) {
     if (!this.linkPosition) {
-      trace.error('no link position', {room: room.name, id: this.id});
+      trace.error('no link position', {room: source.room.name, id: this.id});
       return;
     }
 
@@ -422,7 +421,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       }
     }
 
-    const roomLevel = room.controller?.level || 0;
+    const roomLevel = source.room.controller?.level || 0;
     if (roomLevel < 6) {
       trace.log('room level too low', {roomLevel});
       return;
@@ -436,13 +435,13 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       return;
     }
 
-    const linksInRoom = room.find(FIND_STRUCTURES, {
+    const linksInRoom = source.room.find(FIND_STRUCTURES, {
       filter: (s) => {
         return s.structureType === STRUCTURE_LINK;
       },
     });
 
-    const linkSitesInRoom = room.find(FIND_CONSTRUCTION_SITES, {
+    const linkSitesInRoom = source.room.find(FIND_CONSTRUCTION_SITES, {
       filter: (s) => {
         return s.structureType === STRUCTURE_LINK;
       },

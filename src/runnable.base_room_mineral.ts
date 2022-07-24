@@ -1,4 +1,4 @@
-import {AlertLevel, Base, getStructureForResource} from './base';
+import {AlertLevel, Base, BaseThreadFunc, getStructureForResource, threadBase} from './base';
 import {creepIsFresh} from './behavior.commute';
 import {WORKER_HARVESTER} from './constants.creeps';
 import * as MEMORY from './constants.memory';
@@ -11,7 +11,6 @@ import {Tracer} from './lib.tracing';
 import {PersistentMemory} from './os.memory';
 import {sleeping, terminate} from './os.process';
 import {Runnable, RunnableResult} from './os.runnable';
-import {thread, ThreadFunc} from './os.thread';
 import {getLogisticsTopic, LogisticsEventData, LogisticsEventType} from './runnable.base_logistics';
 import {createSpawnRequest, getBaseSpawnTopic} from './runnable.base_spawning';
 import {getLinesStream, HudEventSet, HudLine} from './runnable.debug_hud';
@@ -36,10 +35,10 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
 
   dropoffId: Id<Structure>;
 
-  threadProduceEvents: ThreadFunc;
-  threadUpdateDropoff: ThreadFunc;
-  threadRequestHarvesters: ThreadFunc;
-  threadBuildExtractor: ThreadFunc;
+  threadProduceEvents: BaseThreadFunc;
+  threadUpdateDropoff: BaseThreadFunc;
+  threadRequestHarvesters: BaseThreadFunc;
+  threadBuildExtractor: BaseThreadFunc;
 
   constructor(mineral: Mineral) {
     super(mineral.id);
@@ -48,10 +47,10 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
     this.position = mineral.pos;
     this.creepPosition = null;
 
-    this.threadProduceEvents = thread('consume_events', PRODUCE_EVENTS_TTL)(this.produceEvents.bind(this));
-    this.threadUpdateDropoff = thread('update_dropoff', DROPOFF_TTL)(this.updateDropoff.bind(this));
-    this.threadRequestHarvesters = thread('request_miners', REQUEST_WORKER_TTL)(this.requestHarvesters.bind(this));
-    this.threadBuildExtractor = thread('build_extractor', CONTAINER_TTL)(this.buildExtractor.bind(this));
+    this.threadProduceEvents = threadBase('consume_events', PRODUCE_EVENTS_TTL)(this.produceEvents.bind(this));
+    this.threadUpdateDropoff = threadBase('update_dropoff', DROPOFF_TTL)(this.updateDropoff.bind(this));
+    this.threadRequestHarvesters = threadBase('request_miners', REQUEST_WORKER_TTL)(this.requestHarvesters.bind(this));
+    this.threadBuildExtractor = threadBase('build_extractor', CONTAINER_TTL)(this.buildExtractor.bind(this));
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {

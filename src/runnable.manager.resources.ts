@@ -15,13 +15,12 @@ import {
 } from './constants.priorities';
 import {REACTION, TASK_MARKET_ORDER, TASK_TRANSFER} from './constants.tasks';
 import {ACTIVE_REACTIONS, ROOM_STATUES, TASK_REACTION} from './constants.topics';
-import {Kernel} from './kernel';
+import {Kernel, KernelThreadFunc, threadKernel} from './kernel';
 import {Consumer} from './lib.event_broker';
 import {SigmoidPricing} from './lib.sigmoid_pricing';
 import {Tracer} from './lib.tracing';
 import {running} from './os.process';
 import {Runnable, RunnableResult} from './os.runnable';
-import {thread, ThreadFunc} from './os.thread';
 import {Reaction, ReactionMap} from './runnable.base_booster';
 import {
   REACTION_STATUS_START, REACTION_STATUS_STOP, REACTION_STATUS_STREAM,
@@ -76,13 +75,13 @@ export class ResourceManager implements Runnable {
   private reactionStatuses = {};
   private reactionStatusStreamConsumer: Consumer;
 
-  private threadUpdateResources: ThreadFunc;
-  private threadRequestReactions: ThreadFunc;
-  private threadRequestSellExtraResources: ThreadFunc;
-  private threadDistributeBoosts: ThreadFunc;
-  private threadConsumeStatuses: ThreadFunc;
-  private threadConsumeReactionStatusStream: ThreadFunc;
-  private threadBalanceEnergy: ThreadFunc;
+  private threadUpdateResources: KernelThreadFunc;
+  private threadRequestReactions: KernelThreadFunc;
+  private threadRequestSellExtraResources: KernelThreadFunc;
+  private threadDistributeBoosts: KernelThreadFunc;
+  private threadConsumeStatuses: KernelThreadFunc;
+  private threadConsumeReactionStatusStream: KernelThreadFunc;
+  private threadBalanceEnergy: KernelThreadFunc;
 
   constructor(kernel: Kernel) {
     this.kernel = kernel;
@@ -99,28 +98,28 @@ export class ResourceManager implements Runnable {
     this.reactionStatusStreamConsumer = kernel.getBroker().
       getStream(REACTION_STATUS_STREAM).addConsumer('resource_governor');
 
-    this.threadUpdateResources = thread('update_resources_thread', UPDATE_RESOURCES_TTL)((trace: Tracer, kernel: Kernel) => {
+    this.threadUpdateResources = threadKernel('update_resources_thread', UPDATE_RESOURCES_TTL)((trace: Tracer, kernel: Kernel) => {
       this.resources = this.getBaseResources();
       this.sharedResources = this.getSharedResources();
     });
 
-    this.threadRequestReactions = thread('request_reactions_thread', REQUEST_REACTION_TTL)((trace: Tracer, kernel: Kernel) => {
+    this.threadRequestReactions = threadKernel('request_reactions_thread', REQUEST_REACTION_TTL)((trace: Tracer, kernel: Kernel) => {
       this.availableReactions = this.getReactions(kernel, trace);
       this.requestReactions(trace, kernel);
     });
 
-    this.threadRequestSellExtraResources = thread('request_sell_resources_tread', REQUEST_SELL_TTL)((trace: Tracer, kernel: Kernel) => {
+    this.threadRequestSellExtraResources = threadKernel('request_sell_resources_tread', REQUEST_SELL_TTL)((trace: Tracer, kernel: Kernel) => {
       this.requestSellResource(trace, kernel);
     });
 
-    this.threadDistributeBoosts = thread('distribute_boosts_thread', REQUEST_DISTRIBUTE_BOOSTS)((trace: Tracer, kernel: Kernel) => {
+    this.threadDistributeBoosts = threadKernel('distribute_boosts_thread', REQUEST_DISTRIBUTE_BOOSTS)((trace: Tracer, kernel: Kernel) => {
       this.distributeBoosts(trace, kernel);
     });
 
-    this.threadConsumeStatuses = thread('statuses_thread', CONSUME_STATUS_TTL)(this.consumeStatuses.bind(this));
-    this.threadConsumeReactionStatusStream = thread('reaction_stream',
+    this.threadConsumeStatuses = threadKernel('statuses_thread', CONSUME_STATUS_TTL)(this.consumeStatuses.bind(this));
+    this.threadConsumeReactionStatusStream = threadKernel('reaction_stream',
       CONSUME_STATUS_TTL)(this.consumeReactionStatusStream.bind(this));
-    this.threadBalanceEnergy = thread('balance_energy_thread',
+    this.threadBalanceEnergy = threadKernel('balance_energy_thread',
       BALANCE_ENERGY_TTL)(this.balanceEnergy.bind(this));
   }
 

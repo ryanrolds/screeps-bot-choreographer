@@ -1,5 +1,6 @@
 import * as _ from 'lodash';
-import {Base} from './base';
+import {getBasePrimaryRoom} from './base';
+import {BaseRoomThreadFunc, threadBaseRoom} from './base_room';
 import {AttackRequest, AttackStatus, ATTACK_ROOM_TTL, Phase} from './constants.attack';
 import {DEFINITIONS} from './constants.creeps';
 import {PRIORITY_ATTACKER} from './constants.priorities';
@@ -12,7 +13,6 @@ import {scoreRoomDamage, scoreStorageHealing} from './lib.scoring';
 import {Tracer} from './lib.tracing';
 import {running, STATUS_TERMINATED} from './os.process';
 import {RunnableResult} from './os.runnable';
-import {thread, ThreadFunc} from './os.thread';
 import PartyRunnable, {FORMATION_QUAD, FORMATION_SINGLE_FILE, FORMATION_TYPE} from './runnable.party';
 import {RoomEntry} from './runnable.scribe';
 
@@ -90,7 +90,7 @@ export const warPartySingleFilePolicy: FindPathPolicy = {
 
 export default class WarPartyRunnable {
   id: string;
-  base: Base;
+  baseId: string;
   flagId: string; // Starting position
   targetRoom: string; // Destination room
   role: string;
@@ -113,12 +113,12 @@ export default class WarPartyRunnable {
   cannotFindPath: boolean;
 
   kernel: Kernel;
-  threadUpdateParts: ThreadFunc;
+  threadUpdateParts: BaseRoomThreadFunc;
 
-  constructor(id: string, base: Base, flagId: string, position: RoomPosition, targetRoom: string,
+  constructor(id: string, baseId: string, flagId: string, position: RoomPosition, targetRoom: string,
     role: string, phase: Phase) {
     this.id = id;
-    this.base = base;
+    this.baseId = baseId;
     this.flagId = flagId;
     this.targetRoom = targetRoom;
     this.role = role;
@@ -131,7 +131,7 @@ export default class WarPartyRunnable {
     this.range = 3;
     this.direction = BOTTOM;
 
-    this.party = new PartyRunnable(id, base, position, role, [], this.minEnergy, PRIORITY_ATTACKER,
+    this.party = new PartyRunnable(id, baseId, position, role, [], this.minEnergy, PRIORITY_ATTACKER,
       REQUEST_ATTACKER_TTL);
 
     this.pathDestination = null;
@@ -139,11 +139,16 @@ export default class WarPartyRunnable {
     this.pathTime = 0;
     this.cannotFindPath = false;
 
-    this.threadUpdateParts = thread('update_parts', UPDATE_PARTS_INTERVAL)(this.updateParts.bind(this));
+    this.threadUpdateParts = threadBaseRoom('update_parts', UPDATE_PARTS_INTERVAL)(this.updateParts.bind(this));
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('warparty_run');
+
+    const base = kernel.getPlanner().getBaseById(this.baseId);
+    if (!base) {
+      trace.end();
+    }
 
 
     // TODO use a war party specific topic for notifying of target change
@@ -160,10 +165,10 @@ export default class WarPartyRunnable {
       return running();
     }
 
-    const baseRoom = Game.rooms[this.base.primary];
+    const baseRoom = getBasePrimaryRoom(base);
     if (!baseRoom) {
       trace.end();
-      trace.error('no base room', {base: this.base});
+      trace.error('no base room', {base: this.baseId});
       return running();
     }
 
@@ -171,7 +176,7 @@ export default class WarPartyRunnable {
     if (!this.parts) {
       this.updateParts(trace, baseRoom, targetRoomEntry);
     } else {
-      this.threadUpdateParts(trace, baseRoom, targetRoomEntry);
+      this.threadUpdateParts(trace, kernel, base, baseRoom, targetRoomEntry);
     }
 
     if (!targetRoom) {
@@ -186,8 +191,8 @@ export default class WarPartyRunnable {
       trace.info('war party run', {
         id: this.id,
         flag: flag.name,
-        baseId: this.base.id,
-        primaryRoomId: this.base.primary,
+        baseId: base.id,
+        primaryRoomId: base.primary,
         targetRoom,
         phase: this.phase,
         position: this.position,
@@ -251,7 +256,7 @@ export default class WarPartyRunnable {
           this.position.findClosestByRange(creeps)?.pos.getRangeTo(this.position) > 5) {
           this.phase = Phase.PHASE_MARSHAL;
 
-          const roomName = this.base.primary;
+          const roomName = base.primary;
           const roomObject = Game.rooms[roomName];
           if (!roomObject) {
             trace.error(`no room object for ${roomName}`);

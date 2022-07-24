@@ -1,4 +1,4 @@
-import {AlertLevel, Base} from './base';
+import {AlertLevel, Base, BaseThreadFunc, getStructureForResource, threadBase} from './base';
 import {ROLE_WORKER, WORKER_HAULER} from './constants.creeps';
 import {MEMORY_BASE, MEMORY_HAUL_AMOUNT, MEMORY_HAUL_DROPOFF, MEMORY_HAUL_PICKUP, MEMORY_HAUL_RESOURCE, MEMORY_TASK_TYPE, TASK_ID} from './constants.memory';
 import {roadPolicy} from './constants.pathing_policies';
@@ -8,13 +8,11 @@ import {Kernel} from './kernel';
 import {Consumer, Event} from './lib.event_broker';
 import {getPath, visualizePath} from './lib.pathing';
 import * as PID from './lib.pid';
-import {getReserveStructureWithRoomForResource} from './lib.storage';
 import {TopicKey} from './lib.topics';
 import {Tracer} from './lib.tracing';
 import {PersistentMemory} from './os.memory';
 import {sleeping} from './os.process';
 import {RunnableResult} from './os.runnable';
-import {thread, ThreadFunc} from './os.thread';
 import {createSpawnRequest, getBaseSpawnTopic} from './runnable.base_spawning';
 import {getLinesStream, HudEventSet, HudLine} from './runnable.debug_hud';
 
@@ -57,9 +55,6 @@ type Leg = {
 export default class LogisticsRunnable extends PersistentMemory {
   private baseId: string;
 
-  private storage: AnyStoreStructure;
-  private threadUpdateStorage: ThreadFunc;
-
   private legs: Map<string, Leg>;
   private selectedLeg: Leg | null;
   private passes: number;
@@ -70,24 +65,24 @@ export default class LogisticsRunnable extends PersistentMemory {
   private numIdleHaulers = 0;
   private avgHaulerCapacity = 1000;
 
-  private threadConsumeEvents: ThreadFunc;
-  private threadProduceEvents: ThreadFunc;
+  private threadConsumeEvents: BaseThreadFunc;
+  private threadProduceEvents: BaseThreadFunc;
 
   private desiredHaulers: number;
   private pidHaulersMemory: Map<string, number>;
 
-  private threadHaulerPID: ThreadFunc;
-  private threadRequestHaulers: ThreadFunc;
-  private threadUpdateHaulers: ThreadFunc;
+  private threadHaulerPID: BaseThreadFunc;
+  private threadRequestHaulers: BaseThreadFunc;
+  private threadUpdateHaulers: BaseThreadFunc;
 
-  private threadRequestHaulDroppedResources: ThreadFunc;
-  private threadRequestHaulTombstones: ThreadFunc;
+  private threadRequestHaulDroppedResources: BaseThreadFunc;
+  private threadRequestHaulTombstones: BaseThreadFunc;
 
   // threadBuildRoads: ThreadFunc;
   private calculateLegIterator: Generator<any, void, {kernel: Kernel, trace: Tracer}>;
-  private threadCalculateLeg: ThreadFunc;
-  private threadBuildShortestLeg: ThreadFunc;
-  private threadEnsureWallPassage: ThreadFunc;
+  private threadCalculateLeg: BaseThreadFunc;
+  private threadBuildShortestLeg: BaseThreadFunc;
+  private threadEnsureWallPassage: BaseThreadFunc;
   private logisticsStreamConsumer: Consumer;
 
   constructor(baseId: string) {
@@ -104,27 +99,27 @@ export default class LogisticsRunnable extends PersistentMemory {
     PID.setup(this.pidHaulersMemory, 0, 0.2, 0.0005, 0);
 
     this.logisticsStreamConsumer = null;
-    this.threadConsumeEvents = thread('consume_events', CONSUME_EVENTS_TTL)(this.consumeEvents.bind(this));
+    this.threadConsumeEvents = threadBase('consume_events', CONSUME_EVENTS_TTL)(this.consumeEvents.bind(this));
 
     // Iterate through all destinations and calculate the remaining roads to build
     this.calculateLegIterator = this.calculateLegGenerator();
-    this.threadCalculateLeg = thread('calculate_leg', CALCULATE_LEG_TTL)((trace: Tracer, kernel: Kernel) => {
+    this.threadCalculateLeg = threadBase('calculate_leg', CALCULATE_LEG_TTL)((trace: Tracer, kernel: Kernel, base: Base) => {
       this.calculateLegIterator.next({trace, kernel});
     });
 
-    this.threadUpdateHaulers = thread('update_haulers_thread', UPDATE_HAULERS_TTL)(this.updateHaulers.bind(this));
-    this.threadHaulerPID = thread('hauler_pid', UPDATE_HAULERS_TTL)(this.updatePID.bind(this));
-    this.threadRequestHaulers = thread('request_haulers_thread', REQUEST_HAULER_TTL)(this.requestHaulers.bind(this));
+    this.threadUpdateHaulers = threadBase('update_haulers_thread', UPDATE_HAULERS_TTL)(this.updateHaulers.bind(this));
+    this.threadHaulerPID = threadBase('hauler_pid', UPDATE_HAULERS_TTL)(this.updatePID.bind(this));
+    this.threadRequestHaulers = threadBase('request_haulers_thread', REQUEST_HAULER_TTL)(this.requestHaulers.bind(this));
 
-    this.threadRequestHaulDroppedResources = thread('request_haul_dropped_thread', REQUEST_HAUL_DROPPED_RESOURCES_TTL)(this.requestHaulDroppedResources.bind(this));
-    this.threadRequestHaulTombstones = thread('request_haul_tombstone_thread', REQUEST_HAUL_DROPPED_RESOURCES_TTL)(this.requestHaulTombstones.bind(this));
+    this.threadRequestHaulDroppedResources = threadBase('request_haul_dropped_thread', REQUEST_HAUL_DROPPED_RESOURCES_TTL)(this.requestHaulDroppedResources.bind(this));
+    this.threadRequestHaulTombstones = threadBase('request_haul_tombstone_thread', REQUEST_HAUL_DROPPED_RESOURCES_TTL)(this.requestHaulTombstones.bind(this));
 
     // From the calculated legs, select shortest to build and build it
-    this.threadBuildShortestLeg = thread('select_leg', BUILD_SHORTEST_LEG_TTL)(this.buildShortestLeg.bind(this));
+    this.threadBuildShortestLeg = threadBase('select_leg', BUILD_SHORTEST_LEG_TTL)(this.buildShortestLeg.bind(this));
     // Walls may be built that block access to sources, check and remove any walls along the path and replace with road
-    this.threadEnsureWallPassage = thread('ensure_wall_passage', BUILD_SHORTEST_LEG_TTL)(this.ensureWallPassage.bind(this));
+    this.threadEnsureWallPassage = threadBase('ensure_wall_passage', BUILD_SHORTEST_LEG_TTL)(this.ensureWallPassage.bind(this));
 
-    this.threadProduceEvents = thread('produce_events', PRODUCE_EVENTS_TTL)(this.produceEvents.bind(this));
+    this.threadProduceEvents = threadBase('produce_events', PRODUCE_EVENTS_TTL)(this.produceEvents.bind(this));
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
@@ -141,14 +136,13 @@ export default class LogisticsRunnable extends PersistentMemory {
       return sleeping(20);
     }
 
-    this.threadConsumeEvents(trace, kernel);
-    this.threadUpdateStorage(trace, kernel, base);
+    this.threadConsumeEvents(trace, kernel, base);
 
     // If red alert, don't do anything
     if (base.alertLevel === AlertLevel.GREEN) {
       this.threadCalculateLeg(trace, kernel, base);
-      this.threadBuildShortestLeg(trace, base);
-      this.threadEnsureWallPassage(trace, base);
+      this.threadBuildShortestLeg(trace, kernel, base);
+      this.threadEnsureWallPassage(trace, kernel, base);
     }
 
     this.threadUpdateHaulers(trace, kernel, base);
@@ -170,7 +164,7 @@ export default class LogisticsRunnable extends PersistentMemory {
     return sleeping(1);
   }
 
-  private consumeEvents(trace: Tracer, kernel: Kernel) {
+  private consumeEvents(trace: Tracer, kernel: Kernel, base: Base) {
     this.logisticsStreamConsumer.getEvents().forEach((event) => {
       switch (event.type) {
         case LogisticsEventType.RequestRoad:
@@ -180,7 +174,7 @@ export default class LogisticsRunnable extends PersistentMemory {
     });
   }
 
-  private updateHaulers(trace: Tracer, kernel: Kernel) {
+  private updateHaulers(trace: Tracer, kernel: Kernel, base: Base) {
     // Get list of haulers and workers
     this.haulers = kernel.getCreepsManager().getCreepsByBaseAndRole(this.baseId, ROLE_WORKER);
     this.numHaulers = this.haulers.length;
@@ -249,7 +243,10 @@ export default class LogisticsRunnable extends PersistentMemory {
       role = ROLE_WORKER;
     }
 
-    trace.notice('request haulers', {numHaulers: this.numHaulers, desiredHaulers: this.desiredHaulers});
+    trace.notice('request haulers', {
+      numHaulers: this.numHaulers, desiredHaulers: this.desiredHaulers,
+      baseId: base.id
+    });
 
     // PID approach
     if (this.numHaulers < this.desiredHaulers) {
@@ -326,7 +323,11 @@ export default class LogisticsRunnable extends PersistentMemory {
           priority += DUMP_NEXT_TO_STORAGE;
         }
 
-        const dropoff = this.storage;
+        const dropoff = getStructureForResource(base, resource.resourceType);
+        if (!dropoff) {
+          trace.warn('no dropoff for resource', {resource: resource.resourceType, baseId: base.id});
+          return;
+        }
 
         const haulersWithTask = this.haulers.filter((creep) => {
           const task = creep.memory[MEMORY_TASK_TYPE];
@@ -392,9 +393,9 @@ export default class LogisticsRunnable extends PersistentMemory {
       tombstones.forEach((tombstone) => {
         Object.keys(tombstone.store).forEach((resourceType: ResourceConstant) => {
           trace.log('tombstone', {id: tombstone.id, resource: resourceType, amount: tombstone.store[resourceType]});
-          const dropoff = getReserveStructureWithRoomForResource(Game, base, resourceType);
+          const dropoff = getStructureForResource(base, resourceType);
           if (!dropoff) {
-            trace.warn('no reserve structure for resource dropoff', {baseId: base.id, resourceType});
+            trace.warn('no dropoff for resource', {resource: resourceType});
             return;
           }
 
@@ -524,7 +525,7 @@ export default class LogisticsRunnable extends PersistentMemory {
     return [pathResult.path, remaining];
   }
 
-  private ensureWallPassage(trace: Tracer, base: Base) {
+  private ensureWallPassage(trace: Tracer, kernel: Kernel, base: Base) {
     const legs = Array.from(this.legs.values());
 
     const unfinishedLegs: Leg[] = legs.filter((leg: Leg) => {
@@ -568,7 +569,7 @@ export default class LogisticsRunnable extends PersistentMemory {
     });
   }
 
-  private buildShortestLeg(trace: Tracer, base: Base) {
+  private buildShortestLeg(trace: Tracer, kernel: Kernel, base: Base) {
     if (this.passes < 1) {
       trace.log('calculate all legs at least once before building shortest leg', {passes: this.passes});
       return;

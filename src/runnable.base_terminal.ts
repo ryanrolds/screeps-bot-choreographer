@@ -1,15 +1,14 @@
-import {Base, getStoredResourceAmount, getStructureForResource, getStructureWithResource} from './base';
+import {Base, BaseThreadFunc, getStoredResourceAmount, getStructureForResource, getStructureWithResource, threadBase} from './base';
 import {PRICES} from './constants.market';
 import * as MEMORY from './constants.memory';
 import * as PRIORITIES from './constants.priorities';
 import * as TASKS from './constants.tasks';
 import * as TOPICS from './constants.topics';
-import {Kernel} from './kernel';
+import {Kernel, KernelThreadFunc, threadKernel} from './kernel';
 import {ResourcePricer, SigmoidPricing} from './lib.sigmoid_pricing';
 import {Tracer} from './lib.tracing';
 import {running, sleeping, terminate} from './os.process';
 import {RunnableResult} from './os.runnable';
-import {thread, ThreadFunc} from './os.thread';
 import {getBaseDistributorTopic} from './role.distributor';
 
 const TASK_PHASE_HAUL_RESOURCE = 'phase_transfer_resource';
@@ -47,8 +46,8 @@ export default class TerminalRunnable {
   pricer: ResourcePricer;
   energyValue: number;
 
-  threadHaulOldSellOrders: ThreadFunc;
-  threadUpdateEnergyValue: ThreadFunc;
+  threadHaulOldSellOrders: BaseThreadFunc;
+  threadUpdateEnergyValue: KernelThreadFunc;
 
   constructor(baseId: string, terminal: StructureTerminal) {
     this.baseId = baseId;
@@ -60,8 +59,8 @@ export default class TerminalRunnable {
     this.updateOrdersTTL = ORDER_MGMT_TTL;
     this.pricer = new SigmoidPricing(PRICES);
 
-    this.threadHaulOldSellOrders = thread('haul_old_sell_orders_thread', HAUL_OLD_SELL_ORDER_TTL)(this.haulOldSellOrders.bind(this));
-    this.threadUpdateEnergyValue = thread('update_energy_thread', UPDATE_ENERGY_VALUE_TTL)(this.updateEnergyValue.bind(this));
+    this.threadHaulOldSellOrders = threadBase('haul_old_sell_orders_thread', HAUL_OLD_SELL_ORDER_TTL)(this.haulOldSellOrders.bind(this));
+    this.threadUpdateEnergyValue = threadKernel('update_energy_thread', UPDATE_ENERGY_VALUE_TTL)(this.updateEnergyValue.bind(this));
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
@@ -94,7 +93,7 @@ export default class TerminalRunnable {
     }
 
     this.threadHaulOldSellOrders(trace, kernel, base, terminal);
-    this.threadUpdateEnergyValue(trace, kernel, base, terminal);
+    this.threadUpdateEnergyValue(trace, kernel);
 
     const task = base.terminalTask || null;
     if (!task) {

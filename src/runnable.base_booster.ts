@@ -1,4 +1,4 @@
-import {Base, getStoredResources, getStructureForResource, getStructureWithResource, ResourceCounts} from './base';
+import {Base, BaseThreadFunc, getStoredResources, getStructureForResource, getStructureWithResource, ResourceCounts, threadBase} from './base';
 import * as MEMORY from './constants.memory';
 import * as PRIORITIES from './constants.priorities';
 import * as TASKS from './constants.tasks';
@@ -7,7 +7,6 @@ import {Kernel} from './kernel';
 import {Tracer} from './lib.tracing';
 import {sleeping, terminate} from './os.process';
 import {RunnableResult} from './os.runnable';
-import {thread, ThreadFunc} from './os.thread';
 import {getBaseDistributorTopic} from './role.distributor';
 
 const MIN_COMPOUND = 500;
@@ -79,7 +78,7 @@ export default class BoosterRunnable {
   boostPosition: RoomPosition;
   allEffects: EffectSet;
 
-  threadUpdateBoosters: ThreadFunc;
+  threadUpdateBoosters: BaseThreadFunc;
 
   constructor(id: string, baseId: string, labIds: Id<StructureLab>[]) {
     this.id = id;
@@ -88,7 +87,7 @@ export default class BoosterRunnable {
     this.allEffects = null;
 
     this.boostPosition = this.getCreepBoostPosition();
-    this.threadUpdateBoosters = thread('update_room_booster', UPDATE_ROOM_BOOSTER_INTERVAL)(this.updateBoosters.bind(this));
+    this.threadUpdateBoosters = threadBase('update_room_booster', UPDATE_ROOM_BOOSTER_INTERVAL)(this.updateBoosters.bind(this));
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {

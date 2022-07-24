@@ -1,4 +1,4 @@
-import {AlertLevel} from './base';
+import {AlertLevel, Base, BaseThreadFunc, threadBase} from './base';
 import {controllerRoadPolicy} from './constants.pathing_policies';
 import {Kernel} from './kernel';
 import {Event} from './lib.event_broker';
@@ -8,7 +8,6 @@ import {Tracer} from './lib.tracing';
 import {PersistentMemory} from './os.memory';
 import {sleeping} from './os.process';
 import {Runnable, RunnableResult} from './os.runnable';
-import {thread, ThreadFunc} from './os.thread';
 import {getLogisticsTopic, LogisticsEventData, LogisticsEventType} from './runnable.base_logistics';
 
 const RUN_TTL = 50;
@@ -89,16 +88,16 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
   nodeDirection: DirectionConstant;
   roadPosition: RoomPosition;
 
-  threadProduceEvents: ThreadFunc;
-  threadBuildStructures: ThreadFunc;
+  threadProduceEvents: BaseThreadFunc;
+  threadBuildStructures: BaseThreadFunc;
 
   constructor(controllerId: string) {
     super(controllerId);
 
     this.controllerId = controllerId;
 
-    this.threadBuildStructures = thread('check_structures', BUILD_STRUCTURES_TTL)(this.buildStructures.bind(this));
-    this.threadProduceEvents = thread('consume_events', PRODUCE_EVENTS_TTL)(this.produceEvents.bind(this));
+    this.threadBuildStructures = threadBase('check_structures', BUILD_STRUCTURES_TTL)(this.buildStructures.bind(this));
+    this.threadProduceEvents = threadBase('consume_events', PRODUCE_EVENTS_TTL)(this.produceEvents.bind(this));
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
@@ -128,8 +127,8 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
     }
 
     if (base.alertLevel === AlertLevel.GREEN) {
-      this.threadBuildStructures(trace, controller.room);
-      this.threadProduceEvents(trace, kernel, controller);
+      this.threadBuildStructures(trace, kernel, base, controller.room);
+      this.threadProduceEvents(trace, kernel, base, controller);
     }
 
     return sleeping(RUN_TTL);
@@ -186,16 +185,10 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
     this.setMemory(memory, false);
   }
 
-  produceEvents(trace: Tracer, kernel: Kernel, controller: StructureController) {
+  produceEvents(trace: Tracer, kernel: Kernel, base: Base, controller: StructureController) {
     const position = this.roadPosition;
     if (!position) {
       trace.error('no road position', {room: controller.room.name});
-      return;
-    }
-
-    const base = kernel.getPlanner().getBaseByRoom(controller.room.name);
-    if (!base) {
-      trace.error('no colony config', {room: controller.room.name});
       return;
     }
 
@@ -212,7 +205,7 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
     }
   }
 
-  buildStructures(trace: Tracer, room: Room) {
+  buildStructures(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
     trace.log('building structures for controller', {controllerId: this.controllerId});
 
     if (!this.nodePosition || !this.nodeDirection) {

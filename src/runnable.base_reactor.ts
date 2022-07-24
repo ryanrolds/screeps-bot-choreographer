@@ -1,4 +1,5 @@
 import {Base, getBasePrimaryRoom, getStructureForResource, getStructureWithResource} from './base';
+import {BaseRoomThreadFunc, threadBaseRoom} from './base_room';
 import * as MEMORY from './constants.memory';
 import * as PRIORITIES from './constants.priorities';
 import * as TASKS from './constants.tasks';
@@ -9,7 +10,6 @@ import {Tracer} from './lib.tracing';
 import {PersistentMemory} from './os.memory';
 import {running, sleeping, terminate} from './os.process';
 import {RunnableResult} from './os.runnable';
-import {thread, ThreadFunc} from './os.thread';
 import {getBaseDistributorTopic} from './role.distributor';
 
 const TASK_PHASE_START = 'phase_start';
@@ -33,13 +33,23 @@ export const REACTION_STATUS_START = 'reaction_status_start';
 export const REACTION_STATUS_UPDATE = 'reaction_status_update';
 export const REACTION_STATUS_STOP = 'reaction_status_stop';
 
+type ReactorTask = {
+  [MEMORY.TASK_ID]: string
+  [MEMORY.MEMORY_TASK_TYPE]: string
+  [MEMORY.MEMORY_HAUL_PICKUP]: Id<StructureConstant>
+  [MEMORY.MEMORY_HAUL_RESOURCE]: ResourceConstant
+  [MEMORY.MEMORY_HAUL_AMOUNT]: number
+  [MEMORY.MEMORY_HAUL_DROPOFF]: Id<StructureConstant>
+  [MEMORY.REACTOR_TTL]: number
+}
+
 export default class ReactorRunnable extends PersistentMemory {
   id: string;
   baseId: string;
   labIds: Id<StructureLab>[];
   prevTime: number;
 
-  threadProduceStatus: ThreadFunc;
+  threadProduceStatus: BaseRoomThreadFunc;
 
   constructor(id: string, baseId: string, labIds: Id<StructureLab>[]) {
     super(id);
@@ -49,7 +59,8 @@ export default class ReactorRunnable extends PersistentMemory {
     this.labIds = labIds;
     this.prevTime = Game.time;
 
-    this.threadProduceStatus = thread('produce_status_thread', PRODUCE_STATUS_TTL)(this.produceUpdateStatus.bind(this));
+    this.threadProduceStatus = threadBaseRoom('produce_status_thread',
+      PRODUCE_STATUS_TTL)(this.produceUpdateStatus.bind(this));
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
@@ -79,24 +90,32 @@ export default class ReactorRunnable extends PersistentMemory {
       return terminate();
     }
 
-    const task = room.memory[this.getTaskMemoryId()] || null;
+    let task = this.getTask(trace);
     if (!task) {
       trace.log('no current task', {});
 
-      const task = kernel.getTopics().getNextRequest(TOPICS.TASK_REACTION);
-      if (!task) {
+      const request = kernel.getTopics().getNextRequest(TOPICS.TASK_REACTION);
+      if (!request) {
         trace.log('no available tasks', {});
         trace.end();
         return sleeping(NEW_TASK_SLEEP);
       }
 
-      task[MEMORY.REACTOR_TTL] = TASK_TTL;
-      room.memory[this.getTaskMemoryId()] = task;
+      task = {
+        [MEMORY.TASK_ID]: `unload-${this.id}-${Game.time}`,
+        [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
+        [MEMORY.MEMORY_HAUL_PICKUP]: request.details[MEMORY.MEMORY_HAUL_PICKUP],
+        [MEMORY.MEMORY_HAUL_RESOURCE]: request.details[MEMORY.MEMORY_HAUL_RESOURCE],
+        [MEMORY.MEMORY_HAUL_AMOUNT]: request.details[MEMORY.MEMORY_HAUL_AMOUNT],
+        [MEMORY.MEMORY_HAUL_DROPOFF]: request.details[MEMORY.MEMORY_HAUL_DROPOFF],
+        [MEMORY.REACTOR_TTL]: TASK_TTL,
+      };
+      this.setTask(task);
 
       trace.log('got new task', {task});
     }
 
-    this.threadProduceStatus(trace, kernel, room, labs, task);
+    this.threadProduceStatus(trace, kernel, base, room, labs, task);
 
     trace.log('reactor run', {
       labIds: this.labIds,
@@ -105,7 +124,10 @@ export default class ReactorRunnable extends PersistentMemory {
     });
 
     if (task) {
-      const sleepFor = this.processTask(kernel, base, room, labs, task, ticks, trace);
+      let sleepFor = 0;
+      [task, sleepFor] = this.processTask(kernel, base, room, labs, task, ticks, trace);
+      this.setTask(task);
+
       if (sleepFor) {
         trace.end();
         return sleeping(sleepFor);
@@ -121,35 +143,54 @@ export default class ReactorRunnable extends PersistentMemory {
       return null;
     }
 
-    return this.getTask(trace).details[MEMORY.REACTOR_OUTPUT];
+    return this.getTask(trace)[MEMORY.REACTOR_OUTPUT];
   }
   getTaskMemoryId() {
     return `${MEMORY.REACTOR_TASK}`;
   }
-  getTask(trace: Tracer) {
+
+  getTask(trace: Tracer): ReactorTask {
     const memory = this.getMemory(trace);
+    if (!memory) {
+      return null;
+    }
+
     return memory[this.getTaskMemoryId()] || null;
   }
+
+  setTask(task: ReactorTask) {
+    this.setMemory({
+      [this.getTaskMemoryId()]: task,
+    });
+  }
+
   isIdle(trace: Tracer) {
     return !this.getTask(trace);
   }
+
   clearTask(trace: Tracer) {
     const memory = this.getMemory(trace);
+    if (!memory) {
+      return;
+    }
+
     delete memory[this.getTaskMemoryId()];
     this.setMemory(memory);
   }
 
   // TODO create type for task
-  processTask(kernel: Kernel, base: Base, room: Room, labs: StructureLab[], task: any, ticks: number, trace: Tracer): number {
-    const inputA = task.details[MEMORY.REACTOR_INPUT_A];
-    const amount = task.details[MEMORY.REACTOR_AMOUNT];
-    const inputB = task.details[MEMORY.REACTOR_INPUT_B];
+  processTask(kernel: Kernel, base: Base, room: Room, labs: StructureLab[], task: ReactorTask,
+    ticks: number, trace: Tracer): [ReactorTask, number] {
+    const inputA = task[MEMORY.REACTOR_INPUT_A];
+    const amount = task[MEMORY.REACTOR_AMOUNT];
+    const inputB = task[MEMORY.REACTOR_INPUT_B];
     const phase = task[MEMORY.TASK_PHASE] || TASK_PHASE_START;
 
     switch (phase) {
       case TASK_PHASE_START:
         trace.log('starting task', {task});
-        room.memory[this.getTaskMemoryId()][MEMORY.TASK_PHASE] = TASK_PHASE_LOAD;
+
+        task[MEMORY.TASK_PHASE] = TASK_PHASE_LOAD;
       // eslint-disable-next-line no-fallthrough
       case TASK_PHASE_LOAD: {
         // Maintain task TTL. We want to abort hard to perform tasks
@@ -162,10 +203,10 @@ export default class ReactorRunnable extends PersistentMemory {
         if (ttl <= 0) {
           trace.log('ttl exceeded, clearing task', {});
           this.clearTask(trace);
-          return NO_SLEEP;
+          return [task, NO_SLEEP];
         } else {
-          room.memory[this.getTaskMemoryId()][MEMORY.TASK_PHASE] = TASK_PHASE_LOAD;
-          room.memory[this.getTaskMemoryId()][MEMORY.REACTOR_TTL] = ttl - ticks;
+          task[MEMORY.TASK_PHASE] = TASK_PHASE_LOAD;
+          task[MEMORY.REACTOR_TTL] = ttl - ticks;
         }
 
         const readyA = this.prepareInput(kernel, base, labs[1], inputA, amount, trace);
@@ -173,43 +214,43 @@ export default class ReactorRunnable extends PersistentMemory {
 
         if (readyA && readyB) {
           trace.log('loaded, moving to react phase', {});
-          room.memory[this.getTaskMemoryId()][MEMORY.TASK_PHASE] = TASK_PHASE_REACT;
-          return NO_SLEEP;
+          task[MEMORY.TASK_PHASE] = TASK_PHASE_REACT;
+          return [task, NO_SLEEP];
         }
 
-        return REQUEST_LOAD_TTL;
+        return [task, REQUEST_LOAD_TTL];
       }
       case TASK_PHASE_REACT: {
         if (labs[0].cooldown) {
           trace.log('reacting cooldown', {cooldown: labs[0].cooldown});
-          return labs[0].cooldown;
+          return [task, labs[0].cooldown];
         }
 
         const result = labs[0].runReaction(labs[1], labs[2]);
         if (result !== OK) {
           trace.log('reacted, moving to unload phase', {});
-          room.memory[this.getTaskMemoryId()][MEMORY.TASK_PHASE] = TASK_PHASE_UNLOAD;
-          return NO_SLEEP;
+          task[MEMORY.TASK_PHASE] = TASK_PHASE_UNLOAD;
+          return [task, NO_SLEEP];
         }
 
-        return REACTION_TTL;
+        return [task, REACTION_TTL];
       }
       case TASK_PHASE_UNLOAD: {
         const lab = labs[0];
         if (!lab.mineralType || lab.store.getUsedCapacity(lab.mineralType) === 0) {
           trace.log('unloaded, task complete', {});
           this.clearTask(trace);
-          return NO_SLEEP;
+          return [task, NO_SLEEP];
         }
 
         this.unloadLab(kernel, base, labs[0], trace);
 
-        return REQUEST_UNLOAD_TTL;
+        return [task, REQUEST_UNLOAD_TTL];
       }
       default:
         trace.error('BROKEN REACTION LOGIC', phase);
         this.clearTask(trace);
-        return NO_SLEEP;
+        return [task, NO_SLEEP];
     }
   }
 
@@ -302,7 +343,7 @@ export default class ReactorRunnable extends PersistentMemory {
     }, REQUEST_LOAD_TTL);
   }
 
-  produceUpdateStatus(trace: Tracer, kernel: Kernel, room: Room, labs: StructureLab[], task) {
+  produceUpdateStatus(trace: Tracer, kernel: Kernel, base: Base, room: Room, labs: StructureLab[], task) {
     if (!task) {
       trace.log('no task', {});
       return;
@@ -312,6 +353,7 @@ export default class ReactorRunnable extends PersistentMemory {
     const phase = task[MEMORY.TASK_PHASE] || null;
     const amount = labs[0]?.store.getUsedCapacity(task?.details[MEMORY.REACTOR_OUTPUT]) || 0;
 
+    // TODO add reactor status and reactor task
     const status = {
       [MEMORY.REACTION_STATUS_ROOM]: room.name,
       [MEMORY.REACTION_STATUS_LAB]: labs[0].id,

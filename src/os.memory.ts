@@ -2,7 +2,6 @@ import {Kernel} from './kernel';
 import {Tracer} from './lib.tracing';
 import {sleeping} from './os.process';
 import {Runnable, RunnableResult} from './os.runnable';
-import {ThreadFunc} from './os.thread';
 
 const MEMORY_CLEANUP_TTL = 1000;
 const MEMORY_OBJECT_TTL = 5000;
@@ -52,8 +51,6 @@ export class PersistentMemory {
 }
 
 export class MemoryManager implements Runnable {
-  threadMemoryCleanup: ThreadFunc;
-
   constructor() {
     // Ensure Memory storage is ready
     if (!(Memory as any).proc) {

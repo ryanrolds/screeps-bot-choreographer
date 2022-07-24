@@ -3,7 +3,7 @@ import {ShardConfig} from './config';
 import {WORKER_EXPLORER} from './constants.creeps';
 import {MEMORY_ASSIGN_ROOM, MEMORY_BASE} from './constants.memory';
 import {EXPLORER} from './constants.priorities';
-import {Kernel} from './kernel';
+import {Kernel, KernelThreadFunc, threadKernel} from './kernel';
 import {pickExpansion} from './lib.expand';
 import {ENTIRE_ROOM_BOUNDS, getCutTiles} from './lib.min_cut';
 import {desiredRemotes, findNextRemoteRoom} from './lib.remote_room';
@@ -11,7 +11,6 @@ import {Tracer} from './lib.tracing';
 import {Process, sleeping} from './os.process';
 import {RunnableResult} from './os.runnable';
 import {Priorities, Scheduler} from './os.scheduler';
-import {thread, ThreadFunc} from './os.thread';
 import BaseRunnable from './runnable.base';
 import {createSpawnRequest, getBaseSpawnTopic} from './runnable.base_spawning';
 
@@ -30,16 +29,16 @@ export class CentralPlanning {
   private bases: Map<string, Base>;
   private roomByBaseId: Map<string, string>;
 
-  private threadBaseProcesses: ThreadFunc;
+  private threadBaseProcesses: KernelThreadFunc;
   private remoteMiningIterator: Generator<any, void, {kernel: Kernel, trace: Tracer}>;
-  private remoteMiningThread: ThreadFunc;
-  private expandColoniesThread: ThreadFunc;
+  private remoteMiningThread: KernelThreadFunc;
+  private expandColoniesThread: KernelThreadFunc;
 
   private baseWallsIterator: Generator<any, void, {kernel: Kernel, trace: Tracer}>;
-  private baseWallsThread: ThreadFunc;
+  private baseWallsThread: KernelThreadFunc;
 
   private neighborsIterator: Generator<any, void, {kernel: Kernel, trace: Tracer}>;
-  private neighborsThread: ThreadFunc;
+  private neighborsThread: KernelThreadFunc;
 
   constructor(config: ShardConfig, scheduler: Scheduler, trace: Tracer) {
     this.config = config;
@@ -85,24 +84,24 @@ export class CentralPlanning {
 
     trace.notice('bases configs', {bases: this.bases});
 
-    this.threadBaseProcesses = thread('base_processes', BASE_PROCESSES_TTL)(this.baseProcesses.bind(this));
+    this.threadBaseProcesses = threadKernel('base_processes', BASE_PROCESSES_TTL)(this.baseProcesses.bind(this));
 
     this.remoteMiningIterator = this.remoteMiningGenerator();
-    this.remoteMiningThread = thread('remote_mining', REMOTE_MINING_TTL)((trace: Tracer, kernel: Kernel) => {
+    this.remoteMiningThread = threadKernel('remote_mining', REMOTE_MINING_TTL)((trace: Tracer, kernel: Kernel) => {
       this.remoteMiningIterator.next({kernel, trace});
     });
 
     // TODO make this an iterator
-    this.expandColoniesThread = thread('expand', EXPAND_TTL)(this.expandColonies.bind(this));
+    this.expandColoniesThread = threadKernel('expand', EXPAND_TTL)(this.expandColonies.bind(this));
 
     // Calculate base walls
     this.baseWallsIterator = this.baseWallsGenerator();
-    this.baseWallsThread = thread('base_walls', BASE_WALLS_TTL)((trace: Tracer, kernel: Kernel) => {
+    this.baseWallsThread = threadKernel('base_walls', BASE_WALLS_TTL)((trace: Tracer, kernel: Kernel) => {
       this.baseWallsIterator.next({kernel, trace});
     });
 
     this.neighborsIterator = this.neighborhoodsGenerator();
-    this.neighborsThread = thread('neighbors', NEIGHBORS_THREAD_INTERVAL)((trace: Tracer, kernel: Kernel) => {
+    this.neighborsThread = threadKernel('neighbors', NEIGHBORS_THREAD_INTERVAL)((trace: Tracer, kernel: Kernel) => {
       this.neighborsIterator.next({kernel, trace});
     });
   }

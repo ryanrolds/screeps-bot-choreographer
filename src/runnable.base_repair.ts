@@ -1,9 +1,9 @@
 import {Base, getBasePrimaryRoom, getEnergyFullness, getReserveBuffer, getStoredResourceAmount} from './base';
+import {BaseRoomThreadFunc, threadBaseRoom} from './base_room';
 import {Kernel} from './kernel';
 import {Tracer} from './lib.tracing';
 import {running, sleeping, terminate} from './os.process';
 import {Runnable, RunnableResult} from './os.runnable';
-import {thread, ThreadFunc} from './os.thread';
 
 const UPDATE_DAMAGED_STRUCTURES_TTL = 40;
 const UPDATE_DAMAGED_SECONDARY_TTL = 15;
@@ -18,16 +18,16 @@ const MAX_WALL_HITS = 11000000;
 export default class RepairRunnable implements Runnable {
   baseId: string;
 
-  threadUpdateDamagedStructure: ThreadFunc;
-  threadUpdateDamagedSecondaryStructures: ThreadFunc;
+  threadUpdateDamagedStructure: BaseRoomThreadFunc;
+  threadUpdateDamagedSecondaryStructures: BaseRoomThreadFunc;
 
   constructor(baseId: string) {
     this.baseId = baseId;
 
-    this.threadUpdateDamagedStructure = thread('damaged_structures_thread',
+    this.threadUpdateDamagedStructure = threadBaseRoom('damaged_structures_thread',
       UPDATE_DAMAGED_STRUCTURES_TTL)(this.updateDamagedStructures.bind(this));
 
-    this.threadUpdateDamagedSecondaryStructures = thread('secondary_structures_thread',
+    this.threadUpdateDamagedSecondaryStructures = threadBaseRoom('secondary_structures_thread',
       UPDATE_DAMAGED_SECONDARY_TTL)(this.updateDamagedSecondaryStructures.bind(this));
   }
 

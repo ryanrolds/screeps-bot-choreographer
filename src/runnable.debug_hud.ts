@@ -1,9 +1,8 @@
-import {Kernel} from './kernel';
+import {Kernel, KernelThreadFunc, threadKernel} from './kernel';
 import {Consumer} from './lib.event_broker';
 import {Tracer} from './lib.tracing';
 import {running} from './os.process';
 import {RunnableResult} from './os.runnable';
-import {thread, ThreadFunc} from './os.thread';
 
 const CONSUME_EVENTS_TTL = 1;
 const DASHBOARD_EVENTS_TTL = 1;
@@ -67,17 +66,17 @@ export class HUDRunnable {
   private lines: HudLines = new Map();
 
   private dashboardConsumer: Consumer;
-  private threadDashboardEvents: ThreadFunc;
+  private threadDashboardEvents: KernelThreadFunc;
 
   private hudLinesConsumer: Consumer;
-  private threadLinesEvents: ThreadFunc;
+  private threadLinesEvents: KernelThreadFunc;
 
   constructor() {
     this.dashboardConsumer = null;
-    this.threadDashboardEvents = thread('dashboard_events', DASHBOARD_EVENTS_TTL)(this.consumeDashboardEvents.bind(this));
+    this.threadDashboardEvents = threadKernel('dashboard_events', DASHBOARD_EVENTS_TTL)(this.consumeDashboardEvents.bind(this));
 
     this.hudLinesConsumer = null;
-    this.threadLinesEvents = thread('consume_events', CONSUME_EVENTS_TTL)(this.consumeLinesEvents.bind(this));
+    this.threadLinesEvents = threadKernel('consume_events', CONSUME_EVENTS_TTL)(this.consumeLinesEvents.bind(this));
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
@@ -93,8 +92,8 @@ export class HUDRunnable {
       this.dashboardConsumer = consumer;
     }
 
-    this.threadLinesEvents(trace);
-    this.threadDashboardEvents(trace);
+    this.threadLinesEvents(trace, kernel);
+    this.threadDashboardEvents(trace, kernel);
 
     const lines = Array.from(this.lines.values())
 

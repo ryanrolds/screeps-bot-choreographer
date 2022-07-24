@@ -1,12 +1,12 @@
 
 import * as _ from 'lodash';
 import {Base, getBasePrimaryRoom} from './base';
+import {BaseRoomThreadFunc, threadBaseRoom} from './base_room';
 import {Kernel} from './kernel';
 import {Tracer} from './lib.tracing';
 import {Process, sleeping, terminate} from './os.process';
 import {RunnableResult} from './os.runnable';
 import {Priorities, Scheduler} from './os.scheduler';
-import {thread, ThreadFunc} from './os.thread';
 import BoosterRunnable from './runnable.base_booster';
 import ReactorRunnable from './runnable.base_reactor';
 
@@ -30,7 +30,7 @@ export class LabsManager {
   reactorsIds: Id<StructureLab>[][];
   boosterIds: Id<StructureLab>[];
 
-  threadAssignLabs: ThreadFunc;
+  threadAssignLabs: BaseRoomThreadFunc;
 
   constructor(baseId: string, id: string, scheduler: Scheduler, trace: Tracer) {
     this.id = id;
@@ -40,7 +40,7 @@ export class LabsManager {
     this.reactorsIds = [];
     this.boosterIds = [];
 
-    this.threadAssignLabs = thread('assign_labs', ASSIGN_LABS_TTL)(this.assignLabs.bind(this));
+    this.threadAssignLabs = threadBaseRoom('assign_labs', ASSIGN_LABS_TTL)(this.assignLabs.bind(this));
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
@@ -64,8 +64,8 @@ export class LabsManager {
     return sleeping(RUN_TTL);
   }
 
-  assignLabs(trace: Tracer, kernel: Kernel, base: Base, orgRoom: Room) {
-    this.assignBasedOnPosition(kernel, base, orgRoom, trace);
+  assignLabs(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
+    this.assignBasedOnPosition(kernel, base, room, trace);
 
     trace.info('assigned labs', {reactors: this.reactorsIds, booster: this.boosterIds});
 

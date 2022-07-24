@@ -8,6 +8,7 @@
     "esModuleInterop": true,
     "moduleResolution": "node",
     "module": "commonjs",
+    "strictBindCallApply": true,
     //"strict": true, // @TODO turn this on and fix the errors
     "types": [
       "node",

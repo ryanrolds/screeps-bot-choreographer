@@ -25,7 +25,7 @@ export default class DefensePartyRunnable {
     this.flagId = flagId;
     this.noTargetTTL = 0;
     this.minEnergy = 0;
-    this.party = new PartyRunnable(id, base, position, WORKER_DEFENDER_DRONE,
+    this.party = new PartyRunnable(id, base.id, position, WORKER_DEFENDER_DRONE,
       null, this.minEnergy, PRIORITY_BUFFER_PATROL, REQUEST_PARTY_MEMBER_TTL);
   }
 

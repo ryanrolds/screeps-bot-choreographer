@@ -5,7 +5,7 @@
  *
  * TODO - Move to topic with base id in the name - IN PROGRESS
  */
-import {Base, getBasePrimaryRoom} from './base';
+import {Base, BaseThreadFunc, getBasePrimaryRoom, threadBase} from './base';
 import * as CREEPS from './constants.creeps';
 import {DEFINITIONS} from './constants.creeps';
 import * as MEMORY from './constants.memory';
@@ -16,7 +16,6 @@ import {Request, RequestDetails, TopicKey} from './lib.topics';
 import {Tracer} from './lib.tracing';
 import {running, terminate} from './os.process';
 import {RunnableResult} from './os.runnable';
-import {thread, ThreadFunc} from './os.thread';
 import {getDashboardStream, getLinesStream, HudEventSet, HudIndicator, HudIndicatorStatus, HudLine} from './runnable.debug_hud';
 
 const SPAWN_TTL = 5;
@@ -73,15 +72,15 @@ export default class SpawnManager {
   baseId: string;
   checkCount = 0;
 
-  consumeEventsThread: ThreadFunc;
-  threadSpawn: ThreadFunc
+  consumeEventsThread: BaseThreadFunc;
+  threadSpawn: BaseThreadFunc
 
   constructor(id: string, baseId: string) {
     this.id = id;
     this.baseId = baseId;
 
-    this.threadSpawn = thread('spawn_thread', SPAWN_TTL)(this.spawning.bind(this));
-    this.consumeEventsThread = thread('produce_events_thread',
+    this.threadSpawn = threadBase('spawn_thread', SPAWN_TTL)(this.spawning.bind(this));
+    this.consumeEventsThread = threadBase('produce_events_thread',
       PRODUCE_EVENTS_TTL)((trace, kernel, base) => {
         this.consumeEvents(trace, kernel, base);
       });
@@ -208,7 +207,7 @@ export default class SpawnManager {
       let neighborRequest = null;
       const storageEnergy = spawn.room.storage?.store.getUsedCapacity(RESOURCE_ENERGY) || 0;
       if (storageEnergy < 100000) {
-        trace.warn('reserve energy too low, dont handle requests from other neighbors', {storageEnergy});
+        trace.warn('reserve energy too low, dont handle requests from other neighbors', {storageEnergy, baseId: base.id});
       } else {
         neighborRequest = this.getNeighborRequest(kernel, base, trace);
       }

@@ -1,9 +1,8 @@
-import {Kernel} from './kernel';
+import {Kernel, KernelThreadFunc, threadKernel} from './kernel';
 import {Event} from './lib.event_broker';
 import {Tracer} from './lib.tracing';
 import {sleeping} from './os.process';
 import {Runnable, RunnableResult} from './os.runnable';
-import {thread, ThreadFunc} from './os.thread';
 import {scoreAttacking, scoreHealing} from './role.harasser';
 import {getDashboardStream, HudEventSet, HudIndicator, HudIndicatorStatus} from './runnable.debug_hud';
 
@@ -110,10 +109,10 @@ export class Scribe implements Runnable {
   costMatrix255: CostMatrix;
   globalColonyCount: number;
 
-  private threadWriteMemory: ThreadFunc;
-  private threadRemoveStaleJournalEntries: ThreadFunc;
-  private threadUpdateBaseCount: ThreadFunc;
-  private threadProduceEvents: ThreadFunc;
+  private threadWriteMemory: KernelThreadFunc;
+  private threadRemoveStaleJournalEntries: KernelThreadFunc;
+  private threadUpdateBaseCount: KernelThreadFunc;
+  private threadProduceEvents: KernelThreadFunc;
 
   constructor(trace: Tracer) {
     let journal: Journal = {
@@ -140,10 +139,10 @@ export class Scribe implements Runnable {
     this.journal = journal;
     this.globalColonyCount = -2;
 
-    this.threadRemoveStaleJournalEntries = thread('remove_stale', REMOVE_STALE_ENTRIES_INTERVAL)(this.removeStaleJournalEntries.bind(this));
-    this.threadWriteMemory = thread('write_memory', WRITE_MEMORY_INTERVAL)(this.writeMemory.bind(this));
-    this.threadUpdateBaseCount = thread('update_base_count', UPDATE_COLONY_COUNT)(this.updateBaseCount.bind(this));
-    this.threadProduceEvents = thread('produce_events', PRODUCE_EVENTS_INTERVAL)(this.produceEvents.bind(this));
+    this.threadRemoveStaleJournalEntries = threadKernel('remove_stale', REMOVE_STALE_ENTRIES_INTERVAL)(this.removeStaleJournalEntries.bind(this));
+    this.threadWriteMemory = threadKernel('write_memory', WRITE_MEMORY_INTERVAL)(this.writeMemory.bind(this));
+    this.threadUpdateBaseCount = threadKernel('update_base_count', UPDATE_COLONY_COUNT)(this.updateBaseCount.bind(this));
+    this.threadProduceEvents = threadKernel('produce_events', PRODUCE_EVENTS_INTERVAL)(this.produceEvents.bind(this));
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
@@ -159,8 +158,8 @@ export class Scribe implements Runnable {
     });
     updateRoomsTrace.end();
 
-    this.threadRemoveStaleJournalEntries(trace);
-    this.threadWriteMemory(trace);
+    this.threadRemoveStaleJournalEntries(trace, kernel);
+    this.threadWriteMemory(trace, kernel);
     this.threadUpdateBaseCount(trace, kernel);
     this.threadProduceEvents(trace, kernel);
 
@@ -200,7 +199,7 @@ export class Scribe implements Runnable {
     return sleeping(RUN_TTL);
   }
 
-  writeMemory(trace: Tracer) {
+  writeMemory(trace: Tracer, kernel: Kernel) {
     trace.log('write_memory', {cpu: Game.cpu});
 
     if (Game.cpu.bucket < 1000) {
@@ -215,7 +214,7 @@ export class Scribe implements Runnable {
     };
   }
 
-  updateBaseCount(trace: Tracer, kerne: Kernel) {
+  updateBaseCount(trace: Tracer, kernel: Kernel) {
     if (this.globalColonyCount === -2) {
       // skip the first time, we want to give shards time to update their remote memory
       trace.info('skipping updateColonyCount');
@@ -223,7 +222,7 @@ export class Scribe implements Runnable {
       return;
     }
 
-    const bases = kerne.getPlanner().getBases();
+    const bases = kernel.getPlanner().getBases();
     let baseCount = bases.length;
 
     // Iterate shards and get their base counts

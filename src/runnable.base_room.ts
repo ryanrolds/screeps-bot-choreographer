@@ -1,4 +1,5 @@
 import {AlertLevel, Base, baseEnergyStorageCapacity} from './base';
+import {BaseRoomThreadFunc, threadBaseRoom} from './base_room';
 import {creepIsFresh} from './behavior.commute';
 import * as CREEPS from './constants.creeps';
 import * as MEMORY from './constants.memory';
@@ -8,7 +9,6 @@ import {Tracer} from './lib.tracing';
 import {Process, sleeping, terminate} from './os.process';
 import {Runnable, RunnableResult} from './os.runnable';
 import {Priorities, Scheduler} from './os.scheduler';
-import {thread, ThreadFunc} from './os.thread';
 import MineralRunnable from './runnable.base_room_mineral';
 import SourceRunnable from './runnable.base_room_source';
 import {createSpawnRequest, getBaseSpawnTopic, getShardSpawnTopic} from './runnable.base_spawning';
@@ -25,17 +25,16 @@ export default class RoomRunnable implements Runnable {
   id: string;
   scheduler: Scheduler;
 
-  threadUpdateProcessSpawning: ThreadFunc;
-  threadRequestReserver: ThreadFunc;
-  threadProduceStatus: ThreadFunc;
+  threadUpdateProcessSpawning: BaseRoomThreadFunc;
+  threadRequestReserver: BaseRoomThreadFunc;
 
   constructor(id: string, scheduler: Scheduler) {
     this.id = id;
     this.scheduler = scheduler;
 
     // Threads
-    this.threadUpdateProcessSpawning = thread('spawn_room_processes_thread', UPDATE_PROCESSES_TTL)(this.handleProcessSpawning.bind(this));
-    this.threadRequestReserver = thread('request_reserver_thread', REQUEST_RESERVER_TTL)(this.requestReserver.bind(this));
+    this.threadUpdateProcessSpawning = threadBaseRoom('spawn_room_processes_thread', UPDATE_PROCESSES_TTL)(this.handleProcessSpawning.bind(this));
+    this.threadRequestReserver = threadBaseRoom('request_reserver_thread', REQUEST_RESERVER_TTL)(this.requestReserver.bind(this));
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
@@ -63,7 +62,6 @@ export default class RoomRunnable implements Runnable {
     }
 
     this.threadUpdateProcessSpawning(trace, kernel, base, room);
-    this.threadProduceStatus(trace, base, kernel, base, room);
 
     trace.end();
     return sleeping(MIN_TTL);

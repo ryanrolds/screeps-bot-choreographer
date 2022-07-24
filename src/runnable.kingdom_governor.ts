@@ -1,21 +1,20 @@
 import * as WORKERS from './constants.creeps';
 import * as MEMORY from './constants.memory';
 import * as PRIORITIES from './constants.priorities';
-import {Kernel} from './kernel';
+import {Kernel, KernelThreadFunc, threadKernel} from './kernel';
 import {Tracer} from './lib.tracing';
 import {sleeping} from './os.process';
 import {RunnableResult} from './os.runnable';
-import {thread, ThreadFunc} from './os.thread';
 import {createSpawnRequest, getShardSpawnTopic} from './runnable.base_spawning';
 import {CreepRequest, ShardMemory} from './runnable.scribe';
 
 const SHARD_MEMORY_TTL = 50;
 
 export default class KingdomGovernor {
-  threadUpdateShardMemory: ThreadFunc;
+  threadUpdateShardMemory: KernelThreadFunc;
 
   constructor() {
-    this.threadUpdateShardMemory = thread('update_shard_memory', SHARD_MEMORY_TTL)(this.updateShardMemory.bind(this));
+    this.threadUpdateShardMemory = threadKernel('update_shard_memory', SHARD_MEMORY_TTL)(this.updateShardMemory.bind(this));
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
