@@ -238,7 +238,7 @@ export class ResourceManager implements Runnable {
       });
 
       return acc;
-    }, {} as ResourceCounts);
+    }, new Map());
   }
 
   getBaseResources(): ResourceCounts {
@@ -260,7 +260,7 @@ export class ResourceManager implements Runnable {
       });
 
       return acc;
-    }, {} as ResourceCounts);
+    }, new Map());
   }
 
   getAmountInReserve(kernel: Kernel, resource): number {

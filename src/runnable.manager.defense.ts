@@ -288,7 +288,7 @@ function getHostilesByColony(kernel: Kernel, rooms: Room[], trace: Tracer): Host
     }
 
     return bases;
-  }, {} as HostilesByBase);
+  }, new Map());
 }
 
 type DefendersByBase = Map<string, (Creep)[]>
@@ -317,7 +317,7 @@ function getDefendersByColony(kernel: Kernel, rooms: Room[], trace: Tracer): Def
     }
 
     return bases;
-  }, {} as DefendersByBase);
+  }, new Map());
 }
 
 function addHostilesToColonyTargetTopic(kernel: Kernel, hostilesByBases: HostilesByBase,

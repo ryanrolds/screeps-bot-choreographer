@@ -61,8 +61,8 @@ export class AI implements Kernel {
       Priorities.CRITICAL, memoryManager));
 
     // Journal game state
-    this.scribe = new Scribe();
-    trace.notice('scribe created', {numRooms: this.scribe.getRooms().length});
+    this.scribe = new Scribe(trace);
+    trace.info('scribe created', {numRooms: this.scribe.getRooms().length});
     scheduler.registerProcess(new Process('scribe', 'scribe', Priorities.CRITICAL, this.scribe));
 
     // Central planning, tracks relationships, policies, and colonies

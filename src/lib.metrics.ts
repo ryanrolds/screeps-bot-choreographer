@@ -48,7 +48,7 @@ export const reportMetrics = () => {
 
     acc.set(timing.key, rollup);
     return acc;
-  }, {} as Map<string, MetricRollup>);
+  }, new Map<string, MetricRollup>());
 
   const rollups = Array.from(summary.values());
   let summaryArray = _.reduce(rollups, (result, metric) => {

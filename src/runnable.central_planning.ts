@@ -348,7 +348,7 @@ export class CentralPlanning {
 
     if (base.rooms.length - 1 < numDesired) {
       // Check if adjacent rooms to the base have been explored
-      const exits = _.values(Game.map.describeExits(base.primary));
+      const exits: string[] = _.values(Game.map.describeExits(base.primary));
       const unexploredClaimable = exits.filter((room) => {
         // TODO dont wait on always or center rooms
         const roomEntry = kernel.getScribe().getRoomById(room);

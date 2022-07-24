@@ -173,7 +173,7 @@ export default class BoosterRunnable {
       labsByResource: _.reduce(Array.from(labsByResource.values()), (labs, lab: StructureLab) => {
         labs.set(lab.id, lab.mineralType);
         return labs;
-      }, {} as Map<Id<StructureLab>, MineralConstant | MineralCompoundConstant>),
+      }, new Map<Id<StructureLab>, MineralConstant | MineralCompoundConstant>()),
       availableEffects: storedEffects,
     });
 
@@ -248,7 +248,7 @@ export default class BoosterRunnable {
       }
 
       return acc;
-    }, {} as LabsByAction);
+    }, new Map());
   }
 
   // @deprecated - use getLabsByAction()
@@ -260,7 +260,7 @@ export default class BoosterRunnable {
       }
 
       return acc;
-    }, {} as LabsByResource);
+    }, new Map());
   }
 
   // @deprecated - use getLabsByAction()
@@ -283,7 +283,7 @@ export default class BoosterRunnable {
       }
 
       return acc;
-    }, {} as ResourceCounts);
+    }, new Map());
   }
 
   getEmptyLabs() {

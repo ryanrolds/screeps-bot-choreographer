@@ -87,7 +87,7 @@ export const displayRoomPaths = (path: RoomPosition[], style: PolyStyle) => {
 
     acc.get(pos.roomName).push(pos)
     return acc;
-  }, {} as Map<string, RoomPosition[]>);
+  }, new Map<string, RoomPosition[]>());
 
   // Display in the rooms
   Array.from(pathByRooms.entries()).forEach(([key, value]) => {

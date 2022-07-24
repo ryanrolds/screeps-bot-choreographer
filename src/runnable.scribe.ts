@@ -19,7 +19,7 @@ const YELLOW_JOURNAL_AGE = 100;
 const RED_JOURNAL_AGE = 250;
 
 type Journal = {
-  rooms: Map<Id<Room>, RoomEntry>;
+  rooms: Map<string, RoomEntry>;
   creeps: Map<Id<Creep>, Creep>;
 };
 
@@ -110,17 +110,34 @@ export class Scribe implements Runnable {
   costMatrix255: CostMatrix;
   globalColonyCount: number;
 
-  threadWriteMemory: ThreadFunc;
-  threadRemoveStaleJournalEntries: ThreadFunc;
-  threadUpdateBaseCount: ThreadFunc;
-  threadProduceEvents: ThreadFunc;
+  private threadWriteMemory: ThreadFunc;
+  private threadRemoveStaleJournalEntries: ThreadFunc;
+  private threadUpdateBaseCount: ThreadFunc;
+  private threadProduceEvents: ThreadFunc;
 
-  constructor() {
-    this.journal = (Memory as any).scribe || {
+  constructor(trace: Tracer) {
+    let journal: Journal = {
       rooms: new Map(),
       creeps: new Map(),
     };
 
+    if ((Memory as any).scribe) {
+      trace.info('Loading scribe journal', {memory: JSON.stringify((Memory as any).scribe)});
+      try {
+        journal.rooms = new Map((Memory as any).scribe.rooms);
+        journal.creeps = new Map((Memory as any).scribe.creeps);
+
+        trace.notice('Loaded scribe journal', {
+          rooms: journal.rooms.size,
+          creeps: journal.creeps.size,
+        });
+      } catch (e) {
+        trace.error('Error loading scribe journal', e);
+        delete (Memory as any).scribe;
+      }
+    }
+
+    this.journal = journal;
     this.globalColonyCount = -2;
 
     this.threadRemoveStaleJournalEntries = thread('remove_stale', REMOVE_STALE_ENTRIES_INTERVAL)(this.removeStaleJournalEntries.bind(this));
@@ -135,7 +152,7 @@ export class Scribe implements Runnable {
     const updateRoomsTrace = trace.begin('update_rooms');
     // Iterate rooms and update if stale
     Object.values(Game.rooms).forEach((room) => {
-      const entry = this.getRoomById(room.name);
+      const entry = this.getRoomById(room.name as Id<Room>);
       if (!entry || Game.time - entry.lastUpdated > JOURNAL_ENTRY_TTL) {
         this.updateRoom(kernel, room, updateRoomsTrace);
       }
@@ -192,7 +209,10 @@ export class Scribe implements Runnable {
       return;
     }
 
-    (Memory as any).scribe = this.journal;
+    (Memory as any).scribe = {
+      rooms: Array.from(this.journal.rooms.entries()),
+      creeps: Array.from(this.journal.creeps.entries()),
+    };
   }
 
   updateBaseCount(trace: Tracer, kerne: Kernel) {
@@ -261,15 +281,25 @@ export class Scribe implements Runnable {
 
   removeStaleJournalEntries(trace) {
     const numBefore = this.journal.rooms.size;
-    this.journal.rooms = _.pick(Array.from(this.journal.rooms.values()), (room) => {
-      return Game.time - room.lastUpdated < MAX_JOURNAL_TTL;
-    });
-    const numAfter = this.journal.rooms.size;
 
+    // Create new map of fresh rooms
+    const rooms = new Map<string, RoomEntry>();
+    for (const [id, entry] of this.journal.rooms) {
+      if (Game.time - entry.lastUpdated > JOURNAL_ENTRY_TTL) {
+        trace.info('removing stale journal entry', {id: id});
+        continue;
+      }
+
+      rooms.set(id, entry);
+    }
+
+    this.journal.rooms = rooms;
+
+    const numAfter = this.journal.rooms.size;
     trace.info('remove_stale', {numBefore, numAfter});
   }
 
-  getRoomById(roomId): RoomEntry {
+  getRoomById(roomId: string): RoomEntry {
     return this.journal.rooms.get(roomId) || null;
   }
 
@@ -290,9 +320,9 @@ export class Scribe implements Runnable {
     };
   }
 
-  getOldestRoomInList(rooms: Id<Room>[]): Id<Room> {
+  getOldestRoomInList(rooms: string[]): string {
     const knownRooms = Array.from(this.journal.rooms.keys());
-    const missingRooms = _.difference<Id<Room>>(rooms, knownRooms);
+    const missingRooms = _.difference<string>(rooms, knownRooms);
     if (missingRooms.length) {
       return _.shuffle(missingRooms)[0];
     }

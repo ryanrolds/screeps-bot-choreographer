@@ -96,7 +96,7 @@ export function getStoredResources(base: Base): ResourceCounts {
     });
 
     return acc;
-  }, {} as ResourceCounts);
+  }, new Map());
 }
 
 export function getStoredResourceAmount(base: Base, resource: ResourceConstant): number {
@@ -124,12 +124,16 @@ export function getEnergyFullness(base: Base): number {
 }
 
 export function getReserveBuffer(base: Base): number {
-  if (!this.room.controller?.my) {
+  const room = getBasePrimaryRoom(base);
+  if (!room) {
+    return 0
+  }
+
+  if (!room.controller?.my) {
     return 0;
   }
 
-  const roomLevel = this.getRoomLevel();
-
+  const roomLevel = getBaseLevel(base);
   if (roomLevel < 4) {
     return 2000;
   }
@@ -140,16 +144,17 @@ export function getReserveBuffer(base: Base): number {
 export function getStorageStructures(base: Base): StructureStorage[] {
   const structures = [];
 
-  if (!this.room) {
+  const room = getBasePrimaryRoom(base);
+  if (!room) {
     return structures;
   }
 
-  if (this.room.storage?.isActive()) {
-    structures.push(this.room.storage);
+  if (room.storage?.isActive()) {
+    structures.push(room.storage);
   }
 
-  if (this.room.terminal?.isActive()) {
-    structures.push(this.room.terminal);
+  if (room.terminal?.isActive()) {
+    structures.push(room.terminal);
   }
 
   return structures;

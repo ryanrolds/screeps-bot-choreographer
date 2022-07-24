@@ -2,8 +2,6 @@ import {expect} from 'chai';
 import 'mocha';
 import {mockGlobal} from 'screeps-test-helper';
 import * as sinon from 'sinon';
-import {AI} from './ai';
-import {ShardConfig} from './config';
 import {EventBroker} from './lib.event_broker';
 import {Topics} from './lib.topics';
 import {Tracer} from './lib.tracing';
@@ -82,12 +80,10 @@ describe('Scheduler', () => {
   });
 
   it('should run the process', () => {
-    const config = {} as ShardConfig;
     const scheduler = new Scheduler();
-    const kernel = new AI(config, scheduler, trace);
 
     scheduler.registerProcess(process);
-    scheduler.tick(kernel, trace);
+    scheduler.tick(null, trace);
 
     expect(runSpy.calledOnce).to.be.true;
   });
