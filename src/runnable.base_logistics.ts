@@ -326,7 +326,6 @@ export default class LogisticsRunnable extends PersistentMemory {
         const dropoff = getStructureForResource(base, resource.resourceType);
         if (!dropoff) {
           trace.warn('no dropoff for resource', {resource: resource.resourceType, baseId: base.id});
-          return;
         }
 
         const haulersWithTask = this.haulers.filter((creep) => {

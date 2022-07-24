@@ -304,7 +304,7 @@ export default class BoosterRunnable {
     Object.keys(BOOSTS).forEach((part) => {
       const resources = BOOSTS[part];
       Object.keys(resources).forEach((resource: ResourceConstant) => {
-        if (!availableResources.get(resource)) {
+        if (availableResources && !availableResources.get(resource)) {
           return;
         }
 

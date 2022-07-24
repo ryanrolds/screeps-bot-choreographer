@@ -77,9 +77,15 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       return terminate();
     }
 
+    if (!source.room) {
+      trace.error('source room not visible', {id: this.id});
+      trace.end();
+      return terminate();
+    }
+
     const base = kernel.getPlanner().getBaseByRoom(source.room.name);
     if (!base) {
-      trace.error('no colony config', {room: source.room.name});
+      trace.error('no base config', {room: source.room.name});
       trace.end();
       return terminate();
     }
@@ -407,7 +413,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     trace.log('container created', {id: this.id});
   }
 
-  buildLink(trace: Tracer, base: Base, source: Source) {
+  buildLink(trace: Tracer, kernel: Kernel, base: Base, source: Source) {
     if (!this.linkPosition) {
       trace.error('no link position', {room: source.room.name, id: this.id});
       return;
@@ -419,6 +425,11 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
         trace.log('link found', {link});
         return;
       }
+    }
+
+    if (!source.room?.controller) {
+      trace.error('no visibility or controller', {baseId: base.id, roomName: source.room.name, id: this.id});
+      return;
     }
 
     const roomLevel = source.room.controller?.level || 0;

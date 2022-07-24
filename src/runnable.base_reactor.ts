@@ -343,15 +343,16 @@ export default class ReactorRunnable extends PersistentMemory {
     }, REQUEST_LOAD_TTL);
   }
 
-  produceUpdateStatus(trace: Tracer, kernel: Kernel, base: Base, room: Room, labs: StructureLab[], task) {
+  produceUpdateStatus(trace: Tracer, kernel: Kernel, base: Base, room: Room,
+    labs: StructureLab[], task: ReactorTask) {
     if (!task) {
-      trace.log('no task', {});
+      trace.log('no task', {baseId: this.baseId});
       return;
     }
 
-    const resource = task?.details[MEMORY.REACTOR_OUTPUT] || null;
+    const resource = task[MEMORY.REACTOR_OUTPUT] || null;
     const phase = task[MEMORY.TASK_PHASE] || null;
-    const amount = labs[0]?.store.getUsedCapacity(task?.details[MEMORY.REACTOR_OUTPUT]) || 0;
+    const amount = labs[0]?.store.getUsedCapacity(task[MEMORY.REACTOR_OUTPUT]) || 0;
 
     // TODO add reactor status and reactor task
     const status = {
@@ -366,6 +367,7 @@ export default class ReactorRunnable extends PersistentMemory {
 
     kernel.getTopics().addRequest(TOPICS.ACTIVE_REACTIONS, 1, status, PRODUCE_STATUS_TTL);
 
+    // @REFACTOR there *may* be a bug here. I don't think it's calling stop
     if (resource) {
       kernel.getBroker().getStream(REACTION_STATUS_STREAM).
         publish(new Event(this.id, Game.time, REACTION_STATUS_UPDATE, status));
