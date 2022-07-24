@@ -21,6 +21,7 @@ describe('Scheduler', () => {
   let runSpy = null;
   let process = null;
   let processSpy = null;
+  let kernel = null;
 
   beforeEach(() => {
     sandbox = sinon.createSandbox();
@@ -39,6 +40,8 @@ describe('Scheduler', () => {
           return 0;
         },
       },
+      rooms: {},
+      creeps: {},
     });
 
     mockGlobal<Memory>('Memory', {
@@ -95,10 +98,7 @@ describe('Scheduler', () => {
       return Game.cpu.limit * 1.1;
     };
 
-    const config = {} as ShardConfig;
     const scheduler = new Scheduler();
-    const kernel = new AI(config, scheduler, trace);
-
     scheduler.registerProcess(process);
     scheduler.tick(kernel, trace);
 
@@ -107,10 +107,7 @@ describe('Scheduler', () => {
   });
 
   it('should execute skipped processes next tick', () => {
-    const config = {} as ShardConfig;
     const scheduler = new Scheduler();
-    const kernel = new AI(config, scheduler, trace);
-
     scheduler.registerProcess(process);
 
     const stub = sandbox.stub(scheduler, 'isOutOfTime');
@@ -153,10 +150,7 @@ describe('Scheduler', () => {
   });
 
   it('should remove and not run terminated processes', () => {
-    const config = {} as ShardConfig;
     const scheduler = new Scheduler();
-    const kernel = new AI(config, scheduler, trace);
-
     scheduler.registerProcess(process);
 
     expect(scheduler.hasProcess('processId')).to.be.true;
