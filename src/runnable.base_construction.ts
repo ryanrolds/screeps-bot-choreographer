@@ -298,12 +298,11 @@ export default class BaseConstructionRunnable {
         return;
       }
 
-      const site = toBuild.pop();
+      // Remove first item from the list
+      const site = toBuild.shift();
       if (!site) {
         continue;
       }
-
-      // roomVisual.text(code, pos.x, pos.y);
 
       const pos = new RoomPosition(site.x, site.y, room.name);
       const result = room.createConstructionSite(pos, site.structureType);
@@ -428,7 +427,7 @@ export default class BaseConstructionRunnable {
         }
 
         if (!structures.length) {
-          trace.log('missing structures', {pos, building: buildingCodes});
+          trace.log('missing structures', {pos});
           return false;
         }
 

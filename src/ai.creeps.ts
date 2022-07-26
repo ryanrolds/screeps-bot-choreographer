@@ -180,7 +180,7 @@ export class CreepManager implements Runnable {
       run: (kernel: Kernel, trace: Tracer): RunnableResult => {
         const creep = Game.creeps[name];
         if (!creep) {
-          trace.error('creep not found; terminating process', {name});
+          trace.info('creep not found; terminating process', {name});
           return terminate();
         }
 

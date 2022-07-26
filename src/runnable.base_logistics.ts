@@ -1,8 +1,14 @@
 import {AlertLevel, Base, BaseThreadFunc, getStructureForResource, threadBase} from './base';
 import {ROLE_WORKER, WORKER_HAULER} from './constants.creeps';
-import {MEMORY_BASE, MEMORY_HAUL_AMOUNT, MEMORY_HAUL_DROPOFF, MEMORY_HAUL_PICKUP, MEMORY_HAUL_RESOURCE, MEMORY_TASK_TYPE, TASK_ID} from './constants.memory';
+import {
+  MEMORY_BASE, MEMORY_HAUL_AMOUNT, MEMORY_HAUL_DROPOFF, MEMORY_HAUL_PICKUP,
+  MEMORY_HAUL_RESOURCE, MEMORY_TASK_TYPE, TASK_ID
+} from './constants.memory';
 import {roadPolicy} from './constants.pathing_policies';
-import {DUMP_NEXT_TO_STORAGE, HAUL_BASE_ROOM, HAUL_DROPPED, LOAD_FACTOR, PRIORITY_HAULER} from './constants.priorities';
+import {
+  DUMP_NEXT_TO_STORAGE, HAUL_BASE_ROOM, HAUL_DROPPED, LOAD_FACTOR,
+  PRIORITY_HAULER
+} from './constants.priorities';
 import {TASK_HAUL} from './constants.tasks';
 import {Kernel} from './kernel';
 import {Consumer, Event} from './lib.event_broker';
@@ -16,19 +22,21 @@ import {RunnableResult} from './os.runnable';
 import {createSpawnRequest, getBaseSpawnTopic} from './runnable.base_spawning';
 import {getLinesStream, HudEventSet, HudLine} from './runnable.debug_hud';
 
+const RUN_TTL = 5;
 const CALCULATE_LEG_TTL = 20;
-const BUILD_SHORTEST_LEG_TTL = 40;
-const CONSUME_EVENTS_TTL = 30;
-const PRODUCE_EVENTS_TTL = 30;
-const RED_ALERT_TTL = 200;
-const REQUEST_HAULER_TTL = 25;
-const UPDATE_HAULERS_TTL = 25;
-const REQUEST_HAUL_DROPPED_RESOURCES_TTL = 30;
+const BUILD_SHORTEST_LEG_TTL = 100;
+const CONSUME_EVENTS_TTL = 50;
+const PRODUCE_EVENTS_TTL = 100;
+const REQUEST_HAULER_TTL = 50;
+const UPDATE_HAULERS_TTL = 50;
+const UPDATE_PID_TTL = 5;
+const REQUEST_HAUL_DROPPED_RESOURCES_TTL = 20;
+const LEG_CALCULATE_INTERVAL = 1000;
 
 // More sites means more spent per load on road construction & maintenance
 const MAX_ROAD_SITES = 5;
 
-export const getLogisticsTopic = (colonyId: string): string => `${colonyId}_logistics`;
+export const getLogisticsTopic = (baseId: string): string => `${baseId}_logistics`;
 
 export function getBaseHaulerTopic(baseId: string): TopicKey {
   return `base_${baseId}_hauler`;
@@ -89,14 +97,12 @@ export default class LogisticsRunnable extends PersistentMemory {
     super(baseId);
 
     this.baseId = baseId;
-    this.legs = new Map();
+    this.legs = null;
     this.selectedLeg = null;
     this.passes = 0;
 
     this.desiredHaulers = 0;
-    this.pidHaulersMemory = new Map();
-    // TODO refactor PID into a class
-    PID.setup(this.pidHaulersMemory, 0, 0.2, 0.0005, 0);
+    this.pidHaulersMemory = null;
 
     this.logisticsStreamConsumer = null;
     this.threadConsumeEvents = threadBase('consume_events', CONSUME_EVENTS_TTL)(this.consumeEvents.bind(this));
@@ -108,7 +114,7 @@ export default class LogisticsRunnable extends PersistentMemory {
     });
 
     this.threadUpdateHaulers = threadBase('update_haulers_thread', UPDATE_HAULERS_TTL)(this.updateHaulers.bind(this));
-    this.threadHaulerPID = threadBase('hauler_pid', UPDATE_HAULERS_TTL)(this.updatePID.bind(this));
+    this.threadHaulerPID = threadBase('hauler_pid', UPDATE_PID_TTL)(this.updatePID.bind(this));
     this.threadRequestHaulers = threadBase('request_haulers_thread', REQUEST_HAULER_TTL)(this.requestHaulers.bind(this));
 
     this.threadRequestHaulDroppedResources = threadBase('request_haul_dropped_thread', REQUEST_HAUL_DROPPED_RESOURCES_TTL)(this.requestHaulDroppedResources.bind(this));
@@ -130,11 +136,52 @@ export default class LogisticsRunnable extends PersistentMemory {
         addConsumer('logistics');
     }
 
+    if (this.legs === null) {
+      const memory = this.getMemory(trace) || {};
+      if (memory.legs) {
+        this.legs = new Map(memory.legs);
+        // Hydrate the room positions
+        for (const leg of this.legs.values()) {
+          if (leg.path) {
+            leg.path = leg.path.map((pos => new RoomPosition(pos.x, pos.y, pos.roomName)));
+          }
+          if (leg.remaining) {
+            leg.remaining = leg.remaining.map((pos => new RoomPosition(pos.x, pos.y, pos.roomName)))
+          }
+        }
+      } else {
+        this.legs = new Map();
+      }
+
+      memory.legs = Array.from(this.legs.entries());
+      this.setMemory(memory);
+    }
+
+    if (this.pidHaulersMemory === null) {
+      const memory = this.getMemory(trace) || {};
+
+      if (memory.pid) {
+        this.pidHaulersMemory = new Map(memory.pid);
+      } else {
+        this.pidHaulersMemory = new Map();
+      }
+
+      memory.pid = Array.from(this.pidHaulersMemory.entries());
+      this.setMemory(memory);
+
+      PID.setup(this.pidHaulersMemory, 0, 0.2, 0.0005, 0);
+    }
+
     const base = kernel.getPlanner().getBaseById(this.baseId);
     if (!base) {
       trace.error('missing origin', {id: this.baseId});
       return sleeping(20);
     }
+
+    trace.info('logistics', {
+      id: this.baseId, legs: this.legs.size, passes: this.passes,
+      selectedLeg: this.selectedLeg
+    });
 
     this.threadConsumeEvents(trace, kernel, base);
 
@@ -159,9 +206,9 @@ export default class LogisticsRunnable extends PersistentMemory {
       visualizePath(this.selectedLeg.path, trace);
     }
 
-    visualizeLegs(Array.from(this.legs.values()), trace);
+    visualizeLegNodes(Array.from(this.legs.values()), trace);
 
-    return sleeping(1);
+    return sleeping(RUN_TTL);
   }
 
   private consumeEvents(trace: Tracer, kernel: Kernel, base: Base) {
@@ -172,11 +219,19 @@ export default class LogisticsRunnable extends PersistentMemory {
           break;
       }
     });
+
+    // Storing legs
+    trace.info('storing legs after consuming events', {legs: Array.from(this.legs.entries())});
+    const memory = this.getMemory(trace) || {};
+    memory.legs = Array.from(this.legs.entries());
+    this.setMemory(memory);
   }
 
   private updateHaulers(trace: Tracer, kernel: Kernel, base: Base) {
     // Get list of haulers and workers
-    this.haulers = kernel.getCreepsManager().getCreepsByBaseAndRole(this.baseId, ROLE_WORKER);
+    const haulers = kernel.getCreepsManager().getCreepsByBaseAndRole(this.baseId, WORKER_HAULER);
+    const workers = kernel.getCreepsManager().getCreepsByBaseAndRole(this.baseId, ROLE_WORKER);
+    this.haulers = haulers.concat(workers);
     this.numHaulers = this.haulers.length;
 
     this.numActiveHaulers = this.haulers.filter((creep) => {
@@ -200,7 +255,7 @@ export default class LogisticsRunnable extends PersistentMemory {
   }
 
   private updatePID(trace: Tracer, kernel: Kernel, base: Base) {
-    let numHaulTasks = kernel.getTopics().getLength(getBaseHaulerTopic(this.baseId));
+    let numHaulTasks = kernel.getTopics().getLength(getBaseHaulerTopic(base.id));
     numHaulTasks -= this.numIdleHaulers;
 
     trace.log('haul tasks', {numHaulTasks, numIdleHaulers: this.numIdleHaulers});
@@ -208,21 +263,25 @@ export default class LogisticsRunnable extends PersistentMemory {
     this.desiredHaulers = PID.update(this.pidHaulersMemory, numHaulTasks, Game.time, trace);
     trace.info('desired haulers', {desired: this.desiredHaulers});
 
-    if (Game.time % 20) {
-      const hudLine: HudLine = {
-        key: `pid_${this.baseId}`,
-        room: base.primary,
-        text: `Hauler PID: ${this.desiredHaulers.toFixed(2)}, ` +
-          `Haul Tasks: ${numHaulTasks}, ` +
-          `Num Haulers: ${this.numHaulers}, ` +
-          `Idle Haulers: ${this.numIdleHaulers}`,
-        time: Game.time,
-        order: 10,
-      };
+    // Update PID memory
+    trace.info('pid memory', {pid: Array.from(this.pidHaulersMemory.entries())});
+    const memory = this.getMemory(trace) || {};
+    memory.pid = Array.from(this.pidHaulersMemory.entries());
+    this.setMemory(memory);
 
-      kernel.getBroker().getStream(getLinesStream()).publish(new Event(this.baseId, Game.time,
-        HudEventSet, hudLine));
-    }
+    const hudLine: HudLine = {
+      key: `pid_${this.baseId}`,
+      room: base.primary,
+      text: `Hauler PID: ${this.desiredHaulers.toFixed(2)}, ` +
+        `Haul Tasks: ${numHaulTasks}, ` +
+        `Num Haulers: ${this.numHaulers}, ` +
+        `Idle Haulers: ${this.numIdleHaulers}`,
+      time: Game.time,
+      order: 10,
+    };
+
+    kernel.getBroker().getStream(getLinesStream()).publish(new Event(this.baseId, Game.time,
+      HudEventSet, hudLine));
   }
 
   private requestHaulers(trace: Tracer, kernel: Kernel, base: Base) {
@@ -257,7 +316,7 @@ export default class LogisticsRunnable extends PersistentMemory {
         priority += 10;
       }
 
-      priority -= this.numHaulers * 0.2;
+      priority -= this.numHaulers * 0.1;
 
       const ttl = REQUEST_HAULER_TTL;
       const memory = {
@@ -267,7 +326,6 @@ export default class LogisticsRunnable extends PersistentMemory {
       const request = createSpawnRequest(priority, ttl, role, memory, 0);
       trace.info('requesting hauler/worker', {role, priority, request});
       kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
-      // @CHECK that haulers and workers are spawning
     }
   }
 
@@ -395,14 +453,13 @@ export default class LogisticsRunnable extends PersistentMemory {
           const dropoff = getStructureForResource(base, resourceType);
           if (!dropoff) {
             trace.warn('no dropoff for resource', {resource: resourceType});
-            return;
           }
 
           const details = {
             [TASK_ID]: `pickup-${this.baseId}-${Game.time}`,
             [MEMORY_TASK_TYPE]: TASK_HAUL,
             [MEMORY_HAUL_PICKUP]: tombstone.id,
-            [MEMORY_HAUL_DROPOFF]: dropoff.id,
+            [MEMORY_HAUL_DROPOFF]: dropoff?.id,
             [MEMORY_HAUL_RESOURCE]: resourceType,
             [MEMORY_HAUL_AMOUNT]: tombstone.store[resourceType],
           };
@@ -418,10 +475,14 @@ export default class LogisticsRunnable extends PersistentMemory {
   }
 
   private requestRoad(kernel: Kernel, id: string, destination: RoomPosition, time: number, trace: Tracer) {
+    trace.notice('request road', {id, destination, time});
+
     if (this.legs.has(id)) {
       const leg = this.legs.get(id);
       leg.destination = destination;
       leg.requestedAt = time;
+      trace.notice('leg already exists, updating', {leg});
+      this.legs.set(id, leg);
     } else {
       const leg: Leg = {
         id,
@@ -431,6 +492,7 @@ export default class LogisticsRunnable extends PersistentMemory {
         requestedAt: time,
         updatedAt: null,
       };
+      trace.notice('does not exist, creating', {leg});
       this.legs.set(id, leg);
     }
   }
@@ -442,17 +504,14 @@ export default class LogisticsRunnable extends PersistentMemory {
       const kernel = details.kernel;
       const trace = details.trace;
 
-      if (!legs.length) {
-        trace.log('updating legs to calculate');
-        legs = this.getLegsToCalculate(trace);
+      trace.notice('calculate legs pass', {num: legs.length, legs});
 
-        if (!legs.length) {
-          trace.log('no legs to calculate');
-          continue;
-        }
+      if (!legs.length) {
+        trace.notice('updating legs to calculate');
+        legs = this.getLegsToCalculate(trace);
       }
 
-      trace.log('legs to update', {
+      trace.notice('legs to update', {
         legs: legs.map((l) => {
           return {id: l.id, updatedAt: l.updatedAt, remaining: l.remaining.length};
         }),
@@ -461,20 +520,32 @@ export default class LogisticsRunnable extends PersistentMemory {
       const leg = legs.shift();
       if (leg) {
         const [path, remaining] = this.calculateLeg(kernel, leg, trace);
-        leg.path = path || [];
-        leg.remaining = remaining || [];
-        leg.updatedAt = Game.time;
+        if (path) {
+          leg.path = path || [];
+          leg.remaining = remaining || [];
+          leg.updatedAt = Game.time;
+          this.legs.set(leg.id, leg);
+
+          // Storing legs
+          trace.info('storing legs after calculating', {legs: Array.from(this.legs.entries())});
+          const memory = this.getMemory(trace) || {};
+          memory.legs = Array.from(this.legs.entries());
+          this.setMemory(memory);
+        }
       }
 
-      if (!legs.length) {
+      if (!legs.length && this.legs.size > 0) {
         this.passes += 1;
-        trace.log('pass completed', {passes: this.passes});
+        trace.info('pass completed', {passes: this.passes});
       }
     }
   }
 
   private getLegsToCalculate(trace: Tracer): Leg[] {
-    return Array.from(this.legs.values());
+    // Filter out legs that need to be updated
+    return Array.from(this.legs.values()).filter((leg) => {
+      return leg.updatedAt < Game.time - LEG_CALCULATE_INTERVAL;
+    });
   }
 
   private calculateLeg(kernel: Kernel, leg: Leg, trace: Tracer): [path: RoomPosition[], remaining: RoomPosition[]] {
@@ -519,7 +590,7 @@ export default class LogisticsRunnable extends PersistentMemory {
       return true;
     });
 
-    trace.log('remaining', {leg});
+    trace.log('remaining', {remaining, leg});
 
     return [pathResult.path, remaining];
   }
@@ -595,80 +666,92 @@ export default class LogisticsRunnable extends PersistentMemory {
       },
     );
 
-    const leg = sortedLegs.shift();
-    if (!leg) {
-      trace.log('no legs to build');
-      return;
-    }
-
-    trace.log('shortest leg', {leg});
-
-    this.selectedLeg = leg;
-
     let roadSites = 0;
-    for (let i = 0; i < leg.path.length; i++) {
-      const pos = leg.path[i];
+    let leg: Leg = null;
 
-      // Do not build on edges
-      if (pos.x === 0 || pos.x === 49 || pos.y === 0 || pos.y === 49) {
-        trace.log('skip border site', {pos});
-        continue;
+    for (let s = 0; s < sortedLegs.length; s++) {
+      if (roadSites >= MAX_ROAD_SITES) {
+        break;
       }
 
-      // Check if road is already present
-      const road = pos.lookFor(LOOK_STRUCTURES).find((s) => {
-        return s.structureType === STRUCTURE_ROAD;
-      });
-      if (road) {
-        continue;
-      }
+      leg = sortedLegs[s];
+      trace.info("building next shortest leg", {leg});
 
-      // Check if road is already planned
-      const roadSite = pos.lookFor(LOOK_CONSTRUCTION_SITES).find((s) => {
-        return s.structureType === STRUCTURE_ROAD;
-      });
-      if (roadSite) {
-        roadSites += 1;
-        continue;
-      }
+      for (let i = 0; i < leg.path.length; i++) {
+        if (roadSites >= MAX_ROAD_SITES) {
+          break;
+        }
 
-      // Check if wall is present and remove
-      const wall = pos.lookFor(LOOK_STRUCTURES).find((s) => {
-        return s.structureType === STRUCTURE_WALL;
-      });
-      if (wall) {
-        trace.warn('remove wall', {pos});
-        wall.destroy();
-      }
+        const pos = leg.path[i];
 
-      // Check if wall site is to be built and remove
-      const wallSite = pos.lookFor(LOOK_CONSTRUCTION_SITES).find((s) => {
-        return s.structureType === STRUCTURE_WALL;
-      });
-      if (wallSite) {
-        trace.warn('remove wall site', {pos});
-        wallSite.remove();
-      }
-
-      // If there was a wall site or if we have not built too many road sites, build a road site
-      if (wall || wallSite || roadSites <= MAX_ROAD_SITES) {
-        const result = pos.createConstructionSite(STRUCTURE_ROAD);
-        if (result !== OK) {
-          trace.error('failed to build road', {pos, result});
+        // Do not build on edges
+        if (pos.x === 0 || pos.x === 49 || pos.y === 0 || pos.y === 49) {
+          trace.log('skip border site', {pos});
           continue;
         }
 
-        trace.warn('build road site', {pos});
+        // Check if road is already present
+        const road = pos.lookFor(LOOK_STRUCTURES).find((s) => {
+          return s.structureType === STRUCTURE_ROAD;
+        });
+        if (road) {
+          continue;
+        }
 
-        roadSites += 1;
+        // Check if road is already planned
+        const roadSite = pos.lookFor(LOOK_CONSTRUCTION_SITES).find((s) => {
+          return s.structureType === STRUCTURE_ROAD;
+        });
+        if (roadSite) {
+          roadSites += 1;
+          continue;
+        }
+
+        // Check if wall is present and remove
+        const wall = pos.lookFor(LOOK_STRUCTURES).find((s) => {
+          return s.structureType === STRUCTURE_WALL;
+        });
+        if (wall) {
+          trace.warn('remove wall', {pos});
+          wall.destroy();
+        }
+
+        // Check if wall site is to be built and remove
+        const wallSite = pos.lookFor(LOOK_CONSTRUCTION_SITES).find((s) => {
+          return s.structureType === STRUCTURE_WALL;
+        });
+        if (wallSite) {
+          trace.warn('remove wall site', {pos});
+          wallSite.remove();
+        }
+
+        // If there was a wall site or if we have not built too many road sites, build a road site
+        if (wall || wallSite || roadSites <= MAX_ROAD_SITES) {
+          const result = pos.createConstructionSite(STRUCTURE_ROAD);
+          if (result !== OK) {
+            trace.error('failed to build road', {pos, result});
+            continue;
+          }
+
+          trace.warn('build road site', {pos});
+
+          roadSites += 1;
+        }
       }
+
+      this.selectedLeg = leg;
     }
   }
 }
 
-const visualizeLegs = (legs: Leg[], trace: Tracer) => {
+const visualizeLegNodes = (legs: Leg[], trace: Tracer) => {
   for (let i = 0; i < legs.length; i++) {
     const leg = legs[i];
+    if (!leg.destination) {
+      trace.error('missing destination', {leg});
+      continue;
+    }
+
     new RoomVisual(leg.destination.roomName).text('X', leg.destination.x, leg.destination.y);
   }
 };

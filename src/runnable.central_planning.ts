@@ -1,4 +1,4 @@
-import {AlertLevel, Base, BaseMap} from './base';
+import {AlertLevel, Base} from './base';
 import {ShardConfig} from './config';
 import {WORKER_EXPLORER} from './constants.creeps';
 import {MEMORY_ASSIGN_ROOM, MEMORY_BASE} from './constants.memory';
@@ -49,16 +49,21 @@ export class CentralPlanning {
 
     this.shards.push(Game.shard.name);
 
-    let bases: BaseMap = {};
+    let bases: Map<string, Base> = new Map();
     if ((Memory as any).bases) {
-      trace.warn('found shard memory', {bases: (Memory as any).bases});
-      bases = (Memory as any).bases;
+      try {
+        trace.warn('found shard memory', {bases: (Memory as any).bases.length});
+        bases = new Map((Memory as any).bases);
+      } catch (e) {
+        trace.error('failed to load bases', {e});
+        delete (Memory as any).bases
+      }
     } else {
       trace.warn('no shard config found, bootstraping?');
     }
 
     // Setup known bases
-    Object.values(bases).forEach((base) => {
+    Array.from(bases.values()).forEach((base) => {
       trace.notice('setting up base', {base});
 
       const origin = new RoomPosition(base.origin.x, base.origin.y, base.origin.roomName);
@@ -113,7 +118,7 @@ export class CentralPlanning {
     this.baseWallsThread(trace, kernel);
     this.neighborsThread(trace, kernel);
 
-    (Memory as any).bases = this.bases;
+    (Memory as any).bases = Array.from(this.bases.entries());
 
     return sleeping(RUN_TTL);
   }

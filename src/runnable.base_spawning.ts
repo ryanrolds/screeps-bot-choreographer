@@ -207,7 +207,7 @@ export default class SpawnManager {
       let neighborRequest = null;
       const storageEnergy = spawn.room.storage?.store.getUsedCapacity(RESOURCE_ENERGY) || 0;
       if (storageEnergy < 100000) {
-        trace.warn('reserve energy too low, dont handle requests from other neighbors', {storageEnergy, baseId: base.id});
+        trace.info('reserve energy too low, dont handle requests from other neighbors', {storageEnergy, baseId: base.id});
       } else {
         neighborRequest = this.getNeighborRequest(kernel, base, trace);
       }

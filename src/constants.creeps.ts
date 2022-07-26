@@ -62,7 +62,7 @@ DEFINITIONS.set(WORKER_DEFENDER, {
   parts: [MOVE, HEAL, MOVE, RANGED_ATTACK, MOVE, RANGED_ATTACK, MOVE, TOUGH, MOVE, RANGED_ATTACK],
   boosts: ['rangedAttack'],
   energyLimit: 0,
-  energyMinimum: 1000,
+  energyMinimum: 550,
   ignoreSpawnEnergyLimit: false,
   processPriority: Priorities.DEFENCE,
   skippable: false,

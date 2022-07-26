@@ -19,7 +19,7 @@ describe('Scheduler', () => {
   let runSpy = null;
   let process = null;
   let processSpy = null;
-  let kernel = null;
+  const kernel = null;
 
   beforeEach(() => {
     sandbox = sinon.createSandbox();

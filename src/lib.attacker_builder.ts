@@ -52,7 +52,7 @@ export function buildAttacker(
     multipliers,
   });
 
-  while (true) {
+  while (true) { // eslint-disable-line no-constant-condition
     const numNonMoveParts = healParts + attackParts + toughParts;
     const numParts = numNonMoveParts + moveParts;
     // Cannot have more than 50 parts

@@ -6,16 +6,8 @@ import {Scheduler} from './os.scheduler';
 
 const version = '__GIT_SHA__';
 
-const friends = [
-  'PythonBeatJava',
-];
-const neutral = [
-  'JavaXCrow',
-  'kobez0r',
-  'laj18',
-  'Backbite',
-  'Leon_Lee',
-];
+const friends = [];
+const neutral = [];
 const avoid = [];
 const kos = [];
 

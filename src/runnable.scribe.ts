@@ -115,7 +115,7 @@ export class Scribe implements Runnable {
   private threadProduceEvents: KernelThreadFunc;
 
   constructor(trace: Tracer) {
-    let journal: Journal = {
+    const journal: Journal = {
       rooms: new Map(),
       creeps: new Map(),
     };

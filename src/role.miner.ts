@@ -1,10 +1,10 @@
-import * as behaviorTree from './lib.behaviortree';
-import {FAILURE, SUCCESS, RUNNING} from './lib.behaviortree';
 import {behaviorBoosts} from './behavior.boosts';
-import * as behaviorMovement from './behavior.movement';
 import * as behaviorCommute from './behavior.commute';
+import * as behaviorMovement from './behavior.movement';
 import * as MEMORY from './constants.memory';
 import {commonPolicy} from './constants.pathing_policies';
+import * as behaviorTree from './lib.behaviortree';
+import {FAILURE, RUNNING, SUCCESS} from './lib.behaviortree';
 
 const selectSource = behaviorTree.leafNode(
   'selectSource',

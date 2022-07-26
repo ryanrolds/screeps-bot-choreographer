@@ -1,4 +1,4 @@
-import {getBasePrimaryRoom, getBaseSpawns, getCreepBase, getStructuresWithResource, getStructureWithResource} from './base';
+import {getBasePrimaryRoom, getBaseSpawns, getCreepBase, getStructureWithResource} from './base';
 import * as behaviorMovement from './behavior.movement';
 import {MEMORY_DESTINATION, MEMORY_IDLE} from './constants.memory';
 import {commonPolicy} from './constants.pathing_policies';
@@ -209,7 +209,12 @@ export const parkingLot = behaviorTree.leafNode(
       ignoreCreeps: false,
     });
     if (result !== OK && result !== ERR_TIRED) {
-      trace.warn('could not move to parking lot', {result, parkingLot: base.parking});
+      trace.warn('could not move to parking lot', {
+        result,
+        parkingLot: base.parking,
+        creepName: creep.name,
+        pos: creep.pos,
+      });
     }
 
     return FAILURE;

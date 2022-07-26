@@ -9,7 +9,7 @@ import {Kernel, KernelThreadFunc, threadKernel} from './kernel';
 import {buildAttacker, newMultipliers} from './lib.attacker_builder';
 import {scoreRoomDamage, scoreStorageHealing} from './lib.scoring';
 import {Tracer} from './lib.tracing';
-import {Process, sleeping} from './os.process';
+import {Process, running} from './os.process';
 import {RunnableResult} from './os.runnable';
 import {Priorities, Scheduler} from './os.scheduler';
 import {MEMORY_HARASS_BASE, ROLE_HARASSER} from './role.harasser';
@@ -92,7 +92,7 @@ export default class WarManager {
 
     trace.end();
 
-    return sleeping(WAR_PARTY_RUN_TTL);
+    return running();
   }
 
   consumeEvents(trace: Tracer, kernel: Kernel) {
@@ -364,7 +364,7 @@ export default class WarManager {
     };
 
     const request = createSpawnRequest(priorities, ttl, role, memory, 0);
-    trace.info('requesting harasser', {request});
+    trace.notice('requesting harasser', {request});
     kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
   }
 

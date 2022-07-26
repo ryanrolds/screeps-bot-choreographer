@@ -1,5 +1,5 @@
 import * as _ from 'lodash';
-import {getBasePrimaryRoom} from './base';
+import {Base, getBasePrimaryRoom} from './base';
 import {BaseRoomThreadFunc, threadBaseRoom} from './base_room';
 import {AttackRequest, AttackStatus, ATTACK_ROOM_TTL, Phase} from './constants.attack';
 import {DEFINITIONS} from './constants.creeps';
@@ -174,7 +174,7 @@ export default class WarPartyRunnable {
 
     // If no parts, update parts
     if (!this.parts) {
-      this.updateParts(trace, baseRoom, targetRoomEntry);
+      this.updateParts(trace, kernel, base, baseRoom, targetRoomEntry);
     } else {
       this.threadUpdateParts(trace, kernel, base, baseRoom, targetRoomEntry);
     }
@@ -312,7 +312,7 @@ export default class WarPartyRunnable {
     return running();
   }
 
-  updateParts(trace: Tracer, baseRoom: Room, targetRoomEntry: RoomEntry): void {
+  updateParts(trace: Tracer, kernel: Kernel, base: Base, baseRoom: Room, targetRoomEntry: RoomEntry): void {
     const boosts = newMultipliers();
 
     const baseStorage = baseRoom.storage;

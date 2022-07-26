@@ -1,7 +1,7 @@
-import {Kernel} from './kernel';
 import {getBoostPosition, getCreepBase, getLabsForAction} from './base';
 import * as behaviorMovement from './behavior.movement';
 import * as MEMORY from './constants.memory';
+import {Kernel} from './kernel';
 import * as behaviorTree from './lib.behaviortree';
 import {RUNNING, SUCCESS} from './lib.behaviortree';
 
@@ -48,8 +48,10 @@ export const behaviorBoosts = (behaviorNode) => {
 
           switch (phase) {
             case BOOST_PHASE_START:
+              // eslint-disable-next-line no-fallthrough
               creep.memory[BOOST_PHASE] = BOOST_PHASE_MOVE;
-            case BOOST_PHASE_MOVE:
+            // eslint-disable-next-line no-fallthrough
+            case BOOST_PHASE_MOVE: {
               // Move to booster location
               const result = behaviorMovement.moveTo(creep, boosterPos, 0, false, 50, 1000);
               if (result === SUCCESS) {
@@ -58,6 +60,7 @@ export const behaviorBoosts = (behaviorNode) => {
               }
 
               return result;
+            }
             case BOOST_PHASE_READY:
               desiredActions.forEach((desiredAction) => {
                 const labs = getLabsForAction(base, desiredAction);

@@ -13,10 +13,6 @@ export enum AlertLevel {
   RED = 'red',
 }
 
-export interface BaseMap {
-  [id: string]: Base;
-}
-
 export interface Base {
   id: NonNullable<string>;
 

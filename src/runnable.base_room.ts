@@ -96,7 +96,7 @@ export default class RoomRunnable implements Runnable {
     const numReservers = _.filter(Game.creeps, (creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
       return (role === CREEPS.WORKER_RESERVER) &&
-        creep.memory[MEMORY.MEMORY_ASSIGN_ROOM] === this.id && creepIsFresh(creep);
+        creep.memory[MEMORY.MEMORY_ASSIGN_ROOM] === room.name && creepIsFresh(creep);
     }).length;
 
     if (numReservers) {
@@ -105,7 +105,7 @@ export default class RoomRunnable implements Runnable {
 
     // If base is under threat, don't worry about remotes
     if (base.alertLevel !== AlertLevel.GREEN) {
-      trace.info('not requesting reserver, base alert level is not green', {
+      trace.notice('not requesting reserver, base alert level is not green', {
         roomName: room.name,
         baseId: base.id,
         alertLevel: base.alertLevel,
@@ -116,7 +116,7 @@ export default class RoomRunnable implements Runnable {
 
     // If owned by me we don't need reserver
     if (room.controller?.owner?.username === kernel.getPlanner().getUsername()) {
-      trace.info('not requesting reserver, room is owned by me', {
+      trace.notice('not requesting reserver, room is owned by me', {
         roomName: room.name,
         baseId: base.id,
       });
@@ -141,7 +141,7 @@ export default class RoomRunnable implements Runnable {
       }
     }
 
-    trace.log('sending reserve request to colony');
+    trace.notice('sending reserve request to colony');
 
     const priority = PRIORITIES.PRIORITY_RESERVER;
     const ttl = REQUEST_RESERVER_TTL;
@@ -152,7 +152,7 @@ export default class RoomRunnable implements Runnable {
     };
 
     let topic = getShardSpawnTopic();
-    if (baseEnergyStorageCapacity(base) >= 800) {
+    if (baseEnergyStorageCapacity(base) >= 650) {
       topic = getBaseSpawnTopic(base.id);
     }
 

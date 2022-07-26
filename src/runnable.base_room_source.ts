@@ -1,4 +1,5 @@
 import {AlertLevel, Base, BaseThreadFunc, getStructureForResource, threadBase} from './base';
+import {creepIsFresh} from './behavior.commute';
 import {ROLE_WORKER, WORKER_HAULER, WORKER_MINER} from './constants.creeps';
 import * as MEMORY from './constants.memory';
 import {roadPolicy} from './constants.pathing_policies';
@@ -24,30 +25,30 @@ const CONTAINER_TTL = 250;
 const RED_ALERT_TTL = 200;
 
 export default class SourceRunnable extends PersistentMemory implements Runnable {
-  id: Id<Source>;
-  position: RoomPosition;
-  creepPosition: RoomPosition | null;
-  linkPosition: RoomPosition | null;
+  private id: Id<Source>;
+  private creepPosition: RoomPosition | null;
+  private linkPosition: RoomPosition | null;
+  private openPositions: RoomPosition[];
 
-  containerId: Id<StructureContainer>;
-  linkId: Id<StructureLink>;
-  dropoffId: Id<Structure>;
+  private containerId: Id<StructureContainer>;
+  private linkId: Id<StructureLink>;
+  private dropoffId: Id<Structure>;
 
-  threadProduceEvents: BaseThreadFunc;
-  threadUpdateStructures: BaseThreadFunc;
-  threadUpdateDropoff: BaseThreadFunc;
-  threadRequestMiners: BaseThreadFunc;
-  threadRequestHauling: BaseThreadFunc;
-  threadBuildContainer: BaseThreadFunc;
-  threadBuildLink: BaseThreadFunc;
+  private threadProduceEvents: BaseThreadFunc;
+  private threadUpdateStructures: BaseThreadFunc;
+  private threadUpdateDropoff: BaseThreadFunc;
+  private threadRequestMiners: BaseThreadFunc;
+  private threadRequestHauling: BaseThreadFunc;
+  private threadBuildContainer: BaseThreadFunc;
+  private threadBuildLink: BaseThreadFunc;
 
   constructor(source: Source) {
     super(source.id);
 
     this.id = source.id;
-    this.position = source.pos;
     this.creepPosition = null;
     this.linkPosition = null;
+    this.openPositions = null;
 
     this.threadProduceEvents = threadBase('consume_events', RUN_TTL)(this.produceEvents.bind(this));
     this.threadUpdateStructures = threadBase('update_structures', STRUCTURE_TTL)(this.updateStructures.bind(this));
@@ -68,6 +69,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       linkId: this.linkId,
       creepPosition: this.creepPosition,
       linkPosition: this.linkPosition,
+      openPositions: this.openPositions,
     });
 
     const source: Source = Game.getObjectById(this.id);
@@ -90,7 +92,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       return terminate();
     }
 
-    if (!this.creepPosition || !this.linkPosition) {
+    if (!this.creepPosition || !this.linkPosition || !this.openPositions) {
       trace.info('creep or link position not set');
       this.populatePositions(trace, kernel, base, source);
     }
@@ -158,19 +160,37 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       this.linkPosition = new RoomPosition(linkPosition.x, linkPosition.y, linkPosition.roomName);
     }
 
-    if (this.creepPosition && this.linkPosition) {
-      trace.info('creep and link positions in memory', {room: source.room.name});
+    // Determine number of open spaces around the source
+    let openPositions = getNearbyPositions(source.pos, 1);
+    const terrain = source.room.getTerrain();
+    openPositions = openPositions.filter(pos => {
+      // If wall, blocked
+      if (terrain.get(pos.x, pos.y) === TERRAIN_MASK_WALL) {
+        return false;
+      }
+
+      const blocker = source.room.lookForAt(LOOK_STRUCTURES, pos).find((s) => {
+        return !OBSTACLE_OBJECT_TYPES[s.structureType]
+      });
+      if (blocker) {
+        return false;
+      }
+
+      return true;
+    });
+    this.openPositions = openPositions;
+
+    if (this.creepPosition && this.linkPosition && this.openPositions) {
+      trace.info('creep and link positions in memory', {room: source.room.name, openPositions: this.openPositions});
       return;
     }
 
-    const colonyPos = new RoomPosition(base.origin.x, base.origin.y - 1,
-      base.origin.roomName);
-
-    const [pathResult, details] = getPath(kernel, source.pos, colonyPos, roadPolicy, trace);
-    trace.log('path found', {origin: source.pos, dest: colonyPos, pathResult});
+    const basePos = new RoomPosition(base.origin.x, base.origin.y - 1, base.origin.roomName);
+    const [pathResult, details] = getPath(kernel, source.pos, basePos, roadPolicy, trace);
+    trace.log('path found', {origin: source.pos, dest: basePos, pathResult});
 
     if (!pathResult || !pathResult.path.length) {
-      trace.error('path not found', {colonyPos, source: source.pos});
+      trace.error('path not found', {colonyPos: basePos, source: source.pos});
       return;
     }
 
@@ -220,6 +240,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       sourceId: this.id,
       creepPosition: this.creepPosition,
       linkPosition: this.linkPosition,
+      openPositions: this.openPositions,
     });
 
     // Update memory
@@ -253,72 +274,100 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
   }
 
   requestMiners(trace: Tracer, kernel: Kernel, base: Base, source: Source) {
-    if (!this.creepPosition) {
-      trace.error('creep position not set', {creepPosition: this.creepPosition});
-      return;
-    }
-
-    const username = kernel.getPlanner().getUsername();
-
     if (!source.room) {
-      trace.error('source room not set', {source: source});
+      trace.error('source room not visible', {source: source});
       return;
     }
 
     const room = source.room;
-
-    if (room.controller?.owner && room.controller.owner.username !== username) {
-      trace.info('room owned by someone else', {roomId: room.name, owner: room.controller?.owner?.username});
+    const username = kernel.getPlanner().getUsername();
+    if (room?.controller?.owner?.username && room?.controller?.owner?.username !== username) {
+      trace.info('room owned by someone else', {
+        roomId: room?.name,
+        owner: room?.controller?.owner?.username
+      });
       return;
     }
 
-    if (room.controller?.reservation && room.controller.reservation.username !== username) {
-      trace.info('room reserved by someone else', {roomId: room.name, username: room.controller.reservation.username});
+    if (room?.controller?.reservation?.username && room?.controller?.reservation?.username !== username) {
+      trace.info('room reserved by someone else', {
+        roomId: room?.name,
+        username: room?.controller?.reservation?.username
+      });
       return;
     }
 
-    const numMiners = kernel.getCreepsManager().getCreepsByBaseAndRole(base.id, WORKER_MINER).filter((creep) => {
-      return creep.memory[MEMORY.MEMORY_SOURCE] === this.id;
-    }).length;
+    let desiredParts = 6;
+    if ((room?.controller?.owner?.username && room?.controller?.owner?.username !== username) &&
+      (room?.controller?.reservation?.username && room?.controller?.reservation?.username !== username)) {
+      desiredParts = 3; // Sources have half as much energy
+    }
 
-    trace.info('num miners', {numMiners});
+    const miners = kernel.getCreepsManager().getCreepsByBaseAndRole(base.id, WORKER_MINER).
+      filter((creep) => {
+        return creep.memory[MEMORY.MEMORY_SOURCE] === this.id && creepIsFresh(creep);
+      });
+    const workPartCount = miners.reduce((sum, creep) => {
+      return sum + creep.getActiveBodyparts(WORK);
+    }, 0);
+    const numMiners = miners.length;
 
-    // If there are more than one miner at the source, suicide the oldest
-    if (numMiners >= 2) {
-      const nearbyMiners = _.sortBy(source.pos.findInRange(FIND_MY_CREEPS, 2).filter((creep) => {
-        return creep.memory[MEMORY.MEMORY_ROLE] === WORKER_MINER &&
-          creep.memory[MEMORY.MEMORY_SOURCE] === this.id;
-      }), (creep) => {
-        return creep.ticksToLive;
+    trace.info('num miners', {
+      numMiners, workPartCount, desiredParts,
+      numPosition: this.openPositions.length
+    });
+
+    if (workPartCount >= desiredParts) {
+      trace.info('enough miners', {workPartCount});
+      return;
+    }
+
+    if (numMiners >= this.openPositions.length) {
+      trace.info('no more open positions', {numMiners});
+      return;
+    }
+
+    // We do not have enough miners and there is room
+    let positionStr = [this.creepPosition.x, this.creepPosition.y, this.creepPosition.roomName].join(',');
+    if (numMiners > 0) {
+      const positions = this.openPositions.filter((pos) => {
+        // If miner is already assigned to this position, don't use it
+        const str = [pos.x, pos.y, pos.roomName].join(',');
+        if (miners.find(miner => miner.memory[MEMORY.MEMORY_SOURCE_POSITION] === str)) {
+          return false;
+        }
+
+        return true;
       });
 
-      if (nearbyMiners.length > 1) {
-        trace.info('more than one nearby miner, suiciding first', {nearbyMiners});
-        nearbyMiners[0].suicide();
+      if (!positions.length) {
+        trace.error('no available positions', {numMiners, positions, openPositions: this.openPositions});
         return;
       }
+
+      positionStr = [positions[0].x, positions[0].y, positions[0].roomName].join(',');
     }
 
-    if (numMiners < 1) {
-      const positionStr = [this.creepPosition.x, this.creepPosition.y, this.creepPosition.roomName].join(',');
-
-      const priority = PRIORITY_MINER;
-      const ttl = RUN_TTL;
-      const role = WORKER_MINER;
-      const memory = {
-        [MEMORY.MEMORY_SOURCE]: this.id,
-        [MEMORY.MEMORY_SOURCE_CONTAINER]: this.containerId,
-        [MEMORY.MEMORY_SOURCE_POSITION]: positionStr,
-        [MEMORY.MEMORY_ASSIGN_ROOM]: room.name,
-        [MEMORY.MEMORY_BASE]: base.id,
-      };
-
-      trace.info('requesting miner', {sourceId: this.id, PRIORITY_MINER, memory});
-
-      const request = createSpawnRequest(priority, ttl, role, memory, 0);
-      kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
-      // @CONFIRM that miners are spawned
+    let priority = PRIORITY_MINER;
+    // prioritize filling primary room sources
+    if (room.name === base.primary) {
+      priority += 5;
     }
+
+    const ttl = RUN_TTL;
+    const role = WORKER_MINER;
+    const memory = {
+      [MEMORY.MEMORY_SOURCE]: this.id,
+      [MEMORY.MEMORY_SOURCE_CONTAINER]: this.containerId,
+      [MEMORY.MEMORY_SOURCE_POSITION]: positionStr,
+      [MEMORY.MEMORY_ASSIGN_ROOM]: room.name,
+      [MEMORY.MEMORY_BASE]: base.id,
+    };
+
+    trace.info('requesting miner', {sourceId: this.id, PRIORITY_MINER, memory});
+
+    const request = createSpawnRequest(priority, ttl, role, memory, 0);
+    kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
   }
 
   requestHauling(trace: Tracer, kernel: Kernel, base: Base, source: Source) {

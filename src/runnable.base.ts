@@ -144,9 +144,9 @@ export default class BaseRunnable {
       id: this.id,
     });
 
-    const base = kernel.getPlanner().getBaseByRoom(this.id);
+    const base = kernel.getPlanner().getBaseById(this.id);
     if (!base) {
-      trace.error('no colony config, terminating', {id: this.id});
+      trace.error('no base config, terminating', {base: this.id});
       trace.end();
       return terminate();
     }
@@ -154,7 +154,7 @@ export default class BaseRunnable {
     // if room not visible, request room be claimed
     const room = getBasePrimaryRoom(base);
     if (!room || room.controller?.level === 0) {
-      trace.notice('cannot see room or level 0', {id: this.id});
+      trace.notice('cannot see room or level 0', {base: this.id});
       this.requestClaimer(kernel, trace);
       trace.end();
       return sleeping(NO_VISION_TTL);
@@ -163,7 +163,7 @@ export default class BaseRunnable {
     // TODO try to remove dependency on OrgRoom
     const orgRoom = getBasePrimaryRoom(base);
     if (!orgRoom) {
-      trace.error('no org room, terminating', {id: this.id});
+      trace.error('no org room, terminating', {base: this.id});
       trace.end();
       return sleeping(NO_VISION_TTL);
     }
@@ -196,7 +196,7 @@ export default class BaseRunnable {
     // Alert level
     this.threadUpdateAlertLevel(trace, kernel, base);
 
-    const roomVisual = new RoomVisual(this.id);
+    const roomVisual = new RoomVisual(base.primary);
     roomVisual.text('O', base.origin.x, base.origin.y, {color: '#FFFFFF'});
     roomVisual.text('P', base.parking.x, base.parking.y, {color: '#FFFFFF'});
 
@@ -208,7 +208,7 @@ export default class BaseRunnable {
     trace = trace.begin('abandon_base');
 
     trace.info('abandoning base check', {
-      id: this.id,
+      base: this.id,
     });
 
     // If room has large hostile presence, no spawns, and no towers, abandon base
@@ -375,6 +375,41 @@ export default class BaseRunnable {
       missingProcesses++;
     }
 
+    // Rooms
+    base.rooms.forEach((room) => {
+      const roomId = `room_${room}`;
+      const hasRoomProcess = this.scheduler.hasProcess(roomId);
+      if (!hasRoomProcess) {
+        trace.log('starting room', {id: roomId});
+        missingProcesses++;
+
+        this.scheduler.registerProcess(new Process(roomId, 'rooms', Priorities.CRITICAL,
+          new RoomRunnable(room, this.scheduler)));
+      }
+    });
+
+    // Controller
+    const controllerProcessId = primaryRoom.controller.id;
+    if (!this.scheduler.hasProcess(controllerProcessId)) {
+      trace.log('starting controller', {id: primaryRoom.controller.id});
+      missingProcesses++;
+
+      const controllerRunnable = new ControllerRunnable(primaryRoom.controller.id);
+      this.scheduler.registerProcess(new Process(controllerProcessId, 'controller',
+        Priorities.CRITICAL, controllerRunnable));
+    }
+
+    // Road network and hauling
+    const logisticsIds = `logistics_${this.id}`;
+    const hasLogisticsProcess = this.scheduler.hasProcess(logisticsIds);
+    if (!hasLogisticsProcess) {
+      trace.log('starting logistics', {id: logisticsIds});
+      missingProcesses++;
+
+      this.scheduler.registerProcess(new Process(logisticsIds, 'logistics', Priorities.LOGISTICS,
+        new LogisticsRunnable(this.id)));
+    }
+
     // Observer runnable
     const observerStructures = primaryRoom.find<StructureObserver>(FIND_MY_STRUCTURES, {
       filter: (structure) => {
@@ -393,41 +428,6 @@ export default class BaseRunnable {
           new ObserverRunnable(base.id, observerStructures[0])));
       }
     }
-
-    // Road network
-    const logisticsIds = `logistics_${this.id}`;
-    const hasLogisticsProcess = this.scheduler.hasProcess(logisticsIds);
-    if (!hasLogisticsProcess) {
-      trace.log('starting logistics', {id: logisticsIds});
-      missingProcesses++;
-
-      this.scheduler.registerProcess(new Process(logisticsIds, 'logistics', Priorities.LOGISTICS,
-        new LogisticsRunnable(this.id)));
-    }
-
-    // Controller
-    const controllerProcessId = primaryRoom.controller.id;
-    if (!this.scheduler.hasProcess(controllerProcessId)) {
-      trace.log('starting controller', {id: logisticsIds});
-      missingProcesses++;
-
-      const controllerRunnable = new ControllerRunnable(primaryRoom.controller.id);
-      this.scheduler.registerProcess(new Process(controllerProcessId, 'controller',
-        Priorities.CRITICAL, controllerRunnable));
-    }
-
-    // Rooms
-    base.rooms.forEach((room) => {
-      const roomId = `room_${room}`;
-      const hasRoomProcess = this.scheduler.hasProcess(roomId);
-      if (!hasRoomProcess) {
-        trace.log('starting room', {id: roomId});
-        missingProcesses++;
-
-        this.scheduler.registerProcess(new Process(roomId, 'rooms', Priorities.EXPLORATION,
-          new RoomRunnable(room, this.scheduler)));
-      }
-    });
 
     this.missingProcesses = missingProcesses;
   }
@@ -1038,11 +1038,11 @@ export default class BaseRunnable {
       return;
     }
 
-    trace.notice('no significant hostile presence', {level: base.alertLevel, baseId: base.id});
+    trace.info('no significant hostile presence', {level: base.alertLevel, baseId: base.id});
     base.alertLevel = AlertLevel.GREEN;
   }
 
-  updateBoosters(trace: Tracer, base: Base, kernel: Kernel) {
+  updateBoosters(trace: Tracer, kernel: Kernel, base: Base) {
     const topic = kernel.getTopics().getTopic(getBaseBoostTopic(base));
     if (!topic) {
       trace.log('no topic', {room: this.id});
