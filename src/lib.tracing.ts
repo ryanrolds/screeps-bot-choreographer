@@ -137,7 +137,7 @@ export class Tracer {
 
   private clone() {
     const child = new Tracer(this.name, this.kv, this.start);
-    child.kv = new Map(this.kv);
+    child.kv = new Map(this.kv.entries());
 
     child.logFilter = this.logFilter;
     child.collect = this.collect;

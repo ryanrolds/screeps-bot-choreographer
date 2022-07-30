@@ -63,20 +63,20 @@ export default class NukerRunnable {
 
     const neededEnergy = nuker.store.getFreeCapacity(RESOURCE_ENERGY);
     if (neededEnergy > 0) {
-      trace.log('need energy', {neededEnergy});
+      trace.info('need energy', {neededEnergy});
       this.requestResource(kernel, base, RESOURCE_ENERGY, neededEnergy, trace);
       readyToFire = false;
     }
 
     const neededGhodium = nuker.store.getFreeCapacity(RESOURCE_GHODIUM);
     if (neededGhodium > 0) {
-      trace.log('need ghodium', {neededGhodium});
+      trace.info('need ghodium', {neededGhodium});
       this.requestResource(kernel, base, RESOURCE_GHODIUM, neededGhodium, trace);
       readyToFire = false;
     }
 
     if (readyToFire) {
-      trace.log('lets play global thermonuclear war');
+      trace.info('lets play global thermonuclear war');
 
       const request = (kernel as any).getNextRequest(TOPICS.NUKER_TARGETS);
       if (request) {
@@ -87,11 +87,11 @@ export default class NukerRunnable {
         if (posArray && posArray.length === 3) {
           position = new RoomPosition(posArray[0], posArray[1], posArray[2]);
         } else {
-          trace.log('problem with position string', {positionStr});
+          trace.info('problem with position string', {positionStr});
         }
 
         if (position !== null) {
-          trace.log('would nuke', {position});
+          trace.info('would nuke', {position});
           const result = nuker.launchNuke(position);
           trace.notice('nuker launch result', {result, position});
         }
@@ -106,7 +106,7 @@ export default class NukerRunnable {
   requestResource(kernel: Kernel, base: Base, resource: ResourceConstant, amount: number, trace: Tracer) {
     const pickup = getStructureWithResource(base, resource);
     if (!pickup) {
-      trace.log('requesting resource from governor', {resource, amount});
+      trace.info('requesting resource from governor', {resource, amount});
       const resourceGovernor = kernel.getResourceManager();
       const requested = resourceGovernor.requestResource(base, resource, amount, REQUEST_RESOURCES_TTL, trace);
       if (!requested) {
@@ -116,7 +116,7 @@ export default class NukerRunnable {
       return;
     }
 
-    trace.log('requesting load', {
+    trace.info('requesting load', {
       nuker: this.id,
       resource: resource,
       amount: amount,

@@ -71,32 +71,32 @@ export default class ReactorRunnable extends PersistentMemory {
 
     const base = kernel.getPlanner().getBaseById(this.baseId);
     if (!base) {
-      trace.log('base not found');
+      trace.info('base not found');
       trace.end();
       return terminate();
     }
 
     const room = getBasePrimaryRoom(base);
     if (!room) {
-      trace.log('room not found - terminating', {});
+      trace.info('room not found - terminating', {});
       trace.end();
       return sleeping(50);
     }
 
     const labs = this.labIds.map((labId) => Game.getObjectById(labId));
     if (_.filter(labs, (lab) => !lab).length) {
-      trace.log('lab missing - terminating', {labIds: this.labIds});
+      trace.info('lab missing - terminating', {labIds: this.labIds});
       trace.end();
       return terminate();
     }
 
     let task = this.getTask(trace);
     if (!task) {
-      trace.log('no current task', {});
+      trace.info('no current task', {});
 
       const request = kernel.getTopics().getNextRequest(TOPICS.TASK_REACTION);
       if (!request) {
-        trace.log('no available tasks', {});
+        trace.info('no available tasks', {});
         trace.end();
         return sleeping(NEW_TASK_SLEEP);
       }
@@ -112,12 +112,12 @@ export default class ReactorRunnable extends PersistentMemory {
       };
       this.setTask(task);
 
-      trace.log('got new task', {task});
+      trace.info('got new task', {task});
     }
 
     this.threadProduceStatus(trace, kernel, base, room, labs, task);
 
-    trace.log('reactor run', {
+    trace.info('reactor run', {
       labIds: this.labIds,
       ticks,
       task,
@@ -188,7 +188,7 @@ export default class ReactorRunnable extends PersistentMemory {
 
     switch (phase) {
       case TASK_PHASE_START:
-        trace.log('starting task', {task});
+        trace.info('starting task', {task});
 
         task[MEMORY.TASK_PHASE] = TASK_PHASE_LOAD;
       // eslint-disable-next-line no-fallthrough
@@ -201,7 +201,7 @@ export default class ReactorRunnable extends PersistentMemory {
         }
 
         if (ttl <= 0) {
-          trace.log('ttl exceeded, clearing task', {});
+          trace.info('ttl exceeded, clearing task', {});
           this.clearTask(trace);
           return [task, NO_SLEEP];
         } else {
@@ -213,7 +213,7 @@ export default class ReactorRunnable extends PersistentMemory {
         const readyB = this.prepareInput(kernel, base, labs[2], inputB, amount, trace);
 
         if (readyA && readyB) {
-          trace.log('loaded, moving to react phase', {});
+          trace.info('loaded, moving to react phase', {});
           task[MEMORY.TASK_PHASE] = TASK_PHASE_REACT;
           return [task, NO_SLEEP];
         }
@@ -222,13 +222,13 @@ export default class ReactorRunnable extends PersistentMemory {
       }
       case TASK_PHASE_REACT: {
         if (labs[0].cooldown) {
-          trace.log('reacting cooldown', {cooldown: labs[0].cooldown});
+          trace.info('reacting cooldown', {cooldown: labs[0].cooldown});
           return [task, labs[0].cooldown];
         }
 
         const result = labs[0].runReaction(labs[1], labs[2]);
         if (result !== OK) {
-          trace.log('reacted, moving to unload phase', {});
+          trace.info('reacted, moving to unload phase', {});
           task[MEMORY.TASK_PHASE] = TASK_PHASE_UNLOAD;
           return [task, NO_SLEEP];
         }
@@ -238,7 +238,7 @@ export default class ReactorRunnable extends PersistentMemory {
       case TASK_PHASE_UNLOAD: {
         const lab = labs[0];
         if (!lab.mineralType || lab.store.getUsedCapacity(lab.mineralType) === 0) {
-          trace.log('unloaded, task complete', {});
+          trace.info('unloaded, task complete', {});
           this.clearTask(trace);
           return [task, NO_SLEEP];
         }
@@ -293,7 +293,7 @@ export default class ReactorRunnable extends PersistentMemory {
 
   requestResource(kernel: Kernel, base: Base, resource: ResourceConstant, amount: number, trace: Tracer) {
     // TODO this really should use topics/IPC
-    trace.log('requesting resource from governor', {resource, amount});
+    trace.info('requesting resource from governor', {resource, amount});
 
     const resourceManager = kernel.getResourceManager();
     const requested = resourceManager.requestResource(base, resource, amount, REQUEST_LOAD_TTL, trace);
@@ -303,7 +303,7 @@ export default class ReactorRunnable extends PersistentMemory {
   }
 
   loadLab(kernel: Kernel, lab: StructureLab, pickup: AnyStoreStructure, resource: ResourceConstant, amount: number, trace: Tracer) {
-    trace.log('requesting load', {
+    trace.info('requesting load', {
       lab: lab.id,
       resource: resource,
       amount: amount,
@@ -325,7 +325,7 @@ export default class ReactorRunnable extends PersistentMemory {
     const currentAmount = lab.store.getUsedCapacity(lab.mineralType);
     const dropoff = getStructureForResource(base, lab.mineralType);
 
-    trace.log('requesting unload', {
+    trace.info('requesting unload', {
       lab: lab.id,
       resource: lab.mineralType,
       amount: currentAmount,
@@ -346,7 +346,7 @@ export default class ReactorRunnable extends PersistentMemory {
   produceUpdateStatus(trace: Tracer, kernel: Kernel, base: Base, room: Room,
     labs: StructureLab[], task: ReactorTask) {
     if (!task) {
-      trace.log('no task', {baseId: this.baseId});
+      trace.info('no task', {baseId: this.baseId});
       return;
     }
 
@@ -363,7 +363,7 @@ export default class ReactorRunnable extends PersistentMemory {
       [MEMORY.REACTION_STATUS_PHASE]: phase,
     };
 
-    trace.log('producing reactor status', {status});
+    trace.info('producing reactor status', {status});
 
     kernel.getTopics().addRequest(TOPICS.ACTIVE_REACTIONS, 1, status, PRODUCE_STATUS_TTL);
 

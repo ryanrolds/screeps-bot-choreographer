@@ -208,15 +208,15 @@ export default class WarPartyRunnable {
 
       const roomEntry = kernel.getScribe().getRoomById(this.targetRoom);
       if (!roomEntry) {
-        trace.log(`no room entry for ${this.targetRoom}, using center of room`);
+        trace.info(`no room entry for ${this.targetRoom}, using center of room`);
         // TODO should probably delay until we have a room entry
       } else if (roomEntry.spawnLocation) {
-        trace.log('setting spawn as target position', {pos: roomEntry.spawnLocation});
+        trace.info('setting spawn as target position', {pos: roomEntry.spawnLocation});
         // TODO fix issue with restored from memory room positions not having functions
         targetPosition = new RoomPosition(roomEntry.spawnLocation.x, roomEntry.spawnLocation.y,
           roomEntry.spawnLocation.roomName);
       } else if (roomEntry.controller?.pos) {
-        trace.log('setting controller as target position', {pos: roomEntry.controller.pos});
+        trace.info('setting controller as target position', {pos: roomEntry.controller.pos});
         // TODO fix issue with restored from memory room positions not having functions
         targetPosition = new RoomPosition(roomEntry.controller.pos.x, roomEntry.controller.pos.y,
           roomEntry.controller.pos.roomName);
@@ -226,7 +226,7 @@ export default class WarPartyRunnable {
         // If we have at least 4 creeps and they are in position, begin deployment
         if (this.inPosition(this.position, trace) && creeps.length >= 4) {
           this.phase = Phase.PHASE_EN_ROUTE;
-          trace.log('moving to en route phase', {phase: this.phase});
+          trace.info('moving to en route phase', {phase: this.phase});
         } else {
           this.setDestination(targetPosition, 3);
           this.position = flag.pos;
@@ -238,10 +238,10 @@ export default class WarPartyRunnable {
         // If we are out of creep, remarshal
         if (!creeps.length || (this.position.findClosestByRange(creeps)?.pos.getRangeTo(this.position) > 5)) {
           this.phase = Phase.PHASE_MARSHAL;
-          trace.log('moving to marshal phase', {phase: this.phase});
+          trace.info('moving to marshal phase', {phase: this.phase});
         } else if (targetRoom === this.position.roomName) {
           this.phase = Phase.PHASE_ATTACK;
-          trace.log('moving to attack phase', {phase: this.phase});
+          trace.info('moving to attack phase', {phase: this.phase});
         } else {
           this.setDestination(targetPosition, 3);
           this.deploy(kernel, positionRoomObject, targetRoom, creeps, trace);
@@ -266,7 +266,7 @@ export default class WarPartyRunnable {
           this.minEnergy = _.min([this.minEnergy + 1000, energyCapacityAvailable]);
           this.party.setMinEnergy(this.minEnergy);
 
-          trace.log('moving to marshal phase', {phase: this.phase});
+          trace.info('moving to marshal phase', {phase: this.phase});
         } else {
           const done = this.engage(kernel, targetRoomObject, creeps, trace);
           if (done) {
@@ -297,7 +297,7 @@ export default class WarPartyRunnable {
     // Tick the party along
     const partyResult = this.party.run(kernel, trace);
     if (partyResult.status === STATUS_TERMINATED) {
-      trace.log('party terminated');
+      trace.info('party terminated');
       trace.end();
       return partyResult;
     }
@@ -769,7 +769,7 @@ export default class WarPartyRunnable {
       nextPosition = currentPosition;
     }
 
-    trace.log('get next position', {
+    trace.info('get next position', {
       positionChanged,
       currentIndex,
       currentPosition,

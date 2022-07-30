@@ -20,7 +20,7 @@ export const getHaulTaskFromBaseTopic = behaviorTree.leafNode(
     // get next haul task
     const task = kernel.getTopics().getNextRequest(getBaseHaulerTopic(baseId));
     if (!task) {
-      trace.log('no haul task');
+      trace.info('no haul task');
       return FAILURE;
     }
 
@@ -36,7 +36,7 @@ export const getNearbyHaulTaskFromTopic = function (topic) {
     (creep, trace, kernel) => {
       const base = getCreepBase(kernel, creep);
       if (!base) {
-        trace.log('could not find colony', {name: creep.name, memory: creep.memory});
+        trace.info('could not find colony', {name: creep.name, memory: creep.memory});
         creep.suicide();
         return FAILURE;
       }
@@ -49,13 +49,13 @@ export const getNearbyHaulTaskFromTopic = function (topic) {
         messages.forEach((message) => {
           const pickupId = message.details[MEMORY.MEMORY_HAUL_PICKUP];
           if (!pickupId) {
-            trace.log('no pickup id', {message});
+            trace.info('no pickup id', {message});
             return;
           }
 
           const pickup = Game.getObjectById<Id<Structure>>(pickupId);
           if (!pickup) {
-            trace.log('could not find object to pickup', {pickupId});
+            trace.info('could not find object to pickup', {pickupId});
             return;
           }
 
@@ -124,7 +124,7 @@ export const loadCreep = behaviorTree.leafNode(
   'load_resource',
   (creep, trace, kingdom) => {
     if (creep.store.getFreeCapacity() === 0) {
-      trace.log('creep is full');
+      trace.info('creep is full');
       return SUCCESS;
     }
 
@@ -144,7 +144,7 @@ export const loadCreep = behaviorTree.leafNode(
 
       result = creep.pickup(pickup);
 
-      trace.log('pickup resource', {
+      trace.info('pickup resource', {
         pickup: pickup.id,
       });
     } else {
@@ -170,7 +170,7 @@ export const loadCreep = behaviorTree.leafNode(
 
       result = creep.withdraw(structure, resource, amount);
 
-      trace.log('withdraw resource', {
+      trace.info('withdraw resource', {
         structure: structure.id,
         resource,
         amount,
@@ -219,12 +219,12 @@ export const emptyCreep = behaviorTree.leafNode(
     const resource = resources.pop();
     const result = creep.transfer(destination, resource as ResourceConstant);
 
-    trace.log('transfer result', {result, resource, resources});
+    trace.info('transfer result', {result, resource, resources});
 
     if (result === ERR_FULL) {
       trace.warn('transfer error: full', {result, resource, resources});
       const dropResult = creep.drop(resource as ResourceConstant);
-      trace.log('drop result', {result: dropResult, resource, resources});
+      trace.info('drop result', {result: dropResult, resource, resources});
     } else if (result !== OK) {
       trace.error('transfer error', {result, resource, resources});
       return FAILURE;
@@ -232,7 +232,7 @@ export const emptyCreep = behaviorTree.leafNode(
 
     // We have more resources to unload
     if (resources.length > 0) {
-      trace.log('more do dump', {resources});
+      trace.info('more do dump', {resources});
       return RUNNING;
     }
 
@@ -255,10 +255,10 @@ export const emptyToDestination = behaviorTree.leafNode(
     const resource = resources.pop();
     const result = creep.transfer(destination, resource as ResourceConstant);
 
-    trace.log('transfer result', {result, resource, resources});
+    trace.info('transfer result', {result, resource, resources});
 
     if (result === ERR_FULL) {
-      trace.log('transfer error: full', {result, resource, resources});
+      trace.info('transfer error: full', {result, resource, resources});
     } else if (result !== OK) {
       trace.error('transfer error', {result, resource, resources});
       return FAILURE;
@@ -266,7 +266,7 @@ export const emptyToDestination = behaviorTree.leafNode(
 
     // We have more resources to unload
     if (resources.length > 0) {
-      trace.log('more do dump', {resources});
+      trace.info('more do dump', {resources});
       return RUNNING;
     }
 

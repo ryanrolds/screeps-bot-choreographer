@@ -1,5 +1,6 @@
 import * as _ from 'lodash';
 import {Base, getBasePrimaryRoom} from './base';
+import {creepIsFresh} from './behavior.commute';
 import * as CREEPS from './constants.creeps';
 import {DEFENSE_STATUS} from './constants.defense';
 import * as MEMORY from './constants.memory';
@@ -63,7 +64,7 @@ export default class DefenseManager {
     this.scheduler = scheduler;
     this.restoreFromMemory(kernel, trace);
 
-    this.threadCheckColonyDefenses = threadKernel('check_defense_thread', REQUEST_DEFENDERS_TTL)(checkColonyDefenses);
+    this.threadCheckColonyDefenses = threadKernel('check_defense_thread', REQUEST_DEFENDERS_TTL)(checkBaseDefenses);
     this.threadReturnDefendersToStation = threadKernel('recall_defenders_thread', REQUEST_DEFENDERS_TTL)(returnDefendersToStation);
     this.threadHandleDefenderRequest = threadKernel('request_defenders_thread', REQUEST_DEFENDER_TTL)(this.requestDefenders.bind(this));
   }
@@ -121,11 +122,11 @@ export default class DefenseManager {
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('defense_manager_run');
-    trace.log('defense manager run');
+    trace.info('defense manager run');
 
     const hostilesTrace = trace.begin('getHostilesByColony');
     const hostilesByColony = getHostilesByColony(kernel, Object.values(Game.rooms), hostilesTrace);
-    hostilesTrace.log('hostiles by colony', {hostilesByColony});
+    hostilesTrace.info('hostiles by colony', {hostilesByColony});
     hostilesTrace.end();
 
     const targetTopicTrace = trace.begin('addHostilesToColonyTargetTopic');
@@ -155,7 +156,7 @@ export default class DefenseManager {
     Object.values(Game.flags).forEach((flag) => {
       if (flag.name.startsWith('defend_')) {
         const flagDefensePartyId = `${flag.name}_party`;
-        trace.log('defend flag', {flagDefensePartyId});
+        trace.info('defend flag', {flagDefensePartyId});
         if (!this.scheduler.hasProcess(flagDefensePartyId)) {
           const party = this.createAndScheduleDefenseParty(kernel, flagDefensePartyId, flag.name, flag.pos, trace);
           this.defenseParties.push(party);
@@ -179,7 +180,7 @@ export default class DefenseManager {
       }).filter((party) => !!party),
     };
 
-    trace.log('defense memory', {memory: (Memory as any).defense});
+    trace.info('defense memory', {memory: (Memory as any).defense});
   }
 
   private requestDefenders(trace, kernel: Kernel, hostilesByColony: HostilesByBase) {
@@ -263,12 +264,12 @@ function getHostilesByColony(kernel: Kernel, rooms: Room[], trace: Tracer): Host
         });
 
         if (!hostilePart) {
-          trace.log('non-hostile creep', {creepName: hostile.name, owner: hostile.owner.username});
+          trace.info('non-hostile creep', {creepName: hostile.name, owner: hostile.owner.username});
           return false;
         }
       }
 
-      trace.log('hostile creep', {creepName: hostile.name, owner: hostile.owner.username});
+      trace.info('hostile creep', {creepName: hostile.name, owner: hostile.owner.username});
 
       return true;
     });
@@ -284,35 +285,6 @@ function getHostilesByColony(kernel: Kernel, rooms: Room[], trace: Tracer): Host
     });
     if (invaderCores.length) {
       bases.set(base.id, bases.get(base.id).concat(...invaderCores));
-    }
-
-    return bases;
-  }, new Map());
-}
-
-type DefendersByBase = Map<string, (Creep)[]>
-
-function getDefendersByColony(kernel: Kernel, rooms: Room[], trace: Tracer): DefendersByBase {
-  return rooms.reduce<DefendersByBase>((bases, room: Room) => {
-    const base = kernel.getPlanner().getBaseByRoom(room.name);
-    if (!base) {
-      return bases;
-    }
-
-    if (!bases.get(base.id)) {
-      bases.set(base.id, []);
-    }
-
-    // Add any defenders
-    const defenders = room.find(FIND_MY_CREEPS, {
-      filter: (creep) => {
-        const role = creep.memory[MEMORY.MEMORY_ROLE];
-        return role === CREEPS.WORKER_DEFENDER || role === CREEPS.WORKER_DEFENDER_DRONE ||
-          role === CREEPS.WORKER_DEFENDER_BOOSTED;
-      },
-    });
-    if (defenders.length) {
-      bases.set(base.id, bases.get(base.id).concat(...defenders));
     }
 
     return bases;
@@ -345,7 +317,7 @@ function addHostilesToColonyTargetTopic(kernel: Kernel, hostilesByBases: Hostile
         healingPower: healingPower,
       };
 
-      trace.log('requesting target', {details, healingPower});
+      trace.info('requesting target', {details, healingPower});
 
       kernel.getTopics().addRequest(getBasePriorityTargetsTopic(baseId), healingPower, details, TARGET_REQUEST_TTL);
     });
@@ -383,9 +355,9 @@ function publishDefenseStatuses(kernel: Kernel, hostilesByColony: HostilesByBase
 }
 
 // TODO move into base defense runnable
-function checkColonyDefenses(trace: Tracer, kernel: Kernel, hostilesByColony: Map<string, Creep[]>) {
+function checkBaseDefenses(trace: Tracer, kernel: Kernel, hostilesByBase: Map<string, Creep[]>) {
   // Check for defenders
-  Array.from(hostilesByColony.entries()).forEach(([baseId, hostiles]) => {
+  Array.from(hostilesByBase.entries()).forEach(([baseId, hostiles]) => {
     const base = kernel.getPlanner().getBaseById(baseId);
     if (!base) {
       trace.error('expect to find base, but did not', {colonyId: baseId});
@@ -394,11 +366,14 @@ function checkColonyDefenses(trace: Tracer, kernel: Kernel, hostilesByColony: Ma
 
     const defenders = kernel.getCreepsManager().getCreepsByBase(base.id).filter((creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
-      return role === CREEPS.WORKER_DEFENDER || role === CREEPS.WORKER_DEFENDER_DRONE ||
-        role === CREEPS.WORKER_DEFENDER_BOOSTED;
+      return (role === CREEPS.WORKER_DEFENDER || role === CREEPS.WORKER_DEFENDER_DRONE ||
+        role === CREEPS.WORKER_DEFENDER_BOOSTED) && creepIsFresh(creep);
     });
 
-    trace.log('colony threat status', {colonyId: baseId, numHostiles: hostiles.length, numDefenders: defenders.length});
+    trace.info('colony threat status', {
+      colonyId: baseId, numHostiles: hostiles.length,
+      numDefenders: defenders.length
+    });
 
     if (hostiles.length) {
       requestExistingDefenders(defenders, hostiles[0].pos);
@@ -425,7 +400,7 @@ function checkColonyDefenses(trace: Tracer, kernel: Kernel, hostilesByColony: Ma
         }
       }
 
-      trace.log('hostiles present', {
+      trace.info('hostiles present', {
         hostileScore,
         defenderScore,
         numNeededDefenders,
@@ -477,7 +452,7 @@ function requestAdditionalDefenders(kernel: Kernel, base: Base, needed: number,
 
 function returnDefendersToStation(trace: Tracer, kernel: Kernel, hostilesByColony: Map<string, Creep[]>) {
   const flags = Object.values(Game.flags).filter((flag) => {
-    trace.log('flag', {flag});
+    trace.info('flag', {flag});
     if (!flag.name.startsWith('station') && !flag.name.startsWith('defenders')) {
       return false;
     }
@@ -485,17 +460,17 @@ function returnDefendersToStation(trace: Tracer, kernel: Kernel, hostilesByColon
     return kernel.getPlanner().getBaseByRoom(flag.pos.roomName);
   });
 
-  trace.log('station/defense flags', {flags});
+  trace.info('station/defense flags', {flags});
 
   flags.forEach((flag) => {
     const base = kernel.getPlanner().getBaseByRoom(flag.pos.roomName);
     if (!base) {
-      trace.log('cannot find colony for room', {roomName: flag.pos.roomName});
+      trace.info('cannot find colony for room', {roomName: flag.pos.roomName});
       return;
     }
 
     if (hostilesByColony.get(base.id) && hostilesByColony.get(base.id).length) {
-      trace.log('hostiles present, not returning defenders');
+      trace.info('hostiles present, not returning defenders');
       return;
     }
 
@@ -505,7 +480,7 @@ function returnDefendersToStation(trace: Tracer, kernel: Kernel, hostilesByColon
         role === CREEPS.WORKER_DEFENDER_BOOSTED;
     });
 
-    trace.log('sending defenders back to station', {colonyId: base.id, flagName: flag.name});
+    trace.info('sending defenders back to station', {colonyId: base.id, flagName: flag.name});
     requestExistingDefenders(defenders, flag.pos);
   });
 }

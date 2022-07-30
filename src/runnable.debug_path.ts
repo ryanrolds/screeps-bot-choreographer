@@ -21,7 +21,7 @@ export default class PathDebugger {
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
-    trace.log('path debugger', {path: this.results});
+    trace.info('path debugger', {path: this.results});
 
     if (this.results) {
       visualizePath(this.results.path, trace);

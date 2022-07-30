@@ -47,7 +47,7 @@ const harvest = behaviorTree.leafNode(
 
         if (amount) {
           const result = creep.transfer(link, RESOURCE_ENERGY, amount);
-          trace.log('creep transfer to link', {result, amount});
+          trace.info('creep transfer to link', {result, amount});
           return RUNNING;
         }
       }
@@ -56,7 +56,7 @@ const harvest = behaviorTree.leafNode(
     const destinationId = creep.memory[MEMORY.MEMORY_SOURCE];
     const destination = Game.getObjectById<Id<Source>>(destinationId);
     if (!destination) {
-      trace.log('destination not found', {destinationId});
+      trace.info('destination not found', {destinationId});
       return FAILURE;
     }
 
@@ -65,29 +65,29 @@ const harvest = behaviorTree.leafNode(
     }
 
     const result = creep.harvest(destination);
-    trace.log('harvest result', {result});
+    trace.info('harvest result', {result});
 
     if (result === ERR_NOT_IN_RANGE) {
-      trace.log('not in range result', {result, destinationId});
+      trace.info('not in range result', {result, destinationId});
       return FAILURE;
     }
 
     if (creep.store.getFreeCapacity() === 0) {
-      trace.log('creep has no free capacity', {});
+      trace.info('creep has no free capacity', {});
       return SUCCESS;
     }
 
     if (result === ERR_NOT_ENOUGH_RESOURCES) {
-      trace.log('not enough resources', {result});
+      trace.info('not enough resources', {result});
       return FAILURE;
     }
 
     if (result === OK) {
-      trace.log('ok result', {result});
+      trace.info('ok result', {result});
       return RUNNING;
     }
 
-    trace.log('harvest no ok', {result});
+    trace.info('harvest no ok', {result});
 
     return FAILURE;
   },
@@ -97,18 +97,18 @@ const buildNearbySites = behaviorTree.leafNode(
   'build_nearby_sites',
   (creep, trace, kingdom) => {
     if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
-      trace.log('no energy to build container', {});
+      trace.info('no energy to build container', {});
       return FAILURE;
     }
 
     const sites = creep.pos.findInRange(FIND_CONSTRUCTION_SITES, 1);
     if (!sites.length) {
-      trace.log('no construction site', {});
+      trace.info('no construction site', {});
       return FAILURE;
     }
 
     const result = creep.build(sites[0]);
-    trace.log('build result', {result});
+    trace.info('build result', {result});
 
     return RUNNING;
   },
@@ -118,7 +118,7 @@ const repairContainer = behaviorTree.leafNode(
   'repair_container',
   (creep, trace, kingdom) => {
     if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
-      trace.log('no energy to repair container', {});
+      trace.info('no energy to repair container', {});
       return FAILURE;
     }
 
@@ -127,17 +127,17 @@ const repairContainer = behaviorTree.leafNode(
     });
 
     if (!container) {
-      trace.log('no construction site', {});
+      trace.info('no construction site', {});
       return FAILURE;
     }
 
     if (container.hits === container.hitsMax) {
-      trace.log('container full health');
+      trace.info('container full health');
       return FAILURE;
     }
 
     const result = creep.repair(container);
-    trace.log('repair result', {result});
+    trace.info('repair result', {result});
 
     return RUNNING;
   },
@@ -148,12 +148,12 @@ const moveEnergyToLink = behaviorTree.leafNode(
   (creep, trace, kingdom) => {
     const source = Game.getObjectById<Id<Source>>(creep.memory[MEMORY.MEMORY_SOURCE]);
     if (!source) {
-      trace.log('source not found');
+      trace.info('source not found');
       return FAILURE;
     }
 
     if (source.energy > 0) {
-      trace.log('source has energy, stop trying to load link');
+      trace.info('source has energy, stop trying to load link');
       return SUCCESS;
     }
 
@@ -164,14 +164,14 @@ const moveEnergyToLink = behaviorTree.leafNode(
     })[0];
 
     if (!link) {
-      trace.log('no link');
+      trace.info('no link');
       return FAILURE;
     }
 
     let target: AnyStructure | Resource = null;
 
     const freeCapacity = creep.store.getFreeCapacity(RESOURCE_ENERGY);
-    trace.log('creep free capacity', {freeCapacity});
+    trace.info('creep free capacity', {freeCapacity});
     if (freeCapacity > 0) {
       target = creep.pos.findInRange(FIND_STRUCTURES, 1, {
         filter: (structure) => {
@@ -181,7 +181,7 @@ const moveEnergyToLink = behaviorTree.leafNode(
       })[0];
       if (target) {
         const result = creep.withdraw(target, RESOURCE_ENERGY);
-        trace.log('withdraw energy', {result, targetId: target.id});
+        trace.info('withdraw energy', {result, targetId: target.id});
         return RUNNING;
       }
 
@@ -192,17 +192,17 @@ const moveEnergyToLink = behaviorTree.leafNode(
       })[0];
       if (target) {
         const result = creep.pickup(target);
-        trace.log('pickup energy', {result, targetId: target.id});
+        trace.info('pickup energy', {result, targetId: target.id});
         return RUNNING;
       }
 
-      trace.log('found no energy to pickup');
+      trace.info('found no energy to pickup');
       return FAILURE;
     }
 
     if (link.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
       const result = creep.transfer(link, RESOURCE_ENERGY);
-      trace.log('transfer energy to link', {result});
+      trace.info('transfer energy to link', {result});
     }
 
     return RUNNING;

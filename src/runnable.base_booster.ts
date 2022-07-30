@@ -166,7 +166,7 @@ export default class BoosterRunnable {
       labsByAction: labsByAction,
     };
 
-    trace.log('publishing room boosts', {
+    trace.info('publishing room boosts', {
       baseId: this.baseId,
       position: this.boostPosition,
       labsByResource: _.reduce(Array.from(labsByResource.values()), (labs, lab: StructureLab) => {
@@ -374,7 +374,7 @@ export default class BoosterRunnable {
       const lab = this.getLabByResource(compound);
       const currentAmount = lab.store.getUsedCapacity(compound);
       if (currentAmount < MIN_COMPOUND) {
-        trace.log('not enough of compound', {compound, effectName, currentAmount});
+        trace.info('not enough of compound', {compound, effectName, currentAmount});
         return false;
       }
 
@@ -410,24 +410,24 @@ export default class BoosterRunnable {
     const labs = this.getLabs();
     labs.forEach((lab) => {
       if (!lab.mineralType) {
-        trace.log('lab has no mineral loaded', {labId: lab.id});
+        trace.info('lab has no mineral loaded', {labId: lab.id});
         return;
       }
 
       const currentAmount = lab.store.getUsedCapacity(lab.mineralType);
       let amount = 0;
       if (currentAmount < MIN_COMPOUND) {
-        trace.log('lab is below min: unload it', {labId: lab.id, resource: lab.mineralType});
+        trace.info('lab is below min: unload it', {labId: lab.id, resource: lab.mineralType});
         amount = currentAmount;
       } else if (currentAmount > MAX_COMPOUND) {
-        trace.log('lab is above min: return some', {labId: lab.id, resource: lab.mineralType});
+        trace.info('lab is above min: return some', {labId: lab.id, resource: lab.mineralType});
         amount = currentAmount - MAX_COMPOUND;
       }
 
       if (amount) {
         const dropoff = getStructureForResource(base, lab.mineralType);
         if (!dropoff) {
-          trace.log('no dropoff for already loaded compound', {resource: lab.mineralType});
+          trace.info('no dropoff for already loaded compound', {resource: lab.mineralType});
           return;
         }
 
@@ -440,7 +440,7 @@ export default class BoosterRunnable {
           [MEMORY.MEMORY_HAUL_AMOUNT]: amount,
         };
 
-        trace.log('boost clear low', {priority: PRIORITIES.HAUL_BOOST, details});
+        trace.info('boost clear low', {priority: PRIORITIES.HAUL_BOOST, details});
 
         kernel.getTopics().addRequest(getBaseDistributorTopic(base.id), PRIORITIES.HAUL_BOOST,
           details, REQUEST_REBALANCE_TTL);
@@ -456,7 +456,7 @@ export default class BoosterRunnable {
 
       const pickup = this.getLabByResource(compound.name);
       if (!pickup) {
-        trace.log('no pickup for already loaded compound', {resource: compound.name});
+        trace.info('no pickup for already loaded compound', {resource: compound.name});
         return;
       }
 
@@ -468,13 +468,13 @@ export default class BoosterRunnable {
         return task === TASKS.TASK_HAUL && taskPickup === pickup.id && resource == compound.name;
       });
       if (assignedCreeps.length) {
-        trace.log('creep already unloading', {resource: compound.name});
+        trace.info('creep already unloading', {resource: compound.name});
         return;
       }
 
       const dropoff = getStructureForResource(base, compound.name);
       if (!dropoff) {
-        trace.log('no dropoff for already loaded compound', {resource: compound.name});
+        trace.info('no dropoff for already loaded compound', {resource: compound.name});
         return;
       }
 
@@ -487,7 +487,7 @@ export default class BoosterRunnable {
         [MEMORY.MEMORY_HAUL_AMOUNT]: pickup.store.getUsedCapacity(compound.name),
       };
 
-      trace.log('boost unload', {priority: PRIORITIES.HAUL_BOOST, details});
+      trace.info('boost unload', {priority: PRIORITIES.HAUL_BOOST, details});
 
       kernel.getTopics().addRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.UNLOAD_BOOST,
         details, REQUEST_UNLOAD_TTL);
@@ -499,16 +499,16 @@ export default class BoosterRunnable {
     const storedResources = getStoredResources(base);
 
     needToLoad.forEach((toLoad) => {
-      trace.log('need to load', {toLoad});
+      trace.info('need to load', {toLoad});
       const effect = allEffects.get(toLoad);
       if (!effect) {
-        trace.log('not able to find desired effect', {toLoad});
+        trace.info('not able to find desired effect', {toLoad});
         return;
       }
 
       const emptyLabs = this.getEmptyLabs();
       if (emptyLabs.length === 0) {
-        trace.log('no destination for available compound', {toLoad});
+        trace.info('no destination for available compound', {toLoad});
         return;
       }
 
@@ -522,7 +522,7 @@ export default class BoosterRunnable {
         return task === TASKS.TASK_HAUL && taskDropoff === emptyLab.id && resource !== RESOURCE_ENERGY;
       });
       if (assignedCreeps.length) {
-        trace.log('creep already loading', {toLoad});
+        trace.info('creep already loading', {toLoad});
         return;
       }
 
@@ -548,7 +548,7 @@ export default class BoosterRunnable {
       }, null);
 
       if (!compound) {
-        trace.log('no compound available for', {toLoad});
+        trace.info('no compound available for', {toLoad});
         return;
       }
 
@@ -559,7 +559,7 @@ export default class BoosterRunnable {
   requestHaulingOfMaterial(kernel: Kernel, base: Base, compound, lab, trace: Tracer) {
     const pickup = getStructureWithResource(base, compound.name);
     if (!pickup) {
-      trace.log('no pickup for available compound', {resource: compound.name});
+      trace.info('no pickup for available compound', {resource: compound.name});
       return;
     }
 
@@ -572,7 +572,7 @@ export default class BoosterRunnable {
       [MEMORY.MEMORY_HAUL_AMOUNT]: MAX_COMPOUND,
     };
 
-    trace.log('boost load material', {priority: PRIORITIES.HAUL_BOOST, details});
+    trace.info('boost load material', {priority: PRIORITIES.HAUL_BOOST, details});
 
     kernel.getTopics().addRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.HAUL_BOOST,
       details, REQUEST_LOAD_TTL);
@@ -583,7 +583,7 @@ export default class BoosterRunnable {
     labs.forEach((lab) => {
       // Only fill lab if needed
       if (lab.store.getUsedCapacity(RESOURCE_ENERGY) >= MIN_ENERGY) {
-        trace.log('lab has energy', {labId: lab.id});
+        trace.info('lab has energy', {labId: lab.id});
         return;
       }
 
@@ -598,7 +598,7 @@ export default class BoosterRunnable {
         [MEMORY.MEMORY_HAUL_AMOUNT]: MAX_ENERGY - currentEnergy,
       };
 
-      trace.log('boost load energy', {labId: lab.id, priority: PRIORITIES.HAUL_BOOST, details});
+      trace.info('boost load energy', {labId: lab.id, priority: PRIORITIES.HAUL_BOOST, details});
 
       kernel.getTopics().addRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.HAUL_BOOST,
         details, REQUEST_ENERGY_TTL);

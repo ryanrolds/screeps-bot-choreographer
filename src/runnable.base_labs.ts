@@ -46,14 +46,14 @@ export class LabsManager {
   run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('labs_manager_run');
 
-    trace.log('labs manager run', {
+    trace.info('labs manager run', {
       reactorsIds: this.reactorsIds,
       boosterIds: this.boosterIds,
     });
 
     const base = kernel.getPlanner().getBaseById(this.baseId);
     if (!base) {
-      trace.log('no base config for room', {baseId: this.baseId});
+      trace.info('no base config for room', {baseId: this.baseId});
       return terminate();
     }
 

@@ -63,7 +63,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
   run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('source_run');
 
-    trace.log('source run', {
+    trace.info('source run', {
       sourceId: this.id,
       containerId: this.containerId,
       linkId: this.linkId,
@@ -150,13 +150,13 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     // Check memory for creep position
     const creepPosition = memory.creepPosition;
     if (creepPosition) {
-      trace.log('creep position in memory', {room: source.room.name});
+      trace.info('creep position in memory', {room: source.room.name});
       this.creepPosition = new RoomPosition(creepPosition.x, creepPosition.y, creepPosition.roomName);
     }
 
     const linkPosition = memory.linkPosition;
     if (linkPosition) {
-      trace.log('link position in memory', {room: source.room.name});
+      trace.info('link position in memory', {room: source.room.name});
       this.linkPosition = new RoomPosition(linkPosition.x, linkPosition.y, linkPosition.roomName);
     }
 
@@ -187,18 +187,18 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
 
     const basePos = new RoomPosition(base.origin.x, base.origin.y - 1, base.origin.roomName);
     const [pathResult, details] = getPath(kernel, source.pos, basePos, roadPolicy, trace);
-    trace.log('path found', {origin: source.pos, dest: basePos, pathResult});
+    trace.info('path found', {origin: source.pos, dest: basePos, pathResult});
 
     if (!pathResult || !pathResult.path.length) {
       trace.error('path not found', {colonyPos: basePos, source: source.pos});
       return;
     }
 
-    trace.log('creep position set', {creepPosition: this.creepPosition});
+    trace.info('creep position set', {creepPosition: this.creepPosition});
     this.creepPosition = pathResult.path[0];
 
     const availableLinkPos = getNearbyPositions(this.creepPosition, 1);
-    trace.log('available link positions', {availableLinkPos});
+    trace.info('available link positions', {availableLinkPos});
 
     const filtered = availableLinkPos.filter((pos) => {
       // Remove creep position
@@ -395,7 +395,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       return total += hauler.store.getFreeCapacity();
     }, 0);
 
-    const averageLoad = avgHaulerCapacity;
+    const averageLoad = avgHaulerCapacity / creeps.length;
     const loadSize = _.min([averageLoad, 2000]);
     const storeUsedCapacity = container.store.getUsedCapacity();
     const untaskedUsedCapacity = storeUsedCapacity - creepWithTaskCapacity;
@@ -408,6 +408,19 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       priority += HAUL_BASE_ROOM;
     }
 
+    trace.info('requesting hauling', {
+      sourceId: this.id,
+      priority,
+      loadsToHaul,
+      averageLoad,
+      loadSize,
+      storeUsedCapacity,
+      untaskedUsedCapacity,
+      creepWithTaskCapacity,
+      creepsWithTask: creepsWithTask.length
+    });
+
+
     for (let i = 0; i < loadsToHaul; i++) {
       // Reduce priority for each load after first
       const loadPriority = priority - LOAD_FACTOR * i;
@@ -416,7 +429,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
         [MEMORY.TASK_ID]: `sch-${this.id}-${Game.time}`,
         [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
         [MEMORY.MEMORY_HAUL_PICKUP]: this.containerId,
-        [MEMORY.MEMORY_HAUL_DROPOFF]: this.dropoffId,
+        [MEMORY.MEMORY_HAUL_DROPOFF]: this.dropoffId || undefined,
         [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
       };
 
@@ -428,7 +441,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
 
   buildContainer(trace: Tracer, kernel: Kernel, base: Base, source: (Source)) {
     if (source.energy) {
-      trace.log('only build container if exhausting source', {id: this.id});
+      trace.info('only build container if exhausting source', {id: this.id});
       return;
     }
 
@@ -440,7 +453,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     if (this.containerId) {
       const container = Game.getObjectById(this.containerId);
       if (container) {
-        trace.log('container already built', {container});
+        trace.info('container already built', {container});
         return;
       }
     }
@@ -449,7 +462,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       return site.structureType === STRUCTURE_CONTAINER;
     });
     if (sites.length) {
-      trace.log('container site found', {sites});
+      trace.info('container site found', {sites});
       return;
     }
 
@@ -459,7 +472,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       return;
     }
 
-    trace.log('container created', {id: this.id});
+    trace.info('container created', {id: this.id});
   }
 
   buildLink(trace: Tracer, kernel: Kernel, base: Base, source: Source) {
@@ -471,7 +484,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     if (this.linkId) {
       const link = Game.getObjectById(this.linkId);
       if (link) {
-        trace.log('link found', {link});
+        trace.info('link found', {link});
         return;
       }
     }
@@ -483,7 +496,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
 
     const roomLevel = source.room.controller?.level || 0;
     if (roomLevel < 6) {
-      trace.log('room level too low', {roomLevel});
+      trace.info('room level too low', {roomLevel});
       return;
     }
 
@@ -491,7 +504,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       return s.structureType === STRUCTURE_LINK;
     });
     if (linkSites) {
-      trace.log('link sites found', {linkSites});
+      trace.info('link sites found', {linkSites});
       return;
     }
 
@@ -509,7 +522,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
 
     const maxLinks = CONTROLLER_STRUCTURES['link'][roomLevel];
     if (maxLinks <= linksInRoom.length + linkSitesInRoom.length) {
-      trace.log('too many links', {maxLinks, linksInRoom});
+      trace.info('too many links', {maxLinks, linksInRoom});
       return;
     }
 

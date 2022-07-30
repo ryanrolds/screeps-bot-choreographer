@@ -292,7 +292,7 @@ export class ResourceManager implements Runnable {
         // If we don't have a full batch if input mark missing one and go to next
         if (!this.resources.has(inputB) || this.resources.get(inputB) < REACTION_BATCH_SIZE) {
           if (!missingOneInput.has(output)) {
-            trace.log('dont have enough of second resource', {
+            trace.info('dont have enough of second resource', {
               inputA,
               inputB,
               amountA: this.resources.get(inputA) || 0,
@@ -488,11 +488,11 @@ export class ResourceManager implements Runnable {
 
     const reactions = kernel.getTopics().getTopic(TASK_REACTION);
     if (!reactions || !reactions.length) {
-      trace.log('no reactions to request');
+      trace.info('no reactions to request');
       return;
     }
 
-    trace.log('requested reactions', {
+    trace.info('requested reactions', {
       reactions: reactions.map((r) => {
         return {
           output: r.details[REACTOR_OUTPUT],
@@ -541,7 +541,7 @@ export class ResourceManager implements Runnable {
   }
 
   distributeBoosts(trace: Tracer, kernel: Kernel) {
-    trace.log('balancing boosts');
+    trace.info('balancing boosts');
 
     kernel.getPlanner().getBases().forEach((base) => {
       const baseTrace = trace.withFields(new Map([['base', base.id]]));
@@ -584,7 +584,7 @@ export class ResourceManager implements Runnable {
 
         const availableEffect = availableEffects.get(effectName);
         if (!availableEffect || currentAmount < MIN_CRITICAL_COMPOUND) {
-          effectTrace.log('maybe request/buy best compound', {
+          effectTrace.info('maybe request/buy best compound', {
             colonyId: base.id,
             bestCompound,
             currentAmount,
@@ -606,7 +606,7 @@ export class ResourceManager implements Runnable {
               REQUEST_DISTRIBUTE_BOOSTS, effectTrace);
           }
         } else {
-          effectTrace.log('have booster', {colonyId: base.id, effectName, bestCompound, currentAmount});
+          effectTrace.info('have booster', {colonyId: base.id, effectName, bestCompound, currentAmount});
         }
 
         effectsEnd();
@@ -637,11 +637,11 @@ export class ResourceManager implements Runnable {
   }
 
   consumeStatuses(trace: Tracer, kernel: Kernel) {
-    trace.log('consuming statues');
+    trace.info('consuming statues');
 
     const reactorStatuses = kernel.getTopics().getTopic(ACTIVE_REACTIONS) || [];
     this.reactorStatuses = reactorStatuses;
-    trace.log('reactor statuses', {length: reactorStatuses.length});
+    trace.info('reactor statuses', {length: reactorStatuses.length});
 
     this.reactionStats = reactorStatuses.reduce((acc, status) => {
       const resource = status.details[REACTION_STATUS_RESOURCE];
@@ -664,18 +664,18 @@ export class ResourceManager implements Runnable {
     }
 
     this.roomStatuses = _.pluck(roomStatuses, 'details') as RoomStatus[];
-    trace.log('room statuses', {length: roomStatuses.length});
+    trace.info('room statuses', {length: roomStatuses.length});
   }
 
   balanceEnergy(trace: Tracer, kernel: Kernel) {
     if (this.roomStatuses.length < 2) {
-      trace.log('not enough rooms to balance');
+      trace.info('not enough rooms to balance');
       return;
     }
 
     const hasTerminals = _.filter(this.roomStatuses, {[BASE_STATUS_TERMINAL]: true});
     if (hasTerminals.length < 2) {
-      trace.log('not enough terminals to balance');
+      trace.info('not enough terminals to balance');
       return;
     }
 
@@ -688,19 +688,19 @@ export class ResourceManager implements Runnable {
       ['details', BASE_STATUS_ENERGY].join('.'),
     ]);
 
-    trace.log('sorted', {energySorted, levelAndEnergySorted});
+    trace.info('sorted', {energySorted, levelAndEnergySorted});
 
     const sinkRoom = levelAndEnergySorted[0];
     const baseStatus = energySorted[energySorted.length - 1];
 
     if (sinkRoom === baseStatus) {
-      trace.log('sink and source are same');
+      trace.info('sink and source are same');
       return;
     }
 
     const energyDiff = baseStatus[BASE_STATUS_ENERGY] - sinkRoom[BASE_STATUS_ENERGY];
     if (energyDiff < ENERGY_BALANCE_AMOUNT * 2) {
-      trace.log('energy different too small, no need to send energy', {energyDiff});
+      trace.info('energy different too small, no need to send energy', {energyDiff});
       return;
     }
 

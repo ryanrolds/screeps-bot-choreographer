@@ -20,7 +20,7 @@ export default class PlannerDebugger {
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
-    trace.log('expand debugger run', {results: this.results});
+    trace.info('expand debugger run', {results: this.results});
 
     if (this.display) {
       if (!this.results || Game.time % 50 === 0) {

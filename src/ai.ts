@@ -5,7 +5,7 @@ import {CostMatrixCache} from './lib.costmatrix_cache';
 import {EventBroker} from './lib.event_broker';
 import {getPath} from './lib.pathing';
 import {PathCache} from './lib.path_cache';
-import {findNextRemoteRoom} from './lib.remote_room';
+import {findRemotes} from './lib.remote_room';
 import {Topics} from './lib.topics';
 import {Tracer} from './lib.tracing';
 import {MemoryManager} from './os.memory';
@@ -237,10 +237,10 @@ export class AI implements Kernel {
   }
 
   debugGetNextRemote(baseId: string) {
-    const trace = this.getNewTracer();
+    const trace = new Tracer('remote_debugger', new Map([['pid', 'remote_debugger']]), 0);
     const base = this.planning.getBase(baseId);
-    const [room, debug] = findNextRemoteRoom(this, base, trace);
-    trace.notice('next remote room', {room, debug});
+    const [rooms, debug] = findRemotes(this, base, trace);
+    trace.notice('remote rooms', {rooms, debug});
   }
 
   getPathDebugger(): PathDebugger {

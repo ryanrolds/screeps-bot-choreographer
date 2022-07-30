@@ -41,7 +41,7 @@ const selectNextTaskOrPark = behaviorTree.selectorNode(
             },
           ], ['desc', 'asc']);
 
-          trace.log('sorted core haul tasks', {sorted});
+          trace.info('sorted core haul tasks', {sorted});
 
           if (sorted.length) {
             return sorted[0];
@@ -51,7 +51,7 @@ const selectNextTaskOrPark = behaviorTree.selectorNode(
         });
 
         if (!task) {
-          trace.log('no haul task');
+          trace.info('no haul task');
           return FAILURE;
         }
 
@@ -104,7 +104,7 @@ const emptyCreep = behaviorTree.leafNode(
       return FAILURE;
     }
 
-    trace.log('transfer result', {result, resource, resources});
+    trace.info('transfer result', {result, resource, resources});
 
     // We have more resources to unload
     if (resources.length > 0) {
@@ -135,7 +135,7 @@ const unloadIfNeeded = behaviorTree.selectorNode(
           toUnload = _.difference(loadedResources, [desiredResource]);
         }
 
-        trace.log('to unload', {loadedResources, desiredResource, toUnload});
+        trace.info('to unload', {loadedResources, desiredResource, toUnload});
 
         if (toUnload.length) {
           const base = getCreepBase(kernel, creep);
@@ -146,7 +146,7 @@ const unloadIfNeeded = behaviorTree.selectorNode(
           const reserve = getStructureForResource(base, toUnload[0]);
           creep.memory[MEMORY.MEMORY_DESTINATION] = reserve.id;
 
-          trace.log('unloading at', {
+          trace.info('unloading at', {
             loaded: JSON.stringify(loadedResources),
             toUnload: JSON.stringify(toUnload),
             desired: JSON.stringify([desiredResource]),
@@ -211,7 +211,7 @@ const loadIfNeeded = behaviorTree.selectorNode(
           creep.memory[MEMORY.MEMORY_HAUL_AMOUNT] = creep.store.getCapacity(resource);
         }
 
-        trace.log('has resource', {
+        trace.info('has resource', {
           resource,
           amount,
           creepAmount: creep.store.getUsedCapacity(resource),
@@ -270,7 +270,7 @@ const deliver = behaviorTree.sequenceNode(
         const resource = Object.keys(creep.store).pop();
 
         const result = creep.transfer(destination, resource as ResourceConstant);
-        trace.log('transfer', {resource, result});
+        trace.info('transfer', {resource, result});
 
         if (result === ERR_FULL) {
           return SUCCESS;

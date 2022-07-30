@@ -18,7 +18,7 @@ export default class MinCutDebugger {
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
-    trace.log('mincut debugger', {});
+    trace.info('mincut debugger', {});
 
     if (this.matrix && Game.time % 2 === 0) {
       const visual = new RoomVisual(this.matrix.roomName);

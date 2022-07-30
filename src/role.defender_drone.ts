@@ -12,14 +12,14 @@ export const behavior = behaviorTree.sequenceNode(
         const y = creep.memory[MEMORY.MEMORY_POSITION_Y];
         const roomId = creep.memory[MEMORY.MEMORY_POSITION_ROOM];
         if (!x || !y || !roomId) {
-          trace.log('missing position data', {x, y, roomId});
+          trace.info('missing position data', {x, y, roomId});
           return behaviorTree.SUCCESS;
         }
 
         const position = new RoomPosition(x, y, roomId);
 
         if (creep.pos.isEqualTo(position)) {
-          trace.log('creep at position', {position});
+          trace.info('creep at position', {position});
           return behaviorTree.SUCCESS;
         }
 
@@ -41,7 +41,7 @@ export const behavior = behaviorTree.sequenceNode(
           });
         }
 
-        trace.log('move to', {result, position});
+        trace.info('move to', {result, position});
 
         return behaviorTree.SUCCESS;
       },
@@ -52,23 +52,23 @@ export const behavior = behaviorTree.sequenceNode(
         const attack = creep.memory[MEMORY.MEMORY_ATTACK] as
           Id<AnyCreep | Structure<StructureConstant>>;
         if (!attack) {
-          trace.log('no attack target');
+          trace.info('no attack target');
           return behaviorTree.SUCCESS;
         }
 
         const target = Game.getObjectById(attack);
         if (!target) {
-          trace.log('target gone, did it die?', {attack});
+          trace.info('target gone, did it die?', {attack});
           return behaviorTree.SUCCESS;
         }
 
         if (!creep.pos.inRangeTo(target, 3)) {
-          trace.log('target not in range attack range', {target});
+          trace.info('target not in range attack range', {target});
           return behaviorTree.SUCCESS;
         }
 
         const result = creep.rangedAttack(target);
-        trace.log('range attack', {result, target});
+        trace.info('range attack', {result, target});
 
         return behaviorTree.SUCCESS;
       },
@@ -78,18 +78,18 @@ export const behavior = behaviorTree.sequenceNode(
       (creep, trace) => {
         const heal = creep.memory[MEMORY.MEMORY_HEAL] as Id<Creep>;
         if (!heal) {
-          trace.log('no heal target');
+          trace.info('no heal target');
           return behaviorTree.SUCCESS;
         }
 
         const target = Game.getObjectById(heal);
         if (!creep.pos.inRangeTo(target, 1)) {
-          trace.log('target not in heal range', {target});
+          trace.info('target not in heal range', {target});
           return behaviorTree.SUCCESS;
         }
 
         const result = creep.heal(target);
-        trace.log('heal', {result, target});
+        trace.info('heal', {result, target});
 
         return behaviorTree.SUCCESS;
       },

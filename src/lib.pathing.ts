@@ -36,6 +36,7 @@ type PathPolicy = {
   plainCost?: number;
   swampCost?: number;
   sourceKeeperBuffer?: number;
+  hostileCreepBuffer?: number;
   controllerBuffer?: number;
   preferRoadSites?: boolean;
 }
@@ -228,7 +229,7 @@ const applyAllowedColonyPolicy = (bases: Base[], destRoomEntry: RoomEntry,
     });
   }
 
-  trace.log('filtered colonies', {colonies: bases.map((colony) => colony.id)});
+  trace.info('filtered colonies', {colonies: bases.map((colony) => colony.id)});
 
   return bases;
 };
@@ -353,6 +354,19 @@ const getRoomCallback = (
         },
       }).forEach((sourceKeeper) => {
         getNearbyPositions(sourceKeeper.pos, pathPolicy.sourceKeeperBuffer).forEach((pos) => {
+          costMatrix.set(pos.x, pos.y, 10);
+        });
+      });
+    }
+
+    // Add a buffer around hostile creeps
+    if (room && pathPolicy.hostileCreepBuffer > 0) {
+      room.find(FIND_HOSTILE_CREEPS, {
+        filter: (creep) => {
+          return creep.owner.username !== 'Source Keeper';
+        },
+      }).forEach((hostileCreep) => {
+        getNearbyPositions(hostileCreep.pos, pathPolicy.hostileCreepBuffer).forEach((pos) => {
           costMatrix.set(pos.x, pos.y, 10);
         });
       });

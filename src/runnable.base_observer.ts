@@ -30,13 +30,13 @@ export class ObserverRunnable implements Runnable {
       kernel.getScribe().updateRoom(kernel, Game.rooms[this.justObserved], trace);
     }
 
-    trace.log('in range rooms', {inRange: this.inRangeRooms});
+    trace.info('in range rooms', {inRange: this.inRangeRooms});
 
     const getOldestRoomTrace = trace.begin('get_oldest_room');
     const nextRoom = kernel.getScribe().getOldestRoomInList(this.inRangeRooms);
     getOldestRoomTrace.end();
 
-    trace.log('next room', {nextRoom});
+    trace.info('next room', {nextRoom});
 
     if (!nextRoom) {
       trace.end();

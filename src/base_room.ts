@@ -28,7 +28,7 @@ export const threadBaseRoom = (name: string, ttl: number) => (action: BaseRoomTh
 
       return result;
     } else {
-      trace.log(`thread ${name} sleeping for ${lastCall + ttl - Game.time}`);
+      trace.info(`thread ${name} sleeping for ${lastCall + ttl - Game.time}`);
     }
 
     return null;

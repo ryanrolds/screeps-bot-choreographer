@@ -53,7 +53,7 @@ export const moveToRoom = behaviorTree.repeatUntilSuccess(
         maxOps: 10000,
       });
 
-      trace.log('move to exit result', {
+      trace.info('move to exit result', {
         result,
       });
 

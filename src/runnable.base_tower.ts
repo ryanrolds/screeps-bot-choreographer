@@ -136,7 +136,7 @@ export default class TowerRunnable {
         this.damagedCreep = null;
       } else {
         const result = tower.heal(creep);
-        trace.log('healing', {target: creep.id, result});
+        trace.info('healing', {target: creep.id, result});
         trace.end();
         return running();
       }
@@ -144,21 +144,21 @@ export default class TowerRunnable {
 
     // Not above attack/heal reserve, skip repair logic
     if (towerUsed < EMERGENCY_RESERVE) {
-      trace.log('skipping repairs low energy', {towerUsed});
+      trace.info('skipping repairs low energy', {towerUsed});
       trace.end();
       return running();
     }
 
     // If low on CPU bucket, stop repairing
     if (Game.cpu.bucket < 1000) {
-      trace.log('skipping repairs low bucket', {bucket: Game.cpu.bucket});
+      trace.info('skipping repairs low bucket', {bucket: Game.cpu.bucket});
       trace.end();
       return running();
     }
 
     // Repair focus TTL that spreads repairs out
     if (this.repairTarget && this.repairTTL < 0) {
-      trace.log('repair target ttl hit', {});
+      trace.info('repair target ttl hit', {});
       this.repairTarget = null;
       this.repairTTL = 0;
     }
@@ -167,7 +167,7 @@ export default class TowerRunnable {
     if (this.repairTarget) {
       const target = Game.getObjectById(this.repairTarget);
       if (!target || target.hits >= target.hitsMax) {
-        trace.log('repair target done/missing', {target});
+        trace.info('repair target done/missing', {target});
         this.repairTarget = null;
         this.repairTTL = 0;
       }
@@ -182,7 +182,7 @@ export default class TowerRunnable {
     // Do not repair secondary structures or roads if room is low on energy
     const baseEnergy = getStoredResourceAmount(base, RESOURCE_ENERGY);
     if (baseEnergy < 10000) {
-      trace.log('skipping repairs low energy', {energy: baseEnergy});
+      trace.info('skipping repairs low energy', {energy: baseEnergy});
       this.repairTarget = null;
       this.repairTTL = 0;
       trace.end();
@@ -196,18 +196,18 @@ export default class TowerRunnable {
       for (let i = 0; i < base.damagedSecondaryStructures.length; i++) {
         nextReapirTargetId = base.damagedSecondaryStructures[0];
 
-        trace.log('damaged secondary structure', {
+        trace.info('damaged secondary structure', {
           nextReapirTargetId,
           length: base.damagedSecondaryStructures.length
         });
 
         nextRepairTarget = Game.getObjectById(nextReapirTargetId);
         if (!nextRepairTarget) {
-          trace.log('damaged secondary structure not found', {nextReapirTargetId});
+          trace.info('damaged secondary structure not found', {nextReapirTargetId});
           continue;
         }
 
-        trace.log('damaged secondary structure', {nextReapirTargetId, nextRepairTarget});
+        trace.info('damaged secondary structure', {nextReapirTargetId, nextRepairTarget});
         break;
       }
 
@@ -219,14 +219,14 @@ export default class TowerRunnable {
           this.repairTarget = nextReapirTargetId;
         }
 
-        trace.log('repair damaged secondary target', {target: this.repairTarget});
+        trace.info('repair damaged secondary target', {target: this.repairTarget});
         this.repairTTL = 10;
       }
     }
 
     // If no repair target sleep for a bit
     if (!this.repairTarget) {
-      trace.log('no repair repair', {});
+      trace.info('no repair repair', {});
       trace.end();
       return sleeping(5);
     }
@@ -241,7 +241,7 @@ export default class TowerRunnable {
     }
 
     const result = tower.repair(target);
-    trace.log('repair', {target, result, ttl: this.repairTTL});
+    trace.info('repair', {target, result, ttl: this.repairTTL});
 
     trace.end();
 
@@ -253,14 +253,19 @@ export default class TowerRunnable {
     const towerFree = tower.store.getFreeCapacity(RESOURCE_ENERGY);
     const towerTotal = tower.store.getCapacity(RESOURCE_ENERGY);
 
-    const pickupId = getStructuresWithResource(base, RESOURCE_ENERGY).shift();
+    const pickup = getStructuresWithResource(base, RESOURCE_ENERGY).shift();
+    if (!pickup) {
+      trace.info('no pickup', {});
+      return;
+    }
+
     const priority = (base.alertLevel !== AlertLevel.GREEN ?
       PRIORITIES.HAUL_TOWER_HOSTILES : PRIORITIES.HAUL_TOWER) - (towerUsed / towerTotal);
 
     const details = {
       [MEMORY.TASK_ID]: `tel-${tower.id}-${Game.time}`,
       [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
-      [MEMORY.MEMORY_HAUL_PICKUP]: pickupId,
+      [MEMORY.MEMORY_HAUL_PICKUP]: pickup.id,
       [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
       [MEMORY.MEMORY_HAUL_AMOUNT]: towerFree,
       [MEMORY.MEMORY_HAUL_DROPOFF]: tower.id,
@@ -268,6 +273,6 @@ export default class TowerRunnable {
 
     kernel.getTopics().addRequest(getBaseDistributorTopic(this.baseId), priority, details, ttl);
 
-    trace.log('request energy', {priority, details, towerUsed, towerTotal});
+    trace.info('request energy', {priority, details, towerUsed, towerTotal});
   }
 }

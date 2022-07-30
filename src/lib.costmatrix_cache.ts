@@ -33,7 +33,7 @@ export class CostMatrixCacheItem {
   update(kernel: Kernel, trace: Tracer) {
     let costMatrix: CostMatrix = new PathFinder.CostMatrix();
 
-    trace.log('updating', {room: this.roomId, type: this.costMatrixType});
+    trace.info('updating', {room: this.roomId, type: this.costMatrixType});
 
     switch (this.costMatrixType) {
       case AllowedCostMatrixTypes.PARTY:
@@ -67,7 +67,7 @@ export class CostMatrixCacheItem {
 
   getCostMatrix(kernel: Kernel, trace: Tracer) {
     if (!this.costMatrix || this.isExpired(Game.time)) {
-      trace.log('cache miss/expired', {
+      trace.info('cache miss/expired', {
         room: this.roomId,
         type: this.costMatrixType,
         expired: this.isExpired(Game.time),

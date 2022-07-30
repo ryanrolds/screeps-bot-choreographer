@@ -32,7 +32,7 @@ export default class DefensePartyRunnable {
   run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('defense_party_run');
 
-    trace.log('defense party run top', {id: this.id});
+    trace.info('defense party run top', {id: this.id});
 
     const prep = trace.begin('run_prep');
     // Check existence of flag
@@ -47,7 +47,7 @@ export default class DefensePartyRunnable {
     const creeps = this.getAssignedCreeps();
     const position = this.getPosition();
 
-    trace.log('defense party run', {
+    trace.info('defense party run', {
       id: this.id,
       creeps: creeps.map((creep) => creep.name),
       flagId: this.flagId,
@@ -85,7 +85,7 @@ export default class DefensePartyRunnable {
     let targets: (Creep | Structure)[] = [];
     targets = targets.concat(targetCreeps, targetStructures);
 
-    trace.log('target requests', {targets: targets.map((target) => target.id)});
+    trace.info('target requests', {targets: targets.map((target) => target.id)});
 
     targetTrace.end();
 
@@ -105,7 +105,7 @@ export default class DefensePartyRunnable {
 
     movementTrace.end();
 
-    trace.log('goal', {destination, targets});
+    trace.info('goal', {destination, targets});
 
     const partyTrace = trace.begin('run_party');
 

@@ -1,6 +1,32 @@
-import * as behaviorAssign from './behavior.assign';
+import * as behaviorMovement from './behavior.movement';
 import {MEMORY_ASSIGN_ROOM} from './constants.memory';
 import * as behaviorTree from './lib.behaviortree';
+import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
+import {FindPathPolicy} from './lib.pathing';
+
+const explorerPolicy: FindPathPolicy = {
+  room: {
+    avoidHostileRooms: false,
+    avoidFriendlyRooms: false,
+    avoidRoomsWithKeepers: false,
+    avoidRoomsWithTowers: false,
+    avoidUnloggedRooms: false,
+    sameRoomStatus: true,
+    costMatrixType: AllowedCostMatrixTypes.COMMON,
+  },
+  destination: {
+    range: 1,
+  },
+  path: {
+    allowIncomplete: true,
+    maxSearchRooms: 12,
+    maxOps: 5000,
+    maxPathRooms: 6,
+    ignoreCreeps: true,
+    sourceKeeperBuffer: 3,
+    hostileCreepBuffer: 8,
+  },
+};
 
 const behavior = behaviorTree.sequenceNode(
   'explorer_root',
@@ -40,7 +66,7 @@ const behavior = behaviorTree.sequenceNode(
         return behaviorTree.SUCCESS;
       },
     ),
-    behaviorAssign.moveToRoom,
+    behaviorMovement.cachedMoveToRoom(MEMORY_ASSIGN_ROOM, explorerPolicy),
     behaviorTree.leafNode(
       'move_into_room',
       (creep, trace, kingdom) => {

@@ -1,10 +1,10 @@
 import * as behaviorTree from './lib.behaviortree';
 import {FAILURE, NodeTickResult, RUNNING, SUCCESS} from './lib.behaviortree';
 
-import {Kernel} from './kernel';
 import * as MEMORY from './constants.memory';
 import {MEMORY_SOURCE} from './constants.memory';
 import {commonPolicy} from './constants.pathing_policies';
+import {Kernel} from './kernel';
 import {FindPathPolicy, visualizePath} from './lib.pathing';
 import {PathCache, PathCacheItem} from './lib.path_cache';
 import {Tracer} from './lib.tracing';
@@ -177,24 +177,24 @@ const updateCreepCachedPath = (kernel: Kernel, creep: Creep, destination: RoomPo
   let originKey = creep.memory[PATH_ORIGIN_KEY] || null;
   let destKey = creep.memory[PATH_DESTINATION_KEY] || null;
 
-  trace.log('keys', {originKey, destKey});
+  trace.info('keys', {originKey, destKey});
 
   if (originKey && destKey) {
     path = pathCache.getCachedPath(originKey, destKey, trace);
   }
 
   if (path) {
-    trace.log('heap cache hit', {originKey, destKey});
+    trace.info('heap cache hit', {originKey, destKey});
     return path.value;
   }
 
   if (!path) {
-    trace.log('heap cache miss', {originKey, destKey});
+    trace.info('heap cache miss', {originKey, destKey});
     const getSetResult = getAndSetCreepPath(kernel, pathCache, creep, destination, range, policy, trace);
     originKey = getSetResult[1];
     destKey = getSetResult[2];
 
-    trace.log('setting keys', {originKey, destKey});
+    trace.info('setting keys', {originKey, destKey});
 
     creep.memory[PATH_ORIGIN_KEY] = originKey;
     creep.memory[PATH_DESTINATION_KEY] = destKey;
@@ -202,7 +202,7 @@ const updateCreepCachedPath = (kernel: Kernel, creep: Creep, destination: RoomPo
     return getSetResult[0];
   }
 
-  trace.log('missing path', {originKey, destKey});
+  trace.info('missing path', {originKey, destKey});
   clearMovementCache(creep);
   return null;
 };
@@ -268,7 +268,7 @@ const cachedMoveToPosition = (kernel: Kernel, creep: Creep, destination: RoomPos
   // Check if creep has arrived
   if (creep.pos.inRangeTo(destination, range)) {
     clearMovementCache(creep);
-    trace.log('reached destination', {destination, range});
+    trace.info('reached destination', {destination, range});
     return SUCCESS;
   }
 
@@ -278,7 +278,7 @@ const cachedMoveToPosition = (kernel: Kernel, creep: Creep, destination: RoomPos
 
   if (!stuck) {
     const pathfinderResult = updateCreepCachedPath(kernel, creep, destination, range, policy, trace);
-    trace.log('pathfinder result', {result: pathfinderResult, creepName: creep.name, destination, range, policy});
+    trace.info('pathfinder result', {result: pathfinderResult, creepName: creep.name, destination, range, policy});
     if (!pathfinderResult) {
       creep.say('🚧');
       trace.error('no path found', {destination, range});
@@ -290,17 +290,17 @@ const cachedMoveToPosition = (kernel: Kernel, creep: Creep, destination: RoomPos
     }
 
     result = creep.moveByPath(pathfinderResult.path);
-    trace.log('move by path result', {result, path: pathfinderResult.path});
+    trace.info('move by path result', {result, path: pathfinderResult.path});
   } else {
     const moveOpts = getMoveOpts(false, 50, policy.path.maxOps);
     result = creep.moveTo(destination, moveOpts);
-    trace.log('stuck move result', {result, origin: creep.pos, destination});
+    trace.info('stuck move result', {result, origin: creep.pos, destination});
   }
 
   if (result === ERR_NO_PATH) {
     // Clear existing path so we build a new one
     clearMovementCache(creep);
-    trace.log('move by result no path', {result});
+    trace.info('move by result no path', {result});
     return RUNNING;
   }
 
@@ -423,7 +423,7 @@ export const moveToShard = (shardMemoryKey) => {
             // Lookup closest portal, use path cache
             let portals = kingdom.getScribe().getPortals(destinationShardName);
             if (!portals || !portals.length) {
-              trace.log('unable to find portal', {shardName: destinationShardName});
+              trace.info('unable to find portal', {shardName: destinationShardName});
               return FAILURE;
             }
 
@@ -433,7 +433,7 @@ export const moveToShard = (shardMemoryKey) => {
 
             const portal = portals[0] || null;
             if (!portal) {
-              trace.log('unable to find nearby portal', {shardName: destinationShardName});
+              trace.info('unable to find nearby portal', {shardName: destinationShardName});
               return FAILURE;
             }
 

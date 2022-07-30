@@ -57,11 +57,13 @@ const behavior = behaviorTree.sequenceNode(
           const roomId = creep.memory[MEMORY.MEMORY_ASSIGN_ROOM];
           // If reserver doesn't have a room assigned, we are done
           if (!roomId) {
+            trace.notice('no room assigned', {creep: creep.name});
             return behaviorTree.SUCCESS;
           }
 
           // If the creep is not in the right room we are done
           if (creep.room.name !== roomId) {
+            trace.notice('wrong room', {creep: creep.name, room: creep.room.name, assignedRoom: roomId});
             return behaviorTree.SUCCESS;
           }
 
@@ -74,12 +76,12 @@ const behavior = behaviorTree.sequenceNode(
 
           const room = creep.room;
           if (!room) {
-            trace.log('unable to get creep room');
+            trace.info('unable to get creep room');
             return behaviorTree.FAILURE;
           }
 
           if (!room.controller) {
-            trace.log('no controller in room');
+            trace.info('no controller in room');
             return behaviorTree.FAILURE;
           }
 
@@ -91,7 +93,7 @@ const behavior = behaviorTree.sequenceNode(
           const isPrimary = room.name === base.primary;
           const controller = room.controller;
 
-          trace.log('reserver', {
+          trace.notice('reserver', {
             room: room.name,
             unowned,
             claimedByMe,
@@ -101,26 +103,26 @@ const behavior = behaviorTree.sequenceNode(
           });
 
           if (controller && controller.upgradeBlocked) {
-            trace.log('upgrade/attack blocked', {ttl: room.controller.upgradeBlocked});
+            trace.notice('upgrade/attack blocked', {ttl: room.controller.upgradeBlocked});
             return behaviorTree.FAILURE;
           }
 
           if (!unowned && !claimedByMe && !reservedByMe) {
             const result = creep.attackController(creep.room.controller);
-            trace.log('attackController', {result});
+            trace.notice('attackController', {result});
             if (result != OK) {
               return behaviorTree.FAILURE;
             }
           } else {
             if (isPrimary) {
               const result = creep.claimController(creep.room.controller);
-              trace.log('claimController', {result});
+              trace.notice('claimController', {result});
               if (result != OK) {
                 return behaviorTree.FAILURE;
               }
             } else {
               const result = creep.reserveController(creep.room.controller);
-              trace.log('reserveController', {result});
+              trace.notice('reserveController', {result});
               if (result != OK) {
                 return behaviorTree.FAILURE;
               }

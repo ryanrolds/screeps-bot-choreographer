@@ -174,7 +174,7 @@ export default class BaseConstructionRunnable {
   run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('base_construction_run');
 
-    trace.log('base construction run', {id: this.id, baseId: this.baseId});
+    trace.info('base construction run', {id: this.id, baseId: this.baseId});
 
     const base = kernel.getPlanner().getBaseById(this.baseId);
     if (!base) {
@@ -205,7 +205,7 @@ export default class BaseConstructionRunnable {
     if (unfinished) {
       this.buildLayout(base, unfinished, origin, trace);
     } else {
-      trace.log('no unfinished layout', {roomLevel: baseLevel});
+      trace.info('no unfinished layout', {roomLevel: baseLevel});
     }
 
     if (baseLevel >= 3) {
@@ -229,7 +229,7 @@ export default class BaseConstructionRunnable {
   }
 
   buildLayout(base: Base, layout: BaseLayout, origin: RoomPosition, trace: Tracer): void {
-    trace.log('building layout', {layout});
+    trace.info('building layout', {layout});
 
     let toBuild: PossibleSite[] = [];
     let numSites = 0;
@@ -253,7 +253,7 @@ export default class BaseConstructionRunnable {
 
         const structure = pos.lookFor(LOOK_STRUCTURES)[0];
         if (structure) {
-          trace.log('structure present', {structure: structure.structureType});
+          trace.info('structure present', {structure: structure.structureType});
 
           if (structure.structureType !== buildingCodes[code]) {
             trace.warn('wrong site, remove', {existing: structure.structureType, expected: buildingCodes[code]});
@@ -427,12 +427,12 @@ export default class BaseConstructionRunnable {
         }
 
         if (!structures.length) {
-          trace.log('missing structures', {pos});
+          trace.info('missing structures', {pos});
           return false;
         }
 
         if (structures.length && structures[0].structureType !== buildingCodes[code]) {
-          trace.log('incorrect structure present', {pos, structures: structures.map((s) => s.structureType)});
+          trace.info('incorrect structure present', {pos, structures: structures.map((s) => s.structureType)});
           return false;
         }
       }

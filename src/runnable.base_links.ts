@@ -52,7 +52,7 @@ export default class LinkManager {
 
     const base = kernel.getPlanner().getBaseById(this.baseId);
     if (!base) {
-      trace.log('no base config for room', {baseId: this.baseId});
+      trace.info('no base config for room', {baseId: this.baseId});
       return terminate();
     }
 
@@ -82,7 +82,7 @@ export default class LinkManager {
 
     const storageLink = Game.getObjectById<Id<StructureLink>>(this.storageLink);
     if (!this.storageId || !storageLink) {
-      trace.log('sleeping due to missing storage or storage link', {});
+      trace.info('sleeping due to missing storage or storage link', {});
       trace.end();
 
       return sleeping(PROCESS_TTL); // Removed +1 from this 4/25/22
@@ -119,7 +119,7 @@ export default class LinkManager {
     this.sinkLinks.map((linkId) => {
       const link = Game.getObjectById<Id<StructureLink>>(linkId);
       if (!link) {
-        trace.log('should terminate due to missing sink link', {linkId});
+        trace.info('should terminate due to missing sink link', {linkId});
         shouldTerminate = true;
         return null;
       }
@@ -239,7 +239,7 @@ export default class LinkManager {
     };
 
     kernel.getTopics().addRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.UNLOAD_LINK, details, HAUL_TTL);
-    trace.log('haul energy from storage link', {request: details});
+    trace.info('haul energy from storage link', {request: details});
   }
 
   fillLink(kernel: Kernel, link: StructureLink, pickup: AnyStoreStructure, amount: number, trace: Tracer) {
@@ -254,7 +254,7 @@ export default class LinkManager {
       [MEMORY.MEMORY_HAUL_DROPOFF]: link.id,
     };
 
-    trace.log('haul energy to storage link', {request: details});
+    trace.info('haul energy to storage link', {request: details});
     kernel.getTopics().addRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.LOAD_LINK, details, HAUL_TTL);
   }
 }
@@ -266,7 +266,7 @@ const transferEnergy = (source: StructureLink, sink: StructureLink, trace: Trace
   ]);
 
   const result = source.transferEnergy(sink, amount);
-  trace.log('transfer energy', {
+  trace.info('transfer energy', {
     source: source.id,
     sink: sink.id,
     result,

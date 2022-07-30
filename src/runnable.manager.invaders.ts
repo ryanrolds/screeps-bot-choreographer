@@ -60,7 +60,7 @@ export default class InvaderManager {
     });
 
     rooms.forEach((roomEntry) => {
-      trace.log('requesting attack', {roomId: roomEntry.id});
+      trace.info('requesting attack', {roomId: roomEntry.id});
 
       const attackRequest: AttackRequest = {
         status: AttackStatus.REQUESTED,
@@ -89,7 +89,7 @@ const getRoomEntriesWithInvaderBases = (kernel: Kernel, trace: Tracer): RoomEntr
     }
 
     if (roomEntry.invaderCoreLevel > MAX_BASE_LEVEL) {
-      trace.log('invader base too strong', {id: roomEntry.id, level: roomEntry.invaderCoreLevel});
+      trace.info('invader base too strong', {id: roomEntry.id, level: roomEntry.invaderCoreLevel});
       return false;
     }
 

@@ -308,7 +308,7 @@ export const emptyCreep = behaviorTree.repeatUntilConditionMet(
           const resource = Object.keys(creep.store).pop() as ResourceConstant;
 
           const result = creep.transfer(destination, resource);
-          trace.log('transfer result', {
+          trace.info('transfer result', {
             result,
           });
 

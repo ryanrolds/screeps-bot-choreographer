@@ -42,7 +42,7 @@ const behavior = behaviorTree.sequenceNode(
         // if we have a heal target, heal it
         if (healTarget) {
           const result = creep.heal(healTarget);
-          trace.log('healing self', {result});
+          trace.info('healing self', {result});
         }
 
         // Get targets in the room
@@ -53,7 +53,7 @@ const behavior = behaviorTree.sequenceNode(
           },
         );
 
-        trace.log('room targets', {targets});
+        trace.info('room targets', {targets});
 
         // We move to the room target and attack the highest priority target in range,
         // which could also be the room target or a target of opportunity
@@ -72,11 +72,11 @@ const behavior = behaviorTree.sequenceNode(
           }
         }
 
-        trace.log('target', {moveTarget, attackTarget});
+        trace.info('target', {moveTarget, attackTarget});
 
         if (attackTarget) {
           const result = creep.rangedAttack(attackTarget);
-          trace.log('ranged attack result', {result, targetId: attackTarget.id});
+          trace.info('ranged attack result', {result, targetId: attackTarget.id});
         }
 
         // If not in rampart, move to target
@@ -90,18 +90,18 @@ const behavior = behaviorTree.sequenceNode(
           const base = getCreepBase(kernel, creep);
           if (base) {
             const result = creep.moveTo(base.origin);
-            trace.log('moving to base origin to heal', {result});
+            trace.info('moving to base origin to heal', {result});
             return RUNNING;
           }
         }
 
         if (creep.pos.getRangeTo(moveTarget) <= 3) {
-          trace.log('target in range');
+          trace.info('target in range');
           return RUNNING;
         }
 
         const result = move(creep, moveTarget, 3);
-        trace.log('move to target', {result, moveTarget});
+        trace.info('move to target', {result, moveTarget});
 
         return RUNNING;
       },
@@ -119,10 +119,10 @@ const moveToAssignedPosition = (creep: Creep, trace: Tracer, kernel: Kernel) => 
     if (posArray && posArray.length === 3) {
       position = new RoomPosition(posArray[0], posArray[1], posArray[2]);
     } else {
-      trace.log('invalid position string', {positionString});
+      trace.info('invalid position string', {positionString});
     }
   } else {
-    trace.log('failed to get position string');
+    trace.info('failed to get position string');
   }
 
   // If don't have a last known position, go to parking lot
@@ -131,24 +131,24 @@ const moveToAssignedPosition = (creep: Creep, trace: Tracer, kernel: Kernel) => 
     if (base) {
       position = base.parking;
     } else {
-      trace.log('could not get creep base config');
+      trace.info('could not get creep base config');
     }
   }
 
   if (!position) {
-    trace.log('not able to determine destination, failing');
+    trace.info('not able to determine destination, failing');
     return FAILURE;
   }
 
   // Check if we are at the destination
   if (creep.pos.getRangeTo(position) < 1) {
-    trace.log('reached last known position or parking lot, waiting...');
+    trace.info('reached last known position or parking lot, waiting...');
     return SUCCESS;
   }
 
   // Move to destination
   const result = move(creep, position, 1);
-  trace.log('move to last known hostile position or parking lot', {result, position});
+  trace.info('move to last known hostile position or parking lot', {result, position});
 
   return RUNNING;
 };

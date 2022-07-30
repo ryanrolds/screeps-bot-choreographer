@@ -52,14 +52,14 @@ export const createCommonCostMatrix = (kernel: Kernel, roomName: string, trace: 
 
   const room = Game.rooms[roomName];
   if (!room) {
-    trace.log('room not visible', {roomName: roomName});
+    trace.info('room not visible', {roomName: roomName});
     return costMatrix;
   }
 
   const terrain = Game.map.getRoomTerrain(roomName);
 
   const structures = room.find(FIND_STRUCTURES);
-  trace.log('found structures', {numStructures: structures.length});
+  trace.info('found structures', {numStructures: structures.length});
   // Favor roads and avoid blocking structures
   structures.forEach(function (struct) {
     if (struct.structureType === STRUCTURE_ROAD) {
@@ -92,7 +92,7 @@ export const createCommonCostMatrix = (kernel: Kernel, roomName: string, trace: 
 
   // Add blocking structures to the cost matrix
   const sites = room.find(FIND_CONSTRUCTION_SITES);
-  trace.log('found construction sites', {numSites: sites.length});
+  trace.info('found construction sites', {numSites: sites.length});
   sites.forEach((site) => {
     if (OBSTACLE_OBJECT_TYPES.indexOf(site.structureType as any) !== -1) {
       costMatrix.set(site.pos.x, site.pos.y, 255);
@@ -302,7 +302,7 @@ export const createOpenSpaceMatrix = (roomName: string, trace: Tracer): [CostMat
 
   const position = passes[pass - 1][0];
   const cpuTime = trace.end();
-  trace.log('results', {cpuTime, pass, position});
+  trace.info('results', {cpuTime, pass, position});
 
   return [costMatrix, pass, position];
 };
@@ -326,11 +326,11 @@ const get255CostMatrix = (): CostMatrix => {
 
 export const visualizeCostMatrix = (roomName: string, costMatrix: CostMatrix, trace: Tracer) => {
   if (typeof (costMatrix) === 'boolean') {
-    trace.log('costmatrix is boolean', {roomName});
+    trace.info('costmatrix is boolean', {roomName});
     return;
   }
 
-  trace.log('show matrix', {roomName});
+  trace.info('show matrix', {roomName});
 
   const visual = new RoomVisual(roomName);
 
@@ -387,7 +387,7 @@ const applySourceMineralBuffer = (room: Room, costMatrix: CostMatrix, terrain: R
   const minerals = room.find(FIND_MINERALS);
   sources = sources.concat(minerals);
 
-  trace.log('found sources and minerals', {numStructures: sources.length});
+  trace.info('found sources and minerals', {numStructures: sources.length});
 
   sources.forEach(function (source) {
     const pos = source.pos;

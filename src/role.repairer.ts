@@ -27,7 +27,7 @@ const selectStructureToRepair = behaviorTree.leafNode(
       return FAILURE;
     }
 
-    trace.log('selected target', {target: target.id, pos: target.pos});
+    trace.info('selected target', {target: target.id, pos: target.pos});
 
     behaviorMovement.setDestination(creep, target.id);
 
@@ -49,7 +49,7 @@ const repair = behaviorTree.leafNode(
     }
 
     const result = creep.repair(destination);
-    trace.log('repairing', {destination: destination.id, result});
+    trace.info('repairing', {destination: destination.id, result});
     if (result != OK) {
       return FAILURE;
     }

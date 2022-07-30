@@ -9,7 +9,7 @@ import {Kernel, KernelThreadFunc, threadKernel} from './kernel';
 import {buildAttacker, newMultipliers} from './lib.attacker_builder';
 import {scoreRoomDamage, scoreStorageHealing} from './lib.scoring';
 import {Tracer} from './lib.tracing';
-import {Process, running} from './os.process';
+import {Process, sleeping} from './os.process';
 import {RunnableResult} from './os.runnable';
 import {Priorities, Scheduler} from './os.scheduler';
 import {MEMORY_HARASS_BASE, ROLE_HARASSER} from './role.harasser';
@@ -23,6 +23,7 @@ const MAX_BASES_PER_TARGET = 3;
 const MAX_WAR_PARTIES_PER_BASE = 1;
 const MAX_HARASSERS_PER_BASE = 1;
 const HARASS_COOLDOWN = 700;
+const RUN_TTL = 10;
 
 interface StoredWarParty {
   id: string;
@@ -92,7 +93,7 @@ export default class WarManager {
 
     trace.end();
 
-    return running();
+    return sleeping(RUN_TTL);
   }
 
   consumeEvents(trace: Tracer, kernel: Kernel) {
@@ -137,7 +138,7 @@ export default class WarManager {
     let bases = kernel.getPlanner().getBases();
     bases = _.filter(bases, (base) => Game.rooms[base.primary]?.controller.level >= 5);
 
-    trace.log('allowed bases', {bases: bases.map((base) => base.primary)});
+    trace.info('allowed bases', {bases: bases.map((base) => base.primary)});
 
     // Sort targets so closest to other bases is prioritized
     targets = _.sortBy(targets, (target) => {
@@ -392,7 +393,7 @@ export default class WarManager {
     }
 
     const partyId = `war_party_${targetRoom.id}_${base.primary}_${Game.time}`;
-    trace.log('creating war party', {target: targetRoom.id, partyId, flagId});
+    trace.info('creating war party', {target: targetRoom.id, partyId, flagId});
 
     const warParty = this.createAndScheduleWarParty(base, partyId, targetRoom.id,
       Phase.PHASE_MARSHAL, flag.pos, flag.name, CREEPS.WORKER_ATTACKER, trace);

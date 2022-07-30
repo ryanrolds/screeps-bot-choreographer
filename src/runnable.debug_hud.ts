@@ -107,11 +107,11 @@ export class HUDRunnable {
       });
     });
 
-    trace.log('dashboards', {dashboards: this.dashboards});
+    trace.info('dashboards', {dashboards: this.dashboards});
 
     Array.from(this.dashboards.values()).forEach((dashboard) => {
       const indicators = dashboard.getIndicators();
-      trace.log('indicators', {indicators});
+      trace.info('indicators', {indicators});
 
       let indicatorNum = 0;
       Array.from(indicators.values()).forEach((indicator) => {
@@ -142,7 +142,7 @@ export class HUDRunnable {
 
   consumeDashboardEvents(trace: Tracer) {
     this.dashboardConsumer.getEvents().forEach((event) => {
-      trace.log('event', {event});
+      trace.info('event', {event});
 
       const indicator: HudIndicator = event.data;
 

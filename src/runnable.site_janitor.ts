@@ -67,7 +67,7 @@ export class SiteJanitor implements Runnable {
       }
     });
 
-    trace.log('site janitor stats', {
+    trace.info('site janitor stats', {
       purged,
       created,
       updated,

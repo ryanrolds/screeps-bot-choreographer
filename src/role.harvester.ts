@@ -35,13 +35,13 @@ const behavior = behaviorTree.sequenceNode(
 
             const destination = Game.getObjectById<Id<Structure<StructureConstant>>>(creep.memory[MEMORY.MEMORY_DESTINATION]);
             if (!destination) {
-              trace.log('no destination', {destination: creep.memory[MEMORY.MEMORY_DESTINATION]});
+              trace.info('no destination', {destination: creep.memory[MEMORY.MEMORY_DESTINATION]});
               return SUCCESS;
             }
 
             const resource = Object.keys(creep.store).pop();
             const result = creep.transfer(destination, resource as ResourceConstant);
-            trace.log('transfer', {result, resource});
+            trace.info('transfer', {result, resource});
 
             if (result !== OK) {
               trace.error('transfer failed', {result});

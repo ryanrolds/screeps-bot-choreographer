@@ -22,7 +22,7 @@ export const threadAny = (name: string, ttl: number) => (action: AnyTheadActionF
 
       return result;
     } else {
-      trace.log(`thread ${name} sleeping for ${lastCall + ttl - Game.time}`);
+      trace.info(`thread ${name} sleeping for ${lastCall + ttl - Game.time}`);
     }
 
     return null;

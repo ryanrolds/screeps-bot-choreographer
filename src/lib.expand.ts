@@ -2,7 +2,7 @@ import {Kernel} from './kernel';
 import {createOpenSpaceMatrix} from './lib.costmatrix';
 import {Tracer} from './lib.tracing';
 
-const PASSES = 5;
+const PASSES = 6;
 const MIN_DISTANCE_FOR_ORIGIN = 8;
 
 export const DismissedReasonNoRoomEntry = 'no_room_entry';
@@ -48,8 +48,10 @@ export const pickExpansion = (kernel: Kernel, trace: Tracer): ExpandResults => {
     });
   });
 
-  let nextPass: string[] = Object.keys(claimed);
+  let nextPass: string[] = Array.from(claimed.keys());
   seen = new Set(claimed);
+
+  trace.info('starting expansion pass', {nextPass, maxPasses: PASSES});
 
   for (let i = 0; i < PASSES; i++) {
     const found = [];
@@ -119,16 +121,21 @@ export const pickExpansion = (kernel: Kernel, trace: Tracer): ExpandResults => {
     nextPass = found;
   }
 
+  trace.info('candidates', {
+    candidates: Array.from(candidates.keys()),
+    dismissed: Array.from(dismissed.entries())
+  });
+
   const filterCandidates: Set<string> = new Set();
   for (const candidate of candidates.keys()) {
-    if (!claimed.has(candidate) || !dismissed.has(candidate)) {
+    if (claimed.has(candidate) || dismissed.has(candidate)) {
       continue;
     }
 
     filterCandidates.add(candidate);
   }
 
-  trace.info('pre-filter candidates', {filterCandidates});
+  trace.info('filtered candidates', {filterCandidates: Array.from(filterCandidates.keys())});
 
   // TODO factor in available remotes
   const sortedCandidates = _.sortByOrder([...filterCandidates.keys()],

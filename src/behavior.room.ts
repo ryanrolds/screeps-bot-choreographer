@@ -24,14 +24,14 @@ const selectNearbyLink = behaviorTree.leafNode(
 
     // If we have a target set the destination
     if (nearByLinks.length) {
-      trace.log('selecting nearby link', {linkId: nearByLinks[0].id});
+      trace.info('selecting nearby link', {linkId: nearByLinks[0].id});
       behaviorMovement.setDestination(creep, nearByLinks[0].id);
       return SUCCESS;
     }
 
     behaviorMovement.setDestination(creep, null);
 
-    trace.log('did not find a nearby link');
+    trace.info('did not find a nearby link');
     return FAILURE;
   },
 );
@@ -73,14 +73,14 @@ const selectContainer = behaviorTree.leafNode(
       },
     });
     if (containerInRoom) {
-      trace.log('selecting container in room', {id: containerInRoom.id});
+      trace.info('selecting container in room', {id: containerInRoom.id});
       behaviorMovement.setDestination(creep, containerInRoom.id);
       return SUCCESS;
     }
 
     behaviorMovement.setDestination(creep, null);
 
-    trace.log('did not find a container with energy');
+    trace.info('did not find a container with energy');
     return FAILURE;
   },
 );
@@ -100,14 +100,14 @@ const selectDroppedEnergy = behaviorTree.leafNode(
     });
 
     if (droppedEnergy) {
-      trace.log('selecting dropped energy in room', {id: droppedEnergy.id});
+      trace.info('selecting dropped energy in room', {id: droppedEnergy.id});
       behaviorMovement.setDestination(creep, droppedEnergy.id);
       return SUCCESS;
     }
 
     behaviorMovement.setDestination(creep, null);
 
-    trace.log('did not find any dropped energy');
+    trace.info('did not find any dropped energy');
     return FAILURE;
   },
 );
@@ -132,7 +132,7 @@ export const getSomeEnergy = behaviorTree.runUntilConditionMet(
   'get_some_energy_until_success',
   (creep, trace, kernel) => {
     const freeCapacity = creep.store.getFreeCapacity(RESOURCE_ENERGY);
-    trace.log('creep free capacity', {freeCapacity});
+    trace.info('creep free capacity', {freeCapacity});
     return creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
   },
   behaviorTree.selectorNode(
@@ -150,7 +150,7 @@ export const getEnergy = behaviorTree.repeatUntilConditionMet(
   'get_energy_until_success',
   (creep, trace, kernel) => {
     const freeCapacity = creep.store.getFreeCapacity(RESOURCE_ENERGY);
-    trace.log('creep free capacity', {freeCapacity});
+    trace.info('creep free capacity', {freeCapacity});
     return creep.store.getFreeCapacity(RESOURCE_ENERGY) <= 0;
   },
   behaviorTree.selectorNode(
@@ -182,7 +182,7 @@ export const parkingLot = behaviorTree.leafNode(
     creep.memory[MEMORY_IDLE] = idle;
 
     if (creep.pos.inRangeTo(base.parking, 1)) {
-      trace.log('in range of parking lot');
+      trace.info('in range of parking lot');
 
       // TODO may move this to something cheaper
       const hasNuker = base.parking.lookFor(LOOK_STRUCTURES).find((structure) => {
@@ -201,7 +201,7 @@ export const parkingLot = behaviorTree.leafNode(
       return FAILURE;
     }
 
-    trace.log('moving to parking lot', {parkingLot: base.parking});
+    trace.info('moving to parking lot', {parkingLot: base.parking});
 
     const result = creep.moveTo(base.parking, {
       reusePath: 50,
@@ -209,7 +209,7 @@ export const parkingLot = behaviorTree.leafNode(
       ignoreCreeps: false,
     });
     if (result !== OK && result !== ERR_TIRED) {
-      trace.warn('could not move to parking lot', {
+      trace.info('could not move to parking lot', {
         result,
         parkingLot: base.parking,
         creepName: creep.name,
@@ -294,7 +294,7 @@ export const updateSign = behaviorTree.repeatUntilConditionMet(
         'set_sign',
         (creep, trace, kernel) => {
           const result = creep.signController(creep.room.controller, sign);
-          trace.log('set sign', {result});
+          trace.info('set sign', {result});
 
           if (result === OK) {
             return SUCCESS;

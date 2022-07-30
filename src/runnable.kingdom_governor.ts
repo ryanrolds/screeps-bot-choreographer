@@ -20,7 +20,7 @@ export default class KingdomGovernor {
   run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('kernel_governor');
 
-    trace.log('kernel governor run', {});
+    trace.info('kernel governor run', {});
 
     this.threadUpdateShardMemory(trace, kernel);
 
@@ -30,7 +30,7 @@ export default class KingdomGovernor {
   }
 
   updateShardMemory(trace: Tracer, kernel: Kernel) {
-    trace.log('update_shard_memory');
+    trace.info('update_shard_memory');
 
     const scribe = kernel.getScribe();
 
@@ -51,7 +51,7 @@ export default class KingdomGovernor {
       }
 
       const shardMemory = kernel.getScribe().getRemoteShardMemory(shardName);
-      trace.log('shard memory', {shardName, shardMemory});
+      trace.info('shard memory', {shardName, shardMemory});
 
       this.handleClaimerRequests(kernel, shardMemory.request_claimer || new Map(), trace);
       this.handleBuilderRequests(kernel, shardMemory.request_builder || new Map(), trace);
@@ -79,7 +79,7 @@ export default class KingdomGovernor {
       */
     });
 
-    trace.log('setting local memory', {shardMemory});
+    trace.info('setting local memory', {shardMemory});
 
     scribe.setLocalShardMemory(shardMemory);
   }
@@ -120,7 +120,7 @@ export default class KingdomGovernor {
       });
       if (!enroute.length) {
         localMemory.request_claimer.set(bases[0].primary, request);
-        trace.log('requesting claimer from another shard', {request});
+        trace.info('requesting claimer from another shard', {request});
       }
     }
 
@@ -140,7 +140,7 @@ export default class KingdomGovernor {
         memory,
       });
 
-      trace.log('checking if claimer in-flight', {
+      trace.info('checking if claimer in-flight', {
         shardName: creepRequest.shard,
         enroute: enroute.map((creep) => creep.id),
       });
@@ -154,7 +154,7 @@ export default class KingdomGovernor {
       const role = WORKERS.WORKER_RESERVER;
 
       const request = createSpawnRequest(priorities, ttl, role, memory, 0);
-      trace.log('relaying claimer request from remote shard', {request});
+      trace.info('relaying claimer request from remote shard', {request});
       kernel.getTopics().addRequestV2(getShardSpawnTopic(), request);
     });
   }
@@ -172,7 +172,7 @@ export default class KingdomGovernor {
 
     memory.request_claimer.set(roomName, request);
 
-    trace.log('adding request for claimer', {request});
+    trace.info('adding request for claimer', {request});
 
     return memory;
   }
@@ -210,7 +210,7 @@ export default class KingdomGovernor {
       });
       if (enroute.length < 6) {
         localMemory.request_builder.set(bases[0].primary, request);
-        trace.log('requesting builder from another shard', {request});
+        trace.info('requesting builder from another shard', {request});
       }
     }
 
@@ -230,7 +230,7 @@ export default class KingdomGovernor {
         memory,
       });
 
-      trace.log('checking if builder in-flight', {shardName: creepRequest.shard, enroute: enroute.map((creep) => creep.id)});
+      trace.info('checking if builder in-flight', {shardName: creepRequest.shard, enroute: enroute.map((creep) => creep.id)});
 
       if (enroute.length) {
         return;
@@ -241,7 +241,7 @@ export default class KingdomGovernor {
       const role = WORKERS.WORKER_BUILDER;
 
       const request = createSpawnRequest(priority, ttl, role, memory, 0);
-      trace.log('relaying builder request from remote shard', {request});
+      trace.info('relaying builder request from remote shard', {request});
       kernel.getTopics().addRequestV2(getShardSpawnTopic(), request);
     });
   }

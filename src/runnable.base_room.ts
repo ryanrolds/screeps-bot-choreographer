@@ -40,7 +40,7 @@ export default class RoomRunnable implements Runnable {
   run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('room_run');
 
-    trace.log('room run', {
+    trace.info('room run', {
       id: this.id,
     });
 
@@ -73,7 +73,7 @@ export default class RoomRunnable implements Runnable {
       room.find(FIND_SOURCES).forEach((source) => {
         const sourceId = `${source.id}`;
         if (!this.scheduler.hasProcess(sourceId)) {
-          trace.log('found source without process, starting', {sourceId: source.id, room: this.id});
+          trace.info('found source without process, starting', {sourceId: source.id, room: this.id});
           this.scheduler.registerProcess(new Process(sourceId, 'sources', Priorities.RESOURCES,
             new SourceRunnable(source)));
         }

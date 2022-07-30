@@ -76,7 +76,7 @@ export const moveToHarvestRoom = behaviorTree.repeatUntilSuccess(
         reusePath: 50,
         maxOps: 1500,
       });
-      trace.log('move to', {result});
+      trace.info('move to', {result});
 
       if (result === ERR_NO_PATH) {
         return FAILURE;
@@ -107,7 +107,7 @@ export const harvest = behaviorTree.leafNode(
     }
 
     const result = creep.harvest(destination);
-    trace.log('harvest', {result});
+    trace.info('harvest', {result});
 
     if (creep.store.getFreeCapacity() === 0) {
       return SUCCESS;

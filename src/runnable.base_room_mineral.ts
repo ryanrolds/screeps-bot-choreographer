@@ -56,7 +56,7 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
   run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('mineral_run');
 
-    trace.log('mineral run', {
+    trace.info('mineral run', {
       mineralId: this.id,
       position: this.position,
       creepPosition: this.creepPosition,
@@ -130,14 +130,14 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
   }
 
   populatePositions(trace: Tracer, kernel: Kernel, base: Base, mineral: Mineral) {
-    trace.log('populate positions', {room: mineral.room.name});
+    trace.info('populate positions', {room: mineral.room.name});
 
     const memory = this.getMemory(trace) || {};
 
     // Check memory for creep position
     const creepPosition = memory.creepPosition;
     if (creepPosition) {
-      trace.log('creep position in memory', {room: mineral.room.name});
+      trace.info('creep position in memory', {room: mineral.room.name});
       this.creepPosition = new RoomPosition(creepPosition.x, creepPosition.y, creepPosition.roomName);
     }
 
@@ -145,14 +145,14 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
       base.origin.roomName);
 
     const [pathResult, details] = getPath(kernel, mineral.pos, colonyPos, roadPolicy, trace);
-    trace.log('path found', {origin: mineral.pos, dest: colonyPos, pathResult});
+    trace.info('path found', {origin: mineral.pos, dest: colonyPos, pathResult});
 
     if (!pathResult || !pathResult.path.length) {
       trace.error('path not found', {colonyPos, mineral: mineral.pos});
       return;
     }
 
-    trace.log('creep position set', {creepPosition: this.creepPosition});
+    trace.info('creep position set', {creepPosition: this.creepPosition});
     this.creepPosition = pathResult.path[0];
 
     // Update memory
@@ -167,7 +167,7 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
 
   requestHarvesters(trace: Tracer, kernel: Kernel, base: Base, mineral: Mineral) {
     if (mineral.mineralAmount === 0) {
-      trace.log('no minerals to harvest');
+      trace.info('no minerals to harvest');
       return;
     }
 
@@ -185,7 +185,7 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
 
     const username = kernel.getPlanner().getUsername();
     if (room?.controller?.owner && room.controller.owner.username !== username) {
-      trace.log('room owned by someone else', {roomId: room.name, owner: room.controller?.owner?.username});
+      trace.info('room owned by someone else', {roomId: room.name, owner: room.controller?.owner?.username});
       return;
     }
 
@@ -197,7 +197,7 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
         creepIsFresh(creep);
     }).length;
 
-    trace.log('num harvesters', {numHarvesters});
+    trace.info('num harvesters', {numHarvesters});
 
     if (numHarvesters < 1) {
       const positionStr = [this.creepPosition.x, this.creepPosition.y, this.creepPosition.roomName].join(',');
@@ -209,7 +209,7 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
         [MEMORY.MEMORY_BASE]: base.id,
       };
 
-      trace.log('requesting harvester', {mineralId: this.id, memory});
+      trace.info('requesting harvester', {mineralId: this.id, memory});
 
       const request = createSpawnRequest(PRIORITY_MINER, REQUEST_WORKER_TTL, WORKER_HARVESTER, memory, 0);
       kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
@@ -218,7 +218,7 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
 
   buildExtractor(trace: Tracer, kernel: Kernel, base: Base, mineral: Mineral) {
     if (mineral.room.controller?.level < 6) {
-      trace.log('room too low for extractor', {id: this.id});
+      trace.info('room too low for extractor', {id: this.id});
       return;
     }
 

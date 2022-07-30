@@ -313,7 +313,7 @@ export const threadBase = (name: string, ttl: number) => (action: BaseTheadActio
 
       return result;
     } else {
-      trace.log(`thread ${name} sleeping for ${lastCall + ttl - Game.time}`);
+      trace.info(`thread ${name} sleeping for ${lastCall + ttl - Game.time}`);
     }
 
     return null;
@@ -325,3 +325,32 @@ export const threadBase = (name: string, ttl: number) => (action: BaseTheadActio
 
   return tick;
 };
+
+export function resetRemotes(base: Base, trace: Tracer): void {
+  trace.notice(`resetting remotes ${base.id}`);
+  base.rooms = [base.primary];
+}
+
+export function addRoom(base: Base, roomName: string, trace: Tracer): void {
+  trace.notice('adding room', {baseId: base.id, roomName});
+
+  if (base.rooms.indexOf(roomName) !== -1) {
+    trace.error('room already exists', {roomName});
+    return;
+  }
+
+  base.rooms.push(roomName);
+}
+
+export function removeRoom(base: Base, roomName: string, trace: Tracer): void {
+  trace.notice('removing room', {roomName});
+
+  if (roomName === base.primary) {
+    trace.error("can't remove primary room", {roomName});
+    return;
+  }
+
+  base.rooms = _.without(base.rooms, roomName);
+
+  trace.info('room removed from colony', {colonyId: base.id, roomName});
+}

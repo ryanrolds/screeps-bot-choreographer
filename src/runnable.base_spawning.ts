@@ -22,6 +22,7 @@ const SPAWN_TTL = 5;
 const REQUEST_BOOSTS_TTL = 5;
 const MAX_COLONY_SPAWN_DISTANCE = 5;
 const PRODUCE_EVENTS_TTL = 20;
+const MIN_ENERGY_HELP_NEIGHBOR = 20000;
 
 const INITIAL_TOPIC_LENGTH = 9999;
 const RED_TOPIC_LENGTH = 10;
@@ -103,7 +104,7 @@ export default class SpawnManager {
       return;
     }
 
-    trace.log('Spawn manager run', {id: this.id, baseId: this.baseId});
+    trace.info('Spawn manager run', {id: this.id, baseId: this.baseId});
 
     this.threadSpawn(trace, kernel, base);
     this.consumeEventsThread(trace, kernel, base);
@@ -172,7 +173,7 @@ export default class SpawnManager {
         const boosts = definition.boosts;
         const priority = definition.processPriority;
 
-        trace.log('spawning', {creepName: creep.name, role, boosts, priority});
+        trace.info('spawning', {creepName: creep.name, role, boosts, priority});
 
         if (boosts) {
           this.requestBoosts(kernel, base, spawn, boosts, priority);
@@ -206,7 +207,7 @@ export default class SpawnManager {
 
       let neighborRequest = null;
       const storageEnergy = spawn.room.storage?.store.getUsedCapacity(RESOURCE_ENERGY) || 0;
-      if (storageEnergy < 100000) {
+      if (storageEnergy < MIN_ENERGY_HELP_NEIGHBOR) {
         trace.info('reserve energy too low, dont handle requests from other neighbors', {storageEnergy, baseId: base.id});
       } else {
         neighborRequest = this.getNeighborRequest(kernel, base, trace);
@@ -371,7 +372,7 @@ export default class SpawnManager {
       time: Game.time,
     };
     const event = new Event(this.id, Game.time, HudEventSet, line);
-    trace.log('produce_events', {event});
+    trace.info('produce_events', {event});
     kernel.getBroker().getStream(getLinesStream()).publish(event);
 
     const indicatorStream = kernel.getBroker().getStream(getDashboardStream());

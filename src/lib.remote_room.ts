@@ -2,6 +2,7 @@ import {Base, getBasePrimaryRoom} from './base';
 import {Kernel} from './kernel';
 import {Tracer} from './lib.tracing';
 
+const PASSES = 3;
 
 type RoomDetails = {
   distance?: number;
@@ -10,113 +11,154 @@ type RoomDetails = {
 }
 
 type DebugDetails = {
-  adjacentRooms: string[];
-  details: Map<string, RoomDetails>;
+  start: string,
+  adjacentRooms: string[][];
+  details: Record<string, RoomDetails>;
 };
 
-export const findNextRemoteRoom = (
-  kernel: Kernel,
-  base: Base,
-  trace: Tracer,
-): [string, DebugDetails] => {
-  trace.notice('checking remote mining', {base});
-
-  const debug: DebugDetails = {
-    adjacentRooms: [],
-    details: new Map(),
-  };
-
-  const exits = base.rooms.reduce((acc, roomName) => {
-    const exits = Game.map.describeExits(roomName);
-    return acc.concat(Object.values(exits));
-  }, [] as string[]);
-
-  let adjacentRooms: string[] = _.uniq(exits);
-  adjacentRooms = _.difference(adjacentRooms, base.rooms);
-
-  debug.adjacentRooms = adjacentRooms;
+export const findRemotes = (kernel: Kernel, base: Base, trace: Tracer): [string[], Map<string, string>] => {
+  trace.notice('checking remote mining', {baseId: base.id});
 
   const scribe = kernel.getScribe();
-  adjacentRooms = _.filter(adjacentRooms, (roomName) => {
-    debug.details.set(roomName, {});
+  const candidates: Set<string> = new Set();
+  const dismissed: Map<string, string> = new Map();
+  const seen: Set<string> = new Set();
 
-    // filter rooms already belonging to a colony
-    const roomBase = kernel.getPlanner().getBaseByRoom(roomName);
-    if (roomBase && base.id !== roomBase.id) {
-      debug.details.get(roomName).rejected = 'already assigned';
-      trace.info('room already assigned to colony', {roomName});
-      return false;
-    }
+  const start = base.primary;
+  const startRoomStatus = Game.map.getRoomStatus(base.primary).status;
+  let nextPass = [start];
 
-    const roomEntry = scribe.getRoomById(roomName);
+  trace.info('staring remote selection pass', {nextPass, maxPasses: PASSES, startRoomStatus});
 
-    // filter out rooms we have not seen
-    if (!roomEntry) {
-      debug.details.get(roomName).rejected = 'not seen';
-      trace.info('no room entry found', {roomName});
-      return false;
-    }
+  for (let i = 0; i <= PASSES; i++) {
+    const found = [];
 
-    // filter out rooms that do not have a source
-    if (roomEntry.numSources === 0) {
-      debug.details.get(roomName).rejected = 'no source';
-      trace.info('room has no sources', {roomName});
-      return false;
-    }
-
-    if (!roomEntry.controller?.pos) {
-      debug.details.get(roomName).rejected = 'no controller';
-      trace.info('has no controller pos', {roomName});
-      return false;
-    }
-
-    if (roomEntry.controller.owner) {
-      debug.details.get(roomName).rejected = 'has owner';
-      trace.info('has controller owner', {roomName});
-      return false;
-    }
-
-    return true;
-  });
-
-  if (adjacentRooms.length === 0) {
-    trace.info('no adjacent rooms found', {adjacentRooms, exits, base});
-    return [null, debug];
-  }
-
-  adjacentRooms = _.sortByOrder(adjacentRooms,
-    [
-      (roomName) => { // Sort by number of sources
-        const roomEntry = scribe.getRoomById(roomName);
-
-        debug.details.get(roomName).sources = roomEntry.numSources;
-        return roomEntry.numSources;
-      },
-      (roomName) => { // Sort by distance from primary room
-        const route = Game.map.findRoute(base.primary, roomName);
-        if (route === ERR_NO_PATH) {
-          debug.details.get(roomName).distance = 9999;
-          return 9999;
+    nextPass.forEach((currentRoom) => {
+      const adjacentRooms = Object.values(Game.map.describeExits(currentRoom));
+      adjacentRooms.forEach((adjacentRoom) => {
+        if (!seen.has(adjacentRoom)) {
+          found.push(adjacentRoom);
         }
 
-        debug.details.get(roomName).distance = route.length;
-        return route.length;
-      },
-    ],
-    ['desc', 'asc'],
-  );
+        seen.add(adjacentRoom);
 
-  trace.info('next remote mining rooms', {adjacentRooms});
+        if (dismissed.has(adjacentRoom)) {
+          return;
+        }
 
-  if (adjacentRooms.length === 0) {
-    trace.info('no adjacent rooms found', {adjacentRooms, exits, base});
-    return [null, debug];
+        // filter rooms already belonging to a colony
+        const roomBase = kernel.getPlanner().getBaseByRoom(adjacentRoom);
+        if (roomBase && base.id !== roomBase.id) {
+          dismissed.set(adjacentRoom, 'already assigned to a base');
+          return;
+        }
+
+        const roomEntry = scribe.getRoomById(adjacentRoom);
+        // filter out rooms we have not seen
+        if (!roomEntry) {
+          dismissed.set(adjacentRoom, 'no entry in scribe');
+          return;
+        }
+
+        // If enemies present do not claim
+        // TODO make this vary based on the size of defender we can build
+        if (roomEntry.hostilesDmg > 25) {
+          dismissed.set(adjacentRoom, 'hostile present');
+          return;
+        }
+
+        // filter out rooms that do not have a source
+        if (roomEntry.numSources === 0) {
+          dismissed.set(adjacentRoom, 'no sources');
+          return;
+        }
+
+        // Filter our rooms without a controller
+        if (!roomEntry.controller?.pos) {
+          dismissed.set(adjacentRoom, 'no controller');
+          return;
+        }
+
+        // Filter out rooms that are claimed
+        if (roomEntry.controller?.owner && roomEntry.controller?.level > 0) {
+          dismissed.set(adjacentRoom, 'is owned');
+          return;
+        }
+
+        trace.notice('adding room to candidates', {adjacentRoom});
+        candidates.add(adjacentRoom);
+      });
+    });
+
+    nextPass = found;
   }
 
-  const nextRoom = adjacentRooms[0];
-  trace.info('next remote mining room', {nextRoom, debug});
-  return [nextRoom, debug];
+  if (candidates.size === 0) {
+    trace.info('no candidates rooms found', {candidates: Array.from(candidates.keys()), base});
+    return [[], dismissed];
+  }
+
+  trace.notice('candidates rooms found', {
+    candidates: Array.from(candidates.keys()),
+    dismissed: Array.from(dismissed.entries()),
+    base
+  });
+
+  const sortedCandidates: string[] = _.sortByOrder(Array.from(candidates.keys()), [
+    (roomName) => { // Sort by distance from primary room
+      const route = Game.map.findRoute(base.primary, roomName);
+      if (route === ERR_NO_PATH) {
+        return 9999;
+      }
+
+      return route.length;
+    },
+    (roomName) => { // Sort by number of sources
+      const roomEntry = scribe.getRoomById(roomName);
+      if (!roomEntry) {
+        return 9999;
+      }
+
+      return roomEntry.numSources;
+    }], ['asc', 'desc'],
+  );
+
+  trace.notice('next remote mining rooms', {sortedCandidates});
+  //return [sortedCandidates, debug];
+  return [sortedCandidates, dismissed];
 };
+
+// Check existing rooms if we should drop them due to change in circumstances
+// tl;dr if the room is occupied or taken then we should stop mining it
+export function checkRoom(kernel: Kernel, base: Base, roomName: string, trace: Tracer): boolean {
+  trace.info('checking remote room', {roomName});
+
+  const roomEntry = kernel.getScribe().getRoomById(roomName);
+  if (!roomEntry) {
+    trace.warn('room not found', {roomName: roomName});
+    return true;
+  }
+
+  // If room is controlled by someone else, don't claim it
+  if (roomEntry?.controller?.owner !== kernel.getPlanner().getUsername() &&
+    roomEntry?.controller?.level > 0) {
+    trace.warn('room owned, removing remove', {roomName: roomName});
+    return false;
+  }
+
+  // if room is occupied by a overwhelming force else, don't claim it
+  if (roomEntry.hostilesDmg > 25) {
+    trace.warn('room occupied, removing remove', {roomName: roomName, hostileDmg: roomEntry.hostilesDmg});
+    return false;
+  }
+
+  trace.notice("room checked", {
+    roomName: roomName, hostileDmg: roomEntry.hostilesDmg,
+    age: Game.time - roomEntry.lastUpdated
+  });
+
+  return true;
+}
 
 // Calculate the max number of remotes based on level and number of spawns
 // TODO collect spawner saturation metrics and use that to calculate max remotes

@@ -102,7 +102,7 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.as('controller_run');
-    trace.log('run', {
+    trace.info('run', {
       controller: this.controllerId,
       nodePosition: this.nodePosition,
       roadPosition: this.roadPosition,
@@ -122,7 +122,7 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
     }
 
     if (!this.nodePosition || !this.nodeDirection) {
-      trace.log('node and road position not set, populating');
+      trace.info('node and road position not set, populating');
       this.populateNodePosition(kernel, controller, trace);
     }
 
@@ -141,7 +141,7 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
       this.nodePosition = new RoomPosition(memory.nodePosition.x, memory.nodePosition.y, memory.nodePosition.roomName);
       this.roadPosition = new RoomPosition(memory.roadPosition.x, memory.roadPosition.y, memory.roadPosition.roomName);
       this.nodeDirection = controller.pos.getDirectionTo(this.roadPosition);
-      trace.log('populated node position from memory', {
+      trace.info('populated node position from memory', {
         nodePosition: this.nodePosition,
         roadPosition: this.roadPosition,
         nodeDirection: this.nodeDirection,
@@ -149,7 +149,7 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
     }
 
     if (this.nodePosition && this.roadPosition) {
-      trace.log('node and road positions are already set');
+      trace.info('node and road positions are already set');
       return;
     }
 
@@ -160,7 +160,7 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
     }
 
     const [pathResult, details] = getPath(kernel, base.origin, controller.pos, controllerRoadPolicy, trace);
-    trace.log('path result', {origin: base.origin, dest: controller.pos, pathResult});
+    trace.info('path result', {origin: base.origin, dest: controller.pos, pathResult});
 
     if (!pathResult || !pathResult.path.length) {
       trace.error('no path found', {origin: base.origin, dest: controller.pos, pathResult});
@@ -206,7 +206,7 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
   }
 
   buildStructures(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
-    trace.log('building structures for controller', {controllerId: this.controllerId});
+    trace.info('building structures for controller', {controllerId: this.controllerId});
 
     if (!this.nodePosition || !this.nodeDirection) {
       trace.error('missing node position or direction', {
@@ -220,7 +220,7 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
     const layout = padLayout.get(this.nodeDirection);
     const terrain = room.getTerrain();
 
-    trace.log('building structures', {layout});
+    trace.info('building structures', {layout});
 
     const roomVisual = new RoomVisual(room.name);
     for (let y = 0; y < layout.buildings.length; y++) {
@@ -229,7 +229,7 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
         const code = row[x];
 
         const pos = getConstructionPosition({x, y}, this.nodePosition, layout);
-        trace.log('building structure', {code, pos});
+        trace.info('building structure', {code, pos});
 
 
         if (buildingCodes[code] === ANY) {
@@ -246,10 +246,10 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
         }
 
         const structure = pos.lookFor(LOOK_STRUCTURES)[0];
-        trace.log('structure', {structure, pos});
+        trace.info('structure', {structure, pos});
 
         if (structure) {
-          trace.log('structure present', {structure: structure.structureType});
+          trace.info('structure present', {structure: structure.structureType});
 
           if (structure.structureType !== buildingCodes[code]) {
             trace.warn('wrong site, remove', {existing: structure.structureType, expected: buildingCodes[code]});
@@ -260,7 +260,7 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
         }
 
         const site = pos.lookFor(LOOK_CONSTRUCTION_SITES)[0];
-        trace.log('site', {site});
+        trace.info('site', {site});
         if (site) {
           if (site.structureType !== buildingCodes[code]) {
             trace.warn('wrong site, remove', {existing: site.structureType, expected: buildingCodes[code]});
@@ -272,7 +272,7 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
 
         const structureType = buildingCodes[code];
         if (!structureType || structureType === EMPTY) {
-          trace.log('no structure type', {code, x, y});
+          trace.info('no structure type', {code, x, y});
           continue;
         }
 

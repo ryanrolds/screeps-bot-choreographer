@@ -31,7 +31,7 @@ const REQUEST_HAULER_TTL = 50;
 const UPDATE_HAULERS_TTL = 50;
 const UPDATE_PID_TTL = 5;
 const REQUEST_HAUL_DROPPED_RESOURCES_TTL = 20;
-const LEG_CALCULATE_INTERVAL = 1000;
+const LEG_CALCULATE_INTERVAL = 500;
 
 // More sites means more spent per load on road construction & maintenance
 const MAX_ROAD_SITES = 5;
@@ -84,7 +84,7 @@ export default class LogisticsRunnable extends PersistentMemory {
   private threadUpdateHaulers: BaseThreadFunc;
 
   private threadRequestHaulDroppedResources: BaseThreadFunc;
-  private threadRequestHaulTombstones: BaseThreadFunc;
+  private threadRequestHaulTombstonesAndRuins: BaseThreadFunc;
 
   // threadBuildRoads: ThreadFunc;
   private calculateLegIterator: Generator<any, void, {kernel: Kernel, trace: Tracer}>;
@@ -118,7 +118,7 @@ export default class LogisticsRunnable extends PersistentMemory {
     this.threadRequestHaulers = threadBase('request_haulers_thread', REQUEST_HAULER_TTL)(this.requestHaulers.bind(this));
 
     this.threadRequestHaulDroppedResources = threadBase('request_haul_dropped_thread', REQUEST_HAUL_DROPPED_RESOURCES_TTL)(this.requestHaulDroppedResources.bind(this));
-    this.threadRequestHaulTombstones = threadBase('request_haul_tombstone_thread', REQUEST_HAUL_DROPPED_RESOURCES_TTL)(this.requestHaulTombstones.bind(this));
+    this.threadRequestHaulTombstonesAndRuins = threadBase('request_haul_tombstone_thread', REQUEST_HAUL_DROPPED_RESOURCES_TTL)(this.requestHaulTombstonesAndRuins.bind(this));
 
     // From the calculated legs, select shortest to build and build it
     this.threadBuildShortestLeg = threadBase('select_leg', BUILD_SHORTEST_LEG_TTL)(this.buildShortestLeg.bind(this));
@@ -184,6 +184,7 @@ export default class LogisticsRunnable extends PersistentMemory {
     });
 
     this.threadConsumeEvents(trace, kernel, base);
+    this.filterOldLegs(trace, kernel, base);
 
     // If red alert, don't do anything
     if (base.alertLevel === AlertLevel.GREEN) {
@@ -197,7 +198,7 @@ export default class LogisticsRunnable extends PersistentMemory {
     this.threadRequestHaulers(trace, kernel, base);
 
     this.threadRequestHaulDroppedResources(trace, kernel, base);
-    this.threadRequestHaulTombstones(trace, kernel, base);
+    this.threadRequestHaulTombstonesAndRuins(trace, kernel, base);
 
     this.threadProduceEvents(trace, kernel, base);
 
@@ -225,6 +226,16 @@ export default class LogisticsRunnable extends PersistentMemory {
     const memory = this.getMemory(trace) || {};
     memory.legs = Array.from(this.legs.entries());
     this.setMemory(memory);
+  }
+
+  private filterOldLegs(trace: Tracer, kernel: Kernel, base: Base) {
+    const now = Game.time;
+    for (const [id, leg] of this.legs) {
+      if (base.rooms.indexOf(leg.destination.roomName) === -1) {
+        trace.info('removing leg', {id});
+        this.legs.delete(id);
+      }
+    }
   }
 
   private updateHaulers(trace: Tracer, kernel: Kernel, base: Base) {
@@ -258,7 +269,7 @@ export default class LogisticsRunnable extends PersistentMemory {
     let numHaulTasks = kernel.getTopics().getLength(getBaseHaulerTopic(base.id));
     numHaulTasks -= this.numIdleHaulers;
 
-    trace.log('haul tasks', {numHaulTasks, numIdleHaulers: this.numIdleHaulers});
+    trace.info('haul tasks', {numHaulTasks, numIdleHaulers: this.numIdleHaulers});
 
     this.desiredHaulers = PID.update(this.pidHaulersMemory, numHaulTasks, Game.time, trace);
     trace.info('desired haulers', {desired: this.desiredHaulers});
@@ -345,13 +356,20 @@ export default class LogisticsRunnable extends PersistentMemory {
   }
 
   private requestHaulDroppedResources(trace: Tracer, kernel: Kernel, base: Base) {
-    if (base.alertLevel !== AlertLevel.GREEN) {
-      trace.warn('do not hauler dropped resources: base alert level is not green', {alertLevel: base.alertLevel});
-      return;
-    }
-
     // iterate rooms and request haulers for any tombstones
     Object.values(base.rooms).forEach((roomName) => {
+      if (roomName === base.primary) {
+        if (base.alertLevel === AlertLevel.RED) {
+          trace.warn('base under attack, do not haul dropped resources', {alertLevel: base.alertLevel});
+          return;
+        }
+      } else {
+        if (base.alertLevel !== AlertLevel.GREEN) {
+          trace.warn('base threatened do not haul dropped resources in remotes', {alertLevel: base.alertLevel});
+          return;
+        }
+      }
+
       const room = Game.rooms[roomName];
       if (!room) {
         return;
@@ -417,7 +435,7 @@ export default class LogisticsRunnable extends PersistentMemory {
             [MEMORY_HAUL_AMOUNT]: resource.amount,
           };
 
-          trace.log('haul dropped', {room: roomName, topic, i, loadPriority, details});
+          trace.info('haul dropped', {room: roomName, topic, i, loadPriority, details});
 
           kernel.getTopics().addRequest(topic, loadPriority, details, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
         }
@@ -425,13 +443,20 @@ export default class LogisticsRunnable extends PersistentMemory {
     });
   }
 
-  private requestHaulTombstones(trace: Tracer, kernel: Kernel, base: Base) {
-    if (base.alertLevel !== AlertLevel.GREEN) {
-      trace.warn('do not haul tombstones: base alert level is not green', {alertLevel: base.alertLevel});
-      return;
-    }
-
+  private requestHaulTombstonesAndRuins(trace: Tracer, kernel: Kernel, base: Base) {
     Object.values(base.rooms).forEach((roomName) => {
+      if (roomName === base.primary) {
+        if (base.alertLevel === AlertLevel.RED) {
+          trace.warn('base under attack, do not haul tombstones', {alertLevel: base.alertLevel});
+          return;
+        }
+      } else {
+        if (base.alertLevel !== AlertLevel.GREEN) {
+          trace.warn('base threatened do not haul tombstones in remotes', {alertLevel: base.alertLevel});
+          return;
+        }
+      }
+
       const room = Game.rooms[roomName];
       if (!room) {
         return;
@@ -439,6 +464,10 @@ export default class LogisticsRunnable extends PersistentMemory {
 
       const tombstones = room.find(FIND_TOMBSTONES, {
         filter: (tombstone) => {
+          if (tombstone.store.getUsedCapacity() === 0) {
+            return false;
+          }
+
           const numAssigned = this.haulers.filter((hauler: Creep) => {
             return hauler.memory[MEMORY_HAUL_PICKUP] === tombstone.id;
           }).length;
@@ -447,9 +476,25 @@ export default class LogisticsRunnable extends PersistentMemory {
         },
       });
 
-      tombstones.forEach((tombstone) => {
-        Object.keys(tombstone.store).forEach((resourceType: ResourceConstant) => {
-          trace.log('tombstone', {id: tombstone.id, resource: resourceType, amount: tombstone.store[resourceType]});
+      const ruins = room.find(FIND_RUINS, {
+        filter: (ruin) => {
+          if (ruin.store.getUsedCapacity() === 0) {
+            return false;
+          }
+
+          const numAssigned = this.haulers.filter((hauler: Creep) => {
+            return hauler.memory[MEMORY_HAUL_PICKUP] === ruin.id;
+          }).length;
+
+          return numAssigned === 0;
+        },
+      });
+
+      const toHaul: (Tombstone | Ruin)[] = [];
+      toHaul.concat(tombstones).concat(ruins);
+      toHaul.forEach((haul) => {
+        Object.keys(haul.store).forEach((resourceType: ResourceConstant) => {
+          trace.info('tombstone or ruin', {id: haul.id, resource: resourceType, amount: haul.store[resourceType]});
           const dropoff = getStructureForResource(base, resourceType);
           if (!dropoff) {
             trace.warn('no dropoff for resource', {resource: resourceType});
@@ -458,16 +503,16 @@ export default class LogisticsRunnable extends PersistentMemory {
           const details = {
             [TASK_ID]: `pickup-${this.baseId}-${Game.time}`,
             [MEMORY_TASK_TYPE]: TASK_HAUL,
-            [MEMORY_HAUL_PICKUP]: tombstone.id,
+            [MEMORY_HAUL_PICKUP]: haul.id,
             [MEMORY_HAUL_DROPOFF]: dropoff?.id,
             [MEMORY_HAUL_RESOURCE]: resourceType,
-            [MEMORY_HAUL_AMOUNT]: tombstone.store[resourceType],
+            [MEMORY_HAUL_AMOUNT]: haul.store[resourceType],
           };
 
           const topic = getBaseHaulerTopic(base.id);
           const priority = HAUL_DROPPED;
 
-          trace.info('haul tombstone', {topic, priority, details});
+          trace.notice('haul tombstone or ruin', {topic, priority, details});
           kernel.getTopics().addRequest(topic, priority, details, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
         });
       });
@@ -549,7 +594,7 @@ export default class LogisticsRunnable extends PersistentMemory {
   }
 
   private calculateLeg(kernel: Kernel, leg: Leg, trace: Tracer): [path: RoomPosition[], remaining: RoomPosition[]] {
-    trace.log('updating leg', {leg});
+    trace.info('updating leg', {leg});
 
     const base = kernel.getPlanner().getBaseById(this.baseId);
     if (!base) {
@@ -558,7 +603,7 @@ export default class LogisticsRunnable extends PersistentMemory {
     }
 
     const [pathResult, details] = getPath(kernel, base.origin, leg.destination, roadPolicy, trace);
-    trace.log('path result', {origin: base.origin, dest: leg.destination, pathResult});
+    trace.info('path result', {origin: base.origin, dest: leg.destination, pathResult});
 
     if (!pathResult) {
       trace.error('path not found', {origin: base.origin, dest: leg.destination});
@@ -571,11 +616,16 @@ export default class LogisticsRunnable extends PersistentMemory {
         return false;
       }
 
+      // assume road is built if room not visible, assuming otherwise has problems
+      if (!Game.rooms[pos.roomName]) {
+        return true;
+      }
+
       const road = pos.lookFor(LOOK_STRUCTURES).find((s) => {
         return s.structureType === STRUCTURE_ROAD;
       });
       if (road) {
-        trace.log('road found', {road});
+        trace.info('road found', {road});
         return false;
       }
 
@@ -583,14 +633,14 @@ export default class LogisticsRunnable extends PersistentMemory {
         return s.structureType === STRUCTURE_ROAD;
       });
       if (site) {
-        trace.log('site found', {road});
+        trace.info('site found', {road});
         return false;
       }
 
       return true;
     });
 
-    trace.log('remaining', {remaining, leg});
+    trace.info('remaining', {remaining, leg});
 
     return [pathResult.path, remaining];
   }
@@ -602,11 +652,14 @@ export default class LogisticsRunnable extends PersistentMemory {
       return leg.remaining.length > 0;
     });
 
-    trace.log('unfinished legs', {unfinishedLegs});
+    trace.info('unfinished legs', {unfinishedLegs});
 
     unfinishedLegs.forEach((leg) => {
       for (let i = 0; i < leg.path.length; i++) {
         const pos = leg.path[i];
+        if (!Game.rooms[pos.roomName]) {
+          return;
+        }
 
         // Check if wall is present and remove
         const wall = pos.lookFor(LOOK_STRUCTURES).find((s) => {
@@ -641,11 +694,11 @@ export default class LogisticsRunnable extends PersistentMemory {
 
   private buildShortestLeg(trace: Tracer, kernel: Kernel, base: Base) {
     if (this.passes < 1) {
-      trace.log('calculate all legs at least once before building shortest leg', {passes: this.passes});
+      trace.info('calculate all legs at least once before building shortest leg', {passes: this.passes});
       return;
     }
 
-    trace.log('legs', {legs: this.legs});
+    trace.info('legs', {legs: this.legs});
 
     // Find shortest unfinished leg
     const legs = Array.from(this.legs.values());
@@ -683,10 +736,13 @@ export default class LogisticsRunnable extends PersistentMemory {
         }
 
         const pos = leg.path[i];
+        if (!Game.rooms[pos.roomName]) {
+          continue;
+        }
 
         // Do not build on edges
         if (pos.x === 0 || pos.x === 49 || pos.y === 0 || pos.y === 49) {
-          trace.log('skip border site', {pos});
+          trace.info('skip border site', {pos});
           continue;
         }
 

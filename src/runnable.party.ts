@@ -141,7 +141,7 @@ export default class PartyRunnable {
     const creeps = this.getAssignedCreeps();
 
     if (this.isDone) {
-      trace.log('party done, cleaning up');
+      trace.info('party done, cleaning up');
 
       // TODO recycle
       creeps.forEach((creep) => {
@@ -152,7 +152,7 @@ export default class PartyRunnable {
       return terminate();
     }
 
-    trace.log('party run', {
+    trace.info('party run', {
       id: this.id,
       position: this.position,
       deployTicks: this.deployTicks,
@@ -162,7 +162,7 @@ export default class PartyRunnable {
     if (!Game.flags['debug']) {
       this.threadRequestCreeps(trace, kernel, base);
     } else {
-      trace.log('in debug mode, not spawning');
+      trace.info('in debug mode, not spawning');
     }
 
     this.updateCreepPositions(creeps, trace);
@@ -179,7 +179,7 @@ export default class PartyRunnable {
           position = this.previousPositions[idx];
         }
 
-        trace.log('setting creep position in single file', {name: creep.name, idx, position});
+        trace.info('setting creep position in single file', {name: creep.name, idx, position});
 
         creep.memory[MEMORY.MEMORY_POSITION_X] = position.x;
         creep.memory[MEMORY.MEMORY_POSITION_Y] = position.y;
@@ -195,7 +195,7 @@ export default class PartyRunnable {
         const y = _.max([_.min([this.position.y + quadPositions[idx].y, 49]), 0]);
         const roomName = this.position.roomName;
 
-        trace.log('setting creep position in quad', {name: creep.name, x, y, roomName});
+        trace.info('setting creep position in quad', {name: creep.name, x, y, roomName});
 
         creep.memory[MEMORY.MEMORY_POSITION_X] = x;
         creep.memory[MEMORY.MEMORY_POSITION_Y] = y;
@@ -279,7 +279,7 @@ export default class PartyRunnable {
       }
 
       if (creep.fatigue > 0) {
-        trace.log('not ready: fatigued', {creepName: creep.name, fatigue: creep.fatigue});
+        trace.info('not ready: fatigued', {creepName: creep.name, fatigue: creep.fatigue});
         inPosition = false;
 
         if (showVisuals) {
@@ -299,7 +299,7 @@ export default class PartyRunnable {
           visual.text('W', position.x, position.y + 0.5);
         }
 
-        trace.log('not ready: terrain', {
+        trace.info('not ready: terrain', {
           name: creep.name,
           terrain: terrain,
           position: position,
@@ -399,7 +399,7 @@ export default class PartyRunnable {
         });
     });
 
-    trace.log('blocking structures', {structures});
+    trace.info('blocking structures', {structures});
 
     return structures.length > 0;
   }
@@ -507,11 +507,11 @@ export default class PartyRunnable {
     if (target) {
       Game.map.visual.line(this.position, target.pos, {color: '#FF0000'});
     } else {
-      trace.log('no targets in range');
+      trace.info('no targets in range');
       return null;
     }
 
-    trace.log('setting targets', {target});
+    trace.info('setting targets', {target});
 
     const creeps = this.getAssignedCreeps();
     creeps.forEach((creep) => {
@@ -578,7 +578,7 @@ export default class PartyRunnable {
     const baseRoomName = base.primary;
     const baseRoom = Game.rooms[baseRoomName];
     if (!baseRoom) {
-      trace.log('base room not visible', {baseRoomName});
+      trace.info('base room not visible', {baseRoomName});
       return;
     }
 
@@ -586,7 +586,7 @@ export default class PartyRunnable {
       filter: (structure) => structure.structureType === STRUCTURE_SPAWN,
     });
     if (!spawns || !spawns.length) {
-      trace.log('no spawns found');
+      trace.info('no spawns found');
       return;
     }
 
@@ -605,7 +605,7 @@ export default class PartyRunnable {
       this.deployTicks += 200;
     }
 
-    trace.log('deploy time', {
+    trace.info('deploy time', {
       pathLength: path.path.length,
       pathIncomplete: path.incomplete,
       plainsCost,
@@ -617,7 +617,7 @@ export default class PartyRunnable {
     });
 
     if (freshCreeps.length >= MAX_PARTY_SIZE) {
-      trace.log('we have enough creeps', {
+      trace.info('we have enough creeps', {
         freshCreeps: freshCreeps.map((creep) => creep.name),
         deployTicks: this.deployTicks,
         lowestTTL: _.min(

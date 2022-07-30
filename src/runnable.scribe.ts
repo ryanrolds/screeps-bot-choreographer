@@ -7,6 +7,7 @@ import {scoreAttacking, scoreHealing} from './role.harasser';
 import {getDashboardStream, HudEventSet, HudIndicator, HudIndicatorStatus} from './runnable.debug_hud';
 
 const RUN_TTL = 10;
+const JOURNAL_ENTRY_BASE_TTL = 10;
 const JOURNAL_ENTRY_TTL = 200;
 const MAX_JOURNAL_TTL = 1000;
 const WRITE_MEMORY_INTERVAL = 50;
@@ -152,7 +153,10 @@ export class Scribe implements Runnable {
     // Iterate rooms and update if stale
     Object.values(Game.rooms).forEach((room) => {
       const entry = this.getRoomById(room.name as Id<Room>);
-      if (!entry || Game.time - entry.lastUpdated > JOURNAL_ENTRY_TTL) {
+      const base = kernel.getPlanner().getBaseByRoom(room.name);
+
+      if (!entry || (base && Game.time - entry.lastUpdated > JOURNAL_ENTRY_BASE_TTL) ||
+        (Game.time - entry.lastUpdated > JOURNAL_ENTRY_TTL)) {
         this.updateRoom(kernel, room, updateRoomsTrace);
       }
     });
@@ -200,10 +204,10 @@ export class Scribe implements Runnable {
   }
 
   writeMemory(trace: Tracer, kernel: Kernel) {
-    trace.log('write_memory', {cpu: Game.cpu});
+    trace.info('write_memory', {cpu: Game.cpu});
 
     if (Game.cpu.bucket < 1000) {
-      trace.log('clearing journal from memory to reduce CPU load');
+      trace.info('clearing journal from memory to reduce CPU load');
       (Memory as any).scribe = null;
       return;
     }
@@ -658,7 +662,7 @@ export class Scribe implements Runnable {
     this.journal.rooms.set(room.id, room);
 
     const duration = end();
-    trace.log('updated room', {duration, room: room.id});
+    trace.info('updated room', {duration, room: room.id});
     trace.end();
   }
 
