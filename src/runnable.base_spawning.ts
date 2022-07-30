@@ -126,11 +126,9 @@ export default class SpawnManager {
 
     // If there are no spawns then we should request another base in the kernel produce the creep
     if (spawns.length === 0) {
-      trace.warn('base has no spawns', {id: this.id});
-
       let request: SpawnRequest = null;
       while (request = kernel.getTopics().getNextRequest(getBaseSpawnTopic(base.id))) {
-        trace.notice('sending kernel spawn request', {request: request});
+        trace.info('sending spawn request to shard/neighbors', {request: request});
         kernel.getTopics().addRequest(getShardSpawnTopic(), request.priority, request.details,
           request.ttl);
       }

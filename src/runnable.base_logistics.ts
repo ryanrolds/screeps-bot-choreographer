@@ -357,7 +357,7 @@ export default class LogisticsRunnable extends PersistentMemory {
 
   private requestHaulDroppedResources(trace: Tracer, kernel: Kernel, base: Base) {
     // iterate rooms and request haulers for any tombstones
-    Object.values(base.rooms).forEach((roomName) => {
+    base.rooms.forEach((roomName) => {
       if (roomName === base.primary) {
         if (base.alertLevel === AlertLevel.RED) {
           trace.warn('base under attack, do not haul dropped resources', {alertLevel: base.alertLevel});
@@ -444,7 +444,9 @@ export default class LogisticsRunnable extends PersistentMemory {
   }
 
   private requestHaulTombstonesAndRuins(trace: Tracer, kernel: Kernel, base: Base) {
-    Object.values(base.rooms).forEach((roomName) => {
+    trace.info('base requesting haul tombstones and ruins', {baseId: base.id, rooms: base.rooms});
+
+    base.rooms.forEach((roomName) => {
       if (roomName === base.primary) {
         if (base.alertLevel === AlertLevel.RED) {
           trace.warn('base under attack, do not haul tombstones', {alertLevel: base.alertLevel});
@@ -459,6 +461,7 @@ export default class LogisticsRunnable extends PersistentMemory {
 
       const room = Game.rooms[roomName];
       if (!room) {
+        trace.warn('room not found', {roomName});
         return;
       }
 
@@ -490,8 +493,11 @@ export default class LogisticsRunnable extends PersistentMemory {
         },
       });
 
-      const toHaul: (Tombstone | Ruin)[] = [];
-      toHaul.concat(tombstones).concat(ruins);
+      let toHaul: (Tombstone | Ruin)[] = [];
+      toHaul = toHaul.concat(tombstones).concat(ruins);
+
+      trace.info('found ruins and tombstones', {room: roomName, toHaul: toHaul.length, ruins: ruins.length, tombstones: tombstones.length});
+
       toHaul.forEach((haul) => {
         Object.keys(haul.store).forEach((resourceType: ResourceConstant) => {
           trace.info('tombstone or ruin', {id: haul.id, resource: resourceType, amount: haul.store[resourceType]});
@@ -506,7 +512,7 @@ export default class LogisticsRunnable extends PersistentMemory {
             [MEMORY_HAUL_PICKUP]: haul.id,
             [MEMORY_HAUL_DROPOFF]: dropoff?.id,
             [MEMORY_HAUL_RESOURCE]: resourceType,
-            [MEMORY_HAUL_AMOUNT]: haul.store[resourceType],
+            [MEMORY_HAUL_AMOUNT]: haul.store.getUsedCapacity(resourceType),
           };
 
           const topic = getBaseHaulerTopic(base.id);
