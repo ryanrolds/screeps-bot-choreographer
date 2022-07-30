@@ -7,7 +7,6 @@ import {sleeping, terminate} from './os.process';
 import {RunnableResult} from './os.runnable';
 
 const CONSTRUCTION_INTERVAL = 100;
-const MAX_WALL_SITES = 5;
 const MAX_STRUCTURE_SITES = 5;
 
 export type BaseLayout = {
@@ -208,10 +207,6 @@ export default class BaseConstructionRunnable {
       trace.info('no unfinished layout', {roomLevel: baseLevel});
     }
 
-    if (baseLevel >= 3) {
-      this.buildWalls(kernel, base, trace);
-    }
-
     trace.end();
     return sleeping(CONSTRUCTION_INTERVAL);
   }
@@ -314,93 +309,6 @@ export default class BaseConstructionRunnable {
       numSites++;
       trace.notice('building', {structureType: site.structureType, pos, result});
     }
-  }
-
-  buildWalls(kernel: Kernel, base: Base, trace: Tracer): void {
-    if (!base.walls) {
-      return;
-    }
-
-    const room = getBasePrimaryRoom(base);
-    if (!room) {
-      trace.error('no primary room');
-      return;
-    }
-
-    if (!room.storage) {
-      trace.info('no storage');
-      return;
-    }
-
-    trace.info('building walls', {roomId: room.name});
-
-    let numWallSites = 0;
-
-    base.walls.forEach((wall) => {
-      if (numWallSites >= MAX_WALL_SITES) {
-        return;
-      }
-
-      const position = new RoomPosition(wall.x, wall.y, room.name);
-
-      const road = position.lookFor(LOOK_STRUCTURES).find((structure) => {
-        return structure.structureType === STRUCTURE_ROAD;
-      });
-
-      const roadSite = position.lookFor(LOOK_CONSTRUCTION_SITES).find((site) => {
-        return site.structureType === STRUCTURE_ROAD;
-      });
-
-      const passage = _.find(base.passages, {x: position.x, y: position.y});
-
-      let expectedStructure: (STRUCTURE_WALL | STRUCTURE_RAMPART) = STRUCTURE_WALL;
-      if (road || roadSite || passage) {
-        expectedStructure = STRUCTURE_RAMPART;
-      }
-
-      const structure = position.lookFor(LOOK_STRUCTURES).find((structure) => {
-        return structure.structureType === expectedStructure;
-      });
-      if (structure) {
-        trace.info('structure present', {structure: structure.structureType});
-        return;
-      }
-
-      let foundSite = false;
-
-      const sites = position.lookFor(LOOK_CONSTRUCTION_SITES);
-      if (sites) {
-        const expectedSite = sites.find((site) => {
-          return site.structureType === expectedStructure;
-        });
-
-        if (expectedSite) {
-          trace.info('site present', {site: expectedSite.structureType});
-          numWallSites++;
-          foundSite = true;
-        } else {
-          sites.forEach((site) => {
-            // dont remove road site
-            if (site.structureType === STRUCTURE_ROAD) {
-              return;
-            }
-
-            trace.info('wrong site, remove', {existing: site.structureType, expected: expectedStructure});
-            site.remove();
-          });
-        }
-      }
-
-      if (!foundSite) {
-        const result = room.createConstructionSite(wall.x, wall.y, expectedStructure);
-        if (result !== OK) {
-          trace.error('failed to build structure', {result, pos: position, structureType: expectedStructure});
-          return;
-        }
-
-        trace.notice('building site', {wall, structureType: expectedStructure});
-      }
-    });
   }
 
   layoutComplete(layout: BaseLayout, origin: RoomPosition, trace: Tracer): boolean {

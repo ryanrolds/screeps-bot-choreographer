@@ -313,7 +313,7 @@ export default class LogisticsRunnable extends PersistentMemory {
       role = ROLE_WORKER;
     }
 
-    trace.notice('request haulers', {
+    trace.info('request haulers', {
       numHaulers: this.numHaulers, desiredHaulers: this.desiredHaulers,
       baseId: base.id
     });
@@ -512,7 +512,7 @@ export default class LogisticsRunnable extends PersistentMemory {
           const topic = getBaseHaulerTopic(base.id);
           const priority = HAUL_DROPPED;
 
-          trace.notice('haul tombstone or ruin', {topic, priority, details});
+          trace.info('haul tombstone or ruin', {topic, priority, details});
           kernel.getTopics().addRequest(topic, priority, details, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
         });
       });
@@ -520,13 +520,13 @@ export default class LogisticsRunnable extends PersistentMemory {
   }
 
   private requestRoad(kernel: Kernel, id: string, destination: RoomPosition, time: number, trace: Tracer) {
-    trace.notice('request road', {id, destination, time});
+    trace.info('request road', {id, destination, time});
 
     if (this.legs.has(id)) {
       const leg = this.legs.get(id);
       leg.destination = destination;
       leg.requestedAt = time;
-      trace.notice('leg already exists, updating', {leg});
+      trace.info('leg already exists, updating', {leg});
       this.legs.set(id, leg);
     } else {
       const leg: Leg = {
@@ -537,7 +537,7 @@ export default class LogisticsRunnable extends PersistentMemory {
         requestedAt: time,
         updatedAt: null,
       };
-      trace.notice('does not exist, creating', {leg});
+      trace.info('does not exist, creating', {leg});
       this.legs.set(id, leg);
     }
   }
@@ -549,14 +549,14 @@ export default class LogisticsRunnable extends PersistentMemory {
       const kernel = details.kernel;
       const trace = details.trace;
 
-      trace.notice('calculate legs pass', {num: legs.length, legs});
+      trace.info('calculate legs pass', {num: legs.length, legs});
 
       if (!legs.length) {
-        trace.notice('updating legs to calculate');
+        trace.info('updating legs to calculate');
         legs = this.getLegsToCalculate(trace);
       }
 
-      trace.notice('legs to update', {
+      trace.info('legs to update', {
         legs: legs.map((l) => {
           return {id: l.id, updatedAt: l.updatedAt, remaining: l.remaining.length};
         }),

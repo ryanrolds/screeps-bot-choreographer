@@ -2,7 +2,6 @@ import {AlertLevel, Base} from './base';
 import {ShardConfig} from './config';
 import {Kernel, KernelThreadFunc, threadKernel} from './kernel';
 import {pickExpansion} from './lib.expand';
-import {ENTIRE_ROOM_BOUNDS, getCutTiles} from './lib.min_cut';
 import {Tracer} from './lib.tracing';
 import {Process, sleeping} from './os.process';
 import {RunnableResult} from './os.runnable';
@@ -13,7 +12,7 @@ const RUN_TTL = 10;
 const BASE_PROCESSES_TTL = 50;
 const EXPAND_TTL = 500;
 const BASE_WALLS_TTL = 50;
-const NEIGHBORS_THREAD_INTERVAL = 50;
+const NEIGHBORS_THREAD_INTERVAL = 10; // TODO 50
 
 export class CentralPlanning {
   private config: ShardConfig;
@@ -24,12 +23,6 @@ export class CentralPlanning {
 
   private threadBaseProcesses: KernelThreadFunc;
   private expandBasesThread: KernelThreadFunc;
-
-  private baseWallsIterator: Generator<any, void, {kernel: Kernel, trace: Tracer}>;
-  private baseWallsThread: KernelThreadFunc;
-
-  private neighborsIterator: Generator<any, void, {kernel: Kernel, trace: Tracer}>;
-  private neighborsThread: KernelThreadFunc;
 
   constructor(config: ShardConfig, scheduler: Scheduler, trace: Tracer) {
     this.config = config;
@@ -83,25 +76,11 @@ export class CentralPlanning {
 
     // TODO make this an iterator
     this.expandBasesThread = threadKernel('expand', EXPAND_TTL)(this.expandBases.bind(this));
-
-    // Calculate base walls
-    // TODO move this to the base
-    this.baseWallsIterator = this.baseWallsGenerator();
-    this.baseWallsThread = threadKernel('base_walls', BASE_WALLS_TTL)((trace: Tracer, kernel: Kernel) => {
-      this.baseWallsIterator.next({kernel, trace});
-    });
-
-    this.neighborsIterator = this.neighborhoodsGenerator();
-    this.neighborsThread = threadKernel('neighbors', NEIGHBORS_THREAD_INTERVAL)((trace: Tracer, kernel: Kernel) => {
-      this.neighborsIterator.next({kernel, trace});
-    });
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
     this.threadBaseProcesses(trace, kernel);
     this.expandBasesThread(trace, kernel);
-    this.baseWallsThread(trace, kernel);
-    this.neighborsThread(trace, kernel);
 
     (Memory as any).bases = Array.from(this.bases.entries());
 
@@ -271,90 +250,10 @@ export class CentralPlanning {
       trace.notice('selected room, adding colony', {roomName, distance, origin, parking});
       const base = this.addBase(roomName, false, origin, parking, [roomName],
         [], [], [], AlertLevel.GREEN, trace);
-      this.updateNeighbors(kernel, base, trace);
       return;
     }
 
     trace.info('no expansion selected');
-  }
-
-  private * baseWallsGenerator(): Generator<any, void, {kernel: Kernel, trace: Tracer}> {
-    const bases: Base[] = [];
-    while (true) {
-      const details: {kernel: Kernel, trace: Tracer} = yield;
-      const kernel = details.kernel;
-      const trace = details.trace;
-
-      const needWalls = _.find(this.getBases(), (base) => {
-        return !base.walls.length;
-      });
-      if (needWalls) {
-        trace.info('need walls', {base: needWalls});
-        this.updateBaseWalls(kernel, needWalls, trace);
-      }
-    }
-  }
-
-  private updateBaseWalls(kernel: Kernel, base: Base, trace: Tracer) {
-    const baseBounds = {
-      x1: base.origin.x - 9, y1: base.origin.y - 9,
-      x2: base.origin.x + 9, y2: base.origin.y + 9,
-    };
-
-    const [walls] = getCutTiles(base.primary, [baseBounds], ENTIRE_ROOM_BOUNDS);
-    base.walls = walls;
-
-    trace.info('created walls', {base: base});
-  }
-
-  private * neighborhoodsGenerator(): Generator<any, void, {kernel: Kernel, trace: Tracer}> {
-    let bases: Base[] = [];
-    while (true) {
-      const details: {kernel: Kernel, trace: Tracer} = yield;
-      const kernel = details.kernel;
-      const trace = details.trace;
-
-      if (!bases.length) {
-        bases = this.getBases();
-      }
-
-      const base = bases.shift();
-      trace.info('getting next base', {base});
-      if (base) {
-        this.updateNeighbors(kernel, base, trace);
-      }
-    }
-  }
-
-  private updateNeighbors(kernel: Kernel, base: Base, trace: Tracer) {
-    // Narrow bases to ones that are nearby
-    let nearbyBases = _.filter(this.getBases(), (base) => {
-      if (base.id === base.id) {
-        return false;
-      }
-
-      const distance = Game.map.getRoomLinearDistance(base.primary, base.primary);
-      if (distance > 5) {
-        return false;
-      }
-
-      // RAKE calculate path check number of rooms in path, factoring in enemy rooms
-
-      return true;
-    });
-
-    // Sort by distance
-    nearbyBases = _.sortBy(nearbyBases, (base) => {
-      return Game.map.getRoomLinearDistance(base.primary, base.primary);
-    });
-
-    // Pick at most nearest 3
-    nearbyBases = _.take(nearbyBases, 3);
-
-    // Set bases neighbors
-    base.neighbors = nearbyBases.map((base) => base.id);
-
-    trace.info('updated neighbors', {base: base});
   }
 }
 

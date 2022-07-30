@@ -21,6 +21,7 @@ import ControllerRunnable from './runnable.base_controller';
 import {LabsManager} from './runnable.base_labs';
 import LinkManager from './runnable.base_links';
 import LogisticsRunnable from './runnable.base_logistics';
+import {NeighborsRunnable} from './runnable.base_neighbors';
 import NukerRunnable from './runnable.base_nuker';
 import {ObserverRunnable} from './runnable.base_observer';
 import {RemotesManager} from './runnable.base_remotes';
@@ -29,6 +30,7 @@ import RoomRunnable from './runnable.base_room';
 import SpawnManager, {createSpawnRequest, getBaseSpawnTopic, getShardSpawnTopic} from './runnable.base_spawning';
 import TerminalRunnable from './runnable.base_terminal';
 import TowerRunnable from './runnable.base_tower';
+import {WallsRunnable} from './runnable.base_walls';
 import {getDashboardStream, getLinesStream, HudEventSet, HudIndicator, HudIndicatorStatus, HudLine} from './runnable.debug_hud';
 import {RoomEntry} from './runnable.scribe';
 
@@ -416,14 +418,36 @@ export default class BaseRunnable {
     }
 
     // Road network and hauling
-    const logisticsIds = `logistics_${this.id}`;
-    const hasLogisticsProcess = this.scheduler.hasProcess(logisticsIds);
+    const logisticsId = `logistics_${this.id}`;
+    const hasLogisticsProcess = this.scheduler.hasProcess(logisticsId);
     if (!hasLogisticsProcess) {
-      trace.info('starting logistics', {id: logisticsIds});
+      trace.info('starting logistics', {id: logisticsId});
       missingProcesses++;
 
-      this.scheduler.registerProcess(new Process(logisticsIds, 'logistics', Priorities.LOGISTICS,
+      this.scheduler.registerProcess(new Process(logisticsId, 'logistics', Priorities.LOGISTICS,
         new LogisticsRunnable(this.id)));
+    }
+
+    // Walls
+    const wallsId = `walls_${this.id}`;
+    const hasWallsProcess = this.scheduler.hasProcess(wallsId);
+    if (!hasWallsProcess) {
+      trace.info('starting walls', {id: wallsId});
+      missingProcesses++;
+
+      this.scheduler.registerProcess(new Process(wallsId, 'walls', Priorities.DEFENCE,
+        new WallsRunnable(this.id)));
+    }
+
+    // Neighbors
+    const neighborsId = `neighbors_${this.id}`;
+    const hasNeighborsProcess = this.scheduler.hasProcess(neighborsId);
+    if (!hasNeighborsProcess) {
+      trace.info('starting neighbors', {id: neighborsId});
+      missingProcesses++;
+
+      this.scheduler.registerProcess(new Process(neighborsId, 'neighbors', Priorities.CRITICAL,
+        new NeighborsRunnable(this.id)));
     }
 
     // Repairs

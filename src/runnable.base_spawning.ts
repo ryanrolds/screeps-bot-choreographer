@@ -5,7 +5,7 @@
  *
  * TODO - Move to topic with base id in the name - IN PROGRESS
  */
-import {Base, BaseThreadFunc, getBasePrimaryRoom, threadBase} from './base';
+import {Base, BaseThreadFunc, getBasePrimaryRoom, getStoredResourceAmount, threadBase} from './base';
 import * as CREEPS from './constants.creeps';
 import {DEFINITIONS} from './constants.creeps';
 import * as MEMORY from './constants.memory';
@@ -206,7 +206,7 @@ export default class SpawnManager {
       const localRequest = kernel.getTopics().getNextRequest(getBaseSpawnTopic(base.id));
 
       let neighborRequest = null;
-      const storageEnergy = spawn.room.storage?.store.getUsedCapacity(RESOURCE_ENERGY) || 0;
+      const storageEnergy = getStoredResourceAmount(base, RESOURCE_ENERGY) || 0;
       if (storageEnergy < MIN_ENERGY_HELP_NEIGHBOR) {
         trace.info('reserve energy too low, dont handle requests from other neighbors', {storageEnergy, baseId: base.id});
       } else {
@@ -276,6 +276,8 @@ export default class SpawnManager {
       trace.error('no primary room for base', {base: base.id});
       return;
     }
+
+    trace.info("looking for neighbor request", {baseRoom: baseRoom.name, baseNeighbors: base.neighbors});
 
     const topic = kernel.getTopics();
     const request = topic.getMessageOfMyChoice(getShardSpawnTopic(), (messages) => {
