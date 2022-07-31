@@ -97,7 +97,6 @@ export default class TowerRunnable {
     const roomName = tower.room.name;
     let targets = kernel.getTopics().getFilteredRequests(getBasePriorityTargetsTopic(this.baseId),
       (target) => {
-        trace.info('finding target', {target, roomId: roomName});
         return target.details.roomName === roomName;
       },
     );
@@ -124,11 +123,16 @@ export default class TowerRunnable {
       return running();
     }
 
-    // TODO enable this later
+    // let healTargets = kernel.getTopics().getFilteredRequests(getBasePriorityHealsTopic(this.baseId),
+    //   (target) => {
+    //     return target.details.roomName === roomName;
+    //   },
+    // );
+
     // Heal damaged creeps
-    // if (!this.damagedCreep && this.orgRoom.damagedCreeps.length) {
+    //if (!this.damagedCreep && this.orgRoom.damagedCreeps.length) {
     //  this.damagedCreep = this.orgRoom.damagedCreeps.shift();
-    // }
+    //}
 
     if (this.damagedCreep) {
       const creep = Game.creeps[this.damagedCreep];

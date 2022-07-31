@@ -4,7 +4,7 @@ import {sleeping} from './os.process';
 import {Runnable} from './os.runnable';
 
 const CLEANUP_INTERVAL = 100;
-const SITE_TTL = 1000;
+const SITE_TTL = 10000;
 
 type SiteEntry = {
   id: string;

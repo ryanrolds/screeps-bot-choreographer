@@ -236,7 +236,7 @@ export class AI implements Kernel {
     return new Tracer('tracer', new Map(), Game.time);
   }
 
-  debugGetNextRemote(baseId: string) {
+  debugRemotes(baseId: string) {
     const trace = new Tracer('remote_debugger', new Map([['pid', 'remote_debugger']]), 0);
     const base = this.planning.getBase(baseId);
     const [rooms, debug] = findRemotes(this, base, trace);

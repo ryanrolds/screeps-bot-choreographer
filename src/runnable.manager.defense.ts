@@ -26,6 +26,10 @@ export function getBasePriorityTargetsTopic(baseId: string): string {
   return `base_${baseId}_priority_targets`;
 }
 
+export function getBasePriorityHealsTopic(baseId: string): string {
+  return `base_${baseId}_priority_heals`;
+}
+
 export function getBaseDefenseTopic(baseId: string): string {
   return `base_${baseId}_defense`;
 }
@@ -130,7 +134,7 @@ export default class DefenseManager {
     hostilesTrace.end();
 
     const targetTopicTrace = trace.begin('addHostilesToColonyTargetTopic');
-    addHostilesToColonyTargetTopic(kernel, hostilesByColony, targetTopicTrace);
+    addHostilesToBaseTargetTopic(kernel, hostilesByColony, targetTopicTrace);
     targetTopicTrace.end();
 
     const defenseStatusTrace = trace.begin('updateDefenseStatus');
@@ -291,7 +295,11 @@ function getHostilesByColony(kernel: Kernel, rooms: Room[], trace: Tracer): Host
   }, new Map());
 }
 
-function addHostilesToColonyTargetTopic(kernel: Kernel, hostilesByBases: HostilesByBase,
+// function addHealTargetsToBaseTopic(kernal: Kernel, damagedCreeps) {
+
+// }
+
+function addHostilesToBaseTargetTopic(kernel: Kernel, hostilesByBases: HostilesByBase,
   trace: Tracer) {
   // Add targets to colony target topic
   Array.from(hostilesByBases.entries()).forEach(([baseId, hostiles]) => {

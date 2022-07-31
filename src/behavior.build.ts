@@ -1,7 +1,7 @@
-import {Kernel} from './kernel';
 import {getCreepBase} from './base';
 import * as behaviorMovement from './behavior.movement';
 import {MEMORY_DESTINATION, MEMORY_FLAG} from './constants.memory';
+import {Kernel} from './kernel';
 import * as behaviorTree from './lib.behaviortree';
 import {FAILURE, RUNNING, SUCCESS} from './lib.behaviortree';
 import {getInfrastructureSites, getPrioritizedSites} from './lib.construction';
@@ -90,7 +90,7 @@ export const build = behaviorTree.leafNode(
   (creep) => {
     const destination = Game.getObjectById<Id<ConstructionSite>>(creep.memory[MEMORY_DESTINATION]);
     if (!destination) {
-      return FAILURE;
+      return SUCCESS;
     }
 
     const result = creep.build(destination);

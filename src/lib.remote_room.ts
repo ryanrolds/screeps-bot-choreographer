@@ -162,7 +162,7 @@ export function checkRoom(kernel: Kernel, base: Base, roomName: string, trace: T
 
 // Calculate the max number of remotes based on level and number of spawns
 // TODO collect spawner saturation metrics and use that to calculate max remotes
-export function desiredRemotes(base: Base, level: number): number {
+export function desiredRemotes(base: Base, level: number, spawnUtilization: number): number {
   const room = getBasePrimaryRoom(base);
   const spawns = room.find(FIND_STRUCTURES, {
     filter: (s) => s.structureType === STRUCTURE_SPAWN && s.isActive(),
@@ -171,6 +171,19 @@ export function desiredRemotes(base: Base, level: number): number {
   // No spawns, no remotes
   if (!spawns.length) {
     return 0;
+  }
+
+  if (spawnUtilization > 0.9) {
+    let numRooms = base.rooms.length - 2;
+    if (numRooms < 0) {
+      numRooms = 0;
+    }
+
+    console.log(`${base.id} should drop a room`);
+  } else if (spawnUtilization < 0.5) {
+    console.log(`${base.id} should add a room`);
+  } else {
+    console.log(`${base.id} should keep the same number of rooms`);
   }
 
   let desiredRemotes = 0;

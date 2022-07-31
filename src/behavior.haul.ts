@@ -185,7 +185,7 @@ export const loadCreep = behaviorTree.leafNode(
 
     if (result === ERR_FULL) {
       trace.notice('full', {resource, amount, pickup});
-      return RUNNING;
+      return SUCCESS;
     }
 
     if (result === ERR_NOT_ENOUGH_RESOURCES) {

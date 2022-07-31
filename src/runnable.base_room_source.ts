@@ -1,5 +1,4 @@
 import {AlertLevel, Base, BaseThreadFunc, getStructureForResource, threadBase} from './base';
-import {creepIsFresh} from './behavior.commute';
 import {ROLE_WORKER, WORKER_HAULER, WORKER_MINER} from './constants.creeps';
 import * as MEMORY from './constants.memory';
 import {roadPolicy} from './constants.pathing_policies';
@@ -305,25 +304,28 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
 
     const miners = kernel.getCreepsManager().getCreepsByBaseAndRole(base.id, WORKER_MINER).
       filter((creep) => {
-        return creep.memory[MEMORY.MEMORY_SOURCE] === this.id && creepIsFresh(creep);
+        return creep.memory[MEMORY.MEMORY_SOURCE] === this.id;
       });
+    const numMiners = miners.length;
+
     const workPartCount = miners.reduce((sum, creep) => {
       return sum + creep.getActiveBodyparts(WORK);
     }, 0);
-    const numMiners = miners.length;
 
     trace.info('num miners', {
-      numMiners, workPartCount, desiredParts,
-      numPosition: this.openPositions.length
+      numMiners,
+      workPartCount,
+      desiredParts,
+      numPositions: this.openPositions.length
     });
 
-    if (workPartCount >= desiredParts) {
-      trace.info('enough miners', {workPartCount});
+    if (numMiners >= this.openPositions.length) {
+      trace.info('no more open positions', {numMiners, numPositions: this.openPositions.length});
       return;
     }
 
-    if (numMiners >= this.openPositions.length) {
-      trace.info('no more open positions', {numMiners});
+    if (workPartCount >= desiredParts) {
+      trace.info('enough miners', {workPartCount});
       return;
     }
 
@@ -354,7 +356,6 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       priority += 5;
     }
 
-    const ttl = RUN_TTL;
     const role = WORKER_MINER;
     const memory = {
       [MEMORY.MEMORY_SOURCE]: this.id,
@@ -366,7 +367,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
 
     trace.info('requesting miner', {sourceId: this.id, PRIORITY_MINER, memory});
 
-    const request = createSpawnRequest(priority, ttl, role, memory, 0);
+    const request = createSpawnRequest(priority, RUN_TTL, role, memory, 0);
     kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
   }
 

@@ -12,7 +12,7 @@ import * as MEMORY from './constants.memory';
 import * as TOPICS from './constants.topics';
 import {Kernel} from './kernel';
 import {Event} from './lib.event_broker';
-import {Request, RequestDetails, TopicKey} from './lib.topics';
+import {Request, TopicKey} from './lib.topics';
 import {Tracer} from './lib.tracing';
 import {running, terminate} from './os.process';
 import {RunnableResult} from './os.runnable';
@@ -21,7 +21,7 @@ import {getDashboardStream, getLinesStream, HudEventSet, HudIndicator, HudIndica
 const SPAWN_TTL = 5;
 const REQUEST_BOOSTS_TTL = 5;
 const MAX_COLONY_SPAWN_DISTANCE = 5;
-const PRODUCE_EVENTS_TTL = 20;
+const PROCESS_EVENTS_TTL = 20;
 const MIN_ENERGY_HELP_NEIGHBOR = 20000;
 
 const INITIAL_TOPIC_LENGTH = 9999;
@@ -31,6 +31,8 @@ const YELLOW_TOPIC_LENGTH = 5;
 export const SPAWN_REQUEST_ROLE = 'role';
 export const SPAWN_REQUEST_SPAWN_MIN_ENERGY = 'spawn_min_energy';
 export const SPAWN_REQUEST_PARTS = 'parts';
+const UTILIZATION_CARDINALITY = 150;
+const MIN_UTILIZATION_SAMPLES = 30;
 
 type SpawnRequestDetails = {
   role: string;
@@ -41,11 +43,6 @@ type SpawnRequestDetails = {
 type SpawnRequest = Request & {
   details: SpawnRequestDetails;
 };
-
-type TopicProvider = {
-  sendRequest(topic: TopicKey, priority: number, details: RequestDetails, ttl: number)
-  sendRequestV2(topic: TopicKey, request: Request)
-}
 
 export function createSpawnRequest(priority: number, ttl: number, role: string,
   memory: any, energyLimit: number): SpawnRequest {
@@ -68,22 +65,36 @@ export function getBaseSpawnTopic(baseId: string): TopicKey {
   return `base_${baseId}_spawn`;
 }
 
-export default class SpawnManager {
-  id: string;
-  baseId: string;
-  checkCount = 0;
+export type SpawnUtilizationUpdate = {
+  utilization: number;
+}
 
-  consumeEventsThread: BaseThreadFunc;
-  threadSpawn: BaseThreadFunc
+export function createUtilizationUpdate(utilization: number): SpawnUtilizationUpdate {
+  return {
+    utilization,
+  };
+}
+
+export function getBaseSpawnUtilizationTopic(baseId: string): any {
+  return `base_${baseId}_spawn_utilization`;
+}
+
+export default class SpawnManager {
+  private id: string;
+  private baseId: string;
+  private utilization: number[] = [];
+
+  private eventsThread: BaseThreadFunc;
+  private spawnThread: BaseThreadFunc
 
   constructor(id: string, baseId: string) {
     this.id = id;
     this.baseId = baseId;
 
-    this.threadSpawn = threadBase('spawn_thread', SPAWN_TTL)(this.spawning.bind(this));
-    this.consumeEventsThread = threadBase('produce_events_thread',
-      PRODUCE_EVENTS_TTL)((trace, kernel, base) => {
-        this.consumeEvents(trace, kernel, base);
+    this.spawnThread = threadBase('spawn_thread', SPAWN_TTL)(this.spawning.bind(this));
+    this.eventsThread = threadBase('produce_events_thread',
+      PROCESS_EVENTS_TTL)((trace, kernel, base) => {
+        this.processEvents(trace, kernel, base);
       });
   }
 
@@ -106,8 +117,8 @@ export default class SpawnManager {
 
     trace.info('Spawn manager run', {id: this.id, baseId: this.baseId});
 
-    this.threadSpawn(trace, kernel, base);
-    this.consumeEventsThread(trace, kernel, base);
+    this.spawnThread(trace, kernel, base);
+    this.eventsThread(trace, kernel, base);
 
     trace.end();
     return running();
@@ -150,6 +161,12 @@ export default class SpawnManager {
         energyCapacity,
         energyPercentage,
       });
+
+      // track utilization
+      this.utilization.push(isIdle ? 0 : 1);
+      if (this.utilization.length > UTILIZATION_CARDINALITY) {
+        this.utilization.shift();
+      }
 
       if (!isIdle) {
         const creep = Game.creeps[spawn.spawning.name];
@@ -345,7 +362,7 @@ export default class SpawnManager {
     return request;
   }
 
-  consumeEvents(trace: Tracer, kernel: Kernel, base: Base) {
+  processEvents(trace: Tracer, kernel: Kernel, base: Base) {
     const baseRoom = getBasePrimaryRoom(base);
     if (!baseRoom) {
       trace.error('no primary room for base', {base: base.id});
@@ -354,6 +371,16 @@ export default class SpawnManager {
     const roomName = baseRoom.name;
 
     const baseTopic = kernel.getTopics().getTopic(getBaseSpawnTopic(base.id));
+
+    let utilization = 0;
+    if (this.utilization.length) {
+      utilization = _.sum(this.utilization) / this.utilization.length;
+    }
+
+    if (this.utilization.length > MIN_UTILIZATION_SAMPLES) {
+      const utilizationStream = kernel.getBroker().getStream(getBaseSpawnUtilizationTopic(base.id));
+      utilizationStream.publish(new Event(this.id, Game.time, "set", createUtilizationUpdate(utilization)));
+    }
 
     let creeps = [];
     let topicLength = 9999;
@@ -368,7 +395,7 @@ export default class SpawnManager {
       key: `${this.id}`,
       room: baseRoom.name,
       order: 5,
-      text: `Next spawn: ${creeps.join(',')}`,
+      text: `Next spawn: ${creeps.join(',')}, Utilization: ${utilization.toFixed(2)}, Topic length: ${topicLength}`,
       time: Game.time,
     };
     const event = new Event(this.id, Game.time, HudEventSet, line);

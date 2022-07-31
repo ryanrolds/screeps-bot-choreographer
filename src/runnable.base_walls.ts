@@ -89,7 +89,7 @@ export class WallsRunnable implements Runnable {
       }
 
       // Every other spot is a rampart
-      if (position.x % 2 === 0 && position.y % 2 === 0) {
+      if (position.x % 2 != position.y % 2) {
         expectedStructure = STRUCTURE_RAMPART;
       }
 
@@ -108,7 +108,7 @@ export class WallsRunnable implements Runnable {
         return structure.structureType === expectedStructure;
       });
       if (desiredStructure) {
-        trace.info('structure present', {structure: desiredStructure.structureType});
+        trace.info('structure present', {structure: desiredStructure.structureType, position: position});
         return;
       }
 
