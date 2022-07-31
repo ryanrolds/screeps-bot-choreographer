@@ -5,7 +5,7 @@ import {getNearbyPositions} from './lib.position';
 import {Tracer} from './lib.tracing';
 import {RoomEntry} from './runnable.scribe';
 
-type ColonyPolicy = {
+type BasePolicy = {
   start: string;
   maxLinearDistance: number;
   minRoomLevel: number;
@@ -41,8 +41,8 @@ type PathPolicy = {
   preferRoadSites?: boolean;
 }
 
-export type FindColonyPathPolicy = {
-  colony: ColonyPolicy;
+export type FindBasePathPolicy = {
+  base: BasePolicy;
   room: RoomPolicy;
   destination: DestinationPolicy;
   path: PathPolicy;
@@ -160,20 +160,20 @@ export const getPath = (kernel: Kernel, origin: RoomPosition, destination: RoomP
   return [null, pathDetails];
 };
 
-export const getClosestColonyByPath = (kernel: Kernel, destination: RoomPosition,
-  policy: FindColonyPathPolicy, trace: Tracer): Base => {
+export const getClosestBaseByPath = (kernel: Kernel, destination: RoomPosition,
+  policy: FindBasePathPolicy, trace: Tracer): Base => {
   const roomEntry = kernel.getScribe().getRoomById(destination.roomName);
 
-  let selectedColony: Base = null;
+  let selectedBase: Base = null;
   let selectedPathLength = 99999;
 
   // Get colonies and filter by the policy
   let bases = kernel.getPlanner().getBases();
-  bases = applyAllowedColonyPolicy(bases, roomEntry, policy.colony, trace);
+  bases = applyAllowedBasePolicy(bases, roomEntry, policy.base, trace);
   // Iterate colonies and find the closest one within the policies
   bases.forEach((config) => {
-    // Get the origin position from the colony by apply the colony policy
-    const originPosition = getOriginPosition(kernel, config, policy.colony, trace);
+    // Get the origin position from the base by apply the base policy
+    const originPosition = getOriginPosition(kernel, config, policy.base, trace);
     if (!originPosition) {
       trace.error('no origin position', {config, policy});
       return;
@@ -199,16 +199,16 @@ export const getClosestColonyByPath = (kernel: Kernel, destination: RoomPosition
       return false;
     }
 
-    // Update the selected colony and path
-    selectedColony = config;
+    // Update the selected base and path
+    selectedBase = config;
     selectedPathLength = result.path.length;
   });
 
-  return selectedColony;
+  return selectedBase;
 };
 
-const applyAllowedColonyPolicy = (bases: Base[], destRoomEntry: RoomEntry,
-  policy: ColonyPolicy, trace: Tracer): Base[] => {
+const applyAllowedBasePolicy = (bases: Base[], destRoomEntry: RoomEntry,
+  policy: BasePolicy, trace: Tracer): Base[] => {
   // Do not search colonies below the minimum level
   if (policy.minRoomLevel) {
     bases = bases.filter((config) => {
@@ -229,12 +229,12 @@ const applyAllowedColonyPolicy = (bases: Base[], destRoomEntry: RoomEntry,
     });
   }
 
-  trace.info('filtered colonies', {colonies: bases.map((colony) => colony.id)});
+  trace.info('filtered colonies', {colonies: bases.map((base) => base.id)});
 
   return bases;
 };
 
-const getOriginPosition = (kernel: Kernel, base: Base, policy: ColonyPolicy,
+const getOriginPosition = (kernel: Kernel, base: Base, policy: BasePolicy,
   trace: Tracer): RoomPosition => {
   if (policy.start === 'spawn') {
     return base.origin;

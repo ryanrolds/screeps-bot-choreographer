@@ -20,7 +20,7 @@ import {getDashboardStream, getLinesStream, HudEventSet, HudIndicator, HudIndica
 
 const SPAWN_TTL = 5;
 const REQUEST_BOOSTS_TTL = 5;
-const MAX_COLONY_SPAWN_DISTANCE = 5;
+const MAX_BASE_SPAWN_DISTANCE = 5;
 const PROCESS_EVENTS_TTL = 20;
 const MIN_ENERGY_HELP_NEIGHBOR = 20000;
 
@@ -273,7 +273,7 @@ export default class SpawnManager {
 
       const requestMinEnergy = request.details[SPAWN_REQUEST_SPAWN_MIN_ENERGY] || 0;
       if (spawnEnergy < requestMinEnergy) {
-        trace.warn('colony does not have energy', {requestMinEnergy, spawnEnergy, request});
+        trace.warn('base does not have energy', {requestMinEnergy, spawnEnergy, request});
         return;
       }
 
@@ -338,7 +338,7 @@ export default class SpawnManager {
           return true;
         }
 
-        // If the room is part of a colony, check if the colony is a neighbor
+        // If the room is part of a base, check if the base is a neighbor
         const destinationBase = kernel.getPlanner().getBaseByRoom(destinationRoom);
         if (destinationBase) {
           const isNeighbor = base.neighbors.some((neighborId) => {
@@ -461,7 +461,7 @@ function createCreep(base: Base, room: string, spawn: StructureSpawn, role: stri
 
   const name = [role, Game.shard.name, Game.time].join('_');
 
-  // Requests to the kernel should include the destination colony, don't overwrite it
+  // Requests to the kernel should include the destination base, don't overwrite it
   if (!memory[MEMORY.MEMORY_BASE]) {
     memory[MEMORY.MEMORY_BASE] = base.id;
   }

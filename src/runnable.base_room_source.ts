@@ -189,7 +189,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     trace.info('path found', {origin: source.pos, dest: basePos, pathResult});
 
     if (!pathResult || !pathResult.path.length) {
-      trace.error('path not found', {colonyPos: basePos, source: source.pos});
+      trace.error('path not found', {basePos: basePos, source: source.pos});
       return;
     }
 

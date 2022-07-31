@@ -8,7 +8,7 @@ import {getBaseHaulerTopic} from './runnable.base_logistics';
 export const getHaulTaskFromBaseTopic = behaviorTree.leafNode(
   'pick_haul_task',
   (creep, trace, kernel) => {
-    // lookup colony from kingdom
+    // lookup base from kingdom
     const baseId = creep.memory[MEMORY.MEMORY_BASE];
     const base = kernel.getPlanner().getBaseById(baseId);
     if (!base) {
@@ -36,7 +36,7 @@ export const getNearbyHaulTaskFromTopic = function (topic) {
     (creep, trace, kernel) => {
       const base = getCreepBase(kernel, creep);
       if (!base) {
-        trace.info('could not find colony', {name: creep.name, memory: creep.memory});
+        trace.info('could not find base', {name: creep.name, memory: creep.memory});
         creep.suicide();
         return FAILURE;
       }

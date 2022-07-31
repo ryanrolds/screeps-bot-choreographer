@@ -352,5 +352,5 @@ export function removeRoom(base: Base, roomName: string, trace: Tracer): void {
 
   base.rooms = _.without(base.rooms, roomName);
 
-  trace.info('room removed from colony', {colonyId: base.id, roomName});
+  trace.info('room removed from base', {baseId: base.id, roomName});
 }

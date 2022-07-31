@@ -147,7 +147,7 @@ export class ResourceManager implements Runnable {
         return acc;
       }
 
-      // If colony doesn't have a terminal don't include it
+      // If base doesn't have a terminal don't include it
       if (!room.terminal) {
         return acc;
       }
@@ -191,7 +191,7 @@ export class ResourceManager implements Runnable {
         return acc;
       }
 
-      // If colony doesn't have a terminal don't include it
+      // If base doesn't have a terminal don't include it
       if (!room.terminal) {
         return acc;
       }
@@ -545,7 +545,7 @@ export class ResourceManager implements Runnable {
 
     kernel.getPlanner().getBases().forEach((base) => {
       const baseTrace = trace.withFields(new Map([['base', base.id]]));
-      const baseEnd = baseTrace.startTimer('colony');
+      const baseEnd = baseTrace.startTimer('base');
 
       if (!base.boostPosition) {
         baseEnd();
@@ -585,7 +585,7 @@ export class ResourceManager implements Runnable {
         const availableEffect = availableEffects.get(effectName);
         if (!availableEffect || currentAmount < MIN_CRITICAL_COMPOUND) {
           effectTrace.info('maybe request/buy best compound', {
-            colonyId: base.id,
+            baseId: base.id,
             bestCompound,
             currentAmount,
             credits: Game.market.credits,
@@ -606,7 +606,7 @@ export class ResourceManager implements Runnable {
               REQUEST_DISTRIBUTE_BOOSTS, effectTrace);
           }
         } else {
-          effectTrace.info('have booster', {colonyId: base.id, effectName, bestCompound, currentAmount});
+          effectTrace.info('have booster', {baseId: base.id, effectName, bestCompound, currentAmount});
         }
 
         effectsEnd();

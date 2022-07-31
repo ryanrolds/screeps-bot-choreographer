@@ -71,7 +71,7 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
 
     const base = kernel.getPlanner().getBaseByRoom(mineral.room.name);
     if (!base) {
-      trace.error('no colony config', {room: mineral.room.name});
+      trace.error('no base config', {room: mineral.room.name});
       trace.end();
       return terminate();
     }
@@ -141,14 +141,14 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
       this.creepPosition = new RoomPosition(creepPosition.x, creepPosition.y, creepPosition.roomName);
     }
 
-    const colonyPos = new RoomPosition(base.origin.x, base.origin.y - 1,
+    const basePos = new RoomPosition(base.origin.x, base.origin.y - 1,
       base.origin.roomName);
 
-    const [pathResult, details] = getPath(kernel, mineral.pos, colonyPos, roadPolicy, trace);
-    trace.info('path found', {origin: mineral.pos, dest: colonyPos, pathResult});
+    const [pathResult, details] = getPath(kernel, mineral.pos, basePos, roadPolicy, trace);
+    trace.info('path found', {origin: mineral.pos, dest: basePos, pathResult});
 
     if (!pathResult || !pathResult.path.length) {
-      trace.error('path not found', {colonyPos, mineral: mineral.pos});
+      trace.error('path not found', {basePos, mineral: mineral.pos});
       return;
     }
 

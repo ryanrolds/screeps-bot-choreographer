@@ -220,24 +220,24 @@ export class CentralPlanning {
 
     /*
     const scribe = kernel.getScribe();
-    const globalColonyCount = scribe.getGlobalColonyCount();
-    if (!globalColonyCount) {
-      trace.info('do not know global colony count yet');
+    const globalBaseCount = scribe.getGlobalBaseCount();
+    if (!globalBaseCount) {
+      trace.info('do not know global base count yet');
       return;
     }
 
     const allowedColonies = Game.gcl.level;
-    if (globalColonyCount >= allowedColonies) {
-      trace.info('max GCL colonies reached', {globalColonyCount, allowedColonies});
+    if (globalBaseCount >= allowedColonies) {
+      trace.info('max GCL colonies reached', {globalBaseCount, allowedColonies});
       return;
     }
     */
 
     const bases = this.getBases();
     const numColonies = bases.length;
-    const shardColonyMax = (this.config.maxColonies || 9999);
-    if (numColonies >= shardColonyMax) {
-      trace.info('max config colonies reached', {numColonies, shardColonyMax});
+    const shardBaseMax = (this.config.maxColonies || 9999);
+    if (numColonies >= shardBaseMax) {
+      trace.info('max config colonies reached', {numColonies, shardBaseMax});
       return;
     }
 
@@ -247,7 +247,7 @@ export class CentralPlanning {
       const distance = results.distance;
       const origin = results.origin;
       const parking = new RoomPosition(origin.x + 5, origin.y + 5, origin.roomName);
-      trace.notice('selected room, adding colony', {roomName, distance, origin, parking});
+      trace.notice('selected room, adding base', {roomName, distance, origin, parking});
       const base = this.addBase(roomName, false, origin, parking, [roomName],
         [], [], [], AlertLevel.GREEN, trace);
       return;

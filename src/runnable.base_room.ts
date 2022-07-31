@@ -141,7 +141,7 @@ export default class RoomRunnable implements Runnable {
       }
     }
 
-    trace.notice('sending reserve request to colony');
+    trace.notice('sending reserve request to base');
 
     const priority = PRIORITIES.PRIORITY_RESERVER;
     const ttl = REQUEST_RESERVER_TTL;

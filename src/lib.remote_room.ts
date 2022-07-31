@@ -46,7 +46,7 @@ export const findRemotes = (kernel: Kernel, base: Base, trace: Tracer): [string[
           return;
         }
 
-        // filter rooms already belonging to a colony
+        // filter rooms already belonging to a base
         const roomBase = kernel.getPlanner().getBaseByRoom(adjacentRoom);
         if (roomBase && base.id !== roomBase.id) {
           dismissed.set(adjacentRoom, 'already assigned to a base');

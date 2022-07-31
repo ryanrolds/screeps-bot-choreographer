@@ -64,17 +64,17 @@ export default class KingdomGovernor {
 
       trace.log('kernel governor shard', {shardName, shardConfig})
 
-      const primaryColony: Base = Object.values(shardConfig)[0];
-      if (!primaryColony || !primaryColony.primary) {
+      const primaryBase: Base = Object.values(shardConfig)[0];
+      if (!primaryBase || !primaryBase.primary) {
         return;
       }
 
-      trace.log('kernel governor colony', {shardName, primaryColony})
+      trace.log('kernel governor base', {shardName, primaryBase})
      */
 
       /* TODO
       if (!shardMemory.ttl) {
-        shardMemory = this.sendClaimer(shardName, primaryColony.primary, shardMemory, trace);
+        shardMemory = this.sendClaimer(shardName, primaryBase.primary, shardMemory, trace);
       }
       */
     });

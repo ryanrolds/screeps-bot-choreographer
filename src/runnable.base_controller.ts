@@ -155,7 +155,7 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
 
     const base = kernel.getPlanner().getBaseByRoom(controller.pos.roomName);
     if (!base) {
-      trace.error('missing colony config', {room: controller.pos.roomName});
+      trace.error('missing base config', {room: controller.pos.roomName});
       return;
     }
 

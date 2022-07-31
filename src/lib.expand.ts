@@ -106,7 +106,7 @@ export const pickExpansion = (kernel: Kernel, trace: Tracer): ExpandResults => {
           return;
         }
 
-        // If previous room was claimed, do not build as this room is too close to another colony
+        // If previous room was claimed, do not build as this room is too close to another base
         if (claimed.has(parentRoom)) {
           dismissed.set(roomName, DismissedReasonAdjacentClaimed);
           trace.info('dismissing room, parent claimed', {parentRoom, roomName});

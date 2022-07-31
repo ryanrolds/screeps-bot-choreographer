@@ -12,7 +12,7 @@ const JOURNAL_ENTRY_TTL = 200;
 const MAX_JOURNAL_TTL = 1000;
 const WRITE_MEMORY_INTERVAL = 50;
 const REMOVE_STALE_ENTRIES_INTERVAL = 100;
-const UPDATE_COLONY_COUNT = 50;
+const UPDATE_BASE_COUNT = 50;
 const PRODUCE_EVENTS_INTERVAL = 50;
 
 const YELLOW_JOURNAL_AGE = 100;
@@ -108,7 +108,7 @@ export type CreepRequest = {
 export class Scribe implements Runnable {
   private journal: Journal;
   costMatrix255: CostMatrix;
-  globalColonyCount: number;
+  globalBaseCount: number;
 
   private threadWriteMemory: KernelThreadFunc;
   private threadRemoveStaleJournalEntries: KernelThreadFunc;
@@ -138,11 +138,11 @@ export class Scribe implements Runnable {
     }
 
     this.journal = journal;
-    this.globalColonyCount = -2;
+    this.globalBaseCount = -2;
 
     this.threadRemoveStaleJournalEntries = threadKernel('remove_stale', REMOVE_STALE_ENTRIES_INTERVAL)(this.removeStaleJournalEntries.bind(this));
     this.threadWriteMemory = threadKernel('write_memory', WRITE_MEMORY_INTERVAL)(this.writeMemory.bind(this));
-    this.threadUpdateBaseCount = threadKernel('update_base_count', UPDATE_COLONY_COUNT)(this.updateBaseCount.bind(this));
+    this.threadUpdateBaseCount = threadKernel('update_base_count', UPDATE_BASE_COUNT)(this.updateBaseCount.bind(this));
     this.threadProduceEvents = threadKernel('produce_events', PRODUCE_EVENTS_INTERVAL)(this.produceEvents.bind(this));
   }
 
@@ -219,10 +219,10 @@ export class Scribe implements Runnable {
   }
 
   updateBaseCount(trace: Tracer, kernel: Kernel) {
-    if (this.globalColonyCount === -2) {
+    if (this.globalBaseCount === -2) {
       // skip the first time, we want to give shards time to update their remote memory
-      trace.info('skipping updateColonyCount');
-      this.globalColonyCount = -1;
+      trace.info('skipping updateBaseCount');
+      this.globalBaseCount = -1;
       return;
     }
 
@@ -241,7 +241,7 @@ export class Scribe implements Runnable {
 
     trace.info('update_base_count', {baseCount: baseCount});
 
-    this.globalColonyCount = baseCount;
+    this.globalBaseCount = baseCount;
   }
 
   produceEvents(trace: Tracer, kernel: Kernel) {
@@ -274,12 +274,12 @@ export class Scribe implements Runnable {
     return [Game.shard.name];
   }
 
-  getGlobalColonyCount() {
-    if (this.globalColonyCount < 0) {
+  getGlobalBaseCount() {
+    if (this.globalBaseCount < 0) {
       return null;
     }
 
-    return this.globalColonyCount;
+    return this.globalBaseCount;
   }
 
   removeStaleJournalEntries(trace) {

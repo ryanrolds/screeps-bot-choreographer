@@ -2,7 +2,7 @@ import {AttackRequest, AttackStatus, ATTACK_ROOM_TTL} from './constants.attack';
 import {ATTACK_ROOM} from './constants.topics';
 import {Kernel} from './kernel';
 import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
-import {FindColonyPathPolicy} from './lib.pathing';
+import {FindBasePathPolicy} from './lib.pathing';
 import {Tracer} from './lib.tracing';
 import {sleeping} from './os.process';
 import {RunnableResult} from './os.runnable';
@@ -12,8 +12,8 @@ import {RoomEntry} from './runnable.scribe';
 const RUN_TTL = 50;
 const MAX_BASE_LEVEL = 2;
 
-const colonyPathingPolicy: FindColonyPathPolicy = {
-  colony: {
+const basePathingPolicy: FindBasePathPolicy = {
+  base: {
     start: 'spawn',
     maxLinearDistance: 5,
     minRoomLevel: 0,

@@ -119,7 +119,7 @@ export const selectRoomDropoff = behaviorTree.selectorNode(
 
         const base = getCreepBase(kernel, creep);
         if (!base) {
-          trace.error('could not find creep colony', {name: creep.name, memory: creep.memory});
+          trace.error('could not find creep base', {name: creep.name, memory: creep.memory});
           creep.suicide();
           return FAILURE;
         }
@@ -180,7 +180,7 @@ export const selectRoomDropoff = behaviorTree.selectorNode(
 
         const base = getCreepBase(kernel, creep);
         if (!base) {
-          trace.error('could not find creep colony', {name: creep.name, memory: creep.memory});
+          trace.error('could not find creep base', {name: creep.name, memory: creep.memory});
           creep.suicide();
           return FAILURE;
         }
@@ -216,7 +216,7 @@ export const selectRoomDropoff = behaviorTree.selectorNode(
       (creep, trace, kernel) => {
         const base = getCreepBase(kernel, creep);
         if (!base) {
-          trace.error('could not find creep colony', {name: creep.name, memory: creep.memory});
+          trace.error('could not find creep base', {name: creep.name, memory: creep.memory});
           creep.suicide();
           return FAILURE;
         }
