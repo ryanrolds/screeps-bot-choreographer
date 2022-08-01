@@ -55,8 +55,8 @@ An AI for [Screeps](screeps.com).
   - [ ] Room
     - [ ] Move hostile tracking (deleted logic)
     - [ ] Move defense
-    - [ ] Move tracking of damaged creeps
-    - [ ] Move structure repairing
+    - [x] Move tracking of damaged creeps
+    - [x] Move structure repairing
     - [ ] Move sharing of boost details
     - [ ] Move resource tracking
   - [x] Observer (move into Base Observer)
@@ -66,7 +66,7 @@ An AI for [Screeps](screeps.com).
     - [x] Move path cache, cost matrix cache, and resource gov. to AI
   - [x] Refactor Resource Governor into a Process
     - [x] Move to TypeScript
-- [ ] Replace references to 'colony' with 'base'
+- [x] Replace references to 'colony' with 'base'
 - [ ] Refactor thread API
   - [ ] Strongly typed thread API
   - [ ] Automatically run threads and sleep main process correct amount of time
@@ -221,10 +221,10 @@ The `./src/main.ts` file contains a `KingdomConfig` that defines the rooms that 
 * Builder - Harvest/pick up energy in room and completes construction
 * Defender - Attacks hostiles creeps in room
 * Defender Drone -
-* Distributor - Moves energy from Containers/Storage into Spawner, Turrets, Labs, and other colony core structures
+* Distributor - Moves energy from Containers/Storage into Spawner, Turrets, Labs, and other base core structures
 * Explorer - Goes to rooms in domain to get visibility (triggers remote harvesting)
 * Harvester - Harvests and brings energy back to Spawner/Origin
-* Hauler - Picks up and takes energy in containers to colony storage, also picks up dropped resources
+* Hauler - Picks up and takes energy in containers to base storage, also picks up dropped resources
 * Miner - Harvests and places energy in nearby container
 * Repairer - Harvest/pick up energy in room and repair structures
 * Reserver - Claims/Reserves rooms
