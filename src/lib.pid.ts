@@ -43,8 +43,9 @@ export const update = (memory: Map<string, number>, value: number,
   let integral = prevIntegral + (err * dt * i);
 
   // Bootstrapping can require a lot of workers/haulers. 10 was too few (Jan 2022)
-  if (integral > 50) {
-    integral = 50;
+  // 50 seems too much
+  if (integral > 40) {
+    integral = 40;
   }
 
   const prevErr = memory.get(MEMORY.PID_SUFFIX_ERROR) || err;

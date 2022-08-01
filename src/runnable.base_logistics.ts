@@ -169,7 +169,7 @@ export default class LogisticsRunnable extends PersistentMemory {
       memory.pid = Array.from(this.pidHaulersMemory.entries());
       this.setMemory(memory);
 
-      PID.setup(this.pidHaulersMemory, 0, 0.2, 0.0005, 0);
+      PID.setup(this.pidHaulersMemory, 0, 0.1, 0.025, 0);
     }
 
     const base = kernel.getPlanner().getBaseById(this.baseId);

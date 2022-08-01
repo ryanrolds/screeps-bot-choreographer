@@ -6,7 +6,6 @@ import {Runnable, RunnableResult} from "./os.runnable";
 
 const RUN_INTERVAL = 100;
 
-
 export class NeighborsRunnable implements Runnable {
   private baseId: string;
 
@@ -21,9 +20,7 @@ export class NeighborsRunnable implements Runnable {
       return terminate();
     }
 
-    if (!base.walls.length) {
-      this.updateNeighbors(kernel, base, trace);
-    }
+    this.updateNeighbors(kernel, base, trace);
 
     return sleeping(RUN_INTERVAL)
   }

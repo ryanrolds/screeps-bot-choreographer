@@ -218,7 +218,6 @@ export class CentralPlanning {
       return;
     }
 
-    /*
     const scribe = kernel.getScribe();
     const globalBaseCount = scribe.getGlobalBaseCount();
     if (!globalBaseCount) {
@@ -231,7 +230,7 @@ export class CentralPlanning {
       trace.info('max GCL colonies reached', {globalBaseCount, allowedColonies});
       return;
     }
-    */
+
 
     const bases = this.getBases();
     const numColonies = bases.length;
