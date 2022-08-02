@@ -696,7 +696,7 @@ export class Scribe implements Runnable {
 
   getPortals(shardName: string): PortalEntry[] {
     const roomsWithPortals = [];
-    for (const [id, entry] of this.journal.rooms) {
+    for (const [_, entry] of this.journal.rooms) {
       if (entry.portals) {
         const shardPortals = entry.portals.filter(portal => portal.destinationShard === shardName)
         roomsWithPortals.push(...shardPortals);

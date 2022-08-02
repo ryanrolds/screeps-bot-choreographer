@@ -50,19 +50,21 @@ const behavior = behaviorTree.sequenceNode(
           return currentRoomStatus.status === exitStatus.status;
         });
 
-        let entries = exits.map((roomId) => {
+        const unvisited = exits.filter((roomId) => {
           const entry = kingdom.getScribe().getRoomById(roomId);
-
-          return {
-            id: roomId,
-            lastUpdated: (entry) ? entry.lastUpdated : 0,
-          };
+          return !entry;
         });
 
-        entries = _.sortBy(entries, 'lastUpdated');
+        if (unvisited.length > 0) {
+          trace.info('unvisited exits', {unvisited});
+          creep.memory[MEMORY_ASSIGN_ROOM] = unvisited[0];
+          return behaviorTree.SUCCESS;
+        }
 
-        trace.info('next room', {next: entries[0].id});
-        creep.memory[MEMORY_ASSIGN_ROOM] = entries[0].id;
+        const shuffled = _.shuffle(exits);
+
+        trace.info('next room', {next: shuffled[0]});
+        creep.memory[MEMORY_ASSIGN_ROOM] = shuffled[0];
         return behaviorTree.SUCCESS;
       },
     ),

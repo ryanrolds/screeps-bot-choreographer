@@ -1,6 +1,5 @@
 import {Base, getBaseLevel, getBasePrimaryRoom, setParking} from './base';
 import {Kernel} from './kernel';
-import {PossibleSite, prioritizeBySitesType} from './lib.construction';
 import {ANY, buildingCodes, EMPTY, getConstructionPosition} from './lib.layouts';
 import {Tracer} from './lib.tracing';
 import {sleeping, terminate} from './os.process';
@@ -349,3 +348,112 @@ export default class BaseConstructionRunnable {
     return true;
   }
 }
+
+
+
+export const getPrioritizedSites = function (room: Room): ConstructionSite[] {
+  let sites = room.find(FIND_MY_CONSTRUCTION_SITES);
+  if (!sites || !sites.length) {
+    return [];
+  }
+
+  sites = _.sortBy(sites, (site) => {
+    switch (site.structureType) {
+      case STRUCTURE_SPAWN:
+        return 0 - site.progress / site.progressTotal;
+      case STRUCTURE_TOWER:
+        return 1 - site.progress / site.progressTotal;
+      case STRUCTURE_RAMPART:
+        return 2 - site.progress / site.progressTotal;
+      case STRUCTURE_WALL:
+        return 3 - site.progress / site.progressTotal;
+      case STRUCTURE_STORAGE:
+        return 4 - site.progress / site.progressTotal;
+      case STRUCTURE_LINK:
+        return 5 - site.progress / site.progressTotal;
+      case STRUCTURE_EXTENSION:
+        return 6 - site.progress / site.progressTotal;
+      case STRUCTURE_TERMINAL:
+        return 7 - site.progress / site.progressTotal;
+      case STRUCTURE_EXTRACTOR:
+        return 8 - site.progress / site.progressTotal;
+      case STRUCTURE_LAB:
+        return 9 - site.progress / site.progressTotal;
+      case STRUCTURE_CONTAINER:
+        return 10 - site.progress / site.progressTotal;
+      case STRUCTURE_ROAD:
+        return 20 - site.progress / site.progressTotal;
+      default:
+        return 15 - site.progress / site.progressTotal;
+    }
+  });
+
+  return sites;
+};
+
+
+export type PossibleSite = {
+  x: number;
+  y: number;
+  structureType: BuildableStructureConstant;
+}
+
+export const prioritizeBySitesType = (sites: PossibleSite[]): PossibleSite[] => {
+  return _.sortBy(sites, (site) => {
+    switch (site.structureType) {
+      case STRUCTURE_SPAWN:
+        return 0;
+      case STRUCTURE_TOWER:
+        return 1;
+      case STRUCTURE_RAMPART:
+        return 2;
+      case STRUCTURE_WALL:
+        return 3;
+      case STRUCTURE_STORAGE:
+        return 4;
+      case STRUCTURE_LINK:
+        return 5;
+      case STRUCTURE_EXTENSION:
+        return 6;
+      case STRUCTURE_TERMINAL:
+        return 7;
+      case STRUCTURE_EXTRACTOR:
+        return 8;
+      case STRUCTURE_LAB:
+        return 9;
+      case STRUCTURE_CONTAINER:
+        return 10;
+      case STRUCTURE_ROAD:
+        return 20;
+      default:
+        return 15;
+    }
+  });
+};
+
+export const getInfrastructureSites = function (room: Room): ConstructionSite[] {
+  let sites = room.find(FIND_MY_CONSTRUCTION_SITES).filter((site) => {
+    return site.structureType === STRUCTURE_SPAWN || site.structureType === STRUCTURE_TOWER ||
+      site.structureType === STRUCTURE_STORAGE || site.structureType === STRUCTURE_EXTENSION;
+  });
+  if (!sites || !sites.length) {
+    return [];
+  }
+
+  sites = _.sortBy(sites, (site) => {
+    switch (site.structureType) {
+      case STRUCTURE_SPAWN:
+        return 0 - site.progress / site.progressTotal;
+      case STRUCTURE_TOWER:
+        return 1 - site.progress / site.progressTotal;
+      case STRUCTURE_STORAGE:
+        return 2 - site.progress / site.progressTotal;
+      case STRUCTURE_EXTENSION:
+        return 3 - site.progress / site.progressTotal;
+      default:
+        return 15 - site.progress / site.progressTotal;
+    }
+  });
+
+  return sites;
+};

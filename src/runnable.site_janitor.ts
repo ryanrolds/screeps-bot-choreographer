@@ -27,7 +27,7 @@ export class SiteJanitor implements Runnable {
     let updated = 0;
     let removed = 0;
 
-    for (const [id, entry] of this.sites) {
+    for (const [_, entry] of this.sites) {
       // remove entry if site does not exist in game
       if (!Game.constructionSites[entry.id]) {
         purged++;

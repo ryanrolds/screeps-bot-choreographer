@@ -36,6 +36,8 @@ export const findRemotes = (kernel: Kernel, base: Base, trace: Tracer): [string[
     nextPass.forEach((currentRoom) => {
       const adjacentRooms = Object.values(Game.map.describeExits(currentRoom));
       adjacentRooms.forEach((adjacentRoom) => {
+        // TODO don't add if current room is blocked
+        // we do not want to consider rooms only accessible through any base or hostile room
         if (!seen.has(adjacentRoom)) {
           found.push(adjacentRoom);
         }

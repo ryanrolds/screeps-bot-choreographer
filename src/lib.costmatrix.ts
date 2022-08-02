@@ -8,7 +8,7 @@
  * TODO add tests
  */
 
-import {Base} from './base';
+import {Base, getBaseLevel} from './base';
 import {Kernel} from './kernel';
 import {getRegion} from './lib.flood_fill';
 import {buildingCodes, Layout} from './lib.layouts';
@@ -441,7 +441,7 @@ const applyRoadSites = (room: Room, costMatrix: CostMatrix, cost: number, trace:
 
 const applyBaseRoads = (base: Base, costMatrix: CostMatrix, terrain: RoomTerrain,
   cost: number, trace: Tracer) => {
-  const layout: Layout = baseLayouts[8];
+  const layout: Layout = baseLayouts[getBaseLevel(base)];
   const buildings = layout.buildings;
 
   for (let i = 0; i < buildings.length; i++) {

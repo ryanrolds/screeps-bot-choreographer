@@ -46,6 +46,8 @@ export const update = (memory: Map<string, number>, value: number,
   // 50 seems too much
   if (integral > 40) {
     integral = 40;
+  } else if (integral < -10) {
+    integral = -10;
   }
 
   const prevErr = memory.get(MEMORY.PID_SUFFIX_ERROR) || err;

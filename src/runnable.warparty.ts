@@ -823,7 +823,7 @@ export default class WarPartyRunnable {
       this.position.y === 49;
   }
 
-  setPosition(position: RoomPosition, trace: Tracer) {
+  setPosition(position: RoomPosition, _trace: Tracer) {
     this.position = position;
     this.party.setPosition(position);
   }

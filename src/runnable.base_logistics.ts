@@ -194,11 +194,12 @@ export default class LogisticsRunnable extends PersistentMemory {
     }
 
     this.threadUpdateHaulers(trace, kernel, base);
-    this.threadHaulerPID(trace, kernel, base);
-    this.threadRequestHaulers(trace, kernel, base);
 
     this.threadRequestHaulDroppedResources(trace, kernel, base);
     this.threadRequestHaulTombstonesAndRuins(trace, kernel, base);
+
+    this.threadHaulerPID(trace, kernel, base);
+    this.threadRequestHaulers(trace, kernel, base);
 
     this.threadProduceEvents(trace, kernel, base);
 
@@ -318,8 +319,8 @@ export default class LogisticsRunnable extends PersistentMemory {
       baseId: base.id
     });
 
-    // PID approach
-    if (this.numHaulers < this.desiredHaulers) {
+    const neededHaulers = this.desiredHaulers - this.numHaulers;
+    for (let i = 0; i < Math.min(5, neededHaulers); i++) {
       let priority = PRIORITY_HAULER;
 
       // If we have few haulers/workers we should not be prioritizing haulers
@@ -327,7 +328,7 @@ export default class LogisticsRunnable extends PersistentMemory {
         priority += 10;
       }
 
-      priority -= this.numHaulers * 0.1;
+      priority -= (this.numHaulers + i) * 0.1;
 
       const ttl = REQUEST_HAULER_TTL;
       const memory = {

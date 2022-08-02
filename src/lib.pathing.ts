@@ -325,60 +325,60 @@ const getRoomCallback = (
     // Fetch cached cost matrix for the room
     let costMatrix = kernel.getCostMatrixCache().getCostMatrix(kernel, roomName,
       roomPolicy.costMatrixType, trace);
+    costMatrix = costMatrix.clone();
 
     const room = Game.rooms[roomName];
+    if (room) {
+      // Mark creeps as not passible
+      if (!pathPolicy.ignoreCreeps) {
+        room.find(FIND_CREEPS).forEach((creep) => {
+          costMatrix.set(creep.pos.x, creep.pos.y, 255);
+        });
+      }
 
-    // Mark creeps as not passible
-    if (room && !pathPolicy.ignoreCreeps) {
-      costMatrix = costMatrix.clone();
+      // add road construction sites
+      if (pathPolicy.preferRoadSites) {
+        room.find(FIND_MY_CONSTRUCTION_SITES).forEach((site) => {
+          if (site.structureType === STRUCTURE_ROAD) {
+            costMatrix.set(site.pos.x, site.pos.y, 1);
+          }
+        });
+      }
 
-      room.find(FIND_CREEPS).forEach((creep) => {
-        costMatrix.set(creep.pos.x, creep.pos.y, 255);
-      });
-    }
+      // Add a buffer around source keepers
+      if (pathPolicy.sourceKeeperBuffer > 0) {
+        room.find(FIND_HOSTILE_CREEPS, {
+          filter: (creep) => {
+            return creep.owner.username === 'Source Keeper';
+          },
+        }).forEach((sourceKeeper) => {
+          getNearbyPositions(sourceKeeper.pos, pathPolicy.sourceKeeperBuffer).forEach((pos) => {
+            costMatrix.set(pos.x, pos.y, 10);
+          });
+        });
+      }
 
-    // add road construction sites
-    if (room && pathPolicy.preferRoadSites) {
-      room.find(FIND_MY_CONSTRUCTION_SITES).forEach((site) => {
-        if (site.structureType === STRUCTURE_ROAD) {
-          costMatrix.set(site.pos.x, site.pos.y, 1);
+      // Add a buffer around hostile creeps
+      if (pathPolicy.hostileCreepBuffer > 0) {
+        room.find(FIND_HOSTILE_CREEPS, {
+          filter: (creep) => {
+            return creep.owner.username !== 'Source Keeper';
+          },
+        }).forEach((hostileCreep) => {
+          getNearbyPositions(hostileCreep.pos, pathPolicy.hostileCreepBuffer).forEach((pos) => {
+            costMatrix.set(pos.x, pos.y, 10);
+          });
+        });
+      }
+
+      // Add a buffer around the controller
+      if (pathPolicy.controllerBuffer > 0) {
+        const controller = room.controller;
+        if (controller && controller.my) {
+          getNearbyPositions(controller.pos, pathPolicy.controllerBuffer).forEach((pos) => {
+            costMatrix.set(pos.x, pos.y, 10);
+          });
         }
-      });
-    }
-
-    // Add a buffer around source keepers
-    if (room && pathPolicy.sourceKeeperBuffer > 0) {
-      room.find(FIND_HOSTILE_CREEPS, {
-        filter: (creep) => {
-          return creep.owner.username === 'Source Keeper';
-        },
-      }).forEach((sourceKeeper) => {
-        getNearbyPositions(sourceKeeper.pos, pathPolicy.sourceKeeperBuffer).forEach((pos) => {
-          costMatrix.set(pos.x, pos.y, 10);
-        });
-      });
-    }
-
-    // Add a buffer around hostile creeps
-    if (room && pathPolicy.hostileCreepBuffer > 0) {
-      room.find(FIND_HOSTILE_CREEPS, {
-        filter: (creep) => {
-          return creep.owner.username !== 'Source Keeper';
-        },
-      }).forEach((hostileCreep) => {
-        getNearbyPositions(hostileCreep.pos, pathPolicy.hostileCreepBuffer).forEach((pos) => {
-          costMatrix.set(pos.x, pos.y, 10);
-        });
-      });
-    }
-
-    // Add a buffer around the controller
-    if (room && pathPolicy.controllerBuffer > 0) {
-      const controller = room.controller;
-      if (controller && controller.my) {
-        getNearbyPositions(controller.pos, pathPolicy.controllerBuffer).forEach((pos) => {
-          costMatrix.set(pos.x, pos.y, 10);
-        });
       }
     }
 

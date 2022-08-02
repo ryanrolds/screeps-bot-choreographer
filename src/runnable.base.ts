@@ -763,8 +763,8 @@ export default class BaseRunnable {
       return;
     }
 
-    const explorers = kernel.getCreepsManager().getCreepsByBaseAndRole(this.id,
-      CREEPS.WORKER_EXPLORER);
+    const explorers = kernel.getCreepsManager().
+      getCreepsByBaseAndRole(this.id, CREEPS.WORKER_EXPLORER);
 
     if (explorers.length < MAX_EXPLORERS) {
       trace.info('requesting explorer');
@@ -777,7 +777,6 @@ export default class BaseRunnable {
       };
       const request = createSpawnRequest(priority, ttl, role, memory, 0);
       kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
-      // @CONFIRM that explorers spawns
     } else {
       trace.info('not requesting explorer', {numExplorers: explorers.length});
     }
