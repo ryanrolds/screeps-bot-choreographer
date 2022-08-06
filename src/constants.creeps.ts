@@ -132,7 +132,7 @@ DEFINITIONS.set(WORKER_ATTACKER, {
   parts: [WORK, TOUGH, MOVE, HEAL, MOVE, HEAL, MOVE, RANGED_ATTACK, WORK],
   boosts: ['tough', 'heal', 'damage'],
   energyLimit: 0,
-  energyMinimum: 3000,
+  energyMinimum: 150,
   ignoreSpawnEnergyLimit: true,
   processPriority: Priorities.ATTACK,
   skippable: false,

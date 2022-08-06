@@ -644,9 +644,9 @@ export default class PartyRunnable {
       [MEMORY.MEMORY_BASE]: base.id,
     };
 
-    const request = createSpawnRequest(priority, ttl, role, memory, 0);
+    const request = createSpawnRequest(priority, ttl, role, memory, this.parts, 0);
 
-    trace.info('requesting creep', {
+    trace.notice('requesting creep', {
       deployTicks: this.deployTicks,
       request,
     });

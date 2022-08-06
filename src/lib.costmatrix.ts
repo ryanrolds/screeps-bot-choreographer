@@ -47,6 +47,85 @@ export const createDefenderCostMatrix = (roomId: string, trace: Tracer): CostMat
   return costs;
 };
 
+// export const createDamageMatrix = (kernel: Kernel, roomName: string, damageThreshold: number, trace: Tracer): CostMatrix => {
+//   const costMatrix = new PathFinder.CostMatrix();
+
+//   const terrain = Game.map.getRoomTerrain(roomName);
+
+//   // Add towers
+//   // Add creeps
+
+//   const room = Game.rooms[roomName];
+//   if (!room) {
+//     trace.info('room not visible', {roomName: roomName});
+
+//     const entry = kernel.getScribe().getRoomById(roomName);
+//     if (!entry) {
+//       trace.info('room not in scribe', {roomName: roomName});
+//       return costMatrix;
+//     }
+
+//     // TODO track tower positions in scribe
+
+//     return costMatrix;
+//   }
+
+//   // Add tower damage to cost matrix
+//   const structures = room.find(FIND_STRUCTURES);
+//   structures.forEach((structure) => {
+//     if (structure.structureType === STRUCTURE_TOWER) {
+//       // Add tower damage to every position in the cost matrix
+//       const pos = structure.pos;
+//       for (let x = 0; x < 50; x++) {
+//         for (let y = 0; y <= 50; y++) {
+//           if (x < 0 || y < 0 || x > 49 || y > 49 || terrain.get(x, y) === TERRAIN_MASK_WALL) {
+//             continue;
+//           }
+
+//           const current = costMatrix.get(x, y);
+//           const dx = Math.abs(x - pos.x);
+//           const dy = Math.abs(y - pos.y);
+//           const distance = Math.sqrt(dx * dx + dy * dy);
+
+//           let damage = current;
+//           if (distance <= 5) {
+//             damage + 600
+//           } else if (distance > 19) {
+
+//           } else {
+//             const dmg = 600 - (distance - 6) * 30;
+
+//           }
+//         }
+//       }
+//     }
+//   });
+
+//   // Add creep damage to cost matrix
+//   const creeps = room.find(FIND_HOSTILE_CREEPS);
+//   creeps.forEach((creep) => {
+//     const pos = creep.pos;
+
+//     // Add attack parts
+
+//     // Add ranged attack parts
+
+//   });
+
+//   return costMatrix;
+// }
+
+export const createHealingMatrix = (roomName: string, trace: Tracer): CostMatrix => {
+  const costMatrix = new PathFinder.CostMatrix();
+
+  const terrain = Game.map.getRoomTerrain(roomName);
+
+  // Add towers
+  // Add creeps
+
+  return costMatrix;
+}
+
 export const createCommonCostMatrix = (kernel: Kernel, roomName: string, trace: Tracer): CostMatrix => {
   const costMatrix = new PathFinder.CostMatrix();
 

@@ -156,7 +156,7 @@ export default class RoomRunnable implements Runnable {
       topic = getBaseSpawnTopic(base.id);
     }
 
-    const request = createSpawnRequest(priority, ttl, role, memory, 0);
+    const request = createSpawnRequest(priority, ttl, role, memory, null, 0);
     kernel.getTopics().addRequestV2(topic, request);
   }
 }

@@ -72,6 +72,7 @@ An AI for [Screeps](screeps.com).
   - [ ] Automatically run threads and sleep main process correct amount of time
 - [ ] Double buffer topics when TTLing messages
 - [x] All of project on TypeScript
+- [ ] Fix restoring of Room Entries and War Manager targets on restart with Persistent Memory
 - [ ] Refactor PID controller
 - [ ] Influence map library
 - [ ] Move creep definitions into individual creep files
@@ -173,7 +174,7 @@ There are some debugging tools built into the project:
 * Run and draw cost matrix - `AI.getCostMatrixDebugger().debug("W8N4", 'open_space')`
 * Cost matrix clear - `AI.getCostMatrixDebugger().clear()`
 * Get debug info on path cache - `AI.kingdom.getPathCache().debug()`
-* Attack a room (requires rally_<room> flag) - `AI.scheduler.processMap['war_manager'].runnable.targetRoom = 'E16S51'`
+* Attack a room (requires rally_<room> flag) - `AI.getTopics().addRequestV2('attack_room', {priority: 1, details: {status: "requested", roomId: "E58N42"}, ttl: 100})`
 * Look at central planning results - `AI.getPlannerDebugger().debug()`
 * Look at min cut output - `AI.getMinCutDebugger().debug(AI.getKingdom(), 'W6N1')`
 * Get cached room details from Scribe - `JSON.stringify(AI.getKingdom().getScribe().getRoomById('W8N4'))`

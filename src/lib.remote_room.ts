@@ -34,57 +34,44 @@ export const findRemotes = (kernel: Kernel, base: Base, trace: Tracer): [string[
     const found = [];
 
     nextPass.forEach((currentRoom) => {
-      const adjacentRooms = Object.values(Game.map.describeExits(currentRoom));
+      const exits = Game.map.describeExits(currentRoom);
+      if (!exits) {
+        trace.error('no exits found', {currentRoom});
+        return;
+      }
+
+      const adjacentRooms = Object.values(exits);
       adjacentRooms.forEach((adjacentRoom) => {
-        // TODO don't add if current room is blocked
-        // we do not want to consider rooms only accessible through any base or hostile room
-        if (!seen.has(adjacentRoom)) {
-          found.push(adjacentRoom);
-        }
-
-        seen.add(adjacentRoom);
-
+        // Already dismissed this room, don't check it again
         if (dismissed.has(adjacentRoom)) {
           return;
         }
 
-        // filter rooms already belonging to a base
-        const roomBase = kernel.getPlanner().getBaseByRoom(adjacentRoom);
-        if (roomBase && base.id !== roomBase.id) {
-          dismissed.set(adjacentRoom, 'already assigned to a base');
+        // Already seen this room, don't check it again
+        if (seen.has(adjacentRoom)) {
           return;
         }
+        seen.add(adjacentRoom);
 
-        const roomEntry = scribe.getRoomById(adjacentRoom);
-        // filter out rooms we have not seen
-        if (!roomEntry) {
-          dismissed.set(adjacentRoom, 'no entry in scribe');
-          return;
+        // Check the room, determine if passable and if room is viable for mining
+        const [passable, dismiss] = checkCandidateRoom(kernel, base, adjacentRoom, startRoomStatus);
+
+        trace.notice('checked candidate room', {
+          currentRoom,
+          adjacentRoom,
+          passable,
+          dismiss,
+        });
+
+        // Room is passable, so add to list of rooms to check
+        if (passable) {
+          found.push(adjacentRoom);
         }
 
-        // If enemies present do not claim
-        // TODO make this vary based on the size of defender we can build
-        if (roomEntry.hostilesDmg > 25) {
-          dismissed.set(adjacentRoom, 'hostile present');
-          return;
-        }
-
-        // filter out rooms that do not have a source
-        if (roomEntry.numSources === 0) {
-          dismissed.set(adjacentRoom, 'no sources');
-          return;
-        }
-
-        // Filter our rooms without a controller
-        if (!roomEntry.controller?.pos) {
-          dismissed.set(adjacentRoom, 'no controller');
-          return;
-        }
-
-        // Filter out rooms that are claimed
-        if (roomEntry.controller?.owner && roomEntry.controller?.level > 0) {
-          dismissed.set(adjacentRoom, 'is owned');
-          return;
+        // Room should not be considered as a candidate for mining
+        if (dismiss) {
+          dismissed.set(adjacentRoom, dismiss);
+          return
         }
 
         trace.notice('adding room to candidates', {adjacentRoom});
@@ -130,36 +117,54 @@ export const findRemotes = (kernel: Kernel, base: Base, trace: Tracer): [string[
   return [sortedCandidates, dismissed];
 };
 
-// Check existing rooms if we should drop them due to change in circumstances
-// tl;dr if the room is occupied or taken then we should stop mining it
-export function checkRoom(kernel: Kernel, base: Base, roomName: string, trace: Tracer): boolean {
-  trace.info('checking remote room', {roomName});
+export function checkCandidateRoom(kernel: Kernel, base: Base, room: string, baseRoomStatus: string): [boolean, string] {
+  // room should be same status as base primary
+  const roomStatus = Game.map.getRoomStatus(room).status;
+  if (roomStatus !== baseRoomStatus) {
+    return [false, 'status mismatch'];
+  }
 
-  const roomEntry = kernel.getScribe().getRoomById(roomName);
+  // filter rooms already belonging to a base
+  const roomBase = kernel.getPlanner().getBaseByRoom(room);
+  if (roomBase && base.id !== roomBase.id) {
+    return [true, 'already assigned to a base'];
+  }
+
+  const roomEntry = kernel.getScribe().getRoomById(room);
+  // filter out rooms we have not seen
   if (!roomEntry) {
-    trace.warn('room not found', {roomName: roomName});
-    return true;
+    return [false, 'no entry in scribe'];
   }
 
-  // If room is controlled by someone else, don't claim it
-  if (roomEntry?.controller?.owner !== kernel.getPlanner().getUsername() &&
-    roomEntry?.controller?.level > 0) {
-    trace.warn('room owned, removing remove', {roomName: roomName});
-    return false;
-  }
-
-  // if room is occupied by a overwhelming force else, don't claim it
+  // If enemies present do not claim
+  // TODO make this vary based on the size of defender we can build
   if (roomEntry.hostilesDmg > 25) {
-    trace.warn('room occupied, removing remove', {roomName: roomName, hostileDmg: roomEntry.hostilesDmg});
-    return false;
+    return [false, 'hostile present'];
   }
 
-  trace.notice("room checked", {
-    roomName: roomName, hostileDmg: roomEntry.hostilesDmg,
-    age: Game.time - roomEntry.lastUpdated
-  });
+  // filter out rooms that do not have a source
+  if (roomEntry.numSources === 0) {
+    return [true, 'no sources'];
+  }
 
-  return true;
+  // Filter our rooms without a controller
+  if (!roomEntry.controller?.pos) {
+    return [true, 'no controller'];
+  }
+
+  // Filter out rooms that are claimed
+  if (roomEntry.controller?.owner && roomEntry.controller?.level > 0) {
+    let passable = true;
+
+    // If we own the room it's passable
+    if (roomEntry.controller?.owner !== kernel.getPlanner().getUsername()) {
+      passable = false;
+    }
+
+    return [passable, 'is owned'];
+  }
+
+  return [true, '']
 }
 
 // Calculate the max number of remotes based on level and number of spawns

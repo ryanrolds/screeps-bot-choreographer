@@ -4,8 +4,8 @@ import {MEMORY_DESTINATION, MEMORY_FLAG} from './constants.memory';
 import {Kernel} from './kernel';
 import * as behaviorTree from './lib.behaviortree';
 import {FAILURE, RUNNING, SUCCESS} from './lib.behaviortree';
-import {getInfrastructureSites, getPrioritizedSites} from './lib.construction';
 import {Tracer} from './lib.tracing';
+import {getInfrastructureSites, getPrioritizedSites} from './runnable.base_construction';
 
 
 export const selectInfrastructureSites = behaviorTree.leafNode(

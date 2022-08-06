@@ -15,6 +15,7 @@ export enum AllowedCostMatrixTypes {
   OPEN_SPACE = 'open_space',
   SOURCE_ROAD = 'source_road',
   CONTROLLER_ROAD = 'controller_road',
+  DAMAGE = 'damage',
 }
 
 export class CostMatrixCacheItem {

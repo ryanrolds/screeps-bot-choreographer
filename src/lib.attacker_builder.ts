@@ -35,14 +35,13 @@ export function buildAttacker(
   let attackParts = 0;
   let toughParts = 0;
 
-  const healAmount = 0;
   let neededEnergy = 0;
 
   const healingTick = Math.floor(12 * multipliers.heal);
   const movingTick = Math.floor(2 * multipliers.move);
 
   // if we have energy for a healing part, include at least one healing part
-  if (maxEnergy > 1000) {
+  if (maxEnergy > 380) { // heal, attack, move
     requiredTanking = _.max([requiredTanking, 1]);
   }
 

@@ -35,6 +35,7 @@ const LEG_CALCULATE_INTERVAL = 500;
 
 // More sites means more spent per load on road construction & maintenance
 const MAX_ROAD_SITES = 5;
+const MIN_LOAD_SIZE = 100;
 
 export const getLogisticsTopic = (baseId: string): string => `${baseId}_logistics`;
 
@@ -71,7 +72,7 @@ export default class LogisticsRunnable extends PersistentMemory {
   private numHaulers = 0;
   private numActiveHaulers = 0;
   private numIdleHaulers = 0;
-  private avgHaulerCapacity = 1000;
+  private avgHaulerCapacity = 200;
 
   private threadConsumeEvents: BaseThreadFunc;
   private threadProduceEvents: BaseThreadFunc;
@@ -169,7 +170,7 @@ export default class LogisticsRunnable extends PersistentMemory {
       memory.pid = Array.from(this.pidHaulersMemory.entries());
       this.setMemory(memory);
 
-      PID.setup(this.pidHaulersMemory, 0, 0.1, 0.025, 0);
+      PID.setup(this.pidHaulersMemory, 0, 0.1, 0.0025, 0);
     }
 
     const base = kernel.getPlanner().getBaseById(this.baseId);
@@ -260,9 +261,11 @@ export default class LogisticsRunnable extends PersistentMemory {
         return total + hauler.store.getCapacity();
       }, 0) / this.haulers.length;
 
-      if (this.avgHaulerCapacity < 50) {
-        this.avgHaulerCapacity = 50;
+      if (this.avgHaulerCapacity < MIN_LOAD_SIZE) {
+        this.avgHaulerCapacity = MIN_LOAD_SIZE;
       }
+    } else {
+      this.avgHaulerCapacity = MIN_LOAD_SIZE;
     }
   }
 
@@ -335,7 +338,7 @@ export default class LogisticsRunnable extends PersistentMemory {
         [MEMORY_BASE]: base.id,
       };
 
-      const request = createSpawnRequest(priority, ttl, role, memory, 0);
+      const request = createSpawnRequest(priority, ttl, role, memory, null, 0);
       trace.info('requesting hauler/worker', {role, priority, request});
       kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
     }

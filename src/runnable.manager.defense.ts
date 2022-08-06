@@ -218,7 +218,7 @@ export default class DefenseManager {
 
     if (request.details.spawn) {
       const spawnRequest = createSpawnRequest(request.priority, request.ttl, request.details.role,
-        request.details.memory, 0);
+        request.details.memory, null, 0);
       trace.log('requesting spawning of defenders', {request});
       kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), spawnRequest);
       // @CONFIRM that defenders spawn

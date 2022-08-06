@@ -23,7 +23,13 @@ const MAX_BASES_PER_TARGET = 3;
 const MAX_WAR_PARTIES_PER_BASE = 1;
 const MAX_HARASSERS_PER_BASE = 1;
 const HARASS_COOLDOWN = 700;
+const CONSUME_EVENTS_TTL = 20;
 const RUN_TTL = 10;
+
+type AttackRequest = {
+  status: AttackStatus,
+  roomId: string,
+}
 
 interface StoredWarParty {
   id: string;
@@ -48,6 +54,10 @@ enum HostileStrength {
   Strong = 'strong',
 }
 
+export function createAttackRequest(status: AttackStatus, roomId: string): AttackRequest {
+  return {status, roomId};
+}
+
 export default class WarManager {
   id: string;
   scheduler: Scheduler;
@@ -67,7 +77,7 @@ export default class WarManager {
     this.warParties = null;
     this.targets = [];
 
-    this.consumeEventsThread = threadKernel('events_thread', WAR_PARTY_RUN_TTL)(this.consumeEvents.bind(this));
+    this.consumeEventsThread = threadKernel('events_thread', CONSUME_EVENTS_TTL)(this.consumeEvents.bind(this));
     this.updateWarPartiesThread = threadKernel('update_warparties', WAR_PARTY_RUN_TTL)(this.updateWarParties.bind(this));
     this.mapUpdateThread = threadKernel('map_thread', 1)(this.mapUpdate.bind(this));
   }
@@ -136,7 +146,8 @@ export default class WarManager {
     targets = _.uniq(targets);
 
     let bases = kernel.getPlanner().getBases();
-    bases = _.filter(bases, (base) => Game.rooms[base.primary]?.controller.level >= 5);
+    // DISABLED so that early game fights can happen - 08/05/2018
+    // bases = _.filter(bases, (base) => Game.rooms[base.primary]?.controller.level >= 5);
 
     trace.info('allowed bases', {bases: bases.map((base) => base.primary)});
 
@@ -145,6 +156,10 @@ export default class WarManager {
       bases = _.sortBy(bases, (base: Base) => {
         return Game.map.getRoomLinearDistance(base.primary, target);
       });
+
+      if (bases.length === 0) {
+        return 999;
+      }
 
       return Game.map.getRoomLinearDistance(bases[0].primary, target);
     });
@@ -238,21 +253,7 @@ export default class WarManager {
       }
     });
 
-    // Update memory
-    (Memory as any).war = {
-      targetRooms: this.targets,
-      parties: this.warParties.map((party): StoredWarParty => {
-        return {
-          id: party.id,
-          target: party.targetRoom,
-          phase: party.phase,
-          role: party.role,
-          flagId: party.flagId,
-          baseId: party.baseId,
-          position: party.getPosition(),
-        };
-      }),
-    };
+    this.writeMemory(trace);
   }
 
   mapUpdate(trace: Tracer, kernel: Kernel): void {
@@ -321,7 +322,7 @@ export default class WarManager {
         [MEMORY.MEMORY_ASSIGN_ROOM]: target,
       };
 
-      const request = createSpawnRequest(priority, ttl, role, memory, 0);
+      const request = createSpawnRequest(priority, ttl, role, memory, null, 0);
       trace.notice('requesting reserver', {request});
       kernel.getTopics().addRequestV2(getShardSpawnTopic(), request);
     } else {
@@ -364,7 +365,7 @@ export default class WarManager {
       [MEMORY_HARASS_BASE]: targetRoom.id,
     };
 
-    const request = createSpawnRequest(priorities, ttl, role, memory, 0);
+    const request = createSpawnRequest(priorities, ttl, role, memory, null, 0);
     trace.notice('requesting harasser', {request});
     kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
   }
@@ -413,22 +414,39 @@ export default class WarManager {
     return party;
   }
 
+  private writeMemory(trace: Tracer) {
+    // Update memory
+    (Memory as any).war = {
+      targets: this.targets,
+      parties: this.warParties.map((party): StoredWarParty => {
+        return {
+          id: party.id,
+          target: party.targetRoom,
+          phase: party.phase,
+          role: party.role,
+          flagId: party.flagId,
+          baseId: party.baseId,
+          position: party.getPosition(),
+        };
+      }),
+    };
+  }
+
   private restoreFromMemory(kernel: Kernel, trace: Tracer) {
     const memory = (Memory as any);
 
     trace.info('restore memory', {war: memory.war || null});
 
+    // If there is no memory, setup defaults
     if (!memory.war) {
       memory.war = {
+        targets: [],
         parties: [],
       };
     }
 
-    this.memory = memory.war;
-
-    this.targets = (Memory as any).war?.targets || [];
-
-    this.warParties = this.memory.parties.map((party) => {
+    this.targets = memory.war.targets || [];
+    this.warParties = memory.war.parties.map((party) => {
       trace.info('restoring party', {party});
 
       if (!party.id || !party.target || !party.position || !party.baseId || !party.flagId ||

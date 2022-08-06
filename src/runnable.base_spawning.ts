@@ -45,7 +45,7 @@ type SpawnRequest = Request & {
 };
 
 export function createSpawnRequest(priority: number, ttl: number, role: string,
-  memory: any, energyLimit: number): SpawnRequest {
+  memory: any, parts: BodyPartConstant[], energyLimit: number): SpawnRequest {
   return {
     priority,
     ttl,
@@ -53,6 +53,7 @@ export function createSpawnRequest(priority: number, ttl: number, role: string,
       role,
       memory,
       energyLimit,
+      parts,
     },
   };
 }
@@ -277,11 +278,12 @@ export default class SpawnManager {
         return;
       }
 
-      trace.info('spawning', {id: this.id, role, spawnEnergy, energyLimit, request});
-
       const parts = request.details[SPAWN_REQUEST_PARTS] || null;
       const memory = request.details.memory || {};
-      this.createCreep(base, spawn, role, parts, memory, spawnEnergy, energyLimit);
+
+      trace.notice('spawning', {id: this.id, role, spawnEnergy, energyLimit, parts, request});
+
+      this.createCreep(base, spawn, role, parts, memory, spawnEnergy, energyLimit, trace);
     });
   }
 
@@ -424,8 +426,9 @@ export default class SpawnManager {
   }
 
   createCreep(base: Base, spawner: StructureSpawn, role, parts: BodyPartConstant[],
-    memory, energy: number, energyLimit: number) {
-    return createCreep(base, spawner.room?.name, spawner, role, parts, memory, energy, energyLimit);
+    memory, energy: number, energyLimit: number, trace: Tracer) {
+    return createCreep(base, spawner.room?.name, spawner, role, parts, memory, energy,
+      energyLimit, trace);
   }
 
   requestBoosts(kernel: Kernel, base: Base, spawn: StructureSpawn, boosts, priority: number) {
@@ -437,10 +440,10 @@ export default class SpawnManager {
 }
 
 function createCreep(base: Base, room: string, spawn: StructureSpawn, role: string,
-  parts: BodyPartConstant[], memory: any, energy: number, energyLimit: number) {
+  parts: BodyPartConstant[], memory: any, energy: number, energyLimit: number, trace: Tracer) {
   const definition = DEFINITIONS.get(role);
   if (!definition) {
-    console.error('no definition for role', {role});
+    trace.error('no definition for role', {role});
     return;
   }
 
@@ -454,10 +457,14 @@ function createCreep(base: Base, room: string, spawn: StructureSpawn, role: stri
     energy = roleEnergyLimit;
   }
 
+  trace.notice("parts before", {parts});
+
   // if parts not provided, work them out from the definition
-  if (!parts) {
+  if (!parts || !parts.length) {
     parts = getBodyParts(definition, energy);
   }
+
+  trace.notice("parts after", {parts});
 
   const name = [role, Game.shard.name, Game.time].join('_');
 
@@ -473,10 +480,10 @@ function createCreep(base: Base, room: string, spawn: StructureSpawn, role: stri
   memory[MEMORY.MEMORY_ROLE] = role;
   memory[MEMORY.DESIRED_BOOSTS] = definition.boosts;
 
-  //   `${parts}, ${JSON.stringify(memory)}`);
-
   const result = spawn.spawnCreep(parts, name, {memory});
-  return result;
+  if (result !== OK) {
+    trace.error('spawn error', {result, spawn: spawn.id, name, parts});
+  }
 }
 
 function getBodyParts(definition, maxEnergy) {

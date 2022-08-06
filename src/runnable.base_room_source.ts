@@ -367,7 +367,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
 
     trace.info('requesting miner', {sourceId: this.id, PRIORITY_MINER, memory});
 
-    const request = createSpawnRequest(priority, RUN_TTL, role, memory, 0);
+    const request = createSpawnRequest(priority, RUN_TTL, role, memory, null, 0);
     kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
   }
 

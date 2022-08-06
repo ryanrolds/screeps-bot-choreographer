@@ -1,26 +1,23 @@
-import {addRoom, Base, getBasePrimaryRoom, removeRoom, resetRemotes} from "./base";
+import {addRoom, Base, getBasePrimaryRoom, resetRemotes} from "./base";
 import {Kernel} from "./kernel";
 import {Consumer} from "./lib.event_broker";
-import {checkRoom, desiredRemotes, findRemotes} from "./lib.remote_room";
+import {desiredRemotes, findRemotes} from "./lib.remote_room";
 import {Tracer} from "./lib.tracing";
 import {sleeping, terminate} from "./os.process";
 import {Runnable, RunnableResult} from "./os.runnable";
 import {getBaseSpawnUtilizationTopic, SpawnUtilizationUpdate} from "./runnable.base_spawning";
 
-const RUN_INTERVAL = 200;
+const RUN_INTERVAL = 50;
 
 export class RemotesManager implements Runnable {
   private baseId: string;
   private spawnUtilizationConsumer: Consumer;
   private spawnUtilization: number;
 
-  private roomCheckIterator: Generator<any, void, {kernel: Kernel, base: Base, trace: Tracer}>;
-
   constructor(baseId: string) {
     this.baseId = baseId;
     this.spawnUtilizationConsumer = null;
     this.spawnUtilization = -1;
-    this.roomCheckIterator = this.roomCheckGenerator();
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
@@ -39,9 +36,6 @@ export class RemotesManager implements Runnable {
     this.processEvents(kernel, base, trace);
     this.updateRemotes(kernel, base, trace);
 
-    // Check if a room should be removed
-    this.roomCheckIterator.next({kernel, base, trace});
-
     return sleeping(RUN_INTERVAL);
   }
 
@@ -58,7 +52,7 @@ export class RemotesManager implements Runnable {
   private updateRemotes(kernel: Kernel, base: Base, trace: Tracer): void {
     if (this.spawnUtilization === -1) {
       trace.warn('spawn utilization not set');
-      return;
+      //return;
     }
 
     const primaryRoom = getBasePrimaryRoom(base);
@@ -86,29 +80,6 @@ export class RemotesManager implements Runnable {
 
     for (let i = 0; i < Math.min(numDesired, remotes.length); i++) {
       addRoom(base, remotes[i], trace);
-    }
-  }
-
-  private * roomCheckGenerator(): Generator<any, void, {kernel: Kernel, base: Base, trace: Tracer}> {
-    let rooms: string[] = [];
-    while (true) {
-      const details: {kernel: Kernel, base: Base, trace: Tracer} = yield;
-      const kernel = details.kernel;
-      const base = details.base;
-      const trace = details.trace;
-
-      if (rooms.length === 0) {
-        trace.info('starting new pass', {base});
-        rooms = _.without([...base.rooms], base.primary);
-      }
-
-      trace.info('check remote mining', {rooms});
-
-      const roomName = rooms.shift();
-      trace.info('checking next room', {roomName});
-      if (!checkRoom(kernel, base, roomName, trace)) {
-        removeRoom(base, roomName, trace);
-      }
     }
   }
 }

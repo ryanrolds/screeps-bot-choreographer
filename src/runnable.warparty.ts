@@ -417,11 +417,11 @@ export default class WarPartyRunnable {
         trace.info('target', targets[0]);
         destination = targets[0].pos;
         range = 1;
-      } else if (room.controller?.my) {
-        trace.info('room is owned by me, ending party');
-        return true;
-      } else if (room.controller?.level > 0) {
-        trace.info('no targets, but room level is > 0, not ending party');
+        // } else if (room.controller?.my) {
+        //   trace.info('room is owned by me, ending party');
+        //   return true;
+        // } else if (room.controller?.level > 0) {
+        //   trace.info('no targets, but room level is > 0, not ending party');
       } else {
         trace.info('no targets, done');
         return true;
@@ -596,6 +596,10 @@ export default class WarPartyRunnable {
 
         return true;
       },
+    }));
+
+    targets = targets.concat(room.find(FIND_HOSTILE_CREEPS, {
+      filter: (creep) => friends.indexOf(creep.owner.username) === -1,
     }));
 
     return targets;

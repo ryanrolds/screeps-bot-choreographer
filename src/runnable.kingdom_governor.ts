@@ -153,7 +153,7 @@ export default class KingdomGovernor {
       const ttl = SHARD_MEMORY_TTL;
       const role = WORKERS.WORKER_RESERVER;
 
-      const request = createSpawnRequest(priorities, ttl, role, memory, 0);
+      const request = createSpawnRequest(priorities, ttl, role, memory, null, 0);
       trace.info('relaying claimer request from remote shard', {request});
       kernel.getTopics().addRequestV2(getShardSpawnTopic(), request);
     });
@@ -240,7 +240,7 @@ export default class KingdomGovernor {
       const ttl = SHARD_MEMORY_TTL;
       const role = WORKERS.WORKER_BUILDER;
 
-      const request = createSpawnRequest(priority, ttl, role, memory, 0);
+      const request = createSpawnRequest(priority, ttl, role, memory, null, 0);
       trace.info('relaying builder request from remote shard', {request});
       kernel.getTopics().addRequestV2(getShardSpawnTopic(), request);
     });

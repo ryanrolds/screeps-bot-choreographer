@@ -37,6 +37,7 @@ export class AI implements Kernel {
   private pathCache: PathCache;
   private costMatrixCache: CostMatrixCache;
   private resourceManager: ResourceManager;
+  private warManager: WarManager;
 
   constructor(config: ShardConfig, scheduler: Scheduler, trace: Tracer) {
     trace = trace.begin('ai_constructor');
@@ -118,6 +119,8 @@ export class AI implements Kernel {
     const warManager = new WarManager(this, warManagerId, scheduler, trace);
     scheduler.registerProcess(new Process(warManagerId, 'war_manager',
       Priorities.ATTACK, warManager));
+
+    this.warManager = warManager;
 
     // ======= Debugging tools ========
 
@@ -210,6 +213,10 @@ export class AI implements Kernel {
 
   getResourceManager(): ResourceManager {
     return this.resourceManager;
+  }
+
+  getWarManager(): WarManager {
+    return this.warManager;
   }
 
   getFriends(): string[] {

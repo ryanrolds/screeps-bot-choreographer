@@ -58,7 +58,7 @@ const RAMPART_ACCESS_TTL = 10;
 const UPDATE_PROCESSES_TTL = 20;
 const PRODUCE_STATUS_TTL = 30;
 const ABANDON_BASE_TTL = 50;
-const REQUEST_EXPLORER_TTL = 200;
+const REQUEST_EXPLORER_TTL = 100;
 const UPDATE_BOOSTER_TTL = 5;
 
 const MIN_HOSTILE_ATTACK_SCORE_TO_ABANDON = 3000;
@@ -541,7 +541,7 @@ export default class BaseRunnable {
     };
 
     const request = createSpawnRequest(repairerPriority, REQUEST_REPAIRER_TTL, CREEPS.WORKER_REPAIRER,
-      memory, 0);
+      memory, null, 0);
     kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
     // @CONFIRM that repairers are spawning
   }
@@ -586,7 +586,7 @@ export default class BaseRunnable {
       [MEMORY.MEMORY_ASSIGN_SHARD]: Game.shard.name,
       [MEMORY.MEMORY_BASE]: base.id,
     };
-    const request = createSpawnRequest(priority, ttl, CREEPS.WORKER_BUILDER, memory, 0);
+    const request = createSpawnRequest(priority, ttl, CREEPS.WORKER_BUILDER, memory, null, 0);
     kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
     // @CONFIRM builders are being spawned
   }
@@ -668,7 +668,7 @@ export default class BaseRunnable {
       [MEMORY.MEMORY_BASE]: base.id,
     };
 
-    const request = createSpawnRequest(priority, ttl, role, memory, 0);
+    const request = createSpawnRequest(priority, ttl, role, memory, null, 0);
     trace.info('request distributor', {desiredDistributors, fullness, request});
     kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
     // @CHECK that distributors are being spawned
@@ -750,7 +750,7 @@ export default class BaseRunnable {
       };
 
       const request = createSpawnRequest(upgraderPriority, REQUEST_UPGRADER_TTL,
-        CREEPS.WORKER_UPGRADER, memory, energyLimit);
+        CREEPS.WORKER_UPGRADER, memory, null, energyLimit);
       kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
       // @CONFIRM that upgraders are being created
     }
@@ -775,7 +775,7 @@ export default class BaseRunnable {
       const memory = {
         [MEMORY.MEMORY_BASE]: base.id,
       };
-      const request = createSpawnRequest(priority, ttl, role, memory, 0);
+      const request = createSpawnRequest(priority, ttl, role, memory, null, 0);
       kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
     } else {
       trace.info('not requesting explorer', {numExplorers: explorers.length});

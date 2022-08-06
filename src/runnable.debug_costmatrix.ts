@@ -52,6 +52,9 @@ export default class CostMatrixDebugger {
       case AllowedCostMatrixTypes.OPEN_SPACE:
         [costMatrix] = createOpenSpaceMatrix(roomId, trace);
         break;
+      case AllowedCostMatrixTypes.DAMAGE:
+        //costMatrix = createDamageMatrix(global.AI, roomId, trace);
+        break;
       default:
         trace.error('unexpected matrix type', {matrixType: costMatrixType});
     }
