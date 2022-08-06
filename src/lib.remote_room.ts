@@ -156,8 +156,8 @@ export function checkCandidateRoom(kernel: Kernel, base: Base, room: string, bas
   if (roomEntry.controller?.owner && roomEntry.controller?.level > 0) {
     let passable = true;
 
-    // If we own the room it's passable
-    if (roomEntry.controller?.owner !== kernel.getPlanner().getUsername()) {
+    // If we own the room it's passable, or if the room is owned and contains hostiles
+    if (roomEntry.hasHostiles && roomEntry.controller?.owner !== kernel.getPlanner().getUsername()) {
       passable = false;
     }
 

@@ -65,6 +65,8 @@ const MIN_HOSTILE_ATTACK_SCORE_TO_ABANDON = 3000;
 const HOSTILE_DAMAGE_THRESHOLD = 0;
 const HOSTILE_HEALING_THRESHOLD = 600;
 
+const MAX_CLAIM_RANGE = 10;
+
 enum DEFENSE_POSTURE {
   OPEN = 'open',
   CLOSED = 'closed',
@@ -159,7 +161,32 @@ export default class BaseRunnable {
     // if room not visible, request room be claimed
     const room = getBasePrimaryRoom(base);
     if (!room || room.controller?.level === 0) {
-      trace.notice('cannot see room or level 0', {base: this.id});
+      // Find at at least one room within max claim range, otherwise remove base and terminate
+      const nearbyRoom = kernel.getPlanner().getBases().find((otherBase) => {
+        // Dont use self
+        if (otherBase.id === this.id) {
+          return false;
+        }
+
+        // Don't use bases with no visibility or low level
+        const room = getBasePrimaryRoom(base);
+        if (!room || room.controller?.level === 0) {
+          return false;
+        }
+
+        const distance = Game.map.getRoomLinearDistance(base.primary, otherBase.primary);
+        return distance <= MAX_CLAIM_RANGE;
+      });
+
+      if (!nearbyRoom) {
+        trace.error('no nearby room, terminating', {base: this.id, nearbyRoom});
+        trace.end();
+        kernel.getPlanner().removeBase(base.id, trace);
+        return terminate();
+      }
+
+      // Within max claim range, request claimer to claim room
+      trace.notice('cannot see room or level 0', {base: this.id, nearbyRoom});
       this.requestClaimer(kernel, trace);
       trace.end();
       return sleeping(NO_VISION_TTL);

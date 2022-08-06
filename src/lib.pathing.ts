@@ -396,18 +396,22 @@ const applyRoomCallbackPolicy = (
   const ownerIsNotMe = owner !== kernel.getPlanner().getUsername();
   const isFriendly = kernel.getFriends().includes(owner);
 
+  // If owner is not me, and we want to avoid friendly rooms and is friendly, dont enter
   if (owner && ownerIsNotMe && policy.avoidFriendlyRooms && isFriendly) {
     return [false, 'friendly'];
   }
 
-  if (owner && ownerIsNotMe && policy.avoidHostileRooms && !isFriendly) {
+  // If owner is not me and has hostile creeps, dont enter
+  if (owner && ownerIsNotMe && policy.avoidHostileRooms && !isFriendly && roomEntry.hasHostiles) {
     return [false, 'hostile'];
   }
 
-  if (owner && ownerIsNotMe && policy.avoidRoomsWithTowers && roomEntry.numTowers) {
+  // if owner is not me and has towers, dont enter
+  if (owner && ownerIsNotMe && policy.avoidRoomsWithTowers && !isFriendly && roomEntry.numTowers) {
     return [false, 'towers'];
   }
 
+  // if has Keepers, dont enter
   if (policy.avoidRoomsWithKeepers && roomEntry.hasKeepers) {
     return [false, 'keepers'];
   }
@@ -422,7 +426,7 @@ const applyRoomCallbackPolicy = (
     */
   }
 
-  // trace.log('room allowed', {roomName: roomEntry.id});
+  // trace.info('room allowed', {roomName: roomEntry.id});
 
   return [true, 'good'];
 };

@@ -553,9 +553,16 @@ export default class WarPartyRunnable {
         friends.indexOf(structure.owner.username) === -1,
     }));
 
+    // Hostile creeps
+    targets = targets.concat(room.find(FIND_HOSTILE_CREEPS, {
+      filter: (creep) => friends.indexOf(creep.owner.username) === -1,
+    }));
+
+    // Hostile structures
     targets = targets.concat(room.find(FIND_HOSTILE_STRUCTURES, {
       filter: (structure) => {
-        if (structure.structureType === STRUCTURE_CONTROLLER) {
+        if (structure.structureType === STRUCTURE_CONTROLLER ||
+          structure.structureType === STRUCTURE_RAMPART) {
           return false;
         }
 
@@ -574,33 +581,30 @@ export default class WarPartyRunnable {
       targets = targets.concat(wallsNearController);
     }
 
-    targets = targets.concat(room.find(FIND_STRUCTURES, {
-      filter: (structure) => {
-        if (structure.structureType === STRUCTURE_CONTROLLER) {
-          return false;
-        }
+    // NOTE: testing room clearing behavior - 08/06/22
+    // targets = targets.concat(room.find(FIND_STRUCTURES, {
+    //   filter: (structure) => {
+    //     if (structure.structureType === STRUCTURE_CONTROLLER) {
+    //       return false;
+    //     }
 
-        if (structure instanceof OwnedStructure && structure.owner) {
-          const structureOwner = structure.owner.username;
-          if (structureOwner && kernel.getConfig().friends.indexOf(structureOwner) !== -1) {
-            return false;
-          }
+    //     if (structure instanceof OwnedStructure && structure.owner) {
+    //       const structureOwner = structure.owner.username;
+    //       if (structureOwner && kernel.getConfig().friends.indexOf(structureOwner) !== -1) {
+    //         return false;
+    //       }
 
-          return true;
-        }
+    //       return true;
+    //     }
 
-        const roomOwner = structure.room.controller?.owner?.username;
-        if (roomOwner && kernel.getConfig().friends.indexOf(roomOwner) !== -1) {
-          return false;
-        }
+    //     const roomOwner = structure.room.controller?.owner?.username;
+    //     if (roomOwner && kernel.getConfig().friends.indexOf(roomOwner) !== -1) {
+    //       return false;
+    //     }
 
-        return true;
-      },
-    }));
-
-    targets = targets.concat(room.find(FIND_HOSTILE_CREEPS, {
-      filter: (creep) => friends.indexOf(creep.owner.username) === -1,
-    }));
+    //     return true;
+    //   },
+    // }));
 
     return targets;
   }

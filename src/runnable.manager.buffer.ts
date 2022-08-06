@@ -88,13 +88,13 @@ export default class BufferManager {
 type HostileRoomsByBase = Map<string, TargetRoom[]>;
 
 function getHostileRoomsByBase(kernel: Kernel, trace: Tracer): HostileRoomsByBase {
-  const hostileRooms = kernel.getScribe().getHostileRooms(kernel);
+  const hostileRooms = kernel.getScribe().getHostileRooms(kernel, trace);
   trace.info('hostile rooms', {hostileRooms});
 
   const config = kernel.getConfig();
   const dontAttack = config.friends.concat(config.neutral);
   const candidateRooms = hostileRooms.filter((room) => {
-    return dontAttack.indexOf(room.owner) === -1 && room.level <= 7;
+    return dontAttack.indexOf(room.owner) === -1 && room.numKeyStructures > 0;
   });
   trace.info('candidate rooms', {config, dontAttack, candidateRooms});
 
@@ -118,7 +118,7 @@ function getHostileRoomsByBase(kernel: Kernel, trace: Tracer): HostileRoomsByBas
     hostileRoomsByBase.set(base.id, hostileRoomsByBase.get(base.id).concat(room));
   });
 
-  trace.info('hostile rooms by base', {hostileRoomsByBase: hostileRoomsByBase});
+  trace.info('hostile rooms by base', {hostileRoomsByBase: Array.from(hostileRoomsByBase.values())});
 
   return hostileRoomsByBase;
 }

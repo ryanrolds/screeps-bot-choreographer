@@ -416,13 +416,24 @@ export class Scribe implements Runnable {
     });
   }
 
-  getHostileRooms(kernel): TargetRoom[] {
+  getHostileRooms(kernel: Kernel, trace: Tracer): TargetRoom[] {
     return Array.from(this.journal.rooms.values()).filter((room) => {
+      trace.info("room entry", {
+        room: room.id, controller: room.controller,
+        owner: room.controller.owner
+      });
       if (!room.controller || room.controller.owner === kernel.getPlanner().getUsername()) {
         return false;
       }
 
-      if (room.specialRoom) {
+      const base = kernel.getPlanner().getBases()[0]
+      if (!base) {
+        trace.error("no bases found");
+        return false;
+      }
+
+      const baseStatus = Game.map.getRoomStatus(base.primary)?.status;
+      if (room.specialRoom && baseStatus === 'normal') {
         return false;
       }
 
