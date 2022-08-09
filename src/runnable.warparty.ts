@@ -89,31 +89,30 @@ export const warPartySingleFilePolicy: FindPathPolicy = {
 };
 
 export default class WarPartyRunnable {
-  id: string;
-  baseId: string;
-  flagId: string; // Starting position
-  targetRoom: string; // Destination room
-  role: string;
-  parts: BodyPartConstant[];
-  roomDamage: number;
-  minEnergy: number;
-  phase: Phase;
+  private id: string;
+  private baseId: string;
+  private flagId: string; // Starting position
+  private targetRoom: string; // Destination room
+  private role: string;
+  private parts: BodyPartConstant[];
+  private roomDamage: number;
+  private minEnergy: number;
+  private phase: Phase;
 
-  destination: RoomPosition;
-  range: number;
-  position: RoomPosition;
-  direction: DirectionConstant;
+  private destination: RoomPosition;
+  private range: number;
+  private position: RoomPosition;
+  private direction: DirectionConstant;
 
-  party: PartyRunnable;
+  private party: PartyRunnable;
 
-  path: RoomPosition[];
-  pathDestination: RoomPosition;
-  pathComplete: boolean;
-  pathTime: number;
-  cannotFindPath: boolean;
+  private path: RoomPosition[];
+  private pathDestination: RoomPosition;
+  private pathComplete: boolean;
+  private pathTime: number;
 
-  kernel: Kernel;
-  threadUpdateParts: BaseRoomThreadFunc;
+  private kernel: Kernel;
+  private threadUpdateParts: BaseRoomThreadFunc;
 
   constructor(id: string, baseId: string, flagId: string, position: RoomPosition, targetRoom: string,
     role: string, phase: Phase) {
@@ -137,7 +136,6 @@ export default class WarPartyRunnable {
     this.pathDestination = null;
     this.path = [];
     this.pathTime = 0;
-    this.cannotFindPath = false;
 
     this.threadUpdateParts = threadBaseRoom('update_parts', UPDATE_PARTS_INTERVAL)(this.updateParts.bind(this));
   }
@@ -149,7 +147,6 @@ export default class WarPartyRunnable {
     if (!base) {
       trace.end();
     }
-
 
     // TODO use a war party specific topic for notifying of target change
     const targetRoom = this.targetRoom;
@@ -181,6 +178,7 @@ export default class WarPartyRunnable {
 
     if (!targetRoom) {
       trace.error('no target room, terminating war party');
+      // Party will terminate itself and cause War Party to terminate
       this.party.done();
     }
 
@@ -222,7 +220,10 @@ export default class WarPartyRunnable {
           roomEntry.controller.pos.roomName);
       }
 
+      // marshal
       if (this.phase === Phase.PHASE_MARSHAL) {
+        this.setFormation(FORMATION_QUAD);
+
         // If we have at least 4 creeps and they are in position, begin deployment
         if (this.inPosition(this.position, trace) && creeps.length >= 4) {
           this.phase = Phase.PHASE_EN_ROUTE;
@@ -234,6 +235,7 @@ export default class WarPartyRunnable {
         }
       }
 
+      // deploy
       if (this.phase === Phase.PHASE_EN_ROUTE) {
         // If we are out of creep, remarshal
         if (!creeps.length || (this.position.findClosestByRange(creeps)?.pos.getRangeTo(this.position) > 5)) {
@@ -248,6 +250,7 @@ export default class WarPartyRunnable {
         }
       }
 
+      // attack
       if (this.phase === Phase.PHASE_ATTACK) {
         const numPartyInTargetRoom = this.getAssignedCreeps().
           filter((creep) => creep.room.name === this.targetRoom).length;
@@ -288,12 +291,6 @@ export default class WarPartyRunnable {
       }
     }
 
-    if (this.cannotFindPath) {
-      trace.error('cannot find path, terminating war party');
-      // Terminate party
-      this.party.done();
-    }
-
     // Tick the party along
     const partyResult = this.party.run(kernel, trace);
     if (partyResult.status === STATUS_TERMINATED) {
@@ -310,6 +307,14 @@ export default class WarPartyRunnable {
     trace.end();
 
     return running();
+  }
+
+  getId(): string {
+    return this.id;
+  }
+
+  getBaseId(): string {
+    return this.baseId;
   }
 
   updateParts(trace: Tracer, kernel: Kernel, base: Base, baseRoom: Room, targetRoomEntry: RoomEntry): void {
@@ -715,18 +720,14 @@ export default class WarPartyRunnable {
     if (!path) {
       // Cant find where we are going, freeze
       // TODO maybe suicide
-      this.cannotFindPath = true;
       trace.warn('warparty stuck', {id: this.id});
       return [currentPosition, this.direction, []];
     }
 
     if (path.length === 0) {
       trace.error('no path', {id: this.id, currentPosition, destination, path});
-      this.cannotFindPath = true;
       return [currentPosition, this.direction, []];
     }
-
-    this.cannotFindPath = false;
 
     // We know where we are going and the path
     trace.info('path found', {pathLength: path.length, currentPosition, destination});

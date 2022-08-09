@@ -97,7 +97,7 @@ export default class WarManager {
     // Write post event status
     trace.info('war manager state', {
       targets: this.targets,
-      warPartyIds: this.warParties.map((warParty) => warParty.id),
+      warPartyIds: this.warParties.map((warParty) => warParty.getId()),
       autoAttack: kernel.getConfig().autoAttack,
     });
 
@@ -171,7 +171,7 @@ export default class WarManager {
   updateWarParties(trace: Tracer, kernel: Kernel) {
     // Update list of war parties
     this.warParties = this.warParties.filter((party) => {
-      return this.scheduler.hasProcess(party.id);
+      return this.scheduler.hasProcess(party.getId());
     });
 
     if (!kernel.getConfig().autoAttack) {
@@ -259,9 +259,9 @@ export default class WarManager {
   mapUpdate(trace: Tracer, kernel: Kernel): void {
     if (this.warParties) {
       this.warParties.forEach((party) => {
-        const base = kernel.getPlanner().getBaseById(party.baseId);
+        const base = kernel.getPlanner().getBaseById(party.getBaseId());
         if (!base) {
-          trace.error('no base', {baseId: party.baseId});
+          trace.error('no base', {baseId: party.getBaseId()});
           return;
         }
 
@@ -373,7 +373,7 @@ export default class WarManager {
   sendWarParty(kernel: Kernel, base: Base, targetRoom: RoomEntry, parts: BodyPartConstant[],
     trace: Tracer) {
     const numBaseWarParties = this.warParties.filter((party) => {
-      return party.baseId === base.id;
+      return party.getBaseId() === base.id;
     }).length;
     if (numBaseWarParties >= MAX_WAR_PARTIES_PER_BASE) {
       trace.info('too many war parties', {numBaseWarParties});
