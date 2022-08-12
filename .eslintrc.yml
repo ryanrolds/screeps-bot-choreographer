@@ -4,7 +4,7 @@ env:
   screeps/screeps: true
 extends:
   - eslint:recommended
-  - plugin:@typescript-eslint/strict
+  - plugin:@typescript-eslint/recommended
 parser: '@typescript-eslint/parser'
 parserOptions:
   project:
@@ -14,11 +14,13 @@ rules:
   require-jsdoc: 0
   '@typescript-eslint/no-unnecessary-condition':
   - off
-  no-unused-vars:
+  '@typescript-eslint/no-unused-vars':
   - error
   - argsIgnorePattern: "^_"
     varsIgnorePattern: "^_"
     caughtErrorsIgnorePattern: "^_"
+  no-unused-vars:
+  - off
   #max-len:
   #  - warn
   #  - code: 120
