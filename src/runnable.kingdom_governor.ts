@@ -84,6 +84,8 @@ export default class KingdomGovernor {
     scribe.setLocalShardMemory(shardMemory);
   }
 
+  // TODO update to check memory specifically
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   findCreeps(needle: any): Creep[] {
     return _.filter(Game.creeps, needle);
   }
@@ -220,19 +222,15 @@ export default class KingdomGovernor {
   handleBuilderRequests(kernel: Kernel, requests: Map<string, CreepRequest>, trace: Tracer) {
     Array.from(requests.values()).forEach((creepRequest: CreepRequest) => {
       const memory = {
+        [MEMORY.MEMORY_ROLE]: WORKERS.WORKER_BUILDER,
         [MEMORY.MEMORY_ASSIGN_SHARD]: creepRequest.shard,
         [MEMORY.MEMORY_ASSIGN_ROOM]: creepRequest.room,
         [MEMORY.MEMORY_BASE]: creepRequest.baseId,
       };
 
-      const enroute = this.findCreeps({
-        [MEMORY.MEMORY_ROLE]: WORKERS.WORKER_BUILDER,
-        memory,
-      });
-
-      trace.info('checking if builder in-flight', {shardName: creepRequest.shard, enroute: enroute.map((creep) => creep.id)});
-
+      const enroute = this.findCreeps({memory});
       if (enroute.length) {
+        trace.info('builder in-flight', {shardName: creepRequest.shard, enroute: enroute.map((creep) => creep.id)});
         return;
       }
 

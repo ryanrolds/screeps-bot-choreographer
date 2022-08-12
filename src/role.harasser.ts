@@ -54,7 +54,7 @@ const behavior = behaviorTree.sequenceNode(
   [
     behaviorTree.leafNode(
       'pick_next_room',
-      (creep: Creep, trace: Tracer, kernel: Kernel) => {
+      (creep: Creep, _trace: Tracer, _kernel: Kernel) => {
         let targetRooms = creep.memory[MEMORY_HARASS_ROOMS];
         if (!targetRooms) {
           const targetBase = creep.memory[MEMORY_HARASS_BASE];
@@ -71,7 +71,7 @@ const behavior = behaviorTree.sequenceNode(
     ),
     behaviorTree.repeatUntilConditionMet(
       'stop_and_attack',
-      (creep: Creep, trace: Tracer, kernel: Kernel): boolean => {
+      (creep: Creep, trace: Tracer, _kernel: Kernel): boolean => {
         // if we reach the target room, move to attack phase
         if (creep.memory[MEMORY_HARASS_CURRENT] === creep.room.name) {
           return true;
@@ -114,7 +114,7 @@ const behavior = behaviorTree.sequenceNode(
 
         // filter out friendlies and neutrals
         hostiles = hostiles.filter((c: Creep) => {
-          return dontAttack.indexOf(creep.owner?.username) === -1;
+          return dontAttack.indexOf(c.owner?.username) === -1;
         });
 
         // if strong hostiles our job is done, move to the next room
@@ -197,7 +197,7 @@ const behavior = behaviorTree.sequenceNode(
     ),
     behaviorTree.leafNode(
       'harass_room_done',
-      (creep: Creep, trace: Tracer, kernel: Kernel) => {
+      (creep: Creep, _trace: Tracer, _kernel: Kernel) => {
         // if we are not in target room, don't switch rooms (we probably picked
         // on someone along the way)
         if (creep.room.name !== creep.memory[MEMORY_HARASS_CURRENT]) {
@@ -264,16 +264,4 @@ export function scoreAttacking(creep: Creep) {
 
     return dmg;
   }, 0);
-}
-
-function scoreRange(creep: Creep) {
-  if (creep.getActiveBodyparts(RANGED_ATTACK) > 1) {
-    return 3;
-  }
-
-  if (creep.getActiveBodyparts(ATTACK) * 10) {
-    return 1;
-  }
-
-  return 0;
 }

@@ -13,13 +13,14 @@ describe('Scribe', function () {
         scribe: undefined,
       }, false);
 
-      trace = new Tracer('scribe_test', new Map(), 0);
+      trace = new Tracer('scribe_test', new Map());
     });
 
     it("should setup empty memory", function () {
       const scribe = new Scribe(trace);
-      scribe.writeMemory(new Tracer('test', new Map(), 0), null);
+      scribe.writeMemory(new Tracer('test', new Map()), null);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const scribeMemory = (Memory as any).scribe;
       expect(scribeMemory.rooms).to.be.an('array');
       expect(scribeMemory.rooms).to.be.empty;

@@ -97,7 +97,7 @@ export class PathCache {
       const getPolicy = _.cloneDeep(policy);
       getPolicy.destination.range = range;
 
-      const [result, debug] = this.pathProvider(kernel, origin, goal, getPolicy, trace);
+      const [result, _debug] = this.pathProvider(kernel, origin, goal, getPolicy, trace);
       if (!result) {
         return null;
       }
@@ -145,7 +145,7 @@ export class PathCache {
     return item;
   }
 
-  getCachedPath(originKey: string, destKey: string, trace: Tracer): PathCacheItem {
+  getCachedPath(originKey: string, destKey: string, _trace: Tracer): PathCacheItem {
     // TODO move to hash lookup method
     const destinations = this.originGoalToPathMap[originKey];
     if (!destinations) {
@@ -243,6 +243,7 @@ export class PathCache {
 
     const paths = [];
     let path = this.tail;
+    // eslint-disable-next-line no-cond-assign
     while (path = path.next) {
       if (!path.value) {
         continue;

@@ -21,7 +21,6 @@ const STRUCTURE_TTL = 200;
 const DROPOFF_TTL = 200;
 const BUILD_LINK_TTL = 200;
 const CONTAINER_TTL = 250;
-const RED_ALERT_TTL = 200;
 
 export default class SourceRunnable extends PersistentMemory implements Runnable {
   private id: Id<Source>;
@@ -169,7 +168,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       }
 
       const blocker = source.room.lookForAt(LOOK_STRUCTURES, pos).find((s) => {
-        return !OBSTACLE_OBJECT_TYPES[s.structureType]
+        return (OBSTACLE_OBJECT_TYPES as string[]).indexOf(s.structureType) !== -1;
       });
       if (blocker) {
         return false;
@@ -186,10 +185,8 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
 
     const basePos = new RoomPosition(base.origin.x, base.origin.y - 1, base.origin.roomName);
     const [pathResult, details] = getPath(kernel, source.pos, basePos, roadPolicy, trace);
-    trace.info('path found', {origin: source.pos, dest: basePos, pathResult});
-
     if (!pathResult || !pathResult.path.length) {
-      trace.error('path not found', {basePos: basePos, source: source.pos});
+      trace.error('path not found', {basePos: basePos, source: source.pos, details});
       return;
     }
 
@@ -249,7 +246,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     this.setMemory(memory, false);
   }
 
-  updateStructures(trace: Tracer, kernel: Kernel, base: Base, source: Source) {
+  updateStructures(trace: Tracer, _kernel: Kernel, _base: Base, _source: Source) {
     if (!this.creepPosition) {
       trace.error('creep position not set', {creepPosition: this.creepPosition});
       return;
@@ -268,7 +265,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     this.linkId = link?.id as Id<StructureLink>;
   }
 
-  updateDropoff(trace: Tracer, kernel: Kernel, base: Base, source: Source) {
+  updateDropoff(_trace: Tracer, _kernel: Kernel, base: Base, _source: Source) {
     this.dropoffId = getStructureForResource(base, RESOURCE_ENERGY)?.id;
   }
 
@@ -440,7 +437,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     }
   }
 
-  buildContainer(trace: Tracer, kernel: Kernel, base: Base, source: (Source)) {
+  buildContainer(trace: Tracer, _kernel: Kernel, _base: Base, source: (Source)) {
     if (source.energy) {
       trace.info('only build container if exhausting source', {id: this.id});
       return;

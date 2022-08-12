@@ -15,12 +15,9 @@ import {getLogisticsTopic, LogisticsEventData, LogisticsEventType} from './runna
 import {createSpawnRequest, getBaseSpawnTopic} from './runnable.base_spawning';
 import {getLinesStream, HudEventSet, HudLine} from './runnable.debug_hud';
 
-const STRUCTURE_TTL = 50;
 const DROPOFF_TTL = 200;
 const REQUEST_WORKER_TTL = 50;
-const REQUEST_HAULING_TTL = 20;
 const PRODUCE_EVENTS_TTL = 50;
-const BUILD_LINK_TTL = 200;
 const RED_ALERT_TTL = 200;
 
 const CONTAINER_TTL = 250;
@@ -145,10 +142,8 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
       base.origin.roomName);
 
     const [pathResult, details] = getPath(kernel, mineral.pos, basePos, roadPolicy, trace);
-    trace.info('path found', {origin: mineral.pos, dest: basePos, pathResult});
-
     if (!pathResult || !pathResult.path.length) {
-      trace.error('path not found', {basePos, mineral: mineral.pos});
+      trace.error('path not found', {basePos, mineral: mineral.pos, details});
       return;
     }
 
@@ -161,7 +156,7 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
     this.setMemory(memory, false);
   }
 
-  updateDropoff(trace: Tracer, kernel: Kernel, base: Base, mineral: Mineral) {
+  updateDropoff(_trace: Tracer, _kernel: Kernel, base: Base, _mineral: Mineral) {
     this.dropoffId = getStructureForResource(base, RESOURCE_ENERGY)?.id;
   }
 

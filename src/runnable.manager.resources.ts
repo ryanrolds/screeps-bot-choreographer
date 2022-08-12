@@ -98,7 +98,7 @@ export class ResourceManager implements Runnable {
     this.reactionStatusStreamConsumer = kernel.getBroker().
       getStream(REACTION_STATUS_STREAM).addConsumer('resource_governor');
 
-    this.threadUpdateResources = threadKernel('update_resources_thread', UPDATE_RESOURCES_TTL)((trace: Tracer, kernel: Kernel) => {
+    this.threadUpdateResources = threadKernel('update_resources_thread', UPDATE_RESOURCES_TTL)((_trace: Tracer, _kernel: Kernel) => {
       this.resources = this.getBaseResources();
       this.sharedResources = this.getSharedResources();
     });
@@ -358,7 +358,7 @@ export class ResourceManager implements Runnable {
     });
   }
 
-  buyResource(base: Base, resource: any, amount: number, ttl: number, trace: Tracer) {
+  buyResource(base: Base, resource: ResourceConstant, amount: number, ttl: number, trace: Tracer) {
     trace.info('requesting resource purchase', {baseId: base.id, resource, amount, ttl});
 
     const primaryRoom = getBasePrimaryRoom(base);

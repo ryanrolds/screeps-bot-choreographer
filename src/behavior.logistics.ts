@@ -8,7 +8,7 @@ export const roadWorker = (behaviorNode) => {
     [
       behaviorTree.leafNode(
         'build_repair_road',
-        (creep, trace, kernel) => {
+        (creep, trace, _kernel) => {
           // If energy too low, do not build/repair roads
           if (creep.store.getUsedCapacity(RESOURCE_ENERGY) <= creep.store.getCapacity(RESOURCE_ENERGY) * 0.8) {
             return SUCCESS;

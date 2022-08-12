@@ -10,7 +10,7 @@ export default class MinCutDebugger {
   matrix: RoomMatrix;
   cut: RoomPosition[];
 
-  constructor(id: string, kernel: Kernel) {
+  constructor(id: string) {
     this.id = id;
     this.graph = null;
     this.matrix = null;
@@ -71,7 +71,7 @@ export default class MinCutDebugger {
   }
 
   debug(kernel: Kernel, roomName: string) {
-    const trace = new Tracer('mincut_deugger', new Map([['pid', 'mincut_debugger']]), 0);
+    const trace = new Tracer('mincut_deugger', new Map([['pid', 'mincut_debugger']]));
 
     const base = kernel.getPlanner().getBaseById(roomName);
     trace.notice('base', {origin: base?.origin});

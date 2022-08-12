@@ -107,7 +107,7 @@ export const storeHaulTask = (creep, task, trace) => {
 
 export const clearTask = behaviorTree.leafNode(
   'clear_haul_task',
-  (creep, trace, kingdom) => {
+  (creep, _trace, _kingdom) => {
     delete creep.memory[MEMORY.TASK_ID];
     delete creep.memory[MEMORY.MEMORY_TASK_TYPE];
     delete creep.memory[MEMORY.MEMORY_HAUL_PICKUP];
@@ -122,12 +122,13 @@ export const clearTask = behaviorTree.leafNode(
 
 export const loadCreep = behaviorTree.leafNode(
   'load_resource',
-  (creep, trace, kingdom) => {
+  (creep, trace, _kingdom) => {
     if (creep.store.getFreeCapacity() === 0) {
       trace.info('creep is full');
       return SUCCESS;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const pickup: any = Game.getObjectById(creep.memory[MEMORY.MEMORY_HAUL_PICKUP]);
     if (!pickup) {
       creep.say('⬆️❌');
@@ -140,10 +141,7 @@ export const loadCreep = behaviorTree.leafNode(
 
     let result = null;
     if (pickup instanceof Resource) {
-      const resource: Resource = pickup;
-
       result = creep.pickup(pickup);
-
       trace.info('pickup resource', {
         pickup: pickup.id,
       });
@@ -207,7 +205,7 @@ export const loadCreep = behaviorTree.leafNode(
 // TODO marge these to into a generic one that takes a memory key to an object id
 export const emptyCreep = behaviorTree.leafNode(
   'empty_creep',
-  (creep, trace, kingdom) => {
+  (creep, trace, _kingdom) => {
     const destination = Game.getObjectById<Id<AnyStoreStructure>>(creep.memory[MEMORY.MEMORY_HAUL_DROPOFF]);
     if (!destination) {
       creep.say('⬇️❌');
@@ -242,7 +240,7 @@ export const emptyCreep = behaviorTree.leafNode(
 
 export const emptyToDestination = behaviorTree.leafNode(
   'empty_creep_to_destination',
-  (creep, trace, kingdom) => {
+  (creep, trace, _kingdom) => {
     const destinationId = creep.memory[MEMORY.MEMORY_DESTINATION];
     const destination = Game.getObjectById<Id<AnyStoreStructure>>(destinationId);
     if (!destination) {

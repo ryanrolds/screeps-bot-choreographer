@@ -13,14 +13,13 @@ parserOptions:
 rules:
   require-jsdoc: 0
   "@typescript-eslint/no-unused-vars":
-  - warn
+  - error
   - argsIgnorePattern: "^_"
     varsIgnorePattern: "^_"
     caughtErrorsIgnorePattern: "^_"
   #max-len:
   #  - warn
   #  - code: 120
-  indent: off
   no-cond-assign: off
   no-bad-map-access/no-bad-map-access: error
 plugins:

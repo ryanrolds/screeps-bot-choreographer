@@ -4,18 +4,6 @@ import {Tracer} from './lib.tracing';
 
 const PASSES = 3;
 
-type RoomDetails = {
-  distance?: number;
-  rejected?: string;
-  sources?: number;
-}
-
-type DebugDetails = {
-  start: string,
-  adjacentRooms: string[][];
-  details: Record<string, RoomDetails>;
-};
-
 export const findRemotes = (kernel: Kernel, base: Base, trace: Tracer): [string[], Map<string, string>] => {
   trace.notice('checking remote mining', {baseId: base.id});
 

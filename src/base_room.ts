@@ -7,10 +7,12 @@ import {Tracer} from "./lib.tracing";
 
 // Base thread
 export interface BaseRoomTheadActionFunc {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (trace: Tracer, kernel: Kernel, base: Base, room: Room, ...args: any[]): void;
 }
 
 export interface BaseRoomThreadFunc {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (trace: Tracer, kernel: Kernel, base: Base, ...args: any[]): void;
   reset(): void;
 }
@@ -18,6 +20,7 @@ export interface BaseRoomThreadFunc {
 export const threadBaseRoom = (name: string, ttl: number) => (action: BaseRoomTheadActionFunc): BaseRoomThreadFunc => {
   let lastCall = 0;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tick = function (trace: Tracer, kernel: Kernel, base: Base, room: Room, ...args: any[]): void {
     if (lastCall + ttl <= Game.time) {
       lastCall = Game.time;

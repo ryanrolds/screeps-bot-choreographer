@@ -342,7 +342,7 @@ export const resetTripCounter = (id: string, counterId: string): TreeNode => {
   return {
     id,
     counterId,
-    tick: function (creep, trace, kernel): NodeTickResult {
+    tick: function (creep, trace, _kernel): NodeTickResult {
       // Clear the counter
       trace.info('clear trip counter', {counter: creep.memory[this.counterId]});
       clearState(creep, this.counterId, trace);
@@ -466,12 +466,13 @@ function getState(creep: Creep, id: string, trace: Tracer): number {
   return state;
 }
 
-function setState(creep: Creep, id: string, state: any, trace: Tracer): void {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function setState(creep: Creep, id: string, state: any, _trace: Tracer): void {
   creep.memory[id] = state;
   // trace.log('set state', {id, state});
 }
 
-function clearState(creep: Creep, id: string, trace: Tracer): void {
+function clearState(creep: Creep, id: string, _trace: Tracer): void {
   // trace.log('clear state', {id, state: creep.memory[id]});
   delete creep.memory[id];
 }

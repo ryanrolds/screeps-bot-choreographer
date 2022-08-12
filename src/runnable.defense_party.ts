@@ -19,7 +19,7 @@ export default class DefensePartyRunnable {
   noTargetTTL: number;
   minEnergy: number;
 
-  constructor(id: string, base: Base, flagId: string, position: RoomPosition, trace: Tracer) {
+  constructor(id: string, base: Base, flagId: string, position: RoomPosition) {
     this.id = id;
     this.base = base;
     this.flagId = flagId;
@@ -144,7 +144,7 @@ export default class DefensePartyRunnable {
     return this.party.getPosition();
   }
 
-  setPosition(position: RoomPosition, trace: Tracer) {
+  setPosition(position: RoomPosition, _trace: Tracer) {
     this.party.setPosition(position);
   }
 

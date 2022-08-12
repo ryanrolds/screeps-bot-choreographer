@@ -5,7 +5,6 @@ type ResourcePriceRange = {
   max: number;
 };
 
-const OUTBID = 0.001;
 const MIDPOINT = 10000;
 const SLOPE = 1 / 10000;
 

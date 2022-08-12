@@ -1,9 +1,9 @@
-import * as behaviorTree from './lib.behaviortree';
+import {behaviorBoosts} from './behavior.boosts';
+import {build, selectSite} from './behavior.build';
 import * as behaviorCommute from './behavior.commute';
 import * as behaviorMovement from './behavior.movement';
-import {build, selectSite} from './behavior.build';
 import {getEnergy, parkingLot} from './behavior.room';
-import {behaviorBoosts} from './behavior.boosts';
+import * as behaviorTree from './lib.behaviortree';
 
 import * as MEMORY from './constants.memory';
 import {commonPolicy, singleRoomPolicy} from './constants.pathing_policies';
@@ -14,7 +14,7 @@ const behavior = behaviorTree.sequenceNode(
     behaviorMovement.moveToShard(MEMORY.MEMORY_ASSIGN_SHARD),
     behaviorTree.repeatUntilConditionMet(
       'move_to_room',
-      (creep, trace, kingdom) => {
+      (creep, _trace, _kingdom) => {
         const assignedRoom = creep.memory[MEMORY.MEMORY_ASSIGN_ROOM];
         // If creep doesn't have a room assigned, we are done
         if (!assignedRoom) {
@@ -54,7 +54,7 @@ const behavior = behaviorTree.sequenceNode(
     getEnergy,
     behaviorTree.repeatUntilConditionMet(
       'build_sites',
-      (creep, trace, kingdom) => {
+      (creep, _trace, _kingdom) => {
         return creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0;
       },
       behaviorTree.sequenceNode(

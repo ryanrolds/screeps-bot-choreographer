@@ -10,6 +10,7 @@ type MemoryObject = {
   id: string;
   time: number;
   stales: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   value: any;
 }
 
@@ -20,7 +21,9 @@ export class PersistentMemory {
     this.memoryId = id;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getMemory(trace: Tracer): any {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const memoryObject: MemoryObject = (Memory as any).proc[this.memoryId];
     if (!memoryObject) {
       return null;
@@ -40,7 +43,9 @@ export class PersistentMemory {
     return memoryObject.value;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   setMemory(value: any, stales = true): void {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (Memory as any).proc[this.memoryId] = {
       id: this.memoryId,
       time: Game.time,
@@ -53,13 +58,16 @@ export class PersistentMemory {
 export class MemoryManager implements Runnable {
   constructor() {
     // Ensure Memory storage is ready
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (!(Memory as any).proc) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (Memory as any).proc = {};
     }
   }
 
-  run(kernel: Kernel, trace: Tracer): RunnableResult {
+  run(_kernel: Kernel, _trace: Tracer): RunnableResult {
     const now = Game.time;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const memory = Memory as any;
     const proc = memory.proc;
 

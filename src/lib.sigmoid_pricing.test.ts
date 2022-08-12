@@ -9,7 +9,7 @@ describe('Sigmoid Pricing', function () {
   const prices = new Map([
     [RESOURCE_HYDROXIDE, {max: 5, min: 0.5}],
   ]);
-  const pricer = new SigmoidPricing(prices as any);
+  const pricer = new SigmoidPricing(prices);
   const orders = new Map<string, Order>([
     ['01', {
       id: '01',
@@ -41,7 +41,7 @@ describe('Sigmoid Pricing', function () {
     mockGlobal<Game>('Game', {
       market: {
         orders: {},
-        getAllOrders: (filter) => {
+        getAllOrders: (_filter) => {
           return [];
         },
       },
@@ -77,12 +77,6 @@ describe('Sigmoid Pricing', function () {
   });
 
   describe('getPrice', function () {
-    it('should throw error if invalid resource', () => {
-      expect(() => {
-        pricer.getPrice(ORDER_BUY, 'not a real resource' as any, 100000);
-      }).to.throw('invalid resource: not a real resource');
-    });
-
     describe('no orders', () => {
       it('should return absolute minimum if no orders for a buy', () => {
         const price = pricer.getPrice(ORDER_BUY, RESOURCE_HYDROXIDE, 0);

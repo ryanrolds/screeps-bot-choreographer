@@ -133,7 +133,7 @@ export class HUDRunnable {
     return running();
   }
 
-  consumeLinesEvents(trace: Tracer) {
+  consumeLinesEvents(_trace: Tracer) {
     this.hudLinesConsumer.getEvents().forEach((event) => {
       const line: HudLine = event.data;
       this.lines.set(line.key, line);

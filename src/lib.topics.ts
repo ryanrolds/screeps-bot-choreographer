@@ -1,5 +1,6 @@
 const DEFAULT_TTL = 500;
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type RequestDetails = any;
 
 export type Request = {
@@ -45,7 +46,7 @@ export class Topics {
   }
 
   removeStale() {
-    for (const [key, topic] of this.topics) {
+    for (const [key, _topic] of this.topics) {
       this.topics.set(key, this.topics.get(key).filter((request) => {
         return request.ttl >= Game.time;
       }));
@@ -113,6 +114,7 @@ export class Topics {
     }
 
     let request = null;
+    // eslint-disable-next-line no-cond-assign
     while (request = topic.pop()) {
       if (request.ttl < Game.time) {
         continue;

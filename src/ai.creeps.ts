@@ -93,8 +93,8 @@ export class CreepManager implements Runnable {
             return structure.structureType === STRUCTURE_PORTAL;
           },
         }).forEach((portal) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const destination: any = portal.destination;
-
           if (destination.shard) {
             const backup = kernel.getScribe().getCreepBackup(destination.shard, creep.name);
             if (backup) {
@@ -224,6 +224,7 @@ export class CreepManager implements Runnable {
     [ROLE_HARASSER]: roleHarasser,
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private getBehaviorByRole(role: string): any {
     const behavior = this.roleToCreepLogic[role];
     if (!behavior) {

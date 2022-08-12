@@ -32,7 +32,7 @@ export class LabsManager {
 
   threadAssignLabs: BaseRoomThreadFunc;
 
-  constructor(baseId: string, id: string, scheduler: Scheduler, trace: Tracer) {
+  constructor(baseId: string, id: string, scheduler: Scheduler, _trace: Tracer) {
     this.id = id;
     this.baseId = baseId;
     this.scheduler = scheduler;

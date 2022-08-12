@@ -7,7 +7,7 @@ import {FAILURE, RUNNING, SUCCESS} from './lib.behaviortree';
 
 const selectNearbyLink = behaviorTree.leafNode(
   'select_nearby_link',
-  (creep, trace, kernal) => {
+  (creep, trace, _kernal) => {
     // Favor near by stores
     let nearByLinks = creep.pos.findInRange(FIND_STRUCTURES, 8, {
       filter: (structure) => {
@@ -61,7 +61,7 @@ const selectStorageForDeposit = behaviorTree.leafNode(
 
 const selectContainer = behaviorTree.leafNode(
   'select_container',
-  (creep, trace, kernel) => {
+  (creep, trace, _kernel) => {
     // If no nearby stores or the room lacks storage, try to get energy from the nearest container
     const containerInRoom = creep.pos.findClosestByRange(FIND_STRUCTURES, {
       filter: (structure) => {
@@ -88,7 +88,7 @@ const selectContainer = behaviorTree.leafNode(
 
 const selectDroppedEnergy = behaviorTree.leafNode(
   'select_dropped_energy',
-  (creep, trace, kernel) => {
+  (creep, trace, _kernel) => {
     const droppedEnergy = creep.pos.findClosestByRange(FIND_DROPPED_RESOURCES, {
       filter: (resource) => {
         if (resource.resourceType !== RESOURCE_ENERGY) {
@@ -130,7 +130,7 @@ const selectMoveFill = (selector) => {
 
 export const getSomeEnergy = behaviorTree.runUntilConditionMet(
   'get_some_energy_until_success',
-  (creep, trace, kernel) => {
+  (creep, trace, _kernel) => {
     const freeCapacity = creep.store.getFreeCapacity(RESOURCE_ENERGY);
     trace.info('creep free capacity', {freeCapacity});
     return creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
@@ -148,7 +148,7 @@ export const getSomeEnergy = behaviorTree.runUntilConditionMet(
 
 export const getEnergy = behaviorTree.repeatUntilConditionMet(
   'get_energy_until_success',
-  (creep, trace, kernel) => {
+  (creep, trace, _kernel) => {
     const freeCapacity = creep.store.getFreeCapacity(RESOURCE_ENERGY);
     trace.info('creep free capacity', {freeCapacity});
     return creep.store.getFreeCapacity(RESOURCE_ENERGY) <= 0;
@@ -266,7 +266,7 @@ const sign = `Not friendly. Recall your AI. Train your AI before it's off leash!
 
 export const updateSign = behaviorTree.repeatUntilConditionMet(
   'check_sign',
-  (creep, trace, kernel) => {
+  (creep, _trace, _kernel) => {
     if (!creep.room || !creep.room.controller || !creep.room.controller.sign) {
       return true;
     }
@@ -292,7 +292,7 @@ export const updateSign = behaviorTree.repeatUntilConditionMet(
       behaviorMovement.moveToCreepMemory(MEMORY_DESTINATION, 1, false, 25, 1500),
       behaviorTree.leafNode(
         'set_sign',
-        (creep, trace, kernel) => {
+        (creep, trace, _kernel) => {
           const result = creep.signController(creep.room.controller, sign);
           trace.info('set sign', {result});
 

@@ -37,7 +37,7 @@ describe('Path Cache', function () {
     });
 
     mockGlobal<Memory>('Memory', {}, true);
-    trace = new Tracer('test', new Map(), 0);
+    trace = new Tracer('test', new Map());
     pathProvider = sandbox.stub().callsFake(() => [path, {}]);
   });
 

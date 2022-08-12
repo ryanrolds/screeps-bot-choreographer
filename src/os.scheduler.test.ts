@@ -2,8 +2,6 @@ import {expect} from 'chai';
 import 'mocha';
 import {mockGlobal} from 'screeps-test-helper';
 import * as sinon from 'sinon';
-import {EventBroker} from './lib.event_broker';
-import {Topics} from './lib.topics';
 import {Tracer} from './lib.tracing';
 import {Process, running} from './os.process';
 import {RunnableResult} from './os.runnable';
@@ -12,8 +10,6 @@ import {Scheduler} from './os.scheduler';
 
 describe('Scheduler', () => {
   let trace = null;
-  let broker = null;
-  let topics = null;
   let sandbox = null;
   let runnable = null;
   let runSpy = null;
@@ -47,13 +43,9 @@ describe('Scheduler', () => {
       shard: {},
     }, true);
 
-    trace = new Tracer('scheduler_test', new Map(), 0);
-
-    broker = new EventBroker();
-    topics = new Topics();
-
+    trace = new Tracer('scheduler_test', new Map());
     runnable = {
-      run: (trace: Tracer): RunnableResult => {
+      run: (_trace: Tracer): RunnableResult => {
         return running();
       },
     };

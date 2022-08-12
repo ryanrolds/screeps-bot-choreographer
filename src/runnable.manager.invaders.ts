@@ -1,8 +1,6 @@
 import {AttackRequest, AttackStatus, ATTACK_ROOM_TTL} from './constants.attack';
 import {ATTACK_ROOM} from './constants.topics';
 import {Kernel} from './kernel';
-import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
-import {FindBasePathPolicy} from './lib.pathing';
 import {Tracer} from './lib.tracing';
 import {sleeping} from './os.process';
 import {RunnableResult} from './os.runnable';
@@ -12,39 +10,11 @@ import {RoomEntry} from './runnable.scribe';
 const RUN_TTL = 50;
 const MAX_BASE_LEVEL = 2;
 
-const basePathingPolicy: FindBasePathPolicy = {
-  base: {
-    start: 'spawn',
-    maxLinearDistance: 5,
-    minRoomLevel: 0,
-    hasSpawn: true,
-  },
-  room: {
-    avoidHostileRooms: true,
-    avoidFriendlyRooms: true,
-    avoidRoomsWithKeepers: false,
-    avoidRoomsWithTowers: false,
-    avoidUnloggedRooms: false,
-    sameRoomStatus: true,
-    costMatrixType: AllowedCostMatrixTypes.PARTY,
-  },
-  destination: {
-    range: 1,
-  },
-  path: {
-    allowIncomplete: false,
-    maxSearchRooms: 16,
-    maxOps: 5000,
-    maxPathRooms: 5,
-    ignoreCreeps: true,
-  },
-};
-
 export default class InvaderManager {
   id: string;
   scheduler: Scheduler;
 
-  constructor(id: string, scheduler: Scheduler, trace: Tracer) {
+  constructor(id: string, scheduler: Scheduler) {
     this.id = id;
     this.scheduler = scheduler;
   }

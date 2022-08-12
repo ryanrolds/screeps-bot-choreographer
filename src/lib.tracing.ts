@@ -24,7 +24,7 @@ export class Tracer {
   collectMin: number;
   metrics: Metric[];
 
-  constructor(name: string, kv: TracerFields, start: number) {
+  constructor(name: string, kv: TracerFields) {
     this.name = name;
     this.kv = kv;
 
@@ -136,7 +136,7 @@ export class Tracer {
   }
 
   private clone() {
-    const child = new Tracer(this.name, this.kv, this.start);
+    const child = new Tracer(this.name, this.kv);
     child.kv = new Map(this.kv.entries());
 
     child.logFilter = this.logFilter;

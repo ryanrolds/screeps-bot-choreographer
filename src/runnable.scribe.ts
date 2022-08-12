@@ -9,7 +9,6 @@ import {getDashboardStream, HudEventSet, HudIndicator, HudIndicatorStatus} from 
 const RUN_TTL = 10;
 const JOURNAL_ENTRY_BASE_TTL = 10;
 const JOURNAL_ENTRY_TTL = 200;
-const MAX_JOURNAL_TTL = 1000;
 const WRITE_MEMORY_INTERVAL = 50;
 const REMOVE_STALE_ENTRIES_INTERVAL = 100;
 const UPDATE_BASE_COUNT = 50;
@@ -23,7 +22,7 @@ type Journal = {
   creeps: Map<Id<Creep>, Creep>;
 };
 
-type PortalEntry = {
+export type PortalEntry = {
   id: Id<StructurePortal>,
   pos: RoomPosition,
   destinationShard: string;
@@ -46,6 +45,8 @@ export type RoomEntry = {
   spawnLocation: RoomPosition;
   numSources: number;
   hasHostiles: boolean;
+  hostilesByOwner: Map<string, number>;
+  hostilesDmgByOwner: Map<string, number>;
   hostilesDmg: number;
   hostilesHealing: number;
   hasKeepers: boolean;
@@ -94,6 +95,7 @@ export type RemoteStatus = {
 
 export type CreepBackup = {
   name: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   memory: any;
   ttl: number;
 };
@@ -121,10 +123,14 @@ export class Scribe implements Runnable {
       creeps: new Map(),
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if ((Memory as any).scribe) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       trace.info('Loading scribe journal', {memory: JSON.stringify((Memory as any).scribe)});
       try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         journal.rooms = new Map((Memory as any).scribe.rooms);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         journal.creeps = new Map((Memory as any).scribe.creeps);
 
         trace.notice('Loaded scribe journal', {
@@ -133,6 +139,7 @@ export class Scribe implements Runnable {
         });
       } catch (e) {
         trace.error('Error loading scribe journal', e);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         delete (Memory as any).scribe;
       }
     }
@@ -203,15 +210,17 @@ export class Scribe implements Runnable {
     return sleeping(RUN_TTL);
   }
 
-  writeMemory(trace: Tracer, kernel: Kernel) {
+  writeMemory(trace: Tracer, _kernel: Kernel) {
     trace.info('write_memory', {cpu: Game.cpu});
 
     if (Game.cpu.bucket < 1000) {
       trace.info('clearing journal from memory to reduce CPU load');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (Memory as any).scribe = null;
       return;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (Memory as any).scribe = {
       rooms: Array.from(this.journal.rooms.entries()),
       creeps: Array.from(this.journal.creeps.entries()),
@@ -366,7 +375,7 @@ export class Scribe implements Runnable {
 
   getRoomsWithInvaderBases(): [Id<Room>, number][] {
     const found: [Id<Room>, number][] = [];
-    for (const [key, room] of this.journal.rooms) {
+    for (const [_key, room] of this.journal.rooms) {
       if (room.invaderCoreLevel > 0) {
         found.push([room.id, Game.time - room.lastUpdated]);
       }
@@ -473,6 +482,8 @@ export class Scribe implements Runnable {
       spawnLocation: null,
       numSources: 0,
       hasHostiles: false,
+      hostilesByOwner: new Map(),
+      hostilesDmgByOwner: new Map(),
       hostilesDmg: 0,
       hostilesHealing: 0,
       hasKeepers: false,
@@ -551,16 +562,27 @@ export class Scribe implements Runnable {
     room.hasHostiles = hostileCreeps.length > 0;
 
     if (room.hasHostiles) {
+      room.hostilesByOwner = hostileCreeps.reduce((map, creep) => {
+        const owner = creep.owner.username;
+        const count = map.get(owner) || 0;
+        map.set(owner, count + 1);
+        return map;
+      }, new Map());
+
       room.hostilesDmg = _.sum(hostileCreeps, (creep) => {
         return scoreAttacking(creep);
       });
 
+      room.hostilesDmgByOwner = hostileCreeps.reduce((map, creep) => {
+        const owner = creep.owner.username;
+        const count = map.get(owner) || 0;
+        map.set(owner, count + scoreAttacking(creep));
+        return map;
+      }, new Map());
+
       room.hostilesHealing = _.sum(hostileCreeps, (creep) => {
         return scoreHealing(creep);
       });
-    } else {
-      room.hostilesDmg = 0;
-      room.hostilesHealing = 0;
     }
 
     const keepers = hostiles.filter((creep) => {
@@ -629,11 +651,13 @@ export class Scribe implements Runnable {
         return structure.structureType === STRUCTURE_PORTAL;
       },
     });
-    room.portals = portals.map((portal) => {
+    room.portals = portals.map<PortalEntry>((portal) => {
       return {
         id: portal.id,
         pos: portal.pos,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         destinationShard: (portal.destination as any).shard,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         destinationRoom: (portal.destination as any).room,
       };
     });
@@ -699,7 +723,7 @@ export class Scribe implements Runnable {
 
   getRemoteShardMemory(shardName: string): ShardMemory {
     if (typeof (InterShardMemory) === 'undefined') {
-      return {} as any;
+      return {} as ShardMemory;
     }
 
     return JSON.parse(InterShardMemory.getRemote(shardName) || '{}');

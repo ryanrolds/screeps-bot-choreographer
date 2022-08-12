@@ -64,7 +64,7 @@ export type PathSearchDetails = {
 };
 
 interface RouteCallback {
-  (roomName: string, fromRoomName: string): any;
+  (roomName: string, fromRoomName: string): number;
 }
 
 interface RoomCallbackFunc {
@@ -234,8 +234,8 @@ const applyAllowedBasePolicy = (bases: Base[], destRoomEntry: RoomEntry,
   return bases;
 };
 
-const getOriginPosition = (kernel: Kernel, base: Base, policy: BasePolicy,
-  trace: Tracer): RoomPosition => {
+const getOriginPosition = (_kernel: Kernel, base: Base, policy: BasePolicy,
+  _trace: Tracer): RoomPosition => {
   if (policy.start === 'spawn') {
     return base.origin;
   }
@@ -251,7 +251,7 @@ const getRoomRouteCallback = (
   searchDetails: PathSearchDetails,
   trace: Tracer,
 ): RouteCallback => {
-  return (toRoom: string, fromRoom: string): number => {
+  return (toRoom: string, _fromRoom: string): number => {
     searchDetails.searchedRooms.add(toRoom);
 
     // Always allow entry to destination room
@@ -390,7 +390,7 @@ const applyRoomCallbackPolicy = (
   kernel: Kernel,
   roomEntry: RoomEntry,
   policy: RoomPolicy,
-  trace: Tracer,
+  _trace: Tracer,
 ): [boolean, string] => {
   const owner = roomEntry.controller?.owner;
   const ownerIsNotMe = owner !== kernel.getPlanner().getUsername();
@@ -431,8 +431,7 @@ const applyRoomCallbackPolicy = (
   return [true, 'good'];
 };
 
-
-export const visualizePath = (path: RoomPosition[], trace: Tracer) => {
+export const visualizePath = (path: RoomPosition[], _trace: Tracer) => {
   const pathByRooms = path.reduce((acc, pos) => {
     if (!acc.has(pos.roomName)) {
       acc.set(pos.roomName, []);

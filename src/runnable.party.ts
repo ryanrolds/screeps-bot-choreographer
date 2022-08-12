@@ -239,17 +239,14 @@ export default class PartyRunnable {
     return new RoomPosition(x, y, roomName);
   }
 
-
   inPosition(position: RoomPosition, trace: Tracer) {
     let inPosition = true;
 
     const visual = new RoomVisual();
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const showVisuals = (global as any).LOG_WHEN_PID === this.id;
-
-
     if (showVisuals) {
-      const positions = this.getCreepOffsets();
       if (this.formation === FORMATION_QUAD) {
         visual.rect(position.x - 0.5, position.y - 1.5, 2, 2);
       }
@@ -405,7 +402,7 @@ export default class PartyRunnable {
   }
 
   // Returns objects that are blocking the party
-  getBlockingObjects(position: RoomPosition, direction: DirectionConstant, trace: Tracer): WarPartyTarget[] {
+  getBlockingObjects(position: RoomPosition, _direction: DirectionConstant, _trace: Tracer): WarPartyTarget[] {
     let objects: WarPartyTarget[] = [];
 
     let positions: RoomPosition[] = [];
@@ -521,7 +518,7 @@ export default class PartyRunnable {
     return target;
   }
 
-  setHeal(trace: Tracer) {
+  setHeal(_trace: Tracer) {
     const creeps = this.getAssignedCreeps();
     if (!creeps.length) {
       return;

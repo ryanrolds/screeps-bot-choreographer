@@ -11,8 +11,6 @@ import BaseRunnable from './runnable.base';
 const RUN_TTL = 10;
 const BASE_PROCESSES_TTL = 50;
 const EXPAND_TTL = 500;
-const BASE_WALLS_TTL = 50;
-const NEIGHBORS_THREAD_INTERVAL = 10; // TODO 50
 
 export class CentralPlanning {
   private config: ShardConfig;
@@ -33,12 +31,16 @@ export class CentralPlanning {
     this.shards.push(Game.shard.name);
 
     let bases: Map<string, Base> = new Map();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if ((Memory as any).bases) {
       try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         trace.warn('found shard memory', {bases: (Memory as any).bases.length});
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         bases = new Map((Memory as any).bases);
       } catch (e) {
         trace.error('failed to load bases', {e});
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         delete (Memory as any).bases
       }
     } else {
@@ -82,6 +84,7 @@ export class CentralPlanning {
     this.threadBaseProcesses(trace, kernel);
     this.expandBasesThread(trace, kernel);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (Memory as any).bases = Array.from(this.bases.entries());
 
     return sleeping(RUN_TTL);
@@ -247,7 +250,7 @@ export class CentralPlanning {
       const origin = results.origin;
       const parking = new RoomPosition(origin.x + 5, origin.y + 5, origin.roomName);
       trace.notice('selected room, adding base', {roomName, distance, origin, parking});
-      const base = this.addBase(roomName, false, origin, parking, [roomName],
+      this.addBase(roomName, false, origin, parking, [roomName],
         [], [], [], AlertLevel.GREEN, trace);
       return;
     }

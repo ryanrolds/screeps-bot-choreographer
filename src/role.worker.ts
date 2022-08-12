@@ -82,7 +82,7 @@ const selectDropoff = module.exports.selectRoomDropoff = behaviorTree.selectorNo
     ),
     behaviorTree.leafNode(
       'pick_tower',
-      (creep, trace, kernel) => {
+      (creep, _trace, _kernel) => {
         const targets = creep.room.find(FIND_STRUCTURES, {
           filter: (structure) => {
             return structure.structureType == STRUCTURE_TOWER &&
@@ -157,7 +157,7 @@ const behavior = behaviorTree.sequenceNode(
             [
               behaviorTree.leafNode(
                 'fail_when_empty',
-                (creep, trace, kernel) => {
+                (creep, _trace, _kernel) => {
                   if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
                     return SUCCESS;
                   }
@@ -173,7 +173,7 @@ const behavior = behaviorTree.sequenceNode(
         ),
         behaviorTree.leafNode(
           'succeed_when_empty',
-          (creep, trace, kernel) => {
+          (creep, _trace, _kernel) => {
             if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
               return SUCCESS;
             }
@@ -191,7 +191,7 @@ const behavior = behaviorTree.sequenceNode(
         ),
         behaviorTree.leafNode(
           'succeed_when_empty',
-          (creep, trace, kernel) => {
+          (creep, _trace, _kernel) => {
             if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
               return SUCCESS;
             }
@@ -204,7 +204,7 @@ const behavior = behaviorTree.sequenceNode(
           [
             behaviorTree.leafNode(
               'pick_room_controller',
-              (creep, trace, kernel) => {
+              (creep, _trace, kernel) => {
                 const base = getCreepBase(kernel, creep);
                 if (!base) {
                   return FAILURE;
@@ -229,7 +229,7 @@ const behavior = behaviorTree.sequenceNode(
               'upgrade_until_empty',
               behaviorTree.leafNode(
                 'upgrade_controller',
-                (creep, trace, kernel) => {
+                (creep, trace, _kernel) => {
                   const result = creep.upgradeController(creep.room.controller);
                   trace.info('upgrade result', {result});
 

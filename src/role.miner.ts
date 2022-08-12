@@ -5,30 +5,11 @@ import * as MEMORY from './constants.memory';
 import {commonPolicy} from './constants.pathing_policies';
 import * as behaviorTree from './lib.behaviortree';
 import {FAILURE, RUNNING, SUCCESS} from './lib.behaviortree';
-
-const selectSource = behaviorTree.leafNode(
-  'selectSource',
-  (creep, trace, kingdom) => {
-    const source = Game.getObjectById<Id<Source>>(creep.memory[MEMORY.MEMORY_SOURCE]);
-    const container = Game.getObjectById<Id<StructureContainer>>(creep.memory[MEMORY.MEMORY_SOURCE_CONTAINER]);
-
-    if (source && container) {
-      behaviorMovement.setSource(creep, source.id);
-      behaviorMovement.setDestination(creep, container.id);
-      return SUCCESS;
-    } else if (source) {
-      behaviorMovement.setSource(creep, source.id);
-      behaviorMovement.setDestination(creep, source.id);
-      return SUCCESS;
-    }
-
-    return FAILURE;
-  },
-);
+import {Tracer} from './lib.tracing';
 
 const harvest = behaviorTree.leafNode(
-  'fill_creep',
-  (creep, trace, kingdom) => {
+  'harvest',
+  (creep, trace, _kingdom) => {
     // If miner is full, then dump
     if (!creep.store.getFreeCapacity(RESOURCE_ENERGY)) {
       const link = creep.pos.findInRange<StructureLink>(FIND_MY_STRUCTURES, 1, {
@@ -95,10 +76,10 @@ const harvest = behaviorTree.leafNode(
 
 const buildNearbySites = behaviorTree.leafNode(
   'build_nearby_sites',
-  (creep, trace, kingdom) => {
+  (creep, trace, _kingdom) => {
+    // if creep out of energy, refill if some available
     if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
-      trace.info('no energy to build container', {});
-      return FAILURE;
+      return refillMiner(creep, trace);
     }
 
     const sites = creep.pos.findInRange(FIND_CONSTRUCTION_SITES, 1);
@@ -116,23 +97,22 @@ const buildNearbySites = behaviorTree.leafNode(
 
 const repairContainer = behaviorTree.leafNode(
   'repair_container',
-  (creep, trace, kingdom) => {
+  (creep, trace, _kingdom) => {
+    // if creep out of energy, refill if some available
     if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
-      trace.info('no energy to repair container', {});
-      return FAILURE;
+      return refillMiner(creep, trace);
     }
 
     const container = creep.pos.lookFor(LOOK_STRUCTURES).find((site) => {
       return site.structureType === STRUCTURE_CONTAINER;
-    });
-
+    }) as StructureContainer;
     if (!container) {
-      trace.info('no construction site', {});
+      trace.info('no container', {pos: creep.pos});
       return FAILURE;
     }
 
     if (container.hits === container.hitsMax) {
-      trace.info('container full health');
+      trace.info('container full health', {hits: container.hits});
       return FAILURE;
     }
 
@@ -145,7 +125,7 @@ const repairContainer = behaviorTree.leafNode(
 
 const moveEnergyToLink = behaviorTree.leafNode(
   'move_energy_to_link',
-  (creep, trace, kingdom) => {
+  (creep, trace, _kingdom) => {
     const source = Game.getObjectById<Id<Source>>(creep.memory[MEMORY.MEMORY_SOURCE]);
     if (!source) {
       trace.info('source not found');
@@ -228,6 +208,49 @@ const waitUntilSourceReady = behaviorTree.leafNode(
     return SUCCESS;
   },
 );
+
+// Refill creep with nearby dropped resources or container
+function refillMiner(creep: Creep, trace: Tracer) {
+  const dropped = creep.pos.findInRange(FIND_DROPPED_RESOURCES, 1, {
+    filter: (resource) => {
+      return resource.resourceType === RESOURCE_ENERGY;
+    }
+  })[0];
+  if (dropped) {
+    const result = creep.pickup(dropped);
+    if (result !== OK) {
+      trace.info('pickup not ok', {result});
+      return FAILURE;
+    }
+
+    trace.info('pickup ok', {result});
+    return RUNNING;
+  }
+
+  const container = creep.pos.findInRange<StructureContainer>(FIND_STRUCTURES, 1, {
+    filter: (structure) => {
+      return structure.structureType === STRUCTURE_CONTAINER;
+    },
+  })[0];
+  if (container) {
+    if (container.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
+      trace.info('no energy in container', {store: container.store});
+      return FAILURE;
+    }
+
+    const result = creep.withdraw(container, RESOURCE_ENERGY);
+    if (result !== OK) {
+      trace.info('withdraw not ok', {result});
+      return FAILURE;
+    }
+
+    trace.info('withdraw ok', {result});
+    return RUNNING;
+  }
+
+  trace.info('no energy to pick up', {pos: creep.pos});
+  return FAILURE;
+}
 
 const behavior = behaviorTree.sequenceNode(
   'mine_energy',

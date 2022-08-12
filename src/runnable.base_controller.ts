@@ -160,10 +160,8 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
     }
 
     const [pathResult, details] = getPath(kernel, base.origin, controller.pos, controllerRoadPolicy, trace);
-    trace.info('path result', {origin: base.origin, dest: controller.pos, pathResult});
-
     if (!pathResult || !pathResult.path.length) {
-      trace.error('no path found', {origin: base.origin, dest: controller.pos, pathResult});
+      trace.error('no path found', {origin: base.origin, dest: controller.pos, pathResult, details});
       return;
     }
 

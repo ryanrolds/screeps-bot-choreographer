@@ -49,7 +49,7 @@ export class RoomMatrix {
 
   // create a 50x50 matrix, fill with unwalkable, set as normal if not at edge of room or walls
   private createRoomMatrix(roomName: string, protect: Rectangle[], bounds: Rectangle): number[][] {
-    const matrix = Array(50).fill(0).map((x) => Array(50).fill(UNWALKABLE));
+    const matrix = Array(50).fill(0).map((_x) => Array(50).fill(UNWALKABLE));
     const terrain = Game.map.getRoomTerrain(roomName);
 
     for (let i = bounds.x1; i <= bounds.x2; i++) {
@@ -171,7 +171,7 @@ export class Graph {
 
     this.level = Array(menge_v);
     // Array: for every vertex an edge Array mit {v,r,c,f} vertex_to,res_edge,capacity,flow
-    this.edges = Array(menge_v).fill(0).map((x) => []);
+    this.edges = Array(menge_v).fill(0).map((_x) => []);
   }
 
   getTopEdges(x: number, y: number): Edge[] {
@@ -279,9 +279,9 @@ export class Graph {
     const imax = e_in_cut.length;
     for (; i < imax; i++) {
       if (this.level[e_in_cut[i].v] === -1) // Only edges which are blocking and lead to from s unreachable vertices are in the min cut
-        {
-min_cut.push(e_in_cut[i].u);
-}
+      {
+        min_cut.push(e_in_cut[i].u);
+      }
     }
     return min_cut;
   }
@@ -302,8 +302,8 @@ min_cut.push(e_in_cut[i].u);
       do {
         flow = this.dfsFlow(s, Number.MAX_VALUE, t, count);
         if (flow > 0) {
-returnvalue += flow;
-}
+          returnvalue += flow;
+        }
       } while (flow);
     }
 

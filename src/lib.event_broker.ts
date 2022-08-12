@@ -6,8 +6,10 @@ export class Event {
   key: string;
   time: number;
   type: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   constructor(key: string, time: number, type: string, data: any) {
     this.key = key;
     this.time = time;

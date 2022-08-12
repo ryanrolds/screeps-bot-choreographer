@@ -16,10 +16,8 @@ import {createSpawnRequest, getBaseSpawnTopic, getShardSpawnTopic} from './runna
 const MIN_RESERVATION_TICKS = 4000;
 const NO_VISION_TTL = 20;
 const MIN_TTL = 10;
-
 const REQUEST_RESERVER_TTL = 25;
 const UPDATE_PROCESSES_TTL = 50;
-const PRODUCE_STATUS_TTL = 25;
 
 export default class RoomRunnable implements Runnable {
   id: string;

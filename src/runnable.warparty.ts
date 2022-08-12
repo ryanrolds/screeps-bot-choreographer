@@ -88,6 +88,16 @@ export const warPartySingleFilePolicy: FindPathPolicy = {
   },
 };
 
+export type WarParty = {
+  id: string;
+  target: string;
+  flagId: string;
+  position: RoomPosition;
+  baseId: string;
+  phase: Phase;
+  role: string;
+}
+
 export default class WarPartyRunnable {
   private id: string;
   private baseId: string;
@@ -111,7 +121,6 @@ export default class WarPartyRunnable {
   private pathComplete: boolean;
   private pathTime: number;
 
-  private kernel: Kernel;
   private threadUpdateParts: BaseRoomThreadFunc;
 
   constructor(id: string, baseId: string, flagId: string, position: RoomPosition, targetRoom: string,
@@ -309,12 +318,16 @@ export default class WarPartyRunnable {
     return running();
   }
 
-  getId(): string {
-    return this.id;
-  }
-
-  getBaseId(): string {
-    return this.baseId;
+  toWarParty(): WarParty {
+    return {
+      id: this.id,
+      baseId: this.baseId,
+      flagId: this.flagId,
+      target: this.targetRoom,
+      phase: this.phase,
+      position: this.position,
+      role: this.role,
+    }
   }
 
   updateParts(trace: Tracer, kernel: Kernel, base: Base, baseRoom: Room, targetRoomEntry: RoomEntry): void {
@@ -337,7 +350,7 @@ export default class WarPartyRunnable {
 
     trace.info('updating parts', {parts});
     this.setParts(parts);
-    this.roomDamage = roomDamage;
+    this.roomDamage = roomDamage; 6
   }
 
   marshal(position: RoomPosition, creeps: Creep[], trace: Tracer) {

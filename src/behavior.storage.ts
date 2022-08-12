@@ -9,7 +9,7 @@ const spawnContainerCache: Map<string, (StructureContainer | StructureStorage)[]
 
 export const selectEnergyForWithdraw = behaviorTree.leafNode(
   'selectEnergyForWithdraw',
-  (creep, trace, kernel) => {
+  (creep, _trace, _kernel) => {
     const spawnContainers = spawnContainerCache.get(creep.room.name);
     if (!spawnContainers?.length || Game.time % 20 === 0) {
       const spawns = creep.room.find<StructureContainer>(FIND_STRUCTURES, {
@@ -60,7 +60,7 @@ export const selectRoomDropoff = behaviorTree.selectorNode(
     ),
     behaviorTree.leafNode(
       'pick_adjacent_container',
-      (creep, trace, kernel) => {
+      (creep, _trace, _kernel) => {
         const role = creep.memory[MEMORY_ROLE];
         // haulers should pick containers near the spawner
         // TODO this is hacky and feels bad
@@ -86,7 +86,7 @@ export const selectRoomDropoff = behaviorTree.selectorNode(
     ),
     behaviorTree.leafNode(
       'pick_adjacent_link',
-      (creep, trace, kernel) => {
+      (creep, _trace, _kernel) => {
         const role = creep.memory[MEMORY_ROLE];
         if (role && role === WORKER_DISTRIBUTOR) {
           return FAILURE;
@@ -148,7 +148,7 @@ export const selectRoomDropoff = behaviorTree.selectorNode(
     ),
     behaviorTree.leafNode(
       'pick_tower',
-      (creep, trace, kernel) => {
+      (creep, _trace, _kernel) => {
         const role = creep.memory[MEMORY_ROLE];
         if (role && role === WORKER_DISTRIBUTOR) {
           return FAILURE;
@@ -279,7 +279,7 @@ export const fillCreepFrom = (from) => {
 
 export const emptyCreep = behaviorTree.repeatUntilConditionMet(
   'transfer_until_empty',
-  (creep, trace, kernel) => {
+  (creep, _trace, _kernel) => {
     if (creep.store.getUsedCapacity() === 0) {
       return true;
     }
@@ -294,7 +294,7 @@ export const emptyCreep = behaviorTree.repeatUntilConditionMet(
       behaviorMovement.moveToCreepMemory(MEMORY_DESTINATION, 1, false, 100, 2000),
       behaviorTree.leafNode(
         'empty_creep',
-        (creep, trace, kernel) => {
+        (creep, trace, _kernel) => {
           if (creep.store.getUsedCapacity() === 0) {
             return SUCCESS;
           }

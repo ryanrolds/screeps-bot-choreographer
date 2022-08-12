@@ -109,14 +109,14 @@ export class AI implements Kernel {
     // Invader manager
     if (Game.shard?.name !== 'shard3') {
       const invaderManagerId = 'invader_manager';
-      const invaderManager = new InvaderManager(invaderManagerId, scheduler, trace);
+      const invaderManager = new InvaderManager(invaderManagerId, scheduler);
       scheduler.registerProcess(new Process(invaderManagerId, 'invader_manager',
         Priorities.ATTACK, invaderManager));
     }
 
     // War manager
     const warManagerId = 'war_manager';
-    const warManager = new WarManager(this, warManagerId, scheduler, trace);
+    const warManager = new WarManager(warManagerId, scheduler);
     scheduler.registerProcess(new Process(warManagerId, 'war_manager',
       Priorities.ATTACK, warManager));
 
@@ -148,7 +148,7 @@ export class AI implements Kernel {
 
     // Min cut debugger
     const minCutDebuggerId = 'mincut_debugger';
-    const minCutDebugger = new MinCutDebugger(minCutDebuggerId, this);
+    const minCutDebugger = new MinCutDebugger(minCutDebuggerId);
     scheduler.registerProcess(new Process(minCutDebuggerId, 'mincut_debugger',
       Priorities.DEBUG, minCutDebugger));
 
@@ -168,6 +168,7 @@ export class AI implements Kernel {
 
     if (Game.time % 5 === 0) {
       const end = trace.startTimer('update_stats');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (Memory as any).stats = {};
       end();
     }
@@ -240,11 +241,11 @@ export class AI implements Kernel {
   }
 
   getNewTracer(): Tracer {
-    return new Tracer('tracer', new Map(), Game.time);
+    return new Tracer('tracer', new Map());
   }
 
   debugRemotes(baseId: string) {
-    const trace = new Tracer('remote_debugger', new Map([['pid', 'remote_debugger']]), 0);
+    const trace = new Tracer('remote_debugger', new Map([['pid', 'remote_debugger']]));
     const base = this.planning.getBase(baseId);
     const [rooms, debug] = findRemotes(this, base, trace);
     trace.notice('remote rooms', {rooms, debug});

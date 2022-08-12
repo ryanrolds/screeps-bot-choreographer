@@ -44,6 +44,7 @@ export type ReactionMap = Map<ResourceConstant, Reaction>;
 
 export class Compound {
   name: ResourceConstant;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   effect: any;
   bonus: number;
 
@@ -350,6 +351,7 @@ export default class BoosterRunnable {
     const allEffects = this.getCompoundByEffects();
 
     let request = null;
+    // eslint-disable-next-line no-cond-assign
     while (request = kernel.getTopics().getNextRequest(TOPICS.BOOST_PREP)) {
       const requestedEffects = request.details[MEMORY.PREPARE_BOOSTS];
       if (!requestedEffects) {

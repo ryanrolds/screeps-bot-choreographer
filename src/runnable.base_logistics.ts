@@ -88,6 +88,7 @@ export default class LogisticsRunnable extends PersistentMemory {
   private threadRequestHaulTombstonesAndRuins: BaseThreadFunc;
 
   // threadBuildRoads: ThreadFunc;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private calculateLegIterator: Generator<any, void, {kernel: Kernel, trace: Tracer}>;
   private threadCalculateLeg: BaseThreadFunc;
   private threadBuildShortestLeg: BaseThreadFunc;
@@ -110,7 +111,7 @@ export default class LogisticsRunnable extends PersistentMemory {
 
     // Iterate through all destinations and calculate the remaining roads to build
     this.calculateLegIterator = this.calculateLegGenerator();
-    this.threadCalculateLeg = threadBase('calculate_leg', CALCULATE_LEG_TTL)((trace: Tracer, kernel: Kernel, base: Base) => {
+    this.threadCalculateLeg = threadBase('calculate_leg', CALCULATE_LEG_TTL)((trace: Tracer, kernel: Kernel, _base: Base) => {
       this.calculateLegIterator.next({trace, kernel});
     });
 
@@ -214,7 +215,7 @@ export default class LogisticsRunnable extends PersistentMemory {
     return sleeping(RUN_TTL);
   }
 
-  private consumeEvents(trace: Tracer, kernel: Kernel, base: Base) {
+  private consumeEvents(trace: Tracer, kernel: Kernel, _base: Base) {
     this.logisticsStreamConsumer.getEvents().forEach((event) => {
       switch (event.type) {
         case LogisticsEventType.RequestRoad:
@@ -230,8 +231,7 @@ export default class LogisticsRunnable extends PersistentMemory {
     this.setMemory(memory);
   }
 
-  private filterOldLegs(trace: Tracer, kernel: Kernel, base: Base) {
-    const now = Game.time;
+  private filterOldLegs(trace: Tracer, _kernel: Kernel, base: Base) {
     for (const [id, leg] of this.legs) {
       if (base.rooms.indexOf(leg.destination.roomName) === -1) {
         trace.info('removing leg', {id});
@@ -240,7 +240,7 @@ export default class LogisticsRunnable extends PersistentMemory {
     }
   }
 
-  private updateHaulers(trace: Tracer, kernel: Kernel, base: Base) {
+  private updateHaulers(_trace: Tracer, kernel: Kernel, _base: Base) {
     // Get list of haulers and workers
     const haulers = kernel.getCreepsManager().getCreepsByBaseAndRole(this.baseId, WORKER_HAULER);
     const workers = kernel.getCreepsManager().getCreepsByBaseAndRole(this.baseId, ROLE_WORKER);
@@ -552,6 +552,7 @@ export default class LogisticsRunnable extends PersistentMemory {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private * calculateLegGenerator(): Generator<any, void, {kernel: Kernel, trace: Tracer}> {
     let legs: Leg[] = [];
     while (true) {
@@ -596,7 +597,7 @@ export default class LogisticsRunnable extends PersistentMemory {
     }
   }
 
-  private getLegsToCalculate(trace: Tracer): Leg[] {
+  private getLegsToCalculate(_trace: Tracer): Leg[] {
     // Filter out legs that need to be updated
     return Array.from(this.legs.values()).filter((leg) => {
       return leg.updatedAt < Game.time - LEG_CALCULATE_INTERVAL;
@@ -613,10 +614,8 @@ export default class LogisticsRunnable extends PersistentMemory {
     }
 
     const [pathResult, details] = getPath(kernel, base.origin, leg.destination, roadPolicy, trace);
-    trace.info('path result', {origin: base.origin, dest: leg.destination, pathResult});
-
     if (!pathResult) {
-      trace.error('path not found', {origin: base.origin, dest: leg.destination});
+      trace.error('path not found', {origin: base.origin, dest: leg.destination, details});
       return [null, null];
     }
 

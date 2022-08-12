@@ -13,11 +13,6 @@ const REQUEST_ENERGY_TTL = 10;
 const REQUEST_ENERGY_THRESHOLD = 500;
 const EMERGENCY_RESERVE = 250;
 
-interface Point {
-  x: number;
-  y: number;
-}
-
 export default class TowerRunnable {
   baseId: string;
   towerId: Id<StructureTower>;

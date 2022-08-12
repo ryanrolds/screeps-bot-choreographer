@@ -18,7 +18,7 @@ import {baseLayouts} from './runnable.base_construction';
 
 let costMatrix255 = null;
 
-export const createDefenderCostMatrix = (roomId: string, trace: Tracer): CostMatrix => {
+export const createDefenderCostMatrix = (roomId: string, _trace: Tracer): CostMatrix => {
   const costMatrix = new PathFinder.CostMatrix();
 
   const room = Game.rooms[roomId];
@@ -115,10 +115,10 @@ export const createDefenderCostMatrix = (roomId: string, trace: Tracer): CostMat
 //   return costMatrix;
 // }
 
-export const createHealingMatrix = (roomName: string, trace: Tracer): CostMatrix => {
+export const createHealingMatrix = (roomName: string, _trace: Tracer): CostMatrix => {
   const costMatrix = new PathFinder.CostMatrix();
 
-  const terrain = Game.map.getRoomTerrain(roomName);
+  const _terrain = Game.map.getRoomTerrain(roomName);
 
   // Add towers
   // Add creeps
@@ -162,7 +162,7 @@ export const createCommonCostMatrix = (kernel: Kernel, roomName: string, trace: 
     }
 
     // TODO figure out how to not use "any"
-    const isObstacle = OBSTACLE_OBJECT_TYPES.indexOf(struct.structureType as any) > -1;
+    const isObstacle = (OBSTACLE_OBJECT_TYPES as string[]).indexOf(struct.structureType) > -1;
     if (isObstacle) {
       // Can't walk through non-walkable buildings
       costMatrix.set(struct.pos.x, struct.pos.y, 255);
@@ -173,7 +173,7 @@ export const createCommonCostMatrix = (kernel: Kernel, roomName: string, trace: 
   const sites = room.find(FIND_CONSTRUCTION_SITES);
   trace.info('found construction sites', {numSites: sites.length});
   sites.forEach((site) => {
-    if (OBSTACLE_OBJECT_TYPES.indexOf(site.structureType as any) !== -1) {
+    if ((OBSTACLE_OBJECT_TYPES as string[]).indexOf(site.structureType) !== -1) {
       costMatrix.set(site.pos.x, site.pos.y, 255);
     }
   });
@@ -282,7 +282,7 @@ export const createSourceRoadMatrix = (kernel: Kernel, roomName: string, trace: 
   return costMatrix;
 };
 
-export const createPartyCostMatrix = (roomName: string, trace: Tracer): CostMatrix => {
+export const createPartyCostMatrix = (roomName: string, _trace: Tracer): CostMatrix => {
   const costMatrix = new PathFinder.CostMatrix();
 
   const terrain = Game.map.getRoomTerrain(roomName);
@@ -328,9 +328,9 @@ export const createPartyCostMatrix = (roomName: string, trace: Tracer): CostMatr
 
   const room = Game.rooms[roomName];
   if (room && room.controller?.my) {
-    room.find(FIND_STRUCTURES).forEach((struct) => {
-      if (OBSTACLE_OBJECT_TYPES.indexOf(struct.structureType as any) !== -1) {
-        costMatrix.set(struct.pos.x, struct.pos.y, 255);
+    room.find(FIND_STRUCTURES).forEach((s) => {
+      if ((OBSTACLE_OBJECT_TYPES as string[]).indexOf(s.structureType) !== -1) {
+        costMatrix.set(s.pos.x, s.pos.y, 255);
       }
     });
   }
@@ -421,28 +421,8 @@ export const visualizeCostMatrix = (roomName: string, costMatrix: CostMatrix, tr
   }
 };
 
-const applyTerrain = (costMatrix: CostMatrix, terrain: RoomTerrain, trace: Tracer) => {
-  for (let x = 0; x < 50; x++) {
-    for (let y = 0; y < 50; y++) {
-      const mask = terrain.get(x, y);
-
-      if (mask === TERRAIN_MASK_WALL) {
-        costMatrix.set(x, y, 255);
-        continue;
-      }
-
-      if (mask === TERRAIN_MASK_SWAMP) {
-        costMatrix.set(x, y, 5);
-        continue;
-      }
-
-      costMatrix.set(x, y, 2);
-    }
-  }
-};
-
 const applyControllerBuffer = (costMatrix: CostMatrix, terrain: RoomTerrain,
-  controller: StructureController, cost: number, trace: Tracer) => {
+  controller: StructureController, cost: number, _trace: Tracer) => {
   const controllerPos = controller.pos;
   for (let x = controllerPos.x - 3; x <= controllerPos.x + 3; x++) {
     for (let y = controllerPos.y - 3; y <= controllerPos.y + 3; y++) {
@@ -487,7 +467,7 @@ const applySourceMineralBuffer = (room: Room, costMatrix: CostMatrix, terrain: R
   });
 };
 
-const applyRoads = (room: Room, costMatrix: CostMatrix, cost: number, trace: Tracer) => {
+const applyRoads = (room: Room, costMatrix: CostMatrix, cost: number, _trace: Tracer) => {
   const structures = room.find(FIND_STRUCTURES);
   const roads = structures.filter((s) => s.structureType === STRUCTURE_ROAD);
 
@@ -503,7 +483,7 @@ const applyRoads = (room: Room, costMatrix: CostMatrix, cost: number, trace: Tra
   });
 };
 
-const applyRoadSites = (room: Room, costMatrix: CostMatrix, cost: number, trace: Tracer) => {
+const applyRoadSites = (room: Room, costMatrix: CostMatrix, cost: number, _trace: Tracer) => {
   // add road construction sites
   room.find(FIND_MY_CONSTRUCTION_SITES).forEach((site) => {
     if (site.structureType === STRUCTURE_ROAD) {
@@ -519,7 +499,7 @@ const applyRoadSites = (room: Room, costMatrix: CostMatrix, cost: number, trace:
 };
 
 const applyBaseRoads = (base: Base, costMatrix: CostMatrix, terrain: RoomTerrain,
-  cost: number, trace: Tracer) => {
+  cost: number, _trace: Tracer) => {
   const layout: Layout = baseLayouts[getBaseLevel(base)];
   const buildings = layout.buildings;
 
@@ -536,7 +516,7 @@ const applyBaseRoads = (base: Base, costMatrix: CostMatrix, terrain: RoomTerrain
 };
 
 const applyParkingLotBuffer = (base: Base, costMatrix: CostMatrix, terrain: RoomTerrain,
-  cost: number, trace: Tracer) => {
+  cost: number, _trace: Tracer) => {
   for (let x = base.parking.x - 1; x <= base.parking.x + 1; x++) {
     for (let y = base.parking.y - 1; y <= base.parking.y + 1; y++) {
       if (x < 0 || y < 0 || x > 49 || y > 49 || terrain.get(x, y) === TERRAIN_MASK_WALL) {

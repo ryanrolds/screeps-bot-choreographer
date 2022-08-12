@@ -37,7 +37,7 @@ const selectStructureToRepair = behaviorTree.leafNode(
 
 const repair = behaviorTree.leafNode(
   'repair_structure',
-  (creep, trace, kingdom) => {
+  (creep, trace, _kingdom) => {
     const destination = Game.getObjectById<Structure>(creep.memory[MEMORY_DESTINATION]);
     if (!destination) {
       return FAILURE;
@@ -66,7 +66,7 @@ const behavior = behaviorTree.sequenceNode(
     getEnergy,
     behaviorTree.repeatUntilConditionMet(
       'repair_until_empty',
-      (creep, trace, kingdom) => {
+      (creep, _trace, _kingdom) => {
         if (creep.store.getUsedCapacity() === 0) {
           return true;
         }

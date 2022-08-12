@@ -202,11 +202,11 @@ export function getStructuresForResource(base: Base, resource: ResourceConstant)
     return null;
   }
 
-  if (room.storage?.store.getFreeCapacity() > 0) {
+  if (room.storage?.store.getFreeCapacity(resource) > 0) {
     structures.push(room.storage);
   }
 
-  if (room.terminal?.store.getFreeCapacity() > 0) {
+  if (room.terminal?.store.getFreeCapacity(resource) > 0) {
     structures.push(room.terminal);
   }
 
@@ -292,10 +292,12 @@ export function getLoadedEffects(base: Base): LabsByAction {
 
 // Base thread
 export interface BaseTheadActionFunc {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (trace: Tracer, kernel: Kernel, base: Base, ...args: any[]): void;
 }
 
 export interface BaseThreadFunc {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (trace: Tracer, kernel: Kernel, base: Base, ...args: any[]): void;
   reset(): void;
 }
@@ -303,6 +305,7 @@ export interface BaseThreadFunc {
 export const threadBase = (name: string, ttl: number) => (action: BaseTheadActionFunc): BaseThreadFunc => {
   let lastCall = 0;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tick = function (trace: Tracer, kernel: Kernel, base: Base, ...args: any[]): void {
     if (lastCall + ttl <= Game.time) {
       lastCall = Game.time;

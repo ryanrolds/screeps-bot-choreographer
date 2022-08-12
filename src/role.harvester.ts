@@ -28,7 +28,7 @@ const behavior = behaviorTree.sequenceNode(
         behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_DESTINATION, 1, commonPolicy),
         behaviorTree.leafNode(
           'empty_creep',
-          (creep, trace, kingdom) => {
+          (creep, trace, _kingdom) => {
             if (creep.store.getUsedCapacity() === 0) {
               return SUCCESS;
             }

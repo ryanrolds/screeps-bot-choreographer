@@ -57,7 +57,7 @@ const behavior = behaviorTree.sequenceNode(
       'upgrade_until_empty',
       behaviorTree.leafNode(
         'upgrade_controller',
-        (creep, trace, kingdom) => {
+        (creep, trace, _kingdom) => {
           const result = creep.upgradeController(creep.room.controller);
           trace.info('upgrade result', {result});
           if (result == ERR_NOT_ENOUGH_RESOURCES) {

@@ -30,10 +30,12 @@ export interface Kernel {
 
 // Kernel thread
 export interface KernelTheadActionFunc {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (trace: Tracer, kernel: Kernel, ...args: any[]): void;
 }
 
 export interface KernelThreadFunc {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (trace: Tracer, kernel: Kernel, ...args: any[]): void;
   reset(): void;
 }
@@ -41,6 +43,7 @@ export interface KernelThreadFunc {
 export const threadKernel = (name: string, ttl: number) => (action: KernelTheadActionFunc): KernelThreadFunc => {
   let lastCall = 0;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tick = function (trace: Tracer, kernel: Kernel, ...args: any[]): void {
     if (lastCall + ttl <= Game.time) {
       lastCall = Game.time;

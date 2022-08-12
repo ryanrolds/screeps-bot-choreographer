@@ -31,6 +31,7 @@ const selectNextTaskOrPark = behaviorTree.selectorNode(
         const task = kernel.getTopics().getMessageOfMyChoice(getBaseDistributorTopic(base.id), (messages) => {
           const sorted = _.sortByOrder(messages, [
             'priority',
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (message: any) => {
               const dropoff = Game.getObjectById<Id<Structure<StructureConstant>>>(message.details[MEMORY.MEMORY_HAUL_DROPOFF]);
               if (!dropoff) {
@@ -66,7 +67,7 @@ const selectNextTaskOrPark = behaviorTree.selectorNode(
 
 const emptyCreep = behaviorTree.leafNode(
   'empty_creep',
-  (creep, trace, kernel) => {
+  (creep, trace, _kernel) => {
     if (creep.store.getUsedCapacity() === 0) {
       return SUCCESS;
     }
@@ -174,7 +175,7 @@ const loadIfNeeded = behaviorTree.selectorNode(
   [
     behaviorTree.leafNode(
       'has_resource',
-      (creep, trace, kernel) => {
+      (creep, trace, _kernel) => {
         const dropoffId = creep.memory[MEMORY.MEMORY_HAUL_DROPOFF];
         if (!dropoffId) {
           throw new Error('Hauler task missing dropoff');
@@ -244,7 +245,7 @@ const deliver = behaviorTree.sequenceNode(
   [
     behaviorTree.leafNode(
       'use_memory_dropoff',
-      (creep, trace, kernel) => {
+      (creep, _trace, _kernel) => {
         const dropoff = creep.memory[MEMORY.MEMORY_HAUL_DROPOFF];
         if (dropoff) {
           behaviorMovement.setDestination(creep, dropoff);
@@ -257,7 +258,7 @@ const deliver = behaviorTree.sequenceNode(
     behaviorMovement.moveToCreepMemory(MEMORY.MEMORY_DESTINATION, 1, false, 25, 250),
     behaviorTree.leafNode(
       'empty_creep',
-      (creep, trace, kernel) => {
+      (creep, trace, _kernel) => {
         if (creep.store.getUsedCapacity() === 0) {
           return SUCCESS;
         }

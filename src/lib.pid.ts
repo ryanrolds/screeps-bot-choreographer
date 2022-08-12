@@ -2,6 +2,7 @@ import * as MEMORY from './constants.memory';
 import {Tracer} from './lib.tracing';
 
 // TODO replace with PDI class and method to reset
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const globalAny: any = global;
 globalAny.RESET_PIDS = false;
 
@@ -18,7 +19,7 @@ export const setup = (memory: Map<string, number>, setPoint: number, p: number,
 };
 
 export const update = (memory: Map<string, number>, value: number,
-  time: number, trace: Tracer) => {
+  time: number, _trace: Tracer) => {
   if (globalAny.RESET_PIDS) {
     memory.set(MEMORY.PID_SUFFIX_ERROR, 0);
     memory.set(MEMORY.PID_SUFFIX_TIME, time);

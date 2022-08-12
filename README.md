@@ -70,6 +70,12 @@ An AI for [Screeps](screeps.com).
 - [ ] Refactor thread API
   - [ ] Strongly typed thread API
   - [ ] Automatically run threads and sleep main process correct amount of time
+- [ ] No explicit Any rule
+  - [ ] Scribe memory
+  - [ ] Global/heap variables
+  - [ ] War Manager memory
+  - [ ] Central Planning memory
+  - [ ] Peristent memory
 - [ ] Double buffer topics when TTLing messages
 - [x] All of project on TypeScript
 - [ ] Fix restoring of Room Entries and War Manager targets on restart with Persistent Memory

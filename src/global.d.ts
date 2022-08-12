@@ -1,3 +1,5 @@
+import {AI} from "./ai";
+
 export { };
 
 declare global {
@@ -12,7 +14,7 @@ declare global {
       CPU_THROTTLE: number;
       SLOW_PROCESS: number;
       RESET_PIDS: boolean;
-      AI: any;
+      AI: AI;
     }
   }
 }

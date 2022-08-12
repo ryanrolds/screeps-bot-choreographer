@@ -19,7 +19,6 @@ const RUN_INTERVAL = 5;
 const TARGET_REQUEST_TTL = RUN_INTERVAL;
 const DEFENSE_STATUS_TTL = RUN_INTERVAL;
 const REQUEST_DEFENDERS_TTL = 25;
-const UPDATE_DEFENSE_STATS_TTL = 5;
 const REQUEST_DEFENDER_TTL = 5;
 
 export function getBasePriorityTargetsTopic(baseId: string): string {
@@ -74,6 +73,7 @@ export default class DefenseManager {
   }
 
   private restoreFromMemory(kernel: Kernel, trace: Tracer) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const memory = (Memory as any);
     if (!memory.defense) {
       memory.defense = {
@@ -113,7 +113,7 @@ export default class DefenseManager {
 
     trace.notice('creating defense party', {id, position, flagId, baseId: base.id});
 
-    const party = new DefensePartyRunnable(id, base, flagId, position, trace);
+    const party = new DefensePartyRunnable(id, base, flagId, position);
     const process = new Process(id, 'defense_party', Priorities.DEFENCE, {
       run(kernel: Kernel, trace: Tracer): RunnableResult {
         return party.run(kernel, trace);
@@ -169,6 +169,7 @@ export default class DefenseManager {
     });
 
     // Update memory
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (Memory as any).defense = {
       parties: this.defenseParties.map((party): StoredDefenseParty => {
         if (!Game.flags[party.flagId]) {
@@ -184,6 +185,7 @@ export default class DefenseManager {
       }).filter((party) => !!party),
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     trace.info('defense memory', {memory: (Memory as any).defense});
   }
 

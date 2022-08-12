@@ -10,10 +10,11 @@ export class ObserverRunnable implements Runnable {
   inRangeRooms: Id<Room>[];
   justObserved: Id<Room>;
 
-
   constructor(baseId: string, observer: StructureObserver) {
     this.id = observer.id;
     this.baseId = baseId;
+
+    this.inRangeRooms = inRangeRoomNames(observer.pos.roomName);
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {

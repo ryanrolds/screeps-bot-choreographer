@@ -1,3 +1,9 @@
+/**
+ * Managers War Parties, including the creation and recreation on startup.
+ *
+ *
+ */
+
 import {Base} from './base';
 import {creepIsFresh} from './behavior.commute';
 import {AttackStatus, Phase} from './constants.attack';
@@ -15,14 +21,13 @@ import {Priorities, Scheduler} from './os.scheduler';
 import {MEMORY_HARASS_BASE, ROLE_HARASSER} from './role.harasser';
 import {createSpawnRequest, getBaseSpawnTopic, getShardSpawnTopic} from './runnable.base_spawning';
 import {RoomEntry} from './runnable.scribe';
-import WarPartyRunnable from './runnable.warparty';
+import WarPartyRunnable, {WarParty} from './runnable.warparty';
 
 const WAR_PARTY_RUN_TTL = 100;
 const BASE_ATTACK_RANGE = 3;
 const MAX_BASES_PER_TARGET = 3;
 const MAX_WAR_PARTIES_PER_BASE = 1;
 const MAX_HARASSERS_PER_BASE = 1;
-const HARASS_COOLDOWN = 700;
 const CONSUME_EVENTS_TTL = 20;
 const RUN_TTL = 10;
 
@@ -31,28 +36,18 @@ type AttackRequest = {
   roomId: string,
 }
 
-interface StoredWarParty {
-  id: string;
-  target: string;
-  flagId: string;
-  position: RoomPosition;
-  baseId: string;
-  phase: Phase;
-  role: string;
-}
+// interface WarMemory {
+//   targetRoom: string;
+//   hostileStrength: HostileStrength;
+//   parties: WarParty[];
+// }
 
-interface WarMemory {
-  targetRoom: string;
-  hostileStrength: HostileStrength;
-  parties: StoredWarParty[];
-}
-
-enum HostileStrength {
-  None = 'none',
-  Weak = 'weak',
-  Medium = 'medium',
-  Strong = 'strong',
-}
+// enum HostileStrength {
+//   None = 'none',
+//   Weak = 'weak',
+//   Medium = 'medium',
+//   Strong = 'strong',
+// }
 
 export function createAttackRequest(status: AttackStatus, roomId: string): AttackRequest {
   return {status, roomId};
@@ -61,8 +56,7 @@ export function createAttackRequest(status: AttackStatus, roomId: string): Attac
 export default class WarManager {
   id: string;
   scheduler: Scheduler;
-  memory: WarMemory;
-  warParties: WarPartyRunnable[];
+  warParties: WarParty[];
 
   // TODO make a target struct
   targets: string[] = [];
@@ -71,7 +65,7 @@ export default class WarManager {
   consumeEventsThread: KernelThreadFunc;
   mapUpdateThread: KernelThreadFunc;
 
-  constructor(kernel: Kernel, id: string, scheduler: Scheduler, trace: Tracer) {
+  constructor(id: string, scheduler: Scheduler) {
     this.id = id;
     this.scheduler = scheduler;
     this.warParties = null;
@@ -97,7 +91,7 @@ export default class WarManager {
     // Write post event status
     trace.info('war manager state', {
       targets: this.targets,
-      warPartyIds: this.warParties.map((warParty) => warParty.getId()),
+      warPartyIds: this.warParties.map((warParty) => warParty.id),
       autoAttack: kernel.getConfig().autoAttack,
     });
 
@@ -118,6 +112,7 @@ export default class WarManager {
 
     trace.info('consuming events', {length: topic.length});
     let event = null;
+    // eslint-disable-next-line no-cond-assign
     while (event = topic.shift()) {
       switch (event.details.status) {
         case AttackStatus.REQUESTED:
@@ -171,7 +166,7 @@ export default class WarManager {
   updateWarParties(trace: Tracer, kernel: Kernel) {
     // Update list of war parties
     this.warParties = this.warParties.filter((party) => {
-      return this.scheduler.hasProcess(party.getId());
+      return this.scheduler.hasProcess(party.id);
     });
 
     if (!kernel.getConfig().autoAttack) {
@@ -259,13 +254,13 @@ export default class WarManager {
   mapUpdate(trace: Tracer, kernel: Kernel): void {
     if (this.warParties) {
       this.warParties.forEach((party) => {
-        const base = kernel.getPlanner().getBaseById(party.getBaseId());
+        const base = kernel.getPlanner().getBaseById(party.baseId);
         if (!base) {
-          trace.error('no base', {baseId: party.getBaseId()});
+          trace.error('no base', {baseId: party.baseId});
           return;
         }
 
-        Game.map.visual.line(new RoomPosition(25, 25, base.primary), new RoomPosition(25, 25, party.targetRoom), {});
+        Game.map.visual.line(new RoomPosition(25, 25, base.primary), new RoomPosition(25, 25, party.target), {});
       });
     }
 
@@ -290,14 +285,51 @@ export default class WarManager {
     const roomDamage = scoreRoomDamage(targetRoomEntry) / 3;
     const [parts, ok] = buildAttacker(roomDamage, availableEnergyCapacity, boosts, trace);
     if (ok) {
+      trace.warn('building attacker', {parts});
       this.sendWarParty(kernel, base, targetRoomEntry, parts, trace);
     } else if (targetRoomEntry.invaderCoreLevel < 1) { // don't harass invaders bases
-      trace.warn('could not build attacker, harass', {
-        base: base.primary,
-        targetRoom: targetRoomEntry.id,
-        roomDamage, availableEnergyCapacity, boosts,
+      // check if an adjacent room has units, if not don't send harasser
+      const enemy = targetRoomEntry.controller.owner;
+      const adjacentRooms = Game.map.describeExits(targetRoomEntry.id);
+      const remote = Object.values(adjacentRooms).find((roomName) => {
+        const entry = kernel.getScribe().getRoomById(roomName);
+        if (!entry) {
+          trace.info('no entry', {roomName});
+          return false;
+        }
+
+        // make sure room is owned by the target enemy
+        if (entry.controller?.owner !== enemy) {
+          trace.info('room not owned by enemy', {roomName, enemy, owner: entry.controller?.owner});
+          return false;
+        }
+
+        // make sure room does not have units that can do significant damage
+        if (entry.hostilesDmgByOwner.get(enemy) || 0 > 50) {
+          trace.info('room has hostile damage', {roomName, enemy, dmg: entry.hostilesDmgByOwner.get(enemy)});
+          return false;
+        }
+
+        if (entry.hostilesByOwner.get(enemy) || 0 > 0) {
+          trace.info('room has hostile units', {roomName, enemy, hostiles: entry.hostilesByOwner.get(enemy)});
+          return false;
+        }
+
+        trace.info('room is undefended remote', {roomName, enemy, entry});
+        return true;
       });
-      this.sendHarassers(kernel, base, targetRoomEntry, trace);
+
+      if (remote) {
+        trace.warn('could not build attacker, harass', {
+          base: base.primary,
+          targetRoom: targetRoomEntry.id,
+          roomDamage, availableEnergyCapacity, boosts,
+        });
+
+        this.sendHarassers(kernel, base, targetRoomEntry, trace);
+      } else {
+        trace.info('no remote rooms to harass', {base: base.primary, targetRoom: targetRoomEntry.id});
+      }
     } else {
       trace.warn('could not build attacker, do nothing', {
         base: base.primary,
@@ -373,7 +405,7 @@ export default class WarManager {
   sendWarParty(kernel: Kernel, base: Base, targetRoom: RoomEntry, parts: BodyPartConstant[],
     trace: Tracer) {
     const numBaseWarParties = this.warParties.filter((party) => {
-      return party.getBaseId() === base.id;
+      return party.baseId === base.id;
     }).length;
     if (numBaseWarParties >= MAX_WAR_PARTIES_PER_BASE) {
       trace.info('too many war parties', {numBaseWarParties});
@@ -396,16 +428,16 @@ export default class WarManager {
     const partyId = `war_party_${targetRoom.id}_${base.primary}_${Game.time}`;
     trace.info('creating war party', {target: targetRoom.id, partyId, flagId});
 
-    const warParty = this.createAndScheduleWarParty(base, partyId, targetRoom.id,
+    const warPartyRunnable = this.createAndScheduleWarParty(base, partyId, targetRoom.id,
       Phase.PHASE_MARSHAL, flag.pos, flag.name, CREEPS.WORKER_ATTACKER, trace);
 
-    if (warParty) {
-      this.warParties.push(warParty);
+    if (warPartyRunnable) {
+      this.warParties.push(warPartyRunnable.toWarParty());
     }
   }
 
   createAndScheduleWarParty(base: Base, id: string, target: string, phase: Phase,
-    position: RoomPosition, flagId: string, role: string, trace: Tracer): WarPartyRunnable {
+    position: RoomPosition, flagId: string, role: string, _trace: Tracer): WarPartyRunnable {
     const party = new WarPartyRunnable(id, base.id, flagId, position, target, role, phase);
     const process = new Process(id, 'war_party', Priorities.OFFENSE, party);
     process.setSkippable(false);
@@ -414,25 +446,17 @@ export default class WarManager {
     return party;
   }
 
-  private writeMemory(trace: Tracer) {
+  private writeMemory(_trace: Tracer) {
     // Update memory
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (Memory as any).war = {
       targets: this.targets,
-      parties: this.warParties.map((party): StoredWarParty => {
-        return {
-          id: party.id,
-          target: party.targetRoom,
-          phase: party.phase,
-          role: party.role,
-          flagId: party.flagId,
-          baseId: party.baseId,
-          position: party.getPosition(),
-        };
-      }),
+      parties: this.warParties,
     };
   }
 
   private restoreFromMemory(kernel: Kernel, trace: Tracer) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const memory = (Memory as any);
 
     trace.info('restore memory', {war: memory.war || null});
@@ -446,11 +470,11 @@ export default class WarManager {
     }
 
     this.targets = memory.war.targets || [];
-    this.warParties = memory.war.parties.map((party) => {
+    this.warParties = memory.war.parties.map((party: WarParty) => {
       trace.info('restoring party', {party});
 
-      if (!party.id || !party.target || !party.position || !party.baseId || !party.flagId ||
-        !party.role) {
+      if (!party.id || !party.target || !party.phase || !party.position || !party.baseId ||
+        !party.flagId || !party.role) {
         trace.error('invalid party', {party});
         return null;
       }

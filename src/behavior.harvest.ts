@@ -61,7 +61,7 @@ export const moveToHarvestRoom = behaviorTree.repeatUntilSuccess(
   'bt.movement.room.harvest',
   behaviorTree.leafNode(
     'move_to_harvest_room',
-    (creep, trace, kingdom) => {
+    (creep, trace, _kingdom) => {
       const room = creep.memory[MEMORY_ASSIGN_ROOM];
       // If creep doesn't have a harvest room assigned, we are done
       if (!room) {
@@ -96,7 +96,7 @@ export const moveToHarvest = behaviorTree.leafNode(
 
 export const harvest = behaviorTree.leafNode(
   'fill_creep',
-  (creep, trace, kingdom) => {
+  (creep, trace, _kingdom) => {
     const destination = Game.getObjectById<Id<Source>>(creep.memory[MEMORY_SOURCE]);
     if (!destination) {
       return FAILURE;

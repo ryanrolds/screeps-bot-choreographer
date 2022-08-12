@@ -31,7 +31,7 @@ export default class CostMatrixDebugger {
 
   debug(roomId: string, costMatrixType: AllowedCostMatrixTypes) {
     const kernel = global.AI;
-    const trace = new Tracer('costmatrix_debugger_debug', new Map(), 0);
+    const trace = new Tracer('costmatrix_debugger_debug', new Map());
     trace.info('debug matrix', {roomId, costMatrixType});
 
     let costMatrix: CostMatrix | boolean = new PathFinder.CostMatrix();

@@ -57,7 +57,7 @@ export const pickExpansion = (kernel: Kernel, trace: Tracer): ExpandResults => {
     const found = [];
 
     nextPass.forEach((parentRoom) => {
-      _.forEach(Game.map.describeExits(parentRoom), (roomName, key) => {
+      _.forEach(Game.map.describeExits(parentRoom), (roomName, _key) => {
         // Check room in next pass
         if (!seen.has(roomName)) {
           found.push(roomName);
@@ -161,7 +161,7 @@ export const pickExpansion = (kernel: Kernel, trace: Tracer): ExpandResults => {
 
   for (let i = 0; i < sortedCandidates.length; i++) {
     const roomName = sortedCandidates[i];
-    const [costMatrix, distance, origin] = createOpenSpaceMatrix(roomName, trace);
+    const [_costMatrix, distance, origin] = createOpenSpaceMatrix(roomName, trace);
     trace.info('open space matrix', {roomName, distance, origin});
 
     if (distance >= MIN_DISTANCE_FOR_ORIGIN) {

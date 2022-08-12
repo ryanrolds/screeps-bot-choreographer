@@ -30,7 +30,7 @@ const behavior = behaviorTree.sequenceNode(
         let friendlyCreepsNearby = creep.pos.findInRange(FIND_MY_CREEPS, 1, {
           filter: (c: Creep) => c.hits < c.hitsMax,
         });
-        friendlyCreepsNearby = _.sortBy(friendlyCreepsNearby, (a, b) => {
+        friendlyCreepsNearby = _.sortBy(friendlyCreepsNearby, (a) => {
           return a.hits / a.hitsMax;
         });
 

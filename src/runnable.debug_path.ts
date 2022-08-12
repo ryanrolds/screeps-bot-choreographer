@@ -45,7 +45,7 @@ export default class PathDebugger {
   }
 
   debug(origin: RoomPosition, goal: RoomPosition, range: number, policyName: string) {
-    const trace = new Tracer('path_debugger_debug', new Map([['pid', 'path_debugger']]), 0);
+    const trace = new Tracer('path_debugger_debug', new Map([['pid', 'path_debugger']]));
     trace.setLogFilter(global.LOG_WHEN_PID);
 
     let policy: FindPathPolicy = null;

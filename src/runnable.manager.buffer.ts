@@ -42,7 +42,7 @@ const RUN_TTL = 10;
 export default class BufferManager {
   id: string;
 
-  constructor(id: string, trace: Tracer) {
+  constructor(id: string, _trace: Tracer) {
     this.id = id;
   }
 

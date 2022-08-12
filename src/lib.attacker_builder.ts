@@ -1,6 +1,6 @@
 import {Tracer} from './lib.tracing';
 
-const QUAD_SIZE = 4;
+const _QUAD_SIZE = 4;
 
 type AttackerBoostMultipliers = {
   'heal': number;
@@ -18,7 +18,7 @@ export function newMultipliers(): AttackerBoostMultipliers {
   };
 }
 
-export function getStorageBoostMultipliers(storage: StructureStorage): AttackerBoostMultipliers {
+export function getStorageBoostMultipliers(_storage: StructureStorage): AttackerBoostMultipliers {
   const multipliers = newMultipliers();
 
   return multipliers;

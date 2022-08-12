@@ -22,7 +22,7 @@ const getMoveOpts = (ignoreCreeps = false, reusePath = 100, maxOps = 2000,
   return {reusePath, maxOps, ignoreCreeps, range};
 };
 
-const moveToMemory = (creep: Creep, memoryId: any, range: number,
+const moveToMemory = (creep: Creep, memoryId: string, range: number,
   ignoreCreeps: number, reusePath: number, maxOps: number) => {
   const destination = Game.getObjectById<Id<_HasRoomPosition>>(creep.memory[memoryId]);
   if (!destination) {
@@ -146,7 +146,8 @@ const getDestinationFromMemory = (creep: Creep, memoryId: string): RoomPosition 
     return null;
   }
 
-  const dest: any = Game.getObjectById(destId);
+  //
+  const dest = Game.getObjectById(destId) as _HasRoomPosition;
   if (!dest) {
     return null;
   }
@@ -285,6 +286,7 @@ const cachedMoveToPosition = (kernel: Kernel, creep: Creep, destination: RoomPos
       return FAILURE;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if ((global as any).LOG_WHEN_PID === creep.name) {
       visualizePath(pathfinderResult.path, trace);
     }
@@ -316,12 +318,6 @@ const cachedMoveToPosition = (kernel: Kernel, creep: Creep, destination: RoomPos
   }
 
   return RUNNING;
-};
-
-const deserializePath = (path) => {
-  return path.map((position) => {
-    return new RoomPosition(position.x, position.y, position.roomName);
-  });
 };
 
 export const moveToCreepMemory = (memoryID, range = 1, ignoreCreeps, reusePath, maxOps) => {
@@ -398,7 +394,7 @@ export const fillCreepFromDestination = (creep, trace) => {
 export const moveToShard = (shardMemoryKey) => {
   return behaviorTree.repeatUntilConditionMet(
     'moveToShard',
-    (creep, trace, kingdom) => {
+    (creep, _trace, _kingdom) => {
       const destinationShardName = creep.memory[shardMemoryKey];
       // If creep doesn't have a harvest room assigned, we are done
       if (!destinationShardName) {

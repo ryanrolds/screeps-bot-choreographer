@@ -54,7 +54,6 @@ const REQUEST_DISTRIBUTOR_TTL = 10;
 const REQUEST_UPGRADER_TTL = 30;
 const CHECK_SAFE_MODE_TTL = 10;
 const HAUL_EXTENSION_TTL = 10;
-const RAMPART_ACCESS_TTL = 10;
 const UPDATE_PROCESSES_TTL = 20;
 const PRODUCE_STATUS_TTL = 30;
 const ABANDON_BASE_TTL = 50;
@@ -866,7 +865,7 @@ export default class BaseRunnable {
     }
   }
 
-  setRamparts(room: Room, posture: DEFENSE_POSTURE, trace: Tracer) {
+  setRamparts(room: Room, posture: DEFENSE_POSTURE, _trace: Tracer) {
     const isPublic = posture === DEFENSE_POSTURE.OPEN;
     // Close all ramparts
     room.find<StructureRampart>(FIND_STRUCTURES, {
@@ -1051,7 +1050,7 @@ export default class BaseRunnable {
     indicatorStream.publish(new Event(base.id, Game.time, HudEventSet, keyProcessesIndicator));
   }
 
-  updateAlertLevel(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
+  updateAlertLevel(trace: Tracer, kernel: Kernel, base: Base, _room: Room) {
     // check if strong enemies are present in base
     const roomEntry = kernel.getScribe().getRoomById(base.primary);
     if (!roomEntry) {

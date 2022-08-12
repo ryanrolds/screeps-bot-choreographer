@@ -78,7 +78,7 @@ export default class NukerRunnable {
     if (readyToFire) {
       trace.info('lets play global thermonuclear war');
 
-      const request = (kernel as any).getNextRequest(TOPICS.NUKER_TARGETS);
+      const request = kernel.getTopics().getNextRequest(TOPICS.NUKER_TARGETS);
       if (request) {
         const positionStr = request.details.position;
         const posArray = positionStr.split(',');

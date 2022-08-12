@@ -8,8 +8,6 @@ import {Runnable, RunnableResult} from './os.runnable';
 const UPDATE_DAMAGED_STRUCTURES_TTL = 40;
 const UPDATE_DAMAGED_SECONDARY_TTL = 15;
 
-const WALL_LEVEL = 1000;
-const RAMPART_LEVEL = 1000;
 const UPGRADER_BUFFER = 25000;
 // TODO increase this later, we should be able to sustain at least one nuke
 // before the walls break

@@ -74,8 +74,8 @@ describe('Creeps Manager', () => {
       },
     });
 
-    scheduler = sinon.spy(new Scheduler() as any);
-    tracer = new Tracer('creep_manager_test', new Map(), 0);
+    scheduler = sinon.spy(new Scheduler());
+    tracer = new Tracer('creep_manager_test', new Map());
   });
 
   it('should create a process for each creep', () => {

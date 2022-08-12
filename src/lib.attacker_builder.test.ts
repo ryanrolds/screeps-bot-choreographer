@@ -16,7 +16,7 @@ describe('Attacker Builder', function () {
   const tower6 = Math.ceil(6 * towerDmg / quadSize);
 
   context('buildattacker', () => {
-    const trace = new Tracer('test', new Map([['pid', 'test']]), 0);
+    const trace = new Tracer('test', new Map([['pid', 'test']]));
 
     it('should build effective attacker for RCL 1 by a RCL 1', () => {
       const multipliers = newMultipliers();

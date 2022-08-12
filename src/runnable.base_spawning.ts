@@ -17,10 +17,10 @@ import {Tracer} from './lib.tracing';
 import {running, terminate} from './os.process';
 import {RunnableResult} from './os.runnable';
 import {getDashboardStream, getLinesStream, HudEventSet, HudIndicator, HudIndicatorStatus, HudLine} from './runnable.debug_hud';
+import {PortalEntry} from './runnable.scribe';
 
 const SPAWN_TTL = 5;
 const REQUEST_BOOSTS_TTL = 5;
-const MAX_BASE_SPAWN_DISTANCE = 5;
 const PROCESS_EVENTS_TTL = 20;
 const MIN_ENERGY_HELP_NEIGHBOR = 20000;
 
@@ -36,6 +36,7 @@ const MIN_UTILIZATION_SAMPLES = 30;
 
 type SpawnRequestDetails = {
   role: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   memory: any;
   energyLimit: number;
 }
@@ -45,6 +46,7 @@ type SpawnRequest = Request & {
 };
 
 export function createSpawnRequest(priority: number, ttl: number, role: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   memory: any, parts: BodyPartConstant[], energyLimit: number): SpawnRequest {
   return {
     priority,
@@ -76,7 +78,7 @@ export function createUtilizationUpdate(utilization: number): SpawnUtilizationUp
   };
 }
 
-export function getBaseSpawnUtilizationTopic(baseId: string): any {
+export function getBaseSpawnUtilizationTopic(baseId: string): string {
   return `base_${baseId}_spawn_utilization`;
 }
 
@@ -139,6 +141,7 @@ export default class SpawnManager {
     // If there are no spawns then we should request another base in the kernel produce the creep
     if (spawns.length === 0) {
       let request: SpawnRequest = null;
+      // eslint-disable-next-line no-cond-assign
       while (request = kernel.getTopics().getNextRequest(getBaseSpawnTopic(base.id))) {
         trace.info('sending spawn request to shard/neighbors', {request: request});
         kernel.getTopics().addRequest(getShardSpawnTopic(), request.priority, request.details,
@@ -299,14 +302,16 @@ export default class SpawnManager {
     const topic = kernel.getTopics();
     const request = topic.getMessageOfMyChoice(getShardSpawnTopic(), (messages) => {
       // Reverse message so we get higher priority first
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const selected = _.find(messages.reverse(), (message: any) => {
         // Select message if portal nearby
         // RAKE check distance on other side of the portal too
         const assignedShard = message.details.memory[MEMORY.MEMORY_ASSIGN_SHARD] || null;
         if (assignedShard && assignedShard != Game.shard.name) {
           trace.warn('request in another shard', {assignedShard, shard: Game.shard.name});
-          const portals: any[] = kernel.getScribe()
-            .getPortals(assignedShard).filter((portal) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const portals: PortalEntry[] = kernel.getScribe().
+            getPortals(assignedShard).filter((portal) => {
               const distance = Game.map.getRoomLinearDistance(baseRoom.name,
                 portal.pos.roomName);
               return distance < 2;
@@ -440,6 +445,7 @@ export default class SpawnManager {
 }
 
 function createCreep(base: Base, room: string, spawn: StructureSpawn, role: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   parts: BodyPartConstant[], memory: any, energy: number, energyLimit: number, trace: Tracer) {
   const definition = DEFINITIONS.get(role);
   if (!definition) {

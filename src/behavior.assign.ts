@@ -15,7 +15,7 @@ export const moveToRoom = behaviorTree.repeatUntilSuccess(
   'moveToAssignedRoom',
   behaviorTree.leafNode(
     'move_to_exit',
-    (creep: Creep, trace: Tracer, kernel: Kernel) => {
+    (creep: Creep, trace: Tracer, _kernel: Kernel) => {
       const roomID = creep.memory[MEMORY.MEMORY_ASSIGN_ROOM];
       if (!roomID) {
         return SUCCESS;
