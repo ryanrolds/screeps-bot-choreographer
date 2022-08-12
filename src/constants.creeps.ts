@@ -27,6 +27,7 @@ type CreepRoleDefinition = {
   boosts: string[],
   energyLimit: number,
   energyMinimum: number,
+  softEnergyMinimum?: number,
   ignoreSpawnEnergyLimit: boolean,
   processPriority: number,
   skippable: boolean,
@@ -113,6 +114,7 @@ DEFINITIONS.set(WORKER_MINER, {
   boosts: [], // ['harvest']
   energyLimit: 1750,
   energyMinimum: 300,
+  softEnergyMinimum: 850,
   ignoreSpawnEnergyLimit: true,
   processPriority: Priorities.RESOURCES,
   skippable: true,
@@ -123,6 +125,7 @@ DEFINITIONS.set(WORKER_HAULER, {
   boosts: [], // ['capacity']
   energyLimit: 0,
   energyMinimum: 200,
+  softEnergyMinimum: 1000,
   ignoreSpawnEnergyLimit: true,
   processPriority: Priorities.LOGISTICS,
   skippable: true,

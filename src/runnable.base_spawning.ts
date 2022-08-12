@@ -265,8 +265,16 @@ export default class SpawnManager {
         return;
       }
 
+      // the soft min is only enforced if the base has enough capacity to meet it
+      if (definition.softEnergyMinimum && definition.softEnergyMinimum < energyCapacity &&
+        spawnEnergy < definition.softEnergyMinimum) {
+        trace.info('no enough energy (soft)', {id: this.id, spawnEnergy, energyCapacity, definition});
+        return;
+      }
+
+      // if definition has a minimum energy requirement, check if we have enough energy
       if (definition.energyMinimum && spawnEnergy < definition.energyMinimum) {
-        trace.warn('not enough energy', {spawnEnergy, request, definition});
+        trace.warn('not enough energy (hard)', {spawnEnergy, request, definition});
         return;
       }
 
