@@ -1,7 +1,8 @@
-import {AlertLevel, Base} from './base';
+import {AlertLevel, Base, getBasePrimaryRoom} from './base';
 import {ShardConfig} from './config';
 import {Kernel, KernelThreadFunc, threadKernel} from './kernel';
 import {pickExpansion} from './lib.expand';
+import {Metrics} from './lib.metrics';
 import {Tracer} from './lib.tracing';
 import {Process, sleeping} from './os.process';
 import {RunnableResult} from './os.runnable';
@@ -256,6 +257,30 @@ export class CentralPlanning {
     }
 
     trace.info('no expansion selected');
+  }
+
+  reportMetrics(metrics: Metrics) {
+    this.getBases().forEach((base) => {
+      const primaryRoom = getBasePrimaryRoom(base);
+
+      const roomLevel = primaryRoom.controller?.level || 0;
+      metrics.gauge("base_level", roomLevel, {base: base.id});
+
+      const roomProgress = primaryRoom.controller?.progress || 0;
+      const roomProgressTotal = primaryRoom.controller?.progressTotal || 0;
+      let roomProgressPercent = 0;
+      if (roomProgressTotal > 0 && roomProgress > 0) {
+        roomProgressPercent = roomProgress / roomProgressTotal;
+      }
+      metrics.gauge("base_level_progress", roomProgressPercent, {base: base.id});
+
+      const energyAvailable = primaryRoom.energyAvailable;
+      metrics.gauge("base_energy_available", energyAvailable, {base: base.id});
+      const storedEnergy = primaryRoom.storage?.store.getUsedCapacity(RESOURCE_ENERGY) || 0;
+      metrics.gauge("base_energy_stored", storedEnergy, {base: base.id});
+
+      metrics.gauge("base_rooms_total", base.rooms.length, {base: base.id});
+    });
   }
 }
 

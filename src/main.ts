@@ -189,7 +189,7 @@ export const loop = function () {
   // TODO report event broker topics
   ai.getTopics().reportMetrics(metrics);
   ai.getCreepsManager().reportMetrics(metrics);
-  // TODO base metrics
+  ai.getPlanner().reportMetrics(metrics);
 
   // Get CPU spent on AI
   previousTick = Game.cpu.getUsed();
