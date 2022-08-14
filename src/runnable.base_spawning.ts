@@ -6,6 +6,7 @@
  * TODO - Move to topic with base id in the name - IN PROGRESS
  */
 import {Base, BaseThreadFunc, getBasePrimaryRoom, getStoredResourceAmount, threadBase} from './base';
+import {threadBaseRoom} from './base_room';
 import * as CREEPS from './constants.creeps';
 import {DEFINITIONS} from './constants.creeps';
 import * as MEMORY from './constants.memory';
@@ -94,7 +95,7 @@ export default class SpawnManager {
     this.id = id;
     this.baseId = baseId;
 
-    this.spawnThread = threadBase('spawn_thread', SPAWN_TTL)(this.spawning.bind(this));
+    this.spawnThread = threadBaseRoom('spawn_thread', SPAWN_TTL)(this.spawning.bind(this));
     this.eventsThread = threadBase('produce_events_thread',
       PROCESS_EVENTS_TTL)((trace, kernel, base) => {
         this.processEvents(trace, kernel, base);
@@ -115,25 +116,19 @@ export default class SpawnManager {
     if (!room) {
       trace.error('no room object,', {base});
       trace.end();
-      return;
+      return running();
     }
 
     trace.info('Spawn manager run', {id: this.id, baseId: this.baseId});
 
-    this.spawnThread(trace, kernel, base);
+    this.spawnThread(trace, kernel, base, room);
     this.eventsThread(trace, kernel, base);
 
     trace.end();
     return running();
   }
 
-  spawning(trace: Tracer, kernel: Kernel, base: Base) {
-    const room = getBasePrimaryRoom(base);
-    if (!room) {
-      trace.error('no primary room for base', {base: base.id});
-      return;
-    }
-
+  spawning(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
     const spawns = room.find<StructureSpawn>(FIND_MY_STRUCTURES, {
       filter: (s) => s.structureType === STRUCTURE_SPAWN,
     });
@@ -172,209 +167,37 @@ export default class SpawnManager {
         this.utilization.shift();
       }
 
+      // currently spawning something
       if (!isIdle) {
-        const creep = Game.creeps[spawn.spawning.name];
+        handleActiveSpawning(kernel, base, spawn, trace)
+        return;
+      }
 
-        spawn.room.visual.text(
-          spawn.spawning.name + '🛠️',
-          spawn.pos.x - 1,
-          spawn.pos.y,
-          {align: 'right', opacity: 0.8},
-        );
+      // check if spawner has energy
+      if (!isSpawnerEnergyReady(kernel, base, spawn, trace)) {
+        trace.info('spawner not ready, skipping', {spawn: spawn.id, spawnEnergy, energyCapacity});
+        return;
+      }
 
-        const role: string = creep.memory[MEMORY.MEMORY_ROLE];
-        const definition = CREEPS.DEFINITIONS.get(role);
-        if (!definition) {
-          trace.error('unknown role', {creepName: creep.name, role});
-          return;
+      const request = getNextRequest(kernel, base, spawn, trace);
+      if (request) {
+        // determine topic pressure
+        const spawnTopicSize = kernel.getTopics().getLength(getBaseSpawnTopic(base.id));
+        const spawnTopicBackPressure = Math.floor(energyCapacity * (1 - (0.09 * spawnTopicSize)));
+        let energyLimit = _.max([300, spawnTopicBackPressure]);
+
+        // Allow request to override energy limit
+        if (request.details.energyLimit) {
+          energyLimit = request.details.energyLimit;
         }
 
-        const boosts = definition.boosts;
-        const priority = definition.processPriority;
-
-        trace.info('spawning', {creepName: creep.name, role, boosts, priority});
-
-        if (boosts) {
-          this.requestBoosts(kernel, base, spawn, boosts, priority);
-        }
-
+        trace.notice('spawning', {id: this.id, spawnEnergy, energyLimit, request});
+        createCreep(base, room.name, spawn, request, spawnEnergy, energyLimit, trace);
         return;
       }
 
-      const spawnTopicSize = kernel.getTopics().getLength(getBaseSpawnTopic(base.id));
-      const spawnTopicBackPressure = Math.floor(energyCapacity * (1 - (0.09 * spawnTopicSize)));
-      let energyLimit = _.max([300, spawnTopicBackPressure]);
-
-      let minEnergy = 300;
-      const numCreeps = kernel.getCreepsManager().getCreepsByBase(base.id).length;
-
-      minEnergy = _.max([300, minEnergy]);
-
-      const next = kernel.getTopics().peekNextRequest(getBaseSpawnTopic(base.id));
-      trace.info('spawn idle', {
-        spawnTopicSize, numCreeps, spawnEnergy, minEnergy,
-        spawnTopicBackPressure, next,
-      });
-
-      if (spawnEnergy < minEnergy) {
-        trace.info('low energy, not spawning', {id: this.id, spawnEnergy, minEnergy});
-        return;
-      }
-
-      let request = null;
-      const localRequest = kernel.getTopics().getNextRequest(getBaseSpawnTopic(base.id));
-
-      let neighborRequest = null;
-      const storageEnergy = getStoredResourceAmount(base, RESOURCE_ENERGY) || 0;
-      if (storageEnergy < MIN_ENERGY_HELP_NEIGHBOR) {
-        trace.info('reserve energy too low, dont handle requests from other neighbors', {storageEnergy, baseId: base.id});
-      } else {
-        neighborRequest = this.getNeighborRequest(kernel, base, trace);
-      }
-
-      trace.info('spawn request', {localRequest, neighborRequest});
-
-      // Select local request if available
-      if (localRequest) {
-        trace.info('found local request', {localRequest});
-        request = localRequest;
-      }
-
-      // If no request selected and neighbor request available, select neighbor request
-      if (!request && neighborRequest) {
-        trace.warn('found neighbor request', {neighborRequest});
-        request = neighborRequest;
-      }
-
-      // No request, so we are done
-      if (!request) {
-        trace.info('no request');
-        return;
-      }
-
-      // If local priority w/ bonus is less than neighbor priority, select neighbor request
-      if ((request.priority + 1) < neighborRequest?.priority) {
-        trace.warn('neighbor request has higher priority', {neighborRequest, request});
-        request = neighborRequest;
-      }
-
-      const role: string = request.details[SPAWN_REQUEST_ROLE];
-      const definition = DEFINITIONS.get(role);
-      if (!definition) {
-        trace.error('unknown role', {role});
-        return;
-      }
-
-      // the soft min is only enforced if the base has enough capacity to meet it
-      if (definition.softEnergyMinimum && definition.softEnergyMinimum < energyCapacity &&
-        spawnEnergy < definition.softEnergyMinimum) {
-        trace.info('no enough energy (soft)', {id: this.id, spawnEnergy, energyCapacity, definition});
-        return;
-      }
-
-      // if definition has a minimum energy requirement, check if we have enough energy
-      if (definition.energyMinimum && spawnEnergy < definition.energyMinimum) {
-        trace.warn('not enough energy (hard)', {spawnEnergy, request, definition});
-        return;
-      }
-
-      // Allow request to override energy limit
-      if (request.details.energyLimit) {
-        energyLimit = request.details.energyLimit;
-      }
-
-      const requestMinEnergy = request.details[SPAWN_REQUEST_SPAWN_MIN_ENERGY] || 0;
-      if (spawnEnergy < requestMinEnergy) {
-        trace.warn('base does not have energy', {requestMinEnergy, spawnEnergy, request});
-        return;
-      }
-
-      const parts = request.details[SPAWN_REQUEST_PARTS] || null;
-      const memory = request.details.memory || {};
-
-      trace.notice('spawning', {id: this.id, role, spawnEnergy, energyLimit, parts, request});
-
-      this.createCreep(base, spawn, role, parts, memory, spawnEnergy, energyLimit, trace);
+      handleIdle(trace);
     });
-  }
-
-  getNeighborRequest(kernel: Kernel, base: Base, trace: Tracer) {
-    const baseRoom = getBasePrimaryRoom(base);
-    if (!baseRoom) {
-      trace.error('no primary room for base', {base: base.id});
-      return;
-    }
-
-    trace.info("looking for neighbor request", {baseRoom: baseRoom.name, baseNeighbors: base.neighbors});
-
-    const topic = kernel.getTopics();
-    const request = topic.getMessageOfMyChoice(getShardSpawnTopic(), (messages) => {
-      // Reverse message so we get higher priority first
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const selected = _.find(messages.reverse(), (message: any) => {
-        // Select message if portal nearby
-        // RAKE check distance on other side of the portal too
-        const assignedShard = message.details.memory[MEMORY.MEMORY_ASSIGN_SHARD] || null;
-        if (assignedShard && assignedShard != Game.shard.name) {
-          trace.warn('request in another shard', {assignedShard, shard: Game.shard.name});
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const portals: PortalEntry[] = kernel.getScribe().
-            getPortals(assignedShard).filter((portal) => {
-              const distance = Game.map.getRoomLinearDistance(baseRoom.name,
-                portal.pos.roomName);
-              return distance < 2;
-            });
-
-          if (!portals.length) {
-            return false;
-          }
-
-          return true;
-        }
-
-        // Determine destination room
-        let destinationRoom = null;
-        const baseRoom = message.details.memory[MEMORY.MEMORY_BASE];
-        if (baseRoom) {
-          destinationRoom = baseRoom;
-        }
-        const assignedRoom = message.details.memory[MEMORY.MEMORY_ASSIGN_ROOM];
-        if (assignedRoom) {
-          destinationRoom = assignedRoom;
-        }
-        const positionRoom = message.details.memory[MEMORY.MEMORY_POSITION_ROOM];
-        if (positionRoom) {
-          destinationRoom = positionRoom;
-        }
-
-        // If no destination room, can be produced by anyone
-        if (!destinationRoom) {
-          trace.warn('no destination room, can be produced by anyone', {message});
-          return true;
-        }
-
-        // If the room is part of a base, check if the base is a neighbor
-        const destinationBase = kernel.getPlanner().getBaseByRoom(destinationRoom);
-        if (destinationBase) {
-          const isNeighbor = base.neighbors.some((neighborId) => {
-            return neighborId == destinationBase.id;
-          });
-          if (isNeighbor) {
-            return true;
-          }
-        }
-
-        return false;
-      });
-
-      if (!selected) {
-        return null;
-      }
-
-      return selected;
-    });
-
-    return request;
   }
 
   processEvents(trace: Tracer, kernel: Kernel, base: Base) {
@@ -437,24 +260,193 @@ export default class SpawnManager {
     };
     indicatorStream.publish(new Event(this.id, Game.time, HudEventSet, spawnLengthIndicator));
   }
-
-  createCreep(base: Base, spawner: StructureSpawn, role, parts: BodyPartConstant[],
-    memory, energy: number, energyLimit: number, trace: Tracer) {
-    return createCreep(base, spawner.room?.name, spawner, role, parts, memory, energy,
-      energyLimit, trace);
-  }
-
-  requestBoosts(kernel: Kernel, base: Base, spawn: StructureSpawn, boosts, priority: number) {
-    kernel.getTopics().addRequest(TOPICS.BOOST_PREP, priority, {
-      [MEMORY.TASK_ID]: `bp-${spawn.id}-${Game.time}`,
-      [MEMORY.PREPARE_BOOSTS]: boosts,
-    }, REQUEST_BOOSTS_TTL);
-  }
 }
 
-function createCreep(base: Base, room: string, spawn: StructureSpawn, role: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  parts: BodyPartConstant[], memory: any, energy: number, energyLimit: number, trace: Tracer) {
+function peekNextNeighborRequest(kernel: Kernel, base: Base, trace: Tracer): Request {
+  trace.info("peeking neighbor request", {baseRoom: base.primary, baseNeighbors: base.neighbors});
+  const topic = kernel.getTopics();
+  const requests = topic.getTopic(getShardSpawnTopic())
+  if (!requests) {
+    return null;
+  }
+
+  // Reverse message so we get higher priority first
+  return getNextNeighborRequestFilter(kernel, base, requests.reverse(), trace);
+}
+
+function getNextNeighborRequest(kernel: Kernel, base: Base, trace: Tracer): Request {
+  trace.info("getting neighbor request", {baseRoom: base.primary, baseNeighbors: base.neighbors});
+  const topic = kernel.getTopics();
+  return topic.getMessageOfMyChoice(getShardSpawnTopic(), (messages) => {
+    // Reverse message so we get higher priority first
+    return getNextNeighborRequestFilter(kernel, base, messages.reverse(), trace);
+  });
+}
+
+function requestBoosts(kernel: Kernel, base: Base, spawn: StructureSpawn, boosts, priority: number) {
+  kernel.getTopics().addRequest(TOPICS.BOOST_PREP, priority, {
+    [MEMORY.TASK_ID]: `bp-${spawn.id}-${Game.time}`,
+    [MEMORY.PREPARE_BOOSTS]: boosts,
+  }, REQUEST_BOOSTS_TTL);
+}
+
+function isSpawnerEnergyReady(kernel: Kernel, base: Base, spawn: StructureSpawn, trace: Tracer): boolean {
+  const spawnEnergy = spawn.room.energyAvailable;
+
+  // check minimum energy
+  let minEnergy = 300;
+  // TODO factor number of crepes in base for minimum energy
+  //const numCreeps = kernel.getCreepsManager().getCreepsByBase(base.id).length;
+  minEnergy = _.max([300, minEnergy]);
+  if (spawnEnergy < minEnergy) {
+    trace.info('low energy, not spawning', {id: spawn.id, spawnEnergy, minEnergy});
+    return false;
+  }
+
+  return true;
+}
+
+function getNextRequest(kernel: Kernel, base: Base, spawn: StructureSpawn, trace: Tracer): Request {
+  const spawnEnergy = spawn.room.energyAvailable;
+  const energyCapacity = spawn.room.energyCapacityAvailable;
+
+  // check local requests
+  let localRequest = kernel.getTopics().peekNextRequest(getBaseSpawnTopic(base.id));
+  if (localRequest && !isRequestEnergyReady(kernel, base, spawn, localRequest, trace)) {
+    trace.info('local request not ready, skipping', {spawn: spawn.id, spawnEnergy, energyCapacity});
+    localRequest = null;
+  }
+
+  // Check if we have a reserve of energy and can help neighbors
+  let neighborRequest = null;
+  const storageEnergy = getStoredResourceAmount(base, RESOURCE_ENERGY) || 0;
+  if (storageEnergy >= MIN_ENERGY_HELP_NEIGHBOR) {
+    neighborRequest = peekNextNeighborRequest(kernel, base, trace);
+    if (neighborRequest && !isRequestEnergyReady(kernel, base, spawn, neighborRequest, trace)) {
+      trace.info('neighbor request not ready, skipping', {spawn: spawn.id, spawnEnergy, energyCapacity});
+      neighborRequest = null;
+    }
+  } else {
+    trace.info('reserve energy too low, dont handle requests from other neighbors',
+      {storageEnergy, baseId: base.id});
+  }
+
+  trace.info('spawn requests', {localRequest, neighborRequest});
+
+  let requestSource = null;
+
+  // Select local request if available
+  if (localRequest) {
+    trace.info('found local request', {localRequest});
+    requestSource = 'local';
+  }
+
+  // If no request selected and neighbor request available, select neighbor request
+  if (!localRequest && neighborRequest) {
+    trace.warn('found neighbor request', {neighborRequest});
+    requestSource = 'neighbor';
+  }
+
+  // If local priority w/ bonus is less than neighbor priority, select neighbor request
+  if ((localRequest?.priority + 1) < neighborRequest?.priority) {
+    trace.warn('neighbor request has higher priority', {neighborRequest, localRequest});
+    requestSource = 'neighbor';
+  }
+
+  let request = null;
+
+  // Take the request off the right queue
+  switch (requestSource) {
+    case 'local':
+      trace.info('spawning from local request', {localRequest});
+      request = kernel.getTopics().getNextRequest(getBaseSpawnTopic(base.id))
+      break;
+    case 'neighbor':
+      trace.info('spawning from neighbor request', {neighborRequest});
+      request = getNextNeighborRequest(kernel, base, trace);
+      break;
+    default:
+      trace.info('no request found, skipping', {request});
+      break;
+  }
+
+  return request;
+}
+
+function isRequestEnergyReady(kernel: Kernel, base: Base, spawn: StructureSpawn, request: Request,
+  trace: Tracer): boolean {
+  const spawnEnergy = spawn.room.energyAvailable;
+  const energyCapacity = spawn.room.energyCapacityAvailable;
+
+  const requestMinEnergy = request.details[SPAWN_REQUEST_SPAWN_MIN_ENERGY] || 0;
+  if (spawnEnergy < requestMinEnergy) {
+    trace.warn('base does not have energy', {requestMinEnergy, spawnEnergy, request});
+    return false;
+  }
+
+  // get role from definition
+  const role: string = request.details[SPAWN_REQUEST_ROLE];
+  const definition = DEFINITIONS.get(role);
+  if (!definition) {
+    trace.error('unknown role', {role});
+    return false;
+  }
+
+  // the soft min is only enforced if the base has enough capacity to meet it
+  if (definition.softEnergyMinimum && definition.softEnergyMinimum < energyCapacity &&
+    spawnEnergy < definition.softEnergyMinimum) {
+    trace.info('no enough energy (soft)', {spawnEnergy, energyCapacity, definition});
+    return false;
+  }
+
+  // if definition has a minimum energy requirement, check if we have enough energy
+  if (definition.energyMinimum && spawnEnergy < definition.energyMinimum) {
+    trace.warn('not enough energy (hard)', {spawnEnergy, definition});
+    return false;
+  }
+
+  return true;
+}
+
+function handleActiveSpawning(kernel: Kernel, base: Base, spawn: StructureSpawn, trace: Tracer): void {
+  const creep = Game.creeps[spawn.spawning.name];
+
+  spawn.room.visual.text(
+    spawn.spawning.name + '🛠️',
+    spawn.pos.x - 1,
+    spawn.pos.y,
+    {align: 'right', opacity: 0.8},
+  );
+
+  const role: string = creep.memory[MEMORY.MEMORY_ROLE];
+  const definition = CREEPS.DEFINITIONS.get(role);
+  if (!definition) {
+    trace.error('unknown role', {creepName: creep.name, role});
+    return;
+  }
+
+  const boosts = definition.boosts;
+  const priority = definition.processPriority;
+
+  trace.info('spawning', {creepName: creep.name, role, boosts, priority});
+
+  if (boosts) {
+    requestBoosts(kernel, base, spawn, boosts, priority);
+  }
+
+  return;
+}
+
+function handleIdle(trace: Tracer): void {
+  trace.info('no request');
+}
+
+function createCreep(base: Base, room: string, spawn: StructureSpawn, request: Request,
+  energy: number, energyLimit: number, trace: Tracer) {
+  const role: string = request.details[SPAWN_REQUEST_ROLE];
+  let parts = request.details[SPAWN_REQUEST_PARTS] || null;
+  const memory = request.details.memory || {};
+
   const definition = DEFINITIONS.get(role);
   if (!definition) {
     trace.error('no definition for role', {role});
@@ -540,4 +532,63 @@ function getBodyParts(definition, maxEnergy) {
   });
 
   return base;
+}
+
+function getNextNeighborRequestFilter(kernel: Kernel, base: Base, messages, trace: Tracer): Request {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return _.find(messages, (message: any) => {
+    // Select message if portal nearby
+    // RAKE check distance on other side of the portal too
+    const assignedShard = message.details.memory[MEMORY.MEMORY_ASSIGN_SHARD] || null;
+    if (assignedShard && assignedShard != Game.shard.name) {
+      trace.warn('request in another shard', {assignedShard, shard: Game.shard.name});
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const portals: PortalEntry[] = kernel.getScribe().
+        getPortals(assignedShard).filter((portal) => {
+          const distance = Game.map.getRoomLinearDistance(baseRoom.name,
+            portal.pos.roomName);
+          return distance < 2;
+        });
+
+      if (!portals.length) {
+        return false;
+      }
+
+      return true;
+    }
+
+    // Determine destination room
+    let destinationRoom = null;
+    const baseRoom = message.details.memory[MEMORY.MEMORY_BASE];
+    if (baseRoom) {
+      destinationRoom = baseRoom;
+    }
+    const assignedRoom = message.details.memory[MEMORY.MEMORY_ASSIGN_ROOM];
+    if (assignedRoom) {
+      destinationRoom = assignedRoom;
+    }
+    const positionRoom = message.details.memory[MEMORY.MEMORY_POSITION_ROOM];
+    if (positionRoom) {
+      destinationRoom = positionRoom;
+    }
+
+    // If no destination room, can be produced by anyone
+    if (!destinationRoom) {
+      trace.warn('no destination room, can be produced by anyone', {message});
+      return true;
+    }
+
+    // If the room is part of a base, check if the base is a neighbor
+    const destinationBase = kernel.getPlanner().getBaseByRoom(destinationRoom);
+    if (destinationBase) {
+      const isNeighbor = base.neighbors.some((neighborId) => {
+        return neighborId == destinationBase.id;
+      });
+      if (isNeighbor) {
+        return true;
+      }
+    }
+
+    return false;
+  });
 }

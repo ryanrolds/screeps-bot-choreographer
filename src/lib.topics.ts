@@ -1,3 +1,5 @@
+import {Metrics} from "./lib.metrics";
+
 const DEFAULT_TTL = 500;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -19,6 +21,10 @@ export class Topics {
   constructor() {
     this.topics = new Map();
     this.lastCleanup = 0;
+  }
+
+  getTopics(): Map<TopicKey, Topic> {
+    return this.topics;
   }
 
   getTopic(key: TopicKey): Topic {
@@ -136,6 +142,7 @@ export class Topics {
 
     return requests.filter(filter);
   }
+
   getMessageOfMyChoice(key: TopicKey, chooser) {
     const messages = this.getTopic(key);
     if (!messages) {
@@ -151,6 +158,7 @@ export class Topics {
 
     return choice;
   }
+
   getLength(key: TopicKey) {
     const topic = this.topics.get(key);
     if (!topic) {
@@ -158,5 +166,12 @@ export class Topics {
     }
 
     return topic.length;
+  }
+
+  reportMetrics(metrics: Metrics) {
+    // Report topic counts
+    for (const [key, value] of this.getTopics()) {
+      metrics.gauge(`topic_length`, value.length, {topic: key});
+    }
   }
 }

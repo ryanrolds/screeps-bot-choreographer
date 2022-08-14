@@ -6,6 +6,7 @@ import {CreepManager} from './ai.creeps';
 import * as CREEPS from './constants.creeps';
 import * as MEMORY from './constants.memory';
 import {Kernel} from './kernel';
+import {Metrics} from './lib.metrics';
 import {Tracer} from './lib.tracing';
 import {Process} from './os.process';
 import {Scheduler} from './os.scheduler';
@@ -74,7 +75,7 @@ describe('Creeps Manager', () => {
       },
     });
 
-    scheduler = sinon.spy(new Scheduler());
+    scheduler = sinon.spy(new Scheduler(new Metrics()));
     tracer = new Tracer('creep_manager_test', new Map());
   });
 

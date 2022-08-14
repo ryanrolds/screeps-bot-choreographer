@@ -1,6 +1,6 @@
 import {AI} from './ai';
 import {ShardMap} from './config';
-import * as metrics from './lib.metrics';
+import {addTraceMetrics, Metrics, reportMetrics, setActive, setInactive} from './lib.metrics';
 import {Tracer} from './lib.tracing';
 import {Scheduler} from './os.scheduler';
 
@@ -96,7 +96,9 @@ if (!shardConfig) {
 
 console.log('selected shard config', JSON.stringify(shardConfig));
 
-const scheduler = new Scheduler();
+const metrics = new Metrics({shard: Game.shard.name});
+
+const scheduler = new Scheduler(metrics);
 scheduler.setCPUThrottle(global.CPU_THROTTLE);
 scheduler.setSlowProcessThreshold(global.SLOW_PROCESS);
 
@@ -106,7 +108,9 @@ const ai: AI = new AI(shardConfig, scheduler, trace);
 global.AI = ai; // So we can access it from the console
 
 export const loop = function () {
-  const trace = new Tracer('tick', new Map([['shard', Game.shard.name]]));
+  metrics.gauge('time', Game.time);
+
+  const trace = new Tracer('loop', new Map([['shard', Game.shard.name]]));
 
   // Set process id filter
   trace.setLogFilter(global.LOG_WHEN_PID);
@@ -175,13 +179,20 @@ export const loop = function () {
 
   // Output metric aggregations to console
   if (global.METRIC_REPORT === true) {
-    metrics.add(trace);
-    metrics.setActive();
-    metrics.reportMetrics();
+    addTraceMetrics(trace);
+    setActive();
+    reportMetrics();
   } else {
-    metrics.setInactive();
+    setInactive();
   }
+
+  // TODO report event broker topics
+  ai.getTopics().reportMetrics(metrics);
+  ai.getCreepsManager().reportMetrics(metrics);
+  // TODO base metrics
 
   // Get CPU spent on AI
   previousTick = Game.cpu.getUsed();
+  metrics.counter('cpu_used_total', previousTick);
+  metrics.write()
 };

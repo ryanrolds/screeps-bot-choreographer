@@ -2,6 +2,7 @@ import * as CREEPS from './constants.creeps';
 import {DEFINITIONS} from './constants.creeps';
 import {MEMORY_BASE, MEMORY_ROLE, MEMORY_START_TICK} from './constants.memory';
 import {Kernel} from './kernel';
+import {Metrics} from './lib.metrics';
 import {Tracer, TracerFields} from './lib.tracing';
 import {Process, running, terminate} from './os.process';
 import {Runnable, RunnableResult} from './os.runnable';
@@ -232,5 +233,19 @@ export class CreepManager implements Runnable {
     }
 
     return behavior;
+  }
+
+  reportMetrics(metrics: Metrics) {
+    // Report creep counts by role
+    const creepsByRole = _.countBy(Game.creeps, (c) => c.memory[MEMORY_ROLE])
+    _.forEach(creepsByRole, (value, key) => {
+      metrics.gauge(`creeps_role_total`, value, {role: key});
+    });
+
+    // Report creep counts by role
+    const creepsByBase = _.countBy(Game.creeps, (c) => c.memory[MEMORY_BASE])
+    _.forEach(creepsByBase, (value, key) => {
+      metrics.gauge(`creeps_base_total`, value, {base: key});
+    });
   }
 }

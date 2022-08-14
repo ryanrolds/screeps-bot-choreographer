@@ -193,7 +193,7 @@ export function desiredRemotes(base: Base, level: number, spawnUtilization: numb
       desiredRemotes = 3;
       break;
     case 5:
-      desiredRemotes = 2;
+      desiredRemotes = 3;
       break;
     case 6:
       desiredRemotes = 2;

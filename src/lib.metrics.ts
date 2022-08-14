@@ -1,4 +1,71 @@
-import {Metric, Tracer} from './lib.tracing';
+import {Tracer} from "./lib.tracing";
+
+export interface Metric {
+  key: string;
+  value: number;
+  type: string;
+  labels: Record<string, string>;
+  created: number;
+  updated: number;
+}
+
+export class Metrics {
+  private defaultLabels: Record<string, string> = {};
+  private metricsMap: Record<string, Metric> = {};
+
+  constructor(labels: Record<string, string> = {}) {
+    this.defaultLabels = labels;
+  }
+
+  private getKey(key: string, labels: Record<string, string> = {}): string {
+    return `${key}_${Object.values(labels).sort().join(',')}`;
+  }
+
+  gauge(key: string, value: number, labels: Record<string, string> = {}) {
+    this.metricsMap[this.getKey(key, labels)] = {
+      key,
+      value,
+      type: 'gauge',
+      labels: Object.assign(labels, this.defaultLabels),
+      created: Game.time,
+      updated: Game.time,
+    };
+  }
+
+  counter(key: string, amount: number, labels: Record<string, string> = {}) {
+    let metric = this.metricsMap[this.getKey(key, labels)];
+    if (!metric) {
+      metric = {
+        key,
+        value: 0,
+        type: 'counter',
+        labels: Object.assign({}, labels, this.defaultLabels),
+        created: Game.time,
+        updated: Game.time,
+      };
+    }
+
+    metric.value += amount;
+    metric.updated = Game.time;
+    this.metricsMap[this.getKey(key, labels)] = metric;
+  }
+
+  histogram(_key: string, _value: number, _labels_: Record<string, string> = {}) {
+
+  }
+
+  summary(_key: string, _value: number, _labels: Record<string, string> = {}) {
+
+  }
+
+  // write the metrics to Memory
+  write() {
+    (Memory as any).metrics = Object.values(this.metricsMap);
+  }
+}
+
+// ==========================================================================
+// Below is for reporting tracer timings to the console
 
 interface MetricRollup {
   key: string;
@@ -19,7 +86,7 @@ export const setInactive = () => {
   reset();
 };
 
-export const add = (trace: Tracer) => {
+export const addTraceMetrics = (trace: Tracer) => {
   accMetrics = accMetrics.concat(trace.getMetrics());
 };
 

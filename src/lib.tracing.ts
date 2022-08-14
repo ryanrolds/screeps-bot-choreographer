@@ -1,11 +1,5 @@
 import * as _ from 'lodash';
-
-export interface Metric {
-  start: number;
-  key: string;
-  value: number;
-  fields: TracerFields;
-}
+import {Metric} from './lib.metrics';
 
 export type TracerFields = Map<string, string>;
 type TimerEndFunc = () => number;
@@ -120,8 +114,8 @@ export class Tracer {
 
   outputMetrics() {
     _.sortBy(this.getMetrics(), 'start').forEach((metric) => {
-      console.log(`${metric.value.toFixed(2).padStart(5, ' ')}ms: ${metric.key} at ${metric.start}`,
-        JSON.stringify(metric.fields));
+      console.log(`${metric.value.toFixed(2).padStart(5, ' ')}ms: ${metric.key} at ${metric.updated}`,
+        JSON.stringify(metric.labels));
     });
   }
 
@@ -158,7 +152,12 @@ export class Tracer {
   }
 
   private pushMetric(cpuTime: number) {
-    const item = {start: this.start, key: this.name, value: cpuTime, fields: this.kv};
+    const labels = {};
+    this.kv.forEach((value, key) => (labels[key] = value));
+    const item = {
+      key: this.name, type: 'gauge', value: cpuTime, labels: labels,
+      created: Game.time, updated: Game.time
+    };
     this.metrics.push(item);
   }
 
