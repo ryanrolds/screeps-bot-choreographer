@@ -1,5 +1,7 @@
 import {Base, getBasePrimaryRoom} from './base';
 import {Kernel} from './kernel';
+import {newMultipliers} from './lib.attacker_builder';
+import {buildDefender} from './lib.defender_builder';
 import {Tracer} from './lib.tracing';
 
 const PASSES = 3;
@@ -42,7 +44,8 @@ export const findRemotes = (kernel: Kernel, base: Base, trace: Tracer): [string[
         seen.add(adjacentRoom);
 
         // Check the room, determine if passable and if room is viable for mining
-        const [passable, dismiss] = checkCandidateRoom(kernel, base, adjacentRoom, startRoomStatus);
+        const [passable, dismiss] = checkCandidateRoom(kernel, base, adjacentRoom,
+          startRoomStatus, trace);
 
         trace.notice('checked candidate room', {
           currentRoom,
@@ -105,7 +108,8 @@ export const findRemotes = (kernel: Kernel, base: Base, trace: Tracer): [string[
   return [sortedCandidates, dismissed];
 };
 
-export function checkCandidateRoom(kernel: Kernel, base: Base, room: string, baseRoomStatus: string): [boolean, string] {
+export function checkCandidateRoom(kernel: Kernel, base: Base, room: string,
+  baseRoomStatus: string, trace: Tracer): [boolean, string] {
   // room should be same status as base primary
   const roomStatus = Game.map.getRoomStatus(room).status;
   if (roomStatus !== baseRoomStatus) {
@@ -124,10 +128,28 @@ export function checkCandidateRoom(kernel: Kernel, base: Base, room: string, bas
     return [false, 'no entry in scribe'];
   }
 
-  // If enemies present do not claim
-  // TODO make this vary based on the size of defender we can build
-  if (roomEntry.hostilesDmg > 25) {
-    return [false, 'hostile present'];
+  // If enemies present that we cannot beat, do not consider this room
+  if (roomEntry.hostilesDmg > 0) {
+    const basePrimary = getBasePrimaryRoom(base);
+    if (!basePrimary) {
+      return [false, 'no primary room'];
+    }
+
+    const multipliers = newMultipliers();
+    const [_parts, ok] = buildDefender(roomEntry.hostilesDmg, basePrimary.energyCapacityAvailable,
+      multipliers, trace);
+    if (!ok) {
+      trace.notice('defender build failed, we cannot take the room', {
+        roomEntry, basePrimary, hostilesDmg: roomEntry.hostilesDmg,
+        energyCapacityAvailable: basePrimary.energyCapacityAvailable
+      });
+      return [false, 'hostiles too strong'];
+    }
+
+    trace.notice('defender build succeeded, we can take the room', {
+      roomEntry, basePrimary, hostilesDmg: roomEntry.hostilesDmg,
+      energyCapacityAvailable: basePrimary.energyCapacityAvailable
+    });
   }
 
   // filter out rooms that do not have a source

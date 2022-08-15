@@ -60,7 +60,11 @@ export class Metrics {
 
   // write the metrics to Memory
   write() {
-    (Memory as any).metrics = Object.values(this.metricsMap);
+    const fresh = Object.values(this.metricsMap).filter((metric): boolean => {
+      return metric.updated + 5 > Game.time;
+    });
+
+    (Memory as any).metrics = fresh;
   }
 }
 

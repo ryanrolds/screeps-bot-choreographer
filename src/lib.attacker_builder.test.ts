@@ -64,14 +64,14 @@ describe('Attacker Builder', function () {
 
     // RCL 5 from 7
 
-    it('should build ineffective attacker for RCL 7 by a RCL 6', () => {
+    it('should build ineffective attacker for RCL 5 by a RCL 7', () => {
       const multipliers = newMultipliers();
       const [result, ok] = buildAttacker(tower2, 5600, multipliers, trace);
       expect(ok).to.be.false;
       expect(_.countBy(result)).to.deep.equal({[MOVE]: 11, [HEAL]: 20, [TOUGH]: 2});
     });
 
-    it('should build ineffective attacker for RCL 7 by a RCL 6 w/ 2x heal boost', () => {
+    it('should build ineffective attacker for RCL 5 by a RCL 7 w/ 2x heal boost', () => {
       const multipliers = newMultipliers();
       multipliers[HEAL] = 2;
       const [result, ok] = buildAttacker(tower2, 5600, multipliers, trace);
@@ -81,7 +81,7 @@ describe('Attacker Builder', function () {
 
     // RCL 5 from 8
 
-    it('should build ineffective attacker for RCL 7 by a RCL 6', () => {
+    it('should build ineffective attacker for RCL 5 by a RCL 8', () => {
       const multipliers = newMultipliers();
       const [result, ok] = buildAttacker(tower2, 12900, multipliers, trace);
       expect(ok).to.be.true;

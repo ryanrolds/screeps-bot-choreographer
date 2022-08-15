@@ -1,16 +1,17 @@
 // Spawn requests
-export const PRIORITY_RESERVER = 19;
-export const PRIORITY_DISTRIBUTOR = 18;
-export const PRIORITY_MINER = 17;
-export const PRIORITY_HARVESTER = 16;
-export const PRIORITY_DEFENDER = 15;
+export const PRIORITY_DISTRIBUTOR = 19; // if zero distributes priority +10
+export const PRIORITY_RESERVER = 18; // many things request reservers/claimers
+export const PRIORITY_MINER_PRIMARY = 17; // primary room priority
+export const PRIORITY_DEFENDER = 15; // hostile presence in base rooms
 export const PRIORITY_BUFFER_PATROL = 15;
-export const PRIORITY_UPGRADER = 14;
+export const PRIORITY_UPGRADER = 14; // logic reduces priority: n * 2
 export const PRIORITY_HAULER = 13;
 export const PRIORITY_REPAIRER_URGENT = 12;
+export const PRIORITY_HARVESTER = 11;
+export const PRIORITY_MINER_REMOTE = 11; // remote rooms should have lower priority then base ops
 export const PRIORITY_BUILDER = 11;
 export const EXPLORER = 10;
-export const DISTRIBUTOR_NO_RESERVE = 9;
+export const DISTRIBUTOR_NO_RESERVE = 9; // no energy stored, don't use regular distributor
 export const PRIORITY_ATTACKER = 8;
 export const PRIORITY_HARASSER = 8;
 export const PRIORITY_REPAIRER = 7;
@@ -36,11 +37,11 @@ export const LOAD_FACTOR = 0.2;
 // Core Hauling
 export const UNLOAD_LINK = 2;
 export const LOAD_LINK = 1.9;
-export const HAUL_TOWER_HOSTILES = 1.6;
-export const HAUL_BOOST = 1.5;
-export const UNLOAD_BOOST = 1.5;
+export const UNLOAD_BOOST = 1.7;
+export const HAUL_BOOST = 1.6;
+export const HAUL_TOWER_HOSTILES = 1.5;
+export const HAUL_TOWER = 1.5;
 export const HAUL_EXTENSION = 1.4;
-export const HAUL_TOWER = 1.2;
 export const HAUL_TERMINAL = 1.1;
 export const HAUL_REACTION = 1.0;
 

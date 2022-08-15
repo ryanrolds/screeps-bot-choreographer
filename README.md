@@ -76,6 +76,7 @@ An AI for [Screeps](screeps.com).
   - [ ] War Manager memory
   - [ ] Central Planning memory
   - [ ] Peristent memory
+- [ ] Switch first links to be controller and source, update miner to keep link full when not mining
 - [ ] Double buffer topics when TTLing messages
 - [x] All of project on TypeScript
 - [ ] Fix restoring of Room Entries and War Manager targets on restart with Persistent Memory

@@ -2,7 +2,7 @@ import {AlertLevel, Base, BaseThreadFunc, getStructureForResource, threadBase} f
 import {ROLE_WORKER, WORKER_HAULER, WORKER_MINER} from './constants.creeps';
 import * as MEMORY from './constants.memory';
 import {roadPolicy} from './constants.pathing_policies';
-import {HAUL_BASE_ROOM, HAUL_CONTAINER, LOAD_FACTOR, PRIORITY_MINER} from './constants.priorities';
+import {HAUL_BASE_ROOM, HAUL_CONTAINER, LOAD_FACTOR, PRIORITY_MINER_PRIMARY, PRIORITY_MINER_REMOTE} from './constants.priorities';
 import * as TASKS from './constants.tasks';
 import {Kernel} from './kernel';
 import {Event} from './lib.event_broker';
@@ -347,10 +347,10 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       positionStr = [positions[0].x, positions[0].y, positions[0].roomName].join(',');
     }
 
-    let priority = PRIORITY_MINER;
-    // prioritize filling primary room sources
-    if (room.name === base.primary) {
-      priority += 5;
+    let priority = PRIORITY_MINER_PRIMARY;
+    // if remote, use lower priority
+    if (room.name !== base.primary) {
+      priority = PRIORITY_MINER_REMOTE;
     }
 
     const role = WORKER_MINER;
@@ -362,7 +362,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       [MEMORY.MEMORY_BASE]: base.id,
     };
 
-    trace.info('requesting miner', {sourceId: this.id, PRIORITY_MINER, memory});
+    trace.info('requesting miner', {sourceId: this.id, PRIORITY_MINER: PRIORITY_MINER_PRIMARY, memory});
 
     const request = createSpawnRequest(priority, RUN_TTL, role, memory, null, 0);
     kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);

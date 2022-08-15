@@ -129,7 +129,7 @@ export default class DefenseManager {
     trace.info('defense manager run');
 
     const hostilesTrace = trace.begin('getHostilesByBase');
-    const hostilesByBase = getHostilesByBase(kernel, Object.values(Game.rooms), hostilesTrace);
+    const hostilesByBase = getHostilesByBase(kernel, hostilesTrace);
     hostilesTrace.info('hostiles by base', {hostilesByBase});
     hostilesTrace.end();
 
@@ -223,7 +223,6 @@ export default class DefenseManager {
         request.details.memory, null, 0);
       trace.log('requesting spawning of defenders', {request});
       kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), spawnRequest);
-      // @CONFIRM that defenders spawn
     }
 
     trace.info('requesting existing defense response', {request});
@@ -239,8 +238,8 @@ export default class DefenseManager {
 
 type HostilesByBase = Map<string, Target[]>;
 
-function getHostilesByBase(kernel: Kernel, rooms: Room[], trace: Tracer): HostilesByBase {
-  return rooms.reduce<HostilesByBase>((bases, room: Room) => {
+function getHostilesByBase(kernel: Kernel, trace: Tracer): HostilesByBase {
+  return Object.values(Game.rooms).reduce<HostilesByBase>((bases, room: Room) => {
     const base = kernel.getPlanner().getBaseByRoom(room.name);
     if (!base) {
       return bases;
@@ -325,6 +324,8 @@ function addHostilesToBaseTargetTopic(kernel: Kernel, hostilesByBases: HostilesB
         id: hostile.id,
         roomName: hostile.room.name,
         healingPower: healingPower,
+        // TODO include rangedAttackPower
+        // TODO include meleeAttackPower
       };
 
       trace.info('requesting target', {details, healingPower});

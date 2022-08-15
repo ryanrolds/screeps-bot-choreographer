@@ -3,7 +3,7 @@ import {creepIsFresh} from './behavior.commute';
 import {WORKER_HARVESTER} from './constants.creeps';
 import * as MEMORY from './constants.memory';
 import {roadPolicy} from './constants.pathing_policies';
-import {PRIORITY_MINER} from './constants.priorities';
+import {PRIORITY_MINER_PRIMARY} from './constants.priorities';
 import {Kernel} from './kernel';
 import {Event} from './lib.event_broker';
 import {getPath} from './lib.pathing';
@@ -206,7 +206,7 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
 
       trace.info('requesting harvester', {mineralId: this.id, memory});
 
-      const request = createSpawnRequest(PRIORITY_MINER, REQUEST_WORKER_TTL, WORKER_HARVESTER,
+      const request = createSpawnRequest(PRIORITY_MINER_PRIMARY, REQUEST_WORKER_TTL, WORKER_HARVESTER,
         memory, null, 0);
       kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
     }

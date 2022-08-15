@@ -44,6 +44,7 @@ DEFINITIONS.set(WORKER_UPGRADER, {
   boosts: ['upgradeController'],
   energyLimit: 0,
   energyMinimum: 200,
+  softEnergyMinimum: 1000,
   ignoreSpawnEnergyLimit: false,
   processPriority: Priorities.CORE_LOGISTICS,
   skippable: true,
@@ -54,6 +55,7 @@ DEFINITIONS.set(WORKER_DISTRIBUTOR, {
   boosts: [], // ['capacity']
   energyLimit: 0,
   energyMinimum: 200,
+  softEnergyMinimum: 1000,
   ignoreSpawnEnergyLimit: true,
   processPriority: Priorities.CORE_LOGISTICS,
   skippable: true,
@@ -94,6 +96,7 @@ DEFINITIONS.set(WORKER_HARVESTER, {
   boosts: [], // ['harvest']
   energyLimit: 3200,
   energyMinimum: 200,
+  softEnergyMinimum: 1000,
   ignoreSpawnEnergyLimit: false,
   processPriority: Priorities.RESOURCES,
   skippable: true,
@@ -104,6 +107,7 @@ DEFINITIONS.set(ROLE_WORKER, {
   boosts: [], // ['harvest']
   energyLimit: 0,
   energyMinimum: 300,
+  softEnergyMinimum: 550,
   ignoreSpawnEnergyLimit: false,
   processPriority: Priorities.RESOURCES,
   skippable: true,
@@ -146,6 +150,7 @@ DEFINITIONS.set(WORKER_BUILDER, {
   boosts: [], // ['build']
   energyLimit: 1500,
   energyMinimum: 200,
+  softEnergyMinimum: 800,
   ignoreSpawnEnergyLimit: true,
   processPriority: Priorities.MAINTENANCE,
   skippable: true,
@@ -156,6 +161,7 @@ DEFINITIONS.set(WORKER_REPAIRER, {
   boosts: [], // ['repair']
   energyLimit: 900,
   energyMinimum: 250,
+  softEnergyMinimum: 800,
   ignoreSpawnEnergyLimit: false,
 
   processPriority: Priorities.MAINTENANCE,

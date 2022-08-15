@@ -61,6 +61,7 @@ export default class DefensePartyRunnable {
 
     let targetCreeps: Creep[] = [];
     let targetStructures: Structure[] = [];
+
     // Get target requests and map to creeps
     if (flag.room) {
       const friends = kernel.getConfig().friends;

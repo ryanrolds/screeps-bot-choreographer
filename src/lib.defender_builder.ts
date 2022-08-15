@@ -10,25 +10,7 @@ type BoostMultipliers = {
   'tough': number;
 }
 
-export function newMultipliers(): BoostMultipliers {
-  return {
-    'heal': 1,
-    'attack': 1,
-    'move': 1,
-    'tough': 1,
-    'rangedAttack': 1,
-  };
-}
-
-export function getStorageBoostMultipliers(_storage: StructureStorage): BoostMultipliers {
-  const multipliers = newMultipliers();
-
-  // TODO this is stubbed
-
-  return multipliers;
-}
-
-export function buildAttacker(
+export function buildDefender(
   requiredTanking: number,
   maxEnergy: number,
   multipliers: BoostMultipliers,
@@ -37,6 +19,7 @@ export function buildAttacker(
   let healParts = 0;
   let moveParts = 0;
   let attackParts = 0;
+  let rangedAttackParts = 0;
   let toughParts = 0;
 
   let neededEnergy = 0;
@@ -56,7 +39,7 @@ export function buildAttacker(
   });
 
   while (true) { // eslint-disable-line no-constant-condition
-    const numNonMoveParts = healParts + attackParts + toughParts;
+    const numNonMoveParts = healParts + attackParts + toughParts + rangedAttackParts;
     const numParts = numNonMoveParts + moveParts;
     // Cannot have more than 50 parts
     if (numParts >= 50) {
@@ -66,7 +49,8 @@ export function buildAttacker(
 
     let ΔHealParts = 0;
     let ΔMoveParts = 0;
-    let ΔAttackParts = 0;
+    const ΔAttackParts = 0;
+    let ΔRangedAttackParts = 0;
     const ΔToughParts = 0;
     let ΔEnergy = 0;
 
@@ -82,15 +66,19 @@ export function buildAttacker(
       //   totalHealingTick: healParts * healingTick
       // });
     } else {
-      ΔAttackParts += 1;
-      // trace.info('adding attack parts', {ΔAttackParts});
+      // TODO generalize builder to work with attack and defenders, this is the only
+      // part of this that actually varies
+      ΔRangedAttackParts += 1;
+      // trace.info('adding ranged attack parts', {ΔRangedAttackParts});
     }
 
     const ΔHealPartsEnergy = ΔHealParts * BODYPART_COST[HEAL];
     const ΔMovePartsEnergy = ΔMoveParts * BODYPART_COST[MOVE];
     const ΔAttackPartsEnergy = ΔAttackParts * BODYPART_COST[ATTACK];
+    const ΔRangedAttackPartsEnergy = ΔRangedAttackParts * BODYPART_COST[RANGED_ATTACK];
     const ΔToughPartsEnergy = ΔToughParts * BODYPART_COST[TOUGH];
-    ΔEnergy += ΔHealPartsEnergy + ΔMovePartsEnergy + ΔAttackPartsEnergy + ΔToughPartsEnergy;
+    ΔEnergy += ΔHealPartsEnergy + ΔMovePartsEnergy + ΔAttackPartsEnergy + ΔRangedAttackPartsEnergy +
+      ΔToughPartsEnergy;
 
     // trace.info('pass', {ΔEnergy, ΔHealParts, ΔMoveParts, ΔAttackParts, ΔToughParts});
 
@@ -102,6 +90,7 @@ export function buildAttacker(
 
     healParts += ΔHealParts;
     attackParts += ΔAttackParts;
+    rangedAttackParts += ΔRangedAttackParts;
     moveParts += ΔMoveParts;
     toughParts += ΔToughParts;
     neededEnergy += ΔEnergy;
@@ -121,7 +110,7 @@ export function buildAttacker(
   }
 
   let ok = false;
-  if (healParts * healingTick >= requiredTanking) {
+  if (healParts * healingTick >= requiredTanking && rangedAttackParts >= 1) {
     ok = true;
   }
 
@@ -140,6 +129,19 @@ export function buildAttacker(
 
     body.unshift(HEAL);
     healParts--;
+    partsCount++;
+  }
+
+  // Add ranged attack and move parts (2:1) to front
+  while (rangedAttackParts) {
+    if (moveParts && partsCount % movingTick === 0) {
+      body.unshift(MOVE);
+      moveParts--;
+      // partsCount++;
+    }
+
+    body.unshift(RANGED_ATTACK);
+    rangedAttackParts--;
     partsCount++;
   }
 
