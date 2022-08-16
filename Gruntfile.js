@@ -1,4 +1,7 @@
 module.exports = function(grunt) {
+  const typescript = require('@rollup/plugin-typescript')
+  const commonjs = require('@rollup/plugin-commonjs')
+
   const config = require('./.screeps.json');
   grunt.initConfig({
     'eslint': {
@@ -16,6 +19,20 @@ module.exports = function(grunt) {
         src: ['src/**/*.test.ts'],
       },
     },
+    'rollup': {
+      options: {
+        format: 'cjs',
+        plugins: [
+          typescript({module: "esnext"}),
+          commonjs(),
+        ],
+      },
+      main: {
+        files: {
+          'dist/main.js': 'src/main.ts',
+        },
+      }
+    },
     'ts': {
       default: {
         tsconfig: './tsconfig.json',
@@ -28,7 +45,7 @@ module.exports = function(grunt) {
     },
     'regex-replace': {
       gitsha: { // specify a target with any name
-        src: ['built/main.js'],
+        src: ['dist/main.js'],
         actions: [
           {
             name: 'gitsha',
@@ -40,7 +57,7 @@ module.exports = function(grunt) {
       },
     },
     'clean': {
-      'built': ['built'],
+      'dist': ['dist'],
     },
     'screeps': {
       mmo: {
@@ -50,7 +67,7 @@ module.exports = function(grunt) {
           branch: config.branch,
           ptr: config.ptr,
         },
-        src: ['built/*.js'],
+        src: ['dist/main.js'],
       },
       season: {
         options: {
@@ -60,7 +77,7 @@ module.exports = function(grunt) {
           branch: config.branch,
           ptr: config.ptr,
         },
-        src: ['built/*.js'],
+        src: ['dist/main.js'],
       },
       local: {
         options: {
@@ -75,7 +92,7 @@ module.exports = function(grunt) {
           branch: config.private.branch,
           ptr: false,
         },
-        src: ['built/*.js'],
+        src: ['dist/main.js'],
       },
       private: {
         options: {
@@ -90,7 +107,7 @@ module.exports = function(grunt) {
           branch: config.private.branch,
           ptr: false,
         },
-        src: ['built/*.js'],
+        src: ['dist/main.js'],
       },
     },
   });
@@ -102,6 +119,7 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks('grunt-contrib-clean');
   grunt.loadNpmTasks('grunt-regex-replace');
   grunt.loadNpmTasks('grunt-githash');
+  grunt.loadNpmTasks('grunt-rollup');
 
   grunt.registerTask('prune', '', function() {
     const exec = require('child_process').execSync;
@@ -113,7 +131,7 @@ module.exports = function(grunt) {
   });
 
   grunt.registerTask('test', ['eslint', 'mochaTest']);
-  grunt.registerTask('build', ['clean', 'ts', 'githash', 'regex-replace:gitsha']);
+  grunt.registerTask('build', ['clean', 'rollup:main', 'githash', 'regex-replace:gitsha']);
   grunt.registerTask('default', ['test', 'build']);
 
   // Tasks for uploading to specific servers
