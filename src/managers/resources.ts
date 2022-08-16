@@ -1,32 +1,31 @@
+import {Reaction, ReactionMap} from '../base/booster';
 import {
-  Base, getBasePrimaryRoom, getStoredEffects, getStoredResourceAmount,
-  getStoredResources, ResourceCounts
-} from './base/base';
-import {PRICES} from './constants.market';
+  REACTION_STATUS_START, REACTION_STATUS_STOP, REACTION_STATUS_STREAM,
+  REACTION_STATUS_UPDATE, TASK_PHASE_REACT
+} from '../base/reactor';
+import {getBaseTerminalTopic, TerminalTask} from '../base/terminal';
+import {PRICES} from '../constants/market';
 import {
   BASE_STATUS_ENERGY, BASE_STATUS_LEVEL, BASE_STATUS_LEVEL_COMPLETED,
   BASE_STATUS_NAME, BASE_STATUS_TERMINAL, MEMORY_ORDER_AMOUNT, MEMORY_ORDER_RESOURCE,
   MEMORY_ORDER_TYPE, REACTION_STATUS_PHASE, REACTION_STATUS_RESOURCE, REACTOR_AMOUNT,
   REACTOR_INPUT_A, REACTOR_INPUT_B, REACTOR_OUTPUT, REACTOR_TASK_TYPE, TERMINAL_TASK_TYPE,
   TRANSFER_AMOUNT, TRANSFER_BASE, TRANSFER_RESOURCE
-} from './constants.memory';
+} from '../constants/memory';
 import {
   REACTION_PRIORITIES, TERMINAL_BUY, TERMINAL_ENERGY_BALANCE, TERMINAL_TRANSFER
-} from './constants.priorities';
-import {REACTION, TASK_MARKET_ORDER, TASK_TRANSFER} from './constants.tasks';
-import {ACTIVE_REACTIONS, ROOM_STATUES, TASK_REACTION} from './constants.topics';
-import {Consumer} from './lib.event_broker';
-import {SigmoidPricing} from './lib.sigmoid_pricing';
-import {Tracer} from './lib/tracing';
-import {running} from './os.process';
-import {Runnable, RunnableResult} from './os.runnable';
-import {Kernel, KernelThreadFunc, threadKernel} from './os/kernel';
-import {Reaction, ReactionMap} from './runnable.base_booster';
+} from '../constants/priorities';
+import {REACTION, TASK_MARKET_ORDER, TASK_TRANSFER} from '../constants/tasks';
+import {ACTIVE_REACTIONS, ROOM_STATUES, TASK_REACTION} from '../constants/topics';
+import {Consumer} from '../lib/event_broker';
+import {SigmoidPricing} from '../lib/sigmoid_pricing';
+import {Tracer} from '../lib/tracing';
 import {
-  REACTION_STATUS_START, REACTION_STATUS_STOP, REACTION_STATUS_STREAM,
-  REACTION_STATUS_UPDATE, TASK_PHASE_REACT
-} from './runnable.base_reactor';
-import {getBaseTerminalTopic, TerminalTask} from './runnable.base_terminal';
+  Base, getBasePrimaryRoom, getStoredEffects, getStoredResourceAmount,
+  getStoredResources, ResourceCounts
+} from '../os/kernel/base';
+import {Kernel, KernelThreadFunc, threadKernel} from '../os/kernel/kernel';
+import {Runnable, RunnableResult, running} from '../os/process';
 
 const RESERVE_LIMIT = 20000;
 const REACTION_BATCH_SIZE = 1000;

@@ -1,34 +1,39 @@
-import {AlertLevel, Base, BaseThreadFunc, getBaseLevel, getBaseLevelCompleted, getBasePrimaryRoom, getReserveBuffer, getStoredResourceAmount, getStoredResources, getStructureWithResource, setBoostPosition, setLabsByAction, threadBase} from '../os/kernel/base';
+import * as CREEPS from '../constants/creeps';
+import {DEFENSE_STATUS} from '../constants/defense';
+import * as MEMORY from '../constants/memory';
+import * as PRIORITIES from '../constants/priorities';
+import * as TASKS from '../constants/tasks';
+import * as TOPICS from '../constants/topics';
+import {creepIsFresh} from '../creeps/behavior/commute';
+import {getBaseDistributorTopic} from '../creeps/roles/distributor';
+import {scoreAttacking} from '../creeps/roles/harasser';
+import {
+  getDashboardStream, getLinesStream, HudEventSet, HudIndicator, HudIndicatorStatus,
+  HudLine
+} from '../debug/hud';
+import {Event} from '../lib/event_broker';
+import {Tracer} from '../lib/tracing';
+import {RoomEntry} from '../managers/scribe';
+import {
+  AlertLevel, Base, BaseThreadFunc, getBaseLevel, getBaseLevelCompleted,
+  getBasePrimaryRoom, getReserveBuffer, getStoredResourceAmount, getStoredResources, getStructureWithResource, setBoostPosition, setLabsByAction, threadBase
+} from '../os/kernel/base';
+import {Kernel} from '../os/kernel/kernel';
+import {Process, RunnableResult, sleeping, terminate} from '../os/process';
+import {Priorities, Scheduler} from '../os/scheduler';
 import {BaseRoomThreadFunc, threadBaseRoom} from '../os/threads/base_room';
-import {creepIsFresh} from './behavior.commute';
 import {BoosterDetails, getBaseBoostTopic} from './booster';
-import * as CREEPS from './constants.creeps';
-import {DEFENSE_STATUS} from './constants.defense';
-import * as MEMORY from './constants.memory';
-import * as PRIORITIES from './constants.priorities';
-import * as TASKS from './constants.tasks';
-import * as TOPICS from './constants.topics';
 import BaseConstructionRunnable from './construction';
 import ControllerRunnable from './controller';
-import {Kernel} from './kernel';
 import {LabsManager} from './labs';
-import {Event} from './lib.event_broker';
-import {Tracer} from './lib/tracing';
 import LinkManager from './links';
 import LogisticsRunnable from './logistics';
 import {NeighborsRunnable} from './neighbors';
 import NukerRunnable from './nuker';
 import {ObserverRunnable} from './observer';
-import {Process, sleeping, terminate} from './os.process';
-import {RunnableResult} from './os.runnable';
-import {Priorities, Scheduler} from './os.scheduler';
 import {RemotesManager} from './remotes';
 import RepairRunnable from './repair';
-import {getBaseDistributorTopic} from './role.distributor';
-import {scoreAttacking} from './role.harasser';
 import RoomRunnable from './room';
-import {getDashboardStream, getLinesStream, HudEventSet, HudIndicator, HudIndicatorStatus, HudLine} from './runnable.debug_hud';
-import {RoomEntry} from './runnable.scribe';
 import SpawnManager, {createSpawnRequest, getBaseSpawnTopic, getShardSpawnTopic} from './spawning';
 import TerminalRunnable from './terminal';
 import TowerRunnable from './tower';

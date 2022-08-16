@@ -1,10 +1,9 @@
-import {ATTACK_ROOM} from './constants.topics';
-import {AttackRequest, AttackStatus, ATTACK_ROOM_TTL} from './constants/constants.attack';
-import {Tracer} from './lib/tracing';
-import {sleeping} from './os.process';
-import {RunnableResult} from './os.runnable';
-import {Scheduler} from './os.scheduler';
-import {Kernel} from './os/kernel';
+import {AttackRequest, AttackStatus, ATTACK_ROOM_TTL} from '../constants/attack';
+import {ATTACK_ROOM} from '../constants/topics';
+import {Tracer} from '../lib/tracing';
+import {Kernel} from '../os/kernel/kernel';
+import {RunnableResult, sleeping} from '../os/process';
+import {Scheduler} from '../os/scheduler';
 import {RoomEntry} from './scribe';
 
 const RUN_TTL = 50;

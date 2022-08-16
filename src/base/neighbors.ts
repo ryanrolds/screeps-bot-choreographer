@@ -1,8 +1,7 @@
+import {Tracer} from "../lib/tracing";
 import {Base} from "../os/kernel/base";
-import {Kernel} from "./kernel";
-import {Tracer} from "./lib/tracing";
-import {sleeping, terminate} from "./os.process";
-import {Runnable, RunnableResult} from "./os.runnable";
+import {Kernel} from "../os/kernel/kernel";
+import {Runnable, RunnableResult, sleeping, terminate} from "../os/process";
 
 const RUN_INTERVAL = 100;
 

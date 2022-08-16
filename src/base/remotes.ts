@@ -1,10 +1,9 @@
+import {Consumer} from "../lib/event_broker";
+import {Tracer} from "../lib/tracing";
 import {addRoom, Base, getBasePrimaryRoom, resetRemotes} from "../os/kernel/base";
+import {Kernel} from "../os/kernel/kernel";
+import {Runnable, RunnableResult, sleeping, terminate} from "../os/process";
 import {desiredRemotes, findRemotes} from "./find_remotes";
-import {Kernel} from "./kernel";
-import {Consumer} from "./lib.event_broker";
-import {Tracer} from "./lib/tracing";
-import {sleeping, terminate} from "./os.process";
-import {Runnable, RunnableResult} from "./os.runnable";
 import {getBaseSpawnUtilizationTopic, SpawnUtilizationUpdate} from "./spawning";
 
 const RUN_INTERVAL = 50;

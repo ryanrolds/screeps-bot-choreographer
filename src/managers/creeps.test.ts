@@ -2,14 +2,14 @@ import {expect} from 'chai';
 import 'mocha';
 import {mockGlobal, mockInstanceOf, setup} from 'screeps-test-helper';
 import * as sinon from 'sinon';
+import * as CREEPS from '../constants/creeps';
+import * as MEMORY from '../constants/memory';
+import {Metrics} from '../lib/metrics';
+import {Tracer} from '../lib/tracing';
 import {Kernel} from '../os/kernel/kernel';
-import * as CREEPS from './constants.creeps';
-import * as MEMORY from './constants.memory';
+import {Process} from '../os/process';
+import {Scheduler} from '../os/scheduler';
 import {CreepManager} from './creeps';
-import {Metrics} from './lib.metrics';
-import {Tracer} from './lib/tracing';
-import {Process} from './os.process';
-import {Scheduler} from './os.scheduler';
 
 describe('Creeps Manager', () => {
   const kernel: Kernel = null;

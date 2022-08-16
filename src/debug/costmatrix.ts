@@ -1,12 +1,11 @@
-import {Kernel} from '../os/kernel/kernel';
 import {
   createCommonCostMatrix, createDefenderCostMatrix, createOpenSpaceMatrix, createPartyCostMatrix, createSourceRoadMatrix, visualizeCostMatrix
-} from './lib.costmatrix';
-import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
-import {Metrics} from './lib.metrics';
-import {Tracer} from './lib/tracing';
-import {running} from './os.process';
-import {RunnableResult} from './os.runnable';
+} from '../lib/costmatrix';
+import {AllowedCostMatrixTypes} from '../lib/costmatrix_cache';
+import {Metrics} from '../lib/metrics';
+import {Tracer} from '../lib/tracing';
+import {Kernel} from '../os/kernel/kernel';
+import {RunnableResult, running} from '../os/process';
 
 export default class CostMatrixDebugger {
   id: string;

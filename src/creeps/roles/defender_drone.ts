@@ -1,6 +1,6 @@
-import {behaviorBoosts} from './behavior.boosts';
-import * as MEMORY from './constants.memory';
-import * as behaviorTree from './lib.behaviortree';
+import * as MEMORY from '../../constants/memory';
+import * as behaviorTree from '../behavior/behaviortree';
+import {behaviorBoosts} from '../behavior/boosts';
 
 export const behavior = behaviorTree.sequenceNode(
   'defender_drone_root',

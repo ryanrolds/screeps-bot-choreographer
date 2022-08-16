@@ -1,8 +1,8 @@
-import {Base} from './base/base';
+import {RoomEntry} from '../managers/scribe';
+import {Base} from '../os/kernel/base';
+import {Kernel} from '../os/kernel/kernel';
 import {AllowedCostMatrixTypes} from './costmatrix_cache';
-import {Kernel} from './kernel';
 import {getNearbyPositions} from './position';
-import {RoomEntry} from './runnable.scribe';
 import {Tracer} from './tracing';
 
 type BasePolicy = {

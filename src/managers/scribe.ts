@@ -1,10 +1,9 @@
-import {Event} from './lib.event_broker';
-import {Tracer} from './lib/tracing';
-import {sleeping} from './os.process';
-import {Runnable, RunnableResult} from './os.runnable';
-import {Kernel, KernelThreadFunc, threadKernel} from './os/kernel';
-import {scoreAttacking, scoreHealing} from './role.harasser';
-import {getDashboardStream, HudEventSet, HudIndicator, HudIndicatorStatus} from './runnable.debug_hud';
+import {scoreAttacking, scoreHealing} from '../creeps/roles/harasser';
+import {getDashboardStream, HudEventSet, HudIndicator, HudIndicatorStatus} from '../debug/hud';
+import {Event} from '../lib/event_broker';
+import {Tracer} from '../lib/tracing';
+import {Kernel, KernelThreadFunc, threadKernel} from '../os/kernel/kernel';
+import {Runnable, RunnableResult, sleeping} from '../os/process';
 
 const RUN_TTL = 10;
 const JOURNAL_ENTRY_BASE_TTL = 10;

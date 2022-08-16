@@ -1,4 +1,4 @@
-import {Tracer} from './lib/tracing';
+import {Tracer} from '../../lib/tracing';
 
 const _QUAD_SIZE = 4;
 

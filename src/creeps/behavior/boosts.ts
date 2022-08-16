@@ -1,8 +1,8 @@
-import {getBoostPosition, getCreepBase, getLabsForAction} from './base/base';
-import * as MEMORY from './constants.memory';
-import {Kernel} from './kernel';
-import * as behaviorTree from './lib.behaviortree';
-import {RUNNING, SUCCESS} from './lib.behaviortree';
+import * as MEMORY from '../../constants/memory';
+import {getBoostPosition, getCreepBase, getLabsForAction} from '../../os/kernel/base';
+import {Kernel} from '../../os/kernel/kernel';
+import * as behaviorTree from './behaviortree';
+import {RUNNING, SUCCESS} from './behaviortree';
 import * as behaviorMovement from './movement';
 
 const BOOST_PHASE = 'boost_phase';

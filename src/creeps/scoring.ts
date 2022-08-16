@@ -1,4 +1,4 @@
-import {RoomEntry} from './runnable.scribe';
+import {RoomEntry} from '../managers/scribe';
 
 const MIN_HEALING_BOOST_AMOUNT = 2000;
 

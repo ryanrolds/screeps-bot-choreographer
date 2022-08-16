@@ -1,11 +1,10 @@
 import {
   DismissedReasonAdjacentClaimed, DismissedReasonDifferentRoomStatus, DismissedReasonNoController, DismissedReasonNoRoomEntry,
   DismissedReasonOwned, ExpandResults, pickExpansion
-} from './lib.expand';
-import {Tracer} from './lib/tracing';
-import {running} from './os.process';
-import {RunnableResult} from './os.runnable';
-import {Kernel} from './os/kernel';
+} from '../lib/expand';
+import {Tracer} from '../lib/tracing';
+import {Kernel} from '../os/kernel/kernel';
+import {RunnableResult, running} from '../os/process';
 
 
 export default class PlannerDebugger {

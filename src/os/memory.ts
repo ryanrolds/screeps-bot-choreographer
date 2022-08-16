@@ -1,7 +1,6 @@
+import {Tracer} from '../lib/tracing';
 import {Kernel} from './kernel/kernel';
-import {Tracer} from './lib/tracing';
-import {sleeping} from './process';
-import {Runnable, RunnableResult} from './runnable';
+import {Runnable, RunnableResult, sleeping} from './process';
 
 const MEMORY_CLEANUP_TTL = 1000;
 const MEMORY_OBJECT_TTL = 5000;

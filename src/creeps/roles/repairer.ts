@@ -1,16 +1,16 @@
-import * as behaviorTree from './lib.behaviortree';
-import {FAILURE, RUNNING, SUCCESS} from './lib.behaviortree';
+import * as behaviorTree from '../behavior/behaviortree';
+import {FAILURE, RUNNING, SUCCESS} from '../behavior/behaviortree';
 
-import * as behaviorAssign from './behavior.assign';
-import {behaviorBoosts} from './behavior.boosts';
-import * as behaviorCommute from './behavior.commute';
-import * as behaviorMovement from './behavior.movement';
+import * as behaviorCommute from '../../creeps/behavior/commute';
+import * as behaviorAssign from '../behavior/assign';
+import {behaviorBoosts} from '../behavior/boosts';
+import * as behaviorMovement from '../behavior/movement';
 
-import {getCreepBase, getNextDamagedStructure} from './base/base';
-import {getEnergy} from './behavior.room';
-import {MEMORY_DESTINATION} from './constants.memory';
-import {Kernel} from './kernel';
-import {Tracer} from './lib/tracing';
+import {MEMORY_DESTINATION} from '../../constants/memory';
+import {Tracer} from '../../lib/tracing';
+import {getCreepBase, getNextDamagedStructure} from '../../os/kernel/base';
+import {Kernel} from '../../os/kernel/kernel';
+import {getEnergy} from '../behavior/room';
 
 const selectStructureToRepair = behaviorTree.leafNode(
   'selectStructureToRepair',

@@ -1,8 +1,8 @@
-import * as behaviorMovement from './behavior.movement';
-import {MEMORY_ASSIGN_ROOM} from './constants.memory';
-import * as behaviorTree from './lib.behaviortree';
-import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
-import {FindPathPolicy} from './lib.pathing';
+import {MEMORY_ASSIGN_ROOM} from '../../constants/memory';
+import {AllowedCostMatrixTypes} from '../../lib/costmatrix_cache';
+import {FindPathPolicy} from '../../lib/pathing';
+import * as behaviorTree from '../behavior/behaviortree';
+import * as behaviorMovement from '../behavior/movement';
 
 const explorerPolicy: FindPathPolicy = {
   room: {

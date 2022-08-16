@@ -1,8 +1,7 @@
-import {Consumer} from './lib.event_broker';
-import {Tracer} from './lib/tracing';
-import {running} from './os.process';
-import {RunnableResult} from './os.runnable';
-import {Kernel, KernelThreadFunc, threadKernel} from './os/kernel';
+import {Consumer} from '../lib/event_broker';
+import {Tracer} from '../lib/tracing';
+import {Kernel, KernelThreadFunc, threadKernel} from '../os/kernel/kernel';
+import {RunnableResult, running} from '../os/process';
 
 const CONSUME_EVENTS_TTL = 1;
 const DASHBOARD_EVENTS_TTL = 1;

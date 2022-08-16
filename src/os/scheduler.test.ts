@@ -2,10 +2,9 @@ import {expect} from 'chai';
 import 'mocha';
 import {mockGlobal} from 'screeps-test-helper';
 import * as sinon from 'sinon';
-import {Metrics} from './lib.metrics';
-import {Tracer} from './lib/tracing';
-import {Process, running} from './process';
-import {RunnableResult} from './runnable';
+import {Metrics} from '../lib/metrics';
+import {Tracer} from '../lib/tracing';
+import {Process, RunnableResult, running} from './process';
 import {Scheduler} from './scheduler';
 
 

@@ -1,8 +1,8 @@
-import * as MEMORY from './constants.memory';
-import {Kernel} from './kernel';
-import * as behaviorTree from './lib.behaviortree';
-import {RUNNING, SUCCESS} from './lib.behaviortree';
-import {Tracer} from './lib/tracing';
+import * as MEMORY from '../../constants/memory';
+import {Tracer} from '../../lib/tracing';
+import {Kernel} from '../../os/kernel/kernel';
+import * as behaviorTree from './behaviortree';
+import {RUNNING, SUCCESS} from './behaviortree';
 
 const MEMORY_PREV_ROOM = 'previous_room';
 

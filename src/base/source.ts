@@ -1,19 +1,21 @@
+import {ROLE_WORKER, WORKER_HAULER, WORKER_MINER} from '../constants/creeps';
+import * as MEMORY from '../constants/memory';
+import {roadPolicy} from '../constants/pathing_policies';
+import {
+  HAUL_BASE_ROOM, HAUL_CONTAINER, LOAD_FACTOR, PRIORITY_MINER_PRIMARY,
+  PRIORITY_MINER_REMOTE
+} from '../constants/priorities';
+import * as TASKS from '../constants/tasks';
+import {getLinesStream, HudEventSet, HudLine} from '../debug/hud';
+import {Event} from '../lib/event_broker';
+import {getPath} from '../lib/pathing';
+import {getNearbyPositions} from '../lib/position';
+import {Tracer} from '../lib/tracing';
 import {AlertLevel, Base, BaseThreadFunc, getStructureForResource, threadBase} from '../os/kernel/base';
-import {ROLE_WORKER, WORKER_HAULER, WORKER_MINER} from './constants.creeps';
-import * as MEMORY from './constants.memory';
-import {roadPolicy} from './constants.pathing_policies';
-import {HAUL_BASE_ROOM, HAUL_CONTAINER, LOAD_FACTOR, PRIORITY_MINER_PRIMARY, PRIORITY_MINER_REMOTE} from './constants.priorities';
-import * as TASKS from './constants.tasks';
-import {Kernel} from './kernel';
-import {Event} from './lib.event_broker';
-import {getPath} from './lib.pathing';
-import {getNearbyPositions} from './lib.position';
-import {Tracer} from './lib/tracing';
+import {Kernel} from '../os/kernel/kernel';
+import {PersistentMemory} from '../os/memory';
+import {Runnable, RunnableResult, sleeping, terminate} from '../os/process';
 import {getBaseHaulerTopic, getLogisticsTopic, LogisticsEventData, LogisticsEventType} from './logistics';
-import {PersistentMemory} from './os.memory';
-import {sleeping, terminate} from './os.process';
-import {Runnable, RunnableResult} from './os.runnable';
-import {getLinesStream, HudEventSet, HudLine} from './runnable.debug_hud';
 import {createSpawnRequest, getBaseSpawnTopic} from './spawning';
 
 const RUN_TTL = 50;

@@ -1,6 +1,6 @@
 
-import * as behaviorTree from './lib.behaviortree';
-import {SUCCESS} from './lib.behaviortree';
+import * as behaviorTree from './behaviortree';
+import {SUCCESS} from './behaviortree';
 
 export const roadWorker = (behaviorNode) => {
   return behaviorTree.sequenceAlwaysNode(

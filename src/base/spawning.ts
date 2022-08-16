@@ -5,20 +5,25 @@
  *
  * TODO - Move to topic with base id in the name - IN PROGRESS
  */
-import {Base, BaseThreadFunc, getBasePrimaryRoom, getStoredResourceAmount, threadBase} from '../os/kernel/base';
+import * as CREEPS from '../constants/creeps';
+import {DEFINITIONS} from '../constants/creeps';
+import * as MEMORY from '../constants/memory';
+import * as TOPICS from '../constants/topics';
+import {
+  getDashboardStream, getLinesStream, HudEventSet, HudIndicator, HudIndicatorStatus,
+  HudLine
+} from '../debug/hud';
+import {Event} from '../lib/event_broker';
+import {Request, TopicKey} from '../lib/topics';
+import {Tracer} from '../lib/tracing';
+import {PortalEntry} from '../managers/scribe';
+import {
+  Base, BaseThreadFunc, getBasePrimaryRoom, getStoredResourceAmount,
+  threadBase
+} from '../os/kernel/base';
+import {Kernel} from '../os/kernel/kernel';
+import {RunnableResult, running, terminate} from '../os/process';
 import {threadBaseRoom} from '../os/threads/base_room';
-import * as CREEPS from './constants.creeps';
-import {DEFINITIONS} from './constants.creeps';
-import * as MEMORY from './constants.memory';
-import * as TOPICS from './constants.topics';
-import {Kernel} from './kernel';
-import {Event} from './lib.event_broker';
-import {Request, TopicKey} from './lib.topics';
-import {Tracer} from './lib/tracing';
-import {running, terminate} from './os.process';
-import {RunnableResult} from './os.runnable';
-import {getDashboardStream, getLinesStream, HudEventSet, HudIndicator, HudIndicatorStatus, HudLine} from './runnable.debug_hud';
-import {PortalEntry} from './runnable.scribe';
 
 const SPAWN_TTL = 5;
 const REQUEST_BOOSTS_TTL = 5;

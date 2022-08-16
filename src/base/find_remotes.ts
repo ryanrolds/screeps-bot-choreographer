@@ -1,8 +1,8 @@
-import {buildDefender} from '../creeps/lib.defender_builder';
+import {newMultipliers} from '../creeps/builders/attacker';
+import {buildDefender} from '../creeps/builders/defender';
 import {Tracer} from '../lib/tracing';
-import {Base, getBasePrimaryRoom} from './base/base';
-import {Kernel} from './kernel';
-import {newMultipliers} from './lib.attacker_builder';
+import {Base, getBasePrimaryRoom} from '../os/kernel/base';
+import {Kernel} from '../os/kernel/kernel';
 
 const PASSES = 3;
 

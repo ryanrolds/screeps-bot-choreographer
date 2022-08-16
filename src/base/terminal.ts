@@ -1,15 +1,14 @@
+import {PRICES} from '../constants/market';
+import * as MEMORY from '../constants/memory';
+import * as PRIORITIES from '../constants/priorities';
+import * as TASKS from '../constants/tasks';
+import * as TOPICS from '../constants/topics';
+import {getBaseDistributorTopic} from '../creeps/roles/distributor';
+import {ResourcePricer, SigmoidPricing} from '../lib/sigmoid_pricing';
+import {Tracer} from '../lib/tracing';
 import {Base, BaseThreadFunc, getStoredResourceAmount, getStructureForResource, getStructureWithResource, threadBase} from '../os/kernel/base';
-import {PRICES} from './constants.market';
-import * as MEMORY from './constants.memory';
-import * as PRIORITIES from './constants.priorities';
-import * as TASKS from './constants.tasks';
-import * as TOPICS from './constants.topics';
-import {Kernel, KernelThreadFunc, threadKernel} from './kernel';
-import {ResourcePricer, SigmoidPricing} from './lib.sigmoid_pricing';
-import {Tracer} from './lib/tracing';
-import {running, sleeping, terminate} from './os.process';
-import {RunnableResult} from './os.runnable';
-import {getBaseDistributorTopic} from './role.distributor';
+import {Kernel, KernelThreadFunc, threadKernel} from '../os/kernel/kernel';
+import {RunnableResult, running, sleeping, terminate} from '../os/process';
 
 const TASK_PHASE_HAUL_RESOURCE = 'phase_transfer_resource';
 const TASK_PHASE_TRANSACT = 'phase_transact';

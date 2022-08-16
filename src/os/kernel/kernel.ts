@@ -1,14 +1,14 @@
 import {ShardConfig} from '../../config';
+import {CostMatrixCache} from '../../lib/costmatrix_cache';
+import {EventBroker} from '../../lib/event_broker';
+import {PathCache} from '../../lib/path_cache';
+import {Topics} from '../../lib/topics';
+import {Tracer} from '../../lib/tracing';
 import {CentralPlanning} from '../../managers/bases';
-import {CreepManager} from '../creeps/ai.creeps';
-import {ResourceManager} from '../runnable.manager.resources';
-import {Scribe} from '../runnable.scribe';
+import {CreepManager} from '../../managers/creeps';
+import {ResourceManager} from '../../managers/resources';
+import {Scribe} from '../../managers/scribe';
 import {Scheduler} from '../scheduler';
-import {CostMatrixCache} from './lib.costmatrix_cache';
-import {EventBroker} from './lib.event_broker';
-import {PathCache} from './lib.path_cache';
-import {Topics} from './lib.topics';
-import {Tracer} from './lib/tracing';
 
 export interface Kernel {
   getConfig(): ShardConfig;

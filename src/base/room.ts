@@ -1,15 +1,14 @@
+import * as CREEPS from '../constants/creeps';
+import * as MEMORY from '../constants/memory';
+import * as PRIORITIES from '../constants/priorities';
+import {creepIsFresh} from '../creeps/behavior/commute';
+import {Tracer} from '../lib/tracing';
 import {AlertLevel, Base, baseEnergyStorageCapacity, threadBase} from '../os/kernel/base';
+import {Kernel} from '../os/kernel/kernel';
+import {Process, Runnable, RunnableResult, sleeping, terminate} from '../os/process';
+import {Priorities, Scheduler} from '../os/scheduler';
 import {BaseRoomThreadFunc, threadBaseRoom} from '../os/threads/base_room';
-import {creepIsFresh} from './behavior.commute';
-import * as CREEPS from './constants.creeps';
-import * as MEMORY from './constants.memory';
-import * as PRIORITIES from './constants.priorities';
-import {Kernel} from './kernel';
-import {Tracer} from './lib/tracing';
 import MineralRunnable from './mineral';
-import {Process, sleeping, terminate} from './os.process';
-import {Runnable, RunnableResult} from './os.runnable';
-import {Priorities, Scheduler} from './os.scheduler';
 import SourceRunnable from './source';
 import {createSpawnRequest, getBaseSpawnTopic, getShardSpawnTopic} from './spawning';
 

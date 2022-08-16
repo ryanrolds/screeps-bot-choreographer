@@ -3,8 +3,8 @@
  *
  * TODO move to role files
  */
-import {Priorities} from './os.scheduler';
-import {HarasserDefinition, ROLE_HARASSER} from './role.harasser';
+import {HarasserDefinition, ROLE_HARASSER} from '../creeps/roles/harasser';
+import {Priorities} from '../os/scheduler';
 
 export const WORKER_BUILDER = 'builder';
 export const WORKER_HARVESTER = 'harvester';

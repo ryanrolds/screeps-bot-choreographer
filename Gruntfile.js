@@ -5,7 +5,7 @@ module.exports = function(grunt) {
   const config = require('./.screeps.json');
   grunt.initConfig({
     'eslint': {
-      target: ['src/*.ts'],
+      target: ['src/**/*.ts'],
     },
     'mochaTest': {
       test: {

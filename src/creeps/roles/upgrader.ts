@@ -1,12 +1,12 @@
-import {behaviorBoosts} from './behavior.boosts';
-import * as behaviorCommute from './behavior.commute';
-import {roadWorker} from './behavior.logistics';
-import * as behaviorMovement from './behavior.movement';
-import * as behaviorRoom from './behavior.room';
-import * as MEMORY from './constants.memory';
-import * as behaviorTree from './lib.behaviortree';
-import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
-import {FindPathPolicy} from './lib.pathing';
+import * as MEMORY from '../../constants/memory';
+import * as behaviorCommute from '../../creeps/behavior/commute';
+import {AllowedCostMatrixTypes} from '../../lib/costmatrix_cache';
+import {FindPathPolicy} from '../../lib/pathing';
+import * as behaviorTree from '../behavior/behaviortree';
+import {behaviorBoosts} from '../behavior/boosts';
+import {roadWorker} from '../behavior/logistics';
+import * as behaviorMovement from '../behavior/movement';
+import * as behaviorRoom from '../behavior/room';
 
 export const controllerDumpPolicy: FindPathPolicy = {
   room: {

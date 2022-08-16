@@ -1,9 +1,8 @@
+import {Tracer} from '../lib/tracing';
 import {Base, getBasePrimaryRoom, getEnergyFullness, getReserveBuffer, getStoredResourceAmount} from '../os/kernel/base';
+import {Kernel} from '../os/kernel/kernel';
+import {Runnable, RunnableResult, running, sleeping, terminate} from '../os/process';
 import {BaseRoomThreadFunc, threadBaseRoom} from '../os/threads/base_room';
-import {Kernel} from './kernel';
-import {Tracer} from './lib/tracing';
-import {running, sleeping, terminate} from './os.process';
-import {Runnable, RunnableResult} from './os.runnable';
 
 const UPDATE_DAMAGED_STRUCTURES_TTL = 40;
 const UPDATE_DAMAGED_SECONDARY_TTL = 15;

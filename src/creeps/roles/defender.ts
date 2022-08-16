@@ -1,12 +1,12 @@
-import {getCreepBase} from './base/base';
-import * as behaviorAssign from './behavior.assign';
-import {behaviorBoosts} from './behavior.boosts';
-import {MEMORY_ASSIGN_ROOM_POS} from './constants.memory';
-import {Kernel} from './kernel';
-import * as behaviorTree from './lib.behaviortree';
-import {FAILURE, RUNNING, SUCCESS} from './lib.behaviortree';
-import {Tracer} from './lib/tracing';
-import {getBasePriorityTargetsTopic} from './runnable.manager.defense';
+import {MEMORY_ASSIGN_ROOM_POS} from '../../constants/memory';
+import {Tracer} from '../../lib/tracing';
+import {getBasePriorityTargetsTopic} from '../../managers/defense';
+import {getCreepBase} from '../../os/kernel/base';
+import {Kernel} from '../../os/kernel/kernel';
+import * as behaviorAssign from '../behavior/assign';
+import * as behaviorTree from '../behavior/behaviortree';
+import {FAILURE, RUNNING, SUCCESS} from '../behavior/behaviortree';
+import {behaviorBoosts} from '../behavior/boosts';
 
 const behavior = behaviorTree.sequenceNode(
   'defender_root',

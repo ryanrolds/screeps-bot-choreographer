@@ -1,12 +1,12 @@
-import {behaviorBoosts} from './behavior.boosts';
-import {build, selectSite} from './behavior.build';
-import * as behaviorCommute from './behavior.commute';
-import * as behaviorMovement from './behavior.movement';
-import {getEnergy, parkingLot} from './behavior.room';
-import * as behaviorTree from './lib.behaviortree';
+import * as behaviorTree from '../behavior/behaviortree';
+import {behaviorBoosts} from '../behavior/boosts';
+import {build, selectSite} from '../behavior/build';
+import * as behaviorCommute from '../behavior/commute';
+import * as behaviorMovement from '../behavior/movement';
+import {getEnergy, parkingLot} from '../behavior/room';
 
-import * as MEMORY from './constants.memory';
-import {commonPolicy, singleRoomPolicy} from './constants.pathing_policies';
+import * as MEMORY from '../../constants/memory';
+import {commonPolicy, singleRoomPolicy} from '../../constants/pathing_policies';
 
 const behavior = behaviorTree.sequenceNode(
   'builder_root',

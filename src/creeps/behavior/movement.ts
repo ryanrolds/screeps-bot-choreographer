@@ -1,13 +1,12 @@
-import * as behaviorTree from './lib.behaviortree';
-import {FAILURE, NodeTickResult, RUNNING, SUCCESS} from './lib.behaviortree';
-
-import * as MEMORY from './constants.memory';
-import {MEMORY_SOURCE} from './constants.memory';
-import {commonPolicy} from './constants.pathing_policies';
-import {Kernel} from './kernel';
-import {FindPathPolicy, visualizePath} from './lib.pathing';
-import {PathCache, PathCacheItem} from './lib.path_cache';
-import {Tracer} from './lib/tracing';
+import * as MEMORY from '../../constants/memory';
+import {MEMORY_SOURCE} from '../../constants/memory';
+import {commonPolicy} from '../../constants/pathing_policies';
+import {FindPathPolicy, visualizePath} from '../../lib/pathing';
+import {PathCache, PathCacheItem} from '../../lib/path_cache';
+import {Tracer} from '../../lib/tracing';
+import {Kernel} from '../../os/kernel/kernel';
+import * as behaviorTree from './behaviortree';
+import {FAILURE, NodeTickResult, RUNNING, SUCCESS} from './behaviortree';
 
 const MAX_POSITION_TTL = 5;
 const MEMORY_MOVE_POS_TTL = 'move_pos_ttl';

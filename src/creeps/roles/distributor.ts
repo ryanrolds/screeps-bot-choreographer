@@ -1,13 +1,13 @@
-import {getCreepBase, getStructureForResource} from './base/base';
-import {behaviorBoosts} from './behavior.boosts';
-import * as behaviorHaul from './behavior.haul';
-import {roadWorker} from './behavior.logistics';
-import * as behaviorMovement from './behavior.movement';
-import {parkingLot} from './behavior.room';
-import * as MEMORY from './constants.memory';
-import * as behaviorTree from './lib.behaviortree';
-import {FAILURE, RUNNING, SUCCESS} from './lib.behaviortree';
-import {TopicKey} from './lib.topics';
+import * as MEMORY from '../../constants/memory';
+import {TopicKey} from '../../lib/topics';
+import {getCreepBase, getStructureForResource} from '../../os/kernel/base';
+import * as behaviorTree from '../behavior/behaviortree';
+import {FAILURE, RUNNING, SUCCESS} from '../behavior/behaviortree';
+import {behaviorBoosts} from '../behavior/boosts';
+import * as behaviorHaul from '../behavior/haul';
+import {roadWorker} from '../behavior/logistics';
+import * as behaviorMovement from '../behavior/movement';
+import {parkingLot} from '../behavior/room';
 
 export function getBaseDistributorTopic(baseId: string): TopicKey {
   return `base_${baseId}_distributor`;

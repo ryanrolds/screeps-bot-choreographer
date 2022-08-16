@@ -1,13 +1,12 @@
+import BaseRunnable from '../base/runnable';
 import {ShardConfig} from '../config';
+import {pickExpansion} from '../lib/expand';
+import {Metrics} from '../lib/metrics';
+import {Tracer} from '../lib/tracing';
 import {AlertLevel, Base, getBasePrimaryRoom} from '../os/kernel/base';
 import {Kernel, KernelThreadFunc, threadKernel} from '../os/kernel/kernel';
-import {pickExpansion} from './lib.expand';
-import {Metrics} from './lib.metrics';
-import {Tracer} from './lib/tracing';
-import {Process, sleeping} from './os.process';
-import {RunnableResult} from './os.runnable';
-import {Priorities, Scheduler} from './os.scheduler';
-import BaseRunnable from './runnable.base';
+import {Process, RunnableResult, sleeping} from '../os/process';
+import {Priorities, Scheduler} from '../os/scheduler';
 
 const RUN_TTL = 10;
 const BASE_PROCESSES_TTL = 50;

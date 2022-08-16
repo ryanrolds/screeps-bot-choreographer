@@ -1,4 +1,4 @@
-import {Kernel} from './kernel';
+import {Kernel} from '../os/kernel/kernel';
 import {FindPathPolicy, PathSearchDetails} from './pathing';
 import {Tracer} from './tracing';
 

@@ -1,12 +1,11 @@
+import {createSpawnRequest, getShardSpawnTopic} from '../base/spawning';
+import * as WORKERS from '../constants/creeps';
+import * as MEMORY from '../constants/memory';
+import * as PRIORITIES from '../constants/priorities';
+import {Tracer} from '../lib/tracing';
+import {CreepRequest, ShardMemory} from '../managers/scribe';
 import {Kernel, KernelThreadFunc, threadKernel} from '../os/kernel/kernel';
-import {CreepRequest, ShardMemory} from '../runnable.scribe';
-import * as WORKERS from './constants.creeps';
-import * as MEMORY from './constants.memory';
-import * as PRIORITIES from './constants.priorities';
-import {Tracer} from './lib/tracing';
-import {sleeping} from './os.process';
-import {RunnableResult} from './os.runnable';
-import {createSpawnRequest, getShardSpawnTopic} from './runnable.base_spawning';
+import {RunnableResult, sleeping} from '../os/process';
 
 const SHARD_MEMORY_TTL = 50;
 

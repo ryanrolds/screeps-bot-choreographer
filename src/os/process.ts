@@ -1,5 +1,5 @@
+import {Tracer} from '../lib/tracing';
 import {Kernel} from './kernel/kernel';
-import {Tracer} from './lib/tracing';
 
 export interface Runnable {
   run(kernel: Kernel, trace: Tracer): RunnableResult;
@@ -28,7 +28,7 @@ export const terminate = (): RunnableResult => {
   return {status: STATUS_TERMINATED};
 };
 
-export class Process implements Runnable {
+export class Process {
   id: string;
   type: string;
   priority: number;

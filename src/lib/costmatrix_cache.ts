@@ -1,7 +1,7 @@
+import {Kernel} from '../os/kernel/kernel';
 import {
   createCommonCostMatrix, createDefenderCostMatrix, createOpenSpaceMatrix, createPartyCostMatrix, createSourceRoadMatrix, haulerCostMatrixMatrix, singleRoomCommonMatrix
 } from './costmatrix';
-import {Kernel} from './kernel';
 import {Tracer} from './tracing';
 
 const COST_MATRIX_TTL = 1000;

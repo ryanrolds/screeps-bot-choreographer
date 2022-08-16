@@ -1,4 +1,4 @@
-import * as MEMORY from './constants.memory';
+import * as MEMORY from '../constants/memory';
 import {Tracer} from './tracing';
 
 // TODO replace with PDI class and method to reset

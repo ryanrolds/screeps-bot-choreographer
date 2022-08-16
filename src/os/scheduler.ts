@@ -1,6 +1,6 @@
 import * as _ from 'lodash';
+import {Tracer} from '../lib/tracing';
 import {Kernel} from './kernel/kernel';
-import {Tracer} from './lib/tracing';
 import {Process} from './process';
 
 export const Priorities = {

@@ -2,7 +2,7 @@ import {expect} from 'chai';
 import 'mocha';
 import {mockGlobal} from 'screeps-test-helper';
 import Sinon, * as sinon from 'sinon';
-import {commonPolicy} from './constants.pathing_policies';
+import {commonPolicy} from '../constants/pathing_policies';
 import {Metrics} from './metrics';
 import {CACHE_ITEM_TTL, PathCache, PathCacheItem, PathProvider} from './path_cache';
 import {Tracer} from './tracing';

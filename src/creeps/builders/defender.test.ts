@@ -1,7 +1,7 @@
 import {expect} from 'chai';
 import 'mocha';
-import {Metrics} from '../lib/lib.metrics';
-import {Tracer} from '../lib/lib.tracing';
+import {Metrics} from '../../lib/metrics';
+import {Tracer} from '../../lib/tracing';
 import {newMultipliers} from './attacker';
 import {buildDefender} from './defender';
 

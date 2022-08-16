@@ -1,12 +1,11 @@
-import {commonPolicy} from './constants.pathing_policies';
-import {Metrics} from './lib.metrics';
-import {FindPathPolicy, getPath, PathSearchDetails, visualizePath} from './lib.pathing';
-import {Tracer} from './lib/tracing';
-import {running} from './os.process';
-import {RunnableResult} from './os.runnable';
-import {Kernel} from './os/kernel';
-import {BufferPathPolicy} from './runnable.manager.buffer';
-import {warPartyQuadPolicy, warPartySingleFilePolicy} from './runnable.warparty';
+import {commonPolicy} from '../constants/pathing_policies';
+import {warPartyQuadPolicy, warPartySingleFilePolicy} from '../creeps/party/attack';
+import {Metrics} from '../lib/metrics';
+import {FindPathPolicy, getPath, PathSearchDetails, visualizePath} from '../lib/pathing';
+import {Tracer} from '../lib/tracing';
+import {BufferPathPolicy} from '../managers/buffer';
+import {Kernel} from '../os/kernel/kernel';
+import {RunnableResult, running} from '../os/process';
 
 export default class PathDebugger {
   id: string;

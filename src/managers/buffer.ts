@@ -1,12 +1,11 @@
 import * as _ from 'lodash';
-import * as TOPICS from './constants.topics';
-import {AttackRequest, AttackStatus, ATTACK_ROOM_TTL} from './constants/constants.attack';
-import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
-import {FindBasePathPolicy, getClosestBaseByPath} from './lib.pathing';
-import {Tracer} from './lib/tracing';
-import {sleeping} from './os.process';
-import {RunnableResult} from './os.runnable';
-import {Kernel} from './os/kernel';
+import {AttackRequest, AttackStatus, ATTACK_ROOM_TTL} from '../constants/attack';
+import * as TOPICS from '../constants/topics';
+import {AllowedCostMatrixTypes} from '../lib/costmatrix_cache';
+import {FindBasePathPolicy, getClosestBaseByPath} from '../lib/pathing';
+import {Tracer} from '../lib/tracing';
+import {Kernel} from '../os/kernel/kernel';
+import {RunnableResult, sleeping} from '../os/process';
 import {TargetRoom} from './scribe';
 
 export const BufferPathPolicy: FindBasePathPolicy = {

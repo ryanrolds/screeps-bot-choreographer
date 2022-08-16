@@ -1,6 +1,6 @@
-import * as MEMORY from './constants.memory';
-import * as behaviorTree from './lib.behaviortree';
-import {SUCCESS} from './lib.behaviortree';
+import * as MEMORY from '../../constants/memory';
+import * as behaviorTree from './behaviortree';
+import {SUCCESS} from './behaviortree';
 
 export const setCommuteDuration = behaviorTree.leafNode(
   'bt.harvest.setCommuteDuration',

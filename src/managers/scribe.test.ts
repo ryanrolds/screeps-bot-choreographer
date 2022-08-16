@@ -1,9 +1,9 @@
 import {expect} from 'chai';
 import 'mocha';
 import {mockGlobal} from 'screeps-test-helper';
-import {Metrics} from './lib.metrics';
+import {Metrics} from '../lib/metrics';
 
-import {Tracer} from './lib/tracing';
+import {Tracer} from '../lib/tracing';
 import {RoomEntry, Scribe} from './scribe';
 
 describe('Scribe', function () {

@@ -1,8 +1,8 @@
-import {getBasePrimaryRoom, getBaseSpawns, getCreepBase, getStructureWithResource} from './base/base';
-import {MEMORY_DESTINATION, MEMORY_IDLE} from './constants.memory';
-import {commonPolicy} from './constants.pathing_policies';
-import * as behaviorTree from './lib.behaviortree';
-import {FAILURE, RUNNING, SUCCESS} from './lib.behaviortree';
+import {MEMORY_DESTINATION, MEMORY_IDLE} from '../../constants/memory';
+import {commonPolicy} from '../../constants/pathing_policies';
+import {getBasePrimaryRoom, getBaseSpawns, getCreepBase, getStructureWithResource} from '../../os/kernel/base';
+import * as behaviorTree from './behaviortree';
+import {FAILURE, RUNNING, SUCCESS} from './behaviortree';
 import * as behaviorMovement from './movement';
 
 const selectNearbyLink = behaviorTree.leafNode(

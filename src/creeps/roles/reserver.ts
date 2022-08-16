@@ -1,13 +1,13 @@
 
-import {getCreepBase} from './base/base';
-import {behaviorBoosts} from './behavior.boosts';
-import * as behaviorCommute from './behavior.commute';
-import * as behaviorMovement from './behavior.movement';
-import {updateSign} from './behavior.room';
-import * as MEMORY from './constants.memory';
-import {commonPolicy} from './constants.pathing_policies';
-import * as behaviorTree from './lib.behaviortree';
-import {FAILURE} from './lib.behaviortree';
+import * as MEMORY from '../../constants/memory';
+import {commonPolicy} from '../../constants/pathing_policies';
+import * as behaviorCommute from '../../creeps/behavior/commute';
+import {getCreepBase} from '../../os/kernel/base';
+import * as behaviorTree from '../behavior/behaviortree';
+import {FAILURE} from '../behavior/behaviortree';
+import {behaviorBoosts} from '../behavior/boosts';
+import * as behaviorMovement from '../behavior/movement';
+import {updateSign} from '../behavior/room';
 
 const behavior = behaviorTree.sequenceNode(
   'reserver_root',

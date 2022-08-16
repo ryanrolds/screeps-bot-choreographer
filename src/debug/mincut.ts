@@ -1,9 +1,11 @@
-import {Metrics} from './lib.metrics';
-import {ENTIRE_ROOM_BOUNDS, getCutTiles, Graph, NORMAL, NO_BUILD, PROTECTED, RoomMatrix, TO_EXIT, UNWALKABLE} from './lib.min_cut';
-import {Tracer} from './lib/tracing';
-import {running} from './os.process';
-import {RunnableResult} from './os.runnable';
-import {Kernel} from './os/kernel';
+import {Metrics} from '../lib/metrics';
+import {
+  ENTIRE_ROOM_BOUNDS, getCutTiles, Graph, NORMAL, NO_BUILD, PROTECTED, RoomMatrix,
+  TO_EXIT, UNWALKABLE
+} from '../lib/min_cut';
+import {Tracer} from '../lib/tracing';
+import {Kernel} from '../os/kernel/kernel';
+import {RunnableResult, running} from '../os/process';
 
 export default class MinCutDebugger {
   id: string;

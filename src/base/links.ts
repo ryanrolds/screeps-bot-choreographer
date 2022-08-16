@@ -1,13 +1,12 @@
+import * as MEMORY from '../constants/memory';
+import * as PRIORITIES from '../constants/priorities';
+import * as TASKS from '../constants/tasks';
+import {getBaseDistributorTopic} from '../creeps/roles/distributor';
+import {Tracer} from '../lib/tracing';
 import {Base, getBasePrimaryRoom, getStructureForResource, getStructureWithResource} from '../os/kernel/base';
+import {Kernel} from '../os/kernel/kernel';
+import {RunnableResult, sleeping, terminate} from '../os/process';
 import {BaseRoomThreadFunc, threadBaseRoom} from '../os/threads/base_room';
-import * as MEMORY from './constants.memory';
-import * as PRIORITIES from './constants.priorities';
-import * as TASKS from './constants.tasks';
-import {Kernel} from './kernel';
-import {Tracer} from './lib/tracing';
-import {sleeping, terminate} from './os.process';
-import {RunnableResult} from './os.runnable';
-import {getBaseDistributorTopic} from './role.distributor';
 
 const TICK_STEP = 2;
 const PROCESS_TTL = 250;

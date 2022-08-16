@@ -1,13 +1,12 @@
 
 import * as _ from 'lodash';
+import {Tracer} from '../lib/tracing';
 import {Base, getBasePrimaryRoom} from '../os/kernel/base';
+import {Kernel} from '../os/kernel/kernel';
+import {Process, RunnableResult, sleeping, terminate} from '../os/process';
+import {Priorities, Scheduler} from '../os/scheduler';
 import {BaseRoomThreadFunc, threadBaseRoom} from '../os/threads/base_room';
 import BoosterRunnable from './booster';
-import {Kernel} from './kernel';
-import {Tracer} from './lib/tracing';
-import {Process, sleeping, terminate} from './os.process';
-import {RunnableResult} from './os.runnable';
-import {Priorities, Scheduler} from './os.scheduler';
 import ReactorRunnable from './reactor';
 
 

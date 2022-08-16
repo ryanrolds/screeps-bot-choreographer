@@ -1,11 +1,10 @@
 import * as _ from 'lodash';
+import {WORKER_DEFENDER_DRONE} from '../../constants/creeps';
+import {PRIORITY_BUFFER_PATROL} from '../../constants/priorities';
+import {Tracer} from '../../lib/tracing';
 import {Base} from '../../os/kernel/base';
 import {Kernel} from '../../os/kernel/kernel';
-import {WORKER_DEFENDER_DRONE} from './constants.creeps';
-import {PRIORITY_BUFFER_PATROL} from './constants.priorities';
-import {Tracer} from './lib/tracing';
-import {running, STATUS_TERMINATED, terminate} from './os.process';
-import {RunnableResult} from './os.runnable';
+import {RunnableResult, running, STATUS_TERMINATED, terminate} from '../../os/process';
 import PartyRunnable from './party';
 
 const REQUEST_PARTY_MEMBER_TTL = 30;

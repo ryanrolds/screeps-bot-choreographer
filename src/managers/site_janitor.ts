@@ -1,7 +1,6 @@
+import {Tracer} from '../lib/tracing';
 import {Kernel} from '../os/kernel/kernel';
-import {Tracer} from './lib/tracing';
-import {sleeping} from './os.process';
-import {Runnable} from './os.runnable';
+import {Runnable, sleeping} from '../os/process';
 
 const CLEANUP_INTERVAL = 100;
 const SITE_TTL = 10000;

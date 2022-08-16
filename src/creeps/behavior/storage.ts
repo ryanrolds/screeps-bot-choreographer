@@ -1,8 +1,8 @@
-import {getBasePrimaryRoom, getCreepBase, getStructuresWithResource} from './base/base';
-import {WORKER_DISTRIBUTOR, WORKER_HAULER} from './constants.creeps';
-import {MEMORY_DESTINATION, MEMORY_HAUL_DROPOFF, MEMORY_ROLE} from './constants.memory';
-import * as behaviorTree from './lib.behaviortree';
-import {FAILURE, RUNNING, SUCCESS} from './lib.behaviortree';
+import {WORKER_DISTRIBUTOR, WORKER_HAULER} from '../../constants/creeps';
+import {MEMORY_DESTINATION, MEMORY_HAUL_DROPOFF, MEMORY_ROLE} from '../../constants/memory';
+import {getBasePrimaryRoom, getCreepBase, getStructuresWithResource} from '../../os/kernel/base';
+import * as behaviorTree from './behaviortree';
+import {FAILURE, RUNNING, SUCCESS} from './behaviortree';
 import * as behaviorMovement from './movement';
 
 const spawnContainerCache: Map<string, (StructureContainer | StructureStorage)[]> = new Map();

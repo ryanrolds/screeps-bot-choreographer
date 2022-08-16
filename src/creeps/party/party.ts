@@ -7,14 +7,13 @@
  *
  */
 import * as _ from 'lodash';
+import {createSpawnRequest, getBaseSpawnTopic} from '../../base/spawning';
+import * as MEMORY from '../../constants/memory';
+import {Tracer} from '../../lib/tracing';
+import {Base, BaseThreadFunc, threadBase} from '../../os/kernel/base';
+import {Kernel} from '../../os/kernel/kernel';
+import {RunnableResult, running, terminate} from '../../os/process';
 import {WarPartyTarget} from './attack';
-import {Base, BaseThreadFunc, threadBase} from './base/base';
-import * as MEMORY from './constants.memory';
-import {Tracer} from './lib/tracing';
-import {running, terminate} from './os.process';
-import {RunnableResult} from './os.runnable';
-import {Kernel} from './os/kernel';
-import {createSpawnRequest, getBaseSpawnTopic} from './runnable.base_spawning';
 
 const REQUEST_PARTY_MEMBER_TTL = 25;
 const MAX_PARTY_SIZE = 4;

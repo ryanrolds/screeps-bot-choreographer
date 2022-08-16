@@ -1,11 +1,11 @@
 
-import {getCreepBase} from './base/base';
-import {MEMORY_ASSIGN_ROOM, MEMORY_SOURCE} from './constants.memory';
-import {Kernel} from './kernel';
-import * as behaviorTree from './lib.behaviortree';
-import {FAILURE, RUNNING, SUCCESS} from './lib.behaviortree';
-import {numEnemeiesNearby, numOfSourceSpots} from './lib.proximity';
-import {Tracer} from './lib/tracing';
+import {MEMORY_ASSIGN_ROOM, MEMORY_SOURCE} from '../../constants/memory';
+import {numEnemeiesNearby, numOfSourceSpots} from '../../lib/proximity';
+import {Tracer} from '../../lib/tracing';
+import {getCreepBase} from '../../os/kernel/base';
+import {Kernel} from '../../os/kernel/kernel';
+import * as behaviorTree from './behaviortree';
+import {FAILURE, RUNNING, SUCCESS} from './behaviortree';
 import * as behaviorMovement from './movement';
 
 export const selectHarvestSource = behaviorTree.leafNode(

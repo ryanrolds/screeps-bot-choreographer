@@ -1,5 +1,5 @@
-import {FindPathPolicy} from './lib.pathing';
-import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
+import {AllowedCostMatrixTypes} from '../lib/costmatrix_cache';
+import {FindPathPolicy} from '../lib/pathing';
 
 export const commonPolicy: FindPathPolicy = {
   room: {

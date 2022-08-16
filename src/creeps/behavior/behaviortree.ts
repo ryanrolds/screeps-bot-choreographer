@@ -1,6 +1,6 @@
 import * as featureFlags from '../../lib/feature_flags';
 import {Tracer} from '../../lib/tracing';
-import {Kernel} from './kernel';
+import {Kernel} from '../../os/kernel/kernel';
 
 export const RUNNING = 'running';
 export const SUCCESS = 'success';

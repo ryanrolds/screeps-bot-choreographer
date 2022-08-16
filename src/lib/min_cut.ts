@@ -1,5 +1,3 @@
-// require('util.min_cut').test('W5N9');
-
 import {getNearbyPositions} from './position';
 
 /**

@@ -1,12 +1,12 @@
-import {behaviorBoosts} from './behavior.boosts';
-import * as behaviorMovement from './behavior.movement';
-import {Kernel} from './kernel';
-import * as behaviorTree from './lib.behaviortree';
-import {RUNNING, SUCCESS} from './lib.behaviortree';
-import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
-import {FindPathPolicy} from './lib.pathing';
-import {Tracer} from './lib/tracing';
-import {Priorities} from './os.scheduler';
+import {AllowedCostMatrixTypes} from '../../lib/costmatrix_cache';
+import {FindPathPolicy} from '../../lib/pathing';
+import {Tracer} from '../../lib/tracing';
+import {Kernel} from '../../os/kernel/kernel';
+import {Priorities} from '../../os/scheduler';
+import * as behaviorTree from '../behavior/behaviortree';
+import {RUNNING, SUCCESS} from '../behavior/behaviortree';
+import {behaviorBoosts} from '../behavior/boosts';
+import * as behaviorMovement from '../behavior/movement';
 
 export const ROLE_HARASSER = 'harasser';
 export const MEMORY_HARASS_BASE = 'harasser.target_base';

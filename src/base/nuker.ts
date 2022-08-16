@@ -1,13 +1,12 @@
+import * as MEMORY from '../constants/memory';
+import * as PRIORITIES from '../constants/priorities';
+import * as TASKS from '../constants/tasks';
+import * as TOPICS from '../constants/topics';
+import {getBaseDistributorTopic} from '../creeps/roles/distributor';
+import {Tracer} from '../lib/tracing';
 import {Base, getBasePrimaryRoom, getStructureWithResource} from '../os/kernel/base';
-import * as MEMORY from './constants.memory';
-import * as PRIORITIES from './constants.priorities';
-import * as TASKS from './constants.tasks';
-import * as TOPICS from './constants.topics';
-import {Kernel} from './kernel';
-import {Tracer} from './lib/tracing';
-import {sleeping, terminate} from './os.process';
-import {RunnableResult} from './os.runnable';
-import {getBaseDistributorTopic} from './role.distributor';
+import {Kernel} from '../os/kernel/kernel';
+import {RunnableResult, sleeping, terminate} from '../os/process';
 
 const REQUEST_RESOURCES_TTL = 25;
 

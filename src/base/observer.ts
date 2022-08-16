@@ -1,7 +1,6 @@
-import {Kernel} from './kernel';
-import {Tracer} from './lib/tracing';
-import {running, terminate} from './os.process';
-import {Runnable, RunnableResult} from './os.runnable';
+import {Tracer} from '../lib/tracing';
+import {Kernel} from '../os/kernel/kernel';
+import {Runnable, RunnableResult, running, terminate} from '../os/process';
 
 export class ObserverRunnable implements Runnable {
   id: Id<StructureObserver>;

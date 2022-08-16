@@ -8,12 +8,12 @@
  * TODO add tests
  */
 
-import {Base, getBaseLevel} from './base/base';
+import {baseLayouts} from '../base/construction';
+import {Base, getBaseLevel} from '../os/kernel/base';
+import {Kernel} from '../os/kernel/kernel';
 import {getRegion} from './flood_fill';
-import {Kernel} from './kernel';
 import {buildingCodes, Layout} from './layouts';
 import {getNearbyPositions} from './position';
-import {baseLayouts} from './runnable.base_construction';
 import {Tracer} from './tracing';
 
 let costMatrix255 = null;

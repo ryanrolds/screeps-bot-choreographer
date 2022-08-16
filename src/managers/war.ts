@@ -4,23 +4,22 @@
  *
  */
 
-import {Base} from './base/base';
-import {creepIsFresh} from './behavior.commute';
-import * as CREEPS from './constants.creeps';
-import * as MEMORY from './constants.memory';
-import * as PRIORITIES from './constants.priorities';
-import * as TOPICS from './constants.topics';
-import {AttackStatus, Phase} from './constants/constants.attack';
-import {buildAttacker, newMultipliers} from './lib.attacker_builder';
-import {scoreRoomDamage, scoreStorageHealing} from './lib.scoring';
-import {Tracer} from './lib/tracing';
-import {Process, sleeping} from './os.process';
-import {RunnableResult} from './os.runnable';
-import {Priorities, Scheduler} from './os.scheduler';
-import {Kernel, KernelThreadFunc, threadKernel} from './os/kernel';
-import {MEMORY_HARASS_BASE, ROLE_HARASSER} from './role.harasser';
-import {createSpawnRequest, getBaseSpawnTopic, getShardSpawnTopic} from './runnable.base_spawning';
-import WarPartyRunnable, {WarParty} from './runnable.warparty';
+import {createSpawnRequest, getBaseSpawnTopic, getShardSpawnTopic} from '../base/spawning';
+import {AttackStatus, Phase} from '../constants/attack';
+import * as CREEPS from '../constants/creeps';
+import * as MEMORY from '../constants/memory';
+import * as PRIORITIES from '../constants/priorities';
+import * as TOPICS from '../constants/topics';
+import {creepIsFresh} from '../creeps/behavior/commute';
+import {buildAttacker, newMultipliers} from '../creeps/builders/attacker';
+import WarPartyRunnable, {WarParty} from '../creeps/party/attack';
+import {MEMORY_HARASS_BASE, ROLE_HARASSER} from '../creeps/roles/harasser';
+import {scoreRoomDamage, scoreStorageHealing} from '../creeps/scoring';
+import {Tracer} from '../lib/tracing';
+import {Base} from '../os/kernel/base';
+import {Kernel, KernelThreadFunc, threadKernel} from '../os/kernel/kernel';
+import {Process, RunnableResult, sleeping} from '../os/process';
+import {Priorities, Scheduler} from '../os/scheduler';
 import {RoomEntry} from './scribe';
 
 const WAR_PARTY_RUN_TTL = 100;

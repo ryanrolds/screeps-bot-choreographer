@@ -1,16 +1,15 @@
+import * as MEMORY from '../constants/memory';
+import * as PRIORITIES from '../constants/priorities';
+import * as TASKS from '../constants/tasks';
+import * as TOPICS from '../constants/topics';
+import {getBaseDistributorTopic} from '../creeps/roles/distributor';
+import {Event} from '../lib/event_broker';
+import {Tracer} from '../lib/tracing';
 import {Base, getBasePrimaryRoom, getStructureForResource, getStructureWithResource} from '../os/kernel/base';
+import {Kernel} from '../os/kernel/kernel';
+import {PersistentMemory} from '../os/memory';
+import {RunnableResult, running, sleeping, terminate} from '../os/process';
 import {BaseRoomThreadFunc, threadBaseRoom} from '../os/threads/base_room';
-import * as MEMORY from './constants.memory';
-import * as PRIORITIES from './constants.priorities';
-import * as TASKS from './constants.tasks';
-import * as TOPICS from './constants.topics';
-import {Kernel} from './kernel';
-import {Event} from './lib.event_broker';
-import {Tracer} from './lib/tracing';
-import {PersistentMemory} from './os.memory';
-import {running, sleeping, terminate} from './os.process';
-import {RunnableResult} from './os.runnable';
-import {getBaseDistributorTopic} from './role.distributor';
 
 const TASK_PHASE_START = 'phase_start';
 const TASK_PHASE_LOAD = 'phase_transfer_resources';

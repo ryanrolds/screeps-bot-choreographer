@@ -1,5 +1,5 @@
+import {Kernel} from '../os/kernel/kernel';
 import {createOpenSpaceMatrix} from './costmatrix';
-import {Kernel} from './kernel';
 import {Tracer} from './tracing';
 
 const PASSES = 6;

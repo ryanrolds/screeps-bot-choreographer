@@ -1,9 +1,9 @@
 import {EffectSet, LabsByAction} from '../../base/booster';
 import {BaseLayout} from '../../base/construction';
 import {TerminalTask} from '../../base/terminal';
-import {MEMORY_BASE} from '../constants.memory';
-import {Tracer} from '../lib/tracing';
-import {Kernel} from './kernel';
+import {MEMORY_BASE} from '../../constants/memory';
+import {Tracer} from '../../lib/tracing';
+import {Kernel} from '../../os/kernel/kernel';
 
 const PER_LEVEL_ENERGY = 100000;
 

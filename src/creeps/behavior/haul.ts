@@ -1,9 +1,9 @@
-import {getCreepBase} from './base/base';
-import * as MEMORY from './constants.memory';
-import * as TASKS from './constants.tasks';
-import * as behaviorTree from './lib.behaviortree';
-import {FAILURE, RUNNING, SUCCESS} from './lib.behaviortree';
-import {getBaseHaulerTopic} from './runnable.base_logistics';
+import {getBaseHaulerTopic} from '../../base/logistics';
+import * as MEMORY from '../../constants/memory';
+import * as TASKS from '../../constants/tasks';
+import {getCreepBase} from '../../os/kernel/base';
+import * as behaviorTree from './behaviortree';
+import {FAILURE, RUNNING, SUCCESS} from './behaviortree';
 
 export const getHaulTaskFromBaseTopic = behaviorTree.leafNode(
   'pick_haul_task',

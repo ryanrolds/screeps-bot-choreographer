@@ -12,20 +12,20 @@
  * - If no drop offs with capacity, then build structures or upgrade controller
  *
  */
-import {getBasePrimaryRoom, getCreepBase} from './base/base';
-import {behaviorBoosts} from './behavior.boosts';
-import {build, selectInfrastructureSites} from './behavior.build';
-import * as behaviorCommute from './behavior.commute';
-import * as behaviorHaul from './behavior.haul';
-import {roadWorker} from './behavior.logistics';
-import * as behaviorMovement from './behavior.movement';
-import {parkingLot} from './behavior.room';
-import {WORKER_DISTRIBUTOR} from './constants.creeps';
-import * as MEMORY from './constants.memory';
+import {WORKER_DISTRIBUTOR} from '../../constants/creeps';
+import * as MEMORY from '../../constants/memory';
+import * as behaviorCommute from '../../creeps/behavior/commute';
+import {getBasePrimaryRoom, getCreepBase} from '../../os/kernel/base';
+import {Kernel} from '../../os/kernel/kernel';
+import * as behaviorTree from '../behavior/behaviortree';
+import {FAILURE, SUCCESS} from '../behavior/behaviortree';
+import {behaviorBoosts} from '../behavior/boosts';
+import {build, selectInfrastructureSites} from '../behavior/build';
+import * as behaviorHaul from '../behavior/haul';
+import {roadWorker} from '../behavior/logistics';
+import * as behaviorMovement from '../behavior/movement';
+import {parkingLot} from '../behavior/room';
 import {haulerPolicy} from './hauler';
-import {Kernel} from './kernel';
-import * as behaviorTree from './lib.behaviortree';
-import {FAILURE, SUCCESS} from './lib.behaviortree';
 
 const selectDropoff = module.exports.selectRoomDropoff = behaviorTree.selectorNode(
   'selectRoomDropoff',

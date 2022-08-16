@@ -1,25 +1,24 @@
-import {AlertLevel, Base, BaseThreadFunc, getStructureForResource, threadBase} from '../os/kernel/base';
-import {ROLE_WORKER, WORKER_HAULER} from './constants.creeps';
+import {ROLE_WORKER, WORKER_HAULER} from '../constants/creeps';
 import {
   MEMORY_BASE, MEMORY_HAUL_AMOUNT, MEMORY_HAUL_DROPOFF, MEMORY_HAUL_PICKUP,
   MEMORY_HAUL_RESOURCE, MEMORY_TASK_TYPE, TASK_ID
-} from './constants.memory';
-import {roadPolicy} from './constants.pathing_policies';
+} from '../constants/memory';
+import {roadPolicy} from '../constants/pathing_policies';
 import {
   DUMP_NEXT_TO_STORAGE, HAUL_BASE_ROOM, HAUL_DROPPED, LOAD_FACTOR,
   PRIORITY_HAULER
-} from './constants.priorities';
-import {TASK_HAUL} from './constants.tasks';
-import {Kernel} from './kernel';
-import {Consumer, Event} from './lib.event_broker';
-import {getPath, visualizePath} from './lib.pathing';
-import * as PID from './lib.pid';
-import {TopicKey} from './lib.topics';
-import {Tracer} from './lib/tracing';
-import {PersistentMemory} from './os.memory';
-import {sleeping} from './os.process';
-import {RunnableResult} from './os.runnable';
-import {getLinesStream, HudEventSet, HudLine} from './runnable.debug_hud';
+} from '../constants/priorities';
+import {TASK_HAUL} from '../constants/tasks';
+import {getLinesStream, HudEventSet, HudLine} from '../debug/hud';
+import {Consumer, Event} from '../lib/event_broker';
+import {getPath, visualizePath} from '../lib/pathing';
+import * as PID from '../lib/pid';
+import {TopicKey} from '../lib/topics';
+import {Tracer} from '../lib/tracing';
+import {AlertLevel, Base, BaseThreadFunc, getStructureForResource, threadBase} from '../os/kernel/base';
+import {Kernel} from '../os/kernel/kernel';
+import {PersistentMemory} from '../os/memory';
+import {RunnableResult, sleeping} from '../os/process';
 import {createSpawnRequest, getBaseSpawnTopic} from './spawning';
 
 const RUN_TTL = 5;

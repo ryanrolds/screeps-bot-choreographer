@@ -228,5 +228,5 @@ The `./src/main.ts` file contains a `KingdomConfig` that defines the rooms that 
 
 #### Parties
 
-Groups of creeps, typically called a quad, are represented by a single party, which is a process that assigns member creeps move, attack, and heal orders. Parties are created by a manager process, see `runnable.manager.buffer` and `runnable.manager.war`.
+Groups of creeps, typically called a quad, are represented by a single party, which is a process that assigns member creeps move, attack, and heal orders. Parties are created by a manager process, see `managers/buffer` and `managers/war`.
 
