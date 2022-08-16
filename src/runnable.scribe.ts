@@ -38,6 +38,7 @@ export type RoomEntry = {
     safeMode: number;
     safeModeAvailable: number;
     pos: RoomPosition;
+    downgrade: number;
   };
   specialRoom: boolean;
   status: string;
@@ -511,12 +512,20 @@ export class Scribe implements Runnable {
         owner = roomObject.controller.reservation.username;
       }
 
+      let downgrade = 0;
+      if (roomObject.controller?.reservation) {
+        downgrade = roomObject.controller.reservation.ticksToEnd;
+      } else if (roomObject.controller?.level >= 1) {
+        downgrade = roomObject.controller.ticksToDowngrade;
+      }
+
       room.controller = {
         owner: owner,
         level: roomObject.controller.level,
         safeMode: roomObject.controller.safeMode || 0,
         safeModeAvailable: roomObject.controller.safeModeAvailable,
         pos: roomObject.controller.pos,
+        downgrade,
       };
 
       const spawns = roomObject.find(FIND_STRUCTURES, {

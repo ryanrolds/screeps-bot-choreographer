@@ -3,6 +3,7 @@ import {ShardConfig} from './config';
 import {Kernel} from './kernel';
 import {CostMatrixCache} from './lib.costmatrix_cache';
 import {EventBroker} from './lib.event_broker';
+import {Metrics} from './lib.metrics';
 import {getPath} from './lib.pathing';
 import {PathCache} from './lib.path_cache';
 import {findRemotes} from './lib.remote_room';
@@ -241,11 +242,11 @@ export class AI implements Kernel {
   }
 
   getNewTracer(): Tracer {
-    return new Tracer('tracer', new Map());
+    return new Tracer('tracer', new Map(), new Metrics());
   }
 
   debugRemotes(baseId: string) {
-    const trace = new Tracer('remote_debugger', new Map([['pid', 'remote_debugger']]));
+    const trace = new Tracer('remote_debugger', new Map([['pid', 'remote_debugger']]), new Metrics());
     const base = this.planning.getBase(baseId);
     const [rooms, debug] = findRemotes(this, base, trace);
     trace.notice('remote rooms', {rooms, debug});

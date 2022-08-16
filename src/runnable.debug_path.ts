@@ -1,5 +1,6 @@
 import {commonPolicy} from './constants.pathing_policies';
 import {Kernel} from './kernel';
+import {Metrics} from './lib.metrics';
 import {FindPathPolicy, getPath, PathSearchDetails, visualizePath} from './lib.pathing';
 import {Tracer} from './lib.tracing';
 import {running} from './os.process';
@@ -45,7 +46,7 @@ export default class PathDebugger {
   }
 
   debug(origin: RoomPosition, goal: RoomPosition, range: number, policyName: string) {
-    const trace = new Tracer('path_debugger_debug', new Map([['pid', 'path_debugger']]));
+    const trace = new Tracer('path_debugger_debug', new Map([['pid', 'path_debugger']]), new Metrics());
     trace.setLogFilter(global.LOG_WHEN_PID);
 
     let policy: FindPathPolicy = null;

@@ -44,7 +44,7 @@ describe('Scheduler', () => {
       shard: {},
     }, true);
 
-    trace = new Tracer('scheduler_test', new Map());
+    trace = new Tracer('scheduler_test', new Map(), new Metrics());
     runnable = {
       run: (_trace: Tracer): RunnableResult => {
         return running();
@@ -61,19 +61,19 @@ describe('Scheduler', () => {
   });
 
   it('should create empty scheduler', () => {
-    const scheduler = new Scheduler(new Metrics());
+    const scheduler = new Scheduler();
     expect(scheduler.getProcesses()).to.be.an('array');
     expect(scheduler.getProcesses()).to.be.empty;
   });
 
   it('should be able to register a process', () => {
-    const scheduler = new Scheduler(new Metrics());
+    const scheduler = new Scheduler();
     scheduler.registerProcess(process);
     expect(scheduler.getProcesses()).to.have.lengthOf(1);
   });
 
   it('should run the process', () => {
-    const scheduler = new Scheduler(new Metrics());
+    const scheduler = new Scheduler();
 
     scheduler.registerProcess(process);
     scheduler.tick(null, trace);
@@ -87,7 +87,7 @@ describe('Scheduler', () => {
       return Game.cpu.limit * 1.1;
     };
 
-    const scheduler = new Scheduler(new Metrics());
+    const scheduler = new Scheduler();
     scheduler.registerProcess(process);
     scheduler.tick(kernel, trace);
 
@@ -96,7 +96,7 @@ describe('Scheduler', () => {
   });
 
   it('should execute skipped processes next tick', () => {
-    const scheduler = new Scheduler(new Metrics());
+    const scheduler = new Scheduler();
     scheduler.registerProcess(process);
 
     const stub = sandbox.stub(scheduler, 'isOutOfTime');
@@ -131,7 +131,7 @@ describe('Scheduler', () => {
   });
 
   it('should allow checking if process present', () => {
-    const scheduler = new Scheduler(new Metrics());
+    const scheduler = new Scheduler();
     scheduler.registerProcess(process);
 
     expect(scheduler.hasProcess('processId')).to.be.true;
@@ -139,7 +139,7 @@ describe('Scheduler', () => {
   });
 
   it('should remove and not run terminated processes', () => {
-    const scheduler = new Scheduler(new Metrics());
+    const scheduler = new Scheduler();
     scheduler.registerProcess(process);
 
     expect(scheduler.hasProcess('processId')).to.be.true;

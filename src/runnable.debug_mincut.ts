@@ -1,4 +1,5 @@
 import {Kernel} from './kernel';
+import {Metrics} from './lib.metrics';
 import {ENTIRE_ROOM_BOUNDS, getCutTiles, Graph, NORMAL, NO_BUILD, PROTECTED, RoomMatrix, TO_EXIT, UNWALKABLE} from './lib.min_cut';
 import {Tracer} from './lib.tracing';
 import {running} from './os.process';
@@ -71,7 +72,7 @@ export default class MinCutDebugger {
   }
 
   debug(kernel: Kernel, roomName: string) {
-    const trace = new Tracer('mincut_deugger', new Map([['pid', 'mincut_debugger']]));
+    const trace = new Tracer('mincut_deugger', new Map([['pid', 'mincut_debugger']]), new Metrics());
 
     const base = kernel.getPlanner().getBaseById(roomName);
     trace.notice('base', {origin: base?.origin});

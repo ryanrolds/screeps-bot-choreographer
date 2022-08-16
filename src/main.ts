@@ -98,11 +98,11 @@ console.log('selected shard config', JSON.stringify(shardConfig));
 
 const metrics = new Metrics({shard: Game.shard.name});
 
-const scheduler = new Scheduler(metrics);
+const scheduler = new Scheduler();
 scheduler.setCPUThrottle(global.CPU_THROTTLE);
 scheduler.setSlowProcessThreshold(global.SLOW_PROCESS);
 
-const trace = new Tracer('tick', new Map([['shard', Game.shard.name]]));
+const trace = new Tracer('tick', new Map([['shard', Game.shard.name]]), new Metrics());
 
 const ai: AI = new AI(shardConfig, scheduler, trace);
 global.AI = ai; // So we can access it from the console
@@ -110,7 +110,7 @@ global.AI = ai; // So we can access it from the console
 export const loop = function () {
   metrics.gauge('time', Game.time);
 
-  const trace = new Tracer('loop', new Map([['shard', Game.shard.name]]));
+  const trace = new Tracer('loop', new Map([['shard', Game.shard.name]]), metrics);
 
   // Set process id filter
   trace.setLogFilter(global.LOG_WHEN_PID);

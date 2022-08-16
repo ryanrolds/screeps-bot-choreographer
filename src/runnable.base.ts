@@ -620,7 +620,8 @@ export default class BaseRunnable {
   requestDistributor(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
     let distributors = kernel.getCreepsManager().getCreepsByBaseAndRole(this.id, CREEPS.WORKER_DISTRIBUTOR);
     distributors = distributors.filter((c) => {
-      return creepIsFresh(c);
+      // Making stale 150 ticks sooner to avoid not having enough distributors
+      return creepIsFresh(c, 150);
     });
     const numDistributors = distributors.length;
 

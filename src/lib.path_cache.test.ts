@@ -3,6 +3,7 @@ import 'mocha';
 import {mockGlobal} from 'screeps-test-helper';
 import Sinon, * as sinon from 'sinon';
 import {commonPolicy} from './constants.pathing_policies';
+import {Metrics} from './lib.metrics';
 import {CACHE_ITEM_TTL, PathCache, PathCacheItem, PathProvider} from './lib.path_cache';
 import {Tracer} from './lib.tracing';
 
@@ -37,7 +38,7 @@ describe('Path Cache', function () {
     });
 
     mockGlobal<Memory>('Memory', {}, true);
-    trace = new Tracer('test', new Map());
+    trace = new Tracer('test', new Map(), new Metrics());
     pathProvider = sandbox.stub().callsFake(() => [path, {}]);
   });
 

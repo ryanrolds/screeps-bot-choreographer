@@ -2,6 +2,7 @@ import {expect} from 'chai';
 import * as _ from 'lodash';
 import 'mocha';
 import {buildAttacker, newMultipliers} from './lib.attacker_builder';
+import {Metrics} from './lib.metrics';
 import {Tracer} from './lib.tracing';
 
 // The number of tests in here is stupid. I mostly did it so that I could see the numbers
@@ -16,7 +17,7 @@ describe('Attacker Builder', function () {
   const tower6 = Math.ceil(6 * towerDmg / quadSize);
 
   context('buildattacker', () => {
-    const trace = new Tracer('test', new Map([['pid', 'test']]));
+    const trace = new Tracer('test', new Map([['pid', 'test']]), new Metrics());
 
     it('should build effective attacker for RCL 1 by a RCL 1', () => {
       const multipliers = newMultipliers();

@@ -1,4 +1,4 @@
-import {AlertLevel, Base, baseEnergyStorageCapacity} from './base';
+import {AlertLevel, Base, baseEnergyStorageCapacity, threadBase} from './base';
 import {BaseRoomThreadFunc, threadBaseRoom} from './base_room';
 import {creepIsFresh} from './behavior.commute';
 import * as CREEPS from './constants.creeps';
@@ -32,7 +32,7 @@ export default class RoomRunnable implements Runnable {
 
     // Threads
     this.threadUpdateProcessSpawning = threadBaseRoom('spawn_room_processes_thread', UPDATE_PROCESSES_TTL)(this.handleProcessSpawning.bind(this));
-    this.threadRequestReserver = threadBaseRoom('request_reserver_thread', REQUEST_RESERVER_TTL)(this.requestReserver.bind(this));
+    this.threadRequestReserver = threadBase('request_reserver_thread', REQUEST_RESERVER_TTL)(this.requestReserver.bind(this));
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
@@ -49,14 +49,15 @@ export default class RoomRunnable implements Runnable {
       return terminate();
     }
 
+    // Request reservers if needed
+    if (this.id != base.primary) {
+      this.threadRequestReserver(trace, kernel, base, this.id);
+    }
+
     const room = Game.rooms[this.id];
     if (!room) {
       trace.notice('cannot find room in game', {id: this.id});
       return sleeping(NO_VISION_TTL);
-    }
-
-    if (room.name != base.primary) {
-      this.threadRequestReserver(trace, kernel, base, room);
     }
 
     this.threadUpdateProcessSpawning(trace, kernel, base, room);
@@ -90,21 +91,21 @@ export default class RoomRunnable implements Runnable {
     }
   }
 
-  requestReserver(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
-    const numReservers = _.filter(Game.creeps, (creep) => {
+  requestReserver(trace: Tracer, kernel: Kernel, base: Base, roomName: string) {
+    const reserver = _.find(Game.creeps, (creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
       return (role === CREEPS.WORKER_RESERVER) &&
-        creep.memory[MEMORY.MEMORY_ASSIGN_ROOM] === room.name && creepIsFresh(creep);
-    }).length;
+        creep.memory[MEMORY.MEMORY_ASSIGN_ROOM] === roomName && creepIsFresh(creep);
+    });
 
-    if (numReservers) {
+    if (reserver) {
       return;
     }
 
     // If base is under threat, don't worry about remotes
     if (base.alertLevel !== AlertLevel.GREEN) {
       trace.notice('not requesting reserver, base alert level is not green', {
-        roomName: room.name,
+        roomName: roomName,
         baseId: base.id,
         alertLevel: base.alertLevel,
       });
@@ -112,26 +113,27 @@ export default class RoomRunnable implements Runnable {
       return;
     }
 
-    // If owned by me we don't need reserver
-    if (room.controller?.owner?.username === kernel.getPlanner().getUsername()) {
-      trace.notice('not requesting reserver, room is owned by me', {
-        roomName: room.name,
-        baseId: base.id,
-      });
-
+    const roomEntry = kernel.getScribe().getRoomById(roomName);
+    if (!roomEntry) {
+      trace.error('cannot find room entry', {roomName: roomName});
       return;
     }
 
-    if (room.controller?.reservation?.username === kernel.getPlanner().getUsername()) {
-      let reservationTicks = 0;
-      if (room?.controller?.reservation) {
-        reservationTicks = room.controller.reservation.ticksToEnd;
+    // If owned by me we don't need reserver
+    if (roomEntry.controller?.owner === kernel.getPlanner().getUsername()) {
+      if (roomEntry.controller?.level > 0) {
+        trace.notice('not requesting reserver, room is owned by me', {
+          roomName: roomName,
+          baseId: base.id,
+        });
+
+        return;
       }
 
-      // If reserved by me and reservation is not over soon, don't request reserver
-      if (reservationTicks > MIN_RESERVATION_TICKS) {
-        trace.info('not requesting reserver, room is owned by me', {
-          roomName: room.name,
+      // Reservation, check min reservation ticks
+      if (roomEntry.controller?.downgrade > MIN_RESERVATION_TICKS) {
+        trace.notice('not requesting reserver, room is owned by me and reservation is long enough', {
+          roomName: roomName,
           baseId: base.id,
         });
 

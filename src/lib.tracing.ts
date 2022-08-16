@@ -1,5 +1,5 @@
 import * as _ from 'lodash';
-import {Metric} from './lib.metrics';
+import {Metric, Metrics} from './lib.metrics';
 
 export type TracerFields = Map<string, string>;
 type TimerEndFunc = () => number;
@@ -7,6 +7,7 @@ type TimerEndFunc = () => number;
 export class Tracer {
   name: string;
   kv: TracerFields;
+  metricsCollector: Metrics;
 
   start: number;
   children: Tracer[];
@@ -18,9 +19,10 @@ export class Tracer {
   collectMin: number;
   metrics: Metric[];
 
-  constructor(name: string, kv: TracerFields) {
+  constructor(name: string, kv: TracerFields, metricsCollector: Metrics) {
     this.name = name;
     this.kv = kv;
+    this.metricsCollector = metricsCollector;
 
     this.start = 0;
     this.children = [];
@@ -45,6 +47,10 @@ export class Tracer {
       child.kv.set(key, value);
     }
     return child;
+  }
+
+  getMetricsCollector(): Metrics {
+    return this.metricsCollector;
   }
 
   /**
@@ -130,7 +136,7 @@ export class Tracer {
   }
 
   private clone() {
-    const child = new Tracer(this.name, this.kv);
+    const child = new Tracer(this.name, this.kv, this.metricsCollector);
     child.kv = new Map(this.kv.entries());
 
     child.logFilter = this.logFilter;

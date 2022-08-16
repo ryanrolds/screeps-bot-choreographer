@@ -17,7 +17,7 @@ export const setCommuteDuration = behaviorTree.leafNode(
   },
 );
 
-export const creepIsFresh = (creep: Creep) => {
+export const creepIsFresh = (creep: Creep, offset: number = 0) => {
   if (creep.spawning) {
     return true;
   }
@@ -25,5 +25,5 @@ export const creepIsFresh = (creep: Creep) => {
   const commute = creep.memory[MEMORY.MEMORY_COMMUTE_DURATION] || 150;
   const buildTime = creep.body.length * 3;
 
-  return creep.ticksToLive > (commute + buildTime);
+  return creep.ticksToLive > (commute + buildTime + offset);
 };

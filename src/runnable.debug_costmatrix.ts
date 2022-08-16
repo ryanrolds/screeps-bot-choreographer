@@ -3,6 +3,7 @@ import {
   createCommonCostMatrix, createDefenderCostMatrix, createOpenSpaceMatrix, createPartyCostMatrix, createSourceRoadMatrix, visualizeCostMatrix
 } from './lib.costmatrix';
 import {AllowedCostMatrixTypes} from './lib.costmatrix_cache';
+import {Metrics} from './lib.metrics';
 import {Tracer} from './lib.tracing';
 import {running} from './os.process';
 import {RunnableResult} from './os.runnable';
@@ -31,7 +32,7 @@ export default class CostMatrixDebugger {
 
   debug(roomId: string, costMatrixType: AllowedCostMatrixTypes) {
     const kernel = global.AI;
-    const trace = new Tracer('costmatrix_debugger_debug', new Map());
+    const trace = new Tracer('costmatrix_debugger_debug', new Map(), new Metrics());
     trace.info('debug matrix', {roomId, costMatrixType});
 
     let costMatrix: CostMatrix | boolean = new PathFinder.CostMatrix();

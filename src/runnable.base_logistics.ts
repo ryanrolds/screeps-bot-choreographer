@@ -171,7 +171,7 @@ export default class LogisticsRunnable extends PersistentMemory {
       memory.pid = Array.from(this.pidHaulersMemory.entries());
       this.setMemory(memory);
 
-      PID.setup(this.pidHaulersMemory, 0, 0.1, 0.0025, 0);
+      PID.setup(this.pidHaulersMemory, 0, 0.1, 0.0015, 0);
     }
 
     const base = kernel.getPlanner().getBaseById(this.baseId);
@@ -277,6 +277,8 @@ export default class LogisticsRunnable extends PersistentMemory {
 
     this.desiredHaulers = PID.update(this.pidHaulersMemory, numHaulTasks, Game.time, trace);
     trace.info('desired haulers', {desired: this.desiredHaulers});
+
+    trace.getMetricsCollector().gauge('base_desired_haulers_total', this.desiredHaulers);
 
     // Update PID memory
     trace.info('pid memory', {pid: Array.from(this.pidHaulersMemory.entries())});

@@ -100,15 +100,9 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
   }
 
   produceEvents(trace: Tracer, kernel: Kernel, base: Base, mineral: Mineral) {
-    const creepPosition = this.creepPosition;
-    if (!creepPosition) {
-      trace.error('no creep position', {room: mineral.room.name});
-      return;
-    }
-
     const data: LogisticsEventData = {
       id: mineral.id,
-      position: creepPosition,
+      position: mineral.pos,
     };
 
     kernel.getBroker().getStream(getLogisticsTopic(base.id)).

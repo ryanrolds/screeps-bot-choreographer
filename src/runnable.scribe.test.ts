@@ -1,6 +1,7 @@
 import {expect} from 'chai';
 import 'mocha';
 import {mockGlobal} from 'screeps-test-helper';
+import {Metrics} from './lib.metrics';
 
 import {Tracer} from './lib.tracing';
 import {RoomEntry, Scribe} from './runnable.scribe';
@@ -13,12 +14,12 @@ describe('Scribe', function () {
         scribe: undefined,
       }, false);
 
-      trace = new Tracer('scribe_test', new Map());
+      trace = new Tracer('scribe_test', new Map(), new Metrics());
     });
 
     it("should setup empty memory", function () {
       const scribe = new Scribe(trace);
-      scribe.writeMemory(new Tracer('test', new Map()), null);
+      scribe.writeMemory(new Tracer('test', new Map(), new Metrics()), null);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const scribeMemory = (Memory as any).scribe;

@@ -1,6 +1,5 @@
 import * as _ from 'lodash';
 import {Kernel} from './kernel';
-import {Metrics} from './lib.metrics';
 import {Tracer} from './lib.tracing';
 import {Process} from './os.process';
 
@@ -20,7 +19,6 @@ export const Priorities = {
 const LOW_BUCKET_MIN_PRIORITY = Priorities.RESOURCES;
 
 export class Scheduler {
-  private metrics: Metrics;
   private processTable: Process[];
   private processMap: Map<string, Process>;
   private ranOutOfTime: number;
@@ -29,8 +27,7 @@ export class Scheduler {
   private cpuThrottle: number;
   private slowProcessThreshold: number;
 
-  constructor(metrics: Metrics) {
-    this.metrics = metrics;
+  constructor() {
     this.processTable = [];
     this.processMap = new Map();
     this.ranOutOfTime = 0;
@@ -123,19 +120,19 @@ export class Scheduler {
       // If bucket is low only run the most critical processes, should keep the bucket away from 0
       if (Game.cpu.bucket < 1000 && process.priority >= LOW_BUCKET_MIN_PRIORITY) {
         this.outOfTime(process);
-        this.metrics.counter('scheduler_out_of_time_total', 1);
+        trace.getMetricsCollector().counter('scheduler_out_of_time_total', 1);
         return;
       }
 
       // If tick out of time, skip if process can be skipped
       if (this.isOutOfTime() && process.canSkip()) {
         this.outOfTime(process);
-        this.metrics.counter('scheduler_out_of_time_total', 1);
+        trace.getMetricsCollector().counter('scheduler_out_of_time_total', 1);
         return;
       }
 
       if (process.isRunning()) {
-        this.metrics.counter('scheduler_processes_running_total', 1, {process_type: process.type});
+        trace.getMetricsCollector().counter('scheduler_processes_running_total', 1, {process_type: process.type});
 
         const startProcessCpu = Game.cpu.getUsed();
 
@@ -143,16 +140,16 @@ export class Scheduler {
           process.run(kernel, processTrace);
         } catch (e) {
           processTrace.error('process error', {id: process.id, error: e.stack});
-          this.metrics.counter('scheduler_process_error_total', 1, {process_type: process.type});
+          trace.getMetricsCollector().counter('scheduler_process_error_total', 1, {process_type: process.type});
         }
 
         const processTime = Game.cpu.getUsed() - startProcessCpu;
-        this.metrics.counter('scheduler_cpu_time_total', processTime, {process_type: process.type});
+        trace.getMetricsCollector().counter('scheduler_cpu_time_total', processTime, {process_type: process.type});
 
         // We want to report slow processes
         if (processTime > this.slowProcessThreshold) {
           processTrace.warn(`slow process - ${processTrace.name}`, {id: process.id, type: process.type, time: processTime});
-          this.metrics.counter('scheduler_slow_processes_total', 1, {process_type: process.type});
+          trace.getMetricsCollector().counter('scheduler_slow_processes_total', 1, {process_type: process.type});
         }
 
         // Track time spent on each process by type
@@ -166,10 +163,10 @@ export class Scheduler {
           process.setRunning();
         }
 
-        this.metrics.counter('scheduler_processes_sleeping_total', 1, {process_type: process.type});
+        trace.getMetricsCollector().counter('scheduler_processes_sleeping_total', 1, {process_type: process.type});
       } else if (process.isTerminated()) {
         toRemove.push(process);
-        this.metrics.counter('scheduler_processes_terminated_total', 1, {process_type: process.type});
+        trace.getMetricsCollector().counter('scheduler_processes_terminated_total', 1, {process_type: process.type});
       }
     });
 

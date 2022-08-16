@@ -2,11 +2,12 @@ import {expect} from 'chai';
 import 'mocha';
 import {newMultipliers} from './lib.attacker_builder';
 import {buildDefender} from './lib.defender_builder';
+import {Metrics} from './lib.metrics';
 import {Tracer} from './lib.tracing';
 
 describe('Defender Builder', function () {
   context('buildDefender', () => {
-    const trace = new Tracer('test', new Map([['pid', 'test']]));
+    const trace = new Tracer('test', new Map([['pid', 'test']]), new Metrics());
 
     it('fail to defend lvl1 room from basic invader', () => {
       const multipliers = newMultipliers();

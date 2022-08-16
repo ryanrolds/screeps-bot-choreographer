@@ -262,7 +262,7 @@ export const recycleCreep = behaviorTree.leafNode(
   },
 );
 
-const sign = `Not friendly. Recall your AI. Train your AI before it's off leash!`;
+const sign = `Hi!`;
 
 export const updateSign = behaviorTree.repeatUntilConditionMet(
   'check_sign',

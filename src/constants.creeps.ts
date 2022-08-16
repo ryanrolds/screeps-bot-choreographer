@@ -55,7 +55,7 @@ DEFINITIONS.set(WORKER_DISTRIBUTOR, {
   boosts: [], // ['capacity']
   energyLimit: 0,
   energyMinimum: 200,
-  softEnergyMinimum: 1000,
+  softEnergyMinimum: 300,
   ignoreSpawnEnergyLimit: true,
   processPriority: Priorities.CORE_LOGISTICS,
   skippable: true,
