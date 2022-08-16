@@ -144,18 +144,6 @@ Uploading of built TS+JS can be done by running `grunt <world>` where `<world>` 
 
 ## Structure
 
-> Screeps does not allow the uploading of source maps. So, to keep the stack traces from the game similar to the
-source good the directory has a flat structure and is not combined into single JS file. This may change in the future depending on the pain.
-
-The source is prefixed to group files by their type/purpose:
-- AI - The core/kernel of the bot
-- Behavior - Files containing behavior trees for creeps
-- Constants - Shared constants
-- Lib - Shared libraries and tools
-- OS - Scheduler, Process, and other OS-level components
-- Roles - Behavior trees for Creep roles
-- Runnable - AI processes and threads that perform the majority of work in the bot
-
 First-class business logic concepts:
 - AI - Root object for the AI
 - Scribe - Aggregates game state and persists room details in case the we lose visibility

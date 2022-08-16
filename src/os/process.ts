@@ -1,0 +1,120 @@
+import {Kernel} from './kernel/kernel';
+import {Tracer} from './lib/tracing';
+
+export interface Runnable {
+  run(kernel: Kernel, trace: Tracer): RunnableResult;
+}
+
+export interface RunnableResult {
+  status: ProcessStatus;
+  sleepFor?: number;
+}
+
+export type ProcessStatus = 'running' | 'sleeping' | 'stopped' | 'terminated';
+
+export const STATUS_RUNNING = 'running';
+export const STATUS_SLEEPING = 'sleeping';
+export const STATUS_TERMINATED = 'terminated';
+
+export const running = (): RunnableResult => {
+  return {status: STATUS_RUNNING};
+};
+
+export const sleeping = (sleepFor: number): RunnableResult => {
+  return {status: STATUS_SLEEPING, sleepFor};
+};
+
+export const terminate = (): RunnableResult => {
+  return {status: STATUS_TERMINATED};
+};
+
+export class Process implements Runnable {
+  id: string;
+  type: string;
+  priority: number;
+  adjustedPriority: number;
+  runnable: Runnable;
+  skippable: boolean;
+
+  status: ProcessStatus;
+  lastRun: number;
+  nextRun: number;
+
+  constructor(id: string, type: string, priority: number, runnable: Runnable) {
+    this.id = id;
+    this.type = type;
+    this.priority = priority;
+    this.adjustedPriority = priority;
+    this.runnable = runnable;
+
+    this.skippable = true;
+    this.status = STATUS_RUNNING;
+    this.lastRun = 0;
+    this.nextRun = 0;
+  }
+
+  isRunning(): boolean {
+    return this.status === STATUS_RUNNING;
+  }
+
+  isSleeping(): boolean {
+    return this.status === STATUS_SLEEPING;
+  }
+
+  isTerminated(): boolean {
+    return this.status === STATUS_TERMINATED;
+  }
+
+  shouldWake(): boolean {
+    if (this.nextRun <= Game.time) {
+      return true;
+    }
+
+    return false;
+  }
+
+  setRunning(): void {
+    this.status = STATUS_RUNNING;
+    this.nextRun = 0;
+  }
+
+  setSleeping(duration: number) {
+    this.status = STATUS_SLEEPING;
+    this.nextRun = Game.time + duration;
+  }
+
+  setTerminated() {
+    this.status = STATUS_TERMINATED;
+  }
+
+  setSkippable(skippable: boolean) {
+    this.skippable = skippable;
+  }
+
+  canSkip(): boolean {
+    return this.skippable;
+  }
+
+  skip() {
+    this.adjustedPriority -= 1;
+  }
+
+  run(kernel: Kernel, trace: Tracer) {
+    this.lastRun = Game.time;
+
+    const result = this.runnable.run(kernel, trace);
+    switch (result.status) {
+      case STATUS_RUNNING:
+        this.setRunning();
+        break;
+      case STATUS_SLEEPING:
+        this.setSleeping(result.sleepFor);
+        break;
+      case STATUS_TERMINATED:
+        this.setTerminated();
+        break;
+    }
+
+    this.adjustedPriority = this.priority;
+  }
+}

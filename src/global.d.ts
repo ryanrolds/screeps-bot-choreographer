@@ -1,4 +1,4 @@
-import {AI} from "./ai";
+import {AI} from "./os/kernel/ai";
 
 export { };
 

@@ -1,8 +1,8 @@
-import {AI} from './ai';
 import {ShardMap} from './config';
-import {addTraceMetrics, Metrics, reportMetrics, setActive, setInactive} from './lib.metrics';
-import {Tracer} from './lib.tracing';
-import {Scheduler} from './os.scheduler';
+import {addTraceMetrics, Metrics, reportMetrics, setActive, setInactive} from './lib/metrics';
+import {Tracer} from './lib/tracing';
+import {AI} from './os/kernel/ai';
+import {Scheduler} from './os/scheduler';
 
 // eslint-disable-next-line
 const version = '__GIT_SHA__';
