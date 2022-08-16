@@ -15,9 +15,9 @@ An AI for [Screeps](screeps.com).
 * React and distribute compounds with a focus on "upgrade" boost
 * Explore rooms and store notes in memory
 * Haulers managed by PID controller
-* Scheduler & Processes
+* Scheduler & Processes & Threads
 * Message bus w/ topics for IPC
-* Event streams
+* Event streams w/ consumers
 * Automatic expansion and base building
 * HUD
 
@@ -75,17 +75,17 @@ An AI for [Screeps](screeps.com).
   - [ ] Global/heap variables
   - [ ] War Manager memory
   - [ ] Central Planning memory
-  - [ ] Peristent memory
+  - [ ] Persistent memory
 - [ ] Switch first links to be controller and source, update miner to keep link full when not mining
 - [ ] Double buffer topics when TTLing messages
 - [x] All of project on TypeScript
-- [ ] Fix restoring of Room Entries and War Manager targets on restart with Persistent Memory
+- [ ] Fix restoring of Room Entries
 - [ ] Refactor PID controller
 - [ ] Influence map library
 - [ ] Move creep definitions into individual creep files
 - [ ] TD: Room process and sources processes no longer require room visibility
 - [ ] TD: Replace spawn topics (TTL) with event streams (manages own queue)
-- [ ] TD: Cleanup old construction sites automatically
+- [x] Cleanup old construction sites automatically
 - [ ] Scale creep parts and remote mining based on spawner saturation
 - [ ] Harvest commodities & factory
 - [ ] Process stats and scheduler report

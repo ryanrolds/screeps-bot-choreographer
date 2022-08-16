@@ -1,4 +1,4 @@
-import {ShardMap} from './config';
+import {shards} from './config';
 import {addTraceMetrics, Metrics, reportMetrics, setActive, setInactive} from './lib/metrics';
 import {Tracer} from './lib/tracing';
 import {AI} from './os/kernel/ai';
@@ -6,50 +6,6 @@ import {Scheduler} from './os/scheduler';
 
 // eslint-disable-next-line
 const version = '__GIT_SHA__';
-
-const friends = [];
-const neutral = [];
-const avoid = [];
-const kos = [];
-
-const shards: ShardMap = {
-  'default': {
-    buffer: 3,
-    friends: friends,
-    neutral: neutral,
-    avoid: avoid,
-    kos: kos,
-    authorizedSieges: [],
-    maxColonies: 10,
-    autoExpand: true,
-    autoAttack: true,
-    explorers: true,
-  },
-  'shard2': {
-    buffer: 3,
-    friends: friends,
-    neutral: neutral,
-    avoid: avoid,
-    kos: kos,
-    authorizedSieges: [],
-    maxColonies: 11,
-    autoExpand: true,
-    autoAttack: true,
-    explorers: true,
-  },
-  'shard3': {
-    buffer: 3,
-    friends: friends,
-    neutral: neutral,
-    avoid: avoid,
-    kos: kos,
-    authorizedSieges: [],
-    maxColonies: 7,
-    autoExpand: false,
-    autoAttack: true,
-    explorers: false,
-  },
-};
 
 const DEFAULT_LOG_WHEN_PID = null;
 const DEFAULT_METRIC_REPORT = false;

@@ -4,7 +4,7 @@ import {EventBroker} from '../../lib/event_broker';
 import {PathCache} from '../../lib/path_cache';
 import {Topics} from '../../lib/topics';
 import {Tracer} from '../../lib/tracing';
-import {CentralPlanning} from '../../managers/bases';
+import {BaseManager} from '../../managers/bases';
 import {CreepManager} from '../../managers/creeps';
 import {ResourceManager} from '../../managers/resources';
 import {Scribe} from '../../managers/scribe';
@@ -17,7 +17,7 @@ export interface Kernel {
   getScheduler(): Scheduler;
   getCreepsManager(): CreepManager;
   getScribe(): Scribe;
-  getPlanner(): CentralPlanning;
+  getPlanner(): BaseManager;
   getPathCache(): PathCache;
   getCostMatrixCache(): CostMatrixCache;
   getResourceManager(): ResourceManager;

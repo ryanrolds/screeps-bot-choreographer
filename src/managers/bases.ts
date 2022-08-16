@@ -12,7 +12,7 @@ const RUN_TTL = 10;
 const BASE_PROCESSES_TTL = 50;
 const EXPAND_TTL = 500;
 
-export class CentralPlanning {
+export class BaseManager {
   private config: ShardConfig;
   private scheduler: Scheduler;
   private username: string;

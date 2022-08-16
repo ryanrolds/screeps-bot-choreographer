@@ -9,7 +9,7 @@ import {RunnableResult, sleeping} from '../os/process';
 
 const SHARD_MEMORY_TTL = 50;
 
-export default class KingdomGovernor {
+export default class ShardManager {
   threadUpdateShardMemory: KernelThreadFunc;
 
   constructor() {

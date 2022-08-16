@@ -12,7 +12,7 @@ import {getPath} from '../../lib/pathing';
 import {PathCache} from '../../lib/path_cache';
 import {Topics} from '../../lib/topics';
 import {Tracer} from '../../lib/tracing';
-import {CentralPlanning} from '../../managers/bases';
+import {BaseManager} from '../../managers/bases';
 import BufferManager from '../../managers/buffer';
 import {CreepManager} from '../../managers/creeps';
 import DefenseManager from '../../managers/defense';
@@ -32,7 +32,7 @@ export class AI implements Kernel {
   private scheduler: Scheduler;
   private broker: EventBroker;
   private topics: Topics;
-  private planning: CentralPlanning;
+  private planning: BaseManager;
   private scribe: Scribe;
   private creeps: CreepManager;
   private pathCache: PathCache;
@@ -68,7 +68,7 @@ export class AI implements Kernel {
     scheduler.registerProcess(new Process('scribe', 'scribe', Priorities.CRITICAL, this.scribe));
 
     // Central planning, tracks relationships, policies, and colonies
-    this.planning = new CentralPlanning(config, this.scheduler, trace);
+    this.planning = new BaseManager(config, this.scheduler, trace);
     scheduler.registerProcess(new Process('central_planning', 'planning',
       Priorities.CRITICAL, this.planning));
 
@@ -197,7 +197,7 @@ export class AI implements Kernel {
     return this.creeps;
   }
 
-  getPlanner(): CentralPlanning {
+  getPlanner(): BaseManager {
     return this.planning;
   }
 
