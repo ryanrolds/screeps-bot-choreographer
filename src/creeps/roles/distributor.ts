@@ -1,5 +1,5 @@
+import {getBaseDistributorTopic} from '../../base/logistics';
 import * as MEMORY from '../../constants/memory';
-import {TopicKey} from '../../lib/topics';
 import {getCreepBase, getStructureForResource} from '../../os/kernel/base';
 import * as behaviorTree from '../behavior/behaviortree';
 import {FAILURE, RUNNING, SUCCESS} from '../behavior/behaviortree';
@@ -8,10 +8,6 @@ import * as behaviorHaul from '../behavior/haul';
 import {roadWorker} from '../behavior/logistics';
 import * as behaviorMovement from '../behavior/movement';
 import {parkingLot} from '../behavior/room';
-
-export function getBaseDistributorTopic(baseId: string): TopicKey {
-  return `base_${baseId}_distributor`;
-}
 
 const selectNextTaskOrPark = behaviorTree.selectorNode(
   'pick_something',

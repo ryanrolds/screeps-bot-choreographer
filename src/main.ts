@@ -121,6 +121,7 @@ export const loop = function () {
   scheduler.setSlowProcessThreshold(global.SLOW_PROCESS);
 
   const tickSinceStart = Game.time - bootTick;
+  metrics.gauge('ticks_since_start', tickSinceStart);
 
   console.log('======== TICK', Game.time, Game.shard.name, '==== prev cpu:',
     previousTick, previousSkipped, Game.cpu.bucket, tickSinceStart);
@@ -146,6 +147,11 @@ export const loop = function () {
   ai.getTopics().reportMetrics(metrics);
   ai.getCreepsManager().reportMetrics(metrics);
   ai.getPlanner().reportMetrics(metrics);
+
+  // Global control level related metrics
+  metrics.gauge('global_control_level', Game.gcl.level);
+  metrics.gauge('global_control_progress', Game.gcl.progress);
+  metrics.gauge('global_control_progress_total', Game.gcl.progressTotal);
 
   // Get CPU spent on AI
   previousTick = Game.cpu.getUsed();

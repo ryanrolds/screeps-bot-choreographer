@@ -2,11 +2,11 @@ import * as MEMORY from '../constants/memory';
 import * as PRIORITIES from '../constants/priorities';
 import * as TASKS from '../constants/tasks';
 import * as TOPICS from '../constants/topics';
-import {getBaseDistributorTopic} from '../creeps/roles/distributor';
 import {Tracer} from '../lib/tracing';
 import {Base, BaseThreadFunc, getStoredResources, getStructureForResource, getStructureWithResource, ResourceCounts, threadBase} from '../os/kernel/base';
 import {Kernel} from '../os/kernel/kernel';
 import {RunnableResult, sleeping, terminate} from '../os/process';
+import {getBaseDistributorTopic} from './logistics';
 
 const MIN_COMPOUND = 500;
 const MAX_COMPOUND = 2000;

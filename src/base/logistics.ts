@@ -1,34 +1,49 @@
-import {ROLE_WORKER, WORKER_HAULER} from '../constants/creeps';
+import {ROLE_WORKER, WORKER_DISTRIBUTOR, WORKER_HAULER} from '../constants/creeps';
 import {
+  MEMORY_ASSIGN_ROOM,
   MEMORY_BASE, MEMORY_HAUL_AMOUNT, MEMORY_HAUL_DROPOFF, MEMORY_HAUL_PICKUP,
   MEMORY_HAUL_RESOURCE, MEMORY_TASK_TYPE, TASK_ID
 } from '../constants/memory';
 import {roadPolicy} from '../constants/pathing_policies';
 import {
-  DUMP_NEXT_TO_STORAGE, HAUL_BASE_ROOM, HAUL_DROPPED, LOAD_FACTOR,
+  DISTRIBUTOR_NO_RESERVE,
+  DUMP_NEXT_TO_STORAGE, HAUL_BASE_ROOM, HAUL_DROPPED, HAUL_EXTENSION, LOAD_FACTOR,
+  PRIORITY_DISTRIBUTOR,
   PRIORITY_HAULER
 } from '../constants/priorities';
 import {TASK_HAUL} from '../constants/tasks';
+import {creepIsFresh} from '../creeps/behavior/commute';
 import {getLinesStream, HudEventSet, HudLine} from '../debug/hud';
 import {Consumer, Event} from '../lib/event_broker';
 import {getPath, visualizePath} from '../lib/pathing';
 import * as PID from '../lib/pid';
 import {TopicKey} from '../lib/topics';
 import {Tracer} from '../lib/tracing';
-import {AlertLevel, Base, BaseThreadFunc, getStructureForResource, threadBase} from '../os/kernel/base';
+import {AlertLevel, Base, BaseThreadFunc, getBasePrimaryRoom, getStoredResourceAmount, getStructureForResource, getStructureWithResource, threadBase} from '../os/kernel/base';
 import {Kernel} from '../os/kernel/kernel';
 import {PersistentMemory} from '../os/memory';
 import {RunnableResult, sleeping} from '../os/process';
+import {BaseRoomThreadFunc, threadBaseRoom} from '../os/threads/base_room';
 import {createSpawnRequest, getBaseSpawnTopic} from './spawning';
+
+export function getBaseDistributorTopic(baseId: string): TopicKey {
+  return `base_${baseId}_distributor`;
+}
 
 const RUN_TTL = 5;
 const CALCULATE_LEG_TTL = 20;
 const BUILD_SHORTEST_LEG_TTL = 100;
 const CONSUME_EVENTS_TTL = 50;
 const PRODUCE_EVENTS_TTL = 100;
+
 const REQUEST_HAULER_TTL = 50;
 const UPDATE_HAULERS_TTL = 50;
 const UPDATE_PID_TTL = 5;
+
+const MIN_DISTRIBUTORS = 1;
+const REQUEST_DISTRIBUTOR_TTL = 10;
+
+const HAUL_EXTENSION_TTL = 10;
 const REQUEST_HAUL_DROPPED_RESOURCES_TTL = 20;
 const LEG_CALCULATE_INTERVAL = 500;
 
@@ -83,6 +98,9 @@ export default class LogisticsRunnable extends PersistentMemory {
   private threadRequestHaulers: BaseThreadFunc;
   private threadUpdateHaulers: BaseThreadFunc;
 
+  private threadRequestDistributor: BaseRoomThreadFunc;
+
+  private threadRequestExtensionFilling: BaseRoomThreadFunc;
   private threadRequestHaulDroppedResources: BaseThreadFunc;
   private threadRequestHaulTombstonesAndRuins: BaseThreadFunc;
 
@@ -118,6 +136,9 @@ export default class LogisticsRunnable extends PersistentMemory {
     this.threadHaulerPID = threadBase('hauler_pid', UPDATE_PID_TTL)(this.updatePID.bind(this));
     this.threadRequestHaulers = threadBase('request_haulers_thread', REQUEST_HAULER_TTL)(this.requestHaulers.bind(this));
 
+    this.threadRequestDistributor = threadBaseRoom('request_distributer_thread', REQUEST_DISTRIBUTOR_TTL)(this.requestDistributor.bind(this));
+
+    this.threadRequestExtensionFilling = threadBaseRoom('request_extension_filling_thread', HAUL_EXTENSION_TTL)(this.requestExtensionFilling.bind(this));
     this.threadRequestHaulDroppedResources = threadBase('request_haul_dropped_thread', REQUEST_HAUL_DROPPED_RESOURCES_TTL)(this.requestHaulDroppedResources.bind(this));
     this.threadRequestHaulTombstonesAndRuins = threadBase('request_haul_tombstone_thread', REQUEST_HAUL_DROPPED_RESOURCES_TTL)(this.requestHaulTombstonesAndRuins.bind(this));
 
@@ -170,12 +191,18 @@ export default class LogisticsRunnable extends PersistentMemory {
       memory.pid = Array.from(this.pidHaulersMemory.entries());
       this.setMemory(memory);
 
-      PID.setup(this.pidHaulersMemory, 0, 0.1, 0.0015, 0);
+      PID.setup(this.pidHaulersMemory, 0, 0.08, 0.0015, 0);
     }
 
     const base = kernel.getPlanner().getBaseById(this.baseId);
     if (!base) {
       trace.error('missing origin', {id: this.baseId});
+      return sleeping(20);
+    }
+
+    const room = getBasePrimaryRoom(base);
+    if (!room) {
+      trace.error('missing primary room', {id: this.baseId});
       return sleeping(20);
     }
 
@@ -196,11 +223,13 @@ export default class LogisticsRunnable extends PersistentMemory {
 
     this.threadUpdateHaulers(trace, kernel, base);
 
+    this.threadRequestExtensionFilling(trace, kernel, base, room);
     this.threadRequestHaulDroppedResources(trace, kernel, base);
     this.threadRequestHaulTombstonesAndRuins(trace, kernel, base);
 
     this.threadHaulerPID(trace, kernel, base);
     this.threadRequestHaulers(trace, kernel, base);
+    this.threadRequestDistributor(trace, kernel, base, room);
 
     this.threadProduceEvents(trace, kernel, base);
 
@@ -291,6 +320,7 @@ export default class LogisticsRunnable extends PersistentMemory {
       text: `Hauler PID: ${this.desiredHaulers.toFixed(2)}, ` +
         `Haul Tasks: ${numHaulTasks}, ` +
         `Num Haulers: ${this.numHaulers}, ` +
+        `Active Haulers: ${this.numActiveHaulers}, ` +
         `Idle Haulers: ${this.numIdleHaulers}`,
       time: Game.time,
       order: 10,
@@ -329,7 +359,7 @@ export default class LogisticsRunnable extends PersistentMemory {
 
       // If we have few haulers/workers we should not be prioritizing haulers
       if (this.desiredHaulers > 3 && this.numHaulers < 2) {
-        priority += 10;
+        priority += 5;
       }
 
       priority -= (this.numHaulers + i) * 0.1;
@@ -345,6 +375,90 @@ export default class LogisticsRunnable extends PersistentMemory {
     }
   }
 
+  requestDistributor(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
+    let distributors = kernel.getCreepsManager().getCreepsByBaseAndRole(this.baseId, WORKER_DISTRIBUTOR);
+    distributors = distributors.filter((c) => {
+      // Making stale 150 ticks sooner to avoid not having enough distributors
+      return creepIsFresh(c, 150);
+    });
+    const numDistributors = distributors.length;
+
+    // If low on bucket base not under threat
+    if (Game.cpu.bucket < 1000 && numDistributors > 0 && base.alertLevel === AlertLevel.GREEN) {
+      trace.info('low CPU, limit distributors');
+      return;
+    }
+
+    const distributorRequests: number[] = [];
+
+    const desiredDistributors = MIN_DISTRIBUTORS;
+    if (room.controller.level < 3) {
+      distributorRequests.push(1);
+    }
+
+    const fullness = room.energyAvailable / room.energyCapacityAvailable;
+    if (room.controller.level >= 3 && fullness < 0.5) {
+      distributorRequests.push(3);
+    }
+
+    const numCoreHaulTasks = kernel.getTopics().getLength(getBaseDistributorTopic(this.baseId));
+    if (numCoreHaulTasks > 30) {
+      distributorRequests.push(2);
+    }
+    if (numCoreHaulTasks > 50) {
+      distributorRequests.push(3);
+    }
+
+    if (base.alertLevel !== AlertLevel.GREEN) {
+      distributorRequests.push(3);
+    }
+
+    if (base.alertLevel !== AlertLevel.GREEN) {
+      const numTowers = room.find(FIND_MY_STRUCTURES, {
+        filter: (structure) => {
+          return structure.structureType === STRUCTURE_TOWER;
+        },
+      }).length;
+
+      trace.info('hostiles in room and we need more distributors', {numTowers, desiredDistributors});
+      distributorRequests.push((numTowers / 2) + desiredDistributors);
+    }
+
+    if (!room.storage || numDistributors >= _.max(distributorRequests)) {
+      trace.info('do not request distributors', {
+        hasStorage: !!room.storage,
+        numDistributors,
+        desiredDistributors,
+        roomLevel: room.controller.level,
+        fullness,
+        numCoreHaulTasks,
+      });
+      return;
+    }
+
+    let distributorPriority = PRIORITY_DISTRIBUTOR;
+    if (getStoredResourceAmount(base, RESOURCE_ENERGY) === 0) {
+      distributorPriority = DISTRIBUTOR_NO_RESERVE;
+    }
+
+    if (numDistributors === 0) {
+      distributorPriority += 10;
+    }
+
+    const priority = distributorPriority;
+    const ttl = REQUEST_DISTRIBUTOR_TTL;
+    const role = WORKER_DISTRIBUTOR;
+    const memory = {
+      [MEMORY_ASSIGN_ROOM]: room.name,
+      [MEMORY_BASE]: base.id,
+    };
+
+    const request = createSpawnRequest(priority, ttl, role, memory, null, 0);
+    trace.info('request distributor', {desiredDistributors, fullness, request});
+    kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
+    // @CHECK that distributors are being spawned
+  }
+
   private produceEvents(trace: Tracer, kernel: Kernel, base: Base): void {
     const hudLine: HudLine = {
       key: `${this.baseId}`,
@@ -358,6 +472,39 @@ export default class LogisticsRunnable extends PersistentMemory {
 
     kernel.getBroker().getStream(getLinesStream()).publish(new Event(this.baseId, Game.time,
       HudEventSet, hudLine));
+  }
+
+  private requestExtensionFilling(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
+    const pickup = getStructureWithResource(base, RESOURCE_ENERGY);
+    if (!pickup) {
+      trace.info('no energy available for extensions', {resource: RESOURCE_ENERGY});
+      return;
+    }
+
+    const nonFullExtensions = room.find<StructureExtension>(FIND_STRUCTURES, {
+      filter: (structure) => {
+        return (structure.structureType === STRUCTURE_EXTENSION ||
+          structure.structureType === STRUCTURE_SPAWN) &&
+          structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0 &&
+          structure.isActive();
+      },
+    });
+
+    nonFullExtensions.forEach((extension) => {
+      const details = {
+        [TASK_ID]: `ext-${extension.id}-${Game.time}`,
+        [MEMORY_TASK_TYPE]: TASK_HAUL,
+        [MEMORY_HAUL_PICKUP]: pickup.id,
+        [MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
+        [MEMORY_HAUL_DROPOFF]: extension.id,
+        [MEMORY_HAUL_AMOUNT]: extension.store.getFreeCapacity(RESOURCE_ENERGY),
+      };
+
+      kernel.getTopics().addRequest(getBaseDistributorTopic(this.baseId), HAUL_EXTENSION,
+        details, HAUL_EXTENSION_TTL);
+    });
+
+    trace.info('haul extensions', {numHaulTasks: nonFullExtensions.length});
   }
 
   private requestHaulDroppedResources(trace: Tracer, kernel: Kernel, base: Base) {

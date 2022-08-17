@@ -174,12 +174,14 @@ export default class SpawnManager {
 
       // currently spawning something
       if (!isIdle) {
+        trace.getMetricsCollector().counter('spawn_busy', 1, {spawnId: spawn.id});
         handleActiveSpawning(kernel, base, spawn, trace)
         return;
       }
 
       // check if spawner has energy
       if (!isSpawnerEnergyReady(kernel, base, spawn, trace)) {
+        trace.getMetricsCollector().counter('spawn_not_enough_energy', 1, {spawnId: spawn.id});
         trace.info('spawner not ready, skipping', {spawn: spawn.id, spawnEnergy, energyCapacity});
         return;
       }
@@ -197,10 +199,12 @@ export default class SpawnManager {
         }
 
         trace.notice('spawning', {id: this.id, spawnEnergy, energyLimit, request});
+        trace.getMetricsCollector().counter('spawn_spawning', 1, {spawnId: spawn.id});
         createCreep(base, room.name, spawn, request, spawnEnergy, energyLimit, trace);
         return;
       }
 
+      trace.getMetricsCollector().counter('spawn_no_request', 1, {spawnId: spawn.id});
       handleIdle(trace);
     });
   }
@@ -434,6 +438,8 @@ function handleActiveSpawning(kernel: Kernel, base: Base, spawn: StructureSpawn,
   const priority = definition.processPriority;
 
   trace.info('spawning', {creepName: creep.name, role, boosts, priority});
+  trace.getMetricsCollector().gauge('spawn_spawning_role', spawn.spawning.remainingTime,
+    {spawn: spawn.id, role});
 
   if (boosts) {
     requestBoosts(kernel, base, spawn, boosts, priority);

@@ -2,10 +2,7 @@ import * as CREEPS from '../constants/creeps';
 import {DEFENSE_STATUS} from '../constants/defense';
 import * as MEMORY from '../constants/memory';
 import * as PRIORITIES from '../constants/priorities';
-import * as TASKS from '../constants/tasks';
 import * as TOPICS from '../constants/topics';
-import {creepIsFresh} from '../creeps/behavior/commute';
-import {getBaseDistributorTopic} from '../creeps/roles/distributor';
 import {scoreAttacking} from '../creeps/roles/harasser';
 import {
   getDashboardStream, getLinesStream, HudEventSet, HudIndicator, HudIndicatorStatus,
@@ -16,7 +13,7 @@ import {Tracer} from '../lib/tracing';
 import {RoomEntry} from '../managers/scribe';
 import {
   AlertLevel, Base, BaseThreadFunc, getBaseLevel, getBaseLevelCompleted,
-  getBasePrimaryRoom, getReserveBuffer, getStoredResourceAmount, getStoredResources, getStructureWithResource, setBoostPosition, setLabsByAction, threadBase
+  getBasePrimaryRoom, getReserveBuffer, getStoredResourceAmount, getStoredResources, setBoostPosition, setLabsByAction, threadBase
 } from '../os/kernel/base';
 import {Kernel} from '../os/kernel/kernel';
 import {Process, RunnableResult, sleeping, terminate} from '../os/process';
@@ -45,7 +42,7 @@ const MIN_TICKS_TO_DOWNGRADE = 150000;
 const MIN_UPGRADERS = 1;
 const MAX_UPGRADERS = 10;
 const UPGRADER_ENERGY = 25000;
-const MIN_DISTRIBUTORS = 1;
+
 const MAX_EXPLORERS = 3;
 
 const NO_VISION_TTL = 20;
@@ -55,10 +52,9 @@ const ENERGY_REQUEST_TTL = 50;
 const REQUEST_CLAIMER_TTL = 50;
 const REQUEST_REPAIRER_TTL = 30;
 const REQUEST_BUILDER_TTL = 30;
-const REQUEST_DISTRIBUTOR_TTL = 10;
+
 const REQUEST_UPGRADER_TTL = 30;
 const CHECK_SAFE_MODE_TTL = 10;
-const HAUL_EXTENSION_TTL = 10;
 const UPDATE_PROCESSES_TTL = 20;
 const PRODUCE_STATUS_TTL = 30;
 const ABANDON_BASE_TTL = 50;
@@ -105,13 +101,12 @@ export default class BaseRunnable {
 
   threadRequestRepairer: BaseRoomThreadFunc;
   threadRequestBuilder: BaseRoomThreadFunc;
-  threadRequestDistributor: BaseRoomThreadFunc;
   threadRequestUpgrader: BaseRoomThreadFunc;
   threadRequestExplorer: BaseRoomThreadFunc;
 
   threadUpdateBoosters: BaseRoomThreadFunc;
   threadCheckSafeMode: BaseRoomThreadFunc;
-  threadRequestExtensionFilling: BaseRoomThreadFunc;
+
   // threadUpdateRampartAccess: BaseRoomThreadFunc;
   threadRequestEnergy: BaseRoomThreadFunc;
   threadProduceStatus: BaseRoomThreadFunc;
@@ -132,12 +127,11 @@ export default class BaseRunnable {
 
     this.threadRequestRepairer = threadBaseRoom('request_repairs_thread', REQUEST_REPAIRER_TTL)(this.requestRepairer.bind(this));
     this.threadRequestBuilder = threadBaseRoom('request_builder_thead', REQUEST_BUILDER_TTL)(this.requestBuilder.bind(this));
-    this.threadRequestDistributor = threadBaseRoom('request_distributer_thread', REQUEST_DISTRIBUTOR_TTL)(this.requestDistributor.bind(this));
     this.threadRequestUpgrader = threadBaseRoom('request_upgrader_thread', REQUEST_UPGRADER_TTL)(this.requestUpgrader.bind(this));
     this.threadRequestExplorer = threadBaseRoom('request_explorers_thread', REQUEST_EXPLORER_TTL)(this.requestExplorer.bind(this));
 
     this.threadCheckSafeMode = threadBaseRoom('check_safe_mode_thread', CHECK_SAFE_MODE_TTL)(this.checkSafeMode.bind(this));
-    this.threadRequestExtensionFilling = threadBaseRoom('request_extension_filling_thread', HAUL_EXTENSION_TTL)(this.requestExtensionFilling.bind(this));
+
     // this.threadUpdateRampartAccess = threadBaseRoom('update_rampart_access_thread', RAMPART_ACCESS_TTL)(this.updateRampartAccess.bind(this));
     this.threadRequestEnergy = threadBaseRoom('request_energy_thread', ENERGY_REQUEST_TTL)(this.requestEnergy.bind(this));
     this.threadProduceStatus = threadBaseRoom('produce_status_thread', PRODUCE_STATUS_TTL)(this.produceStatus.bind(this));
@@ -196,30 +190,21 @@ export default class BaseRunnable {
       return sleeping(NO_VISION_TTL);
     }
 
-    // TODO try to remove dependency on OrgRoom
-    const orgRoom = getBasePrimaryRoom(base);
-    if (!orgRoom) {
-      trace.error('no org room, terminating', {base: this.id});
-      trace.end();
-      return sleeping(NO_VISION_TTL);
-    }
-
     this.threadUpdateProcessSpawning(trace, kernel, base, room);
 
     // Base life cycle
     this.threadAbandonBase(trace, kernel, base, room);
 
     // Defense
-    // this.threadUpdateRampartAccess(trace, orgRoom, room);
+    // this.threadUpdateRampartAccess(trace, base, room);
     this.threadCheckSafeMode(trace, kernel, base, room);
 
     // Logistics
     this.threadRequestEnergy(trace, kernel, base, room);
-    this.threadRequestExtensionFilling(trace, kernel, base, room);
 
     // Creeps
     this.threadRequestUpgrader(trace, kernel, base, room);
-    this.threadRequestDistributor(trace, kernel, base, room);
+
     if (base.alertLevel === AlertLevel.GREEN) {
       this.threadRequestBuilder(trace, kernel, base, room);
       this.threadRequestRepairer(trace, kernel, base, room);
@@ -622,90 +607,6 @@ export default class BaseRunnable {
     // @CONFIRM builders are being spawned
   }
 
-  requestDistributor(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
-    let distributors = kernel.getCreepsManager().getCreepsByBaseAndRole(this.id, CREEPS.WORKER_DISTRIBUTOR);
-    distributors = distributors.filter((c) => {
-      // Making stale 150 ticks sooner to avoid not having enough distributors
-      return creepIsFresh(c, 150);
-    });
-    const numDistributors = distributors.length;
-
-    // If low on bucket base not under threat
-    if (Game.cpu.bucket < 1000 && numDistributors > 0 && base.alertLevel === AlertLevel.GREEN) {
-      trace.info('low CPU, limit distributors');
-      return;
-    }
-
-    const distributorRequests: number[] = [];
-
-    const desiredDistributors = MIN_DISTRIBUTORS;
-    if (room.controller.level < 3) {
-      distributorRequests.push(1);
-    }
-
-    const fullness = room.energyAvailable / room.energyCapacityAvailable;
-    if (room.controller.level >= 3 && fullness < 0.5) {
-      distributorRequests.push(3);
-    }
-
-    const numCoreHaulTasks = kernel.getTopics().getLength(getBaseDistributorTopic(this.id));
-    if (numCoreHaulTasks > 30) {
-      distributorRequests.push(2);
-    }
-    if (numCoreHaulTasks > 50) {
-      distributorRequests.push(3);
-    }
-
-    if (base.alertLevel !== AlertLevel.GREEN) {
-      distributorRequests.push(3);
-    }
-
-    if (base.alertLevel !== AlertLevel.GREEN) {
-      const numTowers = room.find(FIND_MY_STRUCTURES, {
-        filter: (structure) => {
-          return structure.structureType === STRUCTURE_TOWER;
-        },
-      }).length;
-
-      trace.info('hostiles in room and we need more distributors', {numTowers, desiredDistributors});
-      distributorRequests.push((numTowers / 2) + desiredDistributors);
-    }
-
-    if (!room.storage || numDistributors >= _.max(distributorRequests)) {
-      trace.info('do not request distributors', {
-        hasStorage: !!room.storage,
-        numDistributors,
-        desiredDistributors,
-        roomLevel: room.controller.level,
-        fullness,
-        numCoreHaulTasks,
-      });
-      return;
-    }
-
-    let distributorPriority = PRIORITIES.PRIORITY_DISTRIBUTOR;
-    if (getStoredResourceAmount(base, RESOURCE_ENERGY) === 0) {
-      distributorPriority = PRIORITIES.DISTRIBUTOR_NO_RESERVE;
-    }
-
-    if (numDistributors === 0) {
-      distributorPriority += 10;
-    }
-
-    const priority = distributorPriority;
-    const ttl = REQUEST_DISTRIBUTOR_TTL;
-    const role = CREEPS.WORKER_DISTRIBUTOR;
-    const memory = {
-      [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
-      [MEMORY.MEMORY_BASE]: base.id,
-    };
-
-    const request = createSpawnRequest(priority, ttl, role, memory, null, 0);
-    trace.info('request distributor', {desiredDistributors, fullness, request});
-    kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
-    // @CHECK that distributors are being spawned
-  }
-
   requestUpgrader(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
     if (!room.storage) {
       trace.info('no storage, dont spawn upgraders');
@@ -812,39 +713,6 @@ export default class BaseRunnable {
     } else {
       trace.info('not requesting explorer', {numExplorers: explorers.length});
     }
-  }
-
-  requestExtensionFilling(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
-    const pickup = getStructureWithResource(base, RESOURCE_ENERGY);
-    if (!pickup) {
-      trace.info('no energy available for extensions', {resource: RESOURCE_ENERGY});
-      return;
-    }
-
-    const nonFullExtensions = room.find<StructureExtension>(FIND_STRUCTURES, {
-      filter: (structure) => {
-        return (structure.structureType === STRUCTURE_EXTENSION ||
-          structure.structureType === STRUCTURE_SPAWN) &&
-          structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0 &&
-          structure.isActive();
-      },
-    });
-
-    nonFullExtensions.forEach((extension) => {
-      const details = {
-        [MEMORY.TASK_ID]: `ext-${this.id}-${Game.time}`,
-        [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
-        [MEMORY.MEMORY_HAUL_PICKUP]: pickup.id,
-        [MEMORY.MEMORY_HAUL_RESOURCE]: RESOURCE_ENERGY,
-        [MEMORY.MEMORY_HAUL_DROPOFF]: extension.id,
-        [MEMORY.MEMORY_HAUL_AMOUNT]: extension.store.getFreeCapacity(RESOURCE_ENERGY),
-      };
-
-      kernel.getTopics().addRequest(getBaseDistributorTopic(this.id), PRIORITIES.HAUL_EXTENSION,
-        details, HAUL_EXTENSION_TTL);
-    });
-
-    trace.info('haul extensions', {numHaulTasks: nonFullExtensions.length});
   }
 
   updateRampartAccess(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
