@@ -15,7 +15,6 @@ import {Tracer} from '../../lib/tracing';
 import {BaseManager} from '../../managers/bases';
 import BufferManager from '../../managers/buffer';
 import {CreepManager} from '../../managers/creeps';
-import DefenseManager from '../../managers/defense';
 import InvaderManager from '../../managers/invaders';
 import {ResourceManager} from '../../managers/resources';
 import {Scribe} from '../../managers/scribe';
@@ -94,12 +93,6 @@ export class AI implements Kernel {
     const siteJanitor = new SiteJanitor();
     scheduler.registerProcess(new Process(siteJanitorId, 'site_janitor',
       Priorities.CRITICAL, siteJanitor));
-
-    // Defense manager, must run before towers and defenders
-    const defenseManagerId = 'defense_manager';
-    const defenseManager = new DefenseManager(this, defenseManagerId, scheduler, trace);
-    scheduler.registerProcess(new Process(defenseManagerId, 'defense_manager',
-      Priorities.CRITICAL, defenseManager));
 
     // Buffer manager
     const bufferManagerId = 'buffer_manager';

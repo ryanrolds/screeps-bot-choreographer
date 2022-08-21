@@ -1,3 +1,8 @@
+/**
+ * Logic for determining base remotes
+ *
+ * TODO: Move to remotes.ts
+ */
 import {newMultipliers} from '../creeps/builders/attacker';
 import {buildDefender} from '../creeps/builders/defender';
 import {Tracer} from '../lib/tracing';
@@ -7,7 +12,7 @@ import {Kernel} from '../os/kernel/kernel';
 const PASSES = 3;
 
 export const findRemotes = (kernel: Kernel, base: Base, trace: Tracer): [string[], Map<string, string>] => {
-  trace.notice('checking remote mining', {baseId: base.id});
+  trace.info('checking remote mining', {baseId: base.id});
 
   const scribe = kernel.getScribe();
   const candidates: Set<string> = new Set();
@@ -47,7 +52,7 @@ export const findRemotes = (kernel: Kernel, base: Base, trace: Tracer): [string[
         const [passable, dismiss] = checkCandidateRoom(kernel, base, adjacentRoom,
           startRoomStatus, trace);
 
-        trace.notice('checked candidate room', {
+        trace.info('checked candidate room', {
           currentRoom,
           adjacentRoom,
           passable,
@@ -65,7 +70,7 @@ export const findRemotes = (kernel: Kernel, base: Base, trace: Tracer): [string[
           return
         }
 
-        trace.notice('adding room to candidates', {adjacentRoom});
+        trace.info('adding room to candidates', {adjacentRoom});
         candidates.add(adjacentRoom);
       });
     });
@@ -78,7 +83,7 @@ export const findRemotes = (kernel: Kernel, base: Base, trace: Tracer): [string[
     return [[], dismissed];
   }
 
-  trace.notice('candidates rooms found', {
+  trace.info('candidates rooms found', {
     candidates: Array.from(candidates.keys()),
     dismissed: Array.from(dismissed.entries()),
     base
@@ -103,7 +108,7 @@ export const findRemotes = (kernel: Kernel, base: Base, trace: Tracer): [string[
     }], ['asc', 'desc'],
   );
 
-  trace.notice('next remote mining rooms', {sortedCandidates});
+  trace.info('next remote mining rooms', {sortedCandidates});
   //return [sortedCandidates, debug];
   return [sortedCandidates, dismissed];
 };
@@ -139,17 +144,20 @@ export function checkCandidateRoom(kernel: Kernel, base: Base, room: string,
     const [_parts, ok] = buildDefender(roomEntry.hostilesDmg, basePrimary.energyCapacityAvailable,
       multipliers, trace);
     if (!ok) {
-      trace.notice('defender build failed, we cannot take the room', {
+      trace.warn('defender build failed, we cannot take the room', {
         roomEntry, basePrimary, hostilesDmg: roomEntry.hostilesDmg,
         energyCapacityAvailable: basePrimary.energyCapacityAvailable
       });
       return [false, 'hostiles too strong'];
     }
 
-    trace.notice('defender build succeeded, we can take the room', {
+    trace.warn('defender build succeeded, we can take the room', {
       roomEntry, basePrimary, hostilesDmg: roomEntry.hostilesDmg,
       energyCapacityAvailable: basePrimary.energyCapacityAvailable
     });
+
+    // TODO: When defense of remotes is sorted out, remove this
+    return [true, 'hostiles present'];
   }
 
   // filter out rooms that do not have a source

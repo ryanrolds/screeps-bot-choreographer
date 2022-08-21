@@ -1,3 +1,12 @@
+/**
+ * Scribe
+ *
+ * Journal room state so that we have some object permanence when we lose visibility
+ * into rooms. When a room has not been visited in a a while remote the stale journal
+ * entry.
+ *
+ * TODO: Store room state and restore on restart - bug?
+ */
 import {scoreAttacking, scoreHealing} from '../creeps/roles/harasser';
 import {getDashboardStream, HudEventSet, HudIndicator, HudIndicatorStatus} from '../debug/hud';
 import {Event} from '../lib/event_broker';
@@ -5,16 +14,17 @@ import {Tracer} from '../lib/tracing';
 import {Kernel, KernelThreadFunc, threadKernel} from '../os/kernel/kernel';
 import {Runnable, RunnableResult, sleeping} from '../os/process';
 
-const RUN_TTL = 10;
-const JOURNAL_ENTRY_BASE_TTL = 10;
-const JOURNAL_ENTRY_TTL = 200;
+const RUN_TTL = 5;
+
 const WRITE_MEMORY_INTERVAL = 50;
 const REMOVE_STALE_ENTRIES_INTERVAL = 100;
 const UPDATE_BASE_COUNT = 50;
 const PRODUCE_EVENTS_INTERVAL = 50;
 
-const YELLOW_JOURNAL_AGE = 100;
-const RED_JOURNAL_AGE = 250;
+const JOURNAL_ENTRY_TTL = 10;
+export const YELLOW_JOURNAL_AGE = 500;
+export const RED_JOURNAL_AGE = 1000;
+export const MAX_JOURNAL_AGE = 2500;
 
 type Journal = {
   rooms: Map<string, RoomEntry>;
@@ -160,10 +170,7 @@ export class Scribe implements Runnable {
     // Iterate rooms and update if stale
     Object.values(Game.rooms).forEach((room) => {
       const entry = this.getRoomById(room.name as Id<Room>);
-      const base = kernel.getPlanner().getBaseByRoom(room.name);
-
-      if (!entry || (base && Game.time - entry.lastUpdated > JOURNAL_ENTRY_BASE_TTL) ||
-        (Game.time - entry.lastUpdated > JOURNAL_ENTRY_TTL)) {
+      if (!entry || Game.time - entry.lastUpdated > JOURNAL_ENTRY_TTL) {
         this.updateRoom(kernel, room, updateRoomsTrace);
       }
     });
@@ -204,6 +211,17 @@ export class Scribe implements Runnable {
       });
     });
     */
+
+    const metrics = trace.getMetricsCollector();
+    metrics.gauge('scribe_rooms_total', this.getRooms().length, {});
+
+    const oldestRoom = _.min(this.getRooms(), (room) => room.lastUpdated);
+    metrics.gauge('scribe_rooms_max_age', Game.time - oldestRoom.lastUpdated, {});
+
+    trace.info('Scribe run complete', {
+      rooms: this.getRooms().length,
+      oldest: Game.time - oldestRoom.lastUpdated,
+    });
 
     trace.end();
 
@@ -309,6 +327,7 @@ export class Scribe implements Runnable {
 
     const numAfter = this.journal.rooms.size;
     trace.info('remove_stale', {numBefore, numAfter});
+    trace.getMetricsCollector().counter('scribe_stale_total', numBefore - numAfter);
   }
 
   getRoomById(roomId: string): RoomEntry {
@@ -317,19 +336,6 @@ export class Scribe implements Runnable {
 
   getRooms(): RoomEntry[] {
     return Array.from(this.journal.rooms.values());
-  }
-
-  getStats() {
-    const rooms = Array.from(this.journal.rooms.keys());
-    const oldestId = this.getOldestRoomInList(rooms);
-    const oldestRoom = this.getRoomById(oldestId);
-    const oldestAge = oldestRoom ? Game.time - oldestRoom.lastUpdated : 0;
-
-    return {
-      rooms: rooms.length,
-      oldestRoom: oldestId,
-      oldestAge: oldestAge,
-    };
   }
 
   getOldestRoomInList(rooms: string[]): string {
@@ -428,8 +434,9 @@ export class Scribe implements Runnable {
   getHostileRooms(kernel: Kernel, trace: Tracer): TargetRoom[] {
     return Array.from(this.journal.rooms.values()).filter((room) => {
       trace.info("room entry", {
-        room: room.id, controller: room.controller,
-        owner: room.controller.owner
+        room: room.id,
+        controller: room.controller,
+        owner: room.controller?.owner
       });
       if (!room.controller || room.controller.owner === kernel.getPlanner().getUsername()) {
         return false;

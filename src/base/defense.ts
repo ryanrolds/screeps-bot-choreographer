@@ -1,5 +1,19 @@
+/**
+ * Base Defense Manager
+ * Created: August 2022
+ *
+ * - Scan remotes for hostiles, if found set yellow alert and dispatch ranged defenders to room
+ * - Scan primary room for hostiles, if found set red alert and dispatch melee defenders to ramparts
+ * - Report base defense status to stream
+ *
+ * Base defense: 2 melee defenders that position themselves where enemy is trying to punch through.
+ * create additional ranged defenders to the break through point.
+ *
+ * Room defense: Send enough defenders (singles or quads) to kill the hostiles. Frequently invaders.
+ *
+ * TODO: Request base defenders from neighbors
+ */
 import * as _ from 'lodash';
-import {createSpawnRequest, getBaseSpawnTopic} from '../base/spawning';
 import * as CREEPS from '../constants/creeps';
 import {DEFENSE_STATUS} from '../constants/defense';
 import * as MEMORY from '../constants/memory';
@@ -11,14 +25,15 @@ import {scoreHealing} from '../creeps/roles/harasser';
 import {Tracer} from '../lib/tracing';
 import {Base, getBasePrimaryRoom} from '../os/kernel/base';
 import {Kernel, KernelThreadFunc, threadKernel} from '../os/kernel/kernel';
-import {Process, RunnableResult, sleeping} from '../os/process';
+import {Process, RunnableResult, sleeping, terminate} from '../os/process';
 import {Priorities, Scheduler} from '../os/scheduler';
+import {createSpawnRequest, getBaseSpawnTopic} from './spawning';
 
 const RUN_INTERVAL = 5;
 const TARGET_REQUEST_TTL = RUN_INTERVAL;
 const DEFENSE_STATUS_TTL = RUN_INTERVAL;
 const REQUEST_DEFENDERS_TTL = 25;
-const REQUEST_DEFENDER_TTL = 5;
+// const REQUEST_DEFENDER_TTL = 5;
 
 export function getBasePriorityTargetsTopic(baseId: string): string {
   return `base_${baseId}_priority_targets`;
@@ -53,22 +68,54 @@ interface DefenseMemory {
 
 export default class DefenseManager {
   id: string;
+  baseId: string;
   scheduler: Scheduler;
   memory: DefenseMemory;
 
   defenseParties: DefensePartyRunnable[];
   threadCheckBaseDefenses: KernelThreadFunc;
-  threadReturnDefendersToStation: KernelThreadFunc;
-  threadHandleDefenderRequest: KernelThreadFunc;
+  // threadReturnDefendersToStation: KernelThreadFunc;
+  // threadHandleDefenderRequest: KernelThreadFunc;
 
-  constructor(kernel: Kernel, id: string, scheduler: Scheduler, trace: Tracer) {
-    this.id = id;
-    this.scheduler = scheduler;
+  constructor(kernel: Kernel, base: Base, trace: Tracer) {
+    this.baseId = base.id;
+    this.scheduler = kernel.getScheduler();
     this.restoreFromMemory(kernel, trace);
 
     this.threadCheckBaseDefenses = threadKernel('check_defense_thread', REQUEST_DEFENDERS_TTL)(checkBaseDefenses);
-    this.threadReturnDefendersToStation = threadKernel('recall_defenders_thread', REQUEST_DEFENDERS_TTL)(returnDefendersToStation);
-    this.threadHandleDefenderRequest = threadKernel('request_defenders_thread', REQUEST_DEFENDER_TTL)(this.requestDefenders.bind(this));
+    //this.threadReturnDefendersToStation = threadKernel('recall_defenders_thread', REQUEST_DEFENDERS_TTL)(returnDefendersToStation);
+    //this.threadHandleDefenderRequest = threadKernel('request_defenders_thread', REQUEST_DEFENDER_TTL)(this.requestDefenders.bind(this));
+  }
+
+  run(kernel: Kernel, trace: Tracer): RunnableResult {
+    trace = trace.begin('defense_manager_run');
+    trace.info('defense manager run');
+
+    const base = kernel.getPlanner().getBaseById(this.baseId);
+    if (!base) {
+      trace.error('base not found, terminating', {baseId: this.baseId});
+      return terminate();
+    }
+
+    const hostileAttackPowerByRoom = getHostileAttackPowerByBaseRoom(kernel, base, trace);
+    trace.info('hostile attack power', {baseId: this.baseId, hostileAttackPowerByRoom});
+
+    const targetTopicTrace = trace.begin('addHostilesToBaseTargetTopic');
+    addHostilesToBaseTargetTopic(kernel, base, targetTopicTrace);
+    targetTopicTrace.end();
+
+    // const defenseStatusTrace = trace.begin('updateDefenseStatus');
+    // publishDefenseStatuses(kernel, hostilesByBase, defenseStatusTrace);
+    // defenseStatusTrace.end();
+
+    //this.handleDefendFlags(kernel, trace);
+    //this.threadCheckBaseDefenses(trace, kernel, hostilesByBase);
+    //this.threadReturnDefendersToStation(trace, kernel, hostilesByBase);
+    //this.threadHandleDefenderRequest(trace, kernel, hostilesByBase);
+
+    trace.end();
+
+    return sleeping(RUN_INTERVAL);
   }
 
   private restoreFromMemory(kernel: Kernel, trace: Tracer) {
@@ -121,33 +168,6 @@ export default class DefenseManager {
     this.scheduler.registerProcess(process);
 
     return party;
-  }
-
-  run(kernel: Kernel, trace: Tracer): RunnableResult {
-    trace = trace.begin('defense_manager_run');
-    trace.info('defense manager run');
-
-    const hostilesTrace = trace.begin('getHostilesByBase');
-    const hostilesByBase = getHostilesByBase(kernel, hostilesTrace);
-    hostilesTrace.info('hostiles by base', {hostilesByBase});
-    hostilesTrace.end();
-
-    const targetTopicTrace = trace.begin('addHostilesToBaseTargetTopic');
-    addHostilesToBaseTargetTopic(kernel, hostilesByBase, targetTopicTrace);
-    targetTopicTrace.end();
-
-    const defenseStatusTrace = trace.begin('updateDefenseStatus');
-    publishDefenseStatuses(kernel, hostilesByBase, defenseStatusTrace);
-    defenseStatusTrace.end();
-
-    this.handleDefendFlags(kernel, trace);
-    this.threadCheckBaseDefenses(trace, kernel, hostilesByBase);
-    this.threadReturnDefendersToStation(trace, kernel, hostilesByBase);
-    this.threadHandleDefenderRequest(trace, kernel, hostilesByBase);
-
-    trace.end();
-
-    return sleeping(RUN_INTERVAL);
   }
 
   private handleDefendFlags(kernel: Kernel, trace: Tracer) {
@@ -237,7 +257,7 @@ export default class DefenseManager {
 
 type HostilesByBase = Map<string, Target[]>;
 
-function getHostilesByBase(kernel: Kernel, trace: Tracer): HostilesByBase {
+function _getHostilesByBase(kernel: Kernel, trace: Tracer): HostilesByBase {
   return Object.values(Game.rooms).reduce<HostilesByBase>((bases, room: Room) => {
     const base = kernel.getPlanner().getBaseByRoom(room.name);
     if (!base) {
@@ -299,9 +319,41 @@ function getHostilesByBase(kernel: Kernel, trace: Tracer): HostilesByBase {
 
 // }
 
-function addHostilesToBaseTargetTopic(kernel: Kernel, hostilesByBases: HostilesByBase,
-  trace: Tracer) {
+function addHostilesToBaseTargetTopic(kernel: Kernel, base: Base, trace: Tracer) {
   // Add targets to base target topic
+  const primaryRoom = getBasePrimaryRoom(base);
+  if (!primaryRoom) {
+    trace.error('cannot find primary room', {base});
+    return;
+  }
+
+  const hostiles = primaryRoom.find(FIND_HOSTILE_CREEPS);
+  hostiles.forEach((hostile) => {
+    let healingPower = scoreHealing(hostile as Creep, true);
+
+    // Get adjacent creeps
+    const adjacentCreeps = hostile.pos.findInRange(FIND_HOSTILE_CREEPS, 1);
+
+    // Sum up total healing (healing of target + healing of adjacent creeps)
+    healingPower = adjacentCreeps.reduce((total, creep) => {
+      return total + scoreHealing(creep, true);
+    }, healingPower);
+
+    const details = {
+      id: hostile.id,
+      roomName: hostile.room.name,
+      healingPower: healingPower,
+      // TODO include rangedAttackPower
+      // TODO include meleeAttackPower
+    };
+
+    trace.info('requesting target', {details, healingPower});
+
+    kernel.getTopics().addRequest(getBasePriorityTargetsTopic(base.id), healingPower,
+      details, TARGET_REQUEST_TTL);
+  });
+
+  /*
   Array.from(hostilesByBases.entries()).forEach(([baseId, hostiles]) => {
     const base = kernel.getPlanner().getBaseById(baseId);
     if (!base) {
@@ -332,9 +384,10 @@ function addHostilesToBaseTargetTopic(kernel: Kernel, hostilesByBases: HostilesB
       kernel.getTopics().addRequest(getBasePriorityTargetsTopic(baseId), healingPower, details, TARGET_REQUEST_TTL);
     });
   });
+  */
 }
 
-function publishDefenseStatuses(kernel: Kernel, hostilesByBase: HostilesByBase, trace) {
+function _publishDefenseStatuses(kernel: Kernel, hostilesByBase: HostilesByBase, trace) {
   kernel.getPlanner().getBases().forEach((base) => {
     const numHostiles = (hostilesByBase.get(base.id) || []).length;
     const numDefenders = Object.values<Creep>(kernel.getCreepsManager().
@@ -364,7 +417,6 @@ function publishDefenseStatuses(kernel: Kernel, hostilesByBase: HostilesByBase, 
   });
 }
 
-// TODO move into base defense runnable
 function checkBaseDefenses(trace: Tracer, kernel: Kernel, hostilesByBase: Map<string, Creep[]>) {
   // Check for defenders
   Array.from(hostilesByBase.entries()).forEach(([baseId, hostiles]) => {
@@ -460,7 +512,7 @@ function requestAdditionalDefenders(kernel: Kernel, base: Base, needed: number,
   }
 }
 
-function returnDefendersToStation(trace: Tracer, kernel: Kernel, hostilesByBase: Map<string, Creep[]>) {
+function _returnDefendersToStation(trace: Tracer, kernel: Kernel, hostilesByBase: Map<string, Creep[]>) {
   const flags = Object.values(Game.flags).filter((flag) => {
     trace.info('flag', {flag});
     if (!flag.name.startsWith('station') && !flag.name.startsWith('defenders')) {
@@ -531,4 +583,19 @@ export function scoreDefender(defender: Creep): number {
     }
     return acc;
   }, 0);
+}
+
+function getHostileAttackPowerByBaseRoom(kernel: Kernel, base: Base, _trace: Tracer): Map<string, number> {
+  const hostileAttackPowerByRoom = new Map<string, number>();
+
+  base.rooms.forEach((roomName) => {
+    const roomEntry = kernel.getScribe().getRoomById(roomName);
+    if (!roomEntry) {
+      return;
+    }
+
+    hostileAttackPowerByRoom.set(roomName, roomEntry.hostilesDmg);
+  });
+
+  return hostileAttackPowerByRoom;
 }

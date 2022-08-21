@@ -22,6 +22,7 @@ import {BaseRoomThreadFunc, threadBaseRoom} from '../os/threads/base_room';
 import {BoosterDetails, getBaseBoostTopic} from './booster';
 import BaseConstructionRunnable from './construction';
 import ControllerRunnable from './controller';
+import DefenseManager from './defense';
 import {LabsManager} from './labs';
 import LinkManager from './links';
 import LogisticsRunnable from './logistics';
@@ -400,10 +401,8 @@ export default class BaseRunnable {
     // Remotes
     const remotesManagerId = `remotes_${this.id}`;
     if (!this.scheduler.hasProcess(remotesManagerId)) {
-
       trace.info('starting remote manager', {id: remotesManagerId});
       missingProcesses++;
-
       this.scheduler.registerProcess(new Process(remotesManagerId, 'remotes', Priorities.CORE_LOGISTICS,
         new RemotesManager(this.id)));
     }
@@ -457,13 +456,20 @@ export default class BaseRunnable {
 
     // Neighbors
     const neighborsId = `neighbors_${this.id}`;
-    const hasNeighborsProcess = this.scheduler.hasProcess(neighborsId);
-    if (!hasNeighborsProcess) {
+    if (!this.scheduler.hasProcess(neighborsId)) {
       trace.info('starting neighbors', {id: neighborsId});
       missingProcesses++;
 
       this.scheduler.registerProcess(new Process(neighborsId, 'neighbors', Priorities.CRITICAL,
         new NeighborsRunnable(this.id)));
+    }
+
+    const defenseManagerId = `defense_manager_${this.id}`;
+    if (!this.scheduler.hasProcess(defenseManagerId)) {
+      // Defense manager, must run before towers and defenders
+      const defenseManager = new DefenseManager(kernel, base, trace);
+      this.scheduler.registerProcess(new Process(defenseManagerId, 'defense_manager',
+        Priorities.CRITICAL, defenseManager));
     }
 
     // Repairs
@@ -774,6 +780,8 @@ export default class BaseRunnable {
     hostiles = hostiles.filter((creep) => friends.indexOf(creep.owner.username) === -1);
 
     if (hostiles) {
+      // BUG: Proximity to a link has triggered safe mode
+      // find may not work as expected
       const infrastructure = room.find(FIND_MY_STRUCTURES, {
         filter: (structure) => {
           return _.find(importantStructures, structure.structureType);
@@ -782,7 +790,7 @@ export default class BaseRunnable {
 
       // Iterate through critical infrastructure and check if any are under attack
       for (const structure of infrastructure) {
-        if (structure.pos.findInRange(hostiles, 4).length) {
+        if (structure.pos.findInRange(hostiles, 3).length) {
           trace.notice('critical infrastructure under attack');
           enableSafeMode = true;
           break;

@@ -18,7 +18,7 @@ import {Runnable, RunnableResult, sleeping, terminate} from '../os/process';
 import {getBaseHaulerTopic, getLogisticsTopic, LogisticsEventData, LogisticsEventType} from './logistics';
 import {createSpawnRequest, getBaseSpawnTopic} from './spawning';
 
-const RUN_TTL = 50;
+const RUN_TTL = 20;
 const STRUCTURE_TTL = 200;
 const DROPOFF_TTL = 200;
 const BUILD_LINK_TTL = 200;
@@ -109,6 +109,9 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
 
     this.threadRequestMiners(trace, kernel, base, source);
     this.threadRequestHauling(trace, kernel, base, source);
+
+    trace.getMetricsCollector().gauge('source_energy_remaining', source.energy,
+      {sourceId: this.id, base: base.id, room: source.room.name});
 
     trace.end();
 
@@ -364,7 +367,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       [MEMORY.MEMORY_BASE]: base.id,
     };
 
-    trace.info('requesting miner', {sourceId: this.id, PRIORITY_MINER: PRIORITY_MINER_PRIMARY, memory});
+    trace.info('requesting miner', {sourceId: this.id, priority, memory});
 
     const request = createSpawnRequest(priority, RUN_TTL, role, memory, null, 0);
     kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);

@@ -330,7 +330,7 @@ export const threadBase = (name: string, ttl: number) => (action: BaseTheadActio
 };
 
 export function resetRemotes(base: Base, trace: Tracer): void {
-  trace.notice(`resetting remotes ${base.id}`);
+  trace.info(`resetting remotes ${base.id}`);
   base.rooms = [base.primary];
 }
 

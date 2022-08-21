@@ -1,3 +1,10 @@
+/**
+ * Base Logistics
+ *
+ * - Using a PID, try to ensure queue of jobs is empty (plenty of workers/haulers)
+ * - Ensure enough distributors are filling extensions so that we are not waiting for energy
+ *
+ */
 import {ROLE_WORKER, WORKER_DISTRIBUTOR, WORKER_HAULER} from '../constants/creeps';
 import {
   MEMORY_ASSIGN_ROOM,
@@ -354,14 +361,9 @@ export default class LogisticsRunnable extends PersistentMemory {
     });
 
     const neededHaulers = this.desiredHaulers - this.numHaulers;
-    for (let i = 0; i < Math.min(5, neededHaulers); i++) {
+    for (let i = 0; i < Math.min(3, neededHaulers); i++) {
       let priority = PRIORITY_HAULER;
-
-      // If we have few haulers/workers we should not be prioritizing haulers
-      if (this.desiredHaulers > 3 && this.numHaulers < 2) {
-        priority += 5;
-      }
-
+      // Reduce priority as we have more haulers
       priority -= (this.numHaulers + i) * 0.1;
 
       const ttl = REQUEST_HAULER_TTL;
@@ -375,7 +377,7 @@ export default class LogisticsRunnable extends PersistentMemory {
     }
   }
 
-  requestDistributor(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
+  private requestDistributor(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
     let distributors = kernel.getCreepsManager().getCreepsByBaseAndRole(this.baseId, WORKER_DISTRIBUTOR);
     distributors = distributors.filter((c) => {
       // Making stale 150 ticks sooner to avoid not having enough distributors
@@ -389,28 +391,14 @@ export default class LogisticsRunnable extends PersistentMemory {
       return;
     }
 
-    const distributorRequests: number[] = [];
-
-    const desiredDistributors = MIN_DISTRIBUTORS;
+    let desiredDistributors = MIN_DISTRIBUTORS;
     if (room.controller.level < 3) {
-      distributorRequests.push(1);
+      desiredDistributors = 1;
     }
 
     const fullness = room.energyAvailable / room.energyCapacityAvailable;
     if (room.controller.level >= 3 && fullness < 0.5) {
-      distributorRequests.push(3);
-    }
-
-    const numCoreHaulTasks = kernel.getTopics().getLength(getBaseDistributorTopic(this.baseId));
-    if (numCoreHaulTasks > 30) {
-      distributorRequests.push(2);
-    }
-    if (numCoreHaulTasks > 50) {
-      distributorRequests.push(3);
-    }
-
-    if (base.alertLevel !== AlertLevel.GREEN) {
-      distributorRequests.push(3);
+      desiredDistributors = 3;
     }
 
     if (base.alertLevel !== AlertLevel.GREEN) {
@@ -421,17 +409,16 @@ export default class LogisticsRunnable extends PersistentMemory {
       }).length;
 
       trace.info('hostiles in room and we need more distributors', {numTowers, desiredDistributors});
-      distributorRequests.push((numTowers / 2) + desiredDistributors);
+      desiredDistributors = (numTowers / 2) + desiredDistributors;
     }
 
-    if (!room.storage || numDistributors >= _.max(distributorRequests)) {
+    if (!room.storage || numDistributors >= desiredDistributors) {
       trace.info('do not request distributors', {
         hasStorage: !!room.storage,
         numDistributors,
         desiredDistributors,
         roomLevel: room.controller.level,
         fullness,
-        numCoreHaulTasks,
       });
       return;
     }
@@ -441,11 +428,6 @@ export default class LogisticsRunnable extends PersistentMemory {
       distributorPriority = DISTRIBUTOR_NO_RESERVE;
     }
 
-    if (numDistributors === 0) {
-      distributorPriority += 10;
-    }
-
-    const priority = distributorPriority;
     const ttl = REQUEST_DISTRIBUTOR_TTL;
     const role = WORKER_DISTRIBUTOR;
     const memory = {
@@ -453,10 +435,11 @@ export default class LogisticsRunnable extends PersistentMemory {
       [MEMORY_BASE]: base.id,
     };
 
-    const request = createSpawnRequest(priority, ttl, role, memory, null, 0);
-    trace.info('request distributor', {desiredDistributors, fullness, request});
-    kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
-    // @CHECK that distributors are being spawned
+    for (let i = 0; i < desiredDistributors - numDistributors; i++) {
+      const request = createSpawnRequest(distributorPriority, ttl, role, memory, null, 0);
+      trace.info('request distributor', {desiredDistributors, fullness, request});
+      kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
+    }
   }
 
   private produceEvents(trace: Tracer, kernel: Kernel, base: Base): void {

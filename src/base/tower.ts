@@ -2,10 +2,10 @@ import * as MEMORY from '../constants/memory';
 import * as PRIORITIES from '../constants/priorities';
 import * as TASKS from '../constants/tasks';
 import {Tracer} from '../lib/tracing';
-import {getBasePriorityTargetsTopic} from '../managers/defense';
 import {AlertLevel, Base, getStoredResourceAmount, getStructuresWithResource} from '../os/kernel/base';
 import {Kernel} from '../os/kernel/kernel';
 import {RunnableResult, running, sleeping, terminate} from '../os/process';
+import {getBasePriorityTargetsTopic} from './defense';
 import {getBaseDistributorTopic} from './logistics';
 
 const REQUEST_ENERGY_TTL = 10;

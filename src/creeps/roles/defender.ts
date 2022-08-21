@@ -1,6 +1,6 @@
+import {getBasePriorityTargetsTopic} from '../../base/defense';
 import {MEMORY_ASSIGN_ROOM_POS} from '../../constants/memory';
 import {Tracer} from '../../lib/tracing';
-import {getBasePriorityTargetsTopic} from '../../managers/defense';
 import {getCreepBase} from '../../os/kernel/base';
 import {Kernel} from '../../os/kernel/kernel';
 import * as behaviorAssign from '../behavior/assign';

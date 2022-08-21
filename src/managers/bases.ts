@@ -1,4 +1,5 @@
 import BaseRunnable from '../base/runnable';
+import {BASE_SECTOR_RADIUS, getNearbyRooms} from '../base/scouting';
 import {ShardConfig} from '../config';
 import {pickExpansion} from '../lib/expand';
 import {Metrics} from '../lib/metrics';
@@ -7,6 +8,7 @@ import {AlertLevel, Base, getBasePrimaryRoom} from '../os/kernel/base';
 import {Kernel, KernelThreadFunc, threadKernel} from '../os/kernel/kernel';
 import {Process, RunnableResult, sleeping} from '../os/process';
 import {Priorities, Scheduler} from '../os/scheduler';
+import {YELLOW_JOURNAL_AGE} from './scribe';
 
 const RUN_TTL = 10;
 const BASE_PROCESSES_TTL = 50;
@@ -258,9 +260,13 @@ export class BaseManager {
     trace.info('no expansion selected');
   }
 
-  reportMetrics(metrics: Metrics) {
+  reportMetrics(kernel: Kernel, metrics: Metrics, trace: Tracer): void {
     this.getBases().forEach((base) => {
       const primaryRoom = getBasePrimaryRoom(base);
+      if (!primaryRoom) {
+        trace.warn('no primary room for base', {base});
+        return;
+      }
 
       const roomLevel = primaryRoom.controller?.level || 0;
       metrics.gauge("base_level", roomLevel, {base: base.id});
@@ -279,6 +285,44 @@ export class BaseManager {
       metrics.gauge("base_energy_stored", storedEnergy, {base: base.id});
 
       metrics.gauge("base_rooms_total", base.rooms.length, {base: base.id});
+
+      let missingRoomEntries = 0;
+
+      // Report room level metrics
+      base.rooms.forEach((roomName) => {
+        // Remote Room Entry age
+        const roomEntry = kernel.getScribe().getRoomById(roomName);
+        if (roomEntry) {
+          metrics.gauge('scribe_room_entry_age', Game.time - roomEntry.lastUpdated,
+            {room: roomName, base: base.id});
+          metrics.gauge('scribe_room_entry_hostile_attack_total', roomEntry.hostilesDmg,
+            {room: roomName, base: base.id});
+          metrics.gauge('scribe_room_entry_hostile_healing_total', roomEntry.hostilesHealing,
+            {room: roomName, base: base.id});
+        } else {
+          missingRoomEntries++
+        }
+      });
+
+      metrics.gauge('scribe_room_entry_missing', missingRoomEntries, {base: base.id});
+
+      // get nearby rooms and report if fresh room entries
+      const nearbyRoomNames = getNearbyRooms(base.primary, BASE_SECTOR_RADIUS);
+      const freshNearbyRoomEntries = nearbyRoomNames.filter((roomName) => {
+        // if no room entry, not fresh
+        const roomEntry = kernel.getScribe().getRoomById(roomName);
+        if (!roomEntry) {
+          return false;
+        }
+
+        // If last updated is older then "yellow" threshold, not fresh
+        if (roomEntry.lastUpdated < Game.time - YELLOW_JOURNAL_AGE) {
+          return false;
+        }
+
+        return true;
+      });
+      metrics.gauge('base_fresh_sector_room_entries', freshNearbyRoomEntries.length, {base: base.id});
     });
   }
 }

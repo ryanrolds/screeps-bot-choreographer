@@ -146,7 +146,7 @@ export const loop = function () {
   // TODO report event broker topics
   ai.getTopics().reportMetrics(metrics);
   ai.getCreepsManager().reportMetrics(metrics);
-  ai.getPlanner().reportMetrics(metrics);
+  ai.getPlanner().reportMetrics(ai, metrics, trace);
 
   // Global control level related metrics
   metrics.gauge('global_control_level', Game.gcl.level);
