@@ -66,7 +66,7 @@ export default class BufferManager {
         return;
       }
 
-      trace.notice('attack hostile room', {baseId, room});
+      trace.info('attack hostile room', {baseId, room});
 
       const attackRequest: AttackRequest = {
         status: AttackStatus.REQUESTED,

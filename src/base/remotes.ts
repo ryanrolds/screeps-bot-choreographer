@@ -61,7 +61,7 @@ export class RemotesManager implements Runnable {
     }
 
     const level = primaryRoom?.controller?.level || 0;
-    const numDesired = desiredRemotes(base, level, this.spawnUtilization);
+    const numDesired = desiredRemotes(base, level, this.spawnUtilization, trace);
     if (numDesired === 0) {
       trace.info('no remotes desired', {base: base.id, level: level});
       return;

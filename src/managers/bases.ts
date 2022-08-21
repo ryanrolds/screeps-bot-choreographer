@@ -226,13 +226,13 @@ export class BaseManager {
     const scribe = kernel.getScribe();
     const globalBaseCount = scribe.getGlobalBaseCount();
     if (!globalBaseCount) {
-      trace.info('do not know global base count yet');
+      trace.notice('do not know global base count yet');
       return;
     }
 
     const allowedColonies = Game.gcl.level;
     if (globalBaseCount >= allowedColonies) {
-      trace.info('max GCL colonies reached', {globalBaseCount, allowedColonies});
+      trace.notice('max GCL colonies reached', {globalBaseCount, allowedColonies});
       return;
     }
 
@@ -241,7 +241,7 @@ export class BaseManager {
     const numColonies = bases.length;
     const shardBaseMax = (this.config.maxColonies || 9999);
     if (numColonies >= shardBaseMax) {
-      trace.info('max config colonies reached', {numColonies, shardBaseMax});
+      trace.notice('max config colonies reached', {numColonies, shardBaseMax});
       return;
     }
 
@@ -257,14 +257,14 @@ export class BaseManager {
       return;
     }
 
-    trace.info('no expansion selected');
+    trace.notice('no expansion selected');
   }
 
   reportMetrics(kernel: Kernel, metrics: Metrics, trace: Tracer): void {
     this.getBases().forEach((base) => {
       const primaryRoom = getBasePrimaryRoom(base);
       if (!primaryRoom) {
-        trace.warn('no primary room for base', {base});
+        trace.info('no primary room for base, not reporting metrics', {base});
         return;
       }
 

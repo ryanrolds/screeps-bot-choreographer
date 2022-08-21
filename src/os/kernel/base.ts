@@ -335,7 +335,7 @@ export function resetRemotes(base: Base, trace: Tracer): void {
 }
 
 export function addRoom(base: Base, roomName: string, trace: Tracer): void {
-  trace.notice('adding room', {baseId: base.id, roomName});
+  trace.info('adding room', {baseId: base.id, roomName});
 
   if (base.rooms.indexOf(roomName) !== -1) {
     trace.error('room already exists', {roomName});

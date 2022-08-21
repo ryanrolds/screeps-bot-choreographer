@@ -1,6 +1,6 @@
 import {findRemotes} from '../../base/find_remotes';
 import {ShardConfig} from '../../config';
-import PlannerDebugger from '../../debug/bases';
+import BasesDebugger from '../../debug/bases';
 import CostMatrixDebugger from '../../debug/costmatrix';
 import {HUDRunnable} from '../../debug/hud';
 import MinCutDebugger from '../../debug/mincut';
@@ -61,14 +61,14 @@ export class AI implements Kernel {
     scheduler.registerProcess(new Process('memory_manager', 'memory_manager',
       Priorities.CRITICAL, memoryManager));
 
-    // Journal game state
+    // Journal game state, object permanence
     this.scribe = new Scribe(trace);
     trace.info('scribe created', {numRooms: this.scribe.getRooms().length});
     scheduler.registerProcess(new Process('scribe', 'scribe', Priorities.CRITICAL, this.scribe));
 
-    // Central planning, tracks relationships, policies, and colonies
+    // Base manager, decides when to expand
     this.planning = new BaseManager(config, this.scheduler, trace);
-    scheduler.registerProcess(new Process('central_planning', 'planning',
+    scheduler.registerProcess(new Process('bases', 'planning',
       Priorities.CRITICAL, this.planning));
 
     // Creep manager
@@ -136,7 +136,7 @@ export class AI implements Kernel {
 
     // Expansion debugger
     const expandDebuggerId = 'expand_debugger';
-    const expandDebugger = new PlannerDebugger(expandDebuggerId, this);
+    const expandDebugger = new BasesDebugger(expandDebuggerId, this);
     scheduler.registerProcess(new Process(expandDebuggerId, 'expand_debugger',
       Priorities.DEBUG, expandDebugger));
 
@@ -253,8 +253,8 @@ export class AI implements Kernel {
     return this.scheduler.getProcess('costmatrix_debugger').runnable as CostMatrixDebugger;
   }
 
-  getPlannerDebugger(): PlannerDebugger {
-    return this.scheduler.getProcess('expand_debugger').runnable as PlannerDebugger;
+  getBasesDebugger(): BasesDebugger {
+    return this.scheduler.getProcess('expand_debugger').runnable as BasesDebugger;
   }
 
   getMinCutDebugger(): MinCutDebugger {

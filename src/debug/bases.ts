@@ -7,7 +7,7 @@ import {Kernel} from '../os/kernel/kernel';
 import {RunnableResult, running} from '../os/process';
 
 
-export default class PlannerDebugger {
+export default class BasesDebugger {
   id: string;
   results: ExpandResults = null;
   display = false;
@@ -22,11 +22,11 @@ export default class PlannerDebugger {
     trace.info('expand debugger run', {results: this.results});
 
     if (this.display) {
-      if (!this.results || Game.time % 50 === 0) {
+      if (!this.results || Game.time % 10 === 0) {
         this.results = pickExpansion(this.kernel, trace);
       }
 
-      trace.notice('expand debugger', {results: this.results});
+      trace.info('expand debugger', {results: this.results});
 
       const selected = this.results.selected;
       if (selected) {

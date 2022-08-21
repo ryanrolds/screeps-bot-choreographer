@@ -19,7 +19,7 @@ const RUN_TTL = 5;
 const WRITE_MEMORY_INTERVAL = 50;
 const REMOVE_STALE_ENTRIES_INTERVAL = 100;
 const UPDATE_BASE_COUNT = 50;
-const PRODUCE_EVENTS_INTERVAL = 50;
+const PRODUCE_EVENTS_INTERVAL = 10;
 
 const JOURNAL_ENTRY_TTL = 10;
 export const YELLOW_JOURNAL_AGE = 500;
@@ -315,7 +315,7 @@ export class Scribe implements Runnable {
     // Create new map of fresh rooms
     const rooms = new Map<string, RoomEntry>();
     for (const [id, entry] of this.journal.rooms) {
-      if (Game.time - entry.lastUpdated > JOURNAL_ENTRY_TTL) {
+      if (Game.time - entry.lastUpdated > MAX_JOURNAL_AGE) {
         trace.info('removing stale journal entry', {id: id});
         continue;
       }

@@ -187,7 +187,7 @@ export function checkCandidateRoom(kernel: Kernel, base: Base, room: string,
 
 // Calculate the max number of remotes based on level and number of spawns
 // TODO collect spawner saturation metrics and use that to calculate max remotes
-export function desiredRemotes(base: Base, level: number, spawnUtilization: number): number {
+export function desiredRemotes(base: Base, level: number, spawnUtilization: number, trace: Tracer): number {
   const room = getBasePrimaryRoom(base);
   const spawns = room.find(FIND_STRUCTURES, {
     filter: (s) => s.structureType === STRUCTURE_SPAWN && s.isActive(),
@@ -204,11 +204,11 @@ export function desiredRemotes(base: Base, level: number, spawnUtilization: numb
       numRooms = 0;
     }
 
-    console.log(`${base.id} should drop a room`);
+    trace.info(`${base.id} should drop a room`);
   } else if (spawnUtilization < 0.5) {
-    console.log(`${base.id} should add a room`);
+    trace.info(`${base.id} should add a room`);
   } else {
-    console.log(`${base.id} should keep the same number of rooms`);
+    trace.info(`${base.id} should keep the same number of rooms`);
   }
 
   let desiredRemotes = 0;

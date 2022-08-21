@@ -474,14 +474,14 @@ function createCreep(base: Base, room: string, spawn: StructureSpawn, request: R
     energy = roleEnergyLimit;
   }
 
-  trace.notice("parts before", {parts});
+  trace.info("parts before", {parts});
 
   // if parts not provided, work them out from the definition
   if (!parts || !parts.length) {
     parts = getBodyParts(definition, energy);
   }
 
-  trace.notice("parts after", {parts});
+  trace.info("parts after", {parts});
 
   const name = [role, Game.shard.name, Game.time].join('_');
 
