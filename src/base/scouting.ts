@@ -1,3 +1,5 @@
+import {WORKER_EXPLORER} from "../constants/creeps";
+import {MEMORY_ASSIGN_ROOM, MEMORY_ROLE} from "../constants/memory";
 import {YELLOW_JOURNAL_AGE} from "../managers/scribe";
 import {getCreepBase} from "../os/kernel/base";
 import {Kernel} from "../os/kernel/kernel";
@@ -18,8 +20,17 @@ export function getNextRoomToScout(kernel: Kernel, creep: Creep): string {
     return null;
   }
 
-  // Filter rooms down to stale entries
+  const explorers = kernel.getCreepsManager().getCreeps().
+    filter(c => c.memory[MEMORY_ROLE] === WORKER_EXPLORER);
+  const assignedRooms = explorers.map((explorer) => explorer.memory[MEMORY_ASSIGN_ROOM] as string);
+
+  // Filter rooms down to stale entries and entries already being scouted
   const staleEntries = nearbyRooms.filter((room) => {
+    // filter out rooms that are already being scouted
+    if (assignedRooms.includes(room)) {
+      return false;
+    }
+
     const roomEntry = kernel.getScribe().getRoomById(room);
     if (!roomEntry) {
       return true;
@@ -44,13 +55,22 @@ export function getNextRoomToScout(kernel: Kernel, creep: Creep): string {
 export function getNearbyRooms(center: string, distance: number): string[] {
   const rooms: string[] = [];
 
+  const centerStatus = Game.map.getRoomStatus(center);
   const baseCord = getRoomCordFromRoomName(center);
   for (let x = -distance + baseCord.x; x <= distance + baseCord.x; x++) {
     for (let y = -distance + baseCord.y; y <= distance + baseCord.y; y++) {
       const roomName = getRoomNameFromRoomCord({x: x, y: y});
-      if (roomName !== center) {
-        rooms.push(roomName);
+      if (roomName == center) {
+        continue;
       }
+
+      // Room must have same status as center/base
+      const status = Game.map.getRoomStatus(roomName);
+      if (status.status !== centerStatus.status) {
+        continue;
+      }
+
+      rooms.push(roomName);
     }
   }
 

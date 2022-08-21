@@ -393,21 +393,29 @@ const applyRoomCallbackPolicy = (
   _trace: Tracer,
 ): [boolean, string] => {
   const owner = roomEntry.controller?.owner;
+  const claimedByMe = owner === kernel.getPlanner().getUsername() && roomEntry.controller?.level > 0;
   const ownerIsNotMe = owner !== kernel.getPlanner().getUsername();
   const isFriendly = kernel.getFriends().includes(owner);
 
   // If owner is not me, and we want to avoid friendly rooms and is friendly, dont enter
-  if (owner && ownerIsNotMe && policy.avoidFriendlyRooms && isFriendly) {
+  if (owner && !claimedByMe && policy.avoidFriendlyRooms) {
     return [false, 'friendly'];
   }
 
-  // If owner is not me and has hostile creeps, dont enter
-  if (owner && ownerIsNotMe && policy.avoidHostileRooms && !isFriendly && roomEntry.hasHostiles) {
+  // if not claimed by me and hostiles are present, dont enter
+  if (policy.avoidHostileRooms && !claimedByMe &&
+    ((roomEntry.hasHostiles && roomEntry.hostilesDmg > 0) || roomEntry.hasKeepers)) {
     return [false, 'hostile'];
   }
 
-  // if owner is not me and has towers, dont enter
-  if (owner && ownerIsNotMe && policy.avoidRoomsWithTowers && !isFriendly && roomEntry.numTowers) {
+  // If owner is not me and has hostile creeps, dont enter
+  if (policy.avoidHostileRooms && owner && ownerIsNotMe && !isFriendly &&
+    (roomEntry.hasHostiles && roomEntry.hostilesDmg > 0)) {
+    return [false, 'hostile'];
+  }
+
+  // if room has towers and the room is not mine, dont enter
+  if (policy.avoidRoomsWithTowers && roomEntry.numTowers && owner && ownerIsNotMe) {
     return [false, 'towers'];
   }
 

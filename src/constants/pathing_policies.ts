@@ -6,7 +6,7 @@ export const commonPolicy: FindPathPolicy = {
     avoidHostileRooms: true,
     avoidFriendlyRooms: false,
     avoidRoomsWithKeepers: true,
-    avoidRoomsWithTowers: false,
+    avoidRoomsWithTowers: true,
     avoidUnloggedRooms: false,
     sameRoomStatus: true,
     costMatrixType: AllowedCostMatrixTypes.COMMON,
@@ -17,7 +17,7 @@ export const commonPolicy: FindPathPolicy = {
   path: {
     allowIncomplete: true,
     maxSearchRooms: 12,
-    maxOps: 5000,
+    maxOps: 6000,
     maxPathRooms: 6,
     ignoreCreeps: true,
     sourceKeeperBuffer: 3,

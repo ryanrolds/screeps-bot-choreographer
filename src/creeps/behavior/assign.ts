@@ -1,16 +1,13 @@
 import * as MEMORY from '../../constants/memory';
-import {Tracer} from '../../lib/tracing';
-import {Kernel} from '../../os/kernel/kernel';
-import * as behaviorTree from './behaviortree';
-import {RUNNING, SUCCESS} from './behaviortree';
 
-const MEMORY_PREV_ROOM = 'previous_room';
+//const MEMORY_PREV_ROOM = 'previous_room';
 
 export const clearRoom = (creep: Creep) => {
   delete creep.memory[MEMORY.MEMORY_ASSIGN_ROOM];
   delete creep.memory[MEMORY.MEMORY_ASSIGN_ROOM_POS];
 };
 
+/*
 export const moveToRoom = behaviorTree.repeatUntilSuccess(
   'moveToAssignedRoom',
   behaviorTree.leafNode(
@@ -27,10 +24,11 @@ export const moveToRoom = behaviorTree.repeatUntilSuccess(
       creep.memory[MEMORY_PREV_ROOM] = currentRoom;
 
       if (currentRoom === roomID && changedRooms) {
-        creep.moveTo(new RoomPosition(25, 25, creep.room.name), {maxOps: 100});
-
+        const result = creep.moveTo(new RoomPosition(25, 25, creep.room.name), {maxOps: 100, range: 22});
+        trace.info('moving to center', {result});
         return SUCCESS;
       } else if (currentRoom === roomID) {
+        trace.info('in room', {room: currentRoom});
         return SUCCESS;
       }
 
@@ -65,3 +63,4 @@ export const moveToRoom = behaviorTree.repeatUntilSuccess(
     },
   ),
 );
+*/

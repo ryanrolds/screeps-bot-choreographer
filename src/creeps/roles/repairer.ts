@@ -2,11 +2,11 @@ import * as behaviorTree from '../behavior/behaviortree';
 import {FAILURE, RUNNING, SUCCESS} from '../behavior/behaviortree';
 
 import * as behaviorCommute from '../../creeps/behavior/commute';
-import * as behaviorAssign from '../behavior/assign';
 import {behaviorBoosts} from '../behavior/boosts';
 import * as behaviorMovement from '../behavior/movement';
 
-import {MEMORY_DESTINATION} from '../../constants/memory';
+import {MEMORY_ASSIGN_ROOM, MEMORY_DESTINATION} from '../../constants/memory';
+import {commonPolicy} from '../../constants/pathing_policies';
 import {Tracer} from '../../lib/tracing';
 import {getCreepBase, getNextDamagedStructure} from '../../os/kernel/base';
 import {Kernel} from '../../os/kernel/kernel';
@@ -61,7 +61,7 @@ const repair = behaviorTree.leafNode(
 const behavior = behaviorTree.sequenceNode(
   'repair',
   [
-    behaviorAssign.moveToRoom,
+    behaviorMovement.cachedMoveToRoom(MEMORY_ASSIGN_ROOM, commonPolicy),
     behaviorCommute.setCommuteDuration,
     getEnergy,
     behaviorTree.repeatUntilConditionMet(

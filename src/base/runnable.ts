@@ -511,6 +511,11 @@ export default class BaseRunnable {
     let maxHits = 0;
     let hits = 0;
 
+    // Don't request repairers until we have at least upgraded the room
+    if (room.controller?.level < 2) {
+      return;
+    }
+
     const roomStructures = room.find(FIND_STRUCTURES);
     roomStructures.forEach((s) => {
       if (s.structureType === STRUCTURE_WALL || s.structureType === STRUCTURE_RAMPART) {
@@ -562,12 +567,12 @@ export default class BaseRunnable {
     // @TODO create role base creation methods
     const memory = {
       [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
+      [MEMORY.MEMORY_BASE]: base.id,
     };
 
     const request = createSpawnRequest(repairerPriority, REQUEST_REPAIRER_TTL, CREEPS.WORKER_REPAIRER,
       memory, null, 0);
     kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
-    // @CONFIRM that repairers are spawning
   }
 
   requestBuilder(trace: Tracer, kernel: Kernel, base: Base, room: Room) {

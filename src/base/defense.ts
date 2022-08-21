@@ -97,12 +97,38 @@ export default class DefenseManager {
       return terminate();
     }
 
-    const hostileAttackPowerByRoom = getHostileAttackPowerByBaseRoom(kernel, base, trace);
-    trace.info('hostile attack power', {baseId: this.baseId, hostileAttackPowerByRoom});
-
+    // Ensure that towers have something to shoot at
     const targetTopicTrace = trace.begin('addHostilesToBaseTargetTopic');
     addHostilesToBaseTargetTopic(kernel, base, targetTopicTrace);
     targetTopicTrace.end();
+
+    const hostileAttackPowerByRoom = getHostileAttackPowerByBaseRoom(kernel, base, trace);
+    trace.info('hostile attack power by room', {
+      baseId: this.baseId,
+      rooms: Array.from(hostileAttackPowerByRoom.entries())
+    });
+
+    // check if hostiles in primary room
+    const primaryRoomHostiles = hostileAttackPowerByRoom.get(base.primary);
+    if (primaryRoomHostiles > 0) {
+      // request rampart defense and regular defenders
+      trace.warn('hostiles in primary room', {baseId: this.baseId, primaryRoomHostiles});
+    }
+
+    for (const [roomName, attackPower] of hostileAttackPowerByRoom) {
+      // if no hostiles, dont send defenders
+      if (attackPower == 0) {
+        continue;
+      }
+
+      // Don't send defenders to primary room
+      if (roomName === base.primary) {
+        continue;
+      }
+
+      // Request defenders from base
+      trace.warn('requesting defenders', {roomName, attackPower});
+    }
 
     // const defenseStatusTrace = trace.begin('updateDefenseStatus');
     // publishDefenseStatuses(kernel, hostilesByBase, defenseStatusTrace);

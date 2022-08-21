@@ -313,7 +313,7 @@ export default class LogisticsRunnable extends PersistentMemory {
     this.desiredHaulers = PID.update(this.pidHaulersMemory, numHaulTasks, Game.time, trace);
     trace.info('desired haulers', {desired: this.desiredHaulers});
 
-    trace.getMetricsCollector().gauge('base_desired_haulers_total', this.desiredHaulers);
+    trace.getMetricsCollector().gauge('base_desired_haulers_total', this.desiredHaulers, {base: base.id});
 
     // Update PID memory
     trace.info('pid memory', {pid: Array.from(this.pidHaulersMemory.entries())});
@@ -944,7 +944,7 @@ const visualizeLegNodes = (legs: Leg[], trace: Tracer) => {
   for (let i = 0; i < legs.length; i++) {
     const leg = legs[i];
     if (!leg.destination) {
-      trace.error('missing destination', {leg});
+      trace.error('missing leg destination', {leg});
       continue;
     }
 

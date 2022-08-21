@@ -60,6 +60,8 @@ export type RoomEntry = {
   hostilesDmg: number;
   hostilesHealing: number;
   hasKeepers: boolean;
+  keepersDmg: number;
+  keepersHealing: number;
   invaderCorePos: RoomPosition;
   invaderCoreLevel: number;
   invaderCoreTime: number;
@@ -494,6 +496,8 @@ export class Scribe implements Runnable {
       hostilesDmg: 0,
       hostilesHealing: 0,
       hasKeepers: false,
+      keepersDmg: 0,
+      keepersHealing: 0,
       invaderCorePos: null,
       invaderCoreLevel: null,
       invaderCoreTime: null,
@@ -583,11 +587,6 @@ export class Scribe implements Runnable {
         map.set(owner, count + 1);
         return map;
       }, new Map());
-
-      room.hostilesDmg = _.sum(hostileCreeps, (creep) => {
-        return scoreAttacking(creep);
-      });
-
       room.hostilesDmgByOwner = hostileCreeps.reduce((map, creep) => {
         const owner = creep.owner.username;
         const count = map.get(owner) || 0;
@@ -595,16 +594,29 @@ export class Scribe implements Runnable {
         return map;
       }, new Map());
 
+      room.hostilesDmg = _.sum(hostileCreeps, (creep) => {
+        return scoreAttacking(creep);
+      });
       room.hostilesHealing = _.sum(hostileCreeps, (creep) => {
         return scoreHealing(creep);
       });
     }
 
+    // keepers
     const keepers = hostiles.filter((creep) => {
       const owner = creep.owner.username;
       return owner === 'Source Keeper';
     });
     room.hasKeepers = keepers.length > 0;
+
+    if (room.hasKeepers) {
+      room.keepersDmg = _.sum(keepers, (creep) => {
+        return scoreAttacking(creep);
+      });
+      room.keepersHealing = _.sum(keepers, (creep) => {
+        return scoreHealing(creep);
+      });
+    }
 
     const invaderCores: StructureInvaderCore[] = roomObject.find(FIND_HOSTILE_STRUCTURES, {
       filter: (structure) => {

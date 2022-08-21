@@ -53,17 +53,6 @@ export const moveTo = (creep: Creep, destination: RoomPosition, range, ignoreCre
   return RUNNING;
 };
 
-export const moveToRoom = (creep: Creep, room: string, ignoreCreeps: boolean,
-  reusePath: number, maxOps: number): NodeTickResult => {
-  const opts = getMoveOpts(ignoreCreeps, reusePath, maxOps);
-  const result = creep.moveTo(new RoomPosition(25, 25, room), opts);
-  if (result === ERR_NO_PATH) {
-    return FAILURE;
-  }
-
-  return RUNNING;
-};
-
 export const setSource = (creep: Creep, sourceId: string) => {
   creep.memory[MEMORY_SOURCE] = sourceId;
 };
@@ -215,7 +204,7 @@ export const cachedMoveToMemoryPos = (memoryId: string, range = 1, policy: FindP
       if (!destination) {
         clearMovementCache(creep);
         creep.say('📍❓');
-        trace.error('missing destination', {memoryId});
+        trace.error('missing creep destination', {memoryId});
         return FAILURE;
       }
 
@@ -232,7 +221,7 @@ export const cachedMoveToRoom = (memoryId: string, policy: FindPathPolicy) => {
       if (!destinationRoom) {
         clearMovementCache(creep);
         creep.say('📍❓');
-        trace.error('missing destination', {memoryId});
+        trace.error('missing creep destination', {memoryId});
         return FAILURE;
       }
 
@@ -254,7 +243,7 @@ export const cachedMoveToMemoryObjectId = (memoryId: string, range = 1, policy: 
       if (!destination) {
         clearMovementCache(creep);
         creep.say('📍❓');
-        trace.error('missing destination', {id: creep.memory[memoryId]});
+        trace.error('missing creep destination', {id: creep.memory[memoryId]});
         return FAILURE;
       }
 

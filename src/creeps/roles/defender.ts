@@ -1,17 +1,18 @@
 import {getBasePriorityTargetsTopic} from '../../base/defense';
-import {MEMORY_ASSIGN_ROOM_POS} from '../../constants/memory';
+import {MEMORY_ASSIGN_ROOM, MEMORY_ASSIGN_ROOM_POS} from '../../constants/memory';
 import {Tracer} from '../../lib/tracing';
 import {getCreepBase} from '../../os/kernel/base';
 import {Kernel} from '../../os/kernel/kernel';
-import * as behaviorAssign from '../behavior/assign';
 import * as behaviorTree from '../behavior/behaviortree';
 import {FAILURE, RUNNING, SUCCESS} from '../behavior/behaviortree';
 import {behaviorBoosts} from '../behavior/boosts';
+import * as behaviorMovement from '../behavior/movement';
+import {warPartySingleFilePolicy} from '../party/attack';
 
 const behavior = behaviorTree.sequenceNode(
   'defender_root',
   [
-    behaviorAssign.moveToRoom,
+    behaviorMovement.cachedMoveToRoom(MEMORY_ASSIGN_ROOM, warPartySingleFilePolicy),
     behaviorTree.leafNode(
       'attack_hostiles',
       (creep: Creep, trace: Tracer, kernel: Kernel) => {

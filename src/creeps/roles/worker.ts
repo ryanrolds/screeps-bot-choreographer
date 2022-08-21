@@ -14,6 +14,7 @@
  */
 import {WORKER_DISTRIBUTOR} from '../../constants/creeps';
 import * as MEMORY from '../../constants/memory';
+import {commonPolicy} from '../../constants/pathing_policies';
 import * as behaviorCommute from '../../creeps/behavior/commute';
 import {getBasePrimaryRoom, getCreepBase} from '../../os/kernel/base';
 import {Kernel} from '../../os/kernel/kernel';
@@ -137,6 +138,7 @@ const behavior = behaviorTree.sequenceNode(
   'haul_energy',
   [
     behaviorHaul.clearTask,
+    behaviorMovement.cachedMoveToRoom(MEMORY.MEMORY_BASE, commonPolicy),
     behaviorTree.selectorNode(
       'pick_something',
       [
@@ -144,6 +146,7 @@ const behavior = behaviorTree.sequenceNode(
         parkingLot,
       ],
     ),
+
     behaviorMovement.cachedMoveToMemoryObjectId(MEMORY.MEMORY_HAUL_PICKUP, 1, haulerPolicy),
     behaviorHaul.loadCreep,
     behaviorHaul.clearTask,

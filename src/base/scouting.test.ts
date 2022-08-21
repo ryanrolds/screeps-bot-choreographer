@@ -1,9 +1,20 @@
 import {expect} from 'chai';
 import 'mocha';
+import {mockGlobal} from 'screeps-test-helper';
 import {getNearbyRooms, getRoomCordFromRoomName, getRoomNameFromRoomCord} from './scouting';
 
 
 describe('Scouting', function () {
+  mockGlobal<Game>('Game', {
+    map: {
+      getRoomStatus: (_roomName: string) => {
+        return {
+          status: 'normal',
+        };
+      }
+    }
+  });
+
   describe('getRoomNameFromRoomCord', function () {
     it('should return E0S0 0,0', function () {
       const roomCord = {x: 0, y: 0};
