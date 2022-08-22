@@ -347,7 +347,7 @@ export default class WarManager {
 
     if (numReservers < 1) {
       const priority = PRIORITIES.PRIORITY_RESERVER;
-      const ttl = WAR_PARTY_RUN_TTL;
+      const ttl = WAR_PARTY_RUN_TTL + Game.time;
       const role = CREEPS.WORKER_RESERVER;
       const memory = {
         [MEMORY.MEMORY_ASSIGN_ROOM]: target,
@@ -389,7 +389,7 @@ export default class WarManager {
 
     // request more
     const priorities = PRIORITIES.PRIORITY_HARASSER;
-    const ttl = WAR_PARTY_RUN_TTL;
+    const ttl = WAR_PARTY_RUN_TTL + Game.time;
     const role = ROLE_HARASSER;
     const memory = {
       [MEMORY.MEMORY_BASE]: base.id,

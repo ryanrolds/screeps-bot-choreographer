@@ -36,7 +36,7 @@ export default class InvaderManager {
         roomId: roomEntry.id,
       };
 
-      kernel.getTopics().addRequest(ATTACK_ROOM, 1, attackRequest, ATTACK_ROOM_TTL);
+      kernel.getTopics().addRequest(ATTACK_ROOM, 1, attackRequest, ATTACK_ROOM_TTL + Game.time);
     });
 
     trace.end();

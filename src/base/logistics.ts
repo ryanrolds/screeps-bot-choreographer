@@ -355,7 +355,7 @@ export default class LogisticsRunnable extends PersistentMemory {
       role = ROLE_WORKER;
     }
 
-    trace.info('request haulers', {
+    trace.notice('request haulers/workers', {
       numHaulers: this.numHaulers, desiredHaulers: this.desiredHaulers,
       baseId: base.id
     });
@@ -366,13 +366,13 @@ export default class LogisticsRunnable extends PersistentMemory {
       // Reduce priority as we have more haulers
       priority -= (this.numHaulers + i) * 0.1;
 
-      const ttl = REQUEST_HAULER_TTL;
+      const ttl = REQUEST_HAULER_TTL + Game.time;
       const memory = {
         [MEMORY_BASE]: base.id,
       };
 
       const request = createSpawnRequest(priority, ttl, role, memory, null, 0);
-      trace.info('requesting hauler/worker', {role, priority, request});
+      trace.notice('requesting hauler/worker', {role, priority, request});
       kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
     }
   }
@@ -428,7 +428,7 @@ export default class LogisticsRunnable extends PersistentMemory {
       distributorPriority = DISTRIBUTOR_NO_RESERVE;
     }
 
-    const ttl = REQUEST_DISTRIBUTOR_TTL;
+    const ttl = REQUEST_DISTRIBUTOR_TTL + Game.time;
     const role = WORKER_DISTRIBUTOR;
     const memory = {
       [MEMORY_ASSIGN_ROOM]: room.name,
@@ -484,7 +484,7 @@ export default class LogisticsRunnable extends PersistentMemory {
       };
 
       kernel.getTopics().addRequest(getBaseDistributorTopic(this.baseId), HAUL_EXTENSION,
-        details, HAUL_EXTENSION_TTL);
+        details, HAUL_EXTENSION_TTL + Game.time);
     });
 
     trace.info('haul extensions', {numHaulTasks: nonFullExtensions.length});
@@ -572,7 +572,8 @@ export default class LogisticsRunnable extends PersistentMemory {
 
           trace.info('haul dropped', {room: roomName, topic, i, loadPriority, details});
 
-          kernel.getTopics().addRequest(topic, loadPriority, details, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
+          kernel.getTopics().addRequest(topic, loadPriority, details,
+            REQUEST_HAUL_DROPPED_RESOURCES_TTL + Game.time);
         }
       });
     });
@@ -654,7 +655,8 @@ export default class LogisticsRunnable extends PersistentMemory {
           const priority = HAUL_DROPPED;
 
           trace.info('haul tombstone or ruin', {topic, priority, details});
-          kernel.getTopics().addRequest(topic, priority, details, REQUEST_HAUL_DROPPED_RESOURCES_TTL);
+          kernel.getTopics().addRequest(topic, priority, details,
+            REQUEST_HAUL_DROPPED_RESOURCES_TTL + Game.time);
         });
       });
     });

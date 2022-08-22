@@ -25,7 +25,7 @@ export const haulerPolicy: FindPathPolicy = {
   path: {
     allowIncomplete: true,
     maxSearchRooms: 12,
-    maxOps: 5000,
+    maxOps: 6000,
     maxPathRooms: 6,
     ignoreCreeps: true,
     sourceKeeperBuffer: 3,

@@ -151,7 +151,7 @@ export default class ShardManager {
       }
 
       const priorities = PRIORITIES.PRIORITY_RESERVER;
-      const ttl = SHARD_MEMORY_TTL;
+      const ttl = SHARD_MEMORY_TTL + Game.time;
       const role = WORKERS.WORKER_RESERVER;
 
       const request = createSpawnRequest(priorities, ttl, role, memory, null, 0);
@@ -234,7 +234,7 @@ export default class ShardManager {
       }
 
       const priority = PRIORITIES.PRIORITY_BUILDER;
-      const ttl = SHARD_MEMORY_TTL;
+      const ttl = SHARD_MEMORY_TTL + Game.time;
       const role = WORKERS.WORKER_BUILDER;
 
       const request = createSpawnRequest(priority, ttl, role, memory, null, 0);

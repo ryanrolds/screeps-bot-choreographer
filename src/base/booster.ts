@@ -2,6 +2,8 @@ import * as MEMORY from '../constants/memory';
 import * as PRIORITIES from '../constants/priorities';
 import * as TASKS from '../constants/tasks';
 import * as TOPICS from '../constants/topics';
+import {DistributorTask} from '../creeps/roles/distributor';
+import {Request} from '../lib/topics';
 import {Tracer} from '../lib/tracing';
 import {Base, BaseThreadFunc, getStoredResources, getStructureForResource, getStructureWithResource, ResourceCounts, threadBase} from '../os/kernel/base';
 import {Kernel} from '../os/kernel/kernel';
@@ -21,6 +23,11 @@ const UPDATE_ROOM_BOOSTER_INTERVAL = 5;
 
 export function getBaseBoostTopic(base: Base): string {
   return `base_${base.id}_room_boosts`;
+}
+
+export type PrepareBoostDetails = {
+  [MEMORY.TASK_ID]: string;
+  [MEMORY.PREPARE_BOOSTS]: string[];
 }
 
 export type BoosterDetails = {
@@ -176,7 +183,12 @@ export default class BoosterRunnable {
       availableEffects: storedEffects,
     });
 
-    kernel.getTopics().addRequest(getBaseBoostTopic(base), 1, details, UPDATE_ROOM_BOOSTER_INTERVAL);
+    const request: Request<BoosterDetails> = {
+      priority: 1,
+      ttl: UPDATE_ROOM_BOOSTER_INTERVAL + Game.time,
+      details,
+    }
+    kernel.getTopics().addRequestV2(getBaseBoostTopic(base), request);
   }
 
   getBoostPosition() {
@@ -351,7 +363,7 @@ export default class BoosterRunnable {
 
     let request = null;
     // eslint-disable-next-line no-cond-assign
-    while (request = kernel.getTopics().getNextRequest(TOPICS.BOOST_PREP)) {
+    while (request = kernel.getTopics().getNextRequest<PrepareBoostDetails>(TOPICS.BOOST_PREP)) {
       const requestedEffects = request.details[MEMORY.PREPARE_BOOSTS];
       if (!requestedEffects) {
         continue;
@@ -432,19 +444,21 @@ export default class BoosterRunnable {
           return;
         }
 
-        const details = {
-          [MEMORY.TASK_ID]: `bmc-${this.id}-${Game.time}`,
-          [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
-          [MEMORY.MEMORY_HAUL_PICKUP]: lab.id,
-          [MEMORY.MEMORY_HAUL_RESOURCE]: lab.mineralType,
-          [MEMORY.MEMORY_HAUL_DROPOFF]: dropoff.id,
-          [MEMORY.MEMORY_HAUL_AMOUNT]: amount,
+        const request: Request<DistributorTask> = {
+          ttl: REQUEST_REBALANCE_TTL + Game.time,
+          priority: PRIORITIES.HAUL_BOOST,
+          details: {
+            [MEMORY.TASK_ID]: `bmc-${this.id}-${Game.time}`,
+            [MEMORY.MEMORY_TASK_TYPE]: TASKS.TASK_HAUL,
+            [MEMORY.MEMORY_HAUL_PICKUP]: lab.id,
+            [MEMORY.MEMORY_HAUL_RESOURCE]: lab.mineralType,
+            [MEMORY.MEMORY_HAUL_DROPOFF]: dropoff.id,
+            [MEMORY.MEMORY_HAUL_AMOUNT]: amount,
+          },
         };
 
-        trace.info('boost clear low', {priority: PRIORITIES.HAUL_BOOST, details});
-
-        kernel.getTopics().addRequest(getBaseDistributorTopic(base.id), PRIORITIES.HAUL_BOOST,
-          details, REQUEST_REBALANCE_TTL);
+        trace.info('boost clear low', {priority: PRIORITIES.HAUL_BOOST, request});
+        kernel.getTopics().addRequestV2(getBaseDistributorTopic(base.id), request);
       }
     });
   }
@@ -488,10 +502,14 @@ export default class BoosterRunnable {
         [MEMORY.MEMORY_HAUL_AMOUNT]: pickup.store.getUsedCapacity(compound.name),
       };
 
-      trace.info('boost unload', {priority: PRIORITIES.HAUL_BOOST, details});
+      const request: Request<DistributorTask> = {
+        ttl: REQUEST_UNLOAD_TTL + Game.time,
+        priority: PRIORITIES.UNLOAD_BOOST,
+        details,
+      };
 
-      kernel.getTopics().addRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.UNLOAD_BOOST,
-        details, REQUEST_UNLOAD_TTL);
+      trace.info('boost unload', {priority: PRIORITIES.HAUL_BOOST, details});
+      kernel.getTopics().addRequestV2(getBaseDistributorTopic(this.baseId), request);
     });
   }
 
@@ -573,10 +591,14 @@ export default class BoosterRunnable {
       [MEMORY.MEMORY_HAUL_AMOUNT]: MAX_COMPOUND,
     };
 
-    trace.info('boost load material', {priority: PRIORITIES.HAUL_BOOST, details});
+    const request: Request<DistributorTask> = {
+      ttl: REQUEST_LOAD_TTL + Game.time,
+      priority: PRIORITIES.HAUL_BOOST,
+      details,
+    };
 
-    kernel.getTopics().addRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.HAUL_BOOST,
-      details, REQUEST_LOAD_TTL);
+    trace.info('boost load material', {priority: PRIORITIES.HAUL_BOOST, details});
+    kernel.getTopics().addRequestV2(getBaseDistributorTopic(this.baseId), request);
   }
 
   requestEnergyForLabs(kernel: Kernel, base: Base, trace: Tracer) {
@@ -599,10 +621,14 @@ export default class BoosterRunnable {
         [MEMORY.MEMORY_HAUL_AMOUNT]: MAX_ENERGY - currentEnergy,
       };
 
-      trace.info('boost load energy', {labId: lab.id, priority: PRIORITIES.HAUL_BOOST, details});
+      const request: Request<DistributorTask> = {
+        ttl: REQUEST_ENERGY_TTL + Game.time,
+        priority: PRIORITIES.HAUL_BOOST,
+        details,
+      };
 
-      kernel.getTopics().addRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.HAUL_BOOST,
-        details, REQUEST_ENERGY_TTL);
+      trace.info('boost load energy', {labId: lab.id, priority: PRIORITIES.HAUL_BOOST, details});
+      kernel.getTopics().addRequestV2<DistributorTask>(getBaseDistributorTopic(this.baseId), request);
     });
   }
 }

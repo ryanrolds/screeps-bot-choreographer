@@ -58,7 +58,7 @@ const scheduler = new Scheduler();
 scheduler.setCPUThrottle(global.CPU_THROTTLE);
 scheduler.setSlowProcessThreshold(global.SLOW_PROCESS);
 
-const trace = new Tracer('tick', new Map([['shard', Game.shard.name]]), new Metrics());
+const trace = new Tracer('boot', new Map([['shard', Game.shard.name]]), new Metrics());
 
 const ai: AI = new AI(shardConfig, scheduler, trace);
 global.AI = ai; // So we can access it from the console
@@ -156,5 +156,7 @@ export const loop = function () {
   // Get CPU spent on AI
   previousTick = Game.cpu.getUsed();
   metrics.counter('cpu_used_total', previousTick);
+
+  // Write metrics to Memory to be fetched by screeps-scraper
   metrics.write()
 };

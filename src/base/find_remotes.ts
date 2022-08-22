@@ -1,6 +1,12 @@
 /**
  * Logic for determining base remotes
  *
+ * The goal is to create a dynamic list of rooms near the base that can be safely mined.
+ *
+ * Over a few passes, rooms adjacent to the base and rooms checked in previous passes are
+ * added to a list if they are safe to mine. It's possible for a room to not be safe to mine,
+ * but be passable.
+ *
  * TODO: Move to remotes.ts
  */
 import {newMultipliers} from '../creeps/builders/attacker';
@@ -49,7 +55,7 @@ export const findRemotes = (kernel: Kernel, base: Base, trace: Tracer): [string[
         seen.add(adjacentRoom);
 
         // Check the room, determine if passable and if room is viable for mining
-        const [passable, dismiss] = checkCandidateRoom(kernel, base, adjacentRoom,
+        const [passable, dismiss] = checkCandidate(kernel, base, adjacentRoom,
           startRoomStatus, trace);
 
         trace.info('checked candidate room', {
@@ -113,7 +119,7 @@ export const findRemotes = (kernel: Kernel, base: Base, trace: Tracer): [string[
   return [sortedCandidates, dismissed];
 };
 
-export function checkCandidateRoom(kernel: Kernel, base: Base, room: string,
+export function checkCandidate(kernel: Kernel, base: Base, room: string,
   baseRoomStatus: string, trace: Tracer): [boolean, string] {
   // room should be same status as base primary
   const roomStatus = Game.map.getRoomStatus(room).status;
@@ -134,30 +140,31 @@ export function checkCandidateRoom(kernel: Kernel, base: Base, room: string,
   }
 
   // If enemies present that we cannot beat, do not consider this room
-  if (roomEntry.hostilesDmg > 0) {
+  const damage = _.max([roomEntry.hostilesDmg, roomEntry.keepersDmg]);
+  if (damage > 0) {
     const basePrimary = getBasePrimaryRoom(base);
     if (!basePrimary) {
       return [false, 'no primary room'];
     }
 
     const multipliers = newMultipliers();
-    const [_parts, ok] = buildDefender(roomEntry.hostilesDmg, basePrimary.energyCapacityAvailable,
+    const [_parts, ok] = buildDefender(damage, basePrimary.energyCapacityAvailable,
       multipliers, trace);
     if (!ok) {
       trace.warn('defender build failed, we cannot take the room', {
-        roomEntry, basePrimary, hostilesDmg: roomEntry.hostilesDmg,
+        roomEntry, basePrimary, damage,
         energyCapacityAvailable: basePrimary.energyCapacityAvailable
       });
       return [false, 'hostiles too strong'];
     }
 
     trace.warn('defender build succeeded, we can take the room', {
-      roomEntry, basePrimary, hostilesDmg: roomEntry.hostilesDmg,
+      roomEntry, basePrimary, damage,
       energyCapacityAvailable: basePrimary.energyCapacityAvailable
     });
 
     // TODO: When defense of remotes is sorted out, remove this
-    return [true, 'hostiles present'];
+    return [false, 'hostiles present'];
   }
 
   // filter out rooms that do not have a source
@@ -171,15 +178,8 @@ export function checkCandidateRoom(kernel: Kernel, base: Base, room: string,
   }
 
   // Filter out rooms that are claimed
-  if (roomEntry.controller?.owner && roomEntry.controller?.level > 0) {
-    let passable = true;
-
-    // If we own the room it's passable, or if the room is owned and contains hostiles
-    if (roomEntry.hasHostiles && roomEntry.controller?.owner !== kernel.getPlanner().getUsername()) {
-      passable = false;
-    }
-
-    return [passable, 'is owned'];
+  if (roomEntry.controller?.owner && roomEntry.controller?.owner !== kernel.getPlanner().getUsername()) {
+    return [false, 'is owned'];
   }
 
   return [true, '']

@@ -15,6 +15,7 @@ export enum AlertLevel {
 
 export interface Base {
   id: NonNullable<string>;
+  addedAt: number;
 
   primary: NonNullable<string>;
   rooms: NonNullable<string[]>;

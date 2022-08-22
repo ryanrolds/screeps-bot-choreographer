@@ -595,7 +595,7 @@ export default class TerminalRunnable {
       [MEMORY.MEMORY_HAUL_DROPOFF]: terminal.id,
     };
 
-    kernel.getTopics().addRequest(getBaseDistributorTopic(base.id), priority, details, PROCESS_TASK_TTL);
+    kernel.getTopics().addRequest(getBaseDistributorTopic(base.id), priority, details, PROCESS_TASK_TTL + Game.time);
   }
 
   sendEnergyToStorage(kernel: Kernel, base: Base, terminal: StructureTerminal, amount: number, ttl: number, trace: Tracer) {
@@ -616,7 +616,7 @@ export default class TerminalRunnable {
       [MEMORY.MEMORY_HAUL_DROPOFF]: reserve.id,
     };
 
-    kernel.getTopics().addRequest(getBaseDistributorTopic(base.id), PRIORITIES.HAUL_TERMINAL, details, ttl);
+    kernel.getTopics().addRequest(getBaseDistributorTopic(base.id), PRIORITIES.HAUL_TERMINAL, details, ttl + Game.time);
   }
 
   updateEnergyValue(trace: Tracer) {

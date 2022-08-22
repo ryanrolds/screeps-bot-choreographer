@@ -317,7 +317,7 @@ export default class ReactorRunnable extends PersistentMemory {
       [MEMORY.MEMORY_HAUL_RESOURCE]: resource,
       [MEMORY.MEMORY_HAUL_AMOUNT]: amount,
       [MEMORY.MEMORY_HAUL_DROPOFF]: lab.id,
-    }, REQUEST_LOAD_TTL);
+    }, REQUEST_LOAD_TTL + Game.time);
   }
 
   unloadLab(kernel: Kernel, base: Base, lab, trace: Tracer) {
@@ -339,7 +339,7 @@ export default class ReactorRunnable extends PersistentMemory {
       [MEMORY.MEMORY_HAUL_RESOURCE]: lab.mineralType,
       [MEMORY.MEMORY_HAUL_AMOUNT]: currentAmount,
       [MEMORY.MEMORY_HAUL_DROPOFF]: dropoff.id,
-    }, REQUEST_LOAD_TTL);
+    }, REQUEST_LOAD_TTL + Game.time);
   }
 
   produceUpdateStatus(trace: Tracer, kernel: Kernel, base: Base, room: Room,
@@ -364,7 +364,7 @@ export default class ReactorRunnable extends PersistentMemory {
 
     trace.info('producing reactor status', {status});
 
-    kernel.getTopics().addRequest(TOPICS.ACTIVE_REACTIONS, 1, status, PRODUCE_STATUS_TTL);
+    kernel.getTopics().addRequest(TOPICS.ACTIVE_REACTIONS, 1, status, PRODUCE_STATUS_TTL + Game.time);
 
     // @REFACTOR there *may* be a bug here. I don't think it's calling stop
     if (resource) {

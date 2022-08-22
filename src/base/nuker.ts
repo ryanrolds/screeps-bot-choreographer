@@ -133,6 +133,6 @@ export default class NukerRunnable {
     }
 
     kernel.getTopics().addRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.HAUL_NUKER,
-      request, REQUEST_RESOURCES_TTL);
+      request, REQUEST_RESOURCES_TTL + Game.time);
   }
 }

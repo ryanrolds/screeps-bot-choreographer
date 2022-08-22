@@ -288,7 +288,7 @@ export default class WarPartyRunnable {
               status: AttackStatus.COMPLETED,
               roomId: targetRoom,
             };
-            kernel.getTopics().addRequest(TOPICS.ATTACK_ROOM, 1, attackUpdate, ATTACK_ROOM_TTL);
+            kernel.getTopics().addRequest(TOPICS.ATTACK_ROOM, 1, attackUpdate, ATTACK_ROOM_TTL + Game.time);
 
             // TODO go into waiting for orders phase
 

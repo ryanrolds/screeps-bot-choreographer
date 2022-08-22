@@ -111,7 +111,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     this.threadRequestHauling(trace, kernel, base, source);
 
     trace.getMetricsCollector().gauge('source_energy_remaining', source.energy,
-      {sourceId: this.id, base: base.id, room: source.room.name});
+      {source: this.id, base: base.id, room: source.room.name});
 
     trace.end();
 
@@ -369,7 +369,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
 
     trace.info('requesting miner', {sourceId: this.id, priority, memory});
 
-    const request = createSpawnRequest(priority, RUN_TTL, role, memory, null, 0);
+    const request = createSpawnRequest(priority, RUN_TTL + Game.time, role, memory, null, 0);
     kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
   }
 
@@ -438,7 +438,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
 
       trace.info('requesting hauling', {sourceId: this.id, i, loadPriority, details});
 
-      kernel.getTopics().addRequest(getBaseHaulerTopic(base.id), loadPriority, details, RUN_TTL);
+      kernel.getTopics().addRequest(getBaseHaulerTopic(base.id), loadPriority, details, RUN_TTL + Game.time);
     }
   }
 

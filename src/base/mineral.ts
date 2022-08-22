@@ -199,7 +199,7 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
 
       trace.info('requesting harvester', {mineralId: this.id, memory});
 
-      const request = createSpawnRequest(PRIORITY_MINER_PRIMARY, REQUEST_WORKER_TTL, WORKER_HARVESTER,
+      const request = createSpawnRequest(PRIORITY_MINER_PRIMARY, REQUEST_WORKER_TTL + Game.time, WORKER_HARVESTER,
         memory, null, 0);
       kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
     }

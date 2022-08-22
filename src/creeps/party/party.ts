@@ -628,7 +628,7 @@ export default class PartyRunnable {
     const position = this.getCreepPosition(idx, trace);
 
     const priority = this.priority;
-    const ttl = this.requestCreepTTL;
+    const ttl = this.requestCreepTTL + Game.time;
     const role = this.role;
     const memory = {
       [MEMORY.MEMORY_PARTY_ID]: this.id,

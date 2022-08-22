@@ -27,7 +27,7 @@ export class CreepManager implements Runnable {
   private scheduler: Scheduler;
   private creeps: Creep[];
   private creepsByBase: Map<string, Creep[]>;
-  private creepCountsByBaseAndRole: Map<string, Map<string, Creep[]>>;
+  private creepsByBaseAndRole: Map<string, Map<string, Creep[]>>;
 
   constructor(scheduler: Scheduler) {
     this.id = 'creep_manager';
@@ -43,6 +43,7 @@ export class CreepManager implements Runnable {
       const base: string = creep.memory[MEMORY_BASE];
       if (!base) {
         trace.warn(`Creep ${creep.name} has no base assigned`);
+        return acc;
       }
 
       const creeps = acc.get(base) || [];
@@ -50,7 +51,7 @@ export class CreepManager implements Runnable {
       return acc;
     }, new Map<string, Creep[]>());
 
-    this.creepCountsByBaseAndRole = _.reduce(this.creeps, (bases, creep) => {
+    this.creepsByBaseAndRole = _.reduce(this.creeps, (bases, creep) => {
       const base = creep.memory[MEMORY_BASE];
       if (!base) {
         return bases;
@@ -146,7 +147,7 @@ export class CreepManager implements Runnable {
   }
 
   getCreepsByBaseAndRole(base: string, role: string): Creep[] {
-    return this.creepCountsByBaseAndRole.get(base)?.get(role) || [];
+    return this.creepsByBaseAndRole.get(base)?.get(role) || [];
   }
 
   private getCreepProcess(name: string, creep: Creep): Process {

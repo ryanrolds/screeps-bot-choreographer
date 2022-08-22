@@ -269,7 +269,7 @@ export default class TowerRunnable {
       [MEMORY.MEMORY_HAUL_DROPOFF]: tower.id,
     };
 
-    kernel.getTopics().addRequest(getBaseDistributorTopic(this.baseId), priority, details, ttl);
+    kernel.getTopics().addRequest(getBaseDistributorTopic(this.baseId), priority, details, ttl + Game.time);
 
     trace.info('request energy', {priority, details, towerUsed, towerTotal});
   }

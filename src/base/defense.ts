@@ -17,17 +17,18 @@ import * as _ from 'lodash';
 import * as CREEPS from '../constants/creeps';
 import {DEFENSE_STATUS} from '../constants/defense';
 import * as MEMORY from '../constants/memory';
-import * as PRIORITIES from '../constants/priorities';
+import {PRIORITY_DEFENDER} from '../constants/priorities';
 import * as TOPICS from '../constants/topics';
 import {creepIsFresh} from '../creeps/behavior/commute';
 import DefensePartyRunnable from '../creeps/party/defense';
 import {scoreHealing} from '../creeps/roles/harasser';
+import {Request} from '../lib/topics';
 import {Tracer} from '../lib/tracing';
 import {Base, getBasePrimaryRoom} from '../os/kernel/base';
 import {Kernel, KernelThreadFunc, threadKernel} from '../os/kernel/kernel';
 import {Process, RunnableResult, sleeping, terminate} from '../os/process';
 import {Priorities, Scheduler} from '../os/scheduler';
-import {createSpawnRequest, getBaseSpawnTopic} from './spawning';
+import {createSpawnRequest, getBaseSpawnTopic, SpawnRequestDetails} from './spawning';
 
 const RUN_INTERVAL = 5;
 const TARGET_REQUEST_TTL = RUN_INTERVAL;
@@ -53,6 +54,21 @@ const hostileParts = {
   'ranged_attack': true,
   'claim': true,
 };
+
+export type DefenseStatus = {
+  baseId: string,
+  status: string,
+  numHostiles: number,
+  numDefenders: number,
+}
+
+export type TargetRequest = {
+  id: Id<Creep>,
+  roomName: string,
+  healingPower: number,
+  // TODO include rangedAttackPower
+  // TODO include meleeAttackPower
+}
 
 type Target = Creep | StructureInvaderCore;
 
@@ -373,10 +389,14 @@ function addHostilesToBaseTargetTopic(kernel: Kernel, base: Base, trace: Tracer)
       // TODO include meleeAttackPower
     };
 
-    trace.info('requesting target', {details, healingPower});
+    const request: Request<TargetRequest> = {
+      priority: healingPower,
+      ttl: TARGET_REQUEST_TTL + Game.time,
+      details,
+    };
 
-    kernel.getTopics().addRequest(getBasePriorityTargetsTopic(base.id), healingPower,
-      details, TARGET_REQUEST_TTL);
+    trace.info('requesting target', {details, healingPower});
+    kernel.getTopics().addRequestV2(getBasePriorityTargetsTopic(base.id), request);
   });
 
   /*
@@ -407,7 +427,8 @@ function addHostilesToBaseTargetTopic(kernel: Kernel, base: Base, trace: Tracer)
 
       trace.info('requesting target', {details, healingPower});
 
-      kernel.getTopics().addRequest(getBasePriorityTargetsTopic(baseId), healingPower, details, TARGET_REQUEST_TTL);
+      kernel.getTopics().addRequest(getBasePriorityTargetsTopic(baseId), healingPower,
+        details, TARGET_REQUEST_TTL + Game.time);
     });
   });
   */
@@ -437,9 +458,14 @@ function _publishDefenseStatuses(kernel: Kernel, hostilesByBase: HostilesByBase,
       numDefenders,
     };
 
-    trace.log('defense status update', details);
+    const request: Request<DefenseStatus> = {
+      priority: 0,
+      ttl: DEFENSE_STATUS_TTL + Game.time,
+      details,
+    }
 
-    kernel.getTopics().addRequest(TOPICS.DEFENSE_STATUSES, 0, details, DEFENSE_STATUS_TTL);
+    trace.log('defense status update', details);
+    kernel.getTopics().addRequestV2(TOPICS.DEFENSE_STATUSES, request);
   });
 }
 
@@ -526,15 +552,23 @@ function requestAdditionalDefenders(kernel: Kernel, base: Base, needed: number,
   for (let i = 0; i < needed; i++) {
     trace.info('requesting defender', {baseId: base.id});
 
-    kernel.getTopics().addRequest(getBaseDefenseTopic(base.id), PRIORITIES.PRIORITY_DEFENDER, {
+    const details: SpawnRequestDetails = {
       role: CREEPS.WORKER_DEFENDER,
-      spawn: true,
       memory: {
         [MEMORY.MEMORY_ASSIGN_ROOM]: position.roomName,
         [MEMORY.MEMORY_ASSIGN_ROOM_POS]: positionStr,
         [MEMORY.MEMORY_BASE]: base.id,
       },
-    }, REQUEST_DEFENDERS_TTL);
+    }
+
+    const request: Request<SpawnRequestDetails> = {
+      priority: PRIORITY_DEFENDER,
+      ttl: REQUEST_DEFENDERS_TTL + Game.time,
+      details,
+    };
+
+    kernel.getTopics().addRequestV2(getBaseDefenseTopic(base.id), request);
+    // PRIORITIES.PRIORITY_DEFENDER, , );
   }
 }
 

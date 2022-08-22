@@ -143,7 +143,7 @@ export default class RoomRunnable implements Runnable {
     trace.notice('sending reserve request to base');
 
     const priority = PRIORITIES.PRIORITY_RESERVER;
-    const ttl = REQUEST_RESERVER_TTL;
+    const ttl = REQUEST_RESERVER_TTL + Game.time;
     const role = CREEPS.WORKER_RESERVER;
     const memory = {
       [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,

@@ -1,5 +1,4 @@
 import * as CREEPS from '../constants/creeps';
-import {DEFENSE_STATUS} from '../constants/defense';
 import * as MEMORY from '../constants/memory';
 import * as PRIORITIES from '../constants/priorities';
 import * as TOPICS from '../constants/topics';
@@ -62,6 +61,7 @@ const ABANDON_BASE_TTL = 50;
 const REQUEST_EXPLORER_TTL = 100;
 const UPDATE_BOOSTER_TTL = 5;
 
+const ABANDON_BASE_AFTER = 5000;
 const MIN_HOSTILE_ATTACK_SCORE_TO_ABANDON = 3000;
 const HOSTILE_DAMAGE_THRESHOLD = 0;
 const HOSTILE_HEALING_THRESHOLD = 600;
@@ -108,7 +108,6 @@ export default class BaseRunnable {
   threadUpdateBoosters: BaseRoomThreadFunc;
   threadCheckSafeMode: BaseRoomThreadFunc;
 
-  // threadUpdateRampartAccess: BaseRoomThreadFunc;
   threadRequestEnergy: BaseRoomThreadFunc;
   threadProduceStatus: BaseRoomThreadFunc;
   threadAbandonBase: BaseRoomThreadFunc;
@@ -133,7 +132,6 @@ export default class BaseRunnable {
 
     this.threadCheckSafeMode = threadBaseRoom('check_safe_mode_thread', CHECK_SAFE_MODE_TTL)(this.checkSafeMode.bind(this));
 
-    // this.threadUpdateRampartAccess = threadBaseRoom('update_rampart_access_thread', RAMPART_ACCESS_TTL)(this.updateRampartAccess.bind(this));
     this.threadRequestEnergy = threadBaseRoom('request_energy_thread', ENERGY_REQUEST_TTL)(this.requestEnergy.bind(this));
     this.threadProduceStatus = threadBaseRoom('produce_status_thread', PRODUCE_STATUS_TTL)(this.produceStatus.bind(this));
     this.threadAbandonBase = threadBaseRoom('abandon_base_check', ABANDON_BASE_TTL)(this.abandonBase.bind(this));
@@ -235,6 +233,13 @@ export default class BaseRunnable {
       base: this.id,
     });
 
+    if (room.controller?.level === 0 && base.addedAt < Game.time - ABANDON_BASE_AFTER) {
+      trace.info('room level 0, terminating', {base: this.id});
+      kernel.getPlanner().removeBase(base.id, trace);
+      trace.end();
+      return;
+    }
+
     // If room has large hostile presence, no spawns, and no towers, abandon base
     // TODO attempt to resist, by sending groups of defenders from nearby bases
 
@@ -254,6 +259,7 @@ export default class BaseRunnable {
 
     const spawns = room.find(FIND_MY_SPAWNS);
     if (spawns.length > 0) {
+      trace.end();
       return;
     }
 
@@ -262,17 +268,19 @@ export default class BaseRunnable {
         return structure.structureType === STRUCTURE_TOWER && structure.isActive();
       },
     });
-
     if (towers.length > 0) {
+      trace.end();
       return;
     }
 
     if (room.controller?.level > 4) {
+      trace.end();
       return;
     }
 
     trace.warn('abandoning base', {
       id: this.id,
+      hostileAttackScore,
     });
 
     // kernel.getPlanner().removeBase(base.id, trace);
@@ -308,7 +316,7 @@ export default class BaseRunnable {
     trace.notice('requesting claimer', {id: this.id, detail});
 
     kernel.getTopics().addRequest(getShardSpawnTopic(), PRIORITIES.PRIORITY_RESERVER,
-      detail, REQUEST_CLAIMER_TTL);
+      detail, REQUEST_CLAIMER_TTL + Game.time);
   }
 
   handleProcessSpawning(trace: Tracer, kernel: Kernel, base: Base, primaryRoom: Room) {
@@ -570,7 +578,7 @@ export default class BaseRunnable {
       [MEMORY.MEMORY_BASE]: base.id,
     };
 
-    const request = createSpawnRequest(repairerPriority, REQUEST_REPAIRER_TTL, CREEPS.WORKER_REPAIRER,
+    const request = createSpawnRequest(repairerPriority, REQUEST_REPAIRER_TTL + Game.time, CREEPS.WORKER_REPAIRER,
       memory, null, 0);
     kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
   }
@@ -609,7 +617,7 @@ export default class BaseRunnable {
     }
 
     const priority = PRIORITIES.PRIORITY_BUILDER - (builders.length * 2);
-    const ttl = REQUEST_BUILDER_TTL;
+    const ttl = REQUEST_BUILDER_TTL + Game.time;
     const memory = {
       [MEMORY.MEMORY_ASSIGN_ROOM]: this.id,
       [MEMORY.MEMORY_ASSIGN_SHARD]: Game.shard.name,
@@ -695,7 +703,7 @@ export default class BaseRunnable {
         [MEMORY.MEMORY_BASE]: base.id,
       };
 
-      const request = createSpawnRequest(upgraderPriority, REQUEST_UPGRADER_TTL,
+      const request = createSpawnRequest(upgraderPriority, REQUEST_UPGRADER_TTL + Game.time,
         CREEPS.WORKER_UPGRADER, memory, null, energyLimit);
       kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
       // @CONFIRM that upgraders are being created
@@ -716,7 +724,7 @@ export default class BaseRunnable {
       trace.info('requesting explorer');
 
       const priority = PRIORITIES.EXPLORER;
-      const ttl = REQUEST_EXPLORER_TTL;
+      const ttl = REQUEST_EXPLORER_TTL + Game.time;
       const role = CREEPS.WORKER_EXPLORER;
       const memory = {
         [MEMORY.MEMORY_BASE]: base.id,
@@ -726,43 +734,6 @@ export default class BaseRunnable {
     } else {
       trace.info('not requesting explorer', {numExplorers: explorers.length});
     }
-  }
-
-  updateRampartAccess(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
-    const message = kernel.getTopics().peekNextRequest(TOPICS.DEFENSE_STATUSES);
-    if (!message) {
-      trace.info('did not find a defense status, fail closed');
-      this.setRamparts(room, DEFENSE_POSTURE.CLOSED, trace);
-      return;
-    }
-
-    const status = message.details.status;
-    const isPublic = base.isPublic;
-
-    trace.info('rampart access', {status, isPublic, posture: this.defensePosture});
-
-    if ((!isPublic || status !== DEFENSE_STATUS.GREEN) && this.defensePosture !== DEFENSE_POSTURE.CLOSED) {
-      trace.notice('setting ramparts closed');
-      this.setRamparts(room, DEFENSE_POSTURE.CLOSED, trace);
-    }
-
-    if (status === DEFENSE_STATUS.GREEN && isPublic && this.defensePosture !== DEFENSE_POSTURE.OPEN) {
-      trace.notice('setting ramparts open');
-      this.setRamparts(room, DEFENSE_POSTURE.OPEN, trace);
-    }
-  }
-
-  setRamparts(room: Room, posture: DEFENSE_POSTURE, _trace: Tracer) {
-    const isPublic = posture === DEFENSE_POSTURE.OPEN;
-    // Close all ramparts
-    room.find<StructureRampart>(FIND_STRUCTURES, {
-      filter: (structure) => {
-        return structure.structureType === STRUCTURE_RAMPART;
-      },
-    }).forEach((rampart) => {
-      rampart.setPublic(isPublic);
-    });
-    this.defensePosture = posture;
   }
 
   checkSafeMode(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
@@ -880,7 +851,7 @@ export default class BaseRunnable {
 
     trace.info('producing room status', {status});
 
-    kernel.getTopics().addRequest(TOPICS.ROOM_STATUES, 1, status, PRODUCE_STATUS_TTL);
+    kernel.getTopics().addRequest(TOPICS.ROOM_STATUES, 1, status, PRODUCE_STATUS_TTL + Game.time);
 
     const line: HudLine = {
       key: `base_${base.id}`,
@@ -1011,14 +982,14 @@ export default class BaseRunnable {
   }
 
   updateBoosters(trace: Tracer, kernel: Kernel, base: Base) {
-    const topic = kernel.getTopics().getTopic(getBaseBoostTopic(base));
+    const topic = kernel.getTopics().getTopic<BoosterDetails>(getBaseBoostTopic(base));
     if (!topic) {
       trace.info('no topic', {room: this.id});
       return;
     }
 
-    topic.forEach((event) => {
-      const details: BoosterDetails = event.details;
+    topic.forEach((message) => {
+      const details: BoosterDetails = message.details;
       trace.info('booster position', {room: this.id, details});
       setBoostPosition(base, details.position);
       setLabsByAction(base, details.labsByAction);

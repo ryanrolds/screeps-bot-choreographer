@@ -385,7 +385,7 @@ export class ResourceManager implements Runnable {
     }
 
     trace.info('purchase resource', {baseId: base.id, resource, amount});
-    this.kernel.getTopics().addRequest(getBaseTerminalTopic(base), TERMINAL_BUY, details, ttl);
+    this.kernel.getTopics().addRequest(getBaseTerminalTopic(base), TERMINAL_BUY, details, ttl + Game.time);
 
     return true;
   }
@@ -437,7 +437,8 @@ export class ResourceManager implements Runnable {
       [TRANSFER_BASE]: base.id,
     }
 
-    this.kernel.getTopics().addRequest(getBaseTerminalTopic(sourceBase), TERMINAL_TRANSFER, request, ttl);
+    this.kernel.getTopics().addRequest(getBaseTerminalTopic(sourceBase), TERMINAL_TRANSFER,
+      request, ttl + Game.time);
 
     return true;
   }
@@ -482,7 +483,8 @@ export class ResourceManager implements Runnable {
         [REACTOR_AMOUNT]: REACTION_BATCH_SIZE,
       };
 
-      kernel.getTopics().addRequest(TASK_REACTION, reaction['priority'], details, REQUEST_REACTION_TTL);
+      kernel.getTopics().addRequest(TASK_REACTION, reaction['priority'], details,
+        REQUEST_REACTION_TTL + Game.time);
     });
 
     const reactions = kernel.getTopics().getTopic(TASK_REACTION);
@@ -535,7 +537,7 @@ export class ResourceManager implements Runnable {
         [MEMORY_ORDER_AMOUNT]: sellAmount,
       };
 
-      kernel.getTopics().addRequest(getBaseTerminalTopic(sourceBase), TERMINAL_BUY, details, REQUEST_SELL_TTL);
+      kernel.getTopics().addRequest(getBaseTerminalTopic(sourceBase), TERMINAL_BUY, details, REQUEST_SELL_TTL + Game.time);
     });
   }
 
@@ -721,6 +723,6 @@ export class ResourceManager implements Runnable {
     trace.notice('send energy request', {request});
 
     kernel.getTopics().addRequest(getBaseTerminalTopic(sourceBase), TERMINAL_ENERGY_BALANCE,
-      request, BALANCE_ENERGY_TTL);
+      request, BALANCE_ENERGY_TTL + Game.time);
   }
 }

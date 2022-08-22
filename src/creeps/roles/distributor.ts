@@ -1,5 +1,6 @@
 import {getBaseDistributorTopic} from '../../base/logistics';
 import * as MEMORY from '../../constants/memory';
+import {TASK_ID} from '../../constants/memory';
 import {getCreepBase, getStructureForResource} from '../../os/kernel/base';
 import * as behaviorTree from '../behavior/behaviortree';
 import {FAILURE, RUNNING, SUCCESS} from '../behavior/behaviortree';
@@ -8,6 +9,15 @@ import * as behaviorHaul from '../behavior/haul';
 import {roadWorker} from '../behavior/logistics';
 import * as behaviorMovement from '../behavior/movement';
 import {parkingLot} from '../behavior/room';
+
+export type DistributorTask = {
+  [TASK_ID]: string,
+  [MEMORY.MEMORY_TASK_TYPE]: string,
+  [MEMORY.MEMORY_HAUL_PICKUP]: Id<Structure>,
+  [MEMORY.MEMORY_HAUL_RESOURCE]: ResourceConstant,
+  [MEMORY.MEMORY_HAUL_DROPOFF]: Id<Structure>,
+  [MEMORY.MEMORY_HAUL_AMOUNT]: number,
+}
 
 const selectNextTaskOrPark = behaviorTree.selectorNode(
   'pick_something',

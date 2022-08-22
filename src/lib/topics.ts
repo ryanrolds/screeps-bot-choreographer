@@ -5,17 +5,17 @@ const DEFAULT_TTL = 500;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type RequestDetails = any;
 
-export type Request = {
+export type Request<T> = {
   priority: number,
-  details: RequestDetails,
   ttl: number,
+  details: T,
 };
 
 export type TopicKey = string;
-type Topic = Array<Request>;
+type Topic<T> = Array<Request<T>>;
 
 export class Topics {
-  topics: Map<TopicKey, Topic>;
+  topics: Map<TopicKey, Topic<any>>;
   lastCleanup: number;
 
   constructor() {
@@ -23,11 +23,11 @@ export class Topics {
     this.lastCleanup = 0;
   }
 
-  getTopics(): Map<TopicKey, Topic> {
+  getTopics(): Map<TopicKey, Topic<any>> {
     return this.topics;
   }
 
-  getTopic(key: TopicKey): Topic {
+  getTopic<T>(key: TopicKey): Topic<T> {
     if (this.lastCleanup < Game.time) {
       this.removeStale();
     }
@@ -61,7 +61,7 @@ export class Topics {
     this.lastCleanup = Game.time;
   }
 
-  createTopic(key: TopicKey): Topic {
+  createTopic<T>(key: TopicKey): Topic<T> {
     this.topics.set(key, []);
     return this.topics.get(key);
   }
@@ -69,30 +69,27 @@ export class Topics {
   /**
    * @deprecated Use addRequestV2 instead.
    */
-  addRequest(key: TopicKey, priority: number, details: RequestDetails, ttl = DEFAULT_TTL) {
-    let topic = this.getTopic(key);
+  addRequest<T>(key: TopicKey, priority: number, details: T, ttl = DEFAULT_TTL) {
+    let topic = this.getTopic<T>(key);
     if (!topic) {
       topic = this.createTopic(key);
     }
 
-    const request: Request = {
+    const request: Request<T> = {
       priority,
       details,
-      ttl: Game.time + ttl,
+      ttl,
     };
 
     topic.push(request);
     this.topics.set(key, _.sortBy(topic, 'priority'));
   }
 
-  addRequestV2(key: TopicKey, request: Request) {
-    let topic = this.getTopic(key);
+  addRequestV2<T>(key: TopicKey, request: Request<T>) {
+    let topic = this.getTopic<T>(key);
     if (!topic) {
       topic = this.createTopic(key);
     }
-
-    // Add current game time to tll so we know when to expire the message
-    request.ttl = Game.time + request.ttl;
 
     topic.push(request);
 
@@ -100,8 +97,8 @@ export class Topics {
     this.topics.set(key, _.sortBy(topic, 'priority'));
   }
 
-  peekNextRequest(key: TopicKey): Request {
-    const topic = this.getTopic(key);
+  peekNextRequest<T>(key: TopicKey): Request<T> {
+    const topic = this.getTopic<T>(key);
     if (!topic) {
       return null;
     }
@@ -113,13 +110,13 @@ export class Topics {
     return topic[topic.length - 1];
   }
 
-  getNextRequest(key: TopicKey): Request {
-    const topic = this.getTopic(key);
+  getNextRequest<T>(key: TopicKey): Request<T> {
+    const topic = this.getTopic<T>(key);
     if (!topic) {
       return null;
     }
 
-    let request = null;
+    let request: Request<T> = null;
     // eslint-disable-next-line no-cond-assign
     while (request = topic.pop()) {
       if (request.ttl < Game.time) {
@@ -134,17 +131,17 @@ export class Topics {
     return request;
   }
 
-  getFilteredRequests(key: TopicKey, filter) {
-    const requests = this.getTopic(key);
-    if (!requests) {
+  getFilteredRequests<T>(key: TopicKey, filter): Request<T>[] {
+    const topic = this.getTopic<T>(key);
+    if (!topic) {
       return [];
     }
 
-    return requests.filter(filter);
+    return topic.filter<Request<T>>(filter);
   }
 
-  getMessageOfMyChoice(key: TopicKey, chooser) {
-    const messages = this.getTopic(key);
+  getMessageOfMyChoice<T>(key: TopicKey, chooser) {
+    const messages = this.getTopic<T>(key);
     if (!messages) {
       return null;
     }

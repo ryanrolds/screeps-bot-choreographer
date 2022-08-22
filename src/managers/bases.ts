@@ -13,6 +13,7 @@ import {YELLOW_JOURNAL_AGE} from './scribe';
 const RUN_TTL = 10;
 const BASE_PROCESSES_TTL = 50;
 const EXPAND_TTL = 500;
+const MAX_LOW_LEVEL_BASES = 3;
 
 export class BaseManager {
   private config: ShardConfig;
@@ -56,7 +57,7 @@ export class BaseManager {
       const origin = new RoomPosition(base.origin.x, base.origin.y, base.origin.roomName);
       const parking = new RoomPosition(base.parking.x, base.parking.y, base.parking.roomName);
 
-      this.addBase(base.id, base.isPublic, origin, parking,
+      this.addBase(base.id, base.addedAt || Game.time, base.isPublic, origin, parking,
         base.rooms, base.walls || [], base.passages || [], base.neighbors || [],
         base.alertLevel || AlertLevel.GREEN, trace);
     });
@@ -69,7 +70,7 @@ export class BaseManager {
       const parking = new RoomPosition(origin.x + 5, origin.y, origin.roomName);
       if (!this.bases.has(roomName)) {
         trace.warn('found unknown base', {roomName});
-        this.addBase(roomName, false, origin, parking, [roomName], [],
+        this.addBase(roomName, Game.time, false, origin, parking, [roomName], [],
           [], [], AlertLevel.GREEN, trace);
       }
     });
@@ -150,8 +151,8 @@ export class BaseManager {
     return selectedBase;
   }
 
-  addBase(primaryRoom: string, isPublic: boolean, origin: RoomPosition, parking: RoomPosition,
-    rooms: string[], walls: {x: number, y: number}[],
+  addBase(primaryRoom: string, createTime: number, isPublic: boolean, origin: RoomPosition,
+    parking: RoomPosition, rooms: string[], walls: {x: number, y: number}[],
     passages: {x: number, y: number}[], neighbors: string[], alertLevel: AlertLevel,
     trace: Tracer): Base {
     if (this.bases.has(primaryRoom)) {
@@ -166,6 +167,7 @@ export class BaseManager {
 
     this.bases.set(primaryRoom, {
       id: primaryRoom,
+      addedAt: createTime,
       isPublic: isPublic,
       primary: primaryRoom,
       rooms: rooms,
@@ -223,6 +225,16 @@ export class BaseManager {
       return;
     }
 
+    const lowLevelBases = this.getBases().filter((base) => {
+      const roomEntry = kernel.getScribe().getRoomById(base.primary);
+      return roomEntry.controller?.level <= 5;
+    });
+
+    if (lowLevelBases.length > MAX_LOW_LEVEL_BASES) {
+      trace.notice('too many low level bases', {lowLevelBases: lowLevelBases.length});
+      return;
+    }
+
     const scribe = kernel.getScribe();
     const globalBaseCount = scribe.getGlobalBaseCount();
     if (!globalBaseCount) {
@@ -252,7 +264,7 @@ export class BaseManager {
       const origin = results.origin;
       const parking = new RoomPosition(origin.x + 5, origin.y + 5, origin.roomName);
       trace.notice('selected room, adding base', {roomName, distance, origin, parking});
-      this.addBase(roomName, false, origin, parking, [roomName],
+      this.addBase(roomName, Game.time, false, origin, parking, [roomName],
         [], [], [], AlertLevel.GREEN, trace);
       return;
     }

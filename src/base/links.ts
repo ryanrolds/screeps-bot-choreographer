@@ -237,7 +237,8 @@ export default class LinkManager {
       [MEMORY.MEMORY_HAUL_DROPOFF]: dropoff.id,
     };
 
-    kernel.getTopics().addRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.UNLOAD_LINK, details, HAUL_TTL);
+    kernel.getTopics().addRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.UNLOAD_LINK,
+      details, HAUL_TTL + Game.time);
     trace.info('haul energy from storage link', {request: details});
   }
 
@@ -254,7 +255,8 @@ export default class LinkManager {
     };
 
     trace.info('haul energy to storage link', {request: details});
-    kernel.getTopics().addRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.LOAD_LINK, details, HAUL_TTL);
+    kernel.getTopics().addRequest(getBaseDistributorTopic(this.baseId), PRIORITIES.LOAD_LINK,
+      details, HAUL_TTL + Game.time);
   }
 }
 

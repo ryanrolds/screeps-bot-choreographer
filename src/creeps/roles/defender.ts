@@ -1,4 +1,4 @@
-import {getBasePriorityTargetsTopic} from '../../base/defense';
+import {getBasePriorityTargetsTopic, TargetRequest} from '../../base/defense';
 import {MEMORY_ASSIGN_ROOM, MEMORY_ASSIGN_ROOM_POS} from '../../constants/memory';
 import {Tracer} from '../../lib/tracing';
 import {getCreepBase} from '../../os/kernel/base';
@@ -48,11 +48,12 @@ const behavior = behaviorTree.sequenceNode(
 
         // Get targets in the room
         const roomId = creep.room.name;
-        const targets = kernel.getTopics().getFilteredRequests(getBasePriorityTargetsTopic(base.id),
-          (target) => {
-            return target.details.roomName === roomId;
-          },
-        );
+        const targets = kernel.getTopics().
+          getFilteredRequests<TargetRequest>(getBasePriorityTargetsTopic(base.id),
+            (target) => {
+              return target.details.roomName === roomId;
+            },
+          );
 
         trace.info('room targets', {targets});
 
@@ -65,7 +66,7 @@ const behavior = behaviorTree.sequenceNode(
           moveTarget = Game.getObjectById(targets[0].details.id);
 
           const inRangeHostiles = _.find(targets, (target) => {
-            const hostile = Game.getObjectById<Id<Creep>>(target.details.id);
+            const hostile = Game.getObjectById<Creep>(target.details.id);
             return hostile && creep.pos.inRangeTo(hostile, 3);
           });
           if (inRangeHostiles) {

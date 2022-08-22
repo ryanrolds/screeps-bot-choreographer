@@ -24,6 +24,7 @@ import {
 import {Kernel} from '../os/kernel/kernel';
 import {RunnableResult, running, terminate} from '../os/process';
 import {threadBaseRoom} from '../os/threads/base_room';
+import {PrepareBoostDetails} from './booster';
 
 const SPAWN_TTL = 5;
 const REQUEST_BOOSTS_TTL = 5;
@@ -40,20 +41,17 @@ export const SPAWN_REQUEST_PARTS = 'parts';
 const UTILIZATION_CARDINALITY = 150;
 const MIN_UTILIZATION_SAMPLES = 30;
 
-type SpawnRequestDetails = {
+export type SpawnRequestDetails = {
   role: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   memory: any;
-  energyLimit: number;
+  energyLimit?: number;
+  parts?: BodyPartConstant[],
 }
-
-type SpawnRequest = Request & {
-  details: SpawnRequestDetails;
-};
 
 export function createSpawnRequest(priority: number, ttl: number, role: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  memory: any, parts: BodyPartConstant[], energyLimit: number): SpawnRequest {
+  memory: any, parts: BodyPartConstant[], energyLimit: number): Request<SpawnRequestDetails> {
   return {
     priority,
     ttl,
@@ -140,12 +138,11 @@ export default class SpawnManager {
 
     // If there are no spawns then we should request another base in the kernel produce the creep
     if (spawns.length === 0) {
-      let request: SpawnRequest = null;
+      let request: Request<SpawnRequestDetails> = null;
       // eslint-disable-next-line no-cond-assign
-      while (request = kernel.getTopics().getNextRequest(getBaseSpawnTopic(base.id))) {
-        trace.info('sending spawn request to shard/neighbors', {request: request});
-        kernel.getTopics().addRequest(getShardSpawnTopic(), request.priority, request.details,
-          request.ttl);
+      while (request = kernel.getTopics().getNextRequest<SpawnRequestDetails>(getBaseSpawnTopic(base.id))) {
+        trace.notice('sending spawn request to shard/neighbors', {request: request});
+        kernel.getTopics().addRequestV2<SpawnRequestDetails>(getShardSpawnTopic(), request);
       }
 
       return;
@@ -174,14 +171,14 @@ export default class SpawnManager {
 
       // currently spawning something
       if (!isIdle) {
-        trace.getMetricsCollector().counter('spawn_busy', 1, {spawnId: spawn.id});
+        trace.getMetricsCollector().counter('spawn_busy', 1, {spawn: spawn.id, base: base.id});
         handleActiveSpawning(kernel, base, spawn, trace)
         return;
       }
 
       // check if spawner has energy
       if (!isSpawnerEnergyReady(kernel, base, spawn, trace)) {
-        trace.getMetricsCollector().counter('spawn_not_enough_energy', 1, {spawnId: spawn.id});
+        trace.getMetricsCollector().counter('spawn_not_enough_energy', 1, {spawn: spawn.id, base: base.id});
         trace.info('spawner not ready, skipping', {spawn: spawn.id, spawnEnergy, energyCapacity});
         return;
       }
@@ -199,12 +196,12 @@ export default class SpawnManager {
         }
 
         trace.notice('spawning', {id: this.id, spawnEnergy, energyLimit, request});
-        trace.getMetricsCollector().counter('spawn_spawning', 1, {spawnId: spawn.id});
+        trace.getMetricsCollector().counter('spawn_spawning', 1, {spawn: spawn.id, base: base.id});
         createCreep(base, room.name, spawn, request, spawnEnergy, energyLimit, trace);
         return;
       }
 
-      trace.getMetricsCollector().counter('spawn_no_request', 1, {spawnId: spawn.id});
+      trace.getMetricsCollector().counter('spawn_no_request', 1, {spawn: spawn.id, base: base.id});
       handleIdle(trace);
     });
   }
@@ -271,7 +268,7 @@ export default class SpawnManager {
   }
 }
 
-function peekNextNeighborRequest(kernel: Kernel, base: Base, trace: Tracer): Request {
+function peekNextNeighborRequest(kernel: Kernel, base: Base, trace: Tracer): Request<SpawnRequestDetails> {
   trace.info("peeking neighbor request", {baseRoom: base.primary, baseNeighbors: base.neighbors});
   const topic = kernel.getTopics();
   const requests = topic.getTopic(getShardSpawnTopic())
@@ -283,7 +280,7 @@ function peekNextNeighborRequest(kernel: Kernel, base: Base, trace: Tracer): Req
   return getNextNeighborRequestFilter(kernel, base, requests.reverse(), trace);
 }
 
-function getNextNeighborRequest(kernel: Kernel, base: Base, trace: Tracer): Request {
+function getNextNeighborRequest(kernel: Kernel, base: Base, trace: Tracer): Request<SpawnRequestDetails> {
   trace.info("getting neighbor request", {baseRoom: base.primary, baseNeighbors: base.neighbors});
   const topic = kernel.getTopics();
   return topic.getMessageOfMyChoice(getShardSpawnTopic(), (messages) => {
@@ -293,10 +290,16 @@ function getNextNeighborRequest(kernel: Kernel, base: Base, trace: Tracer): Requ
 }
 
 function requestBoosts(kernel: Kernel, base: Base, spawn: StructureSpawn, boosts, priority: number) {
-  kernel.getTopics().addRequest(TOPICS.BOOST_PREP, priority, {
-    [MEMORY.TASK_ID]: `bp-${spawn.id}-${Game.time}`,
-    [MEMORY.PREPARE_BOOSTS]: boosts,
-  }, REQUEST_BOOSTS_TTL);
+  const request = {
+    priority: priority,
+    ttl: REQUEST_BOOSTS_TTL + Game.time,
+    details: {
+      [MEMORY.TASK_ID]: `bp-${spawn.id}-${Game.time}`,
+      [MEMORY.PREPARE_BOOSTS]: boosts,
+    }
+  }
+
+  kernel.getTopics().addRequestV2<PrepareBoostDetails>(TOPICS.BOOST_PREP, request);
 }
 
 function isSpawnerEnergyReady(kernel: Kernel, base: Base, spawn: StructureSpawn, trace: Tracer): boolean {
@@ -315,12 +318,13 @@ function isSpawnerEnergyReady(kernel: Kernel, base: Base, spawn: StructureSpawn,
   return true;
 }
 
-function getNextRequest(kernel: Kernel, base: Base, spawn: StructureSpawn, trace: Tracer): Request {
+function getNextRequest(kernel: Kernel, base: Base, spawn: StructureSpawn,
+  trace: Tracer): Request<SpawnRequestDetails> {
   const spawnEnergy = spawn.room.energyAvailable;
   const energyCapacity = spawn.room.energyCapacityAvailable;
 
   // check local requests
-  let localRequest = kernel.getTopics().peekNextRequest(getBaseSpawnTopic(base.id));
+  let localRequest = kernel.getTopics().peekNextRequest<SpawnRequestDetails>(getBaseSpawnTopic(base.id));
   if (localRequest && !isRequestEnergyReady(kernel, base, spawn, localRequest, trace)) {
     trace.info('local request not ready, skipping', {spawn: spawn.id, spawnEnergy, energyCapacity});
     localRequest = null;
@@ -382,8 +386,8 @@ function getNextRequest(kernel: Kernel, base: Base, spawn: StructureSpawn, trace
   return request;
 }
 
-function isRequestEnergyReady(kernel: Kernel, base: Base, spawn: StructureSpawn, request: Request,
-  trace: Tracer): boolean {
+function isRequestEnergyReady(kernel: Kernel, base: Base, spawn: StructureSpawn,
+  request: Request<SpawnRequestDetails>, trace: Tracer): boolean {
   const spawnEnergy = spawn.room.energyAvailable;
   const energyCapacity = spawn.room.energyCapacityAvailable;
 
@@ -452,7 +456,7 @@ function handleIdle(trace: Tracer): void {
   trace.info('no request');
 }
 
-function createCreep(base: Base, room: string, spawn: StructureSpawn, request: Request,
+function createCreep(base: Base, room: string, spawn: StructureSpawn, request: Request<SpawnRequestDetails>,
   energy: number, energyLimit: number, trace: Tracer) {
   const role: string = request.details[SPAWN_REQUEST_ROLE];
   let parts = request.details[SPAWN_REQUEST_PARTS] || null;
@@ -545,7 +549,8 @@ function getBodyParts(definition, maxEnergy) {
   return base;
 }
 
-function getNextNeighborRequestFilter(kernel: Kernel, base: Base, messages, trace: Tracer): Request {
+function getNextNeighborRequestFilter(kernel: Kernel, base: Base, messages,
+  trace: Tracer): Request<SpawnRequestDetails> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return _.find(messages, (message: any) => {
     // Select message if portal nearby

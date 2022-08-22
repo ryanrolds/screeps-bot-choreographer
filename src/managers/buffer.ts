@@ -73,7 +73,7 @@ export default class BufferManager {
         roomId: room.id,
       };
 
-      kernel.getTopics().addRequest(TOPICS.ATTACK_ROOM, 1, attackRequest, ATTACK_ROOM_TTL);
+      kernel.getTopics().addRequest(TOPICS.ATTACK_ROOM, 1, attackRequest, ATTACK_ROOM_TTL + Game.time);
     });
 
     // TODO add HUD line and attack lines on map
