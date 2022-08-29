@@ -1,5 +1,5 @@
 import {commonPolicy} from '../constants/pathing_policies';
-import {warPartyQuadPolicy, warPartySingleFilePolicy} from '../creeps/party/attack';
+import {warPartyQuadPolicy, warPartySingleFilePolicy} from '../creeps/party/war';
 import {Metrics} from '../lib/metrics';
 import {FindPathPolicy, getPath, PathSearchDetails, visualizePath} from '../lib/pathing';
 import {Tracer} from '../lib/tracing';

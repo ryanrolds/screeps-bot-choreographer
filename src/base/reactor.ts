@@ -42,7 +42,11 @@ type ReactorTask = {
   [MEMORY.REACTOR_TTL]: number
 }
 
-export default class ReactorRunnable extends PersistentMemory {
+type ReactorRunnableMemory = {
+  task: ReactorTask;
+};
+
+export default class ReactorRunnable extends PersistentMemory<ReactorRunnableMemory> {
   id: string;
   baseId: string;
   labIds: Id<StructureLab>[];
@@ -144,9 +148,6 @@ export default class ReactorRunnable extends PersistentMemory {
 
     return this.getTask(trace)[MEMORY.REACTOR_OUTPUT];
   }
-  getTaskMemoryId() {
-    return `${MEMORY.REACTOR_TASK}`;
-  }
 
   getTask(trace: Tracer): ReactorTask {
     const memory = this.getMemory(trace);
@@ -154,12 +155,12 @@ export default class ReactorRunnable extends PersistentMemory {
       return null;
     }
 
-    return memory[this.getTaskMemoryId()] || null;
+    return memory['task'] || null;
   }
 
   setTask(task: ReactorTask) {
     this.setMemory({
-      [this.getTaskMemoryId()]: task,
+      task: task,
     });
   }
 
@@ -173,7 +174,7 @@ export default class ReactorRunnable extends PersistentMemory {
       return;
     }
 
-    delete memory[this.getTaskMemoryId()];
+    delete memory['task'];
     this.setMemory(memory);
   }
 

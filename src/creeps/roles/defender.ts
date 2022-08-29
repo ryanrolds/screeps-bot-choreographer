@@ -7,7 +7,7 @@ import * as behaviorTree from '../behavior/behaviortree';
 import {FAILURE, RUNNING, SUCCESS} from '../behavior/behaviortree';
 import {behaviorBoosts} from '../behavior/boosts';
 import * as behaviorMovement from '../behavior/movement';
-import {warPartySingleFilePolicy} from '../party/attack';
+import {warPartySingleFilePolicy} from '../party/war';
 
 const behavior = behaviorTree.sequenceNode(
   'defender_root',

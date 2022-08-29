@@ -20,12 +20,14 @@ import * as MEMORY from '../constants/memory';
 import {PRIORITY_DEFENDER} from '../constants/priorities';
 import * as TOPICS from '../constants/topics';
 import {creepIsFresh} from '../creeps/behavior/commute';
+import {newMultipliers} from '../creeps/builders/attacker';
+import {buildDefender} from '../creeps/builders/defender';
 import DefensePartyRunnable from '../creeps/party/defense';
 import {scoreHealing} from '../creeps/roles/harasser';
 import {Request} from '../lib/topics';
 import {Tracer} from '../lib/tracing';
 import {Base, getBasePrimaryRoom} from '../os/kernel/base';
-import {Kernel, KernelThreadFunc, threadKernel} from '../os/kernel/kernel';
+import {Kernel} from '../os/kernel/kernel';
 import {Process, RunnableResult, sleeping, terminate} from '../os/process';
 import {Priorities, Scheduler} from '../os/scheduler';
 import {createSpawnRequest, getBaseSpawnTopic, SpawnRequestDetails} from './spawning';
@@ -35,6 +37,7 @@ const TARGET_REQUEST_TTL = RUN_INTERVAL;
 const DEFENSE_STATUS_TTL = RUN_INTERVAL;
 const REQUEST_DEFENDERS_TTL = 25;
 // const REQUEST_DEFENDER_TTL = 5;
+const MAX_DEFENDERS_PER_ROOM = 1;
 
 export function getBasePriorityTargetsTopic(baseId: string): string {
   return `base_${baseId}_priority_targets`;
@@ -87,9 +90,10 @@ export default class DefenseManager {
   baseId: string;
   scheduler: Scheduler;
   memory: DefenseMemory;
-
   defenseParties: DefensePartyRunnable[];
-  threadCheckBaseDefenses: KernelThreadFunc;
+
+  // Legacy code
+  // threadCheckBaseDefenses: KernelThreadFunc;
   // threadReturnDefendersToStation: KernelThreadFunc;
   // threadHandleDefenderRequest: KernelThreadFunc;
 
@@ -98,7 +102,7 @@ export default class DefenseManager {
     this.scheduler = kernel.getScheduler();
     this.restoreFromMemory(kernel, trace);
 
-    this.threadCheckBaseDefenses = threadKernel('check_defense_thread', REQUEST_DEFENDERS_TTL)(checkBaseDefenses);
+    //this.threadCheckBaseDefenses = threadKernel('check_defense_thread', REQUEST_DEFENDERS_TTL)(checkBaseDefenses);
     //this.threadReturnDefendersToStation = threadKernel('recall_defenders_thread', REQUEST_DEFENDERS_TTL)(returnDefendersToStation);
     //this.threadHandleDefenderRequest = threadKernel('request_defenders_thread', REQUEST_DEFENDER_TTL)(this.requestDefenders.bind(this));
   }
@@ -113,47 +117,22 @@ export default class DefenseManager {
       return terminate();
     }
 
-    // Ensure that towers have something to shoot at
-    const targetTopicTrace = trace.begin('addHostilesToBaseTargetTopic');
-    addHostilesToBaseTargetTopic(kernel, base, targetTopicTrace);
-    targetTopicTrace.end();
+    // Check base for attackers
+    this.defendBase(kernel, base, trace);
 
-    const hostileAttackPowerByRoom = getHostileAttackPowerByBaseRoom(kernel, base, trace);
-    trace.info('hostile attack power by room', {
-      baseId: this.baseId,
-      rooms: Array.from(hostileAttackPowerByRoom.entries())
-    });
+    // Check remotes for attackers
+    this.defendRemotes(kernel, base, trace);
 
-    // check if hostiles in primary room
-    const primaryRoomHostiles = hostileAttackPowerByRoom.get(base.primary);
-    if (primaryRoomHostiles > 0) {
-      // request rampart defense and regular defenders
-      trace.warn('hostiles in primary room', {baseId: this.baseId, primaryRoomHostiles});
-    }
+    /* Legacy code
+    const defenseStatusTrace = trace.begin('updateDefenseStatus');
+    publishDefenseStatuses(kernel, hostilesByBase, defenseStatusTrace);
+    defenseStatusTrace.end();
 
-    for (const [roomName, attackPower] of hostileAttackPowerByRoom) {
-      // if no hostiles, dont send defenders
-      if (attackPower == 0) {
-        continue;
-      }
-
-      // Don't send defenders to primary room
-      if (roomName === base.primary) {
-        continue;
-      }
-
-      // Request defenders from base
-      trace.warn('requesting defenders', {roomName, attackPower});
-    }
-
-    // const defenseStatusTrace = trace.begin('updateDefenseStatus');
-    // publishDefenseStatuses(kernel, hostilesByBase, defenseStatusTrace);
-    // defenseStatusTrace.end();
-
-    //this.handleDefendFlags(kernel, trace);
-    //this.threadCheckBaseDefenses(trace, kernel, hostilesByBase);
-    //this.threadReturnDefendersToStation(trace, kernel, hostilesByBase);
-    //this.threadHandleDefenderRequest(trace, kernel, hostilesByBase);
+    this.handleDefendFlags(kernel, trace);
+    this.threadCheckBaseDefenses(trace, kernel, hostilesByBase);
+    this.threadReturnDefendersToStation(trace, kernel, hostilesByBase);
+    this.threadHandleDefenderRequest(trace, kernel, hostilesByBase);
+    */
 
     trace.end();
 
@@ -182,6 +161,119 @@ export default class DefenseManager {
     }).filter((party) => {
       return !!party;
     });
+  }
+
+  defendBase(kernel: Kernel, base: Base, trace: Tracer) {
+    // Ensure that towers have something to shoot at
+    const targetTopicTrace = trace.begin('addHostilesToBaseTargetTopic');
+    addHostilesToBaseTargetTopic(kernel, base, targetTopicTrace);
+    targetTopicTrace.end();
+  }
+
+  defendRemotes(kernel: Kernel, base: Base, trace: Tracer) {
+    const roomsNeedingDefenders: Map<string, number> = new Map();
+
+    const hostileAttackPowerByRoom = getHostileAttackPowerByBaseRoom(kernel, base, trace);
+    trace.info('hostile attack power by room', {
+      baseId: this.baseId,
+      rooms: Array.from(hostileAttackPowerByRoom.entries())
+    });
+
+    // check if hostiles in primary room
+    const primaryRoomHostiles = hostileAttackPowerByRoom.get(base.primary);
+    if (primaryRoomHostiles > 0) {
+      // request rampart defense and regular defenders
+      trace.warn('hostiles in primary room', {baseId: this.baseId, primaryRoomHostiles});
+
+      // const memory = {
+      //   [MEMORY.MEMORY_ASSIGN_ROOM]: base.primary,
+      //   [MEMORY.MEMORY_BASE]: base.id,
+      // };
+      // const request = createSpawnRequest(PRIORITY_RAMPART_DEFENDER, REQUEST_DEFENDERS_TTL + Game.time,
+      //   CREEPS.WORKER_DEFENDER, memory, null, 0);
+      // trace.warn('requesting rampaert defenders', {roomName: base.primary, primaryRoomHostiles});
+      // kernel.getTopics().addRequestV2(getBaseDefenseTopic(base.id), request);
+    }
+
+    for (const [roomName, attackPower] of hostileAttackPowerByRoom) {
+      // if no hostiles, dont send defenders
+      if (attackPower == 0) {
+        continue;
+      }
+
+      // Don't send defenders to primary room
+      if (roomName === base.primary) {
+        continue;
+      }
+
+      // Request defenders from base
+      trace.warn('requesting defenders', {roomName, attackPower});
+    }
+
+    // Check rooms for Invader Cores
+    base.rooms.forEach((roomName) => {
+      const roomEntry = kernel.getScribe().getRoomById(roomName);
+      if (!roomEntry) {
+        trace.warn('checking for invader cores, room entry not found', {roomName});
+        return;
+      }
+
+      if (roomEntry.invaderCorePos && roomEntry.invaderCoreLevel === 0) {
+        trace.warn('checking for invader cores, invader core found', {roomName});
+
+        let hostileAttackPower = roomsNeedingDefenders.get(roomName) || -1;
+        if (hostileAttackPower < 0) {
+          hostileAttackPower = 0;
+        }
+
+        roomsNeedingDefenders.set(roomName, hostileAttackPower);
+      }
+    });
+
+    const defenders = kernel.getCreepsManager().getCreepsByBaseAndRole(this.baseId, CREEPS.WORKER_DEFENDER)
+
+    // Handle defense needs
+    for (const [roomName, attackPower] of roomsNeedingDefenders) {
+      // Primary room also needs rampart defense
+      // Check if rampart defenders exist
+      // if not, build parts list and request spawning of rampart defenders
+
+      // Check if defenders already exist (regular rooms and primary)
+      const roomDefenders = defenders.filter((creep) => {
+        return creep.memory[MEMORY.MEMORY_ASSIGN_ROOM] === roomName;
+      });
+      if (roomDefenders.length > MAX_DEFENDERS_PER_ROOM) {
+        trace.warn('defenders already exist', {roomName, roomDefenders});
+        continue;
+      }
+
+      const primaryRoom = Game.rooms[base.primary];
+      if (!primaryRoom) {
+        trace.warn('primary room not found', {baseId: this.baseId, primaryRoom});
+        continue;
+      }
+
+      // Build parts list and request spawning of defenders
+      const multipliers = newMultipliers();
+      const [parts, ok] = buildDefender(attackPower, primaryRoom.energyCapacityAvailable,
+        multipliers, trace);
+      if (!ok) {
+        trace.warn('defender build failed, we cannot take the room', {
+          roomName, attackPower,
+          energyCapacityAvailable: primaryRoom.energyCapacityAvailable
+        });
+        continue;
+      }
+
+      const memory = {
+        [MEMORY.MEMORY_ASSIGN_ROOM]: roomName,
+        [MEMORY.MEMORY_BASE]: base.id,
+      };
+      const request = createSpawnRequest(PRIORITY_DEFENDER, REQUEST_DEFENDERS_TTL + Game.time,
+        CREEPS.WORKER_DEFENDER, memory, parts, 0);
+      trace.warn('requesting defenders', {roomName, attackPower, request});
+      kernel.getTopics().addRequestV2(getBaseDefenseTopic(base.id), request);
+    }
   }
 
   createAndScheduleDefenseParty(kernel: Kernel, id: string, flagId: string, position: RoomPosition,
@@ -469,7 +561,7 @@ function _publishDefenseStatuses(kernel: Kernel, hostilesByBase: HostilesByBase,
   });
 }
 
-function checkBaseDefenses(trace: Tracer, kernel: Kernel, hostilesByBase: Map<string, Creep[]>) {
+function _checkBaseDefenses(trace: Tracer, kernel: Kernel, hostilesByBase: Map<string, Creep[]>) {
   // Check for defenders
   Array.from(hostilesByBase.entries()).forEach(([baseId, hostiles]) => {
     const base = kernel.getPlanner().getBaseById(baseId);
@@ -568,7 +660,6 @@ function requestAdditionalDefenders(kernel: Kernel, base: Base, needed: number,
     };
 
     kernel.getTopics().addRequestV2(getBaseDefenseTopic(base.id), request);
-    // PRIORITIES.PRIORITY_DEFENDER, , );
   }
 }
 

@@ -50,7 +50,6 @@ type CreepBoostableIntents = 'upgradeController' | 'harvest' | 'build' | 'repair
 // Try to ensure that all colonies are ready to
 // boost creeps with these effects
 const MIN_CRITICAL_COMPOUND = 1000;
-const MIN_CRITICAL_COMPOUND_RALLY = 5000;
 const CRITICAL_EFFECTS: Partial<Record<CreepBoostableIntents, MineralBoostConstant[]>> = {
   'upgradeController': ['XGH2O', 'GH2O', 'GH'],
   // 'capacity': ['XKH2O', 'KH2O', 'KH'],
@@ -561,7 +560,6 @@ export class ResourceManager implements Runnable {
 
       //const allEffects = getStoredBoosterEffects(base);
       const availableEffects = getStoredEffects(base);
-      const rallyFlagRoom = Game.flags['rally']?.pos.roomName;
 
       Object.entries(CRITICAL_EFFECTS).forEach(([effectName, compounds]) => {
         const effectTrace = baseTrace.withFields(new Map([
@@ -593,11 +591,8 @@ export class ResourceManager implements Runnable {
             MIN_CRITICAL_COMPOUND,
           });
 
-          let minimumCritical = MIN_CRITICAL_COMPOUND;
-          if (primaryRoom.name === rallyFlagRoom) {
-            minimumCritical = MIN_CRITICAL_COMPOUND_RALLY;
-          }
-
+          const minimumCritical = MIN_CRITICAL_COMPOUND;
+          // TODO if base at a war, increase minimum critical resources
           const requested = this.requestResource(base, bestCompound,
             minimumCritical - currentAmount, REQUEST_DISTRIBUTE_BOOSTS, effectTrace);
 

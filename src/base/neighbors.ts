@@ -4,6 +4,7 @@ import {Kernel} from "../os/kernel/kernel";
 import {Runnable, RunnableResult, sleeping, terminate} from "../os/process";
 
 const RUN_INTERVAL = 100;
+const MAX_NEIGHBORS = 2;
 
 export class NeighborsRunnable implements Runnable {
   private baseId: string;
@@ -32,7 +33,7 @@ export class NeighborsRunnable implements Runnable {
       }
 
       const distance = Game.map.getRoomLinearDistance(currentBase.primary, base.primary);
-      if (distance > 5) {
+      if (distance > 6) {
         return false;
       }
 
@@ -47,7 +48,7 @@ export class NeighborsRunnable implements Runnable {
     });
 
     // Pick at most nearest 3
-    nearbyBases = _.take(nearbyBases, 3);
+    nearbyBases = _.take(nearbyBases, MAX_NEIGHBORS);
 
     // Set bases neighbors
     currentBase.neighbors = nearbyBases.map((base) => base.id);

@@ -79,8 +79,13 @@ padLayout.set(TOP_LEFT, {
   ],
 });
 
+type ControllerRunnableMemory = {
+  nodePosition: RoomPosition;
+  roadPosition: RoomPosition;
+}
 
-export default class ControllerRunnable extends PersistentMemory implements Runnable {
+
+export default class ControllerRunnable extends PersistentMemory<ControllerRunnableMemory> implements Runnable {
   controllerId: string;
 
   nodePosition: RoomPosition;
@@ -134,12 +139,12 @@ export default class ControllerRunnable extends PersistentMemory implements Runn
   }
 
   populateNodePosition(kernel: Kernel, controller: StructureController, trace: Tracer) {
-    const memory = this.getMemory(trace) || {};
-
-    if (memory.nodePosition && memory.roadPosition) {
+    const memory = this.getMemory(trace);
+    if (memory?.nodePosition && memory?.roadPosition) {
       this.nodePosition = new RoomPosition(memory.nodePosition.x, memory.nodePosition.y, memory.nodePosition.roomName);
       this.roadPosition = new RoomPosition(memory.roadPosition.x, memory.roadPosition.y, memory.roadPosition.roomName);
       this.nodeDirection = controller.pos.getDirectionTo(this.roadPosition);
+
       trace.info('populated node position from memory', {
         nodePosition: this.nodePosition,
         roadPosition: this.roadPosition,

@@ -1,12 +1,12 @@
 // Spawn requests
 export const PRIORITY_DISTRIBUTOR = 19; // if zero distributes priority +10
-export const PRIORITY_RESERVER = 18; // many things request reservers/claimers
 export const PRIORITY_MINER_PRIMARY = 17; // primary room priority
+export const PRIORITY_HAULER = 15;
 export const PRIORITY_DEFENDER = 15; // hostile presence in base rooms
 export const PRIORITY_BUFFER_PATROL = 15;
 export const PRIORITY_UPGRADER = 14; // logic reduces priority: n * 2
-export const PRIORITY_MINER_REMOTE = 14; // remote rooms should have lower priority then base ops
-export const PRIORITY_HAULER = 13;
+export const PRIORITY_MINER_REMOTE = 13; // remote rooms should have lower priority then base ops
+export const PRIORITY_RESERVER = 13; // many things request reservers/claimers
 export const PRIORITY_REPAIRER_URGENT = 12;
 export const PRIORITY_HARVESTER = 11;
 export const PRIORITY_BUILDER = 11;

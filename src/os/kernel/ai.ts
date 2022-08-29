@@ -4,6 +4,7 @@ import BasesDebugger from '../../debug/bases';
 import CostMatrixDebugger from '../../debug/costmatrix';
 import {HUDRunnable} from '../../debug/hud';
 import MinCutDebugger from '../../debug/mincut';
+import MusterDebugger from '../../debug/muster';
 import PathDebugger from '../../debug/path';
 import {CostMatrixCache} from '../../lib/costmatrix_cache';
 import {EventBroker} from '../../lib/event_broker';
@@ -146,6 +147,12 @@ export class AI implements Kernel {
     scheduler.registerProcess(new Process(minCutDebuggerId, 'mincut_debugger',
       Priorities.DEBUG, minCutDebugger));
 
+    // Muster debugger
+    const musterDebuggerId = 'muster_debugger';
+    const musterDebugger = new MusterDebugger(musterDebuggerId);
+    scheduler.registerProcess(new Process(musterDebuggerId, 'muster_debugger',
+      Priorities.DEBUG, musterDebugger));
+
     // ======= ========================
 
     trace.end();
@@ -259,5 +266,9 @@ export class AI implements Kernel {
 
   getMinCutDebugger(): MinCutDebugger {
     return this.scheduler.getProcess('mincut_debugger').runnable as MinCutDebugger;
+  }
+
+  getMusterDebugger(): MusterDebugger {
+    return this.scheduler.getProcess('muster_debugger').runnable as MusterDebugger;
   }
 }

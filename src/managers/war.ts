@@ -5,16 +5,18 @@
  */
 
 import {createSpawnRequest, getBaseSpawnTopic, getShardSpawnTopic} from '../base/spawning';
-import {AttackStatus, Phase} from '../constants/attack';
+import {Temperaments} from '../config';
+import {AttackStatus} from '../constants/attack';
 import * as CREEPS from '../constants/creeps';
 import * as MEMORY from '../constants/memory';
 import * as PRIORITIES from '../constants/priorities';
 import * as TOPICS from '../constants/topics';
 import {creepIsFresh} from '../creeps/behavior/commute';
 import {buildAttacker, newMultipliers} from '../creeps/builders/attacker';
-import WarPartyRunnable, {WarParty} from '../creeps/party/attack';
+import WarPartyRunnable from '../creeps/party/war';
 import {MEMORY_HARASS_BASE, ROLE_HARASSER} from '../creeps/roles/harasser';
 import {scoreRoomDamage, scoreStorageHealing} from '../creeps/scoring';
+import {getMusterVector, Vector} from '../lib/muster';
 import {Tracer} from '../lib/tracing';
 import {Base} from '../os/kernel/base';
 import {Kernel, KernelThreadFunc, threadKernel} from '../os/kernel/kernel';
@@ -33,6 +35,25 @@ const RUN_TTL = 10;
 type AttackRequest = {
   status: AttackStatus,
   roomId: string,
+}
+
+export type WarParty = {
+  id: string;
+  baseId: string;
+  target: string;
+  muster: Vector;
+  createdAt: number;
+}
+
+function newWarParty(id: string, baseId: string, target: string, muster: Vector,
+  createdAt: number): WarParty {
+  return {
+    id: id,
+    baseId: baseId,
+    target: target,
+    muster: muster,
+    createdAt: createdAt,
+  };
 }
 
 // interface WarMemory {
@@ -99,7 +120,15 @@ export default class WarManager {
     return sleeping(RUN_TTL);
   }
 
-  consumeEvents(trace: Tracer, kernel: Kernel) {
+  getTargets(): string[] {
+    return this.targets;
+  }
+
+  getWarParties(): WarParty[] {
+    return this.warParties;
+  }
+
+  private consumeEvents(trace: Tracer, kernel: Kernel) {
     // Process events
     let targets = this.targets;
 
@@ -139,12 +168,26 @@ export default class WarManager {
     // address bug with duplicate entries
     targets = _.uniq(targets);
 
+    // filter targets if room entry is stale/missing
+    targets = targets.filter((target) => {
+      const roomEntry = kernel.getScribe().getRoomById(target);
+      if (!roomEntry) {
+        return false;
+      }
+
+      return true;
+    });
+
+    // prioritize targets by strength
+    targets = targets.sort((a, b) => {
+      const aEntry = kernel.getScribe().getRoomById(a);
+      const bEntry = kernel.getScribe().getRoomById(b);
+      return scoreRoomDamage(aEntry) - scoreRoomDamage(bEntry);
+    });
+
+    /*
     let bases = kernel.getPlanner().getBases();
-    // DISABLED so that early game fights can happen - 08/05/2018
-    // bases = _.filter(bases, (base) => Game.rooms[base.primary]?.controller.level >= 5);
-
     trace.info('allowed bases', {bases: bases.map((base) => base.primary)});
-
     // Sort targets so closest to other bases is prioritized
     targets = _.sortBy(targets, (target) => {
       bases = _.sortBy(bases, (base: Base) => {
@@ -157,12 +200,13 @@ export default class WarManager {
 
       return Game.map.getRoomLinearDistance(bases[0].primary, target);
     });
+    */
 
     trace.notice('targets', {targets});
     this.targets = targets;
   }
 
-  updateWarParties(trace: Tracer, kernel: Kernel) {
+  private updateWarParties(trace: Tracer, kernel: Kernel) {
     // Update list of war parties
     this.warParties = this.warParties.filter((party) => {
       return this.scheduler.hasProcess(party.id);
@@ -240,8 +284,15 @@ export default class WarManager {
           targetNumBasesAssigned[target]++;
           baseAssignments[base.id] = target;
 
-          this.attack(kernel, base, baseRoom, roomEntry, trace);
+          // If passive, don't attack targets unless base is flagged aggressive
+          const flagId = `aggressive_${base.id}`;
+          if (kernel.getConfig().temperament === Temperaments.Passive && !Game.flags[flagId]) {
+            trace.info('temperament is passive, dont attack');
+            this.writeMemory(trace);
+            return;
+          }
 
+          this.attack(kernel, base, baseRoom, roomEntry, trace);
           return;
         });
       }
@@ -250,7 +301,7 @@ export default class WarManager {
     this.writeMemory(trace);
   }
 
-  mapUpdate(trace: Tracer, kernel: Kernel): void {
+  private mapUpdate(trace: Tracer, kernel: Kernel): void {
     if (this.warParties) {
       this.warParties.forEach((party) => {
         const base = kernel.getPlanner().getBaseById(party.baseId);
@@ -271,7 +322,7 @@ export default class WarManager {
     });
   }
 
-  attack(kernel: Kernel, base: Base, baseRoom: Room, targetRoomEntry: RoomEntry, trace: Tracer) {
+  private attack(kernel: Kernel, base: Base, baseRoom: Room, targetRoomEntry: RoomEntry, trace: Tracer) {
     const boosts = newMultipliers();
 
     const baseStorage = baseRoom.storage;
@@ -281,7 +332,8 @@ export default class WarManager {
     }
 
     const availableEnergyCapacity = baseRoom.energyCapacityAvailable;
-    const roomDamage = scoreRoomDamage(targetRoomEntry) / 3;
+    // We want at least one creep attacking per quad, so ensure tank works with 3 creeps
+    const roomDamage = scoreRoomDamage(targetRoomEntry) / 4;
     const [parts, ok] = buildAttacker(roomDamage, availableEnergyCapacity, boosts, trace);
     if (ok) {
       trace.warn('building attacker', {parts});
@@ -338,7 +390,7 @@ export default class WarManager {
     }
   }
 
-  sendReserver(kernel: Kernel, target: string, trace: Tracer) {
+  private sendReserver(kernel: Kernel, target: string, trace: Tracer) {
     const numReservers = _.filter(Game.creeps, (creep) => {
       const role = creep.memory[MEMORY.MEMORY_ROLE];
       return (role === CREEPS.WORKER_RESERVER) &&
@@ -361,7 +413,7 @@ export default class WarManager {
     }
   }
 
-  sendHarassers(kernel: Kernel, base: Base, targetRoom: RoomEntry, trace: Tracer) {
+  private sendHarassers(kernel: Kernel, base: Base, targetRoom: RoomEntry, trace: Tracer) {
     // get number of harassers
     const numHarassers = _.filter(Game.creeps, (creep) => {
       return creep.memory[MEMORY.MEMORY_ROLE] === ROLE_HARASSER &&
@@ -401,7 +453,7 @@ export default class WarManager {
     kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
   }
 
-  sendWarParty(kernel: Kernel, base: Base, targetRoom: RoomEntry, parts: BodyPartConstant[],
+  private sendWarParty(kernel: Kernel, base: Base, targetRoom: RoomEntry, _parts: BodyPartConstant[],
     trace: Tracer) {
     const numBaseWarParties = this.warParties.filter((party) => {
       return party.baseId === base.id;
@@ -417,27 +469,21 @@ export default class WarManager {
       max: MAX_WAR_PARTIES_PER_BASE,
     });
 
-    const flagId = `rally_${base.primary}`;
-    const flag = Game.flags[flagId];
-    if (!flag) {
-      trace.warn(`not creating war party, no rally flag(${flagId})`);
-      return null;
-    }
-
     const partyId = `war_party_${targetRoom.id}_${base.primary}_${Game.time}`;
-    trace.info('creating war party', {target: targetRoom.id, partyId, flagId});
+    const muster = getMusterVector(base);
+    trace.info('creating war party', {target: targetRoom.id, partyId});
 
     const warPartyRunnable = this.createAndScheduleWarParty(base, partyId, targetRoom.id,
-      Phase.PHASE_MARSHAL, flag.pos, flag.name, CREEPS.WORKER_ATTACKER, trace);
+      muster, Game.time, trace);
 
     if (warPartyRunnable) {
-      this.warParties.push(warPartyRunnable.toWarParty());
+      this.warParties.push(newWarParty(partyId, base.id, targetRoom.id, muster, Game.time));
     }
   }
 
-  createAndScheduleWarParty(base: Base, id: string, target: string, phase: Phase,
-    position: RoomPosition, flagId: string, role: string, _trace: Tracer): WarPartyRunnable {
-    const party = new WarPartyRunnable(id, base.id, flagId, position, target, role, phase);
+  private createAndScheduleWarParty(base: Base, id: string, target: string, muster: Vector,
+    createdAt: number, _trace: Tracer): WarPartyRunnable {
+    const party = new WarPartyRunnable(id, base.id, target, muster, createdAt);
     const process = new Process(id, 'war_party', Priorities.OFFENSE, party);
     process.setSkippable(false);
     this.scheduler.registerProcess(process);
@@ -469,24 +515,29 @@ export default class WarManager {
     }
 
     this.targets = memory.war.targets || [];
-    this.warParties = memory.war.parties.map((party: WarParty) => {
+    this.warParties = memory.war.parties.map((party: WarParty): WarParty => {
       trace.info('restoring party', {party});
 
-      if (!party.id || !party.target || !party.phase || !party.position || !party.baseId ||
-        !party.flagId || !party.role) {
+      // Validate the war party details
+      if (!party.id || !party.target || !party.baseId || !party.muster || !party.createdAt) {
         trace.error('invalid party', {party});
         return null;
       }
 
-      const position = new RoomPosition(party.position.x, party.position.y, party.position.roomName);
       const base = kernel.getPlanner().getBaseById(party.baseId);
       if (!base) {
         trace.warn('not create war party, cannot find base config', {baseId: party.baseId});
         return null;
       }
 
-      return this.createAndScheduleWarParty(base, party.id, party.target, party.phase,
-        position, party.flagId, party.role, trace);
+      const runnable = this.createAndScheduleWarParty(base, party.id, party.target, party.muster,
+        party.createdAt, trace);
+      if (!runnable) {
+        trace.error('failed to create war party', {party});
+        return null;
+      }
+
+      return newWarParty(party.id, party.baseId, party.target, party.muster, party.createdAt);
     }).filter((party) => {
       return party;
     });

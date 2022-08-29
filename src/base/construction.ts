@@ -1,4 +1,5 @@
 import {ANY, buildingCodes, EMPTY, getConstructionPosition} from '../lib/layouts';
+import {MusterPoint} from '../lib/muster';
 import {Tracer} from '../lib/tracing';
 import {Base, getBaseLevel, getBasePrimaryRoom, setParking} from '../os/kernel/base';
 import {Kernel} from '../os/kernel/kernel';
@@ -10,6 +11,7 @@ const MAX_STRUCTURE_SITES = 5;
 export type BaseLayout = {
   origin: {x: number, y: number};
   parking: {x: number, y: number};
+  muster: MusterPoint[];
   buildings: string[][];
 }
 
@@ -17,11 +19,18 @@ export const baseLayouts: BaseLayout[] = [
   { // RCL0
     origin: {x: 0, y: 0},
     parking: {x: 0, y: 0},
+    muster: [],
     buildings: [],
   },
   { // RCL1
     origin: {x: 0, y: 4},
     parking: {x: 0, y: 0},
+    muster: [
+      {x: -3, y: -1, direction: TOP},
+      {x: -3, y: 1, direction: BOTTOM},
+      {x: 3, y: -1, direction: TOP},
+      {x: 3, y: 1, direction: BOTTOM},
+    ],
     buildings: [
       ['P'],
       ['.'],
@@ -33,6 +42,12 @@ export const baseLayouts: BaseLayout[] = [
   { // RCL2
     origin: {x: 2, y: 5},
     parking: {x: 3, y: 3},
+    muster: [
+      {x: -4, y: -1, direction: TOP},
+      {x: -4, y: 1, direction: BOTTOM},
+      {x: 4, y: -1, direction: TOP},
+      {x: 4, y: 1, direction: BOTTOM},
+    ],
     buildings: [
       ['.', 'E', 'R', 'E', '.'],
       ['.', 'R', 'P', 'R', '.'],
@@ -46,6 +61,16 @@ export const baseLayouts: BaseLayout[] = [
   { // RCL3
     origin: {x: 2, y: 5},
     parking: {x: 3, y: 3},
+    muster: [
+      {x: -5, y: -2, direction: TOP},
+      {x: -5, y: 2, direction: BOTTOM},
+      {x: 5, y: -2, direction: TOP},
+      {x: 5, y: 2, direction: BOTTOM},
+      {x: -2, y: -5, direction: LEFT},
+      {x: 2, y: -5, direction: RIGHT},
+      {x: -2, y: 5, direction: LEFT},
+      {x: 2, y: 5, direction: RIGHT},
+    ],
     buildings: [
       ['.', 'E', 'R', 'E', '.'],
       ['E', 'R', 'P', 'R', 'E'],
@@ -59,6 +84,16 @@ export const baseLayouts: BaseLayout[] = [
   { // RCL4
     origin: {x: 3, y: 6},
     parking: {x: 3, y: 3},
+    muster: [
+      {x: -8, y: -2, direction: TOP},
+      {x: -8, y: 2, direction: BOTTOM},
+      {x: 8, y: -2, direction: TOP},
+      {x: 8, y: 2, direction: BOTTOM},
+      {x: -2, y: -8, direction: LEFT},
+      {x: 2, y: -8, direction: RIGHT},
+      {x: -2, y: 8, direction: LEFT},
+      {x: 2, y: 8, direction: RIGHT},
+    ],
     buildings: [
       ['.', '.', 'R', 'E', 'R', '.', '.', '.'],
       ['.', 'R', 'E', 'R', 'E', 'R', 'R', '.'],
@@ -78,6 +113,16 @@ export const baseLayouts: BaseLayout[] = [
   { // RCL5
     origin: {x: 6, y: 7},
     parking: {x: 3, y: 3},
+    muster: [
+      {x: -8, y: -2, direction: TOP},
+      {x: -8, y: 2, direction: BOTTOM},
+      {x: 8, y: -2, direction: TOP},
+      {x: 8, y: 2, direction: BOTTOM},
+      {x: -2, y: -8, direction: LEFT},
+      {x: 2, y: -8, direction: RIGHT},
+      {x: -2, y: 8, direction: LEFT},
+      {x: 2, y: 8, direction: RIGHT},
+    ],
     buildings: [
       ['.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.'],
       ['.', '.', '.', 'E', 'E', 'R', 'E', 'R', 'E', 'E', '.', '.', '.'],
@@ -99,6 +144,16 @@ export const baseLayouts: BaseLayout[] = [
   { // RCL6
     origin: {x: 6, y: 7},
     parking: {x: 3, y: 3},
+    muster: [
+      {x: -8, y: -2, direction: TOP},
+      {x: -8, y: 2, direction: BOTTOM},
+      {x: 8, y: -2, direction: TOP},
+      {x: 8, y: 2, direction: BOTTOM},
+      {x: -2, y: -8, direction: LEFT},
+      {x: 2, y: -8, direction: RIGHT},
+      {x: -2, y: 8, direction: LEFT},
+      {x: 2, y: 8, direction: RIGHT},
+    ],
     buildings: [
       ['.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.'],
       ['.', '.', '.', 'E', 'E', 'R', 'E', 'R', 'E', 'E', '.', '.', '.'],
@@ -120,6 +175,16 @@ export const baseLayouts: BaseLayout[] = [
   { // RCL7
     origin: {x: 6, y: 7},
     parking: {x: 3, y: 3},
+    muster: [
+      {x: -8, y: -2, direction: TOP},
+      {x: -8, y: 2, direction: BOTTOM},
+      {x: 8, y: -2, direction: TOP},
+      {x: 8, y: 2, direction: BOTTOM},
+      {x: -2, y: -8, direction: LEFT},
+      {x: 2, y: -8, direction: RIGHT},
+      {x: -2, y: 8, direction: LEFT},
+      {x: 2, y: 8, direction: RIGHT},
+    ],
     buildings: [
       ['.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.'],
       ['.', '.', '.', 'E', 'E', 'R', 'E', 'R', 'E', 'E', '.', '.', '.'],
@@ -141,6 +206,16 @@ export const baseLayouts: BaseLayout[] = [
   { // RCL8
     origin: {x: 6, y: 7},
     parking: {x: 3, y: 3},
+    muster: [
+      {x: -8, y: -2, direction: TOP},
+      {x: -8, y: 2, direction: BOTTOM},
+      {x: 8, y: -2, direction: TOP},
+      {x: 8, y: 2, direction: BOTTOM},
+      {x: -2, y: -8, direction: LEFT},
+      {x: 2, y: -8, direction: RIGHT},
+      {x: -2, y: 8, direction: LEFT},
+      {x: 2, y: 8, direction: RIGHT},
+    ],
     buildings: [
       ['.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.'],
       ['.', '.', '.', 'E', 'E', 'R', 'O', 'R', 'E', 'E', '.', '.', '.'],

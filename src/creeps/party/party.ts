@@ -9,14 +9,16 @@
 import * as _ from 'lodash';
 import {createSpawnRequest, getBaseSpawnTopic} from '../../base/spawning';
 import * as MEMORY from '../../constants/memory';
+import {Vector} from '../../lib/muster';
+import {DIRECTION_OFFSET} from '../../lib/position';
 import {Tracer} from '../../lib/tracing';
 import {Base, BaseThreadFunc, threadBase} from '../../os/kernel/base';
 import {Kernel} from '../../os/kernel/kernel';
 import {RunnableResult, running, terminate} from '../../os/process';
-import {WarPartyTarget} from './attack';
+import {WarPartyTarget} from './war';
 
 const REQUEST_PARTY_MEMBER_TTL = 25;
-const MAX_PARTY_SIZE = 4;
+export const MAX_PARTY_SIZE = 4;
 const MAX_PREVIOUS_POSITIONS = 6;
 
 export const FORMATION_QUAD = 'quad';
@@ -74,21 +76,11 @@ const DIRECTION_2BY2_FORMATION = {
   ],
 };
 
-const DIRECTION_OFFSET = {
-  [TOP]: {x: 0, y: -1},
-  [TOP_RIGHT]: {x: 1, y: -1},
-  [RIGHT]: {x: 1, y: 0},
-  [BOTTOM_RIGHT]: {x: 1, y: 1},
-  [BOTTOM]: {x: 0, y: 1},
-  [BOTTOM_LEFT]: {x: -1, y: 1},
-  [LEFT]: {x: -1, y: 0},
-  [TOP_LEFT]: {x: -1, y: -1},
-};
-
 export default class PartyRunnable {
   id: string;
   baseId: string;
   formation: FORMATION_TYPE;
+  muster: Vector;
   position: RoomPosition;
   role: string;
   parts: BodyPartConstant[]
@@ -118,7 +110,8 @@ export default class PartyRunnable {
     this.previousPositions = [];
 
     this.setPosition(position);
-    this.setFormation(FORMATION_QUAD);
+    this.muster = null;
+    this.setFormation(FORMATION_SINGLE_FILE);
     this.setDirection(TOP);
 
     this.previousPositions = [this.position];
@@ -251,7 +244,7 @@ export default class PartyRunnable {
       }
 
       if (this.formation === FORMATION_SINGLE_FILE) {
-        visual.rect(position.x - 0.5, position.y - 1.5, 2, 2);
+        visual.rect(position.x - 0.5, position.y - 1.5, 1, 4);
       }
     }
 

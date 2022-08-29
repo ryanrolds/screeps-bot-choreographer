@@ -140,7 +140,7 @@ export default class RoomRunnable implements Runnable {
       }
     }
 
-    trace.notice('sending reserve request to base');
+    trace.notice('sending reserve request to base', {room: roomName, base: base.id});
 
     const priority = PRIORITIES.PRIORITY_RESERVER;
     const ttl = REQUEST_RESERVER_TTL + Game.time;

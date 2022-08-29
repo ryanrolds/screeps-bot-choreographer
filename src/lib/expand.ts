@@ -41,7 +41,6 @@ export const pickExpansion = (kernel: Kernel, trace: Tracer): ExpandResults => {
 
   // First pass through bases, find all the rooms that are assigned to a base already
   bases.forEach((base) => {
-    claimed.add(base.primary);
     // Build map of claimed rooms
     base.rooms.forEach((roomName) => {
       claimed.add(roomName);

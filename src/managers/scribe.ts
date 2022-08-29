@@ -49,6 +49,9 @@ export type RoomEntry = {
     pos: RoomPosition;
     downgrade: number;
   };
+  storage: {
+    energy: number;
+  };
   specialRoom: boolean;
   status: string;
   hasSpawns: boolean;
@@ -487,6 +490,7 @@ export class Scribe implements Runnable {
       specialRoom: false,
       status: null,
       controller: null,
+      storage: null,
       hasSpawns: false,
       spawnLocation: null,
       numSources: 0,
@@ -545,6 +549,12 @@ export class Scribe implements Runnable {
       });
       room.hasSpawns = spawns.length > 0;
       room.spawnLocation = spawns[0]?.pos;
+    }
+
+    if (roomObject.storage) {
+      room.storage = {
+        energy: roomObject.storage.store.getUsedCapacity(RESOURCE_ENERGY),
+      };
     }
 
     controllerEnd();

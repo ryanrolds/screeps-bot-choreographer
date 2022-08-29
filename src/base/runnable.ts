@@ -2,7 +2,6 @@ import * as CREEPS from '../constants/creeps';
 import * as MEMORY from '../constants/memory';
 import * as PRIORITIES from '../constants/priorities';
 import * as TOPICS from '../constants/topics';
-import {scoreAttacking} from '../creeps/roles/harasser';
 import {
   getDashboardStream, getLinesStream, HudEventSet, HudIndicator, HudIndicatorStatus,
   HudLine
@@ -61,12 +60,9 @@ const ABANDON_BASE_TTL = 50;
 const REQUEST_EXPLORER_TTL = 100;
 const UPDATE_BOOSTER_TTL = 5;
 
-const ABANDON_BASE_AFTER = 5000;
-const MIN_HOSTILE_ATTACK_SCORE_TO_ABANDON = 3000;
+const ABANDON_BASE_AFTER = 10000;
 const HOSTILE_DAMAGE_THRESHOLD = 0;
 const HOSTILE_HEALING_THRESHOLD = 600;
-
-const MAX_CLAIM_RANGE = 4;
 
 enum DEFENSE_POSTURE {
   OPEN = 'open',
@@ -85,7 +81,6 @@ export type BaseStatus = {
   [MEMORY.BASE_STATUS_NAME]: string;
   [MEMORY.BASE_STATUS_LEVEL]: number;
   [MEMORY.BASE_STATUS_LEVEL_COMPLETED]: number;
-  [MEMORY.BASE_STATUS_TERMINAL]: boolean,
   [MEMORY.BASE_STATUS_ENERGY]: number,
   [MEMORY.BASE_STATUS_ALERT_LEVEL]: AlertLevel,
 }
@@ -98,6 +93,9 @@ export default class BaseRunnable {
   // Metrics
   missingProcesses: number;
 
+  threadProduceHudStatus: BaseThreadFunc;
+  threadAbandonBase: BaseThreadFunc;
+
   threadUpdateProcessSpawning: BaseRoomThreadFunc;
 
   threadRequestRepairer: BaseRoomThreadFunc;
@@ -109,10 +107,9 @@ export default class BaseRunnable {
   threadCheckSafeMode: BaseRoomThreadFunc;
 
   threadRequestEnergy: BaseRoomThreadFunc;
-  threadProduceStatus: BaseRoomThreadFunc;
-  threadAbandonBase: BaseRoomThreadFunc;
-  threadUpdateAlertLevel: BaseThreadFunc;
 
+
+  threadUpdateAlertLevel: BaseThreadFunc;
 
   constructor(id: string, scheduler: Scheduler) {
     this.id = id;
@@ -123,31 +120,26 @@ export default class BaseRunnable {
     this.missingProcesses = 0;
 
     // Threads
-    this.threadUpdateProcessSpawning = threadBaseRoom('spawn_room_processes_thread', UPDATE_PROCESSES_TTL)(this.handleProcessSpawning.bind(this));
+    this.threadProduceHudStatus = threadBase('produce_status_thread', PRODUCE_STATUS_TTL)(this.produceHudStatus.bind(this));
+    this.threadAbandonBase = threadBase('abandon_base_check', ABANDON_BASE_TTL)(this.abandonBase.bind(this));
 
+    this.threadUpdateProcessSpawning = threadBaseRoom('spawn_room_processes_thread', UPDATE_PROCESSES_TTL)(this.handleProcessSpawning.bind(this));
     this.threadRequestRepairer = threadBaseRoom('request_repairs_thread', REQUEST_REPAIRER_TTL)(this.requestRepairer.bind(this));
     this.threadRequestBuilder = threadBaseRoom('request_builder_thead', REQUEST_BUILDER_TTL)(this.requestBuilder.bind(this));
     this.threadRequestUpgrader = threadBaseRoom('request_upgrader_thread', REQUEST_UPGRADER_TTL)(this.requestUpgrader.bind(this));
     this.threadRequestExplorer = threadBaseRoom('request_explorers_thread', REQUEST_EXPLORER_TTL)(this.requestExplorer.bind(this));
-
     this.threadCheckSafeMode = threadBaseRoom('check_safe_mode_thread', CHECK_SAFE_MODE_TTL)(this.checkSafeMode.bind(this));
-
     this.threadRequestEnergy = threadBaseRoom('request_energy_thread', ENERGY_REQUEST_TTL)(this.requestEnergy.bind(this));
-    this.threadProduceStatus = threadBaseRoom('produce_status_thread', PRODUCE_STATUS_TTL)(this.produceStatus.bind(this));
-    this.threadAbandonBase = threadBaseRoom('abandon_base_check', ABANDON_BASE_TTL)(this.abandonBase.bind(this));
-    this.threadUpdateAlertLevel = threadBaseRoom('update_alert_level_thread', UPDATE_PROCESSES_TTL)(this.updateAlertLevel.bind(this));
 
+    this.threadUpdateAlertLevel = threadBaseRoom('update_alert_level_thread', UPDATE_PROCESSES_TTL)(this.updateAlertLevel.bind(this));
     // Pump events from booster runnable and set booster state on the Base
     this.threadUpdateBoosters = threadBase('update_booster_thread', UPDATE_BOOSTER_TTL)(this.updateBoosters.bind(this));
   }
 
   run(kernel: Kernel, trace: Tracer): RunnableResult {
-    trace = trace.begin('room_run');
+    trace = trace.begin('base_run');
 
-    trace.info('room run', {
-      id: this.id,
-    });
-
+    // Check if base process should terminate
     const base = kernel.getPlanner().getBaseById(this.id);
     if (!base) {
       trace.error('no base config, terminating', {base: this.id});
@@ -155,46 +147,23 @@ export default class BaseRunnable {
       return terminate();
     }
 
-    // if room not visible, request room be claimed
+    // Inform other processes of room status
+    this.threadProduceHudStatus(trace, kernel, base);
+
+    // Base life cycle
+    this.threadAbandonBase(trace, kernel, base);
+
+    // if room not visible or controller is unclaimed
     const room = getBasePrimaryRoom(base);
     if (!room || room.controller?.level === 0) {
-      trace.info('room not visible, requesting claim', {room: room?.name});
-
-      // Find at at least one room within max claim range, otherwise remove base and terminate
-      const nearbyRoom = kernel.getPlanner().getBases().find((otherBase) => {
-        // Dont use self
-        if (otherBase.id === base.id) {
-          return false;
-        }
-
-        // Don't use bases with no visibility or low level
-        const otherBaseRoom = getBasePrimaryRoom(otherBase);
-        if (!otherBaseRoom || otherBaseRoom.controller?.level === 0) {
-          return false;
-        }
-
-        const distance = Game.map.getRoomLinearDistance(base.primary, otherBase.primary);
-        return distance <= MAX_CLAIM_RANGE;
-      });
-
-      if (!nearbyRoom) {
-        trace.error('no nearby room, terminating', {base: this.id, nearbyRoom});
-        trace.end();
-        kernel.getPlanner().removeBase(base.id, trace);
-        return terminate();
-      }
-
-      // Within max claim range, request claimer to claim room
-      trace.notice('cannot see room or level 0', {base: this.id, nearbyRoom});
+      trace.info('room not visible or level 0', {room: room?.name});
       this.requestClaimer(kernel, trace);
+
       trace.end();
       return sleeping(NO_VISION_TTL);
     }
 
     this.threadUpdateProcessSpawning(trace, kernel, base, room);
-
-    // Base life cycle
-    this.threadAbandonBase(trace, kernel, base, room);
 
     // Defense
     // this.threadUpdateRampartAccess(trace, base, room);
@@ -212,9 +181,6 @@ export default class BaseRunnable {
       this.threadRequestExplorer(trace, kernel, base, room);
     }
 
-    // Inform other processes of room status
-    this.threadProduceStatus(trace, kernel, base, room);
-
     // Alert level
     this.threadUpdateAlertLevel(trace, kernel, base);
 
@@ -226,35 +192,27 @@ export default class BaseRunnable {
     return sleeping(MIN_TTL);
   }
 
-  abandonBase(trace: Tracer, kernel: Kernel, base: Base, room: Room): void {
+  abandonBase(trace: Tracer, kernel: Kernel, base: Base): void {
     trace = trace.begin('abandon_base');
 
-    trace.info('abandoning base check', {
+    const room = getBasePrimaryRoom(base);
+    if (!room) {
+      if (base.addedAt < Game.time - ABANDON_BASE_AFTER) {
+        trace.info('cannot see room significant time, abandoning base', {base: base.id});
+        kernel.getPlanner().removeBase(base.id, trace);
+      }
+
+      trace.end();
+      return;
+    }
+
+    trace.notice('abandoning base check', {
       base: this.id,
-    });
-
-    if (room.controller?.level === 0 && base.addedAt < Game.time - ABANDON_BASE_AFTER) {
-      trace.info('room level 0, terminating', {base: this.id});
-      kernel.getPlanner().removeBase(base.id, trace);
-      trace.end();
-      return;
-    }
-
-    // If room has large hostile presence, no spawns, and no towers, abandon base
-    // TODO attempt to resist, by sending groups of defenders from nearby bases
-
-    const hostileCreeps = room.find(FIND_HOSTILE_CREEPS);
-    const hostileAttackScore = hostileCreeps.reduce((acc, hostile) => {
-      return acc + scoreAttacking(hostile);
-    }, 0);
-
-    if (hostileAttackScore < MIN_HOSTILE_ATTACK_SCORE_TO_ABANDON) {
-      trace.end();
-      return;
-    }
-
-    trace.notice('hostile creeps detected', {
-      hostileScore: hostileAttackScore,
+      added: base.addedAt,
+      abandonTtl: Game.time - base.addedAt,
+      roomLevel: room.controller?.level,
+      roomOwner: room.controller?.owner,
+      reservation: room.controller?.reservation,
     });
 
     const spawns = room.find(FIND_MY_SPAWNS);
@@ -278,12 +236,12 @@ export default class BaseRunnable {
       return;
     }
 
-    trace.warn('abandoning base', {
-      id: this.id,
-      hostileAttackScore,
-    });
-
-    // kernel.getPlanner().removeBase(base.id, trace);
+    if (base.addedAt < Game.time - ABANDON_BASE_AFTER) {
+      trace.warn('base lacks spawners, towers, and is low level, abandon', {base: this.id});
+      kernel.getPlanner().removeBase(base.id, trace);
+      trace.end();
+      return;
+    }
 
     trace.end();
   }
@@ -757,6 +715,8 @@ export default class BaseRunnable {
     const friends = kernel.getFriends();
     hostiles = hostiles.filter((creep) => friends.indexOf(creep.owner.username) === -1);
 
+    trace.info('hostiles', {hostiles: hostiles.length});
+
     if (hostiles) {
       // BUG: Proximity to a link has triggered safe mode
       // find may not work as expected
@@ -765,6 +725,8 @@ export default class BaseRunnable {
           return _.find(importantStructures, structure.structureType);
         },
       });
+
+      trace.info('infrastructure', {infrastructure: infrastructure.length});
 
       // Iterate through critical infrastructure and check if any are under attack
       for (const structure of infrastructure) {
@@ -833,14 +795,13 @@ export default class BaseRunnable {
     }
   }
 
-  produceStatus(trace: Tracer, kernel: Kernel, base: Base, room: Room) {
+  produceHudStatus(trace: Tracer, kernel: Kernel, base: Base) {
     const resources = getStoredResources(base);
 
     const roomStatus: BaseStatus = {
-      [MEMORY.BASE_STATUS_NAME]: room.name,
+      [MEMORY.BASE_STATUS_NAME]: base.primary,
       [MEMORY.BASE_STATUS_LEVEL]: getBaseLevel(base),
       [MEMORY.BASE_STATUS_LEVEL_COMPLETED]: getBaseLevelCompleted(base),
-      [MEMORY.BASE_STATUS_TERMINAL]: !!room.terminal,
       [MEMORY.BASE_STATUS_ENERGY]: resources.get(RESOURCE_ENERGY) || 0,
       [MEMORY.BASE_STATUS_ALERT_LEVEL]: base.alertLevel,
     };
@@ -849,19 +810,19 @@ export default class BaseRunnable {
       details: roomStatus,
     };
 
-    trace.info('producing room status', {status});
+    trace.info('producing base status', {status});
 
     kernel.getTopics().addRequest(TOPICS.ROOM_STATUES, 1, status, PRODUCE_STATUS_TTL + Game.time);
 
     const line: HudLine = {
       key: `base_${base.id}`,
-      room: room.name,
+      room: base.primary,
       order: 0,
       text: `Base: ${base.id} - status: ${base.alertLevel}, level: ${getBaseLevel(base)}, ` +
-        `Rooms: ${base.rooms.join(',')}  `,
+        `Rooms: ${base.rooms.join(',')}, Neighbors: ${base.neighbors.join(',')}`,
       time: Game.time,
     };
-    const event = new Event(room.name, Game.time, HudEventSet, line);
+    const event = new Event(base.primary, Game.time, HudEventSet, line);
     kernel.getBroker().getStream(getLinesStream()).publish(event);
 
     const reserveEnergy = getStoredResourceAmount(base, RESOURCE_ENERGY);
@@ -870,12 +831,12 @@ export default class BaseRunnable {
 
     const upgraderLine: HudLine = {
       key: `base_${base.id}_upgrader`,
-      room: room.name,
+      room: base.primary,
       order: 1,
       text: `Energy: ${reserveEnergy}, Buffer: ${reserveBuffer}, Parts: ${parts}`,
       time: Game.time,
     };
-    const upgraderEvent = new Event(room.name, Game.time, HudEventSet, upgraderLine);
+    const upgraderEvent = new Event(base.primary, Game.time, HudEventSet, upgraderLine);
     kernel.getBroker().getStream(getLinesStream()).publish(upgraderEvent);
 
     const indicatorStream = kernel.getBroker().getStream(getDashboardStream());
@@ -888,6 +849,7 @@ export default class BaseRunnable {
       } else if (base.alertLevel === AlertLevel.YELLOW) {
         alertLevelStatus = HudIndicatorStatus.Yellow;
       }
+
       const alertLevelIndicator: HudIndicator = {
         room: roomName, key: 'alert', display: 'A',
         status: alertLevelStatus,
@@ -904,7 +866,7 @@ export default class BaseRunnable {
     }
 
     const keyProcessesIndicator: HudIndicator = {
-      room: room.name, key: 'processes', display: 'P',
+      room: base.primary, key: 'processes', display: 'P',
       status: processStatus,
     };
     indicatorStream.publish(new Event(base.id, Game.time, HudEventSet, keyProcessesIndicator));

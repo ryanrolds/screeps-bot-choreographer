@@ -103,22 +103,21 @@ DEFINITIONS.set(WORKER_HARVESTER, {
 });
 DEFINITIONS.set(ROLE_WORKER, {
   base: [MOVE, WORK, CARRY],
-  parts: [MOVE, CARRY, CARRY, MOVE, CARRY, WORK],
+  parts: [MOVE, CARRY, WORK, MOVE, CARRY, CARRY],
   boosts: [], // ['harvest']
   energyLimit: 0,
   energyMinimum: 300,
-  softEnergyMinimum: 550,
   ignoreSpawnEnergyLimit: false,
   processPriority: Priorities.RESOURCES,
   skippable: true,
 });
 DEFINITIONS.set(WORKER_MINER, {
-  base: [MOVE, CARRY, WORK, WORK],
-  parts: [MOVE, WORK, WORK, WORK],
+  base: [MOVE, WORK, WORK],
+  parts: [MOVE, CARRY, WORK, MOVE, WORK, WORK],
   boosts: [], // ['harvest']
   energyLimit: 1750,
-  energyMinimum: 300,
-  softEnergyMinimum: 850,
+  energyMinimum: 250,
+  softEnergyMinimum: 300,
   ignoreSpawnEnergyLimit: true,
   processPriority: Priorities.RESOURCES,
   skippable: true,
@@ -129,7 +128,7 @@ DEFINITIONS.set(WORKER_HAULER, {
   boosts: [], // ['capacity']
   energyLimit: 0,
   energyMinimum: 200,
-  softEnergyMinimum: 1000,
+  softEnergyMinimum: 300,
   ignoreSpawnEnergyLimit: true,
   processPriority: Priorities.LOGISTICS,
   skippable: true,

@@ -25,11 +25,13 @@ export const findRemotes = (kernel: Kernel, base: Base, trace: Tracer): [string[
   const dismissed: Map<string, string> = new Map();
   const seen: Set<string> = new Set();
 
-  const start = base.primary;
-  const startRoomStatus = Game.map.getRoomStatus(base.primary).status;
-  let nextPass = [start];
+  // Add the primary room to the list of seen rooms
+  seen.add(base.primary);
 
-  trace.info('staring remote selection pass', {nextPass, maxPasses: PASSES, startRoomStatus});
+  const startRoomStatus = Game.map.getRoomStatus(base.primary).status;
+  let nextPass = [base.primary];
+
+  trace.info('starting remote selection pass', {nextPass, maxPasses: PASSES, startRoomStatus});
 
   for (let i = 0; i <= PASSES; i++) {
     const found = [];
@@ -139,6 +141,23 @@ export function checkCandidate(kernel: Kernel, base: Base, room: string,
     return [false, 'no entry in scribe'];
   }
 
+  // filter out rooms that do not have a source
+  if (roomEntry.numSources === 0) {
+    return [true, 'no sources'];
+  }
+
+  // Filter our rooms without a controller
+  if (!roomEntry.controller?.pos) {
+    return [true, 'no controller'];
+  }
+
+  // Filter out rooms that are claimed by players
+  if (roomEntry.controller?.owner &&
+    roomEntry.controller?.owner !== kernel.getPlanner().getUsername() &&
+    roomEntry.controller.owner !== 'Invader') {
+    return [false, 'is owned'];
+  }
+
   // If enemies present that we cannot beat, do not consider this room
   const damage = _.max([roomEntry.hostilesDmg, roomEntry.keepersDmg]);
   if (damage > 0) {
@@ -167,20 +186,6 @@ export function checkCandidate(kernel: Kernel, base: Base, room: string,
     return [false, 'hostiles present'];
   }
 
-  // filter out rooms that do not have a source
-  if (roomEntry.numSources === 0) {
-    return [true, 'no sources'];
-  }
-
-  // Filter our rooms without a controller
-  if (!roomEntry.controller?.pos) {
-    return [true, 'no controller'];
-  }
-
-  // Filter out rooms that are claimed
-  if (roomEntry.controller?.owner && roomEntry.controller?.owner !== kernel.getPlanner().getUsername()) {
-    return [false, 'is owned'];
-  }
 
   return [true, '']
 }

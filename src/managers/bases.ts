@@ -1,6 +1,7 @@
 import BaseRunnable from '../base/runnable';
 import {BASE_SECTOR_RADIUS, getNearbyRooms} from '../base/scouting';
 import {ShardConfig} from '../config';
+import {MEMORY_ROLE} from '../constants/memory';
 import {pickExpansion} from '../lib/expand';
 import {Metrics} from '../lib/metrics';
 import {Tracer} from '../lib/tracing';
@@ -13,7 +14,7 @@ import {YELLOW_JOURNAL_AGE} from './scribe';
 const RUN_TTL = 10;
 const BASE_PROCESSES_TTL = 50;
 const EXPAND_TTL = 500;
-const MAX_LOW_LEVEL_BASES = 3;
+const MAX_SPAWNLESS_BASES = 1;
 
 export class BaseManager {
   private config: ShardConfig;
@@ -225,13 +226,17 @@ export class BaseManager {
       return;
     }
 
-    const lowLevelBases = this.getBases().filter((base) => {
+    const spawnlessBases = this.getBases().filter((base) => {
       const roomEntry = kernel.getScribe().getRoomById(base.primary);
-      return roomEntry.controller?.level <= 5;
+      if (!roomEntry) {
+        return false;
+      }
+
+      return !roomEntry.hasSpawns
     });
 
-    if (lowLevelBases.length > MAX_LOW_LEVEL_BASES) {
-      trace.notice('too many low level bases', {lowLevelBases: lowLevelBases.length});
+    if (spawnlessBases.length >= MAX_SPAWNLESS_BASES) {
+      trace.notice('too many spawnless bases', {lowLevelBases: spawnlessBases.length});
       return;
     }
 
@@ -295,6 +300,15 @@ export class BaseManager {
       metrics.gauge("base_energy_available", energyAvailable, {base: base.id});
       const storedEnergy = primaryRoom.storage?.store.getUsedCapacity(RESOURCE_ENERGY) || 0;
       metrics.gauge("base_energy_stored", storedEnergy, {base: base.id});
+
+      // Base creeps by role
+      const baseCreeps = kernel.getCreepsManager().getCreepsByBase(base.id);
+      const roleCounts = _.countBy(baseCreeps, (creep) => {
+        return creep.memory[MEMORY_ROLE];
+      });
+      _.each(roleCounts, (count, role) => {
+        metrics.gauge(`base_creep_role_total`, count, {base: base.id, role});
+      });
 
       metrics.gauge("base_rooms_total", base.rooms.length, {base: base.id});
 

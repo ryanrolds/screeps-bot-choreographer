@@ -237,12 +237,6 @@ export class CreepManager implements Runnable {
 
   reportMetrics(metrics: Metrics) {
     // Report creep counts by role
-    const creepsByRole = _.countBy(Game.creeps, (c) => c.memory[MEMORY_ROLE])
-    _.forEach(creepsByRole, (value, key) => {
-      metrics.gauge(`creeps_role_total`, value, {role: key});
-    });
-
-    // Report creep counts by role
     const creepsByBase = _.countBy(Game.creeps, (c) => c.memory[MEMORY_BASE])
     _.forEach(creepsByBase, (value, key) => {
       metrics.gauge(`creeps_base_total`, value, {base: key});

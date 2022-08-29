@@ -2,6 +2,11 @@ export interface ShardMap {
   [id: string]: ShardConfig;
 }
 
+export enum Temperaments {
+  Passive = 'passive',
+  Aggressive = 'aggressive',
+}
+
 export interface ShardConfig {
   buffer: number;
   friends: string[];
@@ -13,8 +18,8 @@ export interface ShardConfig {
   autoExpand: boolean;
   explorers: boolean;
   autoAttack: boolean;
+  temperament: Temperaments;
 }
-
 
 const friends = [];
 const neutral = [];
@@ -32,6 +37,7 @@ export const shards: ShardMap = {
     maxColonies: 10,
     autoExpand: true,
     autoAttack: true,
+    temperament: Temperaments.Passive,
     explorers: true,
   },
   'shard2': {
@@ -44,6 +50,7 @@ export const shards: ShardMap = {
     maxColonies: 11,
     autoExpand: true,
     autoAttack: true,
+    temperament: Temperaments.Passive,
     explorers: true,
   },
   'shard3': {
@@ -56,6 +63,7 @@ export const shards: ShardMap = {
     maxColonies: 7,
     autoExpand: false,
     autoAttack: true,
+    temperament: Temperaments.Passive,
     explorers: false,
   },
 };

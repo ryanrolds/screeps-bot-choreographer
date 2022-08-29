@@ -3,7 +3,14 @@ import {RoomEntry} from '../managers/scribe';
 const MIN_HEALING_BOOST_AMOUNT = 2000;
 
 export function scoreRoomDamage(room: RoomEntry): number {
-  return room.numTowers * 600 + room.hostilesDmg;
+  let towerDamage = room.numTowers * 600;
+
+  // if no storage or low energy, try to run the room out of energy
+  if (!room.storage || room.storage.energy < 10000) {
+    towerDamage = room.numTowers * 150;
+  }
+
+  return towerDamage + room.hostilesDmg;
 }
 
 export function scoreStorageHealing(storage: StructureStorage): number {

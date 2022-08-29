@@ -339,7 +339,7 @@ export function addRoom(base: Base, roomName: string, trace: Tracer): void {
   trace.info('adding room', {baseId: base.id, roomName});
 
   if (base.rooms.indexOf(roomName) !== -1) {
-    trace.error('room already exists', {roomName});
+    trace.error('room already exists', {roomName, baseId: base.id});
     return;
   }
 
@@ -357,4 +357,33 @@ export function removeRoom(base: Base, roomName: string, trace: Tracer): void {
   base.rooms = _.without(base.rooms, roomName);
 
   trace.info('room removed from base', {baseId: base.id, roomName});
+}
+
+export function findNearbyBase(kernel: Kernel, roomName: string, minBaseLevel: number,
+  maxBaseDistance: number): Base {
+  // Find at at least one room within max claim range, otherwise remove base and terminate
+  const nearbyBases = kernel.getPlanner().getBases().filter((otherBase) => {
+    // Dont use self
+    if (otherBase.primary === roomName) {
+      return false;
+    }
+
+    // Don't use bases with no visibility or low level
+    const otherBaseRoom = getBasePrimaryRoom(otherBase);
+    if (!otherBaseRoom || otherBaseRoom.controller?.level < minBaseLevel) {
+      return false;
+    }
+
+    const distance = Game.map.getRoomLinearDistance(roomName, otherBase.primary);
+    return distance <= maxBaseDistance;
+  });
+
+  if (!nearbyBases.length) {
+    return null;
+  }
+
+  const sortedBases = _.sortBy(nearbyBases, (base) => {
+    return Game.map.getRoomLinearDistance(roomName, base.primary);
+  });
+  return sortedBases[0];
 }

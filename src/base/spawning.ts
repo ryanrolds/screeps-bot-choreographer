@@ -18,8 +18,7 @@ import {Request, TopicKey} from '../lib/topics';
 import {Tracer} from '../lib/tracing';
 import {PortalEntry} from '../managers/scribe';
 import {
-  Base, BaseThreadFunc, getBasePrimaryRoom, getStoredResourceAmount,
-  threadBase
+  Base, BaseThreadFunc, getBasePrimaryRoom, threadBase
 } from '../os/kernel/base';
 import {Kernel} from '../os/kernel/kernel';
 import {RunnableResult, running, terminate} from '../os/process';
@@ -29,7 +28,6 @@ import {PrepareBoostDetails} from './booster';
 const SPAWN_TTL = 5;
 const REQUEST_BOOSTS_TTL = 5;
 const PROCESS_EVENTS_TTL = 20;
-const MIN_ENERGY_HELP_NEIGHBOR = 20000;
 
 const INITIAL_TOPIC_LENGTH = 9999;
 const RED_TOPIC_LENGTH = 10;
@@ -197,6 +195,7 @@ export default class SpawnManager {
 
         trace.notice('spawning', {id: this.id, spawnEnergy, energyLimit, request});
         trace.getMetricsCollector().counter('spawn_spawning', 1, {spawn: spawn.id, base: base.id});
+
         createCreep(base, room.name, spawn, request, spawnEnergy, energyLimit, trace);
         return;
       }
@@ -331,17 +330,10 @@ function getNextRequest(kernel: Kernel, base: Base, spawn: StructureSpawn,
   }
 
   // Check if we have a reserve of energy and can help neighbors
-  let neighborRequest = null;
-  const storageEnergy = getStoredResourceAmount(base, RESOURCE_ENERGY) || 0;
-  if (storageEnergy >= MIN_ENERGY_HELP_NEIGHBOR) {
-    neighborRequest = peekNextNeighborRequest(kernel, base, trace);
-    if (neighborRequest && !isRequestEnergyReady(kernel, base, spawn, neighborRequest, trace)) {
-      trace.info('neighbor request not ready, skipping', {spawn: spawn.id, spawnEnergy, energyCapacity});
-      neighborRequest = null;
-    }
-  } else {
-    trace.info('reserve energy too low, dont handle requests from other neighbors',
-      {storageEnergy, baseId: base.id});
+  let neighborRequest = peekNextNeighborRequest(kernel, base, trace);
+  if (neighborRequest && !isRequestEnergyReady(kernel, base, spawn, neighborRequest, trace)) {
+    trace.info('neighbor request not ready, skipping', {spawn: spawn.id, spawnEnergy, energyCapacity});
+    neighborRequest = null;
   }
 
   trace.info('spawn requests', {localRequest, neighborRequest});
@@ -443,7 +435,7 @@ function handleActiveSpawning(kernel: Kernel, base: Base, spawn: StructureSpawn,
 
   trace.info('spawning', {creepName: creep.name, role, boosts, priority});
   trace.getMetricsCollector().gauge('spawn_spawning_role', spawn.spawning.remainingTime,
-    {spawn: spawn.id, role});
+    {spawn: spawn.id, role, base: base.id});
 
   if (boosts) {
     requestBoosts(kernel, base, spawn, boosts, priority);
@@ -478,14 +470,13 @@ function createCreep(base: Base, room: string, spawn: StructureSpawn, request: R
     energy = roleEnergyLimit;
   }
 
-  trace.info("parts before", {parts});
+  trace.info("parts from request", {parts});
 
   // if parts not provided, work them out from the definition
   if (!parts || !parts.length) {
     parts = getBodyParts(definition, energy);
+    trace.info("parts decided", {parts, energy, definition});
   }
-
-  trace.info("parts after", {parts});
 
   const name = [role, Game.shard.name, Game.time].join('_');
 
@@ -507,7 +498,7 @@ function createCreep(base: Base, room: string, spawn: StructureSpawn, request: R
   }
 }
 
-function getBodyParts(definition, maxEnergy) {
+export function getBodyParts(definition, maxEnergy) {
   let base = definition.base.slice(0);
   let i = 0;
 

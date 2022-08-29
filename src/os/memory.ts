@@ -13,19 +13,18 @@ type MemoryObject = {
   value: any;
 }
 
-export class PersistentMemory {
+export class PersistentMemory<T> {
   memoryId: string;
 
   constructor(id: string) {
     this.memoryId = id;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getMemory(trace: Tracer): any {
+  getMemory(trace: Tracer): T {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const memoryObject: MemoryObject = (Memory as any).proc[this.memoryId];
     if (!memoryObject) {
-      return null;
+      return {} as T;
     }
 
     if (typeof memoryObject.stales === 'undefined') {
@@ -36,14 +35,13 @@ export class PersistentMemory {
     // Don't return exceptionally old memory objects
     if (memoryObject.stales && memoryObject.time < Game.time - MEMORY_OBJECT_TTL) {
       trace.warn('memory object is stale', {memoryObject});
-      return null;
+      return {} as T;
     }
 
     return memoryObject.value;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  setMemory(value: any, stales = true): void {
+  setMemory(value: T, stales = true): void {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (Memory as any).proc[this.memoryId] = {
       id: this.memoryId,

@@ -21,7 +21,11 @@ const RED_ALERT_TTL = 200;
 
 const CONTAINER_TTL = 250;
 
-export default class MineralRunnable extends PersistentMemory implements Runnable {
+type MineralRunnableMemory = {
+  creepPosition: RoomPosition;
+};
+
+export default class MineralRunnable extends PersistentMemory<MineralRunnableMemory> implements Runnable {
   id: string;
   position: RoomPosition;
   creepPosition: RoomPosition | null;
@@ -122,7 +126,7 @@ export default class MineralRunnable extends PersistentMemory implements Runnabl
   populatePositions(trace: Tracer, kernel: Kernel, base: Base, mineral: Mineral) {
     trace.info('populate positions', {room: mineral.room.name});
 
-    const memory = this.getMemory(trace) || {};
+    const memory = this.getMemory(trace);
 
     // Check memory for creep position
     const creepPosition = memory.creepPosition;

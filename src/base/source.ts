@@ -24,7 +24,12 @@ const DROPOFF_TTL = 200;
 const BUILD_LINK_TTL = 200;
 const CONTAINER_TTL = 250;
 
-export default class SourceRunnable extends PersistentMemory implements Runnable {
+type SourceRunnableMemory = {
+  creepPosition: RoomPosition;
+  linkPosition: RoomPosition;
+}
+
+export default class SourceRunnable extends PersistentMemory<SourceRunnableMemory> implements Runnable {
   private id: Id<Source>;
   private creepPosition: RoomPosition | null;
   private linkPosition: RoomPosition | null;
@@ -148,7 +153,7 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
   }
 
   populatePositions(trace: Tracer, kernel: Kernel, base: Base, source: Source) {
-    const memory = this.getMemory(trace) || {};
+    const memory = this.getMemory(trace);
 
     // Check memory for creep position
     const creepPosition = memory.creepPosition;
@@ -358,6 +363,11 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
       priority = PRIORITY_MINER_REMOTE;
     }
 
+    // Reduce priority as a source has more miners
+    // Early RCL, there can be multiple miners per source we need to ensure
+    // that workers/haulers are also spawned.
+    priority -= numMiners * 3;
+
     const role = WORKER_MINER;
     const memory = {
       [MEMORY.MEMORY_SOURCE]: this.id,
@@ -399,7 +409,10 @@ export default class SourceRunnable extends PersistentMemory implements Runnable
     }, 0);
 
     const averageLoad = avgHaulerCapacity / creeps.length;
-    const loadSize = _.min([averageLoad, 2000]);
+    let loadSize = 300;
+    if (averageLoad >= 50) {
+      loadSize = averageLoad;
+    }
     const storeUsedCapacity = container.store.getUsedCapacity();
     const untaskedUsedCapacity = storeUsedCapacity - creepWithTaskCapacity;
     const loadsToHaul = Math.floor(untaskedUsedCapacity / loadSize);

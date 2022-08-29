@@ -169,11 +169,12 @@ There are some debugging tools built into the project:
 * Run and draw cost matrix - `AI.getCostMatrixDebugger().debug("W8N4", 'open_space')`
 * Cost matrix clear - `AI.getCostMatrixDebugger().clear()`
 * Get debug info on path cache - `AI.kingdom.getPathCache().debug()`
-* Attack a room (requires rally_<room> flag) - `AI.getTopics().addRequestV2('attack_room', {priority: 1, details: {status: "requested", roomId: "E58N42"}, ttl: 100})`
-* Look at central planning results - `AI.getBasesDebugger().debug()`
+* Attack a room - `AI.getTopics().addRequestV2('attack_room', {priority: 1, details: {status: "requested", roomId: "E58N42"}, ttl: 100})`
+* Look at base expansion planning - `AI.getBasesDebugger().debug()`
 * Look at min cut output - `AI.getMinCutDebugger().debug(AI.getKingdom(), 'W6N1')`
 * Get cached room details from Scribe - `JSON.stringify(AI.getKingdom().getScribe().getRoomById('W8N4'))`
 * Launch Nuke - `AI.kingdom.sendRequest('nuker_targets', 1, {position: '28,35,E19S49'}, 100)`
+* Muster locations `AI.getMusterDebugger().debug('W21S34')`
 
 
 ```
@@ -213,7 +214,7 @@ The `./src/main.ts` file contains a `KingdomConfig` that defines the rooms that 
 
 ### Creeps
 
-* Attacker - Rally at Attack Flag and attack hostiles in room
+* Attacker - Role used in War Parties
 * Builder - Harvest/pick up energy in room and completes construction
 * Defender - Attacks hostiles creeps in room
 * Defender Drone -

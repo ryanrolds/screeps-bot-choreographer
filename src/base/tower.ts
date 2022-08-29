@@ -5,7 +5,7 @@ import {Tracer} from '../lib/tracing';
 import {AlertLevel, Base, getStoredResourceAmount, getStructuresWithResource} from '../os/kernel/base';
 import {Kernel} from '../os/kernel/kernel';
 import {RunnableResult, running, sleeping, terminate} from '../os/process';
-import {getBasePriorityTargetsTopic} from './defense';
+import {getBasePriorityTargetsTopic, TargetRequest} from './defense';
 import {getBaseDistributorTopic} from './logistics';
 
 const REQUEST_ENERGY_TTL = 10;
@@ -89,7 +89,7 @@ export default class TowerRunnable {
 
     // Attack hostiles
     const roomName = tower.room.name;
-    let targets = kernel.getTopics().getFilteredRequests(getBasePriorityTargetsTopic(this.baseId),
+    let targets = kernel.getTopics().getFilteredRequests<TargetRequest>(getBasePriorityTargetsTopic(this.baseId),
       (target) => {
         return target.details.roomName === roomName;
       },

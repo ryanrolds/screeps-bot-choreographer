@@ -29,7 +29,7 @@ import {Tracer} from '../lib/tracing';
 import {AlertLevel, Base, BaseThreadFunc, getBasePrimaryRoom, getStoredResourceAmount, getStructureForResource, getStructureWithResource, threadBase} from '../os/kernel/base';
 import {Kernel} from '../os/kernel/kernel';
 import {PersistentMemory} from '../os/memory';
-import {RunnableResult, sleeping} from '../os/process';
+import {RunnableResult, sleeping, terminate} from '../os/process';
 import {BaseRoomThreadFunc, threadBaseRoom} from '../os/threads/base_room';
 import {createSpawnRequest, getBaseSpawnTopic} from './spawning';
 
@@ -82,7 +82,12 @@ type Leg = {
   updatedAt: number;
 };
 
-export default class LogisticsRunnable extends PersistentMemory {
+type LogisticsRunnableMemory = {
+  legs: [string, Leg][];
+  pid: [string, number][];
+}
+
+export default class LogisticsRunnable extends PersistentMemory<LogisticsRunnableMemory> {
   private baseId: string;
 
   private legs: Map<string, Leg>;
@@ -166,7 +171,7 @@ export default class LogisticsRunnable extends PersistentMemory {
     }
 
     if (this.legs === null) {
-      const memory = this.getMemory(trace) || {};
+      const memory = this.getMemory(trace);
       if (memory.legs) {
         this.legs = new Map(memory.legs);
         // Hydrate the room positions
@@ -187,8 +192,7 @@ export default class LogisticsRunnable extends PersistentMemory {
     }
 
     if (this.pidHaulersMemory === null) {
-      const memory = this.getMemory(trace) || {};
-
+      const memory = this.getMemory(trace);
       if (memory.pid) {
         this.pidHaulersMemory = new Map(memory.pid);
       } else {
@@ -203,8 +207,8 @@ export default class LogisticsRunnable extends PersistentMemory {
 
     const base = kernel.getPlanner().getBaseById(this.baseId);
     if (!base) {
-      trace.error('missing origin', {id: this.baseId});
-      return sleeping(20);
+      trace.error('missing base', {id: this.baseId});
+      return terminate();
     }
 
     const room = getBasePrimaryRoom(base);
@@ -261,7 +265,7 @@ export default class LogisticsRunnable extends PersistentMemory {
 
     // Storing legs
     trace.info('storing legs after consuming events', {legs: Array.from(this.legs.entries())});
-    const memory = this.getMemory(trace) || {};
+    const memory = this.getMemory(trace);
     memory.legs = Array.from(this.legs.entries());
     this.setMemory(memory);
   }
@@ -305,19 +309,20 @@ export default class LogisticsRunnable extends PersistentMemory {
   }
 
   private updatePID(trace: Tracer, kernel: Kernel, base: Base) {
-    let numHaulTasks = kernel.getTopics().getLength(getBaseHaulerTopic(base.id));
-    numHaulTasks -= this.numIdleHaulers;
+    const numHaulTasks = kernel.getTopics().getLength(getBaseHaulerTopic(base.id));
+    const demand = numHaulTasks - this.numIdleHaulers;
 
-    trace.info('haul tasks', {numHaulTasks, numIdleHaulers: this.numIdleHaulers});
-
-    this.desiredHaulers = PID.update(this.pidHaulersMemory, numHaulTasks, Game.time, trace);
+    this.desiredHaulers = PID.update(this.pidHaulersMemory, demand, Game.time, trace);
     trace.info('desired haulers', {desired: this.desiredHaulers});
 
-    trace.getMetricsCollector().gauge('base_desired_haulers_total', this.desiredHaulers, {base: base.id});
+    trace.getMetricsCollector().gauge('base_haulers_desired', this.desiredHaulers, {base: base.id});
+    trace.getMetricsCollector().gauge('base_haulers_active', this.numActiveHaulers, {base: base.id});
+    trace.getMetricsCollector().gauge('base_haulers_idle', this.numIdleHaulers, {base: base.id});
+    trace.getMetricsCollector().gauge('base_haulers_tasks', numHaulTasks, {base: base.id});
 
     // Update PID memory
     trace.info('pid memory', {pid: Array.from(this.pidHaulersMemory.entries())});
-    const memory = this.getMemory(trace) || {};
+    const memory = this.getMemory(trace);
     memory.pid = Array.from(this.pidHaulersMemory.entries());
     this.setMemory(memory);
 
@@ -355,7 +360,7 @@ export default class LogisticsRunnable extends PersistentMemory {
       role = ROLE_WORKER;
     }
 
-    trace.notice('request haulers/workers', {
+    trace.info('request haulers/workers', {
       numHaulers: this.numHaulers, desiredHaulers: this.desiredHaulers,
       baseId: base.id
     });
@@ -363,6 +368,10 @@ export default class LogisticsRunnable extends PersistentMemory {
     const neededHaulers = this.desiredHaulers - this.numHaulers;
     for (let i = 0; i < Math.min(3, neededHaulers); i++) {
       let priority = PRIORITY_HAULER;
+      if (this.numHaulers === 0 && i === 0) {
+        priority += 5;
+      }
+
       // Reduce priority as we have more haulers
       priority -= (this.numHaulers + i) * 0.1;
 
@@ -372,7 +381,7 @@ export default class LogisticsRunnable extends PersistentMemory {
       };
 
       const request = createSpawnRequest(priority, ttl, role, memory, null, 0);
-      trace.notice('requesting hauler/worker', {role, priority, request});
+      trace.info('requesting hauler/worker', {role, priority, request});
       kernel.getTopics().addRequestV2(getBaseSpawnTopic(base.id), request);
     }
   }
@@ -536,7 +545,7 @@ export default class LogisticsRunnable extends PersistentMemory {
 
         const dropoff = getStructureForResource(base, resource.resourceType);
         if (!dropoff) {
-          trace.warn('no dropoff for resource', {resource: resource.resourceType, baseId: base.id});
+          trace.info('no dropoff for resource', {resource: resource.resourceType, baseId: base.id});
         }
 
         const haulersWithTask = this.haulers.filter((creep) => {
@@ -639,7 +648,7 @@ export default class LogisticsRunnable extends PersistentMemory {
           trace.info('tombstone or ruin', {id: haul.id, resource: resourceType, amount: haul.store[resourceType]});
           const dropoff = getStructureForResource(base, resourceType);
           if (!dropoff) {
-            trace.warn('no dropoff for resource', {resource: resourceType});
+            trace.info('no dropoff for resource', {resource: resourceType});
           }
 
           const details = {
@@ -717,7 +726,7 @@ export default class LogisticsRunnable extends PersistentMemory {
 
           // Storing legs
           trace.info('storing legs after calculating', {legs: Array.from(this.legs.entries())});
-          const memory = this.getMemory(trace) || {};
+          const memory = this.getMemory(trace);
           memory.legs = Array.from(this.legs.entries());
           this.setMemory(memory);
         }
@@ -742,7 +751,7 @@ export default class LogisticsRunnable extends PersistentMemory {
 
     const base = kernel.getPlanner().getBaseById(this.baseId);
     if (!base) {
-      trace.error('missing origin', {id: this.baseId});
+      trace.error('missing base', {id: this.baseId});
       return [null, null];
     }
 
