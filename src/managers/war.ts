@@ -524,6 +524,10 @@ export default class WarManager {
         return null;
       }
 
+      // Convert object to RoomPosition
+      party.muster.pos = new RoomPosition(party.muster.pos.x, party.muster.pos.y,
+        party.muster.pos.roomName);
+
       const base = kernel.getPlanner().getBaseById(party.baseId);
       if (!base) {
         trace.warn('not create war party, cannot find base config', {baseId: party.baseId});

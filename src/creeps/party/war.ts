@@ -1,4 +1,5 @@
 import * as _ from 'lodash';
+import {Temperaments} from '../../config';
 import {AttackRequest, AttackStatus, ATTACK_ROOM_TTL, Phase} from '../../constants/attack';
 import {DEFINITIONS, WORKER_ATTACKER} from '../../constants/creeps';
 import {PRIORITY_ATTACKER} from '../../constants/priorities';
@@ -6,6 +7,7 @@ import * as TOPICS from '../../constants/topics';
 import {AllowedCostMatrixTypes} from '../../lib/costmatrix_cache';
 import {Vector} from '../../lib/muster';
 import {FindPathPolicy, getPath, visualizePath} from '../../lib/pathing';
+import {DIRECTION_OFFSET} from '../../lib/position';
 import {Tracer} from '../../lib/tracing';
 import {RoomEntry} from '../../managers/scribe';
 import {Base, getBasePrimaryRoom} from '../../os/kernel/base';
@@ -15,7 +17,7 @@ import {RunnableResult, running, STATUS_TERMINATED} from '../../os/process';
 import {BaseRoomThreadFunc, threadBaseRoom} from '../../os/threads/base_room';
 import {buildAttacker, newMultipliers} from '../builders/attacker';
 import {scoreRoomDamage, scoreStorageHealing} from '../scoring';
-import PartyRunnable, {FORMATION_QUAD, FORMATION_SINGLE_FILE, FORMATION_TYPE} from './party';
+import PartyRunnable, {FORMATION_QUAD, FORMATION_SINGLE_FILE, FORMATION_TYPE, MAX_PARTY_SIZE} from './party';
 
 const REQUEST_ATTACKER_TTL = 30;
 const UPDATE_PARTS_INTERVAL = 50;
@@ -95,6 +97,9 @@ type WarPartyMemory = {
   position: RoomPosition;
   destination: RoomPosition;
   range: number;
+  direction: DirectionConstant;
+  formation: FORMATION_TYPE;
+  previousPositions: RoomPosition[];
 }
 
 export default class WarPartyRunnable extends PersistentMemory<WarPartyMemory> {
@@ -109,6 +114,9 @@ export default class WarPartyRunnable extends PersistentMemory<WarPartyMemory> {
   private position: RoomPosition;
   private destination: RoomPosition;
   private range: number;
+  private direction: DirectionConstant;
+  private formation: FORMATION_TYPE;
+  private previousPositions: RoomPosition[];
 
   // parts
   private parts: BodyPartConstant[];
@@ -119,9 +127,6 @@ export default class WarPartyRunnable extends PersistentMemory<WarPartyMemory> {
   private path: RoomPosition[];
   private pathDestination: RoomPosition;
   private pathTime: number;
-
-  // movement state
-  private direction: DirectionConstant;
   private party: PartyRunnable;
 
   // update parts based on changing target room damage
@@ -141,6 +146,17 @@ export default class WarPartyRunnable extends PersistentMemory<WarPartyMemory> {
     this.position = this.muster.pos;
     this.destination = new RoomPosition(25, 25, targetRoom);
     this.range = 3;
+    this.direction = BOTTOM;
+    this.formation = FORMATION_QUAD;
+
+    // set previous positions to muster line
+    const previousPositions = [];
+    for (let i = 0; i < MAX_PARTY_SIZE; i++) {
+      const x = this.position.x + DIRECTION_OFFSET[muster.direction].x * i;
+      const y = this.position.y + DIRECTION_OFFSET[muster.direction].y * i;
+      previousPositions.push(new RoomPosition(x, y, this.position.roomName));
+    }
+    this.previousPositions = previousPositions;
 
     this.parts = null;
     this.roomDamage = null;
@@ -150,10 +166,6 @@ export default class WarPartyRunnable extends PersistentMemory<WarPartyMemory> {
     this.path = [];
     this.pathTime = 0;
 
-    this.direction = BOTTOM;
-    this.party = new PartyRunnable(id, baseId, this.muster.pos, WAR_PARTY_ROLE, [], this.minEnergy, PRIORITY_ATTACKER,
-      REQUEST_ATTACKER_TTL);
-
     this.threadUpdateParts = threadBaseRoom('update_parts', UPDATE_PARTS_INTERVAL)(this.updateParts.bind(this));
   }
 
@@ -162,9 +174,21 @@ export default class WarPartyRunnable extends PersistentMemory<WarPartyMemory> {
 
     this.restoreMemory(trace);
 
+    this.party = new PartyRunnable(this.id, this.baseId, this.previousPositions, WAR_PARTY_ROLE, [],
+      this.minEnergy, PRIORITY_ATTACKER, REQUEST_ATTACKER_TTL);
+    this.party.setDirection(this.direction);
+    this.party.setFormation(this.formation);
+
     const base = kernel.getPlanner().getBaseById(this.baseId);
     if (!base) {
       trace.end();
+    }
+
+    const baseAggresiveFlag = Game.flags[`aggressive_${this.baseId}`];
+    if (kernel.getConfig().temperament === Temperaments.Passive && !baseAggresiveFlag) {
+      trace.error('No aggressive flag');
+      // Party will terminate itself and cause War Party to terminate
+      this.party.done();
     }
 
     // TODO use a war party specific topic for notifying of target change
@@ -341,6 +365,17 @@ export default class WarPartyRunnable extends PersistentMemory<WarPartyMemory> {
     if (memory.range) {
       this.range = memory.range;
     }
+    if (memory.previousPositions) {
+      this.previousPositions = memory.previousPositions.map((pos) => {
+        return new RoomPosition(pos.x, pos.y, pos.roomName)
+      });
+    }
+    if (memory.direction) {
+      this.direction = memory.direction;
+    }
+    if (memory.formation) {
+      this.formation = memory.formation;
+    }
   }
 
   updateMemory(_trace: Tracer): void {
@@ -349,6 +384,9 @@ export default class WarPartyRunnable extends PersistentMemory<WarPartyMemory> {
       position: this.position,
       destination: this.destination,
       range: this.range,
+      direction: this.party.getDirection(),
+      formation: this.party.getFormation(),
+      previousPositions: this.party.getPreviousPositions(),
     });
   }
 

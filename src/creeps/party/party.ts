@@ -9,7 +9,6 @@
 import * as _ from 'lodash';
 import {createSpawnRequest, getBaseSpawnTopic} from '../../base/spawning';
 import * as MEMORY from '../../constants/memory';
-import {Vector} from '../../lib/muster';
 import {DIRECTION_OFFSET} from '../../lib/position';
 import {Tracer} from '../../lib/tracing';
 import {Base, BaseThreadFunc, threadBase} from '../../os/kernel/base';
@@ -80,7 +79,6 @@ export default class PartyRunnable {
   id: string;
   baseId: string;
   formation: FORMATION_TYPE;
-  muster: Vector;
   position: RoomPosition;
   role: string;
   parts: BodyPartConstant[]
@@ -96,7 +94,7 @@ export default class PartyRunnable {
 
   threadRequestCreeps: BaseThreadFunc;
 
-  constructor(id: string, baseId: string, position: RoomPosition, role: string,
+  constructor(id: string, baseId: string, previousPositions: RoomPosition[], role: string,
     parts: BodyPartConstant[], minEnergy: number, priority: number, ttl: number) {
     this.id = id;
     this.baseId = baseId;
@@ -107,14 +105,10 @@ export default class PartyRunnable {
     this.requestCreepTTL = ttl;
     this.isDone = false;
     this.deployTicks = 0;
-    this.previousPositions = [];
 
-    this.setPosition(position);
-    this.muster = null;
+    this.setPreviousPositions(previousPositions);
     this.setFormation(FORMATION_SINGLE_FILE);
     this.setDirection(TOP);
-
-    this.previousPositions = [this.position];
 
     this.threadRequestCreeps = threadBase('request_creeps', REQUEST_PARTY_MEMBER_TTL)(this.requestCreeps.bind(this));
   }
@@ -149,6 +143,7 @@ export default class PartyRunnable {
       position: this.position,
       deployTicks: this.deployTicks,
       creeps: creeps.map((creep) => creep.name),
+      previousPositions: this.previousPositions,
     });
 
     if (!Game.flags['debug']) {
@@ -244,7 +239,7 @@ export default class PartyRunnable {
       }
 
       if (this.formation === FORMATION_SINGLE_FILE) {
-        visual.rect(position.x - 0.5, position.y - 1.5, 1, 4);
+        visual.rect(position.x - 0.5, position.y - 3.5, 1, 4);
       }
     }
 
@@ -467,8 +462,17 @@ export default class PartyRunnable {
     });
   }
 
+  getDirection(): DirectionConstant {
+    return this.direction;
+  }
+
   setDirection(direction: DirectionConstant) {
     this.direction = direction;
+  }
+
+  setPreviousPositions(previousPositions: RoomPosition[]) {
+    this.previousPositions = previousPositions;
+    this.position = previousPositions[0];
   }
 
   setMinEnergy(minEnergy: number) {
@@ -478,10 +482,14 @@ export default class PartyRunnable {
   setPosition(position: RoomPosition) {
     this.position = position;
 
-    if (this.position !== this.previousPositions[0]) {
+    if (!this.position.isEqualTo(this.previousPositions[0])) {
       this.previousPositions.unshift(this.position);
       this.previousPositions.splice(MAX_PREVIOUS_POSITIONS);
     }
+
+    this.previousPositions = _.unique(this.previousPositions, false, (position: RoomPosition) => {
+      return position.x + ',' + position.y + ',' + position.roomName;
+    });
   }
 
   getPreviousPositions(): RoomPosition[] {
