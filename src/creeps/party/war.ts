@@ -1,15 +1,41 @@
+/**
+ * War Party
+ *
+ * Created by the War Manager, this logic controls a quad/party of Attacker creeps. The logic is broken
+ * into 4 phases:
+ *
+ *   1. Marshalling - wait in designated area until all creeps are present
+ *   2. Deployment  - move to target room, adjusting formation as needed
+ *   3. Attack - once in the target room, look at the enemy structures and creeps and determine how to attack
+ *
+ * Party/individual movement logic is contained in the Party logic. This logic directs the group
+ * and makes decisions on how to approach and attack the target. It's analogous to a Squad Leader.
+ *
+ * Strategies:
+ *   * Maintain enemy damage/healing influence map ("kill zone")
+ *     * Kill zone may be empty if party has a strong tank
+ *   * Keep distance from towers/creeps if they can break the quads tank ("kill zone")
+ *   * Attack creeps and structures not in "kill zone"
+ *   * If room out of energy, reduce kill zone slowly
+ *     * Avoid rushing in and tower being refilled and not having enough time to leave kill zone
+ *   * Focus on nearby creeps (threat sorted), key structures, remaining creeps and structures, walls
+ *
+ * Threads:
+ *   * Kill Zone update
+ *   * Parts - based on max kill zone damage
+ *   * Request creeps
+ *   * Primary - heal, move, attack
+ */
 import * as _ from 'lodash';
 import {Temperaments} from '../../config';
-import {AttackRequest, AttackStatus, ATTACK_ROOM_TTL, Phase} from '../../constants/attack';
+import {Phase} from '../../constants/attack';
 import {DEFINITIONS, WORKER_ATTACKER} from '../../constants/creeps';
 import {PRIORITY_ATTACKER} from '../../constants/priorities';
-import * as TOPICS from '../../constants/topics';
 import {AllowedCostMatrixTypes} from '../../lib/costmatrix_cache';
 import {Vector} from '../../lib/muster';
 import {FindPathPolicy, getPath, visualizePath} from '../../lib/pathing';
 import {DIRECTION_OFFSET} from '../../lib/position';
 import {Tracer} from '../../lib/tracing';
-import {RoomEntry} from '../../managers/scribe';
 import {Base, getBasePrimaryRoom} from '../../os/kernel/base';
 import {Kernel} from '../../os/kernel/kernel';
 import {PersistentMemory} from '../../os/memory';
@@ -132,12 +158,13 @@ export default class WarPartyRunnable extends PersistentMemory<WarPartyMemory> {
   // update parts based on changing target room damage
   private threadUpdateParts: BaseRoomThreadFunc;
 
-  constructor(id: string, baseId: string, targetRoom: string, muster: Vector, createdAt: number) {
+  constructor(id: string, kernel: Kernel, base: Base, targetRoom: string, muster: Vector, createdAt: number,
+    trace: Tracer) {
     super(id);
 
     // Minimum fields
     this.id = id;
-    this.baseId = baseId;
+    this.baseId = base.id;
     this.targetRoom = targetRoom;
     this.createdAt = createdAt;
     this.muster = muster;
@@ -149,6 +176,15 @@ export default class WarPartyRunnable extends PersistentMemory<WarPartyMemory> {
     this.direction = BOTTOM;
     this.formation = FORMATION_QUAD;
 
+    // Check if memory needs restored
+    this.restoreMemory(trace);
+
+    this.party = new PartyRunnable(this.id, this.baseId, this.previousPositions, WAR_PARTY_ROLE, [],
+      this.minEnergy, PRIORITY_ATTACKER, REQUEST_ATTACKER_TTL);
+    this.party.setDirection(this.direction);
+    this.party.setFormation(this.formation);
+
+
     // set previous positions to muster line
     const previousPositions = [];
     for (let i = 0; i < MAX_PARTY_SIZE; i++) {
@@ -158,7 +194,23 @@ export default class WarPartyRunnable extends PersistentMemory<WarPartyMemory> {
     }
     this.previousPositions = previousPositions;
 
-    this.parts = null;
+    const targetRoomEntry = kernel.getScribe().getRoomById(targetRoom);
+    if (!targetRoomEntry) {
+      this.updateMemory(trace);
+      trace.end();
+      trace.error('no target room entry', {targetRoom});
+      throw new Error('no target room entry');
+    }
+
+    const baseRoom = getBasePrimaryRoom(base);
+    if (!baseRoom) {
+      this.updateMemory(trace);
+      trace.end();
+      trace.error('no base room', {base: this.baseId});
+      throw new Error('no base room');
+    }
+
+    this.updateParts(trace, kernel, base);
     this.roomDamage = null;
     this.minEnergy = DEFINITIONS.get(WAR_PARTY_ROLE)?.energyMinimum || 0;
 
@@ -172,56 +224,26 @@ export default class WarPartyRunnable extends PersistentMemory<WarPartyMemory> {
   run(kernel: Kernel, trace: Tracer): RunnableResult {
     trace = trace.begin('warparty_run');
 
-    this.restoreMemory(trace);
-
-    this.party = new PartyRunnable(this.id, this.baseId, this.previousPositions, WAR_PARTY_ROLE, [],
-      this.minEnergy, PRIORITY_ATTACKER, REQUEST_ATTACKER_TTL);
-    this.party.setDirection(this.direction);
-    this.party.setFormation(this.formation);
-
-    const base = kernel.getPlanner().getBaseById(this.baseId);
-    if (!base) {
-      trace.end();
+    // if we do not have a target, end party
+    const targetRoom = this.targetRoom;
+    if (!targetRoom) {
+      trace.error('no target room, terminating war party');
+      // Party will terminate itself and cause War Party to terminate
+      this.party.done();
     }
 
-    const baseAggresiveFlag = Game.flags[`aggressive_${this.baseId}`];
-    if (kernel.getConfig().temperament === Temperaments.Passive && !baseAggresiveFlag) {
+    // if bot is passive and no aggression flag for base, end party
+    const baseAggressiveFlag = Game.flags[`aggressive_${this.baseId}`];
+    if (kernel.getConfig().temperament === Temperaments.Passive && !baseAggressiveFlag) {
       trace.error('No aggressive flag');
       // Party will terminate itself and cause War Party to terminate
       this.party.done();
     }
 
-    // TODO use a war party specific topic for notifying of target change
-    const targetRoom = this.targetRoom;
-    const creeps = this.getAssignedCreeps();
-    const targetRoomObject = Game.rooms[targetRoom];
-    const positionRoomObject = Game.rooms[this.position.roomName];
-
-    const targetRoomEntry = kernel.getScribe().getRoomById(targetRoom);
-    if (!targetRoomEntry) {
-      this.updateMemory(trace);
-      trace.end();
-      trace.error('no target room entry', {targetRoom});
-      return running();
-    }
-
-    const baseRoom = getBasePrimaryRoom(base);
-    if (!baseRoom) {
-      this.updateMemory(trace);
-      trace.end();
-      trace.error('no base room', {base: this.baseId});
-      return running();
-    }
-
-    // If no parts, update parts
-    if (!this.parts) {
-      this.updateParts(trace, kernel, base, baseRoom, targetRoomEntry);
-    } else {
-      this.threadUpdateParts(trace, kernel, base, baseRoom, targetRoomEntry);
-    }
-
-    if (!targetRoom) {
-      trace.error('no target room, terminating war party');
+    // get base, if base not found end party
+    const base = kernel.getPlanner().getBaseById(this.baseId);
+    if (!base) {
+      trace.warn('base not found', {baseId: this.baseId});
       // Party will terminate itself and cause War Party to terminate
       this.party.done();
     }
@@ -237,100 +259,11 @@ export default class WarPartyRunnable extends PersistentMemory<WarPartyMemory> {
       roomDamage: this.roomDamage,
       formation: this.getFormation(),
       previousPositions: this.getPreviousPositions(),
-      creeps: creeps.length,
+      creeps: this.getAssignedCreeps().length,
     });
 
-    this.setHeal(trace);
-
-    let targetPosition = new RoomPosition(25, 25, this.targetRoom);
-
-    const roomEntry = kernel.getScribe().getRoomById(this.targetRoom);
-    if (!roomEntry) {
-      trace.info(`no room entry for ${this.targetRoom}, using center of room`);
-      // TODO should probably delay until we have a room entry
-    } else if (roomEntry.spawnLocation) {
-      trace.info('setting spawn as target position', {pos: roomEntry.spawnLocation});
-      // TODO fix issue with restored from memory room positions not having functions
-      targetPosition = new RoomPosition(roomEntry.spawnLocation.x, roomEntry.spawnLocation.y,
-        roomEntry.spawnLocation.roomName);
-    } else if (roomEntry.controller?.pos) {
-      trace.info('setting controller as target position', {pos: roomEntry.controller.pos});
-      // TODO fix issue with restored from memory room positions not having functions
-      targetPosition = new RoomPosition(roomEntry.controller.pos.x, roomEntry.controller.pos.y,
-        roomEntry.controller.pos.roomName);
-    }
-
-    // marshal
-    if (this.phase === Phase.PHASE_MARSHAL) {
-      this.setFormation(FORMATION_SINGLE_FILE);
-
-      // If we have at least 4 creeps and they are in position, begin deployment
-      if (this.inPosition(this.position, trace) && creeps.length >= 4) {
-        this.phase = Phase.PHASE_EN_ROUTE;
-        trace.info('moving to en route phase', {phase: this.phase});
-      } else {
-        this.setDestination(targetPosition, 3);
-        this.position = this.muster.pos;
-        this.marshal(this.position, creeps, trace);
-      }
-    }
-
-    // deploy
-    if (this.phase === Phase.PHASE_EN_ROUTE) {
-      // If we are out of creep, remarshal
-      if (!creeps.length || (this.position.findClosestByRange(creeps)?.pos.getRangeTo(this.position) > 5)) {
-        this.phase = Phase.PHASE_MARSHAL;
-        trace.info('moving to marshal phase', {phase: this.phase});
-      } else if (targetRoom === this.position.roomName) {
-        this.phase = Phase.PHASE_ATTACK;
-        trace.info('moving to attack phase', {phase: this.phase});
-      } else {
-        this.setDestination(targetPosition, 3);
-        this.deploy(kernel, positionRoomObject, targetRoom, creeps, trace);
-      }
-    }
-
-    // attack
-    if (this.phase === Phase.PHASE_ATTACK) {
-      this.setFormation(FORMATION_QUAD);
-
-      const numPartyInTargetRoom = this.getAssignedCreeps().
-        filter((creep) => creep.room.name === this.targetRoom).length;
-
-      if (!numPartyInTargetRoom || !targetRoomObject || !creeps.length ||
-        this.position.findClosestByRange(creeps)?.pos.getRangeTo(this.position) > 5) {
-        this.phase = Phase.PHASE_MARSHAL;
-
-        const roomName = base.primary;
-        const roomObject = Game.rooms[roomName];
-        if (!roomObject) {
-          trace.error(`no room object for ${roomName}`);
-        }
-
-        const energyCapacityAvailable = roomObject.energyCapacityAvailable;
-        this.minEnergy = _.min([this.minEnergy + 1000, energyCapacityAvailable]);
-        this.party.setMinEnergy(this.minEnergy);
-
-        trace.info('moving to marshal phase', {phase: this.phase});
-      } else {
-        const done = this.engage(kernel, targetRoomObject, creeps, trace);
-        if (done) {
-          trace.notice('done, notify war manager that room is cleared', {targetRoom: this.targetRoom});
-
-          // Inform that attack is completed
-          const attackUpdate: AttackRequest = {
-            status: AttackStatus.COMPLETED,
-            roomId: targetRoom,
-          };
-          kernel.getTopics().addRequest(TOPICS.ATTACK_ROOM, 1, attackUpdate, ATTACK_ROOM_TTL + Game.time);
-
-          // TODO go into waiting for orders phase
-
-          // Done, terminate
-          this.party.done();
-        }
-      }
-    }
+    this.threadUpdateParts(trace, kernel, base);
+    this.attackLogic(kernel, base, trace)
 
     // Tick the party along
     const partyResult = this.party.run(kernel, trace);
@@ -390,7 +323,21 @@ export default class WarPartyRunnable extends PersistentMemory<WarPartyMemory> {
     });
   }
 
-  updateParts(trace: Tracer, kernel: Kernel, base: Base, baseRoom: Room, targetRoomEntry: RoomEntry): void {
+  updateParts(trace: Tracer, kernel: Kernel, base: Base): void {
+    const targetRoom = this.targetRoom;
+    const targetRoomEntry = kernel.getScribe().getRoomById(targetRoom);
+    if (!targetRoomEntry) {
+      trace.error('no target room entry', {targetRoom});
+      return
+    }
+
+    const baseRoom = getBasePrimaryRoom(base);
+    if (!baseRoom) {
+      trace.error('no base room', {base: this.baseId});
+      return
+    }
+
+    // TODO finish getting multipliers
     const boosts = newMultipliers();
 
     const baseStorage = baseRoom.storage;
@@ -414,12 +361,61 @@ export default class WarPartyRunnable extends PersistentMemory<WarPartyMemory> {
     this.roomDamage = roomDamage; 6
   }
 
-  marshal(position: RoomPosition, creeps: Creep[], trace: Tracer) {
-    if (!creeps.length) {
-      return;
+  attackLogic(kernel: Kernel, base: Base, trace: Tracer) {
+    this.setHeal(trace);
+
+    let targetPosition = new RoomPosition(25, 25, this.targetRoom);
+
+    const roomEntry = kernel.getScribe().getRoomById(this.targetRoom);
+    if (!roomEntry) {
+      trace.info(`no room entry for ${this.targetRoom}, using center of room`);
+      // TODO should probably delay until we have a room entry
+    } else if (roomEntry.spawnLocation) {
+      trace.info('setting spawn as target position', {pos: roomEntry.spawnLocation});
+      // TODO fix issue with restored from memory room positions not having functions
+      targetPosition = new RoomPosition(roomEntry.spawnLocation.x, roomEntry.spawnLocation.y,
+        roomEntry.spawnLocation.roomName);
+    } else if (roomEntry.controller?.pos) {
+      trace.info('setting controller as target position', {pos: roomEntry.controller.pos});
+      // TODO fix issue with restored from memory room positions not having functions
+      targetPosition = new RoomPosition(roomEntry.controller.pos.x, roomEntry.controller.pos.y,
+        roomEntry.controller.pos.roomName);
     }
 
-    this.setPosition(this.muster.pos, trace);
+    const creeps = this.getAssignedCreeps();
+    const positionRoomObject = Game.rooms[this.position.roomName];
+
+    // marshal
+    if (this.phase === Phase.PHASE_MARSHAL) {
+      this.marshal(creeps, targetPosition, trace);
+    }
+
+    // deploy
+    if (this.phase === Phase.PHASE_EN_ROUTE) {
+      this.deploy(kernel, positionRoomObject, this.targetRoom, creeps, trace);
+    }
+
+    // engage enemy room
+    if (this.phase === Phase.PHASE_ATTACK) {
+      const targetRoomObject = Game.rooms[this.targetRoom];
+      this.engage(kernel, targetRoomObject, creeps, trace);
+    }
+  }
+
+  marshal(creeps: Creep[], position: RoomPosition, trace: Tracer) {
+    trace.info('marshalling', {creeps: creeps.length, position});
+
+    this.setFormation(FORMATION_SINGLE_FILE);
+
+    // If we have at least 4 creeps and they are in position, begin deployment
+    if (this.inPosition(this.position, trace) && creeps.length >= 4) {
+      this.phase = Phase.PHASE_EN_ROUTE;
+      trace.info('moving to en route phase', {phase: this.phase});
+    } else {
+      this.setDestination(position, 3);
+      this.position = this.muster.pos;
+      this.setPosition(this.muster.pos, trace);
+    }
   }
 
   deploy(kernel: Kernel, room: Room, targetRoom: string, creeps: Creep[], trace: Tracer) {
@@ -428,6 +424,19 @@ export default class WarPartyRunnable extends PersistentMemory<WarPartyMemory> {
       position: this.position,
       destination: this.destination,
     });
+
+    // If we are out of creep, remarshal
+    if (!creeps.length || (this.position.findClosestByRange(creeps)?.pos.getRangeTo(this.position) > 5)) {
+      this.phase = Phase.PHASE_MARSHAL;
+      trace.info('moving to marshal phase', {phase: this.phase});
+      return;
+    } else if (targetRoom === this.position.roomName) {
+      this.phase = Phase.PHASE_ATTACK;
+      trace.info('moving to attack phase', {phase: this.phase});
+      return
+    }
+
+    this.setDestination(targetPosition, 3);
 
     const [nextPosition, direction, blockers] = this.getNextPosition(kernel, this.position,
       this.destination, this.range, trace);
@@ -476,7 +485,48 @@ export default class WarPartyRunnable extends PersistentMemory<WarPartyMemory> {
   }
 
   engage(kernel: Kernel, room: Room, creeps: Creep[], trace: Tracer): boolean {
-    let destination = new RoomPosition(25, 25, this.targetRoom);
+    this.setFormation(FORMATION_QUAD);
+
+    const numPartyInTargetRoom = this.getAssignedCreeps().
+      filter((creep) => creep.room.name === this.targetRoom).length;
+
+    if (!numPartyInTargetRoom || !targetRoomObject || !creeps.length ||
+      this.position.findClosestByRange(creeps)?.pos.getRangeTo(this.position) > 5) {
+      this.phase = Phase.PHASE_MARSHAL;
+
+      const roomName = base.primary;
+      const roomObject = Game.rooms[roomName];
+      if (!roomObject) {
+        trace.error(`no room object for ${roomName}`);
+      }
+
+      const energyCapacityAvailable = roomObject.energyCapacityAvailable;
+      this.minEnergy = _.min([this.minEnergy + 1000, energyCapacityAvailable]);
+      this.party.setMinEnergy(this.minEnergy);
+
+      trace.info('moving to marshal phase', {phase: this.phase});
+    } else {
+      const done = this.engage(kernel, targetRoomObject, creeps, trace);
+      if (done) {
+        trace.notice('done, notify war manager that room is cleared', {targetRoom: this.targetRoom});
+
+        // Inform that attack is completed
+        const attackUpdate: AttackRequest = {
+          status: AttackStatus.COMPLETED,
+          roomId: targetRoom,
+        };
+        kernel.getTopics().addRequest(TOPICS.ATTACK_ROOM, 1, attackUpdate, ATTACK_ROOM_TTL + Game.time);
+
+        // TODO go into waiting for orders phase
+
+        // Done, terminate
+        this.party.done();
+      }
+    }
+
+    -----------------------------
+
+      let destination = new RoomPosition(25, 25, this.targetRoom);
     let range = 3;
     if (room && room.controller) {
       destination = room.controller.pos;

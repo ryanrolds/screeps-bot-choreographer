@@ -475,7 +475,6 @@ export default class WarManager {
 
     const warPartyRunnable = this.createAndScheduleWarParty(base, partyId, targetRoom.id,
       muster, Game.time, trace);
-
     if (warPartyRunnable) {
       this.warParties.push(newWarParty(partyId, base.id, targetRoom.id, muster, Game.time));
     }
