@@ -74,7 +74,8 @@ export default class RepairRunnable implements Runnable {
     const rcLevelHitsMax = RAMPART_HITS_MAX[rcLevel] || 10000;
 
     const energyFullness = getEnergyFullness(base) * 10;
-    base.defenseHitsLimit = rcLevelHitsMax * Math.pow(0.45, (10 - energyFullness));
+    // was .45 but changed to to .4 to increase the HP of walls early levels
+    base.defenseHitsLimit = rcLevelHitsMax * Math.pow(0.40, (10 - energyFullness));
 
     if (room.storage && room.storage.store.getUsedCapacity(RESOURCE_ENERGY) < 50000) {
       base.defenseHitsLimit = 10000;
