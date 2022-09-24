@@ -1,6 +1,7 @@
-# Screeps AI
+# Screeps Bot - Choreographer
 
-An AI for [Screeps](screeps.com).
+An bot for [Screeps](screeps.com). Implemented following the OS pattern with processes communicating via
+Message Queues and Event Streams. Named after [Choreography in Event-Driven Architecture)[https://www.linkedin.com/pulse/orchestration-vs-choreography-why-do-some-architects-run-paul-perez/?trk=articles_directory].
 
 * [Game Docs](https://docs.screeps.com)
 * [API Docs](https://docs.screeps.com/api)
@@ -102,8 +103,16 @@ An AI for [Screeps](screeps.com).
 - [ ] Police portal rooms
 - [ ] Attack other players getting commodities/power
 
+## Usage as bot in private server
 
-## Setup
+1. Install the bot
+```
+npm install screeps-bot-choreographer --save
+```
+2. Add `"choreographer": "node_modules/screeps-bot-choreographer/dist/main.js"` to mods.json
+
+
+## Building and running as a player
 
 > Backup your existing scripts.
 
@@ -176,13 +185,6 @@ There are some debugging tools built into the project:
 * Launch Nuke - `AI.kingdom.sendRequest('nuker_targets', 1, {position: '28,35,E19S49'}, 100)`
 * Muster locations `AI.getMusterDebugger().debug('W21S34')`
 
-
-```
-// Example of converting old base to being automated
-AI.getKingdom().getPlanner().baseConfigs['E22S49'].origin = new RoomPosition(42,16,'E22S49')
-AI.getKingdom().getPlanner().baseConfigs['E22S49'].automated = true
-```
-
 There are a couple of helpful global variables:
 
 > Many of these persist between restarts, so make sure to unset them when you're finished with them.
@@ -193,41 +195,3 @@ There are a couple of helpful global variables:
 * `METRIC_MIN=<min ms>|0` - (default 0.5ms) Will cause Tracer to report metrics that are greater than `<min ms>`
 * `LOG_WHEN_PID='<prefix>'|null` - Logs with tracers matching the prefix will be output to the console
 * `RESET_PIDS=true|false` - Will reset the PID controllers - useful when PID controllers are spawning too many haulers
-
-## Strategy
-
-### Central Planning
-
-### Base
-
-The `./src/main.ts` file contains a `KingdomConfig` that defines the rooms that should be considered part of the Kingdom. Rooms inside the Kingdom will be reserved/claimed in the order they appear in the list. Sources present in the Kingdom's Domain will be harvested.
-
-> Make sure to update the list when setting up the project
-
-### Build priorities
-
-### Economy & Market
-
-### Defense
-
-### Offense
-
-### Creeps
-
-* Attacker - Role used in War Parties
-* Builder - Harvest/pick up energy in room and completes construction
-* Defender - Attacks hostiles creeps in room
-* Defender Drone -
-* Distributor - Moves energy from Containers/Storage into Spawner, Turrets, Labs, and other base core structures
-* Explorer - Goes to rooms in domain to get visibility (triggers remote harvesting)
-* Harvester - Harvests and brings energy back to Spawner/Origin
-* Hauler - Picks up and takes energy in containers to base storage, also picks up dropped resources
-* Miner - Harvests and places energy in nearby container
-* Repairer - Harvest/pick up energy in room and repair structures
-* Reserver - Claims/Reserves rooms
-* Upgrader - Upgrades room controllers
-
-#### Parties
-
-Groups of creeps, typically called a quad, are represented by a single party, which is a process that assigns member creeps move, attack, and heal orders. Parties are created by a manager process, see `managers/buffer` and `managers/war`.
-

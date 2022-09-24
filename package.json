@@ -1,8 +1,9 @@
 {
-  "name": "screeps.com",
+  "name": "screeps-bot-choreographer",
   "version": "1.0.0",
   "description": "An AI for Screeps",
-  "private": true,
+  "main": "dist/main.js",
+  "screeps_bot": true,
   "type": "commonjs",
   "engine": {
     "node": ">=16.0.0"

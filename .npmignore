@@ -1,0 +1,15 @@
+/.tscache
+/node_modules
+/src
+.editorconfig
+.eslintrc.yml
+.gitignore
+.mocharc.json
+.npmignore
+.screeps.json
+.sync
+DEFENSE.md
+Gruntfile
+MATH.md
+NOTES.txt
+tsconfig.json

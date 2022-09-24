@@ -109,6 +109,21 @@ module.exports = function(grunt) {
         },
         src: ['dist/main.js'],
       },
+      privateOther: {
+        options: {
+          server: {
+            host: '10.4.0.2',
+            port: 21025,
+            path: '/api/user/code',
+            http: true,
+          },
+          email: config.private.username,
+          password: config.private.password,
+          branch: config.private.branch,
+          ptr: false,
+        },
+        src: ['dist/main.js'],
+      },
     },
   });
 
@@ -139,4 +154,5 @@ module.exports = function(grunt) {
   grunt.registerTask('season', ['default', 'screeps:season']);
   grunt.registerTask('private', ['default', 'screeps:private']);
   grunt.registerTask('local', ['default', 'screeps:local']);
+  grunt.registerTask('privateOther', ['default', 'screeps:privateOther']);
 };
