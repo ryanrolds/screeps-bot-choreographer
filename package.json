@@ -1,7 +1,7 @@
 {
   "name": "screeps-bot-choreographer",
   "version": "1.0.0",
-  "description": "An AI for Screeps",
+  "description": "An bot for Screeps",
   "main": "dist/main.js",
   "screeps_bot": true,
   "type": "commonjs",
@@ -16,15 +16,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ryanrolds/screeps.git"
+    "url": "git@github.com:ryanrolds/screeps-bot-choreographer.git"
   },
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/ryanrolds/screeps/issues"
+    "url": "https://github.com/ryanrolds/screeps-bot-choreographer/issues"
   },
-  "homepage": "https://github.com/ryanrolds/screeps#readme",
-  "dependencies": {
+  "homepage": "https://github.com/ryanrolds/screeps-bot-choreographer",
+  "dependencies": {},
+  "devDependencies": {
     "@types/chai": "^4.2.22",
     "@types/expect": "^24.3.0",
     "@types/lodash": "3.10.2",
@@ -57,9 +58,7 @@
     "ts-prune": "^0.10.3",
     "ts-sinon": "^2.0.2",
     "ts-unused-exports": "^8.0.0",
-    "typescript": "^4.7.4"
-  },
-  "devDependencies": {
+    "typescript": "^4.7.4",
     "@rollup/plugin-commonjs": "^22.0.2",
     "@rollup/plugin-node-resolve": "^13.3.0",
     "@rollup/plugin-typescript": "^8.3.4",
