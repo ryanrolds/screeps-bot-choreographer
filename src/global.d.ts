@@ -11,6 +11,7 @@ declare global {
       METRIC_REPORT: boolean;
       METRIC_CONSOLE: boolean;
       LOG_WHEN_PID: string;
+      LOG_COLOR: boolean;
       CPU_THROTTLE: number;
       SLOW_PROCESS: number;
       RESET_PIDS: boolean;

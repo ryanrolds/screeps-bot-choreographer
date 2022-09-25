@@ -8,6 +8,7 @@ import {Scheduler} from './os/scheduler';
 const version = '__GIT_SHA__';
 
 const DEFAULT_LOG_WHEN_PID = null;
+const DEFAULT_LOG_COLOR = false;
 const DEFAULT_METRIC_REPORT = false;
 const DEFAULT_METRIC_CONSOLE = false;
 const DEFAULT_METRIC_FILTER = null;
@@ -18,6 +19,8 @@ const DEFAULT_SLOW_PROCESS = 10;
 // On start copy memory values to debugging control flags
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 global.LOG_WHEN_PID = (Memory as any).LOG_WHEN_PID || DEFAULT_LOG_WHEN_PID;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+global.LOG_COLOR = (Memory as any).LOG_COLOR || false;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 global.METRIC_REPORT = (Memory as any).METRIC_REPORT || DEFAULT_METRIC_REPORT;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -70,6 +73,7 @@ export const loop = function () {
 
   // Set process id filter
   trace.setLogFilter(global.LOG_WHEN_PID);
+  trace.setLogColors(global.LOG_COLOR);
 
   const end = trace.startTimer('memory_hack');
   // memory hack from Dissi
@@ -89,6 +93,8 @@ export const loop = function () {
   // Update memory for debugging controls control flags
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (Memory as any).LOG_WHEN_PID = global.LOG_WHEN_PID || DEFAULT_LOG_WHEN_PID;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (Memory as any).LOG_COLOR = global.LOG_COLOR || DEFAULT_LOG_COLOR;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (Memory as any).METRIC_REPORT = global.METRIC_REPORT || DEFAULT_METRIC_REPORT;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

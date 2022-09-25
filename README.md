@@ -194,4 +194,5 @@ There are a couple of helpful global variables:
 * `METRIC_FILTER=<prefix>|null` - Will cause Tracer to report metrics for metrics that start with `<prefix>`
 * `METRIC_MIN=<min ms>|0` - (default 0.5ms) Will cause Tracer to report metrics that are greater than `<min ms>`
 * `LOG_WHEN_PID='<prefix>'|null` - Logs with tracers matching the prefix will be output to the console
+* `LOG_COLOR=true|false` - Will colorize the console output
 * `RESET_PIDS=true|false` - Will reset the PID controllers - useful when PID controllers are spawning too many haulers

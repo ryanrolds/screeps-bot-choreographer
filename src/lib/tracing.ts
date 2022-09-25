@@ -13,6 +13,7 @@ export class Tracer {
   children: Tracer[];
 
   logFilter: string;
+  logColors: boolean;
 
   collect: boolean;
   collectFilter: string;
@@ -28,6 +29,7 @@ export class Tracer {
     this.children = [];
 
     this.logFilter = null;
+    this.logColors = false;
 
     this.collect = false;
     this.collectFilter = null;
@@ -65,23 +67,43 @@ export class Tracer {
       return;
     }
 
-    console.log(`<font color="#3FBF7F">[INFO]`, this.name, '::', message, JSON.stringify(details),
-      JSON.stringify(this.kv), '</font>');
+    if (this.logColors) {
+      console.log(`<font color="#3FBF7F">[INFO]`, this.name, '::', message, JSON.stringify(details),
+        JSON.stringify(this.kv), '</font>');
+    } else {
+      console.log(`[INFO]`, this.name, '::', message, JSON.stringify(details),
+        JSON.stringify(this.kv));
+    }
   }
 
   notice(message: string, details: Record<string, unknown> = {}): void {
-    console.log(`<font color="#2B7FD3">[NOTICE]`, this.name, '::', message, JSON.stringify(details),
-      JSON.stringify(this.kv), '</font>');
+    if (this.logColors) {
+      console.log(`<font color="#2B7FD3">[NOTICE]`, this.name, '::', message, JSON.stringify(details),
+        JSON.stringify(this.kv), '</font>');
+    } else {
+      console.log(`[NOTICE]`, this.name, '::', message, JSON.stringify(details),
+        JSON.stringify(this.kv));
+    }
   }
 
   warn(message: string, details: Record<string, unknown> = {}): void {
-    console.log(`<font color="#ffbb00">[WARN]`, this.name, '::', message, JSON.stringify(details),
-      JSON.stringify(this.kv), '</font>');
+    if (this.logColors) {
+      console.log(`<font color="#ffbb00">[WARN]`, this.name, '::', message, JSON.stringify(details),
+        JSON.stringify(this.kv), '</font>');
+    } else {
+      console.log(`[WARN]`, this.name, '::', message, JSON.stringify(details),
+        JSON.stringify(this.kv));
+    }
   }
 
   error(message: string, details: Record<string, unknown> = {}): void {
-    console.log(`<font color="#FF5555">[ERROR]`, this.name, '::', message, JSON.stringify(details),
-      JSON.stringify(this.kv), '</font>');
+    if (this.logColors) {
+      console.log(`<font color="#FF5555">[ERROR]`, this.name, '::', message, JSON.stringify(details),
+        JSON.stringify(this.kv), '</font>');
+    } else {
+      console.log(`[ERROR]`, this.name, '::', message, JSON.stringify(details),
+        JSON.stringify(this.kv));
+    }
   }
 
   startTimer(metric: string): TimerEndFunc {
@@ -104,6 +126,10 @@ export class Tracer {
 
   setLogFilter(filter: string) {
     this.logFilter = filter;
+  }
+
+  setLogColors(on: boolean) {
+    this.logColors = on;
   }
 
   setCollectMetrics(active: boolean) {
@@ -140,6 +166,7 @@ export class Tracer {
     child.kv = new Map(this.kv.entries());
 
     child.logFilter = this.logFilter;
+    child.logColors = this.logColors;
     child.collect = this.collect;
     child.collectFilter = this.collectFilter;
     child.collectMin = this.collectMin;

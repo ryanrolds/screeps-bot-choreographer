@@ -18,8 +18,8 @@
     "type": "git",
     "url": "git@github.com:ryanrolds/screeps-bot-choreographer.git"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Ryan R. Olds<ryan.r.olds@gmail.com>",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/ryanrolds/screeps-bot-choreographer/issues"
   },
