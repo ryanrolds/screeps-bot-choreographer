@@ -1,6 +1,6 @@
 {
   "name": "screeps-bot-choreographer",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "An bot for Screeps",
   "main": "dist/main.js",
   "screeps_bot": true,
