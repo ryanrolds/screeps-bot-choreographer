@@ -24,15 +24,5 @@ jobs:
       run: grunt test
     - name: Build
       run: grunt build
-    # - name: Build and push Docker images
-    #   uses: docker/build-push-action@v1.1.0
-    #   with:
-    #     registry: docker.pedanticorderliness.com
-    #     username: ${{ secrets.DOCKER_REG_USER }}
-    #     password: ${{ secrets.DOCKER_REG_PASS }}
-    #     repository: screeps-private-simulation
-    #     tags: ${{ github.sha }},latest
-    # - name: Deploy
-    #   run: |
-    #     curl --fail -X PUT -H "X-Access-Token: ${{ secrets.ACTIONS_ACCESS_TOKEN }}" "https://actions.pedanticorderliness.com/deploy?repo=$GITHUB_REPOSITORY&tag=$GITHUB_SHA"
-
+    - name: Upload
+      run: grunt mmo
