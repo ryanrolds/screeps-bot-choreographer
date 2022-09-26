@@ -14,6 +14,10 @@ jobs:
       uses: actions/checkout@v3
     - name: Install Grunt
       run: npm install -g grunt-cli
+    - name: Get .screeps.json file from secret
+      env:
+        DOT_SCREEPS_JSON: ${{ secrets.DOT_SCREEPS_JSON }}
+      run: echo $DOT_SCREEPS_JSON > .screeps.json
     - name: Install dependencies
       run: npm install
     - name: Test
