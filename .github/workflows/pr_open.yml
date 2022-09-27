@@ -1,0 +1,36 @@
+name: open pr
+on:
+  pull_request:
+    types: [opened, reopened]
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/setup-node@v3
+      with:
+        node-version: 16
+    - name: Check out code
+      uses: actions/checkout@v3
+    - name: Install Grunt
+      run: npm install -g grunt-cli
+    - name: Get .screeps.json file from secret
+      env:
+        DOT_SCREEPS_JSON: ${{ secrets.DOT_SCREEPS_JSON }}
+      run: echo $DOT_SCREEPS_JSON > .screeps.json
+    - name: Install dependencies
+      run: npm install
+    - name: Test
+      run: grunt test
+    - name: Build
+      run: grunt build
+    - name: Build and push Docker images
+      uses: docker/build-push-action@v1.1.0
+      with:
+        registry: docker.pedanticorderliness.com
+        username: ${{ secrets.DOCKER_REG_USER }}
+        password: ${{ secrets.DOCKER_REG_PASS }}
+        repository: screeps-private-simulator
+        tags: ${{ github.sha }}
+        build-args:
+        - BRANCH=${{ github.ref_name }}
