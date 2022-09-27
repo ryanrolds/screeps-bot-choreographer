@@ -32,5 +32,6 @@ jobs:
         password: ${{ secrets.DOCKER_REG_PASS }}
         repository: screeps-private-simulator
         tags: ${{ github.sha }}
+        file: ./k8s/Dockerfile
         build-args:
         - BRANCH=${{ github.ref_name }}
