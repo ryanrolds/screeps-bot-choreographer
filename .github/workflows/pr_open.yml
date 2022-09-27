@@ -24,12 +24,17 @@ jobs:
       run: grunt test
     - name: Build
       run: grunt build
-    - name: Build and push Docker images
-      uses: docker/build-push-action@v3
+    -
+      name: Login to DockerHub
+      uses: docker/login-action@v2
       with:
         registry: docker.pedanticorderliness.com
         username: ${{ secrets.DOCKER_REG_USER }}
         password: ${{ secrets.DOCKER_REG_PASS }}
+    - name: Build and push Docker images
+      uses: docker/build-push-action@v3
+      with:
+        registry: docker.pedanticorderliness.com
         repository: screeps-private-simulator
         tags: ${{ github.sha }}
         file: ./k8s/Dockerfile
