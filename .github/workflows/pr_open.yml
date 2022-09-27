@@ -24,8 +24,7 @@ jobs:
       run: grunt test
     - name: Build
       run: grunt build
-    -
-      name: Login to DockerHub
+    - name: Login to DockerHub
       uses: docker/login-action@v2
       with:
         registry: docker.pedanticorderliness.com
@@ -34,9 +33,10 @@ jobs:
     - name: Build and push Docker images
       uses: docker/build-push-action@v3
       with:
-        registry: docker.pedanticorderliness.com
-        repository: screeps-private-simulator
-        tags: ${{ github.sha }}
+        tags: ${{ github.sha }},${{ github.ref_name }}
         file: ./k8s/Dockerfile
-        build-args: |
-          BRANCH=${{ github.ref_name }}
+        context: .
+        push: true
+        tags: |
+          docker.pedanticorderliness.com/screeps:${{ github.sha }}
+          docker.pedanticorderliness.com/screeps:${{ github.ref_name }}
