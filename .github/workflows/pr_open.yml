@@ -38,4 +38,4 @@ jobs:
         push: true
         tags: |
           docker.pedanticorderliness.com/screeps:${{ github.sha }}
-          docker.pedanticorderliness.com/screeps:${{ github.ref_name }}
+          docker.pedanticorderliness.com/screeps:${{ github.head_ref }}
