@@ -1,7 +1,7 @@
 # Screeps Bot - Choreographer
 
 An bot for [Screeps](screeps.com). Implemented following the OS pattern with processes communicating via
-Message Queues and Event Streams. Named after [Choreography in Event-Driven Architecture)[https://www.linkedin.com/pulse/orchestration-vs-choreography-why-do-some-architects-run-paul-perez/?trk=articles_directory].
+Message Queues and Event Streams. Named after [Choreography in Event-Driven Architecture](https://www.linkedin.com/pulse/orchestration-vs-choreography-why-do-some-architects-run-paul-perez/?trk=articles_directory).
 
 * [Game Docs](https://docs.screeps.com)
 * [API Docs](https://docs.screeps.com/api)
