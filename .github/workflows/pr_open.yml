@@ -24,13 +24,21 @@ jobs:
       run: grunt test
     - name: Build
       run: grunt build
-    - name: Build and push Docker images
-      uses: docker/build-push-action@v1.1.0
+    - name: Login to DockerHub
+      uses: docker/login-action@v2
       with:
         registry: docker.pedanticorderliness.com
         username: ${{ secrets.DOCKER_REG_USER }}
         password: ${{ secrets.DOCKER_REG_PASS }}
-        repository: screeps-private-simulator
-        tags: ${{ github.sha }}
-        build-args:
-        - BRANCH=${{ github.ref_name }}
+    - name: Build and push Docker images
+      uses: docker/build-push-action@v3
+      with:
+        file: ./k8s/Dockerfile
+        context: .
+        push: true
+        tags: |
+          docker.pedanticorderliness.com/screeps-private-server:${{ github.sha }}
+          docker.pedanticorderliness.com/screeps-private-server:${{ github.head_ref }}
+    - name: Create Screeps Server Resource
+      run: |
+        curl --fail -X POST -H "X-Access-Token: ${{ secrets.ACTIONS_ACCESS_TOKEN }}" "https://actions.pedanticorderliness.com/resource/screeps/server?branch=${{ github.head_ref }}&tag=${{ github.sha }}"
