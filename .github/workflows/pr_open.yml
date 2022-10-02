@@ -39,3 +39,6 @@ jobs:
         tags: |
           docker.pedanticorderliness.com/screeps-private-server:${{ github.sha }}
           docker.pedanticorderliness.com/screeps-private-server:${{ github.head_ref }}
+    - name: Create Screeps Server Resource
+      run: |
+        curl --fail -X PUT -H "X-Access-Token: ${{ secrets.ACTIONS_ACCESS_TOKEN }}" "https://actions.pedanticorderliness.com/resource/screeps/server?branch=${{ github.head_ref }}&tag=${{ github.sha }}"
