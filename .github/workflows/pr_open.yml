@@ -24,7 +24,7 @@ jobs:
       run: grunt test
     - name: Build
       run: grunt build
-    - name: Login to DockerHub
+    - name: Login to Docker repo
       uses: docker/login-action@v2
       with:
         registry: docker.pedanticorderliness.com
