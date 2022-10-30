@@ -9,4 +9,6 @@ jobs:
     steps:
     - name: Delete Screeps Server Resource
       run: |
-        curl --fail -X DELETE -H "X-Access-Token: ${{ secrets.ACTIONS_ACCESS_TOKEN }}" "https://actions.pedanticorderliness.com/resource/screeps/server?branch=${{ github.head_ref }}&tag=${{ github.sha }}"
+        curl --fail -X DELETE -H "X-Access-Token: ${{ secrets.ACTIONS_ACCESS_TOKEN }}" \
+          "https://actions.pedanticorderliness.com/resource/screeps/server?repo=${{github.repository}}&issue=${{github.event.number}}&branch=${{github.head_ref}}&tag=${{github.sha}}"
+
