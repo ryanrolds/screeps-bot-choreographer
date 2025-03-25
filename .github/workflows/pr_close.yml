@@ -1,12 +1,12 @@
-name: closed pr
-on:
-  pull_request:
-    types: [closed]
-jobs:
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    steps:
-    - name: Delete Screeps Server Resource
-      run: |
-        curl --fail -X DELETE -H "X-Access-Token: ${{ secrets.ACTIONS_ACCESS_TOKEN }}" "https://actions.pedanticorderliness.com/resource/screeps/server?branch=${{ github.head_ref }}&tag=${{ github.sha }}"
+# name: closed pr
+# on:
+#   pull_request:
+#     types: [closed]
+# jobs:
+#   build:
+#     name: Build
+#     runs-on: ubuntu-latest
+#     steps:
+#     - name: Delete Screeps Server Resource
+#       run: |
+#         curl --fail -X DELETE -H "X-Access-Token: ${{ secrets.ACTIONS_ACCESS_TOKEN }}" "https://actions.pedanticorderliness.com/resource/screeps/server?branch=${{ github.head_ref }}&tag=${{ github.sha }}"
