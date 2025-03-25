@@ -1,9 +1,9 @@
-import {ANY, buildingCodes, EMPTY, getConstructionPosition} from '../lib/layouts';
-import {MusterPoint} from '../lib/muster';
-import {Tracer} from '../lib/tracing';
-import {Base, getBaseLevel, getBasePrimaryRoom, setParking} from '../os/kernel/base';
-import {Kernel} from '../os/kernel/kernel';
-import {RunnableResult, sleeping, terminate} from '../os/process';
+import { ANY, buildingCodes, EMPTY, getConstructionPosition } from '../lib/layouts';
+import { MusterPoint } from '../lib/muster';
+import { Tracer } from '../lib/tracing';
+import { Base, getBaseLevel, getBasePrimaryRoom, setParking } from '../os/kernel/base';
+import { Kernel } from '../os/kernel/kernel';
+import { RunnableResult, sleeping, terminate } from '../os/process';
 
 const CONSTRUCTION_INTERVAL = 100;
 const MAX_STRUCTURE_SITES = 5;
@@ -510,7 +510,8 @@ export const prioritizeBySitesType = (sites: PossibleSite[]): PossibleSite[] => 
 export const getInfrastructureSites = function (room: Room): ConstructionSite[] {
   let sites = room.find(FIND_MY_CONSTRUCTION_SITES).filter((site) => {
     return site.structureType === STRUCTURE_SPAWN || site.structureType === STRUCTURE_TOWER ||
-      site.structureType === STRUCTURE_STORAGE || site.structureType === STRUCTURE_EXTENSION;
+      site.structureType === STRUCTURE_STORAGE || site.structureType === STRUCTURE_EXTENSION ||
+      site.structureType === STRUCTURE_CONTAINER;
   });
   if (!sites || !sites.length) {
     return [];
